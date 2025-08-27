@@ -1,5 +1,5 @@
 description: 'small MLP, no extra null edges, noise_model_level: 5E-1'
-dataset: 'fly_N9_18_4_1_bis'
+dataset: 'fly_N9_18_4_1'
 
 simulation:
     connectivity_file: 'to be specified'

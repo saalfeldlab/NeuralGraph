@@ -6,7 +6,7 @@ from NeuralGraph.generators.utils import *
 from NeuralGraph.models.utils import *
 from NeuralGraph.data_loaders import *
 
-from GNN_particles_Ntype import *
+from GNN_Main import *
 from NeuralGraph.utils import set_size
 from NeuralGraph.generators.cell_utils import *
 from sklearn.linear_model import LinearRegression
