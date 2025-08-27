@@ -1,5 +1,5 @@
 # NeuralGraph
-Graph network fitting particle trajectories
+Graph network modeling neural activities 
 
 ### Setup
 Run the following line from the terminal to create a new environment particle-graph:
