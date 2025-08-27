@@ -5,7 +5,7 @@ from matplotlib.ticker import FormatStrFormatter
 from NeuralGraph.models import *
 from NeuralGraph.utils import *
 
-from GNN_particles_Ntype import *
+from GNN_Main import *
 import matplotlib as mpl
 import networkx as nx
 from torch_geometric.utils.convert import to_networkx

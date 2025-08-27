@@ -6,13 +6,11 @@ import torch
 import torch.nn.functional as F
 import random
 
-from GNN_particles_Ntype import *
+from GNN_Main import *
 from NeuralGraph.models.utils import *
 from NeuralGraph.utils import *
 from NeuralGraph.models.Siren_Network import *
 from NeuralGraph.models.Signal_Propagation_FlyVis import *
-from NeuralGraph.models.Ghost_Particles import *
-from geomloss import SamplesLoss
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
