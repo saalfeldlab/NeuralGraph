@@ -17,6 +17,12 @@ Install the package by executing the following command from the root of this dir
 pip install -e .
 ```
 
+Download the pretrained FlyVis models by running:
+```
+flyvis download-pretrained
+```
+
+
 Then, you should be able to import all the modules from the package in python:
 ```python
 from NeuralGraph import *
