@@ -15,7 +15,6 @@ from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_
 from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
 
-from NeuralGraph.generators.cell_utils import *
 from NeuralGraph.fitting_models import linear_model
 from torch_geometric.utils import dense_to_sparse
 import torch.optim as optim

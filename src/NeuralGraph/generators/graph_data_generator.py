@@ -8,7 +8,6 @@ from NeuralGraph.data_loaders import *
 
 from GNN_Main import *
 from NeuralGraph.utils import set_size
-from NeuralGraph.generators.cell_utils import *
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from scipy import stats
@@ -454,7 +453,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
-            for data_idx, data in enumerate(stimulus_dataset):
+            for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="Processing stimulus data")):
                 if simulation_config.simulation_initial_state:
                     x[:, 3] = initial_state
                     if only_noise_visual_input > 0:

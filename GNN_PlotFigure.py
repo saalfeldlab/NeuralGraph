@@ -2710,9 +2710,23 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     mu_activity = torch.mean(activity, dim=1)  # shape: (n_neurons,)
     sigma_activity = torch.std(activity, dim=1)
 
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(15, 10))  # Made wider to accommodate labels
     plt.errorbar(np.arange(n_neurons), to_numpy(mu_activity), yerr=to_numpy(sigma_activity), fmt='o',
-                 ecolor='lightgray',  alpha=0.1, elinewidth=1, capsize=0, markersize=2, color='red')
+                 ecolor='lightgray', alpha=0.1, elinewidth=1, capsize=0, markersize=2, color='red')
+
+    # Add neuron type labels for unique positions only
+    type_positions = {}
+    for i in range(n_neurons):
+        neuron_type_id = to_numpy(type_list[i]).item()
+        if neuron_type_id not in type_positions:
+            type_positions[neuron_type_id] = i
+
+    # Add labels at representative positions for each neuron type
+    for neuron_type_id, pos in type_positions.items():
+        neuron_type_name = index_to_name.get(neuron_type_id, f'Type{neuron_type_id}')
+        plt.text(pos+100, to_numpy(mu_activity[pos]) + to_numpy(sigma_activity[pos]) * 1.1 + 0.1, neuron_type_name,
+                 rotation=90, ha='center', va='bottom', fontsize=8, alpha=0.7)
+
     plt.xlabel('neuron', fontsize=24)
     plt.ylabel(r'$\mu_i \pm \sigma_i$', fontsize=24)
     plt.xticks(fontsize=18)
@@ -4003,39 +4017,39 @@ def data_flyvis_compare(config_list, varied_parameter):
 
     # Weights R² panel
     ax1.errorbar(param_values_str, r2_means, yerr=r2_errors,
-                 fmt='o-', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightblue')
-    ax1.set_xlabel(param_display_name, fontsize=24, color='white')
+                 fmt='o', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightblue')
+    ax1.set_xlabel(param_display_name, fontsize=16, color='white')
     ax1.set_ylabel('weights R²', fontsize=24, color='white')
-    ax1.set_title('weights R² vs ' + param_display_name, fontsize=24, color='white')
     ax1.set_ylim(0, 1.1)
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(colors='white', labelsize=14)
+    plt.setp(ax1.get_xticklabels(), rotation=45, ha='right')
     for i, (x, y, n) in enumerate(zip(param_values_str, r2_means, [r['n_configs'] for r in summary_results])):
         if n > 1:
             ax1.text(x, y + r2_errors[i] + 0.02, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # Tau R² panel
     ax2.errorbar(param_values_str, tau_r2_means, yerr=tau_r2_errors,
-                 fmt='s-', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightgreen')
-    ax2.set_xlabel(param_display_name, fontsize=24, color='white')
+                 fmt='s', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightgreen')
+    ax2.set_xlabel(param_display_name, fontsize=16, color='white')
     ax2.set_ylabel('tau R²', fontsize=24, color='white')
-    ax2.set_title('tau R² vs ' + param_display_name, fontsize=24, color='white')
     ax2.set_ylim(0, 1.1)
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(colors='white', labelsize=14)
+    plt.setp(ax2.get_xticklabels(), rotation=45, ha='right')
     for i, (x, y, n) in enumerate(zip(param_values_str, tau_r2_means, [r['n_configs'] for r in summary_results])):
         if n > 1:
             ax2.text(x, y + tau_r2_errors[i] + 0.02, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # V_rest R² panel
     ax3.errorbar(param_values_str, vrest_r2_means, yerr=vrest_r2_errors,
-                 fmt='^-', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightcoral')
-    ax3.set_xlabel(param_display_name, fontsize=24, color='white')
+                 fmt='^', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightcoral')
+    ax3.set_xlabel(param_display_name, fontsize=16, color='white')
     ax3.set_ylabel('V_rest R²', fontsize=24, color='white')
-    ax3.set_title('V_rest R² vs ' + param_display_name, fontsize=24, color='white')
     ax3.set_ylim(0, 1.1)
     ax3.grid(True, alpha=0.3)
     ax3.tick_params(colors='white', labelsize=14)
+    plt.setp(ax3.get_xticklabels(), rotation=45, ha='right')
     for i, (x, y, n) in enumerate(zip(param_values_str, vrest_r2_means, [r['n_configs'] for r in summary_results])):
         if n > 1:
             ax3.text(x, y + vrest_r2_errors[i] + 0.02, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
@@ -4045,13 +4059,13 @@ def data_flyvis_compare(config_list, varied_parameter):
     acc_errors_pct = [err * 100 for err in acc_errors]
 
     ax4.errorbar(param_values_str, acc_means_pct, yerr=acc_errors_pct,
-                 fmt='D-', capsize=5, capthick=2, markersize=8, linewidth=2, color='orange')
-    ax4.set_xlabel(param_display_name, fontsize=24, color='white')
+                 fmt='D', capsize=5, capthick=2, markersize=8, linewidth=2, color='orange')
+    ax4.set_xlabel(param_display_name, fontsize=16, color='white')
     ax4.set_ylabel('clustering accuracy (%)', fontsize=24, color='white')
-    ax4.set_title('clustering accuracy vs ' + param_display_name, fontsize=24, color='white')
     ax4.set_ylim(0, 100)
     ax4.grid(True, alpha=0.3)
     ax4.tick_params(colors='white', labelsize=14)
+    plt.setp(ax4.get_xticklabels(), rotation=45, ha='right')
     for i, (x, y, n) in enumerate(zip(param_values_str, acc_means_pct, [r['n_configs'] for r in summary_results])):
         if n > 1:
             ax4.text(x, y + acc_errors_pct[i] + 2, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
@@ -4075,18 +4089,17 @@ def data_flyvis_compare(config_list, varied_parameter):
             libx264_err.append(libx264_error if libx264_error > 0 else 0)
     if ffv1_x:  # Only plot if we have FFV1 data
         ax5.errorbar(ffv1_x, ffv1_y, yerr=ffv1_err,
-                     fmt='o-', capsize=3, markersize=8, linewidth=2,
+                     fmt='o', capsize=3, markersize=8, linewidth=2,
                      color='lightblue', markerfacecolor='lightblue', markeredgecolor='blue',
                      label='FFV1 (lossless)')
     if libx264_x:  # Only plot if we have libx264 data
         ax5.errorbar(libx264_x, libx264_y, yerr=libx264_err,
-                     fmt='s-', capsize=3, markersize=8, linewidth=2,
+                     fmt='s', capsize=3, markersize=8, linewidth=2,
                      color='salmon', markerfacecolor='salmon', markeredgecolor='red',
                      label='libx264 (lossy)')
 
-    ax5.set_xlabel(param_display_name, fontsize=24, color='white')
+    ax5.set_xlabel(param_display_name, fontsize=16, color='white')
     ax5.set_ylabel('file size (MB)', fontsize=24, color='white')
-    ax5.set_title('video file sizes vs ' + param_display_name, fontsize=24, color='white')
     legend = ax5.legend(fontsize=10)
     legend.get_frame().set_facecolor('black')
     for text in legend.get_texts():
@@ -4107,7 +4120,6 @@ def data_flyvis_compare(config_list, varied_parameter):
                          f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # Loss curves panel (ax6)
-    ax6.set_title('loss curves comparison', fontsize=24, color='white')
     ax6.set_xlabel('epochs', fontsize=24, color='white')
     ax6.set_ylabel('loss', fontsize=24, color='white')
     ax6.tick_params(colors='white', labelsize=14)
@@ -4230,9 +4242,8 @@ def data_flyvis_compare(config_list, varied_parameter):
         ax4.text(best_acc_x, best_acc_y + acc_errors_pct[best_acc_idx] + 5, f"{best_acc_result['acc_mean'] * 100:.1f}%",
                  ha='center', va='bottom', fontsize=14, color='white')
 
-    plt.subplots_adjust(hspace=0.3)
+    plt.subplots_adjust(hspace=0.6)
     plt.tight_layout()
-    plt.subplots_adjust(hspace=0.3)
 
     plot_filename = f'parameter_comparison_{param_display_name}.png'
     plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
@@ -7602,28 +7613,16 @@ if __name__ == '__main__':
     # except:
     #     pass
 
-    # config_list = ['signal_N6_a29_12']
-    # config_list = ['signal_N2_a43_10']
-    # config_list = ['signal_N4_m13_shuffle_ter']
-    # config_list = ['boids_16_256']
     #config_list = ['signal_N5_v6','signal_N5_v6_0','signal_N5_v6_1','signal_N5_v6_2', 'signal_N5_v6_3', 'signal_N5_v7_1','signal_N5_v7_2','signal_N5_v7_3', 'signal_N5_v8','signal_N5_v9','signal_N5_v10',
     #                'signal_N5_v11','signal_N5_v12','signal_N5_v13','signal_N5_v14','signal_N5_v15']
     # config_list = ['signal_N4_a3','signal_N4_a4']
     # config_list = ['signal_N2_a43_3_1_t8','signal_N2_a43_3_5_t8','signal_N2_a43_3_10_t8','signal_N2_a43_3_20_t8','signal_N2_a43_3_1_t16','signal_N2_a43_3_5_t16',
     #                'signal_N2_a43_3_10_t16','signal_N2_a43_3_20_t16','signal_N2_a43_3_20_t20','signal_N2_a43_3_20_t24','signal_N2_a43_3_20_t28']
-    # config_list = ['gravity_16_1']
-    # config_list = ['wave_slit_bis']
-    # config_list = [f"multimaterial_9_{i}" for i in range(25, 33)]
-    # config_list = [f"multimaterial_10_{i}" for i in range(1, 5)]
+
     # config_list = ['signal_N4_CElegans_a6', 'signal_N4_CElegans_a7', 'signal_N4_CElegans_a8', 'signal_N4_CElegans_a9',
     # config_list = ['signal_N4_CElegans_a7_1', 'signal_N4_CElegans_a7_2', 'signal_N4_CElegans_a7_3', 'signal_N4_CElegans_a7_4', 'signal_N4_CElegans_a7_5', 'signal_N4_CElegans_a7_6', 'signal_N4_CElegans_a7_7', 'signal_N4_CElegans_a9_1', 'signal_N4_CElegans_a9_2', 'signal_N4_CElegans_a9_3', 'signal_N4_CElegans_a9_4', 'signal_N4_CElegans_a9_5']
     # config_list = ['signal_N2_a43_2_1_t16']
 
-    # config_list = ['multimaterial_13_1', 'multimaterial_13_2']
-    # config_list = ['falling_water_ramp_x6_13']
-    # config_list = ['arbitrary_3_field_video_bison_test']
-    # config_list = ['RD_RPS']
-    # config_list = ['cell_U2OS_8_12']
     # config_list = [ 'signal_CElegans_c14_4a', 'signal_CElegans_c14_4b', 'signal_CElegans_c14_4c',  'signal_CElegans_d1', 'signal_CElegans_d2', 'signal_CElegans_d3', ]
     # config_list = config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
 
@@ -7692,22 +7691,21 @@ if __name__ == '__main__':
     # data_flyvis_compare(config_list, None)
 
     # config_list = ['fly_N9_47_1', 'fly_N9_47_2', 'fly_N9_47_3', 'fly_N9_47_4', 'fly_N9_47_5','fly_N9_47_6']
-    # data_flyvis_compare(config_list, 'training.coeff_edge_weight_L2')
-
-    # config_list = ['fly_N9_49_1', 'fly_N9_49_2', 'fly_N9_49_3', 'fly_N9_49_4', 'fly_N9_49_5','fly_N9_49_6',
-    #                'fly_N9_48_1', 'fly_N9_48_2', 'fly_N9_48_3', 'fly_N9_48_4', 'fly_N9_48_5', 'fly_N9_48_6',
-    #                'fly_N9_50_1', 'fly_N9_50_2', 'fly_N9_50_3', 'fly_N9_50_4', 'fly_N9_50_5','fly_N9_50_6', 'fly_N9_50_7']
+    # data_flyvis_compare(config_list, None)
+    #
+    # config_list = ['fly_N9_49_1', 'fly_N9_49_2', 'fly_N9_49_3', 'fly_N9_49_4', 'fly_N9_49_5','fly_N9_49_6', 'fly_N9_49_7', 'fly_N9_49_8', 'fly_N9_49_9', 'fly_N9_49_10', 'fly_N9_49_11', 'fly_N9_49_12', 'fly_N9_49_13', 'fly_N9_49_14']
+    # data_flyvis_compare(config_list, 'training.coeff_edge_weight_L1')
 
     # config_list = ['fly_N9_48_1', 'fly_N9_48_2', 'fly_N9_48_3', 'fly_N9_48_4', 'fly_N9_48_5', 'fly_N9_48_6']
     # data_flyvis_compare(config_list, 'training.coeff_edge_weight_L2')
 
-    # config_list = ['fly_N9_49_1', 'fly_N9_49_2', 'fly_N9_49_3', 'fly_N9_49_4', 'fly_N9_49_5','fly_N9_49_6']
-    # data_flyvis_compare(config_list, 'training.coeff_edge_weight_L1')
-
     # config_list = ['fly_N9_50_1', 'fly_N9_50_2', 'fly_N9_50_3', 'fly_N9_50_4', 'fly_N9_50_5', 'fly_N9_50_6', 'fly_N9_50_7']
     # data_flyvis_compare(config_list, 'training.Ising_filter')
 
-    config_list = ['fly_N9_49_13', 'fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_50_1', 'fly_N9_50_2', 'fly_N9_50_3', 'fly_N9_50_4', 'fly_N9_50_5','fly_N9_50_6', 'fly_N9_50_7']
+    # config_list = ['fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3']
+    # data_flyvis_compare(config_list,  'training.coeff_W_L1')
+
+    config_list = ['fly_N9_37_2']
 
     for config_file_ in config_list:
         print(' ')
