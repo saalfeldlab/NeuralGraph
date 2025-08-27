@@ -26,6 +26,7 @@ dependencies:
   - shapely
   - seaborn
   - opencv-python
+  - dask
   - pip:
     - geomloss
     - torch_geometric
