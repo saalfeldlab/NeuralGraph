@@ -374,7 +374,7 @@ def init_synapse_map(config, x, edge_attr_adjacency, device):
     #     X1[k,:] = torch.tensor([p[0],p[1]], device=device)
     
     
-def init_connectivity(connectivity_file, connectivity_distribution, connectivity_filling_factor, T1, n_particles, n_particle_types, dataset_name, device):
+def init_connectivity(connectivity_file, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device):
 
     if 'adjacency.pt' in connectivity_file:
         adjacency = torch.load(connectivity_file, map_location=device)
@@ -389,16 +389,16 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         trained_weights = dataset["trained"]  # alpha * sign * N
         print(f'weights {trained_weights.shape}')
         untrained_weights = dataset["untrained"]  # sign * N
-        values = trained_weights[0:n_particles,0:n_particles]
+        values = trained_weights[0:n_neurons,0:n_neurons]
         values = np.array(values)
         values = values / np.max(values)
         adjacency = torch.tensor(values, dtype=torch.float32, device=device)
         values=[]
 
     elif 'tif' in connectivity_file:
-        adjacency = constructRandomMatrices(n_neurons=n_particles, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
-        n_particles = adjacency.shape[0]
-        config.simulation.n_particles = n_particles
+        adjacency = constructRandomMatrices(n_neurons=n_neurons, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
+        n_neurons = adjacency.shape[0]
+        config.simulation.n_neurons = n_neurons
 
     elif 'values' in connectivity_file:
         parts = connectivity_file.split('_')
@@ -411,50 +411,59 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
     else:
 
         if 'Gaussian' in connectivity_distribution:
-            adjacency = torch.randn((n_particles, n_particles), dtype=torch.float32, device=device)
-            adjacency = adjacency / np.sqrt(n_particles)
-            print(f"Gaussian   1/sqrt(N)  {1/np.sqrt(n_particles)}    std {torch.std(adjacency.flatten())}")
+            adjacency = torch.randn((n_neurons, n_neurons), dtype=torch.float32, device=device)
+            adjacency = adjacency / np.sqrt(n_neurons)
+            print(f"Gaussian   1/sqrt(N)  {1/np.sqrt(n_neurons)}    std {torch.std(adjacency.flatten())}")
 
         elif 'Lorentz' in connectivity_distribution:
 
-            s = np.random.standard_cauchy(n_particles**2)
+            s = np.random.standard_cauchy(n_neurons**2)
             s[(s < -25) | (s > 25)] = 0
 
-            if n_particles < 2000:
-                s = s / n_particles**0.7
-            elif n_particles <4000:
-                s = s / n_particles**0.675
-            elif n_particles < 8000:
-                s = s / n_particles**0.67
-            elif n_particles == 8000:
-                s = s / n_particles**0.66
-            elif n_particles > 8000:
-                s = s / n_particles**0.5
-            print(f"Lorentz   1/sqrt(N)  {1/np.sqrt(n_particles):0.3f}    std {np.std(s):0.3f}   filling factor {connectivity_filling_factor}")
+            if n_neurons < 2000:
+                s = s / n_neurons**0.7
+            elif n_neurons <4000:
+                s = s / n_neurons**0.675
+            elif n_neurons < 8000:
+                s = s / n_neurons**0.67
+            elif n_neurons == 8000:
+                s = s / n_neurons**0.66
+            elif n_neurons > 8000:
+                s = s / n_neurons**0.5
+            print(f"Lorentz   1/sqrt(N)  {1/np.sqrt(n_neurons):0.3f}    std {np.std(s):0.3f}")
 
             adjacency = torch.tensor(s, dtype=torch.float32, device=device)
-            adjacency = torch.reshape(adjacency, (n_particles, n_particles))
+            adjacency = torch.reshape(adjacency, (n_neurons, n_neurons))
 
         elif 'uniform' in connectivity_distribution:
-            adjacency = torch.rand((n_particles, n_particles), dtype=torch.float32, device=device)
+            adjacency = torch.rand((n_neurons, n_neurons), dtype=torch.float32, device=device)
             adjacency = adjacency - 0.5
 
-        i, j = torch.triu_indices(n_particles, n_particles, requires_grad=False, device=device)
+        i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
         adjacency[i, i] = 0
 
     if connectivity_filling_factor != 1:
-        mask = torch.rand(adjacency.shape) >  connectivity_filling_factor
+        mask = torch.rand(adjacency.shape) > connectivity_filling_factor
         adjacency[mask] = 0
         mask = (adjacency != 0).float()
-        # edge_index_, edge_attr_ = dense_to_sparse(adjacency)
-        if n_particles>10000:
+
+        # Calculate effective filling factor
+        total_possible = adjacency.shape[0] * adjacency.shape[1]
+        actual_connections = mask.sum().item()
+        effective_filling_factor = actual_connections / total_possible
+
+        print(f"Target filling factor: {connectivity_filling_factor}")
+        print(f"Effective filling factor: {effective_filling_factor:.6f}")
+        print(f"Actual connections: {int(actual_connections)}/{total_possible}")
+
+        if n_neurons > 10000:
             edge_index = large_tensor_nonzero(mask)
-            print (f'edge_index {edge_index.shape}')
+            print(f'edge_index {edge_index.shape}')
         else:
             edge_index = mask.nonzero().t().contiguous()
 
     else:
-        adj_matrix = torch.ones((n_particles)) - torch.eye(n_particles)
+        adj_matrix = torch.ones((n_neurons)) - torch.eye(n_neurons)
         edge_index, edge_attr = dense_to_sparse(adj_matrix)
         mask = (adj_matrix != 0).float()
 
@@ -463,17 +472,17 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         float_value1 = float(parts[-2])  # repartition pos/neg
         float_value2 = float(parts[-1])  # filling factor
 
-        matrix_sign = torch.tensor(stats.bernoulli(float_value1).rvs(n_particle_types ** 2) * 2 - 1,
+        matrix_sign = torch.tensor(stats.bernoulli(float_value1).rvs(n_neuron_types ** 2) * 2 - 1,
                                    dtype=torch.float32, device=device)
-        matrix_sign = matrix_sign.reshape(n_particle_types, n_particle_types)
+        matrix_sign = matrix_sign.reshape(n_neuron_types, n_neuron_types)
 
         plt.figure(figsize=(10, 10))
         ax = sns.heatmap(to_numpy(adjacency), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
                          vmin=-0.1, vmax=0.1)
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
-        plt.xticks([0, n_particles - 1], [1, n_particles], fontsize=48)
-        plt.yticks([0, n_particles - 1], [1, n_particles], fontsize=48)
+        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
         ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
@@ -501,8 +510,8 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
                          vmin=-0.1, vmax=0.1)
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
-        plt.xticks([0, n_particles - 1], [1, n_particles], fontsize=48)
-        plt.yticks([0, n_particles - 1], [1, n_particles], fontsize=48)
+        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
         ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
@@ -528,8 +537,8 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
                          vmin=-0.1, vmax=0.1)
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
-        plt.xticks([0, n_particles - 1], [1, n_particles], fontsize=48)
-        plt.yticks([0, n_particles - 1], [1, n_particles], fontsize=48)
+        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
         ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
@@ -539,6 +548,14 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         plt.tight_layout()
         plt.savefig(f'graphs_data/{dataset_name}/adjacency_2.png', dpi=300)
         plt.close()
+
+        total_possible = adjacency.shape[0] * adjacency.shape[1]
+        actual_connections = (adjacency != 0).sum().item()
+        effective_filling_factor = actual_connections / total_possible
+
+        print(f"target filling factor: {float_value2}")
+        print(f"effective filling factor: {effective_filling_factor:.6f}")
+        print(f"actual connections: {actual_connections}/{total_possible}")
 
     edge_index = edge_index.to(device=device)
 

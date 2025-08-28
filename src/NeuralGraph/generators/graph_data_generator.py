@@ -870,12 +870,9 @@ def data_generate_synaptic(
         inv_particle_dropout_mask = draw[cut:]
         x_removed_list = []
 
-    if (
-        ("modulation" in model_config.field_type)
-        | ("visual" in model_config.field_type)
+    if (("modulation" in model_config.field_type) | ("visual" in model_config.field_type)
     ) & ("PDE_N6" not in model_config.signal_model_name):
         im = imread(f"graphs_data/{simulation_config.node_value_map}")
-
     if "permutation" in field_type:
         permutation_indices = torch.randperm(n_neurons)
         inverse_permutation_indices = torch.argsort(permutation_indices)
@@ -1315,6 +1312,8 @@ def data_generate_synaptic(
             s, h, J, E = sparse_ising_fit_fast(x=x_list, voltage_col=6, top_k=20, block_size=2000,
                                                energy_stride=energy_stride)
 
+            precision_recall_analysis(J, W_true)
+
             fig = plt.figure(figsize=(12, 10))
             plt.subplot(2, 2, (1, 2))
             plt.plot(np.arange(0, len(E) * energy_stride, energy_stride), E, lw=0.5, c='white')
@@ -1332,6 +1331,10 @@ def data_generate_synaptic(
             plt.title("Energy Distribution", fontsize=18)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
+
+            # Flatten all non-zero couplings for histogram
+            J_vals = [v for Ji in J for v in Ji.values()]
+            J_vals = np.array(J_vals, dtype=np.float32)
 
             # Panel 3: Couplings histogram
             plt.subplot(2, 2, 4)
