@@ -1458,12 +1458,10 @@ def analysis_J_W(J, W_true):
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
-    print(f"true connections: {true_mask.sum()}")
-    print(f"predicted connections: {pred_mask.sum()}")
-    print(f"true positives: {tp}")
-    print(f"precision: {precision:.3f}")
-    print(f"recall: {recall:.3f}")
-    print(f"F1-score: {f1:.3f}")
+    print(f"true connections: {true_mask.sum()}    predicted: {pred_mask.sum()}")
+    print(f"true positives: {tp}    precision: {precision:.3f}")
+    # print(f"recall: {recall:.3f}")
+    # print(f"F1-score: {f1:.3f}")
 
     # Coupling strength correlation for true connections
     if tp > 0:

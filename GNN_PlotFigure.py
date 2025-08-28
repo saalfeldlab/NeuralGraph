@@ -2634,6 +2634,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         energy_stride = 1
         s, h, J, E = sparse_ising_fit_fast(x=x_list[0], voltage_col=3, top_k=50, block_size=2000, energy_stride=energy_stride)
 
+        # Create weights matrix
+        true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
+        true_weights[edges[1], edges[0]] = gt_weights
+
+        precision, recall, f1 = analysis_J_W(J, to_numpy(true_weights))
+
         # Panel 4: Compute approximate probabilities for observed states
         # P(s) ~ exp(-E(s)/T), approximate T=1 for simplicity
         T = 1.0
@@ -2669,6 +2675,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         axs[1, 0].set_ylabel("Density", fontsize=14)
         axs[1, 0].set_title("Sparse Couplings Histogram", fontsize=14)
         axs[1, 0].tick_params(axis='both', which='major', labelsize=12)
+        axs[1, 0].text(0.05, 0.95, f'Precision: {precision:.3f}', transform=axs[1, 0].transAxes,
+                       fontsize=12, verticalalignment='top')
 
         axs[1, 1].axis('off')  # Empty panel
 
@@ -7346,7 +7354,7 @@ def get_figures(index):
     return config_list,epoch_list
 
 
-if __name__ == '__main__':-
+if __name__ == '__main__':
 
     warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -7427,9 +7435,6 @@ if __name__ == '__main__':-
     # config_list = ['fly_N9_43_1', 'fly_N9_43_2', 'fly_N9_43_3', 'fly_N9_43_4', 'fly_N9_43_5']
     # data_flyvis_compare(config_list, 'training.loss_noise_level')
 
-    # config_list = ['fly_N9_44_6', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_7', 'fly_N9_44_8']
-    # data_flyvis_compare(config_list, 'training.noise_model_level')
-
     # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
 
     # config_list = ['fly_N9_46_1', 'fly_N9_46_2', 'fly_N9_46_3', 'fly_N9_46_4', 'fly_N9_46_5', 'fly_N9_46_6']
@@ -7450,23 +7455,24 @@ if __name__ == '__main__':-
     # config_list = ['fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     # data_flyvis_compare(config_list, 'simulation.n_extra_null_edges')
     
-    config_list = ['fly_N9_44_6', 'fly_N9_51_2', 'fly_N9_37_2']
+    config_list = ['fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8']
+    data_flyvis_compare(config_list, 'training.noise_model_level')
 
-    for config_file_ in config_list:
-        print(' ')
-
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-
-        print(f'config_file  {config.config_file}')
-
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
-
-
+    # for config_file_ in config_list:
+    #     print(' ')
+    #
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    #
+    #
 
 
 
