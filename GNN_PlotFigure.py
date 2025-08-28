@@ -144,7 +144,7 @@ def plot_embedding_func_cluster_tracking(model, config, embedding_cluster, cmap,
         plt.xlim(config.plotting.embedding_lim)
         plt.ylim(config.plotting.embedding_lim)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.tif", dpi=170.7)
+        plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.png", dpi=170.7)
         plt.close()
     else:
         fig, ax = fig_init()
@@ -162,7 +162,7 @@ def plot_embedding_func_cluster_tracking(model, config, embedding_cluster, cmap,
         plt.xlim(config.plotting.embedding_lim)
         plt.ylim(config.plotting.embedding_lim)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.tif", dpi=170.7)
+        plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.png", dpi=170.7)
         plt.close()
 
     func_list, proj_interaction = analyze_edge_function_tracking(rr=[], vizualize=False, config=config,
@@ -186,7 +186,7 @@ def plot_embedding_func_cluster_tracking(model, config, embedding_cluster, cmap,
     plt.xlim([-0.2, 1.2])
     plt.ylim([-0.2, 1.2])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/UMAP_{epoch}.tif", dpi=170.7)
+    plt.savefig(f"./{log_dir}/results/UMAP_{epoch}.png", dpi=170.7)
     plt.close()
 
     embedding = to_numpy(model.a.clone().detach())
@@ -224,7 +224,7 @@ def plot_embedding_func_cluster_state(model, config,embedding_cluster, cmap, typ
         plt.xlabel(r'$a_{0}$', fontsize=68)
         plt.ylabel(r'$a_{1}$', fontsize=68)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/embedding_{epoch}.tif", dpi=170.7)
+    plt.savefig(f"./{log_dir}/results/embedding_{epoch}.png", dpi=170.7)
     plt.close()
 
     fig, ax = fig_init()
@@ -232,7 +232,7 @@ def plot_embedding_func_cluster_state(model, config,embedding_cluster, cmap, typ
                                                         model=model,
                                                         id_list=id_list, type_list=type_list, ynorm=ynorm,
                                                         cmap=cmap, visualize=True, device=device)
-    plt.savefig(f"./{log_dir}/results/function_{epoch}.tif", dpi=170.7)
+    plt.savefig(f"./{log_dir}/results/function_{epoch}.png", dpi=170.7)
     plt.close()
 
     fig, ax = fig_init()
@@ -245,7 +245,7 @@ def plot_embedding_func_cluster_state(model, config,embedding_cluster, cmap, typ
     plt.xlim([-0.2, 1.2])
     plt.ylim([-0.2, 1.2])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/UMAP_{epoch}.tif", dpi=170.7)
+    plt.savefig(f"./{log_dir}/results/UMAP_{epoch}.png", dpi=170.7)
     plt.close()
 
 
@@ -318,7 +318,7 @@ def plot_embedding_func_cluster(model, config,embedding_cluster, cmap, index_par
         plt.xlabel(r'$a_{0}$', fontsize=68)
         plt.ylabel(r'$a_{1}$', fontsize=68)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/embedding_{epoch}.tif", dpi=170.7)
+    plt.savefig(f"./{log_dir}/results/embedding_{epoch}.png", dpi=170.7)
     plt.close()
 
     fig, ax = fig_init()
@@ -348,7 +348,7 @@ def plot_embedding_func_cluster(model, config,embedding_cluster, cmap, index_par
     plt.xlim([-0.2, 1.2])
     plt.ylim([-0.2, 1.2])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/UMAP_functions_{epoch}.tif", dpi=170.7)
+    plt.savefig(f"./{log_dir}/results/UMAP_functions_{epoch}.png", dpi=170.7)
     plt.close()
 
     config.training.cluster_distance_threshold = 0.01
@@ -369,7 +369,7 @@ def plot_embedding_func_cluster(model, config,embedding_cluster, cmap, index_par
         plt.xlabel(r'$a_{0}$', fontsize=68)
         plt.ylabel(r'$a_{1}$', fontsize=68)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/clustered_embedding_{epoch}.tif", dpi=170.7)
+    plt.savefig(f"./{log_dir}/results/clustered_embedding_{epoch}.png", dpi=170.7)
     plt.close()
 
 
@@ -391,7 +391,7 @@ def plot_embedding_func_cluster(model, config,embedding_cluster, cmap, index_par
     # plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
     # plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
     # plt.tight_layout()
-    # plt.savefig(f"./{log_dir}/results/UMAP_clustered_embedding_{epoch}.tif", dpi=170.7)
+    # plt.savefig(f"./{log_dir}/results/UMAP_clustered_embedding_{epoch}.png", dpi=170.7)
     # plt.close()
 
     return accuracy, n_clusters, new_labels
@@ -489,11 +489,11 @@ def plot_generated(config, run, style, step, device):
             plt.xlim([0.5, 0.55])
             plt.ylim([0.5, 0.55])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/detail.tif", dpi=85.35)
+            plt.savefig(f"./{log_dir}/detail.png", dpi=85.35)
             plt.close()
 
 
-            im = imread(f"./{log_dir}/detail.tif")
+            im = imread(f"./{log_dir}/detail.png")
 
 
             fig = plt.figure(figsize=(12, 12))
@@ -534,7 +534,7 @@ def plot_generated(config, run, style, step, device):
 
 
             num = f"{it:06}"
-            plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.tif", dpi=85.35)
+            plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.png", dpi=85.35)
 
             plt.close()
 
@@ -587,7 +587,7 @@ def plot_generated(config, run, style, step, device):
                 plt.ylim([0,1])
                 plt.tight_layout()
                 num = f"{it:06}"
-                plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.png", dpi=80)
                 plt.close()
 
             elif 'bw' in style:
@@ -635,7 +635,7 @@ def plot_generated(config, run, style, step, device):
                 plt.ylim([0,1])
                 plt.tight_layout()
                 num = f"{it:06}"
-                plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.png", dpi=80)
                 plt.close()
 
 
@@ -835,7 +835,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                 plt.ylim([-0.1, 1.1])
                 plt.legend(loc='best', fontsize=18, markerscale=2)
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/embedding_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/embedding_{num}.png", dpi=80)
                 plt.close()
 
                 if os.path.exists(f'{log_dir}/correction.pt'):
@@ -864,7 +864,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                 plt.xticks([])
                 plt.yticks([])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/W_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/W_{num}.png", dpi=80)
                 plt.close()
 
                 rr = torch.linspace(-xnorm.squeeze(), xnorm.squeeze(), 1000).to(device)
@@ -899,7 +899,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.yticks([])
                     plt.xlabel(r'$x_j$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
                 elif (model_config.signal_model_name == 'PDE_N4'):
                     fig, ax = fig_init()
@@ -925,7 +925,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.ylim([-1.6, 1.6])
                     plt.xlim([-to_numpy(xnorm)//2, to_numpy(xnorm)//2])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
                 elif (model_config.signal_model_name == 'PDE_N8'):
                     rr = torch.linspace(0, 10, 1000).to(device)
@@ -948,7 +948,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.ylabel(r'$MLP_1(a_i, a_j, x_i, x_j)$', fontsize=68)
                     plt.ylim([0,4])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
                 else:
                     fig, ax = fig_init()
@@ -964,7 +964,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.ylim([-1.5, 1.5])
                     plt.xlim([-5,5])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{epoch}.png", dpi=80)
                     plt.close()
 
                 fig, ax = fig_init()
@@ -984,7 +984,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                 plt.ylabel(r'learned $MLP_0(a_i, x_i)$', fontsize=68)
 
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
                 plt.close()
 
                 adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
@@ -1031,7 +1031,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.text(-0.13, 0.11, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
 
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/comparison_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/comparison_{num}.png", dpi=80)
                 plt.close()
 
                 if has_field:
@@ -1048,7 +1048,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.xticks([10000,100000], [10000, 100000], fontsize=48)
                         plt.yticks([0, 512, 1024], [0, 512, 1024], fontsize=48)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/all/yi_{num}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/all/yi_{num}.png", dpi=80)
                         plt.close()
 
                         prediction = prediction * torch.tensor(second_correction,device=device) / 10
@@ -1074,7 +1074,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.xlabel(r'true $y_i(t)$', fontsize=68)
                         plt.ylabel(r'learned $y_i(t)$', fontsize=68)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/all/comparison_yi_{num}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/all/comparison_yi_{num}.png", dpi=80)
                         plt.close()
 
                     else:
@@ -1092,7 +1092,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/all/field_{num}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/all/field_{num}.png", dpi=80)
                         plt.close()
 
                 if 'derivative' in field_type:
@@ -1115,7 +1115,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.xlabel(r'$x_i$', fontsize=68)
                     plt.ylabel(r'$y_i$', fontsize=68)
                     plt.tight_layout
-                    plt.savefig(f"./{log_dir}/results/all/derivative_yi_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/derivative_yi_{num}.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -1140,7 +1140,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     # plt.ylim([-0.2,0.025])
 
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/comparison_derivative_yi_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/comparison_derivative_yi_{num}.png", dpi=80)
                     plt.close()
 
                 if (model.update_type == 'generic') & (model_config.signal_model_name == 'PDE_N5'):
@@ -1174,15 +1174,15 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.ylabel(r'learned MLPs', fontsize=68)
                     plt.ylim([y_min - y_max/2, y_max * 1.5])
                     plt.tight_layout()
-                    plt.savefig(f'./{log_dir}/results/all/MLP1_{num}.tif', dpi=80)
+                    plt.savefig(f'./{log_dir}/results/all/MLP1_{num}.png', dpi=80)
                     plt.close()
 
 
-                im0 = imread(f"./{log_dir}/results/all/W_{num}.tif")
-                # im0 = imread(f"./{log_dir}/results/all/comparison_{num}.tif")
-                im1 = imread(f"./{log_dir}/results/all/embedding_{num}.tif")
-                im2 = imread(f"./{log_dir}/results/all/MLP0_{num}.tif")
-                im3 = imread(f"./{log_dir}/results/all/MLP1_{num}.tif")
+                im0 = imread(f"./{log_dir}/results/all/W_{num}.png")
+                # im0 = imread(f"./{log_dir}/results/all/comparison_{num}.png")
+                im1 = imread(f"./{log_dir}/results/all/embedding_{num}.png")
+                im2 = imread(f"./{log_dir}/results/all/MLP0_{num}.png")
+                im3 = imread(f"./{log_dir}/results/all/MLP1_{num}.png")
                 fig = plt.figure(figsize=(16, 16))
                 plt.axis('off')
                 plt.subplot(2, 2, 1)
@@ -1208,7 +1208,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                 plt.yticks([])
                 plt.tight_layout()
 
-                plt.savefig(f"./{log_dir}/results/training/fig_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/training/fig_{num}.png", dpi=80)
                 plt.close()
 
         fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
@@ -1220,7 +1220,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
         plt.ylabel('$R^2$', fontsize=64)
         plt.xlabel('epoch', fontsize=64)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/R2.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/R2.png', dpi=300)
         plt.close()
         np.save(f'./{log_dir}/results/R2.npy', r_squared_list)
 
@@ -1234,12 +1234,12 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
         plt.ylabel('slope', fontsize=64)
         plt.xlabel('epoch', fontsize=64)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/slope.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/slope.png', dpi=300)
         plt.close()
 
     else:
 
-        files = glob.glob(f'./{log_dir}/results/*.tif')
+        files = glob.glob(f'./{log_dir}/results/*.png')
         for f in files:
             os.remove(f)
 
@@ -1259,7 +1259,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
         plt.xticks(fontsize=24)
         plt.xlim([-0.1, 0.1])
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/weights_distribution.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/weights_distribution.png', dpi=300)
         plt.close()
 
         plt.figure(figsize=(10, 10))
@@ -1270,7 +1270,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/true connectivity.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
         plt.close()
 
         map_larynx_matrix, n = map_matrix(larynx_neuron_list, all_neuron_list, adjacency)
@@ -1286,7 +1286,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
         fig.text(0.5, 0.04, 'time', ha='center', fontsize=14)
         fig.text(0.04, 0.5, 'activity', va='center', rotation='vertical', fontsize=14)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/activity_larynx_grid.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/activity_larynx_grid.png', dpi=300)
         plt.close()
 
         n = np.random.randint(0, n_neurons, 50)
@@ -1302,7 +1302,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
         fig.text(0.5, 0.04, 'time', ha='center', fontsize=14)
         fig.text(0.04, 0.5, 'activity', va='center', rotation='vertical', fontsize=14)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/activity_grid.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/activity_grid.png', dpi=300)
         plt.close()
 
         true_model, bc_pos, bc_dpos = choose_model(config=config, W=adjacency, device=device)
@@ -1327,7 +1327,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                 plt.xlabel(r'$a_{0}$', fontsize=68)
                 plt.ylabel(r'$a_{1}$', fontsize=68)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/embedding.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/embedding.png", dpi=170.7)
             plt.close()
             fig, axes = fig_init()
             for n in range(n_neurons):
@@ -1335,7 +1335,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.scatter(to_numpy(model.a[:n_neurons, 0]), to_numpy(model.a[:n_neurons, 1]), alpha=0.1, s=50, color='k', edgecolors='none')
                     plt.text(to_numpy(model.a[n, 0]), to_numpy(model.a[n, 1]) - 0.01, all_neuron_list[n], fontsize=6)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/embedding_text.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/embedding_text.png", dpi=170.7)
             plt.close()
 
             # plt.close(fig_2d)
@@ -1501,7 +1501,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     activity = torch.tensor(x_list[run][:, :, 6:7], device=device).squeeze().t()
                     im = axes[run].imshow(to_numpy(prediction), aspect='auto', cmap='viridis', vmin=0, vmax=10)
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/neural_fields_grid.tif", dpi=150)
+                plt.savefig(f"./{log_dir}/results/neural_fields_grid.png", dpi=150)
                 plt.close()
 
                 fig, axes = plt.subplots(5, 4, figsize=(20, 25))
@@ -1518,7 +1518,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     axes[run].set_xlim([0,10])
                     axes[run].set_ylim([0,10])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/neural_fields_comparison.tif", dpi=150)
+                plt.savefig(f"./{log_dir}/results/neural_fields_comparison.png", dpi=150)
                 plt.close()
 
             if multi_connectivity:
@@ -1534,7 +1534,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     A = torch.reshape(A, (n_neurons, n_neurons))
                     plt.imshow(to_numpy(A), aspect='auto', cmap='bwr', vmin=-0.5, vmax=0.5)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/W/W_{k}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/W/W_{k}.png", dpi=80)
                     plt.close()
 
                 larynx_weights =[]
@@ -1551,7 +1551,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                                 vmin=-0.5, vmax=0.5, cmap='bwr', cbar=False, xticklabels=False, yticklabels=False)
                     larynx_weights.append(to_numpy(larynx_pred_weight))
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/W_larynx_grid.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/W_larynx_grid.png", dpi=80)
                 plt.close()
 
                 larynx_stack = np.stack(larynx_weights)
@@ -1563,7 +1563,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                 sns.heatmap(larynx_std, ax=axes[1], square=True, cmap='viridis',
                             cbar=True, xticklabels=False, yticklabels=False)
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/W_larynx_mean_std.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/W_larynx_mean_std.png", dpi=80)
                 plt.close()
 
             else:
@@ -1586,7 +1586,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                 plt.xticks([])
                 plt.yticks([])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/W_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/W_{epoch}.png", dpi=80)
                 plt.close()
 
             if has_field:
@@ -1627,7 +1627,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.plot(to_numpy(activity[i1, :]), linewidth=0.5, c='g')
                     plt.plot(to_numpy(activity[i2, :]), linewidth=0.5, c='r')
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/pairs/all_embedding_text_{pair}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/pairs/all_embedding_text_{pair}.png", dpi=80)
                     pair = pair + 1
                     plt.close()
 
@@ -1636,7 +1636,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             plt.xlabel(r'$d_{aR,aL}$', fontsize=68)
             plt.ylabel('counts', fontsize=68)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/embedding_d_pair.tif", dpi=80)
+            plt.savefig(f"./{log_dir}/results/embedding_d_pair.png", dpi=80)
             plt.close()
 
 
@@ -1665,7 +1665,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # # plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
             # plt.ylim([y_min,y_max*1.1])
             # plt.tight_layout()
-            # plt.savefig(f"./{log_dir}/results/raw_psi.tif", dpi=170.7)
+            # plt.savefig(f"./{log_dir}/results/raw_psi.png", dpi=170.7)
             # plt.close()
             #
             # upper = func_list[:,950:1000].flatten()
@@ -1693,7 +1693,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # # plt.xticks([])
             # # plt.yticks([])
             # plt.tight_layout()
-            # plt.savefig(f'./{log_dir}/results/corrected learned connectivity.tif', dpi=300)
+            # plt.savefig(f'./{log_dir}/results/corrected learned connectivity.png', dpi=300)
             # plt.close()
             #
             # print('update functions ...')
@@ -1756,7 +1756,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #             # plt.xlim([-5, 5])
             #
             #         plt.tight_layout()
-            #         plt.savefig(f"./{log_dir}/results/learned_psi_{r}.tif", dpi=170.7)
+            #         plt.savefig(f"./{log_dir}/results/learned_psi_{r}.png", dpi=170.7)
             #         plt.close()
             #     psi_list = torch.stack(psi_list)
             #     psi_list = psi_list.squeeze()
@@ -1806,7 +1806,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     else:
             #         plt.ylim([-1.6, 1.6])
             #     plt.tight_layout()
-            #     plt.savefig(f"./{log_dir}/results/learned_psi.tif", dpi=170.7)
+            #     plt.savefig(f"./{log_dir}/results/learned_psi.png", dpi=170.7)
             #     plt.close()
             #     psi_list = torch.stack(psi_list)
             #     psi_list = psi_list.squeeze()
@@ -1840,7 +1840,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             # if not (is_CElegans):
             #     plt.ylim(config.plotting.ylim)
-            # plt.savefig(f'./{log_dir}/results/learned phi.tif', dpi=300)
+            # plt.savefig(f'./{log_dir}/results/learned phi.png', dpi=300)
             # plt.close()
             #
             # print('UMAP reduction ...')
@@ -1863,7 +1863,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # plt.xlim([-0.2, 1.2])
             # plt.ylim([-0.2, 1.2])
             # plt.tight_layout()
-            # plt.savefig(f"./{log_dir}/results/UMAP.tif", dpi=170.7)
+            # plt.savefig(f"./{log_dir}/results/UMAP.png", dpi=170.7)
             # plt.close()
             #
             # config.training.cluster_distance_threshold = 0.1
@@ -1890,7 +1890,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # plt.yticks([])
             # plt.axis('off')
             # plt.tight_layout()
-            # plt.savefig(f"./{log_dir}/results/true_types.tif", dpi=170.7)
+            # plt.savefig(f"./{log_dir}/results/true_types.png", dpi=170.7)
             # plt.close()
             #
             # plt.figure(figsize=(10, 10))
@@ -1899,7 +1899,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # plt.yticks([])
             # plt.axis('off')
             # plt.tight_layout()
-            # plt.savefig(f"./{log_dir}/results/learned_types.tif", dpi=170.7)
+            # plt.savefig(f"./{log_dir}/results/learned_types.png", dpi=170.7)
             # plt.close()
             #
             # fig, ax = fig_init()
@@ -1915,7 +1915,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     plt.xlim([-0.2,0.2])
             #     plt.ylim([-0.2,0.2])
             # plt.tight_layout()
-            # plt.savefig(f"./{log_dir}/results/first_comparison.tif", dpi=87)
+            # plt.savefig(f"./{log_dir}/results/first_comparison.png", dpi=87)
             # plt.close()
             #
             # x_data = np.reshape(gt_weight, (n_neurons * n_neurons))
@@ -1945,7 +1945,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     plt.xlim([-0.2,0.2])
             #     plt.ylim([-0.2,0.2])
             # plt.tight_layout()
-            # plt.savefig(f"./{log_dir}/results/second_comparison.tif", dpi=87)
+            # plt.savefig(f"./{log_dir}/results/second_comparison.png", dpi=87)
             # plt.close()
             #
             # plt.figure(figsize=(10, 10))
@@ -1963,7 +1963,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # plt.xticks([])
             # plt.yticks([])
             # plt.tight_layout()
-            # plt.savefig(f'./{log_dir}/results/final learned connectivity.tif', dpi=300)
+            # plt.savefig(f'./{log_dir}/results/final learned connectivity.png', dpi=300)
             # plt.close()
 
             if False: # has_field:
@@ -1992,7 +1992,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.xlabel(r'$x_i$', fontsize=68)
                     plt.ylabel(r'$y_i$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/true_field_derivative.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/true_field_derivative.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -2004,7 +2004,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.ylabel(r'$y_i$', fontsize=68)
                     # plt.colorbar()
                     plt.tight_layout
-                    plt.savefig(f"./{log_dir}/results/field_derivative.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/field_derivative.png", dpi=80)
                     plt.close()
 
                     # fig = plt.figure(figsize=(12, 12))
@@ -2045,7 +2045,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.imshow(im_, cmap='gray')
                         # plt.title(r'neuromodulation $b_i$', fontsize=48)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/xi_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/xi_{frame}.png", dpi=80)
                         plt.close()
 
                         # x = x_list[0][frame]
@@ -2057,7 +2057,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         #             vmin=0, vmax=2, cmap='viridis')
                         # plt.title(r'neuromodulation $b_i$', fontsize=48)
                         # plt.tight_layout()
-                        # plt.savefig(f"./{log_dir}/results/field/bi_{frame}.tif", dpi=80)
+                        # plt.savefig(f"./{log_dir}/results/field/bi_{frame}.png", dpi=80)
                         # plt.close()
                         # fig = plt.figure(figsize=(10, 10.5))
                         # plt.axis('off')
@@ -2067,7 +2067,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         #             vmin=-20, vmax=20, cmap='viridis')
                         # plt.title(r'$x_i$', fontsize=48)
                         # plt.tight_layout()
-                        # plt.savefig(f"./{log_dir}/results/field/xi_{frame}.tif", dpi=80)
+                        # plt.savefig(f"./{log_dir}/results/field/xi_{frame}.png", dpi=80)
                         # plt.close()
 
                     fig, ax = fig_init()
@@ -2082,7 +2082,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.xticks([10000, 100000], [10000, 100000], fontsize=48)
                     plt.yticks([0, 512, 1024], [0, 512, 1024], fontsize=48)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/learned_plasticity.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/learned_plasticity.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -2093,7 +2093,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.xticks([10000, 100000], [10000, 100000], fontsize=48)
                     plt.yticks([0, 512, 1024], [0, 512, 1024], fontsize=48)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/true_plasticity.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/true_plasticity.png", dpi=80)
                     plt.close()
 
                     prediction = prediction * torch.tensor(second_correction, device=device) / 10
@@ -2119,7 +2119,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.xlabel(r'true $y_i(t)$', fontsize=68)
                     plt.ylabel(r'learned $y_i(t)$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/comparison_yi.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/comparison_yi.png", dpi=80)
                     plt.close()
 
                 else:
@@ -2144,7 +2144,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.png", dpi=80)
                         plt.close()
 
                         pred = model_f(time=frame / n_frames, enlarge=False) ** 2 * second_correction / 10
@@ -2159,7 +2159,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_LR {epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_LR {epoch}_{frame}.png", dpi=80)
                         plt.close()
 
                         x_data = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
@@ -2180,7 +2180,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.ylabel(r'learned neuromodulation', fontsize=48)
                         plt.text(0.35, 1.5, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}', fontsize=42)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.png", dpi=80)
                         plt.close()
                         im_list.append(im_)
                         pred_list.append(pred)
@@ -2196,7 +2196,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_HR {epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_HR {epoch}_{frame}.png", dpi=80)
                         plt.close()
 
                     im_list = np.array(np.array(im_list))
@@ -2222,7 +2222,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.yticks([])
                     plt.tight_layout()
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -2232,7 +2232,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.xlabel(r'true $\Omega_i$', fontsize=68)
                     plt.ylabel(r'learned $\Omega_i$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all_comparison {epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all_comparison {epoch}.png", dpi=80)
                     plt.close()
 
                     x_data = np.reshape(im_list, (100 * n_nodes_per_axis * n_nodes_per_axis))
@@ -2269,7 +2269,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     plt.yticks([])
             #     plt.tight_layout()
             #     plt.tight_layout()
-            #     plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.tif", dpi=80)
+            #     plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.png", dpi=80)
             #     plt.close()
             #
             #     for frame in trange(0, modulation.shape[1], modulation.shape[1] // 257):
@@ -2279,7 +2279,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #         plt.axis('off')
             #         plt.imshow(im, cmap='gray', vmin=0, vmax=1)
             #         plt.tight_layout()
-            #         plt.savefig(f"./{log_dir}/results/field/true_field_{frame}.tif", dpi=80)
+            #         plt.savefig(f"./{log_dir}/results/field/true_field_{frame}.png", dpi=80)
             #         plt.close()
             #
             # if (model.update_type == 'generic') & (model_config.signal_model_name == 'PDE_N5'):
@@ -2343,7 +2343,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     plt.ylabel(r'learned $MLP_0$', fontsize=68)
             #     plt.ylim([y_min - y_max / 2, y_max * 1.5])
             #     plt.tight_layout()
-            #     plt.savefig(f'./{log_dir}/results/learned_multiple_psi_{epoch}.tif', dpi=300)
+            #     plt.savefig(f'./{log_dir}/results/learned_multiple_psi_{epoch}.png', dpi=300)
             #     plt.close()
             #
             #     fig, ax = fig_init()
@@ -2356,7 +2356,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     plt.ylabel(r'true functions', fontsize=68)
             #     plt.ylim([y_min - y_max / 2, y_max * 1.5])
             #     plt.tight_layout()
-            #     plt.savefig(f'./{log_dir}/results/true_multiple_psi.tif', dpi=300)
+            #     plt.savefig(f'./{log_dir}/results/true_multiple_psi.png', dpi=300)
             #     plt.close()
             #
             #     msg_start = torch.mean(in_features_[:, 3]) - torch.std(in_features_[:, 3])
@@ -2376,7 +2376,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     plt.xlabel(r'$sum_i$', fontsize=68)
             #     plt.ylabel(r'$MLP_0(a_i, x_i=0, sum_i, g_i=1)$', fontsize=48)
             #     plt.tight_layout()
-            #     plt.savefig(f'./{log_dir}/results/learned_multivariate_phi_{epoch}.tif', dpi=300)
+            #     plt.savefig(f'./{log_dir}/results/learned_multivariate_phi_{epoch}.png', dpi=300)
             #     plt.close()
             #
             #
@@ -2433,7 +2433,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     #         plt.plot(to_numpy(u), to_numpy(MLP1_func), c='w', linewidth=3, label='MLPoMLP')
             #     #         # plt.legend(fontsize=24)
             #     #     plt.tight_layout()
-            #     #     plt.savefig(f'./{log_dir}/results/generic_MLP0_{epoch}.tif', dpi=300)
+            #     #     plt.savefig(f'./{log_dir}/results/generic_MLP0_{epoch}.png', dpi=300)
             #     #     plt.close()
             #
             # if False:
@@ -2539,6 +2539,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
 def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device):
     dataset_name = config.dataset
     model_config = config.graph_model
+    config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
 
     n_frames = config.simulation.n_frames
     n_runs = config.training.n_runs
@@ -2627,7 +2628,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
-    if os.path.exists(f"./{log_dir}/results/E_panels.png"):
+    if False: #os.path.exists(f"./{log_dir}/results/E_panels.png"):
         print (f'skipping computation of energy plot ...')
     else:
         energy_stride = 1
@@ -2643,6 +2644,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         # Flatten all non-zero couplings for histogram
         J_vals = [v for Ji in J for v in Ji.values()]
         J_vals = np.array(J_vals, dtype=np.float32)
+
         # Create 2x2 figure
         fig, axs = plt.subplots(2, 2, figsize=(12, 10))
 
@@ -2733,7 +2735,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     plt.yticks(fontsize=18)
     plt.title(r'$\mu_i \pm \sigma_i$ for each neuron', fontsize=24)
     plt.tight_layout()
-    plt.savefig(f'./{log_dir}/results/activity_mu_sigma.tif', dpi=300)
+    plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300)
     plt.close()
 
     plt.figure(figsize=(10, 10))
@@ -2746,7 +2748,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
     plt.ylim([-6, 6])
-    plt.savefig(f'./{log_dir}/results/activity.tif', dpi=300)
+    plt.savefig(f'./{log_dir}/results/activity.png', dpi=300)
     plt.close()
 
     # Additional plot for specific neuron type (e.g., 'Am')
@@ -2782,7 +2784,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     plt.legend(fontsize=24)
                 plt.ylim([-5, 5])
                 plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/activity_{target_type_name}.tif', dpi=300)
+                plt.savefig(f'./{log_dir}/results/activity_{target_type_name}.png', dpi=300)
                 plt.close()
 
 
@@ -2838,9 +2840,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 axs[1].set_xlabel("Time (s)")
                 axs[1].set_xlim([0, xax[-1]])
                 fig.tight_layout()
-                plt.savefig(f'./{log_dir}/results/spectrogram_{target_type_name}.tif', dpi=300)
+                plt.savefig(f'./{log_dir}/results/spectrogram_{target_type_name}.png', dpi=300)
                 plt.close(fig)
-                # print(f'./{log_dir}/results/spectrogram_{target_type_name}.tif')
+                # print(f'./{log_dir}/results/spectrogram_{target_type_name}.png')
                 # print(f'plotted {n_neurons_to_plot} out of {len(neurons_of_type)} {target_type_name} neurons')
                 logger.info(f'plotted {n_neurons_to_plot} out of {len(neurons_of_type)} {target_type_name} neurons')
             else:
@@ -2930,9 +2932,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
                 ax4.set_xlim(config.plotting.xlim)
                 ax4.set_ylim(config.plotting.ylim)
-                ax4.set_xlabel('$x_i$', fontsize=23)
-                ax4.set_ylabel('$learned MLP_0(a_i, x_i)$', fontsize=23)
-                ax4.tick_params(axis='both', which='major', labelsize=15)
+                ax4.set_xlabel('$x_i$', fontsize=32)
+                ax4.set_ylabel('learned $MLP_0(a_i, x_i)$', fontsize=32)
+                ax4.tick_params(axis='both', which='major', labelsize=24)
 
                 # Plot 3: Lin_edge functions (middle right) and calculate slopes
                 ax3 = fig.add_subplot(3, 2, 4)
@@ -2986,9 +2988,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
                 ax3.set_xlim(config.plotting.xlim)
                 ax3.set_ylim([-config.plotting.xlim[1] / 10, config.plotting.xlim[1] * 2])
-                ax3.set_xlabel('$x_i$', fontsize=23)
-                ax3.set_ylabel('$learned MLP_1(a_j, x_i)$', fontsize=23)
-                ax3.tick_params(axis='both', which='major', labelsize=15)
+                ax3.set_xlabel('$x_i$', fontsize=32)
+                ax3.set_ylabel('learned $MLP_1(a_j, x_i)$', fontsize=32)
+                ax3.tick_params(axis='both', which='major', labelsize=24)
 
                 # Calculate corrected_W using proper data construction
                 k_list = [1]
@@ -3079,12 +3081,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     ss_tot = np.sum((learned_weights - np.mean(learned_weights)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
                     ax1.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
-                             transform=ax1.transAxes, verticalalignment='top', fontsize=18)
-                ax1.set_xlabel('true $W_{ij}$', fontsize=23)
-                ax1.set_ylabel('learned $W_{ij}$', fontsize=23)
+                             transform=ax1.transAxes, verticalalignment='top', fontsize=24)
+                ax1.set_xlabel('true $W_{ij}$', fontsize=32)
+                ax1.set_ylabel('learned $W_{ij}$', fontsize=32)
                 ax1.set_xlim([-2, 4.5])
                 ax1.set_ylim([-2, 4.5])
-                ax1.tick_params(axis='both', which='major', labelsize=15)
+                ax1.tick_params(axis='both', which='major', labelsize=24)
 
                 # Plot 2: Embedding (top right)
                 with torch.no_grad():
@@ -3095,8 +3097,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                         if np.any(type_mask):
                             ax2.scatter(embedding_plot[type_mask, 0], embedding_plot[type_mask, 1],
                                         c=colors_65[n], s=6, alpha=0.25, edgecolors='none')
-                    ax2.set_xlabel('$a_0$', fontsize=23)
-                    ax2.set_ylabel('$a_1$', fontsize=23)
+                    ax2.set_xlabel('$a_0$', fontsize=32)
+                    ax2.set_ylabel('$a_1$', fontsize=32)
                     ax2.set_xticks([])
                     ax2.set_yticks([])
 
@@ -3114,12 +3116,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 r_squared = 1 - (ss_res / ss_tot)
                 ax5.scatter(gt_taus_numpy , reconstructed_tau, c=mc, s=1, alpha=0.25)
                 ax5.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
-                         transform=ax5.transAxes, verticalalignment='top', fontsize=18)
-                ax5.set_xlabel('true $\\tau$', fontsize=23)
-                ax5.set_ylabel('learned $\\tau$', fontsize=23)
+                         transform=ax5.transAxes, verticalalignment='top', fontsize=24)
+                ax5.set_xlabel('true $\\tau$', fontsize=32)
+                ax5.set_ylabel('learned $\\tau$', fontsize=32)
                 ax5.set_xlim([0, 0.35])
                 ax5.set_ylim([0, 0.35])
-                ax5.tick_params(axis='both', which='major', labelsize=15)
+                ax5.tick_params(axis='both', which='major', labelsize=24)
 
                 # Plot 6: V_rest comparison (bottom right)
                 ax6 = fig.add_subplot(3, 2, 6)
@@ -3134,12 +3136,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 r_squared = 1 - (ss_res / ss_tot)
                 ax6.scatter(gt_V_rest_numpy, reconstructed_V_rest, c=mc, s=1, alpha=0.25)
                 ax6.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest_numpy)}',
-                         transform=ax6.transAxes, verticalalignment='top', fontsize=18)
-                ax6.set_xlabel('true $V_{rest}$', fontsize=23)
-                ax6.set_ylabel('learned $V_{rest}$', fontsize=23)
+                         transform=ax6.transAxes, verticalalignment='top', fontsize=24)
+                ax6.set_xlabel('true $V_{rest}$', fontsize=32)
+                ax6.set_ylabel('learned $V_{rest}$', fontsize=32)
                 ax6.set_xlim([-0.05, 0.9])
                 ax6.set_ylim([-0.05, 0.9])
-                ax6.tick_params(axis='both', which='major', labelsize=15)
+                ax6.tick_params(axis='both', which='major', labelsize=24)
 
                 plt.tight_layout()
 
@@ -3154,7 +3156,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
         files, file_id_list = get_training_files(log_dir, n_runs)
 
-        if False:
+        if True:
             fps = 10
             metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
             writer = FFMpegWriter(fps=fps, metadata=metadata)
@@ -3245,7 +3247,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 plt.xlabel('Epochs')
                 plt.title('Training Loss')
                 plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/loss.tif', dpi=300)
+                plt.savefig(f'{log_dir}/results/loss.png', dpi=300)
                 plt.close()
 
             # Plot 2: Embedding using model.a
@@ -3259,7 +3261,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.xticks([])
             plt.yticks([])
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/embedding_{epoch}.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/embedding_{config_indices}.png', dpi=300)
             plt.close()
 
             if True:
@@ -3323,7 +3325,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.xlim(config.plotting.xlim)
             plt.ylim([-config.plotting.xlim[1]/10, config.plotting.xlim[1]*2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/edge_functions_{epoch}.tif", dpi=300)
+            plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}.png", dpi=300)
             plt.close()
 
             # Plot 5: Phi function visualization
@@ -3372,7 +3374,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/phi_functions_{epoch}.tif", dpi=300)
+            plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}.png", dpi=300)
             plt.close()
 
             slopes_lin_phi_array = np.array(slopes_lin_phi_list)
@@ -3398,7 +3400,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.xlim([0, 0.35])
             # plt.ylim([0, 0.35])
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/tau_comparison_{epoch}.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/tau_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
             print(" ")
@@ -3424,7 +3426,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.xticks(fontsize=12)
             plt.yticks(fontsize=12)
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/V_rest_comparison_{epoch}.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
             print(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
@@ -3645,8 +3647,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 fig = plt.figure(figsize=(12, 4))
 
                 # Start the writer context
-                if os.path.exists(f'{log_dir}/results/field_movie_{epoch}.mp4'):
-                    os.remove(f'{log_dir}/results/field_movie_{epoch}.mp4')
+                if os.path.exists(f'{log_dir}/results/field_movie_{config_indices}.mp4'):
+                    os.remove(f'{log_dir}/results/field_movie_{config_indices}.mp4')
                 r_squared_list = []
                 slope_list = []
                 with writer.saving(fig, f'{log_dir}/results/field_movie_{epoch}.mp4', dpi=80):
@@ -4680,7 +4682,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlim([-0.1, 1.1])
                 plt.ylim([-0.1, 1.1])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/embedding_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/embedding_{num}.png", dpi=80)
                 plt.close()
 
                 if os.path.exists(f'{log_dir}/correction.pt'):
@@ -4708,7 +4710,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xticks([])
                 plt.yticks([])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/W_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/W_{num}.png", dpi=80)
                 plt.close()
 
 
@@ -4744,7 +4746,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.yticks([])
                     plt.xlabel(r'$x_j$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
                 elif (model_config.signal_model_name == 'PDE_N4'):
                     fig, ax = fig_init()
@@ -4770,7 +4772,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.ylim([-1.6, 1.6])
                     plt.xlim([-to_numpy(xnorm)//2, to_numpy(xnorm)//2])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
                 elif (model_config.signal_model_name == 'PDE_N8'):
                     rr = torch.linspace(0, 10, 1000).to(device)
@@ -4794,7 +4796,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.ylabel(r'$MLP_1(a_i, a_j, x_i, x_j)$', fontsize=68)
                     plt.ylim([0,4])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
                 else:
                     fig, ax = fig_init()
@@ -4810,7 +4812,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.ylim([-1.5, 1.5])
                     plt.xlim([-5,5])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{epoch}.png", dpi=80)
                     plt.close()
 
                 fig, ax = fig_init()
@@ -4830,7 +4832,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.ylabel(r'learned $MLP_0(a_i, x_i)$', fontsize=68)
 
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
                 plt.close()
 
                 adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
@@ -4877,7 +4879,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.text(-0.13, 0.11, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
 
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/comparison_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/comparison_{num}.png", dpi=80)
                 plt.close()
 
                 if has_field:
@@ -4894,7 +4896,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xticks([10000,100000], [10000, 100000], fontsize=48)
                         plt.yticks([0, 512, 1024], [0, 512, 1024], fontsize=48)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/all/yi_{num}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/all/yi_{num}.png", dpi=80)
                         plt.close()
 
                         prediction = prediction * torch.tensor(second_correction,device=device) / 10
@@ -4920,7 +4922,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xlabel(r'true $y_i(t)$', fontsize=68)
                         plt.ylabel(r'learned $y_i(t)$', fontsize=68)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/all/comparison_yi_{num}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/all/comparison_yi_{num}.png", dpi=80)
                         plt.close()
 
                     else:
@@ -4938,7 +4940,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/all/field_{num}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/all/field_{num}.png", dpi=80)
                         plt.close()
 
                 if 'derivative' in field_type:
@@ -4961,7 +4963,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlabel(r'$x_i$', fontsize=68)
                     plt.ylabel(r'$y_i$', fontsize=68)
                     plt.tight_layout
-                    plt.savefig(f"./{log_dir}/results/all/derivative_yi_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/derivative_yi_{num}.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -4986,7 +4988,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     # plt.ylim([-0.2,0.025])
 
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/comparison_derivative_yi_{num}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/comparison_derivative_yi_{num}.png", dpi=80)
                     plt.close()
 
                 if (model.update_type == 'generic') & (model_config.signal_model_name == 'PDE_N5'):
@@ -5020,15 +5022,15 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.ylabel(r'learned MLPs', fontsize=68)
                     plt.ylim([y_min - y_max/2, y_max * 1.5])
                     plt.tight_layout()
-                    plt.savefig(f'./{log_dir}/results/all/MLP1_{num}.tif', dpi=80)
+                    plt.savefig(f'./{log_dir}/results/all/MLP1_{num}.png', dpi=80)
                     plt.close()
 
 
-                im0 = imread(f"./{log_dir}/results/all/W_{num}.tif")
-                # im0 = imread(f"./{log_dir}/results/all/comparison_{num}.tif")
-                im1 = imread(f"./{log_dir}/results/all/embedding_{num}.tif")
-                im2 = imread(f"./{log_dir}/results/all/MLP0_{num}.tif")
-                im3 = imread(f"./{log_dir}/results/all/MLP1_{num}.tif")
+                im0 = imread(f"./{log_dir}/results/all/W_{num}.png")
+                # im0 = imread(f"./{log_dir}/results/all/comparison_{num}.png")
+                im1 = imread(f"./{log_dir}/results/all/embedding_{num}.png")
+                im2 = imread(f"./{log_dir}/results/all/MLP0_{num}.png")
+                im3 = imread(f"./{log_dir}/results/all/MLP1_{num}.png")
                 fig = plt.figure(figsize=(16, 16))
                 plt.axis('off')
                 plt.subplot(2, 2, 1)
@@ -5054,7 +5056,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.yticks([])
                 plt.tight_layout()
 
-                plt.savefig(f"./{log_dir}/results/training/fig_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/training/fig_{num}.png", dpi=80)
                 plt.close()
 
 
@@ -5068,7 +5070,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
         plt.ylabel('$R^2$', fontsize=64)
         plt.xlabel('epoch', fontsize=64)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/R2.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/R2.png', dpi=300)
         plt.close()
         np.save(f'./{log_dir}/results/R2.npy', r_squared_list)
 
@@ -5082,12 +5084,12 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
         plt.ylabel('slope', fontsize=64)
         plt.xlabel('epoch', fontsize=64)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/slope.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/slope.png', dpi=300)
         plt.close()
 
     else:
 
-        files = glob.glob(f'./{log_dir}/results/*.tif')
+        files = glob.glob(f'./{log_dir}/results/*.png')
         for f in files:
             os.remove(f)
 
@@ -5098,7 +5100,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
         # plt.xticks(fontsize=24)
         # plt.yticks(fontsize=24)
         # plt.tight_layout()
-        # plt.savefig(f'./{log_dir}/results/signal_distribution.tif', dpi=300)
+        # plt.savefig(f'./{log_dir}/results/signal_distribution.png', dpi=300)
         # plt.close()
         # print(f'mean: {np.mean(distrib):0.2f}  std: {np.std(distrib):0.2f}')
         # logger.info(f'mean: {np.mean(distrib):0.2f}  std: {np.std(distrib):0.2f}')
@@ -5114,7 +5116,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
         # plt.yticks([0, 999], [1, 1000], fontsize=48)
         # plt.xticks(rotation=0)
         # plt.tight_layout()
-        # plt.savefig(f'./{log_dir}/results/kinograph.tif', dpi=300)
+        # plt.savefig(f'./{log_dir}/results/kinograph.png', dpi=300)
         # plt.close()
 
 
@@ -5171,7 +5173,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.text(-13, 11, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
                 plt.text(-13, 9, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
                 plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/activity/comparison_{i}.tif', dpi=80)
+                plt.savefig(f'./{log_dir}/results/activity/comparison_{i}.png', dpi=80)
                 plt.close()
 
             plt.figure(figsize=(10, 10))
@@ -5185,7 +5187,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             plt.title(r'true vs learned $x_i$', fontsize=48)
             plt.legend(fontsize=24)
             plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/activity_comparison.tif', dpi=80)
+            plt.savefig(f'./{log_dir}/results/activity_comparison.png', dpi=80)
             plt.close()
 
         adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
@@ -5204,7 +5206,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
         plt.xticks(fontsize=24)
         plt.xlim([-0.1, 0.1])
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/weights_distribution.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/weights_distribution.png', dpi=300)
         plt.close()
 
         plt.figure(figsize=(10, 10))
@@ -5220,7 +5222,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
         # plt.xticks([])
         # plt.yticks([])
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/true connectivity.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
         plt.close()
 
         plt.figure(figsize=(10, 10))
@@ -5242,7 +5244,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
         plt.yticks(fontsize=28)
         plt.title(r'$x_i$ samples',fontsize=48)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/activity.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/activity.png', dpi=300)
         plt.close()
 
         true_model, bc_pos, bc_dpos = choose_model(config=config, W=adjacency, device=device)
@@ -5274,7 +5276,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             # plt.xticks([])
             # plt.yticks([])
             plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/first learned connectivity.tif', dpi=300)
+            plt.savefig(f'./{log_dir}/results/first learned connectivity.png', dpi=300)
             plt.close()
 
             A = A[:n_neurons,:n_neurons]
@@ -5297,7 +5299,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     # plt.xticks([10000, 100000], [10000, 100000], fontsize=48)
                     # plt.yticks([0, 512, 1024], [0, 512, 1024], fontsize=48)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/learned_plasticity.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/learned_plasticity.png", dpi=80)
                     plt.close()
 
                     modulation_short = modulation[:, np.linspace(0, 100000, 1000).astype(int)]
@@ -5306,7 +5308,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     fig, ax = fig_init()
                     plt.scatter(to_numpy(modulation_short), to_numpy(prediction), s=1, color=mc, alpha=0.1)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/short_comparison.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/short_comparison.png", dpi=80)
                     plt.close()
 
                     time_step = 32
@@ -5322,7 +5324,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                                 alpha=0.1, vmin=-100,vmax=100, cmap='viridis')
                     plt.colorbar()
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/plasticity_map.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/plasticity_map.png", dpi=80)
                     plt.close()
 
                     model_pysrr = PySRRegressor(
@@ -5342,7 +5344,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                                 alpha=1, cmap='viridis')
                     plt.colorbar()
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/true_plasticity_map.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/true_plasticity_map.png", dpi=80)
                     plt.close()
 
             if has_ghost:
@@ -5364,7 +5366,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlabel(r'$a_{0}$', fontsize=68)
                 plt.ylabel(r'$a_{1}$', fontsize=68)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/all_embedding.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/all_embedding.png", dpi=170.7)
             plt.close()
 
             if 'excitation' in model_config.update_type:
@@ -5382,7 +5384,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.scatter(to_numpy(embedding[:, 0]), to_numpy(embedding[:, 1]), s=100, c=to_numpy(out), alpha=1, edgecolors='none')
                     plt.colorbar()
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/excitation.tif", dpi=170.7)
+                plt.savefig(f"./{log_dir}/results/excitation.png", dpi=170.7)
                 plt.close()
 
             fig, ax = fig_init()
@@ -5410,7 +5412,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             # plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
             plt.ylim([y_min,y_max*1.1])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/raw_psi.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/raw_psi.png", dpi=170.7)
             plt.close()
 
             upper = func_list[:,950:1000].flatten()
@@ -5438,7 +5440,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             # plt.xticks([])
             # plt.yticks([])
             plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/corrected learned connectivity.tif', dpi=300)
+            plt.savefig(f'./{log_dir}/results/corrected learned connectivity.png', dpi=300)
             plt.close()
 
             print('update functions ...')
@@ -5501,7 +5503,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         # plt.xlim([-5, 5])
 
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/learned_psi_{r}.tif", dpi=170.7)
+                    plt.savefig(f"./{log_dir}/results/learned_psi_{r}.png", dpi=170.7)
                     plt.close()
                 psi_list = torch.stack(psi_list)
                 psi_list = psi_list.squeeze()
@@ -5547,7 +5549,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 else:
                     plt.ylim([-1.6, 1.6])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/learned_psi.tif", dpi=170.7)
+                plt.savefig(f"./{log_dir}/results/learned_psi.png", dpi=170.7)
                 plt.close()
                 psi_list = torch.stack(psi_list)
                 psi_list = psi_list.squeeze()
@@ -5579,7 +5581,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             plt.tight_layout()
             # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim(config.plotting.ylim)
-            plt.savefig(f'./{log_dir}/results/learned phi.tif', dpi=300)
+            plt.savefig(f'./{log_dir}/results/learned phi.png', dpi=300)
             plt.close()
 
             print('UMAP reduction ...')
@@ -5602,7 +5604,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             plt.xlim([-0.2, 1.2])
             plt.ylim([-0.2, 1.2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/UMAP.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/UMAP.png", dpi=170.7)
             plt.close()
 
             config.training.cluster_distance_threshold = 0.1
@@ -5629,7 +5631,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             plt.yticks([])
             plt.axis('off')
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/true_types.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/true_types.png", dpi=170.7)
             plt.close()
 
             plt.figure(figsize=(10, 10))
@@ -5638,7 +5640,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             plt.yticks([])
             plt.axis('off')
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/learned_types.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/learned_types.png", dpi=170.7)
             plt.close()
 
             fig, ax = fig_init()
@@ -5654,7 +5656,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlim([-0.2,0.2])
                 plt.ylim([-0.2,0.2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/first_comparison.tif", dpi=87)
+            plt.savefig(f"./{log_dir}/results/first_comparison.png", dpi=87)
             plt.close()
 
             x_data = np.reshape(gt_weight, (n_neurons * n_neurons))
@@ -5684,7 +5686,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlim([-0.2,0.2])
                 plt.ylim([-0.2,0.2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/second_comparison.tif", dpi=87)
+            plt.savefig(f"./{log_dir}/results/second_comparison.png", dpi=87)
             plt.close()
 
             plt.figure(figsize=(10, 10))
@@ -5702,7 +5704,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             plt.xticks([])
             plt.yticks([])
             plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/final learned connectivity.tif', dpi=300)
+            plt.savefig(f'./{log_dir}/results/final learned connectivity.png', dpi=300)
             plt.close()
 
             if has_ghost:
@@ -5718,7 +5720,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.imshow(to_numpy(prediction), aspect='auto',cmap='viridis')
                     plt.colorbar()
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/learned_activity/learned_activity_{n}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/learned_activity/learned_activity_{n}.png", dpi=80)
                     plt.close()
 
 
@@ -5750,7 +5752,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlabel(r'$x_i$', fontsize=68)
                     plt.ylabel(r'$y_i$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/true_field_derivative.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/true_field_derivative.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -5762,7 +5764,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.ylabel(r'$y_i$', fontsize=68)
                     # plt.colorbar()
                     plt.tight_layout
-                    plt.savefig(f"./{log_dir}/results/field_derivative.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/field_derivative.png", dpi=80)
                     plt.close()
 
                     # fig = plt.figure(figsize=(12, 12))
@@ -5803,7 +5805,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.imshow(im_, cmap='gray')
                         # plt.title(r'neuromodulation $b_i$', fontsize=48)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/xi_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/xi_{frame}.png", dpi=80)
                         plt.close()
 
                         # x = x_list[0][frame]
@@ -5815,7 +5817,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         #             vmin=0, vmax=2, cmap='viridis')
                         # plt.title(r'neuromodulation $b_i$', fontsize=48)
                         # plt.tight_layout()
-                        # plt.savefig(f"./{log_dir}/results/field/bi_{frame}.tif", dpi=80)
+                        # plt.savefig(f"./{log_dir}/results/field/bi_{frame}.png", dpi=80)
                         # plt.close()
                         # fig = plt.figure(figsize=(10, 10.5))
                         # plt.axis('off')
@@ -5825,7 +5827,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         #             vmin=-20, vmax=20, cmap='viridis')
                         # plt.title(r'$x_i$', fontsize=48)
                         # plt.tight_layout()
-                        # plt.savefig(f"./{log_dir}/results/field/xi_{frame}.tif", dpi=80)
+                        # plt.savefig(f"./{log_dir}/results/field/xi_{frame}.png", dpi=80)
                         # plt.close()
 
                     fig, ax = fig_init()
@@ -5840,7 +5842,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xticks([10000, 100000], [10000, 100000], fontsize=48)
                     plt.yticks([0, 512, 1024], [0, 512, 1024], fontsize=48)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/learned_plasticity.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/learned_plasticity.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -5851,7 +5853,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xticks([10000, 100000], [10000, 100000], fontsize=48)
                     plt.yticks([0, 512, 1024], [0, 512, 1024], fontsize=48)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/true_plasticity.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/true_plasticity.png", dpi=80)
                     plt.close()
 
                     prediction = prediction * torch.tensor(second_correction, device=device) / 10
@@ -5877,7 +5879,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlabel(r'true $y_i(t)$', fontsize=68)
                     plt.ylabel(r'learned $y_i(t)$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/comparison_yi.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/comparison_yi.png", dpi=80)
                     plt.close()
 
                 else:
@@ -5902,7 +5904,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.png", dpi=80)
                         plt.close()
 
                         pred = model_f(time=frame / n_frames, enlarge=False) ** 2 * second_correction / 10
@@ -5917,7 +5919,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_LR {epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_LR {epoch}_{frame}.png", dpi=80)
                         plt.close()
 
                         x_data = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
@@ -5938,7 +5940,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.ylabel(r'learned neuromodulation', fontsize=48)
                         plt.text(0.35, 1.5, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}', fontsize=42)
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.png", dpi=80)
                         plt.close()
                         im_list.append(im_)
                         pred_list.append(pred)
@@ -5954,7 +5956,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
-                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_HR {epoch}_{frame}.tif", dpi=80)
+                        plt.savefig(f"./{log_dir}/results/field/reconstructed_field_HR {epoch}_{frame}.png", dpi=80)
                         plt.close()
 
                     im_list = np.array(np.array(im_list))
@@ -5980,7 +5982,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.yticks([])
                     plt.tight_layout()
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.png", dpi=80)
                     plt.close()
 
                     fig, ax = fig_init()
@@ -5990,7 +5992,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlabel(r'true $\Omega_i$', fontsize=68)
                     plt.ylabel(r'learned $\Omega_i$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all_comparison {epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all_comparison {epoch}.png", dpi=80)
                     plt.close()
 
                     x_data = np.reshape(im_list, (100 * n_nodes_per_axis * n_nodes_per_axis))
@@ -6027,7 +6029,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.yticks([])
                 plt.tight_layout()
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.png", dpi=80)
                 plt.close()
 
                 for frame in trange(0, modulation.shape[1], modulation.shape[1] // 257):
@@ -6037,7 +6039,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.axis('off')
                     plt.imshow(im, cmap='gray', vmin=0, vmax=1)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/field/true_field_{frame}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/field/true_field_{frame}.png", dpi=80)
                     plt.close()
 
             if (model.update_type == 'generic') & (model_config.signal_model_name == 'PDE_N5'):
@@ -6101,7 +6103,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.ylabel(r'learned $MLP_0$', fontsize=68)
                 plt.ylim([y_min - y_max / 2, y_max * 1.5])
                 plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/learned_multiple_psi_{epoch}.tif', dpi=300)
+                plt.savefig(f'./{log_dir}/results/learned_multiple_psi_{epoch}.png', dpi=300)
                 plt.close()
 
                 fig, ax = fig_init()
@@ -6114,7 +6116,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.ylabel(r'true functions', fontsize=68)
                 plt.ylim([y_min - y_max / 2, y_max * 1.5])
                 plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/true_multiple_psi.tif', dpi=300)
+                plt.savefig(f'./{log_dir}/results/true_multiple_psi.png', dpi=300)
                 plt.close()
 
                 msg_start = torch.mean(in_features_[:, 3]) - torch.std(in_features_[:, 3])
@@ -6134,7 +6136,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlabel(r'$sum_i$', fontsize=68)
                 plt.ylabel(r'$MLP_0(a_i, x_i=0, sum_i, g_i=1)$', fontsize=48)
                 plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/learned_multivariate_phi_{epoch}.tif', dpi=300)
+                plt.savefig(f'./{log_dir}/results/learned_multivariate_phi_{epoch}.png', dpi=300)
                 plt.close()
 
 
@@ -6191,7 +6193,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 #         plt.plot(to_numpy(u), to_numpy(MLP1_func), c='w', linewidth=3, label='MLPoMLP')
                 #         # plt.legend(fontsize=24)
                 #     plt.tight_layout()
-                #     plt.savefig(f'./{log_dir}/results/generic_MLP0_{epoch}.tif', dpi=300)
+                #     plt.savefig(f'./{log_dir}/results/generic_MLP0_{epoch}.png', dpi=300)
                 #     plt.close()
 
             if False:
@@ -6436,7 +6438,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 # # plt.xlim([0.7, 1.2])
                 # # plt.ylim([0.7, 1.2])
                 # plt.tight_layout()
-                # plt.savefig(f"./{log_dir}/results/all/all_embedding_0_{epoch}.tif", dpi=80)
+                # plt.savefig(f"./{log_dir}/results/all/all_embedding_0_{epoch}.png", dpi=80)
                 # plt.close()
 
                 fig, ax = fig_init()
@@ -6456,7 +6458,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlim([0.7, 1.2])
                 plt.ylim([0.7, 1.2])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/all_embedding_1_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/all_embedding_1_{epoch}.png", dpi=80)
                 plt.close()
 
                 correction = torch.load(f'{log_dir}/correction.pt',map_location=device)
@@ -6477,7 +6479,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xticks([])
                 plt.yticks([])
                 plt.tight_layout()
-                # plt.savefig(f"./{log_dir}/results/all/W_{epoch}.tif", dpi=80)
+                # plt.savefig(f"./{log_dir}/results/all/W_{epoch}.png", dpi=80)
                 plt.close()
 
                 rr = torch.tensor(np.linspace(-5, 5, 1000)).to(device)
@@ -6512,7 +6514,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xticks([])
                     plt.yticks([])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/MLP0_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/MLP0_{epoch}.png", dpi=80)
                 plt.close()
 
                 fig, ax = fig_init()
@@ -6527,7 +6529,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.ylim([-1.1, 1.1])
                 plt.xlim(config.plotting.xlim)
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/MLP1_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/MLP1_{epoch}.png", dpi=80)
                 plt.close()
 
                 adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
@@ -6552,7 +6554,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlim([-0.2, 0.2])
                     plt.ylim([-0.2, 0.2])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all/comparison_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all/comparison_{epoch}.png", dpi=80)
                 plt.close()
 
                 x_data = np.reshape(gt_weight, (n_neurons * n_neurons))
@@ -6580,7 +6582,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xticks([])
                     plt.yticks([])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/field_{epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/field_{epoch}.png", dpi=80)
                     plt.close()
 
         fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
@@ -6592,7 +6594,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
         plt.ylabel('$R^2$', fontsize=64)
         plt.xlabel('epoch', fontsize=64)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/R2.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/R2.png', dpi=300)
         plt.close()
         np.save(f'./{log_dir}/results/R2.npy', r_squared_list)
 
@@ -6606,7 +6608,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
         plt.ylabel('slope', fontsize=64)
         plt.xlabel('epoch', fontsize=64)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/slope.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/slope.png', dpi=300)
         plt.close()
 
     elif epoch_list[0] == 'time':
@@ -6652,7 +6654,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
             plt.text(0.72, 1.16, f'time: {n}', fontsize=48)
 
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/all2/all_embedding_1_{n}.tif", dpi=80)
+            plt.savefig(f"./{log_dir}/results/all2/all_embedding_1_{n}.png", dpi=80)
             plt.close()
 
 
@@ -6675,7 +6677,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.ylim([-8,8])
                 plt.xlim([-5,5])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/all2/phi_{n}.tif", dpi=80)
+            plt.savefig(f"./{log_dir}/results/all2/phi_{n}.png", dpi=80)
             plt.close()
 
             # rr = torch.tensor(np.linspace(-5, 5, 1000)).to(device)
@@ -6707,7 +6709,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
             #     plt.xlim([-5, 5])
             #     plt.tight_layout()
             #
-            # plt.savefig(f"./{log_dir}/results/all/MLP0_{epoch}.tif", dpi=80)
+            # plt.savefig(f"./{log_dir}/results/all/MLP0_{epoch}.png", dpi=80)
             # plt.close()
 
     else:
@@ -6719,7 +6721,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
         plt.xticks(fontsize=24)
         plt.yticks(fontsize=24)
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/signal_distribution.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/signal_distribution.png', dpi=300)
         plt.close()
         print(f'mean: {np.mean(distrib):0.2f}  std: {np.std(distrib):0.2f}')
         logger.info(f'mean: {np.mean(distrib):0.2f}  std: {np.std(distrib):0.2f}')
@@ -6735,7 +6737,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
         # plt.yticks([0, 999], [1, 1000], fontsize=48)
         # plt.xticks(rotation=0)
         # plt.tight_layout()
-        # plt.savefig(f'./{log_dir}/results/kinograph.tif', dpi=300)
+        # plt.savefig(f'./{log_dir}/results/kinograph.png', dpi=300)
         # plt.close()
         #
         # plt.figure(figsize=(15, 10))
@@ -6747,7 +6749,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
         # plt.xticks([0, 10000], fontsize=48)
         # plt.yticks(fontsize=48)
         # plt.tight_layout()
-        # plt.savefig(f'./{log_dir}/results/firing rate.tif', dpi=300)
+        # plt.savefig(f'./{log_dir}/results/firing rate.png', dpi=300)
         # plt.close()
 
         adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
@@ -6766,7 +6768,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
         plt.xticks(fontsize=24)
         plt.xlim([-0.1, 0.1])
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/weights_distribution.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/weights_distribution.png', dpi=300)
         plt.close()
 
         plt.figure(figsize=(10, 10))
@@ -6782,7 +6784,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
         plt.xticks([])
         plt.yticks([])
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/true connectivity.tif', dpi=300)
+        plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
         plt.close()
 
         true_model, bc_pos, bc_dpos = choose_model(config=config, W=adjacency, device=device)
@@ -6821,7 +6823,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xticks([])
                     plt.yticks([])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.png", dpi=80)
                     plt.close()
 
 
@@ -6837,7 +6839,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xticks([])
                     plt.yticks([])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/field/reconstructed_field_HR {epoch}_{frame}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/field/reconstructed_field_HR {epoch}_{frame}.png", dpi=80)
                     plt.close()
 
                     pred = model_f(time=frame / n_frames, enlarge=False) ** 2
@@ -6851,7 +6853,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xticks([])
                     plt.yticks([])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/field/reconstructed_field_LR {epoch}_{frame}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/field/reconstructed_field_LR {epoch}_{frame}.png", dpi=80)
                     plt.close()
 
                     x_data = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
@@ -6872,7 +6874,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.ylabel(r'learned $\Omega_i$', fontsize=68)
                     plt.text(0.5, 1.4, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}', fontsize=48)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.png", dpi=80)
                     plt.close()
                     im_list.append(im_)
                     pred_list.append(pred)
@@ -6887,7 +6889,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlabel(r'true $\Omega_i$', fontsize=68)
                 plt.ylabel(r'learned $\Omega_i$', fontsize=68)
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/field/all_comparison {epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/field/all_comparison {epoch}.png", dpi=80)
                 plt.close()
 
                 x_data = np.reshape(im_list, (100 * n_nodes_per_axis * n_nodes_per_axis))
@@ -6911,7 +6913,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlim([0, 2])
                     ax.set_zlim([-2, 3.5])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/embedding_{k}_{epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/embedding_{k}_{epoch}.png", dpi=80)
                     plt.close()
 
                 fig = plt.figure(figsize=(10, 10))
@@ -6926,7 +6928,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlim([0, 1.5])
                 ax.set_zlim([-2, 2.5])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.png", dpi=80)
                 plt.close()
 
             else:
@@ -6945,7 +6947,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlabel(r'$a_{i0}(t)$', fontsize=68)
                     plt.ylabel(r'$a_{i1}(t)$', fontsize=68)
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all_embedding_0_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all_embedding_0_{epoch}.png", dpi=80)
                 plt.close()
 
                 fig, ax = fig_init()
@@ -6961,7 +6963,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.xlabel(r'$a_{i0}(t)$', fontsize=68)
                     plt.ylabel(r'$a_{i1}(t)$', fontsize=68)
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/all_embedding_1_{epoch}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/results/all_embedding_1_{epoch}.png", dpi=80)
                 plt.close()
 
                 for k in range(n_neuron_types):
@@ -6975,7 +6977,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xlabel(r'$a_{0}$', fontsize=68)
                         plt.ylabel(r'$a_{1}$', fontsize=68)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/embedding_{k}_{epoch}.tif", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/embedding_{k}_{epoch}.png", dpi=80)
                     plt.close()
 
 
@@ -7005,7 +7007,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.ylim([-8,8])
                 plt.xlim([-5,5])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/phi_{k}.tif", dpi=170.7)
+                plt.savefig(f"./{log_dir}/results/phi_{k}.png", dpi=170.7)
                 plt.close()
 
             fig, ax = fig_init()
@@ -7031,7 +7033,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
             plt.ylabel(r'Learned $\psi^*(a_i, x_i)$', fontsize=68)
             plt.xlim([-5,5])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/raw_psi.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/raw_psi.png", dpi=170.7)
             plt.close()
 
             correction = 1 / torch.mean(torch.mean(func_list[:,900:1000], dim=0))
@@ -7060,7 +7062,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
             plt.ylim([-1.1, 1.1])
             plt.xlim(config.plotting.xlim)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/learned_psi.tif", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/learned_psi.png", dpi=170.7)
             plt.close()
 
 
@@ -7081,7 +7083,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 plt.xlim([-0.2,0.2])
                 plt.ylim([-0.2,0.2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/comparison_{epoch}.tif", dpi=87)
+            plt.savefig(f"./{log_dir}/results/comparison_{epoch}.png", dpi=87)
             plt.close()
 
             x_data = np.reshape(gt_weight, (n_neurons * n_neurons))
@@ -7113,7 +7115,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
             plt.xticks([])
             plt.yticks([])
             plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/learned connectivity.tif', dpi=300)
+            plt.savefig(f'./{log_dir}/results/learned connectivity.png', dpi=300)
             plt.close()
 
 
@@ -7155,7 +7157,7 @@ def plot_loss_curves(log_dir, ylim=None):
     if ylim:
         plt.ylim(ylim)
     plt.tight_layout()
-    plt.savefig(log_dir+'/loss_curves.tif', dpi=150)
+    plt.savefig(log_dir+'/loss_curves.png', dpi=150)
     plt.close()
 
 
@@ -7198,7 +7200,6 @@ def data_plot(config, config_file, epoch_list, style, device):
     for f in files:
         os.remove(f)
 
-
     if epoch_list==['best']:
         files = glob.glob(f"{log_dir}/models/*")
         files.sort(key=sort_key)
@@ -7218,49 +7219,10 @@ def data_plot(config, config_file, epoch_list, style, device):
         plt.ylabel('loss', fontsize=68)
         plt.xlabel('epochs', fontsize=68)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/loss.tif", dpi=170.7)
+        plt.savefig(f"./{log_dir}/results/loss.png", dpi=170.7)
         plt.close()
         # print('final loss {:.3e}'.format(loss[-1]))
         # logger.info('final loss {:.3e}'.format(loss[-1]))
-
-    match config.graph_model.particle_model_name:
-        case 'PDE_Agents_A' | 'PDE_Agents_B':
-            plot_agents(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_Cell_A' | 'PDE_Cell_B' | 'PDE_Cell' | 'PDE_Cell_area':
-            if config.training.do_tracking:
-                plot_cell_tracking(config, epoch_list, log_dir, logger, style, device)
-            else:
-                plot_cell_state(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_A':
-            if config.simulation.non_discrete_level>0:
-                plot_attraction_repulsion_continuous(config, epoch_list, log_dir, logger, style, device)
-            elif config.training.do_tracking:
-                plot_attraction_repulsion_tracking(config, epoch_list, log_dir, logger, style, device)
-            else:
-                plot_attraction_repulsion(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_A_bis':
-            plot_attraction_repulsion_asym(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_B' | 'PDE_Cell_B':
-            plot_boids(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_ParticleField_B' | 'PDE_ParticleField_A':
-            plot_particle_field(config, epoch_list, log_dir, logger, 'grey', style, device)
-        case 'PDE_E':
-            plot_Coulomb(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_F' | 'PDE_F_A' | 'PDE_F_B' | 'PDE_F_C' | 'PDE_F_D' | 'PDE_F_E' | 'PDE_M'| 'PDE_MLPs_A'| 'PDE_MLPs_A_bis'| 'PDE_MLPs_A_ter' | 'PDE_MLPs_B'| 'PDE_MLPs_B_0' |'PDE_MLPs_B_1' | 'PDE_MLPs_B_4'| 'PDE_MLPs_B_10' | 'PDE_MLPs_C'| 'PDE_MLPs_D' | 'PDE_MLPs_E' | 'PDE_MLPs_F':
-            plot_falling_particles(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_G':
-            if config_file == 'gravity_continuous':
-                plot_gravity_continuous(config, epoch_list, log_dir, logger, style, device)
-            else:
-                plot_gravity(config, epoch_list, log_dir, logger, style, device)
-        case 'PDE_R':
-                plot_mouse(config, epoch_list, log_dir, logger, style, device)
-
-    match config.graph_model.mesh_model_name:
-        case 'WaveMesh':
-            plot_wave(config=config, epoch_list=epoch_list, log_dir=log_dir, logger=logger, cc='viridis', style=style, device=device)
-        case 'RD_Mesh' | 'RD_Mesh2' | 'RD_Mesh3':
-            plot_RD_mesh(config=config, epoch_list=epoch_list, log_dir=log_dir, logger=logger, cc='viridis',  style=style, device=device)
 
     if ('PDE_N' in config.graph_model.signal_model_name):
         if ('PDE_N3' in config.graph_model.signal_model_name):
@@ -7282,48 +7244,7 @@ def get_figures(index):
 
     epoch_list = ['20']
     match index:
-        case '3':
-            config_list = ['arbitrary_3', 'arbitrary_3_continuous', 'arbitrary_3_3', 'arbitrary_16', 'arbitrary_32','arbitrary_64']
-        case '4':
-            config_list = ['arbitrary_3_field_video_bison_test']
-        case '4_bis':
-            config_list = ['arbitrary_3_field_video_bison']
-        case 'supp1':
-            config_list = ['arbitrary_3']
-            epoch_list= ['0_0', '0_200', '0_1000', '20']
-        case 'supp4':
-            config_list = ['arbitrary_16', 'arbitrary_16_noise_0_3', 'arbitrary_16_noise_0_4', 'arbitrary_16_noise_0_5']
-        case 'supp5':
-            config_list = ['arbitrary_3_dropout_30', 'arbitrary_3_dropout_10', 'arbitrary_3_dropout_10_no_ghost']
-        case 'supp6':
-            config_list = ['arbitrary_3_field_boats']
-        case 'supp7':
-            config_list = ['gravity_16']
-            epoch_list= ['20', '0_0', '0_5000', '1_0']
-        case 'supp8':
-            config_list = ['gravity_16', 'gravity_continuous', 'Coulomb_3_256']
-        case 'supp9':
-            config_list = ['gravity_16_noise_0_4', 'Coulomb_3_noise_0_4', 'Coulomb_3_noise_0_3', 'gravity_16_noise_0_3']
-        case 'supp10':
-            config_list = ['gravity_16_dropout_10', 'gravity_16_dropout_30', 'Coulomb_3_dropout_10_no_ghost', 'Coulomb_3_dropout_10']
-        case 'supp11':
-            config_list = ['boids_16_256']
-            epoch_list = ['0_0', '0_2000', '0_10000', '20']
-        case 'supp12':
-            config_list = ['boids_16_256', 'boids_32_256', 'boids_64_256']
-        case 'supp14':
-            config_list = ['boids_16_noise_0_3', 'boids_16_noise_0_4', 'boids_16_dropout_10', 'boids_16_dropout_10_no_ghost']
-        case 'supp15':
-            config_list = ['wave_slit_ter']
-            epoch_list = ['20', '0_1600', '1', '5']
-        case 'supp16':
-            config_list = ['wave_boat_ter']
-            epoch_list = ['20', '0_1600', '1', '5']
-        case 'supp17':
-            config_list = ['RD_RPS']
-        case 'supp18':
-            config_list = ['signal_N_100_2_a']
-
+        
         case 'synaptic_2_fig2':
             config_list = ['signal_N2_a10']
             epoch_list = ['best']
@@ -7336,7 +7257,6 @@ def get_figures(index):
 
         case _:
             config_list = []
-
 
     match index:
         case 'synaptic_2':
@@ -7377,7 +7297,7 @@ def get_figures(index):
                 plt.plot(r_squared_list, linewidth = 4, label=f'{(it_list[it])*10000}')
                 plt.legend(fontsize=20)
             plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/R2_all.tif', dpi=300)
+            plt.savefig(f'./{log_dir}/results/R2_all.png', dpi=300)
             plt.close()
 
         case 'synaptic_supp5':
@@ -7405,9 +7325,8 @@ def get_figures(index):
                 plt.plot(r_squared_list, linewidth = 4, label=labels[it])
                 plt.legend(fontsize=20)
             plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/R2_all.tif', dpi=300)
+            plt.savefig(f'./{log_dir}/results/R2_all.png', dpi=300)
             plt.close()
-
 
 
         case '3' | '4' |'4_bis' | 'supp4' | 'supp5' | 'supp6' | 'supp7' | 'supp8' | 'supp9' | 'supp10' | 'supp11' | 'supp12' | 'supp15' |'supp16' |'supp18':
@@ -7420,177 +7339,6 @@ def get_figures(index):
                 print(' ')
                 print(' ')
 
-        case 'supp1':
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True, bSave=True, step=config.simulation.n_frames // 3)
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=0, style='latex bw', alpha=1, erase=True, bSave=True, step=config.simulation.n_frames // 3)
-            for config_file in config_list:
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                data_plot(config=config, config_file=config_file, epoch_list=epoch_list, device=device)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                              best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                              sample_embedding=False, device=device)
-
-        case 'supp2':
-            config_file = 'arbitrary_3_bis'
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='stripes', ratio = 1, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=False, device=device)
-            config_file = 'arbitrary_3_ter'
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_ter.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='pattern', ratio = 1, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=True, device=device)
-            config_file = 'arbitrary_3_quad'
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_quad.yaml')
-            # data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-            #               scenario='pattern', ratio = 3, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=True, ratio = 3, device=device)
-
-        case 'supp3':
-            config_file = 'arbitrary_3_bis'
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='uniform 0', ratio = 3, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=True, device=device)
-            config_file = 'arbitrary_3_ter'
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_ter.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='uniform 1', ratio = 3, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=True, device=device)
-            config_file = 'arbitrary_3_quad'
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_quad.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='uniform 2', ratio = 3, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=True, ratio = 3, device=device)
-
-        case 'supp6':
-            config_file = 'arbitrary_3_field_boats'
-            config = NeuralGraphConfig.from_yaml(f'./config/arbitrary_3_field_boats.yaml')
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=False, device=device)
-
-        case 'supp7':
-            config = NeuralGraphConfig.from_yaml(f'./config/gravity_16_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex bw', alpha=1, erase=True,
-                          scenario='stripes', ratio=1, bSave=True, step=config.simulation.n_frames // 3)
-            config_file = 'gravity_16'
-            config = NeuralGraphConfig.from_yaml(f'./config/gravity_16.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='stripes', ratio=1, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=False, device=device)
-
-        case 'supp11':
-            config = NeuralGraphConfig.from_yaml(f'./config/boids_16_256_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex bw', alpha=1, erase=True,
-                          scenario='', ratio=1, bSave=True, step=config.simulation.n_frames // 3)
-            config_file = 'boids_16_256'
-            config = NeuralGraphConfig.from_yaml(f'./config/boids_16_256.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='', ratio=1, bSave=True, step=config.simulation.n_frames // 3)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                      sample_embedding=False, device=device)
-
-        case 'supp13':
-
-            r=[]
-            for n in range(16):
-                result = np.load(f'./log/try_boids_16_256_{n}/rmserr_geomloss_boids_16_256_{n}.npy')
-                print (n,result)
-                r.append(result)
-            print('mean',np.mean(r,axis=0))
-
-            config = NeuralGraphConfig.from_yaml(f'./config/boids_16_256_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1,
-                          erase=True,
-                          scenario='stripes', ratio=4, bSave=True, step=config.simulation.n_frames // 7)
-            config_file = f'boids_16_256_bis'
-            config = NeuralGraphConfig.from_yaml(f'./config/boids_16_256_bis.yaml')
-            data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 7, test_simulation=False,
-                      sample_embedding=True, device=device)
-
-            for n in range(16):
-                copyfile(f'./config/boids_16_256.yaml', f'./config/boids_16_256_{n}.yaml')
-                config_file = f'boids_16_256_{n}'
-                config = NeuralGraphConfig.from_yaml(f'./config/boids_16_256_{n}.yaml')
-                data_generate(config, device=device, visualize=True, run_vizualized=1, style='no_ticks color', alpha=1, erase=True,
-                              scenario=f'uniform {n}', ratio=4, bSave=True, step=config.simulation.n_frames // 3)
-                data_test(config=config, config_file=config_file, visualize=True, style='no_ticks color', verbose=False,
-                          best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                          sample_embedding=True, device=device)
-
-        case 'supp15':
-            config = NeuralGraphConfig.from_yaml(f'./config/wave_slit_ter.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='', ratio=1, bSave=True, step=config.simulation.n_frames // 3)
-            config_file = 'wave_slit_bis'
-            config = NeuralGraphConfig.from_yaml(f'./config/wave_slit_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1,
-                          erase=True,
-                          scenario='', ratio=1, bSave=True, step=config.simulation.n_frames // 100)
-            config_file = 'wave_slit_bis'
-            config = NeuralGraphConfig.from_yaml(f'./config/wave_slit_bis.yaml')
-            data_test(config=config, config_file=config_file, visualize=True, style='latex color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 100, test_simulation=False,
-                      sample_embedding=False, device=device)
-
-        case 'supp16':
-            config = NeuralGraphConfig.from_yaml(f'./config/wave_boat_ter.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True,
-                          scenario='', ratio=1, bSave=True, step=config.simulation.n_frames // 3)
-            config_file = 'wave_boat_bis'
-            config = NeuralGraphConfig.from_yaml(f'./config/wave_boat_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1,
-                          erase=True,
-                          scenario='', ratio=1, bSave=True, step=config.simulation.n_frames // 3)
-            config_file = 'wave_boat_bis'
-            config = NeuralGraphConfig.from_yaml(f'./config/wave_boat_bis.yaml')
-            data_test(config=config, config_file=config_file, visualize=True, style='latex color', verbose=False,
-                      best_model=20, run=1, step=config.simulation.n_frames // 100, test_simulation=False,
-                      sample_embedding=False, device=device)
-
-        case 'supp17':
-            config = NeuralGraphConfig.from_yaml(f'./config/RD_RPS.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True, bSave=True, step=config.simulation.n_frames // 3)
-            config = NeuralGraphConfig.from_yaml(f'./config/RD_RPS_bis.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True, bSave=True, step=config.simulation.n_frames // 3)
-            for config_file in config_list:
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                data_plot(config=config, config_file=config_file, epoch_list=epoch_list, device=device)
-            data_test(config=config, config_file=config_file, visualize=True, style='latex color', verbose=False,
-                              best_model=20, run=1, step=config.simulation.n_frames // 3, test_simulation=False,
-                              sample_embedding=False, device=device)
-
-        case 'supp18':
-            config = NeuralGraphConfig.from_yaml(f'./config/signal_N_100_2.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True, bSave=True, step=config.simulation.n_frames // 3)
-            config = NeuralGraphConfig.from_yaml(f'./config/signal_N_100_2_a.yaml')
-            data_generate(config, device=device, visualize=True, run_vizualized=1, style='latex color', alpha=1, erase=True, bSave=True, step=config.simulation.n_frames // 3)
-            for config_file in config_list:
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                data_plot(config=config, config_file=config_file, epoch_list=epoch_list, device=device)
-            data_test(config=config, config_file=config_file, visualize=True, style=' color', verbose=False,
-                              best_model=20, run=0, step=config.simulation.n_frames // 100, test_simulation=False,
-                              sample_embedding=False, device=device)
 
     print(' ')
     print(' ')
@@ -7598,7 +7346,7 @@ def get_figures(index):
     return config_list,epoch_list
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':-
 
     warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -7679,8 +7427,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_43_1', 'fly_N9_43_2', 'fly_N9_43_3', 'fly_N9_43_4', 'fly_N9_43_5']
     # data_flyvis_compare(config_list, 'training.loss_noise_level')
 
-    config_list = ['fly_N9_44_6', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_7', 'fly_N9_44_8']
-    data_flyvis_compare(config_list, 'training.noise_model_level')
+    # config_list = ['fly_N9_44_6', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_7', 'fly_N9_44_8']
+    # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
 
@@ -7701,20 +7449,22 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     # data_flyvis_compare(config_list, 'simulation.n_extra_null_edges')
+    
+    config_list = ['fly_N9_44_6', 'fly_N9_51_2', 'fly_N9_37_2']
 
-    # for config_file_ in config_list:
-    #     print(' ')
-    #
-    #     config_file, pre_folder = add_pre_folder(config_file_)
-    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-    #     config.dataset = pre_folder + config.dataset
-    #     config.config_file = pre_folder + config_file_
-    #
-    #     print(f'config_file  {config.config_file}')
-    #
-    #     folder_name = './log/' + pre_folder + '/tmp_results/'
-    #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    for config_file_ in config_list:
+        print(' ')
+
+        config_file, pre_folder = add_pre_folder(config_file_)
+        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+        config.dataset = pre_folder + config.dataset
+        config.config_file = pre_folder + config_file_
+
+        print(f'config_file  {config.config_file}')
+
+        folder_name = './log/' + pre_folder + '/tmp_results/'
+        os.makedirs(folder_name, exist_ok=True)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
 

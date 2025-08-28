@@ -1458,11 +1458,11 @@ def analysis_J_W(J, W_true):
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0
     f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
 
-    print(f"True connections: {true_mask.sum()}")
-    print(f"Predicted connections: {pred_mask.sum()}")
-    print(f"True positives: {tp}")
-    print(f"Precision: {precision:.3f}")
-    print(f"Recall: {recall:.3f}")
+    print(f"true connections: {true_mask.sum()}")
+    print(f"predicted connections: {pred_mask.sum()}")
+    print(f"true positives: {tp}")
+    print(f"precision: {precision:.3f}")
+    print(f"recall: {recall:.3f}")
     print(f"F1-score: {f1:.3f}")
 
     # Coupling strength correlation for true connections
@@ -1470,7 +1470,7 @@ def analysis_J_W(J, W_true):
         true_vals = W_true_np[true_mask & pred_mask]
         pred_vals = J_matrix[true_mask & pred_mask]
         corr = np.corrcoef(true_vals, pred_vals)[0, 1]
-        print(f"Weight correlation (true connections): {corr:.3f}")
+        print(f"weight correlation (true connections): {corr:.3f}")
 
     return precision, recall, f1
 

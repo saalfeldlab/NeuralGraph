@@ -59,24 +59,14 @@ if __name__ == "__main__":
     else:
         best_model = None
         task = 'generate'  # 'generate', 'train', 'test'
-        # config_list = ['multimaterial_1_2', 'multimaterial_1_3', 'multimaterial_1_4', 'multimaterial_1_5', 'multimaterial_1_6', 'multimaterial_1_7', 'multimaterial_1_8']
-        # config_list = ['multimaterial_1_C']
-        # config_list = ['multimaterial_1_12']
-        # config_list = ['multimaterial_2_3']
-        # config_list = ['fluids_m19']
-        # config_list = ['falling_water_ramp_x6_11_1']
-        # config_list = ['arbitrary_3']
-        # config_list = ['cell_cardio_2_4']
-        # config_list = ['RD_RPS_5']
-        # config_list = ['cell_U2OS_9_2']
-        # config_list = ['springs_matrix_N5_3']
-        # config_list = ['cell_MDCK_16']
+
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
-        config_list = ['signal_N5_v1','signal_N5_v2','signal_N5_v3','signal_N5_v4']
+        config_list = ['signal_N5_v1', 'signal_N5_v3','signal_N5_v4']
         # config_list = ['signal_fig_supp6_4']
+
         # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
-        # config_list = ['fly_N9_34_1', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
+        # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
     for config_file_ in config_list:
