@@ -1432,6 +1432,49 @@ def select_frames_by_energy(E, strategy='critical', Ising_filter=None):
     return np.sort(np.unique(selected))
 
 
+def analysis_J_W(J, W_true):
+    """Compare Ising couplings J against true connectivity W_true"""
+
+    # Convert J to matrix
+    n_neurons = len(J)
+    J_matrix = np.zeros((n_neurons, n_neurons))
+    for i, Ji in enumerate(J):
+        for j, val in Ji.items():
+            J_matrix[i, j] = val
+            J_matrix[j, i] = val  # Symmetric
+
+    # Convert to binary masks
+    W_true_np = W_true.cpu().numpy() if hasattr(W_true, 'cpu') else W_true
+    true_mask = (W_true_np != 0)
+    pred_mask = (J_matrix != 0)
+
+    # Calculate metrics
+    tp = (true_mask & pred_mask).sum()
+    fp = (~true_mask & pred_mask).sum()
+    fn = (true_mask & ~pred_mask).sum()
+    tn = (~true_mask & ~pred_mask).sum()
+
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+
+    print(f"True connections: {true_mask.sum()}")
+    print(f"Predicted connections: {pred_mask.sum()}")
+    print(f"True positives: {tp}")
+    print(f"Precision: {precision:.3f}")
+    print(f"Recall: {recall:.3f}")
+    print(f"F1-score: {f1:.3f}")
+
+    # Coupling strength correlation for true connections
+    if tp > 0:
+        true_vals = W_true_np[true_mask & pred_mask]
+        pred_vals = J_matrix[true_mask & pred_mask]
+        corr = np.corrcoef(true_vals, pred_vals)[0, 1]
+        print(f"Weight correlation (true connections): {corr:.3f}")
+
+    return precision, recall, f1
+
+
 
 
 
