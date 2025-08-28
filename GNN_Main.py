@@ -73,9 +73,9 @@ if __name__ == "__main__":
         # config_list = ['cell_MDCK_16']
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
-        # config_list = ['signal_N5_v11_bis']
+        config_list = ['signal_N5_v11']
         # config_list = ['signal_fig_supp6_4']
-        config_list = ['fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
+        # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
         # config_list = ['fly_N9_34_1', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
@@ -101,7 +101,7 @@ if __name__ == "__main__":
                 alpha=1,
                 erase=False,
                 bSave=True,
-                step=1
+                step=1000
             )  # config.simulation.n_frames // 100)
             
         if "train" in task:
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 run=0,
                 test_mode="",
                 sample_embedding=False,
-                step=20,
+                step=5,
                 device=device,
                 particle_of_interest=0,
             )  # particle_of_interest=100,  'fixed_bounce_all'

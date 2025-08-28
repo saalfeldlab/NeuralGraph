@@ -895,6 +895,9 @@ def data_generate_synaptic(
         plt.style.use("dark_background")
 
     for run in range(config.training.n_runs):
+
+        id_fig = 0
+
         X = torch.zeros((n_neurons, n_frames + 1), device=device)
 
         x_list = []
@@ -1057,15 +1060,9 @@ def data_generate_synaptic(
                 elif "PDE_N3" in model_config.signal_model_name:
                     y = model(dataset, has_field=False, alpha=it / n_frames)
                 elif "PDE_N6" in model_config.signal_model_name:
-                    (
-                        y,
-                        p,
-                    ) = model(dataset, has_field=False)
+                    (y,p,) = model(dataset, has_field=False)
                 elif "PDE_N7" in model_config.signal_model_name:
-                    (
-                        y,
-                        p,
-                    ) = model(dataset, has_field=False)
+                    (y,p,) = model(dataset, has_field=False)
                 else:
                     y = model(dataset, has_field=False)
 
@@ -1107,22 +1104,23 @@ def data_generate_synaptic(
                     rc("font", **{"family": "serif", "serif": ["Palatino"]})
 
                 matplotlib.rcParams["savefig.pad_inches"] = 0
-                num = f"{it:06}"
+                num = f"{id_fig:06}"
+                id_fig += 1
 
                 if "visual" in field_type:
                     fig = plt.figure(figsize=(8, 8))
                     plt.axis("off")
                     plt.subplot(211)
                     plt.axis("off")
-                    plt.title("neuromodulation $b_i$", fontsize=24)
+                    plt.title("$b_i$", fontsize=24)
                     plt.scatter(
                         to_numpy(X1[0:1024, 1]) * 0.95,
                         to_numpy(X1[0:1024, 0]) * 0.95,
                         s=15,
                         c=to_numpy(A1[0:1024, 0]),
                         cmap="viridis",
-                        vmin=-4,
-                        vmax=4,
+                        vmin=0,
+                        vmax=2,
                     )
                     plt.scatter(
                         to_numpy(X1[1024:, 1]) * 0.95 + 0.2,
@@ -1163,9 +1161,7 @@ def data_generate_synaptic(
                     plt.xticks([])
                     plt.yticks([])
                     plt.tight_layout()
-                    plt.savefig(
-                        f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.tif", dpi=170
-                    )
+                    plt.savefig(f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.png", dpi=80)
                     plt.close()
 
                 elif "modulation" in field_type:
@@ -1194,7 +1190,7 @@ def data_generate_synaptic(
                     plt.yticks([])
                     plt.tight_layout()
                     plt.savefig(
-                        f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.tif", dpi=170
+                        f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.png", dpi=80
                     )
                     plt.close()
 
@@ -1284,10 +1280,71 @@ def data_generate_synaptic(
                         plt.yticks([])
                         plt.tight_layout()
                         plt.savefig(
-                            f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.tif",
+                            f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.png",
                             dpi=80,
                         )
                         plt.close()
+
+        print(f"Generated {len(x_list)} frames total")
+
+        if visualize & (run == run_vizualized):
+            print('generating lossless video ...')
+
+            config_indices = dataset_name.split('signal_')[1] if 'signal_' in dataset_name else 'no_id'
+            src = f"./graphs_data/{dataset_name}/Fig/Fig_0_000000.png"
+            dst = f"./graphs_data/{dataset_name}/input_{config_indices}.png"
+            with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
+                fdst.write(fsrc.read())
+
+            generate_lossless_video_ffv1(output_dir=f"./graphs_data/{dataset_name}", run=run,
+                                         config_indices=config_indices, framerate=20)
+            generate_lossless_video_libx264(output_dir=f"./graphs_data/{dataset_name}", run=run,
+                                            config_indices=config_indices, framerate=20)
+            generate_compressed_video_mp4(output_dir=f"./graphs_data/{dataset_name}", run=run,
+                                          config_indices=config_indices, framerate=20)
+
+            files = glob.glob(f'./graphs_data/{dataset_name}/Fig/*')
+            for f in files:
+                os.remove(f)
+
+            print('Ising analysis ...')
+            x_list = np.array(x_list)
+            y_list = np.array(y_list)
+
+            energy_stride = 1
+            s, h, J, E = sparse_ising_fit_fast(x=x_list, voltage_col=6, top_k=20, block_size=2000,
+                                               energy_stride=energy_stride)
+
+            fig = plt.figure(figsize=(12, 10))
+            plt.subplot(2, 2, (1, 2))
+            plt.plot(np.arange(0, len(E) * energy_stride, energy_stride), E, lw=0.5, c='white')
+            plt.xlabel("Frame", fontsize=18)
+            plt.ylabel("Energy", fontsize=18)
+            plt.title("Ising Energy Over Frames", fontsize=18)
+            plt.xlim(0, 600)
+            plt.xticks(np.arange(0, 601, 100), fontsize=12)  # Only show every 100 frames
+            plt.yticks(fontsize=12)
+
+            plt.subplot(2, 2, 3)
+            plt.hist(E, bins=200, color='salmon', edgecolor='k', density=True)
+            plt.xlabel("Energy", fontsize=18)
+            plt.ylabel("Density", fontsize=18)
+            plt.title("Energy Distribution", fontsize=18)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+
+            # Panel 3: Couplings histogram
+            plt.subplot(2, 2, 4)
+            plt.hist(J_vals, bins=100, color='skyblue', edgecolor='k', density=True)
+            plt.xlabel(r"Coupling strength $J_{ij}$", fontsize=18)
+            plt.ylabel("Density", fontsize=18)
+            plt.title("Sparse Couplings Histogram", fontsize=18)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+
+            plt.tight_layout()
+            plt.savefig(f"graphs_data/{dataset_name}/E_panels.png", dpi=150)
+            plt.close(fig)
 
         if bSave:
             x_list = np.array(x_list)
