@@ -292,7 +292,6 @@ def init_mesh(config, device):
     face = torch.from_numpy(tri.simplices)
     face_longest_edge = np.zeros((face.shape[0], 1))
 
-    print('removal of skinny faces ...')
     sleep(0.5)
     for k in trange(face.shape[0]):
         # compute edge distances
@@ -579,6 +578,7 @@ def generate_lossless_video_ffv1(output_dir, run=0, framerate=10, output_name="_
     ffmpeg_cmd = [
         "ffmpeg",
         "-y",
+        "-loglevel", "error",  # Suppress verbose output
         "-framerate", str(framerate),
         "-i", input_pattern,
         "-c:v", "ffv1",
@@ -587,9 +587,9 @@ def generate_lossless_video_ffv1(output_dir, run=0, framerate=10, output_name="_
         output_path,
     ]
 
-    print(f"Generating lossless video (FFV1): {' '.join(ffmpeg_cmd)}")
+    # print(f"Generating lossless video (FFV1): {' '.join(ffmpeg_cmd)}")
     subprocess.run(ffmpeg_cmd, check=True)
-    print(f"Lossless video (FFV1) saved to: {output_path}")
+    print(f"lossless video (FFV1) saved to: {output_path}")
 
 
 def generate_lossless_video_libx264(output_dir, run=0, framerate=10, output_name="_libx264.mkv", config_indices=None):
@@ -609,6 +609,7 @@ def generate_lossless_video_libx264(output_dir, run=0, framerate=10, output_name
     command = [
         "ffmpeg",
         "-y",
+        "-loglevel", "error",  # Suppress verbose output
         "-framerate", str(framerate),
         "-i", input_pattern,
         "-c:v", "libx264",
@@ -618,9 +619,9 @@ def generate_lossless_video_libx264(output_dir, run=0, framerate=10, output_name
         output_path
     ]
 
-    print(f"Generating lossless video (libx264): {' '.join(command)}")
+    # print(f"Generating lossless video (libx264): {' '.join(command)}")
     subprocess.run(command, check=True)
-    print(f"Lossless video (libx264) saved to: {output_path}")
+    print(f"lossless video (libx264) saved to: {output_path}")
 
 
 def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=".mp4", config_indices=None, crf=23):
@@ -649,6 +650,7 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name="
     ffmpeg_cmd = [
         "ffmpeg",
         "-y",
+        "-loglevel", "error",  # Suppress verbose output
         "-framerate", str(framerate),
         "-i", input_pattern,
         "-vf", "scale='trunc(iw/2)*2:trunc(ih/2)*2'",
@@ -659,8 +661,8 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name="
         output_path,
     ]
 
-    print(f"Generating compressed video (libx264): {' '.join(ffmpeg_cmd)}")
+    # print(f"Generating compressed video (libx264): {' '.join(ffmpeg_cmd)}")
     subprocess.run(ffmpeg_cmd, check=True)
-    print(f"Compressed video (libx264) saved to: {output_path}")
+    print(f"compressed video (libx264) saved to: {output_path}")
 
 

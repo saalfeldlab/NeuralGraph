@@ -62,7 +62,7 @@ def data_generate(
     dataset_name = config.dataset
 
     print("")
-    print(f"dataset_name: {dataset_name}")
+    print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
     if (os.path.isfile(f"./graphs_data/{dataset_name}/x_list_0.npy")) | (
         os.path.isfile(f"./graphs_data/{dataset_name}/x_list_0.pt")
@@ -668,7 +668,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             if it >= target_frames:
                 break
 
-    print(f"Generated {len(x_list)} frames total")
+    print(f"generated {len(x_list)} frames total")
 
     if visualize & (run == run_vizualized):
         print('generating lossless video ...')
@@ -1312,7 +1312,7 @@ def data_generate_synaptic(
             s, h, J, E = sparse_ising_fit_fast(x=x_list, voltage_col=6, top_k=20, block_size=2000,
                                                energy_stride=energy_stride)
 
-            precision_recall_analysis(J, W_true)
+            analysis_J_W(J, connectivity)
 
             fig = plt.figure(figsize=(12, 10))
             plt.subplot(2, 2, (1, 2))
@@ -1370,6 +1370,7 @@ def data_generate_synaptic(
             # torch.save(y_list, f'graphs_data/{dataset_name}/y_list_{run}.pt')
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
             torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
+            print("data saved ...")
 
         if measurement_noise_level > 0:
             np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)

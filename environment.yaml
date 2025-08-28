@@ -25,7 +25,6 @@ dependencies:
   - pysr
   - shapely
   - seaborn
-  - opencv-python
   - dask
   - pip:
     - geomloss
@@ -35,4 +34,5 @@ dependencies:
     - vedo
     - joblib
     - flyvis
+    - opencv-python
     

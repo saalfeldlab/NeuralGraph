@@ -61,7 +61,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
 
     dataset_name = config.dataset
     print('')
-    print(f'dataset_name: {dataset_name}')
+    print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
     if 'Agents' in config.graph_model.particle_model_name:
         data_train_agents(config, erase, best_model, device)
