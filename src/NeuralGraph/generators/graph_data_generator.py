@@ -1282,7 +1282,7 @@ def data_generate_synaptic(
                         )
                         plt.close()
 
-        print(f"Generated {len(x_list)} frames total")
+        print(f"generated {len(x_list)} frames total")
 
         if visualize & (run == run_vizualized):
             print('generating lossless video ...')
