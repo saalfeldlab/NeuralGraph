@@ -50,7 +50,7 @@ class EmbeddingCluster:
         return clusters, n_clusters
 
 
-def sparsify_cluster(cluster_method, proj_interaction, embedding, cluster_distance_threshold, type_list, n_particle_types, embedding_cluster):
+def sparsify_cluster(cluster_method, proj_interaction, embedding, cluster_distance_threshold, type_list, n_neuron_types, embedding_cluster):
 
     # normalization of projection because UMAP output is not normalized
     proj_interaction = (proj_interaction - np.min(proj_interaction)) / (np.max(proj_interaction) - np.min(proj_interaction)+1e-10)
@@ -77,7 +77,7 @@ def sparsify_cluster(cluster_method, proj_interaction, embedding, cluster_distan
             labels, n_clusters = embedding_cluster.get(new_projection, 'distance', thresh=cluster_distance_threshold)
 
     label_list = []
-    for n in range(n_particle_types):
+    for n in range(n_neuron_types):
         pos = torch.argwhere(type_list == n)
         pos = to_numpy(pos)
         if len(pos) > 0:
@@ -95,8 +95,8 @@ def sparsify_cluster(cluster_method, proj_interaction, embedding, cluster_distan
             ax.scatter(embedding[pos, 0], embedding[pos, 1], s=5)
     plt.close()
 
-    new_labels = np.ones_like(labels) * n_particle_types
-    for n in range(n_particle_types):
+    new_labels = np.ones_like(labels) * n_neuron_types
+    for n in range(n_neuron_types):
         if n < len(label_list):
             new_labels[labels == label_list[n]] = n
 
@@ -106,7 +106,7 @@ def sparsify_cluster(cluster_method, proj_interaction, embedding, cluster_distan
 
     return labels, n_clusters, new_labels
 
-def sparsify_cluster_state(cluster_method, proj_interaction, embedding, cluster_distance_threshold, true_type_list, n_particle_types, embedding_cluster):
+def sparsify_cluster_state(cluster_method, proj_interaction, embedding, cluster_distance_threshold, true_type_list, n_neuron_types, embedding_cluster):
 
     # normalization of projection because UMAP output is not normalized
     proj_interaction = (proj_interaction - np.min(proj_interaction)) / (np.max(proj_interaction) - np.min(proj_interaction)+1e-10)
@@ -137,7 +137,7 @@ def sparsify_cluster_state(cluster_method, proj_interaction, embedding, cluster_
     print(f"clustering computation time is {computation_time:0.2f} seconds.")
 
     label_list = []
-    for n in range(n_particle_types):
+    for n in range(n_neuron_types):
         pos = np.argwhere(true_type_list == n).squeeze().astype(int)
         if len(pos)>0:
             tmp = labels[pos]
@@ -145,8 +145,8 @@ def sparsify_cluster_state(cluster_method, proj_interaction, embedding, cluster_
         else:
             label_list.append(0)
     label_list = np.array(label_list)
-    new_labels = np.ones_like(labels) * n_particle_types
-    for n in range(n_particle_types):
+    new_labels = np.ones_like(labels) * n_neuron_types
+    for n in range(n_neuron_types):
         new_labels[labels == label_list[n]] = n
 
     return labels, n_clusters, new_labels

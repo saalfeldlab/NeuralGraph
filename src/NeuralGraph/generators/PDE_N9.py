@@ -43,14 +43,12 @@ class PDE_N9(pyg.nn.MessagePassing):
         else:
             self.params = torch.tensor(params, dtype=torch.float32, device=device).squeeze()
 
-
     def forward(self, data=[], has_field=False):
         x, edge_index = data.x, data.edge_index
         v = x[:, 3:4]
         v_rest = self.p["V_i_rest"][:, None]
         e = x[:, 4:5]
         particle_type = x[:, 6: 7].long()
-
 
         msg = self.propagate(edge_index, v=v, particle_type=particle_type)
         tau = self.p["tau_i"][:, None]

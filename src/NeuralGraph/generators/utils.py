@@ -17,18 +17,11 @@ import subprocess
 
 
 def choose_model(config=[], W=[], device=[]):
-    particle_model_name = config.graph_model.particle_model_name
     model_signal_name = config.graph_model.signal_model_name
     aggr_type = config.graph_model.aggr_type
-    n_particles = config.simulation.n_particles
-    delta_t = config.simulation.delta_t
-    n_particle_types = config.simulation.n_particle_types
     short_term_plasticity_mode = config.simulation.short_term_plasticity_mode
 
     bc_pos, bc_dpos = choose_boundary_values(config.simulation.boundary)
-
-    dimension = config.simulation.dimension
-    max_radius = config.simulation.max_radius
 
     params = config.simulation.params
     p = torch.tensor(params, dtype=torch.float32, device=device).squeeze()
@@ -141,39 +134,11 @@ def random_rotation_matrix(device='cpu'):
     return R
 
 
-def find_neighbors_with_radius(pos, h, max_neighbors=32):
-    """Find neighbors within radius h using scipy KDTree"""
-    device = pos.device
-    n_particles = pos.shape[0]
-
-    # Convert to numpy for scipy
-    pos_np = pos.cpu().numpy()
-
-    # Build KDTree
-    tree = cKDTree(pos_np)
-
-    # Find neighbors for each particle
-    neighbor_lists = []
-    for i in range(n_particles):
-        # Query ball returns indices within radius
-        neighbors = tree.query_ball_point(pos_np[i], r=h)
-        # Remove self and limit to max_neighbors
-        neighbors = [n for n in neighbors if n != i]
-        if len(neighbors) > max_neighbors:
-            # Keep closest neighbors
-            dists = np.linalg.norm(pos_np[neighbors] - pos_np[i], axis=1)
-            sorted_idx = np.argsort(dists)[:max_neighbors]
-            neighbors = [neighbors[idx] for idx in sorted_idx]
-        neighbor_lists.append(neighbors)
-
-    return neighbor_lists
-
-
-def get_index(n_particles, n_particle_types):
+def get_index(n_neurons, n_neuron_types):
     index_particles = []
-    for n in range(n_particle_types):
+    for n in range(n_neuron_types):
         index_particles.append(
-            np.arange((n_particles // n_particle_types) * n, (n_particles // n_particle_types) * (n + 1)))
+            np.arange((n_neurons // n_neuron_types) * n, (n_neurons // n_neuron_types) * (n + 1)))
     return index_particles
 
 
@@ -212,7 +177,7 @@ def init_mesh(config, device):
     model_config = config.graph_model
 
     n_nodes = simulation_config.n_nodes
-    n_particles = simulation_config.n_particles
+    n_neurons = simulation_config.n_neurons
     node_value_map = simulation_config.node_value_map
     field_grid = model_config.field_grid
     max_radius = simulation_config.max_radius
@@ -260,12 +225,12 @@ def init_mesh(config, device):
             node_value = torch.zeros((n_nodes, 2), device=device)
             node_value[:, 0] = torch.tensor(values / 255 * 5000, device=device)
         case 'PDE_O_Mesh':
-            node_value = torch.zeros((n_particles, 5), device=device)
-            node_value[0:n_particles, 0:1] = x_mesh[0:n_particles]
-            node_value[0:n_particles, 1:2] = y_mesh[0:n_particles]
-            node_value[0:n_particles, 2:3] = torch.randn(n_particles, 1, device=device) * 2 * np.pi  # theta
-            node_value[0:n_particles, 3:4] = torch.ones(n_particles, 1, device=device) * np.pi / 200  # d_theta
-            node_value[0:n_particles, 4:5] = node_value[0:n_particles, 3:4]  # d_theta0
+            node_value = torch.zeros((n_neurons, 5), device=device)
+            node_value[0:n_neurons, 0:1] = x_mesh[0:n_neurons]
+            node_value[0:n_neurons, 1:2] = y_mesh[0:n_neurons]
+            node_value[0:n_neurons, 2:3] = torch.randn(n_neurons, 1, device=device) * 2 * np.pi  # theta
+            node_value[0:n_neurons, 3:4] = torch.ones(n_neurons, 1, device=device) * np.pi / 200  # d_theta
+            node_value[0:n_neurons, 4:5] = node_value[0:n_neurons, 3:4]  # d_theta0
             pos_mesh[:, 0] = node_value[:, 0] + (3 / 8) * mesh_size * torch.cos(node_value[:, 2])
             pos_mesh[:, 1] = node_value[:, 1] + (3 / 8) * mesh_size * torch.sin(node_value[:, 2])
         case '' :

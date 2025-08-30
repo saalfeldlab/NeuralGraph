@@ -35,18 +35,18 @@ def get_embedding(model_a=None, dataset_number = 0):
 
     return embedding
 
-def get_embedding_time_series(model=None, dataset_number=None, cell_id=None, n_particles=None, n_frames=None, has_cell_division=None):
+def get_embedding_time_series(model=None, dataset_number=None, cell_id=None, n_neurons=None, n_frames=None, has_cell_division=None):
     embedding = []
     embedding.append(model.a[dataset_number])
     embedding = to_numpy(torch.stack(embedding).squeeze())
 
-    indexes = np.arange(n_frames) * n_particles + cell_id
+    indexes = np.arange(n_frames) * n_neurons + cell_id
 
     return embedding[indexes]
 
-def get_type_time_series(new_labels=None, dataset_number=None, cell_id=None, n_particles=None, n_frames=None, has_cell_division=None):
+def get_type_time_series(new_labels=None, dataset_number=None, cell_id=None, n_neurons=None, n_frames=None, has_cell_division=None):
 
-    indexes = np.arange(n_frames) * n_particles + cell_id
+    indexes = np.arange(n_frames) * n_neurons + cell_id
 
     return new_labels[indexes]
 
@@ -730,7 +730,7 @@ def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, m
         plt.savefig(f"./{log_dir}/tmp_training/field/missing_activity_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
-def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], model=None, n_nodes=0, n_particles=None, ynorm=None, type_list=None, cmap=None, update_type=None, device=None):
+def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], model=None, n_nodes=0, n_neurons=None, ynorm=None, type_list=None, cmap=None, update_type=None, device=None):
 
     max_radius = config.simulation.max_radius
     min_radius = config.simulation.min_radius
@@ -757,7 +757,7 @@ def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], mod
 
     print('interaction functions ...')
     func_list = []
-    for n in range(n_particles):
+    for n in range(n_neurons):
 
         if len(model.a.shape)==3:
             model_a= model.a[1, n, :]
@@ -768,7 +768,7 @@ def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], mod
             embedding_ = model_a * torch.ones((1000, dimension), device=device)
         else:
             if (update_type != 'NA') & model.embedding_trial:
-                embedding_ = torch.cat((model_a, model.b[0].clone().detach().repeat(n_particles, 1)), dim=1) * torch.ones((1000, 2*dimension), device=device)
+                embedding_ = torch.cat((model_a, model.b[0].clone().detach().repeat(n_neurons, 1)), dim=1) * torch.ones((1000, 2*dimension), device=device)
             else:
                 embedding_ = model_a * torch.ones((1000, dimension), device=device)
 
@@ -782,8 +782,8 @@ def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], mod
         func_list.append(func)
 
         should_plot = vizualize and (
-                n_particles <= 200 or
-                (n % (n_particles // 200) == 0) or
+                n_neurons <= 200 or
+                (n % (n_neurons // 200) == 0) or
                 (config.graph_model.particle_model_name == 'PDE_GS') or
                 ('PDE_N' in config_model)
         )
@@ -834,10 +834,7 @@ def choose_training_model(model_config=None, device=None, projections=None):
 
     dataset_name = model_config.dataset
     aggr_type = model_config.graph_model.aggr_type
-    n_particle_types = model_config.simulation.n_particle_types
-    n_particles = model_config.simulation.n_particles
     dimension = model_config.simulation.dimension
-    do_tracking = model_config.training.do_tracking
 
     bc_pos, bc_dpos = choose_boundary_values(model_config.simulation.boundary)
 
@@ -865,18 +862,18 @@ def choose_training_model(model_config=None, device=None, projections=None):
                 model.connection_matrix = torch.load(f'./graphs_data/{dataset_name}/connection_matrix_list.pt', map_location=device)
         case 'PDE_GS':
             model = Interaction_Planet(aggr_type=aggr_type, config=model_config, device=device)
-            t = np.arange(model_config.simulation.n_particles)
-            t1 = np.repeat(t, model_config.simulation.n_particles)
-            t2 = np.tile(t, model_config.simulation.n_particles)
+            t = np.arange(model_config.simulation.n_neurons)
+            t1 = np.repeat(t, model_config.simulation.n_neurons)
+            t2 = np.tile(t, model_config.simulation.n_neurons)
             e = np.stack((t1, t2), axis=0)
             pos = np.argwhere(e[0, :] - e[1, :] != 0)
             e = e[:, pos]
             model.edges = torch.tensor(e, dtype=torch.long, device=device)
         case 'PDE_GS2':
             model = Interaction_Planet2(aggr_type=aggr_type, config=model_config, device=device)
-            t = np.arange(model_config.simulation.n_particles)
-            t1 = np.repeat(t, model_config.simulation.n_particles)
-            t2 = np.tile(t, model_config.simulation.n_particles)
+            t = np.arange(model_config.simulation.n_neurons)
+            t1 = np.repeat(t, model_config.simulation.n_neurons)
+            t2 = np.tile(t, model_config.simulation.n_neurons)
             e = np.stack((t1, t2), axis=0)
             pos = np.argwhere(e[0, :] - e[1, :] != 0)
             e = e[:, pos]
@@ -985,9 +982,9 @@ def set_trainable_division_parameters(model, lr):
 
     return optimizer, n_total_params
 
-def get_index_particles(x, n_particle_types, dimension):
+def get_index_particles(x, n_neuron_types, dimension):
     index_particles = []
-    for n in range(n_particle_types):
+    for n in range(n_neuron_types):
         if dimension == 2:
             index = np.argwhere(x[:, 5].detach().cpu().numpy() == n)
         elif dimension == 3:

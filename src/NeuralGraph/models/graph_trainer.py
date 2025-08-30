@@ -763,7 +763,7 @@ def data_train_synaptic2(config, erase, best_model, device):
                                                                      vizualize=True, config=config,
                                                                      model_MLP=model_MLP, model=model,
                                                                      n_nodes=0,
-                                                                     n_particles=n_neurons, ynorm=ynorm,
+                                                                     n_neurons=n_neurons, ynorm=ynorm,
                                                                      type_list=to_numpy(x[:, 1 + 2 * dimension]),
                                                                      cmap=cmap, update_type=update_type, device=device)
 
@@ -1382,198 +1382,6 @@ def data_train_flyvis(config, erase, best_model, device):
         plt.close()
 
 
-def data_train_WBI(config, erase, best_model, device):
-    simulation_config = config.simulation
-    train_config = config.training
-    model_config = config.graph_model
-
-    print(f'training data ... {model_config.particle_model_name} {model_config.mesh_model_name}')
-
-    dimension = simulation_config.dimension
-    n_epochs = train_config.n_epochs
-    max_radius = simulation_config.max_radius
-    min_radius = simulation_config.min_radius
-    n_particle_types = simulation_config.n_particle_types
-    delta_t = simulation_config.delta_t
-    noise_level = train_config.noise_level
-    dataset_name = config.dataset
-    n_frames = simulation_config.n_frames
-    rotation_augmentation = train_config.rotation_augmentation
-    data_augmentation_loop = train_config.data_augmentation_loop
-    target_batch_size = train_config.batch_size
-    replace_with_cluster = 'replace' in train_config.sparsity
-    sparsity_freq = train_config.sparsity_freq
-    if train_config.small_init_batch_size:
-        get_batch_size = increasing_batch_size(target_batch_size)
-    else:
-        get_batch_size = constant_batch_size(target_batch_size)
-    batch_size = get_batch_size(0)
-    cmap = CustomColorMap(config=config)  # create colormap for given model_config
-    embedding_cluster = EmbeddingCluster(config)
-    n_runs = train_config.n_runs
-    has_state = (config.simulation.state_type != 'discrete')
-
-    log_dir, logger = create_log_dir(config, erase)
-    print(f'Graph files N: {n_runs}')
-    logger.info(f'Graph files N: {n_runs}')
-    time.sleep(0.5)
-
-    x_list = []
-    y_list = []
-    for run in trange(n_runs):
-        x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
-        y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
-        x_list.append(x)
-        y_list.append(y)
-    x = x_list[0][0].clone().detach()
-    y = y_list[0][0].clone().detach()
-    for run in range(n_runs):
-        for k in trange(n_frames - 2):
-            if (k % 10 == 0) | (n_frames < 1000):
-                x = torch.cat((x, x_list[run][k].clone().detach()), 0)
-                y = torch.cat((y, y_list[run][k].clone().detach()), 0)
-        print(x_list[run][k].shape)
-        time.sleep(0.5)
-
-    ynorm = torch.std(y)
-
-    torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
-    time.sleep(0.5)
-    logger.info(f'ynorm: {to_numpy(ynorm)}')
-
-    x = []
-    y = []
-
-    print('Create GNN model ...')
-    model, bc_pos, bc_dpos = choose_training_model(config, device)
-    # net = f"{log_dir}/models/best_model_with_1_graphs_0_0.pt"
-    # print(f'Loading existing model {net}...')
-    # state_dict = torch.load(net,map_location=device)
-    # model.load_state_dict(state_dict['model_state_dict'])
-
-    lr = train_config.learning_rate_start
-    lr_embedding = train_config.learning_rate_embedding_start
-    optimizer, n_total_params = set_trainable_parameters(model, lr_embedding, lr)
-    logger.info(f"total trainable Params: {n_total_params}")
-    logger.info(f'learning rates: {lr}, {lr_embedding}')
-    model.train()
-
-    net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
-    print(f'network: {net}')
-    print(f'initial batch_size: {batch_size}')
-    print('')
-    logger.info(f'network: {net}')
-    logger.info(f'N epochs: {n_epochs}')
-    logger.info(f'initial batch_size: {batch_size}')
-
-    print('Update variables ...')
-    x = x_list[0][0].clone().detach()
-    n_particles = x.shape[0]
-    config.simulation.n_particles = n_particles
-    index_particles = get_index_particles(x, n_particle_types, dimension)
-    type_list = get_type_list(x, dimension)
-    print(f'N particles: {n_particles} {len(torch.unique(type_list))} types')
-    logger.info(f'N particles:  {n_particles} {len(torch.unique(type_list))} types')
-
-    print('Load local connectivity ...')
-    edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
-    print('Local connectivity loaded ...')
-
-    print("Start training ...")
-    print(f'{n_frames * data_augmentation_loop // batch_size} iterations per epoch')
-    logger.info(f'{n_frames * data_augmentation_loop // batch_size} iterations per epoch')
-    Niter = n_frames * data_augmentation_loop // batch_size
-    print(f'plot every {Niter // 50} iterations')
-
-    list_loss = []
-    time.sleep(1)
-
-    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
-
-    for epoch in range(n_epochs + 1):
-
-        batch_size = get_batch_size(epoch)
-        logger.info(f'batch_size: {batch_size}')
-        total_loss = 0
-        Niter = n_frames * data_augmentation_loop // batch_size
-
-        for N in range(Niter):
-
-            run = 0
-
-            dataset_batch = []
-            for batch in range(batch_size):
-
-                k = np.random.randint(n_frames - 1)
-
-                x = x_list[run][k].clone().detach()
-
-                dataset = data.Data(x=x[:, :], edge_index=edges)
-                dataset_batch.append(dataset)
-
-                y = y_list[run][k].clone().detach()
-                if noise_level > 0:
-                    y = y * (1 + torch.randn_like(y) * noise_level)
-
-                y = y / ynorm
-
-                if rotation_augmentation:
-                    new_x = cos_phi * y[:, 0] + sin_phi * y[:, 1]
-                    new_y = -sin_phi * y[:, 0] + cos_phi * y[:, 1]
-                    y[:, 0] = new_x
-                    y[:, 1] = new_y
-                if batch == 0:
-                    y_batch = y[:, 0:1]
-                else:
-                    y_batch = torch.cat((y_batch, y[:, 0:1]), dim=0)
-
-            batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
-            optimizer.zero_grad()
-
-            for batch in batch_loader:
-                pred = model(batch, data_id=run)
-
-            loss = (pred - y_batch).norm(2)
-
-            loss.backward()
-            optimizer.step()
-
-            visualize_embedding = True
-            if visualize_embedding & (((epoch < 30) & (N % (Niter // 50) == 0)) | (N == 0)):
-                embedding = get_embedding(model.a, 0)
-                fig = plt.figure(figsize=(8, 8))
-                plt.scatter(embedding[:, 0], embedding[:, 1], s=1, c=to_numpy(type_list[:, 0]), cmap='tab20', vmin=0,
-                            vmax=255)
-                plt.xticks([])
-                plt.yticks([])
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/tmp_training/embedding/{epoch}_{N}.tif", dpi=87)
-                plt.close()
-
-                torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
-                           os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
-
-            check_and_clear_memory(device=device, iteration_number=N, every_n_iterations=Niter // 50,
-                                   memory_percentage_threshold=0.6)
-
-            total_loss += loss.item()
-
-        print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / (N + 1) / n_particles / batch_size))
-        logger.info("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / (N + 1) / n_particles / batch_size))
-        torch.save({'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict()},
-                   os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
-        list_loss.append(total_loss / (N + 1) / n_particles / batch_size)
-        torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
-
-        fig = plt.figure(figsize=(22, 4))
-        ax = fig.add_subplot(1, 5, 1)
-        plt.plot(list_loss, color='k')
-        plt.xlim([0, n_epochs])
-        plt.ylabel('Loss', fontsize=12)
-        plt.xlabel('Epochs', fontsize=12)
-
-
 def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15,
               ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, device=[]):
     dataset_name = config.dataset
@@ -1589,8 +1397,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     has_bounding_box = 'PDE_F' in model_config.particle_model_name
     max_radius = simulation_config.max_radius
     min_radius = simulation_config.min_radius
-    n_particle_types = simulation_config.n_particle_types
-    n_particles = simulation_config.n_particles
+    n_neuron_types = simulation_config.n_neuron_types
+    n_neurons = simulation_config.n_neurons
     n_nodes = simulation_config.n_nodes
     n_runs = training_config.n_runs
     n_frames = simulation_config.n_frames
@@ -1631,10 +1439,10 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         print(f'best model: {best_model}')
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
 
-    n_sub_population = n_particles // n_particle_types
+    n_sub_population = n_neurons // n_neuron_types
     first_cell_id_particles = []
-    for n in range(n_particle_types):
-        index = np.arange(n_particles * n // n_particle_types, n_particles * (n + 1) // n_particle_types)
+    for n in range(n_neuron_types):
+        index = np.arange(n_neurons * n // n_neuron_types, n_neurons * (n + 1) // n_neuron_types)
         first_cell_id_particles.append(index)
 
     print(f'load data run {run} ...')
@@ -1663,9 +1471,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         ynorm = torch.load(f'{log_dir}/ynorm.pt', map_location=device, weights_only=True).to(device)
         vnorm = torch.load(f'{log_dir}/vnorm.pt', map_location=device, weights_only=True).to(device)
         x = x_list[0][0].clone().detach()
-        n_particles = x.shape[0]
-        config.simulation.n_particles = n_particles
-        index_particles = get_index_particles(x, n_particle_types, dimension)
+        n_neurons = x.shape[0]
+        config.simulation.n_neurons = n_neurons
+        index_particles = get_index_particles(x, n_neuron_types, dimension)
         x_mesh = x_mesh_list[0][0].clone().detach()
     else:
         x_list = []
@@ -1690,16 +1498,16 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 if ('PDE_MLPs' not in model_config.particle_model_name) & (
                         'PDE_F' not in model_config.particle_model_name) & (
                         'PDE_M' not in model_config.particle_model_name):
-                    n_particles = int(x.shape[0] / ratio)
-                    config.simulation.n_particles = n_particles
+                    n_neurons = int(x.shape[0] / ratio)
+                    config.simulation.n_neurons = n_neurons
                 n_frames = len(x_list[0])
-                index_particles = get_index_particles(x, n_particle_types, dimension)
-                if n_particle_types > 1000:
+                index_particles = get_index_particles(x, n_neuron_types, dimension)
+                if n_neuron_types > 1000:
                     index_particles = []
                     for n in range(3):
-                        index = np.arange(n_particles * n // 3, n_particles * (n + 1) // 3)
+                        index = np.arange(n_neurons * n // 3, n_neurons * (n + 1) // 3)
                         index_particles.append(index)
-                        n_particle_types = 3
+                        n_neuron_types = 3
         ynorm = torch.load(f'{log_dir}/ynorm.pt', map_location=device, weights_only=True)
         vnorm = torch.load(f'{log_dir}/vnorm.pt', map_location=device, weights_only=True)
         if vnorm == 0:
@@ -1712,38 +1520,38 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 type_list = type
             else:
                 type_list = torch.concatenate((type_list, type))
-        n_particles_max = len(type_list) + 1
-        config.simulation.n_particles_max = n_particles_max
+        n_neurons_max = len(type_list) + 1
+        config.simulation.n_neurons_max = n_neurons_max
     if ratio > 1:
-        new_nparticles = int(n_particles * ratio)
+        new_nparticles = int(n_neurons * ratio)
         model.a = nn.Parameter(
             torch.tensor(np.ones((n_runs, int(new_nparticles), 2)), device=device, dtype=torch.float32,
                          requires_grad=False))
-        n_particles = new_nparticles
-        index_particles = get_index_particles(x, n_particle_types, dimension)
+        n_neurons = new_nparticles
+        index_particles = get_index_particles(x, n_neuron_types, dimension)
     if sample_embedding:
         model_a_ = nn.Parameter(
-            torch.tensor(np.ones((int(n_particles), model.embedding_dim)), device=device, requires_grad=False,
+            torch.tensor(np.ones((int(n_neurons), model.embedding_dim)), device=device, requires_grad=False,
                          dtype=torch.float32))
-        for n in range(n_particles):
+        for n in range(n_neurons):
             t = to_numpy(x[n, 5]).astype(int)
             index = first_cell_id_particles[t][np.random.randint(n_sub_population)]
             with torch.no_grad():
                 model_a_[n] = first_embedding[index].clone().detach()
         model.a = nn.Parameter(
-            torch.tensor(np.ones((model.n_dataset, int(n_particles), model.embedding_dim)), device=device,
+            torch.tensor(np.ones((model.n_dataset, int(n_neurons), model.embedding_dim)), device=device,
                          requires_grad=False, dtype=torch.float32))
         with torch.no_grad():
             for n in range(model.a.shape[0]):
                 model.a[n] = model_a_
     if has_ghost & ('PDE_N' not in model_config.signal_model_name):
-        model_ghost = Ghost_Particles(config, n_particles, vnorm, device)
+        model_ghost = Ghost_Particles(config, n_neurons, vnorm, device)
         net = f"{log_dir}/models/best_ghost_particles_with_{n_runs - 1}_graphs_20.pt"
         state_dict = torch.load(net, map_location=device)
         model_ghost.load_state_dict(state_dict['model_state_dict'])
         model_ghost.eval()
         x_removed_list = torch.load(f'graphs_data/{dataset_name}/x_removed_list_0.pt', map_location=device)
-        mask_ghost = np.concatenate((np.ones(n_particles), np.zeros(config.training.n_ghosts)))
+        mask_ghost = np.concatenate((np.ones(n_neurons), np.zeros(config.training.n_ghosts)))
         mask_ghost = np.argwhere(mask_ghost == 1)
         mask_ghost = mask_ghost[:, 0].astype(int)
     if has_mesh:
@@ -1798,9 +1606,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
             print('load b_i movie ...')
             im = imread(f"graphs_data/{simulation_config.node_value_map}")
-            A1 = torch.zeros((n_particles, 1), device=device)
+            A1 = torch.zeros((n_neurons, 1), device=device)
 
-        # neuron_index = torch.randint(0, n_particles, (6,))
+        # neuron_index = torch.randint(0, n_neurons, (6,))
         neuron_gt_list = []
         neuron_pred_list = []
         modulation_gt_list = []
@@ -1810,12 +1618,12 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             X1_first = torch.load(f'./graphs_data/{dataset_name}/X1.pt', map_location=device)
             X_msg = torch.load(f'./graphs_data/{dataset_name}/X_msg.pt', map_location=device)
         else:
-            xc, yc = get_equidistant_points(n_points=n_particles)
+            xc, yc = get_equidistant_points(n_points=n_neurons)
             X1_first = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
             perm = torch.randperm(X1_first.size(0))
             X1_first = X1_first[perm]
             torch.save(X1_first, f'./graphs_data/{dataset_name}/X1_first.pt')
-            xc, yc = get_equidistant_points(n_points=n_particles ** 2)
+            xc, yc = get_equidistant_points(n_points=n_neurons ** 2)
             X_msg = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
             perm = torch.randperm(X_msg.size(0))
             X_msg = X_msg[perm]
@@ -1990,7 +1798,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     start_it = 12
 
     x = x_list[0][start_it].clone().detach()
-    n_particles = x.shape[0]
+    n_neurons = x.shape[0]
     x_inference_list = []
 
 
@@ -2024,9 +1832,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             x0[nan_mask, 6] = baseline_value
             nan_mask = torch.isnan(x[:, 6])
             x[nan_mask, 6] = baseline_value
-            rmserr = torch.sqrt(torch.mean(torch.sum(bc_dpos(x[:n_particles, 6:7] - x0[:, 6:7]) ** 2, axis=1)))
+            rmserr = torch.sqrt(torch.mean(torch.sum(bc_dpos(x[:n_neurons, 6:7] - x0[:, 6:7]) ** 2, axis=1)))
             neuron_gt_list.append(x0[:, 6:7])
-            neuron_pred_list.append(x[:n_particles, 6:7].clone().detach())
+            neuron_pred_list.append(x[:n_neurons, 6:7].clone().detach())
             if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
                 modulation_gt_list.append(x0[:, 8:9])
                 modulation_pred_list.append(x[:, 8:9].clone().detach())
@@ -2036,7 +1844,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             rmserr = torch.sqrt(
                 torch.mean(torch.sum((x[mask_mesh.squeeze(), 6:9] - x0[mask_mesh.squeeze(), 6:9]) ** 2, axis=1)))
             node_gt_list.append(x0[:, 6:9])
-            node_pred_list.append(x[:n_particles, 6:9].clone().detach())
+            node_pred_list.append(x[:n_neurons, 6:9].clone().detach())
         elif has_bounding_box:
             rmserr = torch.sqrt(
                 torch.mean(torch.sum(bc_dpos(x[:, 1:dimension + 1] - x0[:, 1:dimension + 1]) ** 2, axis=1)))
@@ -2054,9 +1862,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         rmserr_list.append(rmserr.item())
 
         if config.training.shared_embedding:
-            data_id = torch.ones((n_particles, 1), dtype=torch.int, device=device)
+            data_id = torch.ones((n_neurons, 1), dtype=torch.int, device=device)
         else:
-            data_id = torch.ones((n_particles, 1), dtype=torch.int, device=device) * run
+            data_id = torch.ones((n_neurons, 1), dtype=torch.int, device=device) * run
 
         # update calculations
         if model_config.mesh_model_name == 'DiffMesh':
@@ -2136,7 +1944,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         elif 'PDE_N' in model_config.signal_model_name:
             if 'visual' in field_type:
                 x[:n_nodes, 8:9] = model_f(time=it / n_frames) ** 2
-                x[n_nodes:n_particles, 8:9] = 1
+                x[n_nodes:n_neurons, 8:9] = 1
             elif 'learnable_short_term_plasticity' in field_type:
                 alpha = (k % model.embedding_step) / model.embedding_step
                 x[:, 8] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
@@ -2165,9 +1973,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                     pred = model(dataset, data_id=data_id)
                     y = pred
             # signal update
-            x[:n_particles, 6:7] = x[:n_particles, 6:7] + y[:n_particles] * delta_t
+            x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
             # if 'CElegans' in dataset_name:
-            #     x[:n_particles, 6:7] = torch.clamp(x[:n_particles, 6:7], min=0, max=10)
+            #     x[:n_neurons, 6:7] = torch.clamp(x[:n_neurons, 6:7], min=0, max=10)
         else:
             with torch.no_grad():
                 if has_ghost:
@@ -2235,19 +2043,19 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                     pred_err_list.append(to_numpy(torch.sqrt(loss)))
                     if model_config.prediction == '2nd_derivative':
                         y = y * ynorm * delta_t
-                        x[:n_particles, dimension + 1:2 * dimension + 1] = x[:n_particles, dimension + 1:2 * dimension + 1] + y[:n_particles]  # speed update
+                        x[:n_neurons, dimension + 1:2 * dimension + 1] = x[:n_neurons, dimension + 1:2 * dimension + 1] + y[:n_neurons]  # speed update
                     else:
                         y = y * vnorm
                         if 'PDE_N' in model_config.signal_model_name:
-                            x[:n_particles, 6:7] += y[:n_particles] * delta_t  # signal update
+                            x[:n_neurons, 6:7] += y[:n_neurons] * delta_t  # signal update
                         else:
-                            x[:n_particles, dimension + 1:2 * dimension + 1] = y[:n_particles]
+                            x[:n_neurons, dimension + 1:2 * dimension + 1] = y[:n_neurons]
                     x[:, 1:dimension + 1] = bc_pos(
                         x[:, 1:dimension + 1] + x[:, dimension + 1:2 * dimension + 1] * delta_t)  # position update
 
                     # matplotlib.use("Qt5Agg")
                     # fig = plt.figure()
-                    # plt.scatter(to_numpy(y0), to_numpy(ynorm*pred[:n_particles, 0:dimension]))
+                    # plt.scatter(to_numpy(y0), to_numpy(ynorm*pred[:n_neurons, 0:dimension]))
                     # plt.xlabel('y0')
                     # plt.ylabel('pred')
                     # plt.savefig(f'pred_{it}.png')
@@ -2367,7 +2175,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                         A1[:, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
                     if ('visual' in field_type):
                         A1[:n_nodes, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
-                        A1[n_nodes:n_particles, 0:1] = 1
+                        A1[n_nodes:n_neurons, 0:1] = 1
 
                 fig = plt.figure(figsize=(8, 12))
                 plt.subplot(211)
@@ -2462,8 +2270,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 plt.tight_layout()
             else:
                 s_p = 10
-                index_particles = get_index_particles(x, n_particle_types, dimension)
-                for n in range(n_particle_types):
+                index_particles = get_index_particles(x, n_neuron_types, dimension)
+                for n in range(n_neuron_types):
                     if 'bw' in style:
                         plt.scatter(x[index_particles[n], 2].detach().cpu().numpy(),
                                     x[index_particles[n], 1].detach().cpu().numpy(), s=s_p, color='w')
@@ -2627,13 +2435,13 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
                 node_gt_list_ = torch.cat(node_gt_list, 0)
                 node_pred_list_ = torch.cat(node_pred_list, 0)
-                node_gt_list_ = torch.reshape(node_gt_list_, (node_gt_list_.shape[0] // n_particles, n_particles, 3))
+                node_gt_list_ = torch.reshape(node_gt_list_, (node_gt_list_.shape[0] // n_neurons, n_neurons, 3))
                 node_pred_list_ = torch.reshape(node_pred_list_,
-                                                (node_pred_list_.shape[0] // n_particles, n_particles, 3))
+                                                (node_pred_list_.shape[0] // n_neurons, n_neurons, 3))
 
                 plt.figure(figsize=(10, 10))
                 n_list = []
-                for k in range(0, n_particles, n_particles // 20):
+                for k in range(0, n_neurons, n_neurons // 20):
                     if torch.max(node_gt_list_[:, k, 0].squeeze()) > 0.5:
                         plt.plot(to_numpy(node_gt_list_[:, k, 0].squeeze()))
                         n_list.append(k)
@@ -2687,9 +2495,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 neuron_gt_list_ = torch.cat(neuron_gt_list, 0)
                 neuron_pred_list_ = torch.cat(neuron_pred_list, 0)
                 neuron_gt_list_ = torch.reshape(neuron_gt_list_,
-                                                (neuron_gt_list_.shape[0] // n_particles, n_particles))
+                                                (neuron_gt_list_.shape[0] // n_neurons, n_neurons))
                 neuron_pred_list_ = torch.reshape(neuron_pred_list_,
-                                                  (neuron_pred_list_.shape[0] // n_particles, n_particles))
+                                                  (neuron_pred_list_.shape[0] // n_neurons, n_neurons))
 
                 plt.figure(figsize=(20, 10))
                 if 'latex' in style:
@@ -2737,10 +2545,10 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                     modulation_gt_list_ = torch.cat(modulation_gt_list, 0)
                     modulation_pred_list_ = torch.cat(modulation_pred_list, 0)
                     modulation_gt_list_ = torch.reshape(modulation_gt_list_,
-                                                        (modulation_gt_list_.shape[0] // n_particles, n_particles))
+                                                        (modulation_gt_list_.shape[0] // n_neurons, n_neurons))
                     modulation_pred_list_ = torch.reshape(modulation_pred_list_,
-                                                          (modulation_pred_list_.shape[0] // n_particles,
-                                                           n_particles))
+                                                          (modulation_pred_list_.shape[0] // n_neurons,
+                                                           n_neurons))
 
                     plt.figure(figsize=(20, 10))
                     if 'latex' in style:
@@ -2858,8 +2666,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             fig = plt.figure(figsize=(12, 12))
             ax = fig.add_subplot(1, 1, 1)
             temp1 = torch.cat((x, x0_next), 0)
-            temp2 = torch.tensor(np.arange(n_particles), device=device)
-            temp3 = torch.tensor(np.arange(n_particles) + n_particles, device=device)
+            temp2 = torch.tensor(np.arange(n_neurons), device=device)
+            temp3 = torch.tensor(np.arange(n_neurons) + n_neurons, device=device)
             temp4 = torch.concatenate((temp2[:, None], temp3[:, None]), 1)
             temp4 = torch.t(temp4)
             distance4 = torch.sqrt(torch.sum((x[:, 1:3] - x0_next[:, 1:3]) ** 2, 1))
@@ -2870,7 +2678,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             dataset = data.Data(x=temp1_, edge_index=torch.squeeze(temp4[:, p]))
             vis = to_networkx(dataset, remove_self_loops=True, to_undirected=True)
             nx.draw_networkx(vis, pos=pos, node_size=0, linewidths=0, with_labels=False, ax=ax, edge_color='r', width=4)
-            for n in range(n_particle_types):
+            for n in range(n_neuron_types):
                 plt.scatter(x[index_particles[n], 2].detach().cpu().numpy(),
                             x[index_particles[n], 1].detach().cpu().numpy(), s=100, color=cmap.color(n))
             plt.xlim([0, 1])
@@ -2891,7 +2699,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             plt.close()
 
             fig = plt.figure(figsize=(12, 12))
-            for n in range(n_particle_types):
+            for n in range(n_neuron_types):
                 plt.scatter(x0_next[index_particles[n], 2].detach().cpu().numpy(),
                             x0_next[index_particles[n], 1].detach().cpu().numpy(), s=50, color=cmap.color(n))
             plt.xlim([0, 1])

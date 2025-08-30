@@ -21,21 +21,17 @@ class SimulationConfig(BaseModel):
     delta_t: float = 1
 
     boundary: Literal["periodic", "no", "periodic_special", "wall"] = "periodic"
-    bounce: bool = False
-    bounce_coeff: float = 0.1
     min_radius: float = 0.0
     max_radius: float = 0.1
 
-    n_particles: int = 1000
     n_neurons: int = 1000
+    n_neuron_types: int = 5
     n_input_neurons: int = 0
     n_excitatory_neurons: int = 0
-    n_particles_max: int = 20000
     n_edges: int = 0
     max_edges: float = 1.0e6
     n_extra_null_edges: int = 0
-    n_particle_types: int = 5
-    n_neuron_types: int = 5
+
     baseline_value: float = -999.0
     n_particle_type_distribution: list[int] = [0]
     shuffle_particle_types: bool = False

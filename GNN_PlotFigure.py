@@ -125,526 +125,12 @@ def load_training_data(dataset_name, n_runs, log_dir, device):
     return x_list, y_list, vnorm, ynorm
 
 
-def plot_embedding_func_cluster_tracking(model, config, embedding_cluster, cmap, index_particles, indexes, type_list,
-                                n_particle_types, n_particles, ynorm, epoch, log_dir, embedding_type, style, device):
-
-    if embedding_type == 1:
-        embedding = to_numpy(model.a.clone().detach())
-        embedding = embedding[indexes.astype(int)]
-        fig, ax = fig_init()
-        for n in range(n_particle_types):
-            pos = np.argwhere(type_list == n).squeeze().astype(int)
-            plt.scatter(embedding[pos, 0], embedding[pos, 1], s=1, alpha=0.25)
-        if 'latex' in style:
-            plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
-            plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
-        else:
-            plt.xlabel(r'$a_{0}$', fontsize=68)
-            plt.ylabel(r'$a_{1}$', fontsize=68)
-        plt.xlim(config.plotting.embedding_lim)
-        plt.ylim(config.plotting.embedding_lim)
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.png", dpi=170.7)
-        plt.close()
-    else:
-        fig, ax = fig_init()
-        for k in trange(0, config.simulation.n_frames - 2):
-            embedding = to_numpy(model.a[k * n_particles:(k + 1) * n_particles, :].clone().detach())
-            for n in range(n_particle_types):
-                plt.scatter(embedding[index_particles[n], 0], embedding[index_particles[n], 1], s=1,
-                            color=cmap.color(n), alpha=0.025)
-        if 'latex' in style:
-            plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
-            plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
-        else:
-            plt.xlabel(r'$a_{0}$', fontsize=68)
-            plt.ylabel(r'$a_{1}$', fontsize=68)
-        plt.xlim(config.plotting.embedding_lim)
-        plt.ylim(config.plotting.embedding_lim)
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/all_embedding_{epoch}.png", dpi=170.7)
-        plt.close()
-
-    func_list, proj_interaction = analyze_edge_function_tracking(rr=[], vizualize=False, config=config,
-                                                        model_MLP=model.lin_edge, model=model,
-                                                        n_particles=n_particles, ynorm=ynorm,
-                                                        indexes=indexes, type_list = type_list,
-                                                        cmap=cmap, embedding_type = embedding_type, device=device)
-
-    fig, ax = fig_init()
-    proj_interaction = (proj_interaction - np.min(proj_interaction)) / (np.max(proj_interaction) - np.min(proj_interaction) + 1e-10)
-    if embedding_type == 1:
-        for n in range(n_particle_types):
-            pos = np.argwhere(type_list == n).squeeze().astype(int)
-            plt.scatter(proj_interaction[pos, 0], proj_interaction[pos, 1], s=1, alpha=0.25)
-    else:
-        for n in range(n_particle_types):
-            plt.scatter(proj_interaction[index_particles[n], 0],
-                        proj_interaction[index_particles[n], 1], color=cmap.color(n), s=1, alpha=0.25)
-    plt.xlabel(r'UMAP 0', fontsize=68)
-    plt.ylabel(r'UMAP 1', fontsize=68)
-    plt.xlim([-0.2, 1.2])
-    plt.ylim([-0.2, 1.2])
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/UMAP_{epoch}.png", dpi=170.7)
-    plt.close()
-
-    embedding = to_numpy(model.a.clone().detach())
-    if embedding_type == 1:
-        embedding = embedding[indexes.astype(int)]
-    else:
-        embedding = embedding[0:n_particles]
-
-
-    labels, n_clusters, new_labels = sparsify_cluster(config.training.cluster_method, proj_interaction, embedding,
-                                                      config.training.cluster_distance_threshold, type_list,
-                                                      n_particle_types, embedding_cluster)
-
-    accuracy = metrics.accuracy_score(type_list, new_labels)
-
-    fig, ax = fig_init()
-    for n in np.unique(labels):
-        pos = np.argwhere(labels == n).squeeze().astype(int)
-        plt.scatter(proj_interaction[pos, 0], proj_interaction[pos, 1], s=1, alpha=0.25)
-
-    return accuracy, n_clusters, new_labels
-
-
-def plot_embedding_func_cluster_state(model, config,embedding_cluster, cmap, type_list, type_stack, id_list,
-                                n_particle_types, ynorm, epoch, log_dir, style, device):
-
-    fig, ax = fig_init()
-    for n in range(n_particle_types):
-        pos = torch.argwhere(type_stack == n).squeeze()
-        plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=1, color=cmap.color(n), alpha=0.25)
-    if 'latex' in style:
-        plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
-        plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
-    else:
-        plt.xlabel(r'$a_{0}$', fontsize=68)
-        plt.ylabel(r'$a_{1}$', fontsize=68)
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/embedding_{epoch}.png", dpi=170.7)
-    plt.close()
-
-    fig, ax = fig_init()
-    func_list, true_type_list, short_model_a_list, proj_interaction = analyze_edge_function_state(rr=[], config=config,
-                                                        model=model,
-                                                        id_list=id_list, type_list=type_list, ynorm=ynorm,
-                                                        cmap=cmap, visualize=True, device=device)
-    plt.savefig(f"./{log_dir}/results/function_{epoch}.png", dpi=170.7)
-    plt.close()
-
-    fig, ax = fig_init()
-    for n in range(n_particle_types):
-        pos = np.argwhere(true_type_list == n).squeeze().astype(int)
-        if len(pos)>0:
-            plt.scatter(proj_interaction[pos, 0], proj_interaction[pos, 1], color=cmap.color(n), s=100, alpha=0.25, edgecolors='none')
-    plt.xlabel(r'UMAP 0', fontsize=68)
-    plt.ylabel(r'UMAP 1', fontsize=68)
-    plt.xlim([-0.2, 1.2])
-    plt.ylim([-0.2, 1.2])
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/UMAP_{epoch}.png", dpi=170.7)
-    plt.close()
-
-
-    embedding = proj_interaction
-    labels, n_clusters, new_labels = sparsify_cluster_state(config.training.cluster_method, proj_interaction, embedding,
-                                                      config.training.cluster_distance_threshold, true_type_list,
-                                                      n_particle_types, embedding_cluster)
-
-    fig, ax = fig_init()
-    for n in range(n_particle_types):
-        pos = np.argwhere(new_labels == n).squeeze().astype(int)
-        if len(pos)>0:
-            plt.scatter(proj_interaction[pos, 0], proj_interaction[pos, 1], color=cmap.color(n), s=10, alpha=0.25)
-    plt.xlim([-0.2, 1.2])
-    plt.ylim([-0.2, 1.2])
-    plt.tight_layout()
-    plt.close()
-
-    accuracy = metrics.accuracy_score(true_type_list, new_labels)
-
-    # calculate type for all nodes
-
-    fig, ax = fig_init()
-    median_center_list = []
-    for n in range(n_clusters):
-        pos = np.argwhere(new_labels == n).squeeze().astype(int)
-        pos = np.array(pos)
-        if pos.size > 0:
-            median_center = short_model_a_list[pos, :]
-            plt.scatter(to_numpy(short_model_a_list[pos,0]),to_numpy(short_model_a_list[pos,1]))
-            median_center = torch.mean(median_center, dim=0)
-            plt.scatter(to_numpy(median_center[0]), to_numpy(median_center[1]), s=100, color='black')
-            median_center_list.append(median_center)
-    median_center_list = torch.stack(median_center_list)
-    median_center_list = median_center_list.to(dtype=torch.float32)
-    plt.close()
-    distance = torch.sum((model.a[:, None, :] - median_center_list[None, :, :]) ** 2, dim=2)
-    result = distance.min(dim=1)
-    min_index = result.indices
-    new_labels = to_numpy(min_index).astype(int)
-    accuracy = metrics.accuracy_score(to_numpy(type_stack.squeeze()), new_labels)
-
-    return accuracy, n_clusters, new_labels
-
-
-def plot_embedding_func_cluster(model, config,embedding_cluster, cmap, index_particles, type_list,
-                                n_particle_types, n_particles, ynorm, epoch, log_dir, alpha, style, device):
-
-    fig, ax = fig_init()
-    if config.training.do_tracking:
-        embedding = to_numpy(model.a[0:n_particles])
-    else:
-        embedding = get_embedding(model.a, 1)
-    if config.training.particle_dropout > 0:
-        embedding = embedding[0:n_particles]
-
-    if n_particle_types > 1000:
-        plt.scatter(embedding[:, 0], embedding[:, 1], c=to_numpy(x[:, 5]) / n_particles, s=10,
-                    cmap=cc)
-    else:
-        for n in range(n_particle_types):
-            pos = torch.argwhere(type_list == n)
-            pos = to_numpy(pos)
-            if len(pos) > 0:
-                plt.scatter(embedding[pos, 0], embedding[pos, 1], color=cmap.color(n), s=10)
-    if 'latex' in style:
-        plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
-        plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
-    else:
-        plt.xlabel(r'$a_{0}$', fontsize=68)
-        plt.ylabel(r'$a_{1}$', fontsize=68)
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/embedding_{epoch}.png", dpi=170.7)
-    plt.close()
-
-    fig, ax = fig_init()
-    if 'PDE_N' in config.graph_model.signal_model_name:
-        model_MLP_ = model.lin_phi
-    else:
-        model_MLP_ = model.lin_edge
-    func_list, proj_interaction = analyze_edge_function(rr=[], vizualize=True, config=config, model_MLP=model_MLP_, model=model, type_list=to_numpy(type_list), n_particles=n_particles, ynorm=ynorm, cmap=cmap, update_type='NA', device=device)
-    plt.close()
-
-    # trans = umap.UMAP(n_neighbors=100, n_components=2, init='spectral').fit(func_list_)
-    # proj_interaction = trans.transform(func_list_)
-    # tsne = TSNE(n_components=2, random_state=0)
-    # proj_interaction =  tsne.fit_transform(func_list_)
-
-    fig, ax = fig_init()
-    proj_interaction = (proj_interaction - np.min(proj_interaction)) / (
-                np.max(proj_interaction) - np.min(proj_interaction) + 1e-10)
-    for n in range(n_particle_types):
-        pos = torch.argwhere(type_list == n)
-        pos = to_numpy(pos)
-        if len(pos) > 0:
-            plt.scatter(proj_interaction[pos, 0],
-                        proj_interaction[pos, 1], color=cmap.color(n), s=200, alpha=0.1)
-    plt.xlabel(r'UMAP 0', fontsize=68)
-    plt.ylabel(r'UMAP 1', fontsize=68)
-    plt.xlim([-0.2, 1.2])
-    plt.ylim([-0.2, 1.2])
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/UMAP_functions_{epoch}.png", dpi=170.7)
-    plt.close()
-
-    config.training.cluster_distance_threshold = 0.01
-    labels, n_clusters, new_labels = sparsify_cluster(config.training.cluster_method, proj_interaction, embedding,
-                                                      config.training.cluster_distance_threshold, type_list,
-                                                      n_particle_types, embedding_cluster)
-    accuracy = metrics.accuracy_score(to_numpy(type_list), new_labels)
-
-    fig, ax = fig_init()
-    for n in range(n_clusters):
-        pos = np.argwhere(labels == n)
-        if pos.size > 0:
-            plt.scatter(embedding[pos, 0], embedding[pos, 1], s=10)
-    if 'latex' in style:
-        plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
-        plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
-    else:
-        plt.xlabel(r'$a_{0}$', fontsize=68)
-        plt.ylabel(r'$a_{1}$', fontsize=68)
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/clustered_embedding_{epoch}.png", dpi=170.7)
-    plt.close()
-
-
-    # model_a_ = model.a[1].clone().detach()
-    # for n in range(n_clusters):
-    #     pos = np.argwhere(labels == n).squeeze().astype(int)
-    #     pos = np.array(pos)
-    #     if pos.size > 0:
-    #         median_center = model_a_[pos, :]
-    #         median_center = torch.median(median_center, dim=0).values
-    #         model_a_[pos, :] = median_center
-    #
-    # embedding = to_numpy(model_a_)
-    # fig, ax = fig_init()
-    # for n in range(n_clusters):
-    #     pos = np.argwhere(labels == n)
-    #     if pos.size > 0:
-    #         plt.scatter(embedding[pos, 0], embedding[pos, 1],s=10)
-    # plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
-    # plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
-    # plt.tight_layout()
-    # plt.savefig(f"./{log_dir}/results/UMAP_clustered_embedding_{epoch}.png", dpi=170.7)
-    # plt.close()
-
-    return accuracy, n_clusters, new_labels
-
-
-def plot_generated(config, run, style, step, device):
-
-    dataset_name = config.dataset
-    simulation_config = config.simulation
-    model_config = config.graph_model
-    training_config = config.training
-
-    has_adjacency_matrix = (simulation_config.connectivity_file != '')
-    has_mesh = (config.graph_model.mesh_model_name != '')
-    only_mesh = (config.graph_model.particle_model_name == '') & has_mesh
-    has_ghost = config.training.n_ghosts > 0
-    max_radius = simulation_config.max_radius
-    min_radius = simulation_config.min_radius
-    n_particle_types = simulation_config.n_particle_types
-    n_particles = simulation_config.n_particles
-    n_nodes = simulation_config.n_nodes
-    n_runs = training_config.n_runs
-    n_frames = simulation_config.n_frames
-    delta_t = simulation_config.delta_t
-    cmap = CustomColorMap(config=config)  # create colormap for given model_config
-    dimension = simulation_config.dimension
-    has_siren = 'siren' in model_config.field_type
-    has_siren_time = 'siren_with_time' in model_config.field_type
-    has_field = ('PDE_ParticleField' in config.graph_model.particle_model_name)
-
-    l_dir = get_log_dir(config)
-    log_dir = os.path.join(l_dir, 'try_{}'.format(config_file.split('/')[-1]))
-    files = glob.glob(f"./{log_dir}/tmp_recons/*")
-    for f in files:
-        os.remove(f)
-
-    print('Load data ...')
-
-    x_list = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
-
-
-    for it in trange(0,n_frames,step):
-
-        x = x_list[it].clone().detach()
-
-        T1 = x[:, 5:6].clone().detach()
-        H1 = x[:, 6:8].clone().detach()
-        X1 = x[:, 1:3].clone().detach()
-
-        if 'black' in style:
-            plt.style.use('dark_background')
-
-        if 'latex' in style:
-            plt.rcParams['text.usetex'] = True
-            rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-
-
-        if 'voronoi' in style:
-            # matplotlib.use("Qt5Agg")
-            matplotlib.rcParams['savefig.pad_inches'] = 0
-
-            vor, vertices_pos, vertices_per_cell, all_points = get_vertices(points=X1, device=device)
-
-            fig = plt.figure(figsize=(12, 12))
-            ax = fig.add_subplot(1, 1, 1)
-            plt.xticks([])
-            plt.yticks([])
-            index_particles = []
-
-            voronoi_plot_2d(vor, ax=ax, show_vertices=False, line_colors='white', line_width=4, line_alpha=1, point_size=0)
-
-            if 'color' in style:
-                for n in range(n_particle_types):
-                    pos = torch.argwhere((T1.squeeze() == n) & (H1[:, 0].squeeze() == 1))
-                    pos = to_numpy(pos[:, 0].squeeze()).astype(int)
-                    index_particles.append(pos)
-
-                    size = set_size(x, index_particles[n], 10) / 10
-
-                    patches = []
-                    for i in index_particles[n]:
-                        cell = vertices_per_cell[i]
-                        vertices = to_numpy(vertices_pos[cell, :])
-                        patches.append(Polygon(vertices, closed=True))
-
-                    pc = PatchCollection(patches, alpha=0.75, facecolors=cmap.color(n))
-                    ax.add_collection(pc)
-                    if 'center' in style:
-                        plt.scatter(to_numpy(X1[index_particles[n], 0]), to_numpy(X1[index_particles[n], 1]), s=size,
-                                    color=cmap.color(n))
-
-            if 'vertices' in style:
-                plt.scatter(to_numpy(vertices_pos[:, 0]), to_numpy(vertices_pos[:, 1]), s=5, color='w')
-
-            plt.xlim([0.5, 0.55])
-            plt.ylim([0.5, 0.55])
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/detail.png", dpi=85.35)
-            plt.close()
-
-
-            im = imread(f"./{log_dir}/detail.png")
-
-
-            fig = plt.figure(figsize=(12, 12))
-            ax = fig.add_subplot(1, 1, 1)
-            plt.xticks([])
-            plt.yticks([])
-            index_particles = []
-
-            voronoi_plot_2d(vor, ax=ax, show_vertices=False, line_colors='white', line_width=1, line_alpha=0.5, point_size=0)
-            if 'color' in style:
-                for n in range(n_particle_types):
-                    pos = torch.argwhere((T1.squeeze() == n) & (H1[:, 0].squeeze() == 1))
-                    pos = to_numpy(pos[:, 0].squeeze()).astype(int)
-                    index_particles.append(pos)
-
-                    size = set_size(x, index_particles[n], 10) / 10
-
-                    patches = []
-                    for i in index_particles[n]:
-                        cell = vertices_per_cell[i]
-                        vertices = to_numpy(vertices_pos[cell, :])
-                        patches.append(Polygon(vertices, closed=True))
-
-                    pc = PatchCollection(patches, alpha=0.75, facecolors=cmap.color(n))
-                    ax.add_collection(pc)
-                    if 'center' in style:
-                        plt.scatter(to_numpy(X1[index_particles[n], 0]), to_numpy(X1[index_particles[n], 1]), s=size,
-                                    color=cmap.color(n))
-
-            plt.xlim([-0.05, 1.05])
-            plt.ylim([-0.05, 1.05])
-
-            ax = fig.add_subplot(3, 3, 1)
-            ax.imshow(im)
-            plt.xticks([])
-            plt.yticks([])
-            plt.tight_layout()
-
-
-            num = f"{it:06}"
-            plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.png", dpi=85.35)
-
-            plt.close()
-
-        else:
-
-            if 'color' in style:
-
-                matplotlib.rcParams['savefig.pad_inches'] = 0
-                fig = plt.figure(figsize=(12, 12))
-                ax = fig.add_subplot(1, 1, 1)
-                ax.xaxis.get_major_formatter()._usetex = False
-                ax.yaxis.get_major_formatter()._usetex = False
-                ax.xaxis.set_major_locator(plt.MaxNLocator(3))
-                ax.yaxis.set_major_locator(plt.MaxNLocator(3))
-                ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-                ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-                index_particles = []
-                for n in range(n_particle_types):
-                    pos = torch.argwhere((T1.squeeze() == n) & (H1[:, 0].squeeze() == 1))
-                    pos = to_numpy(pos[:, 0].squeeze()).astype(int)
-                    index_particles.append(pos)
-                    # plt.scatter(to_numpy(x[index_particles[n], 1]), to_numpy(x[index_particles[n], 2]),
-                    #             s=marker_size, color=cmap.color(n))
-
-                    size = 10 # set_size(x, index_particles[n], 10) / 10
-
-                    plt.scatter(to_numpy(x[index_particles[n], 1]), to_numpy(x[index_particles[n], 2]),
-                                s=size, color=cmap.color(n))
-                dead_cell = np.argwhere(to_numpy(H1[:, 0]) == 0)
-                if len(dead_cell) > 0:
-                    plt.scatter(to_numpy(X1[dead_cell[:, 0].squeeze(), 0]), to_numpy(X1[dead_cell[:, 0].squeeze(), 1]),
-                                s=2, color=mc, alpha=0.5)
-                if 'latex' in style:
-                    plt.xlabel(r'$x$', fontsize=68)
-                    plt.ylabel(r'$y$', fontsize=68)
-                    plt.xticks(fontsize=48.0)
-                    plt.yticks(fontsize=48.0)
-                elif 'frame' in style:
-                    plt.xlabel(r'$x_i$', fontsize=13)
-                    plt.ylabel('y', fontsize=16)
-                    plt.xticks(fontsize=16.0)
-                    plt.yticks(fontsize=16.0)
-                    ax.tick_params(axis='both', which='major', pad=15)
-                    plt.text(0, 1.05,
-                             f'frame {it}, {int(n_particles_alive)} alive particles ({int(n_particles_dead)} dead), {edge_index.shape[1]} edges  ',
-                             ha='left', va='top', transform=ax.transAxes, fontsize=16)
-                plt.xticks([])
-                plt.yticks([])
-                plt.xlim([0,1])
-                plt.ylim([0,1])
-                plt.tight_layout()
-                num = f"{it:06}"
-                plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.png", dpi=80)
-                plt.close()
-
-            elif 'bw' in style:
-
-                matplotlib.rcParams['savefig.pad_inches'] = 0
-                fig = plt.figure(figsize=(12, 12))
-                ax = fig.add_subplot(1, 1, 1)
-                ax.xaxis.get_major_formatter()._usetex = False
-                ax.yaxis.get_major_formatter()._usetex = False
-                ax.xaxis.set_major_locator(plt.MaxNLocator(3))
-                ax.yaxis.set_major_locator(plt.MaxNLocator(3))
-                ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-                ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
-                index_particles = []
-                for n in range(n_particle_types):
-                    pos = torch.argwhere((T1.squeeze() == n) & (H1[:, 0].squeeze() == 1))
-                    pos = to_numpy(pos[:, 0].squeeze()).astype(int)
-                    index_particles.append(pos)
-                    # plt.scatter(to_numpy(x[index_particles[n], 1]), to_numpy(x[index_particles[n], 2]),
-                    #             s=marker_size, color=cmap.color(n))
-                    size = 10
-                    plt.scatter(to_numpy(x[index_particles[n], 1]), to_numpy(x[index_particles[n], 2]),
-                                s=size, color='w')
-                dead_cell = np.argwhere(to_numpy(H1[:, 0]) == 0)
-                if len(dead_cell) > 0:
-                    plt.scatter(to_numpy(X1[dead_cell[:, 0].squeeze(), 0]), to_numpy(X1[dead_cell[:, 0].squeeze(), 1]),
-                                s=2, color=mc, alpha=0.5)
-                if 'latex' in style:
-                    plt.xlabel(r'$x$', fontsize=68)
-                    plt.ylabel(r'$y$', fontsize=68)
-                    plt.xticks(fontsize=48.0)
-                    plt.yticks(fontsize=48.0)
-                elif 'frame' in style:
-                    plt.xlabel(r'$x_i$', fontsize=13)
-                    plt.ylabel('y', fontsize=16)
-                    plt.xticks(fontsize=16.0)
-                    plt.yticks(fontsize=16.0)
-                    ax.tick_params(axis='both', which='major', pad=15)
-                    plt.text(0, 1.05,
-                             f'frame {it}, {int(n_particles_alive)} alive particles ({int(n_particles_dead)} dead), {edge_index.shape[1]} edges  ',
-                             ha='left', va='top', transform=ax.transAxes, fontsize=16)
-                plt.xticks([])
-                plt.yticks([])
-                plt.xlim([0,1])
-                plt.ylim([0,1])
-                plt.tight_layout()
-                num = f"{it:06}"
-                plt.savefig(f"./{log_dir}/tmp_recons/frame_{num}.png", dpi=80)
-                plt.close()
-
-
-def plot_confusion_matrix(index, true_labels, new_labels, n_particle_types, epoch, it, fig, ax, style):
+def plot_confusion_matrix(index, true_labels, new_labels, n_neuron_types, epoch, it, fig, ax, style):
     # print(f'plot confusion matrix epoch:{epoch} it: {it}')
     plt.text(-0.25, 1.1, f'{index}', ha='left', va='top', transform=ax.transAxes, fontsize=12)
     confusion_matrix = metrics.confusion_matrix(true_labels, new_labels)  # , normalize='true')
     cm_display = metrics.ConfusionMatrixDisplay(confusion_matrix=confusion_matrix)
-    if n_particle_types > 8:
+    if n_neuron_types > 8:
         cm_display.plot(ax=fig.gca(), cmap='Blues', include_values=False, colorbar=False)
     else:
         cm_display.plot(ax=fig.gca(), cmap='Blues', include_values=True, values_format='d', colorbar=False)
@@ -2628,7 +2114,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
-    if False: #os.path.exists(f"./{log_dir}/results/E_panels.png"):
+    if  True: #os.path.exists(f"./{log_dir}/results/E_panels.png"):
         print (f'skipping computation of energy plot ...')
     else:
         energy_stride = 1
@@ -4081,53 +3567,56 @@ def data_flyvis_compare(config_list, varied_parameter):
             ax4.text(x, y + acc_errors_pct[i] + 2, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # Video file sizes panel - using line plots
-    ffv1_x = []
-    ffv1_y = []
-    ffv1_err = []
-    libx264_x = []
-    libx264_y = []
-    libx264_err = []
-    for i, (param_str, ffv1_size, libx264_size, ffv1_error, libx264_error) in enumerate(
-            zip(param_values_str, ffv1_means, libx264_means, ffv1_errors, libx264_errors)):
-        if ffv1_size > 0:
-            ffv1_x.append(param_str)
-            ffv1_y.append(ffv1_size)
-            ffv1_err.append(ffv1_error if ffv1_error > 0 else 0)
-        if libx264_size > 0:
-            libx264_x.append(param_str)
-            libx264_y.append(libx264_size)
-            libx264_err.append(libx264_error if libx264_error > 0 else 0)
-    if ffv1_x:  # Only plot if we have FFV1 data
-        ax5.errorbar(ffv1_x, ffv1_y, yerr=ffv1_err,
-                     fmt='o', capsize=3, markersize=8, linewidth=2,
-                     color='lightblue', markerfacecolor='lightblue', markeredgecolor='blue',
-                     label='FFV1 (lossless)')
-    if libx264_x:  # Only plot if we have libx264 data
-        ax5.errorbar(libx264_x, libx264_y, yerr=libx264_err,
-                     fmt='s', capsize=3, markersize=8, linewidth=2,
-                     color='salmon', markerfacecolor='salmon', markeredgecolor='red',
-                     label='libx264 (lossy)')
-
-    ax5.set_xlabel(param_display_name, fontsize=16, color='white')
-    ax5.set_ylabel('file size (MB)', fontsize=24, color='white')
-    legend = ax5.legend(fontsize=10)
-    legend.get_frame().set_facecolor('black')
-    for text in legend.get_texts():
-        text.set_color('white')
-    ax5.grid(True, alpha=0.3)
-    ax5.set_ylim(0, 600)
-    ax5.tick_params(colors='white', labelsize=14)
-    for i, (n, ffv1_size, libx264_size) in enumerate(
-            zip([r['n_configs'] for r in summary_results], ffv1_means, libx264_means)):
-        if n > 1:
-            max_size = max([s for s in ffv1_means + libx264_means if s > 0]) if any(
-                s > 0 for s in ffv1_means + libx264_means) else 1
+    if False:
+        ffv1_x = []
+        ffv1_y = []
+        ffv1_err = []
+        libx264_x = []
+        libx264_y = []
+        libx264_err = []
+        for i, (param_str, ffv1_size, libx264_size, ffv1_error, libx264_error) in enumerate(
+                zip(param_values_str, ffv1_means, libx264_means, ffv1_errors, libx264_errors)):
             if ffv1_size > 0:
-                ax5.text(param_values_str[i], ffv1_size + ffv1_errors[i] + max_size * 0.02,
-                         f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
-            elif libx264_size > 0:
-                ax5.text(param_values_str[i], libx264_size + libx264_errors[i] + max_size * 0.02,
-                         f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
+                ffv1_x.append(param_str)
+                ffv1_y.append(ffv1_size)
+                ffv1_err.append(ffv1_error if ffv1_error > 0 else 0)
+            if libx264_size > 0:
+                libx264_x.append(param_str)
+                libx264_y.append(libx264_size)
+                libx264_err.append(libx264_error if libx264_error > 0 else 0)
+        if ffv1_x:  # Only plot if we have FFV1 data
+            ax5.errorbar(ffv1_x, ffv1_y, yerr=ffv1_err,
+                         fmt='o', capsize=3, markersize=8, linewidth=2,
+                         color='lightblue', markerfacecolor='lightblue', markeredgecolor='blue',
+                         label='FFV1 (lossless)')
+        if libx264_x:  # Only plot if we have libx264 data
+            ax5.errorbar(libx264_x, libx264_y, yerr=libx264_err,
+                         fmt='s', capsize=3, markersize=8, linewidth=2,
+                         color='salmon', markerfacecolor='salmon', markeredgecolor='red',
+                         label='libx264 (lossy)')
+
+        ax5.set_xlabel(param_display_name, fontsize=16, color='white')
+        ax5.set_ylabel('file size (MB)', fontsize=24, color='white')
+        legend = ax5.legend(fontsize=10)
+        legend.get_frame().set_facecolor('black')
+        for text in legend.get_texts():
+            text.set_color('white')
+        ax5.grid(True, alpha=0.3)
+        ax5.set_ylim(0, 600)
+        ax5.tick_params(colors='white', labelsize=14)
+        for i, (n, ffv1_size, libx264_size) in enumerate(
+                zip([r['n_configs'] for r in summary_results], ffv1_means, libx264_means)):
+            if n > 1:
+                max_size = max([s for s in ffv1_means + libx264_means if s > 0]) if any(
+                    s > 0 for s in ffv1_means + libx264_means) else 1
+                if ffv1_size > 0:
+                    ax5.text(param_values_str[i], ffv1_size + ffv1_errors[i] + max_size * 0.02,
+                             f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
+                elif libx264_size > 0:
+                    ax5.text(param_values_str[i], libx264_size + libx264_errors[i] + max_size * 0.02,
+                             f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
+    else:
+        ax5.axis('off')
 
     # Loss curves panel (ax6)
     ax6.set_xlabel('epochs', fontsize=24, color='white')
@@ -7454,8 +6943,14 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     # data_flyvis_compare(config_list, 'simulation.n_extra_null_edges')
-    
-    config_list = ['fly_N9_44_2']
+
+    config_list = ['fly_N9_52_1', 'fly_N9_52_2', 'fly_N9_52_3', 'fly_N9_52_4', 'fly_N9_52_5', 'fly_N9_52_6', 'fly_N9_52_7', 'fly_N9_52_8', 'fly_N9_52_9']
+    data_flyvis_compare(config_list, 'simulation.n_frames')
+
+    config_list = ['fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7']
+    data_flyvis_compare(config_list, 'training.seed')
+
+    # config_list = ['fly_N9_44_2']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     for config_file_ in config_list:
@@ -7470,9 +6965,7 @@ if __name__ == '__main__':
 
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', device=device)
-
-
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
 
