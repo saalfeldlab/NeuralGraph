@@ -323,7 +323,7 @@ class CustomColorMap:
         if self.cmap_name == 'tab10':
             self.nmap = 8
         else:
-            self.nmap = config.simulation.n_particles
+            self.nmap = config.simulation.n_neurons
 
         self.has_mesh = 'Mesh' in self.model_name
 

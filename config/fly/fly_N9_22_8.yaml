@@ -1,4 +1,4 @@
-description: 'small MLP, no extra null edges, noise_model_level: 0 training seed: 24'
+description: 'small MLP, no extra null edges, noise_model_level: 0 training seed: 42 (no seeding)'
 dataset: 'fly_N9_18_4_0'
 
 simulation:
@@ -44,7 +44,7 @@ training:
     n_epochs: 10
     n_runs: 1
     device: 'auto'
-    seed: 241
+    seed: 42
 
     recursive_loop: 0
     batch_size: 1

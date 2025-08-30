@@ -1,5 +1,5 @@
-description: 'small MLP, no extra null edges, noise_model_level: 0 training seed: 24'
-dataset: 'fly_N9_18_4_0'
+description: 'noise_model_level: 0, small MLP, n_extra_null_edges: 0'
+dataset: 'fly_N9_20_0'
 
 simulation:
     connectivity_file: 'to be specified'
@@ -14,6 +14,7 @@ simulation:
     n_frames: 90720
     delta_t: 0.02
     baseline_value: 0
+    seed: 42
 
 graph_model:
     signal_model_name: 'PDE_N9_A'
@@ -44,11 +45,12 @@ training:
     n_epochs: 10
     n_runs: 1
     device: 'auto'
-    seed: 241
 
     recursive_loop: 0
     batch_size: 1
     batch_ratio: 1
+
+    seed: 42
 
     sparsity: 'none'
     rotation_augmentation: False

@@ -123,9 +123,9 @@ def find_closest_neighbors(track, x):
     return closest_neighbors
 
 
-def get_index_particles(x, n_particle_types, dimension):
+def get_index_particles(x, n_neurons, dimension):
     index_particles = []
-    for n in range(n_particle_types):
+    for n in range(n_neurons):
         if dimension == 2:
             index = np.argwhere(x[:, 5].detach().cpu().numpy() == n)
         elif dimension == 3:
@@ -185,7 +185,6 @@ def load_worm_Kato_data(config, device=None, visualize=None, step=None, cmap=Non
     n_frames = simulation_config.n_frames
 
     n_runs = train_config.n_runs
-    n_particles = simulation_config.n_particles
 
     delta_t = simulation_config.delta_t
     bc_pos, bc_dpos = choose_boundary_values('no')
@@ -281,7 +280,6 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
     n_frames = simulation_config.n_frames
 
     n_runs = train_config.n_runs
-    n_particles = simulation_config.n_particles
     baseline = simulation_config.baseline_value
 
     delta_t = simulation_config.delta_t

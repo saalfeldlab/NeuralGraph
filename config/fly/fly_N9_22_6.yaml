@@ -1,4 +1,4 @@
-description: 'small MLP, no extra null edges, noise_model_level: 0 training seed: 24'
+description: 'small MLP, no extra null edges, noise_model_level: 0'
 dataset: 'fly_N9_18_4_0'
 
 simulation:
@@ -9,7 +9,7 @@ simulation:
 
     n_neurons: 13741
     n_input_neurons: 1736
-    n_neuron_types: 20
+    n_neuron_types: 65
     n_edges: 434112
     n_frames: 90720
     delta_t: 0.02
@@ -37,14 +37,13 @@ graph_model:
 plotting:
     colormap: 'tab20'
     arrow_length: 1
-    xlim: [ -2.5,5 ]
-    ylim: [ -8,8 ]
+    xlim: [ -2.5,2.5 ]
+    ylim: [ -100,100 ]
 
 training:
     n_epochs: 10
     n_runs: 1
     device: 'auto'
-    seed: 241
 
     recursive_loop: 0
     batch_size: 1
