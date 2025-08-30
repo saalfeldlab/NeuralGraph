@@ -34,14 +34,6 @@ class SimulationConfig(BaseModel):
 
     baseline_value: float = -999.0
     shuffle_neuron_types: bool = False
-    pos_init: str = "uniform"
-    dpos_init: float = 0
-
-
-    diffusion_coefficients: list[list[float]] = None
-
-    angular_sigma: float = 0
-    angular_Bernouilli: list[float] = [-1]
 
     noise_visual_input: float = 0.0
     only_noise_visual_input: float = 0.0
@@ -55,10 +47,8 @@ class SimulationConfig(BaseModel):
     n_node_types: Optional[int] = None
     node_coeff_map: Optional[str] = None
     node_value_map: Optional[str] = "input_data/pattern_Null.tif"
-    node_proliferation_map: Optional[str] = None
 
     adjacency_matrix: str = ""
-
     short_term_plasticity_mode: str = "depression"
 
     connectivity_file: str = ""
@@ -79,25 +69,19 @@ class SimulationConfig(BaseModel):
     tau: float = 1.0
     sigma: float = 0.005
 
-    cell_cycle_length: list[float] = [-1]
-    cell_death_rate: list[float] = [-1]
-    cell_area: list[float] = [-1]
-    cell_type_map: Optional[str] = None
-    final_cell_mass: list[float] = [-1]
-    pos_rate: list[list[float]] = None
-    neg_rate: list[list[float]] = None
-    has_cell_division: bool = False
-    has_cell_death: bool = False
-    has_cell_state: bool = False
-    non_discrete_level: float = 0
-    cell_active_model_coeff: float = 1
-    cell_inert_model_coeff: float = 0
-    coeff_area: float = 1
-    coeff_perimeter: float = 0
-    kill_cell_leaving: bool = False
+    calcium_type: Literal["none", "leaky", "multi-compartment", "saturation"] = "none"
+    calcium_activation: Literal["softplus", "relu", "identity", "tanh"] = "softplus"
+    calcium_tau: float = 0.5  # decay time constant (same units as delta_t)
+    calcium_alpha: float = 1.0  # scale factor to convert [Ca] to fluorescence
+    calcium_beta: float = 0.0  # baseline offset for fluorescence
+    calcium_initial: float = 0.0  # initial calcium concentration
+    calcium_noise_level: float = 0.0  # optional Gaussian noise added to [Ca] updates
+    calcium_saturation_kd: float = 1.0  # for nonlinear saturation models
+    calcium_num_compartments: int = 1
 
-    state_type: Literal["discrete", "sequence", "continuous"] = "discrete"
-    state_params: list[float] = [-1]
+    pos_init: str = "uniform"
+    dpos_init: float = 0
+    diffusion_coefficients: list[list[float]] = None
 
 
 class GraphModelConfig(BaseModel):
@@ -108,6 +92,10 @@ class GraphModelConfig(BaseModel):
     signal_model_name: str = ""
     prediction: Literal["first_derivative", "2nd_derivative"] = "2nd_derivative"
     integration: Literal["Euler", "Runge-Kutta"] = "Euler"
+
+    aggr_type: str
+    embedding_dim: int = 2
+    embedding_init: str = ""
 
     field_type: str = ""
     field_grid: Optional[str] = ""
@@ -148,12 +136,6 @@ class GraphModelConfig(BaseModel):
     ]
 
     lin_edge_positive: bool = False
-
-    aggr_type: str
-
-    mesh_aggr_type: str = "add"
-    embedding_dim: int = 2
-    embedding_init: str = ""
 
     update_type: Literal[
         "linear",
@@ -212,23 +194,6 @@ class PlottingConfig(BaseModel):
     data_embedding: int = 1
 
 
-class ImageData(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    file_type: str = "none"
-    cellpose_model: str = "cyto3"
-    cellpose_denoise_model: str = ""
-    cellpose_diameter: float = 30
-    cellpose_flow_threshold: int = 0.4
-    cellpose_cellprob_threshold: int = 0.0
-    cellpose_channel: list[int] = [1]
-    offset_channel: list[float] = [0.0, 0.0]
-    tracking_file: str = ""
-    trackmate_size_ratio: float = 1.0
-    trackmate_frame_step: int = 1
-    measure_diameter: float = 40.0
-
-
 class TrainingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     device: Annotated[str, Field(pattern=r"^(auto|cpu|cuda:\d+)$")] = "auto"
@@ -259,9 +224,7 @@ class TrainingConfig(BaseModel):
     epoch_distance_replace: int = 20
 
     denoiser: bool = False
-    denoiser_type: Literal["none", "window", "LSTM", "Gaussian_filter", "wavelet"] = (
-        "none"
-    )
+    denoiser_type: Literal["none", "window", "LSTM", "Gaussian_filter", "wavelet"] = ("none")
     denoiser_param: float = 1.0
 
     time_window: int = 0
@@ -399,7 +362,6 @@ class NeuralGraphConfig(BaseModel):
     graph_model: GraphModelConfig
     plotting: PlottingConfig
     training: TrainingConfig
-    image_data: Optional[ImageData] = None
 
     @staticmethod
     def from_yaml(file_name: str):
