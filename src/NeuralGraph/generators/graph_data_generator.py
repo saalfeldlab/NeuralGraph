@@ -518,7 +518,6 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         x[:, 4] = 0
                         if current_flash_frame < flash_cycle_frames:
                             x[:n_input_neurons, 4] = flash_intensity
-
                     elif "mixed" in visual_input_type:
                         current_type = mixed_types[mixed_current_type]
 
@@ -541,7 +540,6 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                     else:
                         frame = sequences[frame_id][None, None]
                         net.stimulus.add_input(frame)
-
                         if (only_noise_visual_input > 0):
                             if (visual_input_type == "") | (it == 0) | ("50/50" in visual_input_type):
                                 x[:n_input_neurons, 4:5] = torch.relu(
@@ -909,7 +907,7 @@ def data_generate_synaptic(
         U1 = torch.rand_like(H1, device=device)
         U1[:, 1] = 0
 
-        if simulation_config.shuffle_particle_types:
+        if simulation_config.shuffle_neuron_types:
             if run == 0:
                 index = torch.randperm(n_neurons)
                 T1 = T1[index]

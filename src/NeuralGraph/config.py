@@ -33,18 +33,10 @@ class SimulationConfig(BaseModel):
     n_extra_null_edges: int = 0
 
     baseline_value: float = -999.0
-    n_particle_type_distribution: list[int] = [0]
-    shuffle_particle_types: bool = False
+    shuffle_neuron_types: bool = False
     pos_init: str = "uniform"
     dpos_init: float = 0
 
-    MPM_expansion_factor: float = 1.0
-    MPM_n_objects: int = 9
-    MPM_object_type: Literal['cubes', 'discs', 'spheres', 'stars', 'letters'] = 'discs'
-    MPM_gravity: float = -50
-    MPM_rho_list: list[float] = [1.0, 1.0, 1.0]
-    MPM_friction: float = 0.0
-    MPM_young_coeff : float = 1.0
 
     diffusion_coefficients: list[list[float]] = None
 
