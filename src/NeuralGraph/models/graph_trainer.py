@@ -63,19 +63,8 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     print('')
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
-    if 'Agents' in config.graph_model.particle_model_name:
-        data_train_agents(config, erase, best_model, device)
-    elif has_mouse_city:
-        data_train_rat_city(config, erase, best_model, device)
-    elif has_WBI:
-        data_train_WBI(config, erase, best_model, device)
-    elif has_particle_field:
-        data_train_particle_field(config, erase, best_model, device)
-    elif has_mesh:
-        data_train_mesh(config, erase, best_model, device)
-    elif 'fly' in config.dataset:
-        data_train_flyvis(config, erase, best_model, device)
-    elif has_signal:
+
+    if has_signal:
         data_train_synaptic2(config, erase, best_model, device)
     elif do_tracking & has_cell_division:
         data_train_cell(config, erase, best_model, device)
