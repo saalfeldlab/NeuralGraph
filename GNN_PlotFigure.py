@@ -2646,7 +2646,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
         files, file_id_list = get_training_files(log_dir, n_runs)
 
-        if True:
+        if False:
             fps = 10
             metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
             writer = FFMpegWriter(fps=fps, metadata=metadata)
@@ -3118,8 +3118,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             fig = plt.figure(figsize=(8, 8))
             plt.scatter(true_in, learned_in, c=mc, s=0.1, alpha=0.1)
             lin_fit, _ = curve_fit(linear_model, true_in, learned_in)
-            residuals = learned_in - linear_model(true_in, *lin_fit)
-            ss_res = np.sum(residuals ** 2)
+            residuals_ = learned_in - linear_model(true_in, *lin_fit)
+            ss_res = np.sum(residuals_ ** 2)
             ss_tot = np.sum((learned_in - np.mean(learned_in)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
 
@@ -3138,8 +3138,11 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             inlier_residuals = residuals[mask]
             print(f'inliers: {len(inlier_residuals)}  mean residual: {np.mean(inlier_residuals):.4f}  std: {np.std(inlier_residuals):.4f}  min,max: {np.min(inlier_residuals):.4f}, {np.max(inlier_residuals):.4f}')
             outlier_residuals = residuals[~mask]
-            print(f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
-
+            if len(outlier_residuals) > 0:
+                print(
+                    f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
+            else:
+                print(f'outliers: 0  (no outliers detected)')
 
             # plot distribution
 
@@ -6770,8 +6773,10 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_43_1', 'fly_N9_43_2', 'fly_N9_43_3', 'fly_N9_43_4', 'fly_N9_43_5']
     # data_flyvis_compare(config_list, 'training.loss_noise_level')
 
-    # config_list = ['fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
-    # config_list = ['fly_N9_22_1', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7']
+
+    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
+                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
@@ -6810,7 +6815,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
     # data_flyvis_compare(config_list, 'none')
 
-    config_list = ['fly_N9_22_1']
+
     # #
     # # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
     # #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
