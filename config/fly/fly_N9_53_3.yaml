@@ -1,4 +1,4 @@
-description: 'idem 49-6 noise_visual_input 0.5'
+description: 'idem 49-6 only_noise_visual_input: 0.5'
 dataset: 'fly_N9_53_3'
 
 simulation:
@@ -14,6 +14,8 @@ simulation:
     n_frames: 90000
     delta_t: 0.02
     baseline_value: 0
+
+    visual_input_type: 'only noise'
 
     only_noise_visual_input: 0.5
     seed: 344

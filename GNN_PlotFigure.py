@@ -2110,7 +2110,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
-    if  True: #os.path.exists(f"./{log_dir}/results/E_panels.png"):
+    if  False: #os.path.exists(f"./{log_dir}/results/E_panels.png"):
         print (f'skipping computation of energy plot ...')
     else:
         energy_stride = 1
@@ -2357,7 +2357,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
         config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
         files, file_id_list = get_training_files(log_dir, n_runs)
-        
+
         fps = 10  # frames per second for the video
         metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
         writer = FFMpegWriter(fps=fps, metadata=metadata)
@@ -3654,155 +3654,116 @@ def data_flyvis_compare(config_list, varied_parameter):
     print(f"\nplot saved as: {plot_filename}")
     plt.close()
 
-    # Create separate energy distribution comparison plot (2x2)
-    create_Ising_distribution_comparison(summary_results, param_display_name)
+    # ---------------------------------------------------------------
+    # Ising metrics aggregated per parameter value (mirrors summary_results)
+    # ---------------------------------------------------------------
+    ising_results = []
 
+    for param_val, group in grouped_results.items():
+        configs = [r['config'] for r in group]
+        n_configs = len(configs)
 
-def create_Ising_distribution_comparison(summary_results, param_display_name):
-    """
-    Create a 2x2 detailed comparison of Ising energies and couplings across parameter values.
-    Panels:
-    -----------
-    Top-left: linear energy histogram
-    Top-right: J couplings histogram
-    Bottom-left: CDF of energy
-    Bottom-right: violin plot of energy distributions
-    """
-    import os
-    import numpy as np
-    import matplotlib.pyplot as plt
+        # Collect per-config metrics
+        E_mean_list, E_std_list, E_skew_list, E_kurt_list, E_entropy_list = [], [], [], [], []
+        J_mean_list, J_std_list, J_sign_ratio_list, J_frac_strong_list, J_gini_list = [], [], [], [], []
 
-    all_energy_data = {}
-    all_J_data = {}
-    n_params = len(summary_results)
-    colors = plt.cm.viridis(np.linspace(0.1, 0.9, n_params))
+        for cfg in configs:
+            ising_dir = os.path.join(f"./log/fly/{cfg}", "results")
 
-    # Load all energy and J data
-    for i, result in enumerate(summary_results):
-        energies = []
-        J_vals = []
-        for config_name in result['configs']:
-            config_base = config_name.replace('config_', '').replace('.yaml', '')
-            energy_path = os.path.join('./log/fly', config_base, 'results', 'E.npy')
-            J_path = os.path.join('./log/fly', config_base, 'results', 'J.npy')
+            # try to load; skip config if missing files
+            try:
+                E = np.load(os.path.join(ising_dir, "E.npy"))
+                J = np.load(os.path.join(ising_dir, "J.npy"), allow_pickle=True)
+            except Exception:
+                # optional: print(f"[warn] missing E/J for {cfg}, skipping")
+                continue
 
-            if os.path.exists(energy_path):
-                try:
-                    energies.extend(np.load(energy_path))
-                except Exception as e:
-                    print(f"Warning: could not load {energy_path}: {e}")
+            # --- Energy metrics (per config) ---
+            E_mean = np.mean(E)
+            E_std = np.std(E)
+            E_skew = stats.skew(E)
+            E_kurt = stats.kurtosis(E)
+            hist, _ = np.histogram(E, bins=100, density=True)
+            E_entropy = -np.sum(hist * np.log(hist + 1e-12))
 
-            if os.path.exists(J_path):
-                try:
-                    J_loaded = np.load(J_path, allow_pickle=True)
-                    J_vals.extend([v for Ji in J_loaded for v in Ji.values()])
-                except Exception as e:
-                    print(f"Warning: could not load {J_path}: {e}")
+            # --- Coupling metrics (per config) ---
+            J_vals = []
+            for Ji in J:
+                if isinstance(Ji, dict):
+                    J_vals.extend(Ji.values())
+                else:
+                    J_vals.extend(np.asarray(Ji).ravel())
+            J_vals = np.asarray(J_vals, dtype=np.float32)
+            J_vals = J_vals[np.isfinite(J_vals)]
+            if J_vals.size == 0:
+                continue
 
-        if energies:
-            all_energy_data[result['param_value']] = {
-                'energies': np.array(energies),
-                'color': colors[i]
-            }
-        if J_vals:
-            all_J_data[result['param_value']] = {
-                'J_vals': np.array(J_vals, dtype=np.float32),
-                'color': colors[i]
-            }
+            J_mean = float(np.mean(J_vals))
+            J_std = float(np.std(J_vals))
+            J_sign_ratio = float((J_vals > 0).mean())
+            # robust “strong” threshold: 90th percentile of |J| per config
+            th = np.percentile(np.abs(J_vals), 90.0)
+            J_frac_strong = float((np.abs(J_vals) > th).mean())
 
-    if not all_energy_data:
-        print("No energy data available for comparison.")
-        return
+            def gini(x):
+                x = np.abs(np.sort(x))
+                n = len(x)
+                return (np.sum((2 * np.arange(1, n + 1) - n - 1) * x)) / (n * np.sum(x) + 1e-12)
 
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
-    fig.patch.set_facecolor('white')
+            J_gini = float(gini(J_vals))
 
-    # ---------------- Top-left: Energy histogram ----------------
-    for param_val, data in all_energy_data.items():
-        ax1.hist(data['energies'], bins=50, alpha=0.7, color=data['color'],
-                 density=True, label=f"{param_display_name}={param_val}",
-                 edgecolor='black', linewidth=0.3)
-    ax1.set_xlabel('Ising Energy', fontsize=16)
-    ax1.set_ylabel('Density', fontsize=16)
-    ax1.set_title('Energy Distributions', fontsize=18)
-    ax1.set_ylim(0, 1)  # limit y-axis
-    ax1.tick_params(colors='black', labelsize=12)
-    ax1.legend(fontsize=10, frameon=True, facecolor='white', edgecolor='black', labelcolor='black')
-    ax1.set_facecolor('white')
-    ax1.grid(False)
+            # stash per-config
+            E_mean_list.append(E_mean);
+            E_std_list.append(E_std)
+            E_skew_list.append(E_skew);
+            E_kurt_list.append(E_kurt);
+            E_entropy_list.append(E_entropy)
+            J_mean_list.append(J_mean);
+            J_std_list.append(J_std)
+            J_sign_ratio_list.append(J_sign_ratio);
+            J_frac_strong_list.append(J_frac_strong);
+            J_gini_list.append(J_gini)
 
-    # ---------------- Top-right: J histogram ----------------
-    if all_J_data:
-        for param_val, data in all_J_data.items():
-            ax2.hist(data['J_vals'], bins=50, alpha=0.7, color=data['color'],
-                     density=True, edgecolor='black', linewidth=0.3,
-                     label=f"{param_display_name}={param_val}")
-        ax2.set_xlabel('Coupling strength $J_{ij}$', fontsize=16)
-        ax2.set_ylabel('Density', fontsize=16)
-        ax2.set_title('Sparse Couplings Histogram', fontsize=18)
-        ax2.tick_params(colors='black', labelsize=12)
-        ax2.legend(fontsize=10, frameon=True, facecolor='white', edgecolor='black', labelcolor='black')
-        ax2.set_facecolor('white')
-        ax2.grid(False)
-    else:
-        ax2.text(0.5, 0.5, 'No Couplings Data\nAvailable',
-                 transform=ax2.transAxes, ha='center', va='center',
-                 fontsize=16, color='black', alpha=0.7)
-        ax2.set_xlabel('J', fontsize=16)
-        ax2.set_ylabel('Density', fontsize=16)
-        ax2.set_facecolor('white')
-        ax2.grid(False)
+        # format like summary_results (scalar or mean±std)
+        def fmt(vals, w=12):
+            if len(vals) == 0:   return f"{'NA':<{w}}"
+            if len(vals) == 1:   return f"{vals[0]:<{w}.4f}"
+            m, s = np.mean(vals), np.std(vals)
+            return f"{m:.4f}±{s:.4f}".ljust(w)
 
-    # ---------------- Bottom-left: Energy CDF ----------------
-    for param_val, data in all_energy_data.items():
-        sorted_energies = np.sort(data['energies'])
-        y_vals = np.linspace(0, 1, len(sorted_energies))
-        ax3.plot(sorted_energies, y_vals, color=data['color'], linewidth=2.5)
-    ax3.set_xlabel('Ising Energy', fontsize=16)
-    ax3.set_ylabel('Cumulative Probability', fontsize=16)
-    ax3.set_title('Cumulative Distribution Function', fontsize=18)
-    ax3.set_xlim(left=min([np.min(d['energies']) for d in all_energy_data.values()]),
-                 right=max([np.max(d['energies']) for d in all_energy_data.values()]))
-    ax3.set_ylim(0, 1.1)  # normalized full range
-    ax3.tick_params(colors='black', labelsize=12)
-    ax3.set_facecolor('white')
-    ax3.grid(False)
+        ising_results.append({
+            "param_value": param_val,
+            "E_mean_str": fmt(E_mean_list),
+            "E_std_str": fmt(E_std_list),
+            "E_skew_str": fmt(E_skew_list),
+            "E_kurt_str": fmt(E_kurt_list),
+            "E_entropy_str": fmt(E_entropy_list),
+            "J_mean_str": fmt(J_mean_list),
+            "J_std_str": fmt(J_std_list),
+            "J_sign_ratio_str": fmt(J_sign_ratio_list),
+            "J_frac_strong_str": fmt(J_frac_strong_list),
+            "J_gini_str": fmt(J_gini_list),
+            "n_configs": len(E_mean_list)  # actually used in this table
+        })
 
-    # ---------------- Bottom-right: Energy violin ----------------
-    import matplotlib
-    box_data = [data['energies'] for data in all_energy_data.values()]
-    box_colors = [data['color'] for data in all_energy_data.values()]
-    box_labels = [str(k) for k in all_energy_data.keys()]
+    print(f"\n=== parameter comparison (Ising metrics): {parameter_name} ===")
+    print(
+        f"{param_display_name:<15} "
+        f"{'E_mean':<12} {'E_std':<12} {'E_skew':<12} {'E_kurt':<12} {'E_entropy':<12} "
+        f"{'J_mean':<12} {'J_std':<12} {'J_sign_ratio':<15} {'J_frac_strong':<15} {'J_gini':<12} {'n_configs':<10}"
+    )
+    print("-" * 160)
 
-    vp = ax4.violinplot(box_data, showmeans=True, showmedians=True)
-    for pc, color in zip(vp['bodies'], box_colors):
-        pc.set_facecolor(color)
-        pc.set_edgecolor('black')
-        pc.set_alpha(0.8)
-    if 'cmedians' in vp:
-        vp['cmedians'].set_color('white')
-    if 'cmeans' in vp:
-        vp['cmeans'].set_color('yellow')
-    ax4.set_xticks(np.arange(1, len(box_labels)+1))
-    ax4.set_xticklabels(box_labels, rotation=45, ha='right', color='black')
-    ax4.set_xlabel(param_display_name, fontsize=16)
-    ax4.set_ylabel('Ising Energy', fontsize=16)
-    ax4.set_title('Energy Distribution Summary', fontsize=18)
-    ax4.tick_params(colors='black', labelsize=12)
-    ax4.set_facecolor('white')
-    ax4.grid(False)
+    ising_results.sort(key=lambda x: x['param_value'])
 
-    # ---------------- Styling for all axes ----------------
-    for ax in [ax1, ax2, ax3, ax4]:
-        for spine in ax.spines.values():
-            spine.set_color('black')
-            spine.set_linewidth(1)
-
-    plt.tight_layout()
-    output_file = f'Ising_distributions_detailed_{param_display_name}.png'
-    plt.savefig(output_file, dpi=300, bbox_inches='tight', facecolor='white', edgecolor='black')
-    print(f"Saved: {output_file}")
-    plt.close()
+    for r in sorted(ising_results, key=lambda x: str(x['param_value'])):
+        print(
+            f"{str(r['param_value']):<15} "
+            f"{r['E_mean_str']:<12}{r['E_std_str']:<12}{r['E_skew_str']:<12}{r['E_kurt_str']:<12}{r['E_entropy_str']:<12}"
+            f"{r['J_mean_str']:<12}{r['J_std_str']:<12}{r['J_sign_ratio_str']:<12}{r['J_frac_strong_str']:<12}{r['J_gini_str']:<12}"
+            f"{str(r['n_configs']):>10}"
+        )
+    print("-" * 160)
 
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
@@ -6777,7 +6738,7 @@ if __name__ == '__main__':
     config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
                    'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
                    'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
-    # data_flyvis_compare(config_list, 'training.noise_model_level')
+    data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
 
@@ -6815,14 +6776,16 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
     # data_flyvis_compare(config_list, 'none')
 
+    config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
+    # data_flyvis_compare(config_list,  'simulation.visual_input_type')
 
-    # #
-    # # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
-    # #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
-    # #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
+
     #
-    #
-    # #
+    # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
+    #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
+    #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
+
+
     for config_file_ in config_list:
         print(' ')
 
