@@ -225,10 +225,10 @@ if __name__ == '__main__':
 
     # config_file_list = ['noise_1', 'noise_2', 'noise_3', 'noise_4', 'noise_5']
     # config_file_list = ['lambda_2', 'lambda_3', 'lambda_4']
-    config_file_list = ['recur_6_sin_J','recur_7_sin_J','recur_8_sin_J','recur_9_sin_J','recur_10_sin_J','recur_11_sin_J','recur_12_sin_J']
+    # config_file_list = ['recur_6_sin_J','recur_7_sin_J','recur_8_sin_J','recur_9_sin_J','recur_10_sin_J','recur_11_sin_J','recur_12_sin_J']
 
+    config_file_list = ['recur_7']
     for config_file in config_file_list:
-
 
         config = FitzhughNagumoConfig.from_yaml(f"{config_root}/{config_file}.yaml")
 
