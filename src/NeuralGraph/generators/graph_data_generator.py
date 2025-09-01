@@ -384,6 +384,14 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     it = simulation_config.start_frame
     id_fig = 0
 
+    tile_labels = None
+    tile_codes_torch = None
+    tile_period = None
+    tile_idx = 0
+    tile_contrast = simulation_config.tile_contrast
+    n_columns = n_input_neurons // 8
+    tile_seed = simulation_config.seed
+
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
             for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="Processing stimulus data")):
@@ -444,12 +452,6 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                 else:
                     sequence_length = sequences.shape[0]
 
-                tile_mseq_ready = False
-                tile_labels = None
-                tile_codes_torch = None
-                tile_period = None
-                tile_contrast = 0.2
-                n_columns = simulation_config.n_input_neurons // 8
                 for frame_id in range(sequence_length):
                     if "flash" in visual_input_type:
                         # Generate repeating flash stimulus
@@ -477,23 +479,29 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         mixed_frame_count += 1
 
                     elif "tile_mseq" in visual_input_type:
-                        # Build (once) per-column sequences and mapping from photoreceptors to columns
-                        if it == simulation_config.start_frame:
-                            # group photoreceptors into columns using k-means on (u,v)
-                            tile_labels = assign_columns_from_uv(u_coords, v_coords, n_columns, random_state=simulation_config.seed)
-                            # per-column m-seq (length 255) with random phase
-                            base = mseq_bits(p=8, seed=simulation_config.seed)
-                            phases = np.random.RandomState(simulation_config.seed).randint(0, len(base), size=n_columns)
+                        if tile_codes_torch is None:
+                            # 1) Cluster photoreceptors into columns based on (u,v)
+                            tile_labels_np = assign_columns_from_uv(
+                                u_coords, v_coords, n_columns, random_state=tile_seed
+                            )  # shape: (n_input_neurons,)
+                            # 2) Build per-column m-sequences (length 255) with random phase per column
+                            base = mseq_bits(p=8, seed=tile_seed).astype(np.float32)  # ±1, shape (255,)
+                            rng = np.random.RandomState(tile_seed)
+                            phases = rng.randint(0, base.shape[0], size=n_columns)
                             tile_codes = np.stack([np.roll(base, ph) for ph in phases], axis=0)  # (n_columns, 255)
+                            # 3) Map to [0,1] at chosen contrast and convert to Torch on the right device/dtype
+                            tile_codes = 0.5 + (tile_contrast * 0.5) * tile_codes  # -> [0,1]
+                            tile_codes_torch = torch.from_numpy(tile_codes).to(x.device,
+                                                                               dtype=x.dtype)  # (n_columns, 255)
+                            tile_labels = torch.from_numpy(tile_labels_np).to(x.device,
+                                                                              dtype=torch.long)  # (n_input_neurons,)
+                            tile_period = tile_codes_torch.shape[1]
                             tile_idx = 0
-                            tile_period = tile_codes.shape[1]
-                            tile_contrast = 0.2
-                        # write per-frame luminance to x[:,4] (photoreceptors only)
-                        col_vals = tile_codes[:, tile_idx % tile_period]  # ±1
-                        # project to [0,1]: 0.5 + c*0.5*bit
-                        col_vals = 0.5 + (tile_contrast * 0.5) * col_vals.astype(np.float32)
-                        # broadcast to photoreceptors based on labels
-                        x[:n_input_neurons, 4] = torch.from_numpy(col_vals[tile_labels]).to(x.device, dtype=x.dtype)
+
+                        # 4) Baseline for all neurons (mean luminance), then write per-column values to PRs
+                        x[:, 4] = 0.5
+                        col_vals = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,)
+                        x[:n_input_neurons, 4] = col_vals[tile_labels]  # broadcast via labels
                         tile_idx += 1
 
 
