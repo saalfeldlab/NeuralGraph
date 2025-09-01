@@ -40,6 +40,9 @@ class SimulationConfig(BaseModel):
     visual_input_type: str = ""
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
+    tile_contrast: float = 0.2
+    tile_seed: int = 42
+
 
     n_grid: int = 128
 
