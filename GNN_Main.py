@@ -63,7 +63,7 @@ if __name__ == "__main__":
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
         # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
-        config_list = ['fly_N9_54_1', 'fly_N9_54_2', 'fly_N9_54_3', 'fly_N9_54_4']
+        config_list = ['fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
 
         # config_list = ['signal_fig_supp6_4']
 

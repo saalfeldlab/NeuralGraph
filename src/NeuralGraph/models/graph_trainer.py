@@ -44,40 +44,15 @@ def data_train(config=None, erase=False, best_model=None, device=None):
 
     # torch.autograd.set_detect_anomaly(True)
 
-    has_mesh = (config.graph_model.mesh_model_name != '')
-    has_signal = (config.graph_model.signal_model_name != '')
-    has_particle_field = ('PDE_ParticleField' in config.graph_model.particle_model_name)
-    has_material = 'PDE_MPM' in config.graph_model.particle_model_name
-    has_cell_division = config.simulation.has_cell_division
-    do_tracking = config.training.do_tracking
-    has_state = (config.simulation.state_type != 'discrete')
-    has_WBI = 'WBI' in config.dataset
-    has_mouse_city = ('mouse_city' in config.dataset) | ('rat_city' in config.dataset)
-    sub_sampling = config.simulation.sub_sampling
-    rotation_augmentation = config.training.rotation_augmentation
-
-    if rotation_augmentation & (sub_sampling > 1):
-        assert (False), 'rotation_augmentation does not work with sub_sampling > 1'
-
     dataset_name = config.dataset
     print('')
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
-
-    if has_signal:
-        data_train_synaptic2(config, erase, best_model, device)
-    elif do_tracking & has_cell_division:
-        data_train_cell(config, erase, best_model, device)
-    elif has_cell_division:
-        data_train_cell(config, erase, best_model, device)
-    elif has_state:
-        data_train_particle(config, erase, best_model, device)
-    elif 'PDE_GS' in config.graph_model.particle_model_name:
-        data_solar_system(config, erase, best_model, device)
-    elif has_material:
-        data_train_material(config, erase, best_model, device)
+    if 'fly' in config.dataset:
+        data_train_flyvis(config, erase, best_model, device)
     else:
-        data_train_particle(config, erase, best_model, device)
+        data_train_synaptic2(config, erase, best_model, device)
+
 
 
 def data_train_synaptic2(config, erase, best_model, device):
@@ -833,6 +808,7 @@ def data_train_flyvis(config, erase, best_model, device):
     n_neurons = simulation_config.n_neurons
     n_input_neurons = simulation_config.n_input_neurons
     n_neuron_types = simulation_config.n_neuron_types
+    calcium_type = simulation_config.calcium_type
     delta_t = simulation_config.delta_t
 
     dataset_name = config.dataset

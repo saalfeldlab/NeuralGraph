@@ -41,6 +41,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         self.field_type = model_config.field_type
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
+        self.calcium_type = simulation_config.calcium_type
 
         self.input_size = model_config.input_size
         self.output_size = model_config.output_size
@@ -135,7 +136,11 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         self.data_id = data_id.squeeze().long().clone().detach()
         self.mask = mask.squeeze().long().clone().detach()
 
-        v = data.x[:, 3:4]
+        if self.calcium_type!="none":
+            v = data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
+        else:
+            v = data.x[:, 3:4]
+
         excitation = data.x[:, 4:5]
 
         particle_id = x[:, 0].long()
