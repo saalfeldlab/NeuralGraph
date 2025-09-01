@@ -6735,10 +6735,10 @@ if __name__ == '__main__':
     # data_flyvis_compare(config_list, 'training.loss_noise_level')
 
 
-    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
-                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
-                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
-    data_flyvis_compare(config_list, 'training.noise_model_level')
+    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
+    #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
 
@@ -6777,28 +6777,26 @@ if __name__ == '__main__':
     # data_flyvis_compare(config_list, 'none')
 
     config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
-    # data_flyvis_compare(config_list,  'simulation.visual_input_type')
-
+    data_flyvis_compare(config_list,  'simulation.visual_input_type')
 
     #
     # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
     #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
 
-
-    for config_file_ in config_list:
-        print(' ')
-
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    # for config_file_ in config_list:
+    #     print(' ')
+    #
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
 
