@@ -1,5 +1,5 @@
-description: 'idem 49-6 DAVIS'
-dataset: 'fly_N9_53_5'
+description: 'idem 49-6  DAVIS   noise_visual_input: 0.5'
+dataset: 'fly_N9_53_10'
 
 simulation:
     connectivity_file: 'to be specified'
@@ -16,6 +16,7 @@ simulation:
     baseline_value: 0
 
     visual_input_type: "DAVIS"
+    noise_visual_input: 0.5
     seed: 34
 
 graph_model:
