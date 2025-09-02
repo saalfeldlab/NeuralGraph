@@ -2110,12 +2110,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
-    if  False: # os.path.exists(f"./{log_dir}/results/E.npy"):
+    if  os.path.exists(f"./{log_dir}/results/E.npy"):
         print (f'Ising analysis done ...')
-        np.load(f"./{log_dir}/results/E.npy")
-        np.load(f"./{log_dir}/results/s.npy")
-        np.load(f"./{log_dir}/results/h.npy")
-        np.load(f"./{log_dir}/results/J.npy")
+        E = np.load(f"./{log_dir}/results/E.npy")
+        s = np.load(f"./{log_dir}/results/s.npy")
+        h = np.load(f"./{log_dir}/results/h.npy")
+        J = np.load(f"./{log_dir}/results/J.npy", allow_pickle=True)
 
     else:
         energy_stride = 1
@@ -3005,7 +3005,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             # plt.savefig(f'{log_dir}/results/comparison_color_{epoch}.png', dpi=300)
             plt.close()
 
-            k_list = [1]  # , 2, 3, 4, 5, 6, 7, 8]
+            # k_list = [1]
+
+            k_list = np.linspace(n_frames // 10, n_frames-100, 8, dtype=int).tolist()
+
             dataset_batch = []
             ids_batch = []
             mask_batch = []
@@ -3081,7 +3084,15 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             # plt.close()
 
             plt.figure(figsize=(12, 6))
-            grad_values = to_numpy(grad_msg[0:n_neurons]).squeeze()  # Flatten to 1D
+
+            n_batches = grad_msg.shape[0] // n_neurons
+            grad_values = grad_msg.view(n_batches, n_neurons)
+            grad_values = grad_values.median(dim=0).values
+            grad_values = to_numpy(grad_values).squeeze()
+
+            # grad_values = to_numpy(grad_msg[0:n_neurons]).squeeze()
+
+            # Flatten to 1D
             neuron_indices = np.arange(n_neurons)
             # Create scatter plot colored by neuron type
             for n in range(n_types):
@@ -3149,7 +3160,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.savefig(f'{log_dir}/results/corrected_comparison_{epoch}.png', dpi=300)
             plt.close()
 
-            print(f"second weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            print(f"second weights fit R²: \033[92m{r_squared:.4f}\033[0m  slope: {np.round(lin_fit[0], 4)}")
             logger.info(f"second weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
             print(f'median residuals: {np.median(residuals):.4f}')
             inlier_residuals = residuals[mask]
@@ -3512,17 +3523,17 @@ def data_flyvis_compare(config_list, varied_parameter):
             vrest_r2_errors.append(0)
             acc_errors.append(0)
 
-    # Create figure with six panels (2x3 layout) - ONLY CHANGED TO ADD ENERGY PANEL
-    fig, ((ax1, ax4, ax6), (ax2, ax3, ax5)) = plt.subplots(2, 3, figsize=(20, 12))
-    plt.subplots_adjust(hspace=3.0)
+    # Create 2x2 figure without loss curves
+    fig, ((ax1, ax4), (ax2, ax3)) = plt.subplots(2, 2, figsize=(16, 12))
+    plt.subplots_adjust(hspace=0.4, wspace=0.3)
 
     # Weights R² panel
-    ax1.grid(False)
     ax1.errorbar(param_values_str, r2_means, yerr=r2_errors,
                  fmt='o', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightblue')
-    ax1.set_xlabel(param_display_name, fontsize=16, color='white')
+    ax1.set_xlabel(param_display_name, fontsize=24, color='white')
     ax1.set_ylabel('weights R²', fontsize=24, color='white')
     ax1.set_ylim(0, 1.1)
+    ax1.grid(True, alpha=0.3)
     ax1.tick_params(colors='white', labelsize=14)
     plt.setp(ax1.get_xticklabels(), rotation=45, ha='right')
     for i, (x, y, n) in enumerate(zip(param_values_str, r2_means, [r['n_configs'] for r in summary_results])):
@@ -3530,12 +3541,12 @@ def data_flyvis_compare(config_list, varied_parameter):
             ax1.text(x, y + r2_errors[i] + 0.02, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # Tau R² panel
-    ax2.grid(False)
     ax2.errorbar(param_values_str, tau_r2_means, yerr=tau_r2_errors,
                  fmt='s', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightgreen')
-    ax2.set_xlabel(param_display_name, fontsize=16, color='white')
+    ax2.set_xlabel(param_display_name, fontsize=24, color='white')
     ax2.set_ylabel('tau R²', fontsize=24, color='white')
     ax2.set_ylim(0, 1.1)
+    ax2.grid(True, alpha=0.3)
     ax2.tick_params(colors='white', labelsize=14)
     plt.setp(ax2.get_xticklabels(), rotation=45, ha='right')
     for i, (x, y, n) in enumerate(zip(param_values_str, tau_r2_means, [r['n_configs'] for r in summary_results])):
@@ -3543,12 +3554,12 @@ def data_flyvis_compare(config_list, varied_parameter):
             ax2.text(x, y + tau_r2_errors[i] + 0.02, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # V_rest R² panel
-    ax3.grid(False)
     ax3.errorbar(param_values_str, vrest_r2_means, yerr=vrest_r2_errors,
                  fmt='^', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightcoral')
-    ax3.set_xlabel(param_display_name, fontsize=16, color='white')
-    ax3.set_ylabel('V_rest R²', fontsize=24, color='white')
+    ax3.set_xlabel(param_display_name, fontsize=24, color='white')
+    ax3.set_ylabel(r'$V_{rest}$ R²', fontsize=24, color='white')
     ax3.set_ylim(0, 1.1)
+    ax3.grid(True, alpha=0.3)
     ax3.tick_params(colors='white', labelsize=14)
     plt.setp(ax3.get_xticklabels(), rotation=45, ha='right')
     for i, (x, y, n) in enumerate(zip(param_values_str, vrest_r2_means, [r['n_configs'] for r in summary_results])):
@@ -3561,17 +3572,71 @@ def data_flyvis_compare(config_list, varied_parameter):
 
     ax4.errorbar(param_values_str, acc_means_pct, yerr=acc_errors_pct,
                  fmt='D', capsize=5, capthick=2, markersize=8, linewidth=2, color='orange')
-    ax4.set_xlabel(param_display_name, fontsize=16, color='white')
+    ax4.set_xlabel(param_display_name, fontsize=24, color='white')
     ax4.set_ylabel('clustering accuracy (%)', fontsize=24, color='white')
     ax4.set_ylim(0, 100)
+    ax4.grid(True, alpha=0.3)
     ax4.tick_params(colors='white', labelsize=14)
     plt.setp(ax4.get_xticklabels(), rotation=45, ha='right')
+    for i, (x, y, n) in enumerate(zip(param_values_str, acc_means_pct, [r['n_configs'] for r in summary_results])):
+        if n > 1:
+            ax4.text(x, y + acc_errors_pct[i] + 2, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
-    # Loss curves panel (ax5) - RESTORED ORIGINAL VERSION
-    ax5.set_xlabel('epochs', fontsize=16, color='white')
-    ax5.set_ylabel('loss', fontsize=24, color='white')
-    ax5.tick_params(colors='white', labelsize=14)
-    ax5.grid(False)
+    # Add best results text annotations
+    if summary_results:
+        best_r2_result = max(summary_results, key=lambda x: x['r2_mean'])
+        best_tau_r2_result = max(summary_results, key=lambda x: x['tau_r2_mean'])
+        best_vrest_r2_result = max(summary_results, key=lambda x: x['vrest_r2_mean'])
+        best_acc_result = max(summary_results, key=lambda x: x['acc_mean'])
+
+        # Find indices of best results
+        best_r2_idx = next(
+            i for i, r in enumerate(summary_results) if r['param_value'] == best_r2_result['param_value'])
+        best_tau_r2_idx = next(
+            i for i, r in enumerate(summary_results) if r['param_value'] == best_tau_r2_result['param_value'])
+        best_vrest_r2_idx = next(
+            i for i, r in enumerate(summary_results) if r['param_value'] == best_vrest_r2_result['param_value'])
+        best_acc_idx = next(
+            i for i, r in enumerate(summary_results) if r['param_value'] == best_acc_result['param_value'])
+
+        # Add annotations
+        best_r2_x = param_values_str[best_r2_idx]
+        best_r2_y = r2_means[best_r2_idx]
+        ax1.text(best_r2_x, best_r2_y + r2_errors[best_r2_idx] + 0.05, f"{best_r2_result['r2_mean']:.3f}",
+                 ha='center', va='bottom', fontsize=14, color='white')
+
+        best_tau_r2_x = param_values_str[best_tau_r2_idx]
+        best_tau_r2_y = tau_r2_means[best_tau_r2_idx]
+        ax2.text(best_tau_r2_x, best_tau_r2_y + tau_r2_errors[best_tau_r2_idx] + 0.05,
+                 f"{best_tau_r2_result['tau_r2_mean']:.3f}",
+                 ha='center', va='bottom', fontsize=14, color='white')
+
+        best_vrest_r2_x = param_values_str[best_vrest_r2_idx]
+        best_vrest_r2_y = vrest_r2_means[best_vrest_r2_idx]
+        ax3.text(best_vrest_r2_x, best_vrest_r2_y + vrest_r2_errors[best_vrest_r2_idx] + 0.05,
+                 f"{best_vrest_r2_result['vrest_r2_mean']:.3f}",
+                 ha='center', va='bottom', fontsize=14, color='white')
+
+        best_acc_x = param_values_str[best_acc_idx]
+        best_acc_y = acc_means_pct[best_acc_idx]
+        ax4.text(best_acc_x, best_acc_y + acc_errors_pct[best_acc_idx] + 5, f"{best_acc_result['acc_mean'] * 100:.1f}%",
+                 ha='center', va='bottom', fontsize=14, color='white')
+
+    plt.tight_layout()
+
+    plot_filename = f'parameter_comparison_{param_display_name}.png'
+    plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
+    print(f"\nplot saved as: {plot_filename}")
+    plt.close()
+
+    # Create separate figure for loss curves
+    fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 8))
+
+    ax_loss.set_xlabel('epochs', fontsize=24, color='white')
+    ax_loss.set_ylabel('loss', fontsize=24, color='white')
+    ax_loss.tick_params(colors='white', labelsize=14)
+    ax_loss.set_ylim(0, 4000)
+    ax_loss.grid(True, alpha=0.3)
 
     # Generate distinct colors for different configs
     import matplotlib.cm as cm
@@ -3582,7 +3647,7 @@ def data_flyvis_compare(config_list, varied_parameter):
     for i, config_file_ in enumerate(config_list):
         try:
             config_file, pre_folder = add_pre_folder(config_file_)
-            loss_path = os.path.join('./log/fly', config_file, 'loss.pt')
+            loss_path = os.path.join('./log', config_file, 'loss.pt')
 
             if os.path.exists(loss_path):
                 import torch
@@ -3590,7 +3655,7 @@ def data_flyvis_compare(config_list, varied_parameter):
                 loss_values = np.array(loss_values)
 
                 epochs = np.arange(len(loss_values))
-                ax5.plot(epochs, loss_values, color=colors[i], linewidth=2, alpha=0.8)
+                ax_loss.plot(epochs, loss_values, color=colors[i], linewidth=2, alpha=0.8)
 
                 # Get parameter value for this config
                 if varied_parameter is None:
@@ -3618,21 +3683,41 @@ def data_flyvis_compare(config_list, varied_parameter):
 
     # Add legend with parameter values and colors
     if legend_info:
-        ax5.legend(legend_info, fontsize=10, loc='upper right')
-        legend = ax5.get_legend()
+        ax_loss.legend(legend_info, fontsize=12, loc='upper right')
+        legend = ax_loss.get_legend()
         legend.get_frame().set_facecolor('black')
         legend.get_frame().set_alpha(0.8)
         for text in legend.get_texts():
             text.set_color('white')
 
+    # Add text info
+    text_content = []
+    text_content.append(f"parameter: {parameter_name}")
+    text_content.append(f"configs: {len(config_list)}")
 
-    plt.subplots_adjust(hspace=0.6)
+    # Group configs by parameter value
+    param_groups = {}
+    for r in summary_results:
+        param_val = r['param_value']
+        n_configs = r['n_configs']
+        if param_val not in param_groups:
+            param_groups[param_val] = n_configs
+
+    for param_val, n_configs in param_groups.items():
+        text_content.append(f"{param_display_name}={param_val}: n={n_configs}")
+
+    full_text = "\n".join(text_content)
+    ax_loss.text(0.02, 0.98, full_text, transform=ax_loss.transAxes, fontsize=10,
+                 verticalalignment='top', horizontalalignment='left',
+                 fontfamily='monospace', color='white')
+
     plt.tight_layout()
 
-    plot_filename = f'parameter_comparison_{param_display_name}.png'
-    plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
-    print(f"\nplot saved as: {plot_filename}")
+    loss_plot_filename = f'loss_curves_{param_display_name}.png'
+    plt.savefig(loss_plot_filename, dpi=300, bbox_inches='tight')
+    print(f"loss curves plot saved as: {loss_plot_filename}")
     plt.close()
+
 
     # ---------------------------------------------------------------
     # Ising metrics aggregated per parameter value (mirrors summary_results)
@@ -3739,6 +3824,104 @@ def data_flyvis_compare(config_list, varied_parameter):
             f"{str(r['n_configs']):>10}"
         )
     print("-" * 160)
+
+    def first_float(x):
+        """Extract the first float from a string like '5.4321±0.0123' or return NaN."""
+        m = re.search(r'-?\d+(?:\.\d+)?', str(x))
+        return float(m.group(0)) if m else float('nan')
+
+    # X-axis: parameter values (try to cast to float for monotone axes)
+    x_vals, e_mean_vals, e_entropy_vals, j_mean_vals, j_gini_vals = [], [], [], [], []
+    for row in ising_results:
+        x_raw = row['param_value']
+        try:
+            x = float(x_raw)
+        except Exception:
+            # if not numeric, keep as string and we'll fall back to categorical
+            x = x_raw
+        x_vals.append(x)
+        e_mean_vals.append(first_float(row['E_mean_str']))
+        e_entropy_vals.append(first_float(row['E_entropy_str']))
+        j_mean_vals.append(first_float(row['J_mean_str']))
+        j_gini_vals.append(first_float(row['J_gini_str']))
+
+    # Sort all lists by x if x is numeric
+    numeric_axis = all(isinstance(x, (int, float)) for x in x_vals)
+    if numeric_axis:
+        order = np.argsort(np.array(x_vals))
+        x_vals = list(np.array(x_vals)[order])
+        e_mean_vals = list(np.array(e_mean_vals)[order])
+        e_entropy_vals = list(np.array(e_entropy_vals)[order])
+        j_mean_vals = list(np.array(j_mean_vals)[order])
+        j_gini_vals = list(np.array(j_gini_vals)[order])
+
+    # Figure
+    fig, axs = plt.subplots(1, 3, figsize=(20, 6))
+    fig.patch.set_facecolor('black')
+    for ax in axs:
+        ax.set_facecolor('black')
+        ax.tick_params(colors='white')
+        for spine in ax.spines.values():
+            spine.set_color('white')
+        ax.grid(True, alpha=0.3, color='gray')
+
+    # Helper to shade noise regimes if we're plotting noise
+    def shade_noise_regimes(ax, xs):
+        # default bands for noise_model_level; adjust as needed
+        low = (1e-7, 1e-3)
+        mid = (1e-2, 5e-1)
+        high = (1.0, max(xs) if len(xs) else 1.0)
+        ax.axvspan(low[0], low[1], color='red', alpha=0.50, label='Low noise')
+        ax.axvspan(mid[0], mid[1], color='green', alpha=0.50, label='Moderate noise')
+        ax.axvspan(high[0], high[1], color='blue', alpha=0.50, label='High noise')
+
+    # Panel 1: Energy vs param
+    axs[0].plot(x_vals, e_mean_vals, marker='o', color='white', linewidth=1)
+    axs[0].set_title('Energy vs parameter', color='white')
+    axs[0].set_ylabel('Mean energy', color='white')
+    if numeric_axis:
+        axs[0].set_xlabel(param_display_name, color='white')
+        # Use log scale when the parameter looks like "noise"
+        if ('noise' in parameter_name.lower()) or ('noise' in param_display_name.lower()):
+            axs[0].set_xscale('log')
+            shade_noise_regimes(axs[0], x_vals)
+    else:
+        axs[0].set_xlabel(param_display_name + ' (categorical)', color='white')
+        axs[0].set_xticklabels(x_vals, rotation=45, ha='right')
+
+    # Panel 2: Entropy vs param
+    axs[1].plot(x_vals, e_entropy_vals, marker='o', color='white', linewidth=1)
+    axs[1].set_title('Entropy vs parameter', color='white')
+    axs[1].set_ylabel('Entropy (histogram-based)', color='white')
+    if numeric_axis:
+        axs[1].set_xlabel(param_display_name, color='white')
+        if ('noise' in parameter_name.lower()) or ('noise' in param_display_name.lower()):
+            axs[1].set_xscale('log')
+            shade_noise_regimes(axs[1], x_vals)
+    else:
+        axs[1].set_xlabel(param_display_name + ' (categorical)', color='white')
+        axs[1].set_xticklabels(x_vals, rotation=45, ha='right')
+
+    # Panel 3: |J| & Gini vs param
+    axs[2].plot(x_vals, j_mean_vals, marker='o', color='orange', linewidth=1, label='Mean |J|')
+    axs[2].plot(x_vals, j_gini_vals, marker='s', color='white', linewidth=1, label='Gini(|J|)')
+    axs[2].set_title('Coupling magnitude & inequality', color='white')
+    axs[2].set_ylabel('Value', color='white')
+    axs[2].legend(facecolor='black', edgecolor='white', fontsize=12)
+    if numeric_axis:
+        axs[2].set_xlabel(param_display_name, color='white')
+        if ('noise' in parameter_name.lower()) or ('noise' in param_display_name.lower()):
+            axs[2].set_xscale('log')
+            shade_noise_regimes(axs[2], x_vals)
+    else:
+        axs[2].set_xlabel(param_display_name + ' (categorical)', color='white')
+        axs[2].set_xticklabels(x_vals, rotation=45, ha='right')
+
+    plt.tight_layout()
+    outname = f"ising_three_panels_{param_display_name}.png"
+    plt.savefig(outname, dpi=300, bbox_inches='tight', facecolor='black')
+    print(f"[saved] {outname}")
+    plt.close(fig)
 
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
@@ -6754,25 +6937,29 @@ if __name__ == '__main__':
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
 
 
-    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
-                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
-                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
-    data_flyvis_compare(config_list, 'training.noise_model_level')
+    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
+    #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    # data_flyvis_compare(config_list, 'training.noise_model_level')
 
 
-    # for config_file_ in config_list:
-    #     print(' ')
-    #
-    #     config_file, pre_folder = add_pre_folder(config_file_)
-    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-    #     config.dataset = pre_folder + config.dataset
-    #     config.config_file = pre_folder + config_file_
-    #
-    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-    #
-    #     folder_name = './log/' + pre_folder + '/tmp_results/'
-    #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+
+
+    config_list = ['fly_N9_22_1']
+
+    for config_file_ in config_list:
+        print(' ')
+
+        config_file, pre_folder = add_pre_folder(config_file_)
+        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+        config.dataset = pre_folder + config.dataset
+        config.config_file = pre_folder + config_file_
+
+        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+
+        folder_name = './log/' + pre_folder + '/tmp_results/'
+        os.makedirs(folder_name, exist_ok=True)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
 
