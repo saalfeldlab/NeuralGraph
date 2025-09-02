@@ -2110,8 +2110,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
-    if  False: #os.path.exists(f"./{log_dir}/results/E_panels.png"):
-        print (f'skipping computation of energy plot ...')
+    if  False: # os.path.exists(f"./{log_dir}/results/E.npy"):
+        print (f'Ising analysis done ...')
+        np.load(f"./{log_dir}/results/E.npy")
+        np.load(f"./{log_dir}/results/s.npy")
+        np.load(f"./{log_dir}/results/h.npy")
+        np.load(f"./{log_dir}/results/J.npy")
+
     else:
         energy_stride = 1
         s, h, J, E = sparse_ising_fit_fast(x=x_list[0], voltage_col=3, top_k=50, block_size=2000, energy_stride=energy_stride)
@@ -2130,46 +2135,58 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         P_s = np.exp(logP) # normalize to get a probability distribution
 
         # Flatten all non-zero couplings for histogram
-        J_vals = [v for Ji in J for v in Ji.values()]
-        J_vals = np.array(J_vals, dtype=np.float32)
-
-        # Create 2x2 figure
-        fig, axs = plt.subplots(2, 2, figsize=(12, 10))
-
-        # Panel 1: Energy over time
-        axs[0, 0].plot(np.arange(0, len(E) * energy_stride, energy_stride), E, lw=1.0, color=mc)
-        axs[0, 0].set_xlabel("Frame", fontsize=14)
-        axs[0, 0].set_ylabel("Energy", fontsize=14)
-        axs[0, 0].set_title("Ising energy over frames", fontsize=14)
-        axs[0, 0].set_xlim(0, 600)
-        axs[0, 0].tick_params(axis='both', which='major', labelsize=12)
-
-        # Panel 2: Energy histogram
-        axs[0, 1].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
-        axs[0, 1].set_xlabel("Energy", fontsize=14)
-        axs[0, 1].set_ylabel("Density", fontsize=14)
-        axs[0, 1].set_title("Ising energy distribution", fontsize=14)
-        axs[0, 1].tick_params(axis='both', which='major', labelsize=12)
-
-        # Panel 3: Couplings histogram
-        axs[1, 0].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
-        axs[1, 0].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=14)
-        axs[1, 0].set_ylabel("Density", fontsize=14)
-        axs[1, 0].set_title("Sparse Couplings Histogram", fontsize=14)
-        axs[1, 0].tick_params(axis='both', which='major', labelsize=12)
-        axs[1, 0].text(0.05, 0.95, f'Precision: {precision:.3f}', transform=axs[1, 0].transAxes,
-                       fontsize=12, verticalalignment='top')
-
-        axs[1, 1].axis('off')  # Empty panel
-
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/E_panels.png", dpi=150)
-        plt.close(fig)
 
         np.save(f"./{log_dir}/results/E.npy", E)
         np.save(f"./{log_dir}/results/s.npy", s)
         np.save(f"./{log_dir}/results/h.npy", h)
         np.save(f"./{log_dir}/results/J.npy", J)
+
+    E_mean = np.mean(E)
+    E_std = np.std(E)
+    E_skew = stats.skew(E)
+    E_kurt = stats.kurtosis(E)
+    hist, _ = np.histogram(E, bins=100, density=True)
+    E_entropy = -np.sum(hist * np.log(hist + 1e-12))
+
+    J_vals = []
+    for Ji in J:
+        if isinstance(Ji, dict):
+            J_vals.extend(Ji.values())
+        else:
+            J_vals.extend(np.asarray(Ji).ravel())
+    J_vals = np.asarray(J_vals, dtype=np.float32)
+    J_vals = J_vals[np.isfinite(J_vals)]
+
+    J_mean = np.mean(J_vals)
+    J_std = np.std(J_vals)
+    J_sign_ratio = (J_vals > 0).mean()
+    th = np.percentile(np.abs(J_vals), 90.0)
+    J_frac_strong = (np.abs(J_vals) > th).mean()
+    J_gini = gini(J_vals)
+
+    # Create 2x2 figure
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+    # Panel 1: Energy histogram
+    axs[0].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
+    axs[0].set_xlabel("Energy", fontsize=24)
+    axs[0].set_ylabel("Density", fontsize=24)
+    axs[0].tick_params(axis='both', which='major', labelsize=12)
+    axs[0].text(0.05, 0.95,
+                   f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nSkew: {E_skew:.2f}\nKurtosis: {E_kurt:.2f}\nEntropy: {E_entropy:.2f}',
+                   transform=axs[0].transAxes,
+                   fontsize=18, verticalalignment='top')
+    # Panel 2: Couplings histogram
+    axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
+    axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
+    axs[1].set_ylabel("Density", fontsize=24)
+    axs[1].tick_params(axis='both', which='major', labelsize=12)
+    axs[1].text(0.05, 0.95,
+                   f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}\nGini: {J_gini:.2f}',
+                   transform=axs[1].transAxes,
+                   fontsize=18, verticalalignment='top')
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
+    plt.close(fig)
 
     x = x_list[0][n_frames - 10]
     type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
@@ -3500,6 +3517,7 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.subplots_adjust(hspace=3.0)
 
     # Weights R² panel
+    ax1.grid(False)
     ax1.errorbar(param_values_str, r2_means, yerr=r2_errors,
                  fmt='o', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightblue')
     ax1.set_xlabel(param_display_name, fontsize=16, color='white')
@@ -3512,6 +3530,7 @@ def data_flyvis_compare(config_list, varied_parameter):
             ax1.text(x, y + r2_errors[i] + 0.02, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # Tau R² panel
+    ax2.grid(False)
     ax2.errorbar(param_values_str, tau_r2_means, yerr=tau_r2_errors,
                  fmt='s', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightgreen')
     ax2.set_xlabel(param_display_name, fontsize=16, color='white')
@@ -3524,6 +3543,7 @@ def data_flyvis_compare(config_list, varied_parameter):
             ax2.text(x, y + tau_r2_errors[i] + 0.02, f'n={n}', ha='center', va='bottom', fontsize=12, color='white')
 
     # V_rest R² panel
+    ax3.grid(False)
     ax3.errorbar(param_values_str, vrest_r2_means, yerr=vrest_r2_errors,
                  fmt='^', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightcoral')
     ax3.set_xlabel(param_display_name, fontsize=16, color='white')
@@ -3551,8 +3571,7 @@ def data_flyvis_compare(config_list, varied_parameter):
     ax5.set_xlabel('epochs', fontsize=16, color='white')
     ax5.set_ylabel('loss', fontsize=24, color='white')
     ax5.tick_params(colors='white', labelsize=14)
-    ax5.set_ylim(0, 4000)
-    ax5.grid(True, alpha=0.3)
+    ax5.grid(False)
 
     # Generate distinct colors for different configs
     import matplotlib.cm as cm
@@ -3606,45 +3625,6 @@ def data_flyvis_compare(config_list, varied_parameter):
         for text in legend.get_texts():
             text.set_color('white')
 
-    # NEW: Energy Distributions panel (ax6)
-    colors = plt.cm.viridis(np.linspace(0, 1, len(summary_results)))
-    alpha = 0.7
-
-    energy_plotted = False
-    for i, result in enumerate(summary_results):
-        # Load energy data for this parameter value
-        all_energies = []
-        for config_name in result['configs']:
-            energy_path = os.path.join('./log/fly/', config_name.replace('config_', '').replace('.yaml', ''), 'results',
-                                       'E.npy')
-            if os.path.exists(energy_path):
-                try:
-                    energy_data = np.load(energy_path)
-                    all_energies.extend(energy_data)
-                except Exception as e:
-                    print(f"Warning: Could not load {energy_path}: {e}")
-
-        if all_energies:
-            energy_plotted = True
-            ax6.hist(all_energies, bins=50, alpha=alpha, color=colors[i],
-                     density=True, label=f"{param_display_name}={result['param_value']}")
-
-    if energy_plotted:
-        ax6.set_xlabel('Ising Energy', fontsize=16, color='white')
-        ax6.set_ylabel('Density', fontsize=24, color='white')
-        ax6.set_title('Energy Distributions', fontsize=16, color='white')
-        ax6.tick_params(colors='white', labelsize=14)
-        ax6.legend(fontsize=10, facecolor='black', edgecolor='white')
-        legend = ax6.get_legend()
-        for text in legend.get_texts():
-            text.set_color('white')
-    else:
-        ax6.text(0.5, 0.5, 'No Energy Data\nAvailable',
-                 transform=ax6.transAxes, ha='center', va='center',
-                 fontsize=16, color='white', alpha=0.7)
-        ax6.set_xlabel('Energy', fontsize=16, color='white')
-        ax6.set_ylabel('Density', fontsize=24, color='white')
-        ax6.tick_params(colors='white', labelsize=14)
 
     plt.subplots_adjust(hspace=0.6)
     plt.tight_layout()
@@ -3704,11 +3684,6 @@ def data_flyvis_compare(config_list, varied_parameter):
             # robust “strong” threshold: 90th percentile of |J| per config
             th = np.percentile(np.abs(J_vals), 90.0)
             J_frac_strong = float((np.abs(J_vals) > th).mean())
-
-            def gini(x):
-                x = np.abs(np.sort(x))
-                n = len(x)
-                return (np.sum((2 * np.arange(1, n + 1) - n - 1) * x)) / (n * np.sum(x) + 1e-12)
 
             J_gini = float(gini(J_vals))
 
@@ -6735,11 +6710,6 @@ if __name__ == '__main__':
     # data_flyvis_compare(config_list, 'training.loss_noise_level')
 
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
-    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
-    #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
-    # data_flyvis_compare(config_list, 'training.noise_model_level')
-
     # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
 
     # config_list = ['fly_N9_46_1', 'fly_N9_46_2', 'fly_N9_46_3', 'fly_N9_46_4', 'fly_N9_46_5', 'fly_N9_46_6']
@@ -6766,7 +6736,6 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
     # data_flyvis_compare(config_list, None)
 
-    # config_list = ['fly_N9_53_3']
     # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
     # data_flyvis_compare(config_list, None)
 
@@ -6776,13 +6745,20 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
     # data_flyvis_compare(config_list, 'none')
 
-    config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
-    data_flyvis_compare(config_list,  'simulation.visual_input_type')
+    # config_list = ['fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12']
+    # data_flyvis_compare(config_list,  'simulation.visual_input_type')
 
     #
     # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
     #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
+
+
+    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
+                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    data_flyvis_compare(config_list, 'training.noise_model_level')
+
 
     # for config_file_ in config_list:
     #     print(' ')
