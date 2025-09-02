@@ -1470,6 +1470,12 @@ def analysis_J_W(J, W_true):
     return precision, recall, f1
 
 
+def gini(x):
+    x = np.abs(np.sort(x))
+    n = len(x)
+    return (np.sum((2 * np.arange(1, n + 1) - n - 1) * x)) / (n * np.sum(x) + 1e-12)
+
+
 
 
 
