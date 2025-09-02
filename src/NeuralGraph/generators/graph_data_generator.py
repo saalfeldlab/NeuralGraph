@@ -88,20 +88,6 @@ def data_generate(
             device=device,
             bSave=bSave,
         )
-    else:
-        data_generate_particle(
-            config,
-            visualize=visualize,
-            run_vizualized=run_vizualized,
-            style=style,
-            erase=erase,
-            step=step,
-            alpha=0.2,
-            ratio=ratio,
-            scenario=scenario,
-            device=device,
-            bSave=bSave,
-        )
 
     plt.style.use("default")
 
@@ -168,6 +154,55 @@ def assign_columns_from_uv(u_coords, v_coords, n_cols, random_state=0):
     km = KMeans(n_clusters=n_cols, n_init=10, random_state=random_state)
     labels = km.fit_predict(X)
     return labels
+
+def compute_column_labels(u_coords, v_coords, n_columns, seed=0):
+    labels = assign_columns_from_uv(u_coords, v_coords, n_columns, random_state=seed)
+    centers = np.zeros((n_columns, 2), dtype=np.float32)
+    counts = np.zeros(n_columns, dtype=np.int32)
+    for i, lab in enumerate(labels):
+        centers[lab, 0] += u_coords[i]
+        centers[lab, 1] += v_coords[i]
+        counts[lab] += 1
+    counts[counts == 0] = 1
+    centers /= counts[:, None]
+    return labels, centers
+
+def build_neighbor_graph(centers, k=6):
+    from sklearn.neighbors import NearestNeighbors
+    nbrs = NearestNeighbors(n_neighbors=min(k+1, len(centers)), algorithm="auto").fit(centers)
+    dists, idxs = nbrs.kneighbors(centers)
+    adj = [set() for _ in range(len(centers))]
+    for i in range(len(centers)):
+        for j in idxs[i,1:]:
+            adj[i].add(int(j))
+            adj[int(j)].add(i)
+    return adj
+
+def greedy_blue_mask(adj, n_cols, target_density=0.5, rng=None):
+    if rng is None:
+        rng = np.random.RandomState(0)
+    order = rng.permutation(n_cols)
+    chosen = np.zeros(n_cols, dtype=bool)
+    blocked = np.zeros(n_cols, dtype=bool)
+    target = int(target_density * n_cols)
+    for i in order:
+        if not blocked[i]:
+            chosen[i] = True
+            for j in adj[i]:
+                blocked[j] = True
+        if chosen.sum() >= target:
+            break
+    if chosen.sum() < target:
+        remain = np.where(~chosen)[0]
+        rng.shuffle(remain)
+        for i in remain:
+            conflict = any(chosen[j] for j in adj[i])
+            if not conflict:
+                chosen[i] = True
+            if chosen.sum() >= target:
+                break
+    return chosen
+
 
 def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="color", erase=False, step=5, device=None,
                               bSave=True):
@@ -502,6 +537,38 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         x[:, 4] = 0.5
                         col_vals = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,)
                         x[:n_input_neurons, 4] = col_vals[tile_labels]  # broadcast via labels
+                        tile_idx += 1
+
+                    elif "tile_blue_noise" in visual_input_type:
+                        if tile_codes_torch is None:
+                            tile_labels_np, col_centers = compute_column_labels(u_coords, v_coords, n_columns, seed=tile_seed)
+                            try:
+                                adj = build_neighbor_graph(col_centers, k=6)
+                            except Exception:
+                                from scipy.spatial.distance import pdist, squareform
+                                D = squareform(pdist(col_centers))
+                                nn = np.partition(D + np.eye(D.shape[0]) * 1e9, 1, axis=1)[:, 1]
+                                radius = 1.3 * np.median(nn)
+                                adj = [set(np.where((D[i] > 0) & (D[i] <= radius))[0].tolist()) for i in
+                                       range(len(col_centers))]
+
+                            tile_labels = torch.from_numpy(tile_labels_np).to(x.device, dtype=torch.long)
+                            tile_period = 257
+                            tile_idx = 0
+                            tile_codes_torch = torch.empty((n_columns, tile_period), dtype=x.dtype, device=x.device)
+
+                            rng = np.random.RandomState(tile_seed)
+                            for t in range(tile_period):
+                                mask = greedy_blue_mask(adj, n_columns, target_density=0.5, rng=rng)
+                                vals = np.where(mask, 1.0, -1.0).astype(np.float32)
+                                flips = (rng.rand(n_columns) < 0.05).astype(np.float32)
+                                vals = vals * (1.0 - 2.0 * flips)
+                                tile_codes_torch[:, t] = 0.5 + (tile_contrast * 0.5) * torch.from_numpy(vals).to(
+                                    x.device, dtype=x.dtype)
+
+                        x[:, 4] = 0.5
+                        col_vals = tile_codes_torch[:, tile_idx % tile_period]
+                        x[:n_input_neurons, 4] = col_vals[tile_labels]
                         tile_idx += 1
 
 
