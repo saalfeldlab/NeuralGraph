@@ -96,37 +96,13 @@ def generate_from_data(config, device, visualize=True, step=None, cmap=None):
     data_folder_name = config.data_folder_name
     image_data = config.image_data
 
-    if data_folder_name == "graphs_data/solar_system":
-        load_solar_system(config, device, visualize, step)
-    elif "RGB" in config.graph_model.particle_model_name:
-        load_RGB_grid_data(config, device, visualize, step)
-    elif "LG-ODE" in data_folder_name:
-        load_LG_ODE(config, device, visualize, step)
-    elif "WaterDropSmall" in data_folder_name:
-        load_WaterDropSmall(config, device, visualize, step, cmap)
-    elif "WaterRamps" in data_folder_name:
-        load_Goole_data(config, device, visualize, step, cmap)
-    elif "MultiMaterial" in data_folder_name:
-        load_Goole_data(config, device, visualize, step, cmap)
-    elif "Kato" in data_folder_name:
-        load_worm_Kato_data(config, device, visualize, step)
-    elif "wormvae" in data_folder_name:
+    if "wormvae" in data_folder_name:
         load_wormvae_data(config, device, visualize, step)
     elif "NeuroPAL" in data_folder_name:
         load_neuropal_data(config, device, visualize, step)
-    elif "U2OS" in data_folder_name:
-        load_2Dfluo_data_on_mesh(config, device, visualize, step)
-    elif "cardio" in data_folder_name:
-        load_2Dgrid_data(config, device, visualize, step)
-    elif image_data.file_type != "none":
-        if image_data.file_type == "3D fluo Cellpose":
-            load_3Dfluo_data_with_Cellpose(config, device, visualize)
-        if image_data.file_type == "2D fluo Cellpose":
-            load_2Dfluo_data_with_Cellpose(config, device, visualize)
     else:
         raise ValueError(f"Unknown data folder name {data_folder_name}")
 
-# === Added: tile-msequence stimulus helpers ===
 def mseq_bits(p=8, taps=(8,6,5,4), seed=1, length=None):
     """
     Simple LFSR-based m-sequence generator that returns a numpy array of ±1.
@@ -203,6 +179,34 @@ def greedy_blue_mask(adj, n_cols, target_density=0.5, rng=None):
                 break
     return chosen
 
+def apply_pairwise_knobs_torch(code_pm1: torch.Tensor,
+                                corr_strength: float,
+                                flip_prob: float,
+                                seed: int) -> torch.Tensor:
+    """
+    code_pm1: shape [n_tiles], values in approximately {-1, +1}
+    corr_strength: 0..1; blends in a global shared ±1 component (↑ pairwise corr)
+    flip_prob: 0..1; per-tile random sign flips (decorrelates)
+    seed: for reproducibility (we also add tile_idx later to vary per frame)
+    """
+    out = code_pm1.clone()
+
+    # Torch RNG on correct device
+    gen = torch.Generator(device=out.device)
+    gen.manual_seed(int(seed) & 0x7FFFFFFF)
+
+    # (1) Optional global shared component
+    if corr_strength > 0.0:
+        g = torch.randint(0, 2, (1,), generator=gen, device=out.device, dtype=torch.int64)
+        g = g.float().mul_(2.0).add_(-1.0)  # {0,1} -> {-1,+1}
+        out.mul_(1.0 - float(corr_strength)).add_(float(corr_strength) * g)
+
+    # (2) Optional per-tile random flips
+    if flip_prob > 0.0:
+        flips = torch.rand(out.shape, generator=gen, device=out.device) < float(flip_prob)
+        out[flips] = -out[flips]
+
+    return out
 
 def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="color", erase=False, step=5, device=None,
                               bSave=True):
@@ -512,35 +516,47 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                             elif current_type == "davis":
                                 davis_frame_idx += 1
                         mixed_frame_count += 1
-
                     elif "tile_mseq" in visual_input_type:
                         if tile_codes_torch is None:
                             # 1) Cluster photoreceptors into columns based on (u,v)
                             tile_labels_np = assign_columns_from_uv(
                                 u_coords, v_coords, n_columns, random_state=tile_seed
                             )  # shape: (n_input_neurons,)
-                            # 2) Build per-column m-sequences (length 255) with random phase per column
+    
+                            # 2) Build per-column m-sequences (±1) with random phase per column
                             base = mseq_bits(p=8, seed=tile_seed).astype(np.float32)  # ±1, shape (255,)
                             rng = np.random.RandomState(tile_seed)
                             phases = rng.randint(0, base.shape[0], size=n_columns)
-                            tile_codes = np.stack([np.roll(base, ph) for ph in phases], axis=0)  # (n_columns, 255)
-                            # 3) Map to [0,1] at chosen contrast and convert to Torch on the right device/dtype
-                            tile_codes = 0.5 + (tile_contrast * 0.5) * tile_codes  # -> [0,1]
-                            tile_codes_torch = torch.from_numpy(tile_codes).to(x.device,
-                                                                               dtype=x.dtype)  # (n_columns, 255)
+                            tile_codes_np = np.stack([np.roll(base, ph) for ph in phases], axis=0)  # (n_columns, 255), ±1
+    
+                            # 3) Convert to torch on the right device/dtype; keep as ±1 (no [0,1] mapping here)
+                            tile_codes_torch = torch.from_numpy(tile_codes_np).to(x.device,
+                                                                                  dtype=x.dtype)  # (n_columns, 255), ±1
                             tile_labels = torch.from_numpy(tile_labels_np).to(x.device,
                                                                               dtype=torch.long)  # (n_input_neurons,)
                             tile_period = tile_codes_torch.shape[1]
                             tile_idx = 0
-
+    
                         # 4) Baseline for all neurons (mean luminance), then write per-column values to PRs
                         x[:, 4] = 0.5
-                        col_vals = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,)
-                        x[:n_input_neurons, 4] = col_vals[tile_labels]  # broadcast via labels
+                        col_vals_pm1 = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,), ±1 before knobs
+    
+                        # Apply the two simple knobs per frame on ±1 codes
+                        col_vals_pm1 = apply_pairwise_knobs_torch(
+                            code_pm1=col_vals_pm1,
+                            corr_strength=float(simulation_config.tile_corr_strength),
+                            flip_prob=float(simulation_config.tile_flip_prob),
+                            seed=int(simulation_config.seed) + int(tile_idx)
+                        )
+    
+                        # Map to [0,1] with your contrast convention and broadcast via labels
+                        col_vals_01 = 0.5 + (tile_contrast * 0.5) * col_vals_pm1
+                        x[:n_input_neurons, 4] = col_vals_01[tile_labels]
+    
                         tile_idx += 1
-
                     elif "tile_blue_noise" in visual_input_type:
                         if tile_codes_torch is None:
+                            # Label columns and build neighborhood graph
                             tile_labels_np, col_centers = compute_column_labels(u_coords, v_coords, n_columns, seed=tile_seed)
                             try:
                                 adj = build_neighbor_graph(col_centers, k=6)
@@ -551,27 +567,37 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                 radius = 1.3 * np.median(nn)
                                 adj = [set(np.where((D[i] > 0) & (D[i] <= radius))[0].tolist()) for i in
                                        range(len(col_centers))]
-
+        
                             tile_labels = torch.from_numpy(tile_labels_np).to(x.device, dtype=torch.long)
                             tile_period = 257
                             tile_idx = 0
+        
+                            # Pre-generate ±1 codes (keep ±1; no [0,1] mapping here)
                             tile_codes_torch = torch.empty((n_columns, tile_period), dtype=x.dtype, device=x.device)
-
                             rng = np.random.RandomState(tile_seed)
                             for t in range(tile_period):
-                                mask = greedy_blue_mask(adj, n_columns, target_density=0.5, rng=rng)
-                                vals = np.where(mask, 1.0, -1.0).astype(np.float32)
-                                flips = (rng.rand(n_columns) < 0.05).astype(np.float32)
-                                vals = vals * (1.0 - 2.0 * flips)
-                                tile_codes_torch[:, t] = 0.5 + (tile_contrast * 0.5) * torch.from_numpy(vals).to(
-                                    x.device, dtype=x.dtype)
-
+                                mask = greedy_blue_mask(adj, n_columns, target_density=0.5, rng=rng)  # boolean mask
+                                vals = np.where(mask, 1.0, -1.0).astype(np.float32)  # ±1
+                                # NOTE: do not apply flip prob here; we do it uniformly via the helper per frame below
+                                tile_codes_torch[:, t] = torch.from_numpy(vals).to(x.device, dtype=x.dtype)
+        
+                        # Baseline luminance
                         x[:, 4] = 0.5
-                        col_vals = tile_codes_torch[:, tile_idx % tile_period]
-                        x[:n_input_neurons, 4] = col_vals[tile_labels]
+                        col_vals_pm1 = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,), ±1 before knobs
+        
+                        # Apply the two simple knobs per frame on ±1 codes
+                        col_vals_pm1 = apply_pairwise_knobs_torch(
+                            code_pm1=col_vals_pm1,
+                            corr_strength=float(simulation_config.tile_corr_strength),
+                            flip_prob=float(simulation_config.tile_flip_prob),
+                            seed=int(simulation_config.seed) + int(tile_idx)
+                        )
+        
+                        # Map to [0,1] with contrast and broadcast via labels
+                        col_vals_01 = 0.5 + (tile_contrast * 0.5) * col_vals_pm1
+                        x[:n_input_neurons, 4] = col_vals_01[tile_labels]
+        
                         tile_idx += 1
-
-
                     else:
                         frame = sequences[frame_id][None, None]
                         net.stimulus.add_input(frame)
@@ -931,7 +957,6 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
             print("data saved ...")
-
 
 def data_generate_synaptic(
     config,
