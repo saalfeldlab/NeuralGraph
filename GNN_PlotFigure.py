@@ -2110,6 +2110,71 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
+
+    if  os.path.exists(f"./{log_dir}/results/E.npy"):
+        print (f'first Ising analysis done ...')
+        E = np.load(f"./{log_dir}/results/E.npy")
+        s = np.load(f"./{log_dir}/results/s.npy")
+        h = np.load(f"./{log_dir}/results/h.npy")
+        J = np.load(f"./{log_dir}/results/J.npy", allow_pickle=True)
+
+    else:
+        energy_stride = 1
+        s, h, J, E = sparse_ising_fit_fast(x=x_list[0], voltage_col=3, top_k=50, block_size=2000, energy_stride=energy_stride)
+        np.save(f"./{log_dir}/results/E.npy", E)
+        np.save(f"./{log_dir}/results/s.npy", s)
+        np.save(f"./{log_dir}/results/h.npy", h)
+        np.save(f"./{log_dir}/results/J.npy", J)
+
+    E_mean = np.mean(E)
+    E_std = np.std(E)
+    E_skew = stats.skew(E)
+    E_kurt = stats.kurtosis(E)
+    hist, _ = np.histogram(E, bins=100, density=True)
+    E_entropy = -np.sum(hist * np.log(hist + 1e-12))
+
+    J_vals = []
+    for Ji in J:
+        if isinstance(Ji, dict):
+            J_vals.extend(Ji.values())
+        else:
+            J_vals.extend(np.asarray(Ji).ravel())
+    J_vals = np.asarray(J_vals, dtype=np.float32)
+    J_vals = J_vals[np.isfinite(J_vals)]
+
+    J_mean = np.mean(J_vals)
+    J_std = np.std(J_vals)
+    J_sign_ratio = (J_vals > 0).mean()
+    th = np.percentile(np.abs(J_vals), 90.0)
+    J_frac_strong = (np.abs(J_vals) > th).mean()
+    J_gini = gini(J_vals)
+
+    # Create 2x2 figure
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+    # Panel 1: Energy histogram
+    axs[0].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
+    axs[0].set_xlabel("Energy", fontsize=24)
+    axs[0].set_ylabel("Density", fontsize=24)
+    axs[0].tick_params(axis='both', which='major', labelsize=12)
+    axs[0].text(0.05, 0.95,
+                   f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nSkew: {E_skew:.2f}\nKurtosis: {E_kurt:.2f}\nEntropy: {E_entropy:.2f}',
+                   transform=axs[0].transAxes,
+                   fontsize=18, verticalalignment='top')
+    # Panel 2: Couplings histogram
+    axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
+    axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
+    axs[1].set_ylabel("Density", fontsize=24)
+    axs[1].tick_params(axis='both', which='major', labelsize=12)
+    axs[1].text(0.05, 0.95,
+                   f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}\nGini: {J_gini:.2f}',
+                   transform=axs[1].transAxes,
+                   fontsize=18, verticalalignment='top')
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
+    plt.close(fig)
+
+
+
     from NeuralGraph.models.ising_analysis import (
         rebin_voltage_subset,
         compute_info_ratio_debiased,
@@ -2161,6 +2226,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     I2s = np.array(I2s)
     ratios = np.array(ratios)
 
+    np.save(f"{log_dir}/results/INs.npy", INs)
+    np.save(f"{log_dir}/results/I2s.npy", I2s)
+    np.save(f"{log_dir}/results/ratios.npy", ratios)
+
     print("\n=== Summary over all subsets ===")
     print(f"I_N:    median={np.nanmedian(INs):.6f},   IQR={np.nanpercentile(INs, [25, 75])}")
     print(f"I2:     median={np.nanmedian(I2s):.6f},   IQR={np.nanpercentile(I2s, [25, 75])}")
@@ -2172,753 +2241,257 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     # --- Triplet KL residuals from full simulation outputs ---
 
     E = np.load(f"{log_dir}/results/E.npy")
-    S = np.load(f"{log_dir}/results/s.npy")
+    s = np.load(f"{log_dir}/results/s.npy")
     h = np.load(f"{log_dir}/results/h.npy")
     J_sparse = np.load(f"{log_dir}/results/J.npy", allow_pickle=True)
 
     # Convert J from sparse list-of-dicts to dense
-    J = convert_J_sparse_to_dense(J_sparse, N=S.shape[1])
+    J = convert_J_sparse_to_dense(J_sparse, N=s.shape[1])
 
     # Triplet KL test
-    med, q1, q3 = triplet_residual_KL(S, h, J, n_model=200_000, seed=0, n_triplets=200)
+    med, q1, q3 = triplet_residual_KL(s, h, J, n_model=200_000, seed=0, n_triplets=200)
     print("Triplet KL median [IQR]:", med, [q1, q3], "(nats; ~0 means pairwise is excellent)")
     logger.info(f"Triplet KL median [IQR]: {med} [{q1}, {q3}]")
 
-    if True:
+    np.save(f"{log_dir}/results/triplet_KL_median.npy", med)
+    np.save(f"{log_dir}/results/triplet_KL_IQR.npy", [q1, q3])
 
-        if  os.path.exists(f"./{log_dir}/results/E.npy"):
-            print (f'Ising analysis done ...')
-            E = np.load(f"./{log_dir}/results/E.npy")
-            s = np.load(f"./{log_dir}/results/s.npy")
-            h = np.load(f"./{log_dir}/results/h.npy")
-            J = np.load(f"./{log_dir}/results/J.npy", allow_pickle=True)
+    ################
 
-        else:
-            energy_stride = 1
-            s, h, J, E = sparse_ising_fit_fast(x=x_list[0], voltage_col=3, top_k=50, block_size=2000, energy_stride=energy_stride)
-            np.save(f"./{log_dir}/results/E.npy", E)
-            np.save(f"./{log_dir}/results/s.npy", s)
-            np.save(f"./{log_dir}/results/h.npy", h)
-            np.save(f"./{log_dir}/results/J.npy", J)
+    x = x_list[0][n_frames - 10]
+    type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
+    n_types = len(np.unique(to_numpy(type_list)))
+    # print (f'{n_types} neuron types in datasets')
+    region_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
+    n_region_types = len(np.unique(to_numpy(region_list)))
+    n_neurons = len(type_list)
 
-        E_mean = np.mean(E)
-        E_std = np.std(E)
-        E_skew = stats.skew(E)
-        E_kurt = stats.kurtosis(E)
-        hist, _ = np.histogram(E, bins=100, density=True)
-        E_entropy = -np.sum(hist * np.log(hist + 1e-12))
+    index_to_name = {
+        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4',
+        9: 'L5',
+        10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
+        18: 'Mi15', 19: 'Mi2',
+        20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4', 27: 'R5', 28: 'R6',
+        29: 'R7',
+        30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a', 36: 'T4b', 37: 'T4c', 38: 'T4d',
+        39: 'T5a',
+        40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1', 44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28',
+        48: 'Tm3', 49: 'Tm30',
+        50: 'Tm4', 51: 'Tm5Y', 52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13',
+        58: 'TmY14', 59: 'TmY15',
+        60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
+    }
 
-        J_vals = []
-        for Ji in J:
-            if isinstance(Ji, dict):
-                J_vals.extend(Ji.values())
+    activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
+    activity = activity.squeeze()
+    activity = activity.t()
+
+    mu_activity = torch.mean(activity, dim=1)  # shape: (n_neurons,)
+    sigma_activity = torch.std(activity, dim=1)
+
+    plt.figure(figsize=(15, 10))  # Made wider to accommodate labels
+    plt.errorbar(np.arange(n_neurons), to_numpy(mu_activity), yerr=to_numpy(sigma_activity), fmt='o',
+                 ecolor='lightgray', alpha=0.1, elinewidth=1, capsize=0, markersize=2, color='red')
+
+    # Add neuron type labels for unique positions only
+    type_positions = {}
+    for i in range(n_neurons):
+        neuron_type_id = to_numpy(type_list[i]).item()
+        if neuron_type_id not in type_positions:
+            type_positions[neuron_type_id] = i
+
+    # Add labels at representative positions for each neuron type
+    for neuron_type_id, pos in type_positions.items():
+        neuron_type_name = index_to_name.get(neuron_type_id, f'Type{neuron_type_id}')
+        plt.text(pos+100, to_numpy(mu_activity[pos]) + to_numpy(sigma_activity[pos]) * 1.1 + 0.1, neuron_type_name,
+                 rotation=90, ha='center', va='bottom', fontsize=8, alpha=0.7)
+
+    plt.xlabel('neuron', fontsize=24)
+    plt.ylabel(r'$\mu_i \pm \sigma_i$', fontsize=24)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.title(r'$\mu_i \pm \sigma_i$ for each neuron', fontsize=24)
+    plt.tight_layout()
+    plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300)
+    plt.close()
+
+    plt.figure(figsize=(10, 10))
+    n = np.random.randint(0, n_neurons, 10)
+    for i in range(len(n)):
+        plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=1)
+    plt.xlabel('time', fontsize=24)
+    plt.ylabel(r'$x_i$', fontsize=24)
+    plt.xlim([0, n_frames // 400])
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.ylim([-6, 6])
+    plt.savefig(f'./{log_dir}/results/activity.png', dpi=300)
+    plt.close()
+
+    # Additional plot for specific neuron type (e.g., 'Am')
+    target_type_name_list = ['R1', 'R7', 'Am', 'L1', 'L2', 'TmY4', 'TmY5a', 'TmY9', 'T4a', 'T4b', 'T4c', 'T4d']
+
+    for target_type_name in target_type_name_list:  # Change this to any desired type name
+        target_type_index = None
+        for idx, name in index_to_name.items():
+            if name == target_type_name:
+                target_type_index = idx
+                break
+        if target_type_index is not None:
+            type_mask = (to_numpy(type_list).squeeze() == target_type_index)
+            neurons_of_type = np.where(type_mask)[0]
+            if len(neurons_of_type) > 0:
+                # Select up to 10 neurons of this type
+                n_neurons_to_plot = min(10, len(neurons_of_type))
+                selected_neurons = neurons_of_type[:n_neurons_to_plot]
+
+                plt.figure(figsize=(10, 10))
+                for i, neuron_idx in enumerate(selected_neurons):
+                    plt.plot(to_numpy(activity[neuron_idx, :]), linewidth=1,
+                             label=f'{target_type_name}_{i}' if n_neurons_to_plot <= 5 else None)
+
+                plt.xlabel('time', fontsize=24)
+                plt.ylabel(r'$x_i$', fontsize=24)
+                plt.xlim([0, n_frames // 400])
+                plt.xticks(fontsize=18)
+                plt.yticks(fontsize=18)
+                plt.title(f'x_i samples - {target_type_name} neurons ({n_neurons_to_plot}/{len(neurons_of_type)})',
+                          fontsize=24)
+                if n_neurons_to_plot <= 5:
+                    plt.legend(fontsize=24)
+                plt.ylim([-5, 5])
+                plt.tight_layout()
+                plt.savefig(f'./{log_dir}/results/activity_{target_type_name}.png', dpi=300)
+                plt.close()
+
+
+                N_samples = 1000
+
+                xnt = to_numpy(activity[neuron_idx, :])
+                ynt = None
+                fs = 1 / delta_t
+                window = "hann"
+                nperseg = int(fs * 0.8)
+
+                # print (f'test: {N_samples / nperseg}')
+
+                noverlap = None
+                nfft = None
+                detrend = "constant"
+                return_onesided = True
+                scaling = "spectrum"
+                abs = True
+                return_coefs = True
+
+                num_levels = 10
+                reps = 2
+
+                xnt = xnt[0:N_samples]
+                pxy, freqs, coefs_xnkf = estimate_spectrum(xnt, ynt =ynt, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap, nfft=nfft, detrend=detrend, return_onesided=return_onesided, scaling=scaling, abs=abs, return_coefs=return_coefs)
+
+
+                # coefs_xnkfs, freqs = myspectral_funcs.compute_multiscale_spectral_coefs(xnt=y_ns[None], fs=fps,
+                #                                                                          window="hann", noverlap=None,
+                #                                                                          detrend="constant",
+                #                                                                          return_onesided=True,
+                #                                                                          scaling="spectrum", axis=0,
+                #                                                                          num_levels=num_levels,
+                #                                                                          reps=reps)
+
+                coefs_xnkf = coefs_xnkf.compute()
+                pxy = pxy.compute()
+                min_freq = freqs[0]
+                max_freq = freqs[-1]
+                spectrogram = np.abs(coefs_xnkf[0]).T[::-1]
+
+                fig, axs = plt.subplots(2, 1, figsize=(12, 6))
+                cm = plt.get_cmap("coolwarm")
+                xax = np.linspace(0, xnt.shape[0] * delta_t, spectrogram.shape[1])
+                im = axs[0].matshow(spectrogram, extent=[xax[0], xax[-1], min_freq, max_freq],
+                                    cmap=cm, aspect="auto", origin="lower")
+                axs[0].set_xlabel("Time (s)")
+                axs[0].set_ylabel("Frequency (Hz)")
+                # fig.colorbar(im, ax=axs[0])
+                xax = np.arange(0, xnt.shape[0]) * delta_t
+                axs[1].plot(xax, xnt, color=mc, linewidth=0.5)
+                axs[1].set_xlabel("Time (s)")
+                axs[1].set_xlim([0, xax[-1]])
+                fig.tight_layout()
+                plt.savefig(f'./{log_dir}/results/spectrogram_{target_type_name}.png', dpi=300)
+                plt.close(fig)
+                # print(f'./{log_dir}/results/spectrogram_{target_type_name}.png')
+                # print(f'plotted {n_neurons_to_plot} out of {len(neurons_of_type)} {target_type_name} neurons')
+                logger.info(f'plotted {n_neurons_to_plot} out of {len(neurons_of_type)} {target_type_name} neurons')
             else:
-                J_vals.extend(np.asarray(Ji).ravel())
-        J_vals = np.asarray(J_vals, dtype=np.float32)
-        J_vals = J_vals[np.isfinite(J_vals)]
-
-        J_mean = np.mean(J_vals)
-        J_std = np.std(J_vals)
-        J_sign_ratio = (J_vals > 0).mean()
-        th = np.percentile(np.abs(J_vals), 90.0)
-        J_frac_strong = (np.abs(J_vals) > th).mean()
-        J_gini = gini(J_vals)
-
-        # Create 2x2 figure
-        fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-        # Panel 1: Energy histogram
-        axs[0].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
-        axs[0].set_xlabel("Energy", fontsize=24)
-        axs[0].set_ylabel("Density", fontsize=24)
-        axs[0].tick_params(axis='both', which='major', labelsize=12)
-        axs[0].text(0.05, 0.95,
-                       f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nSkew: {E_skew:.2f}\nKurtosis: {E_kurt:.2f}\nEntropy: {E_entropy:.2f}',
-                       transform=axs[0].transAxes,
-                       fontsize=18, verticalalignment='top')
-        # Panel 2: Couplings histogram
-        axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
-        axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
-        axs[1].set_ylabel("Density", fontsize=24)
-        axs[1].tick_params(axis='both', which='major', labelsize=12)
-        axs[1].text(0.05, 0.95,
-                       f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}\nGini: {J_gini:.2f}',
-                       transform=axs[1].transAxes,
-                       fontsize=18, verticalalignment='top')
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
-        plt.close(fig)
-
-        x = x_list[0][n_frames - 10]
-        type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
-        n_types = len(np.unique(to_numpy(type_list)))
-        # print (f'{n_types} neuron types in datasets')
-        region_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
-        n_region_types = len(np.unique(to_numpy(region_list)))
-        n_neurons = len(type_list)
-
-        index_to_name = {
-            0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4',
-            9: 'L5',
-            10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
-            18: 'Mi15', 19: 'Mi2',
-            20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4', 27: 'R5', 28: 'R6',
-            29: 'R7',
-            30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a', 36: 'T4b', 37: 'T4c', 38: 'T4d',
-            39: 'T5a',
-            40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1', 44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28',
-            48: 'Tm3', 49: 'Tm30',
-            50: 'Tm4', 51: 'Tm5Y', 52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13',
-            58: 'TmY14', 59: 'TmY15',
-            60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
-        }
-
-        activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
-        activity = activity.squeeze()
-        activity = activity.t()
-
-        mu_activity = torch.mean(activity, dim=1)  # shape: (n_neurons,)
-        sigma_activity = torch.std(activity, dim=1)
-
-        plt.figure(figsize=(15, 10))  # Made wider to accommodate labels
-        plt.errorbar(np.arange(n_neurons), to_numpy(mu_activity), yerr=to_numpy(sigma_activity), fmt='o',
-                     ecolor='lightgray', alpha=0.1, elinewidth=1, capsize=0, markersize=2, color='red')
-
-        # Add neuron type labels for unique positions only
-        type_positions = {}
-        for i in range(n_neurons):
-            neuron_type_id = to_numpy(type_list[i]).item()
-            if neuron_type_id not in type_positions:
-                type_positions[neuron_type_id] = i
-
-        # Add labels at representative positions for each neuron type
-        for neuron_type_id, pos in type_positions.items():
-            neuron_type_name = index_to_name.get(neuron_type_id, f'Type{neuron_type_id}')
-            plt.text(pos+100, to_numpy(mu_activity[pos]) + to_numpy(sigma_activity[pos]) * 1.1 + 0.1, neuron_type_name,
-                     rotation=90, ha='center', va='bottom', fontsize=8, alpha=0.7)
-
-        plt.xlabel('neuron', fontsize=24)
-        plt.ylabel(r'$\mu_i \pm \sigma_i$', fontsize=24)
-        plt.xticks(fontsize=18)
-        plt.yticks(fontsize=18)
-        plt.title(r'$\mu_i \pm \sigma_i$ for each neuron', fontsize=24)
-        plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300)
-        plt.close()
-
-        plt.figure(figsize=(10, 10))
-        n = np.random.randint(0, n_neurons, 10)
-        for i in range(len(n)):
-            plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=1)
-        plt.xlabel('time', fontsize=24)
-        plt.ylabel(r'$x_i$', fontsize=24)
-        plt.xlim([0, n_frames // 400])
-        plt.xticks(fontsize=18)
-        plt.yticks(fontsize=18)
-        plt.ylim([-6, 6])
-        plt.savefig(f'./{log_dir}/results/activity.png', dpi=300)
-        plt.close()
-
-        # Additional plot for specific neuron type (e.g., 'Am')
-        target_type_name_list = ['R1', 'R7', 'Am', 'L1', 'L2', 'TmY4', 'TmY5a', 'TmY9', 'T4a', 'T4b', 'T4c', 'T4d']
-
-        for target_type_name in target_type_name_list:  # Change this to any desired type name
-            target_type_index = None
-            for idx, name in index_to_name.items():
-                if name == target_type_name:
-                    target_type_index = idx
-                    break
-            if target_type_index is not None:
-                type_mask = (to_numpy(type_list).squeeze() == target_type_index)
-                neurons_of_type = np.where(type_mask)[0]
-                if len(neurons_of_type) > 0:
-                    # Select up to 10 neurons of this type
-                    n_neurons_to_plot = min(10, len(neurons_of_type))
-                    selected_neurons = neurons_of_type[:n_neurons_to_plot]
-
-                    plt.figure(figsize=(10, 10))
-                    for i, neuron_idx in enumerate(selected_neurons):
-                        plt.plot(to_numpy(activity[neuron_idx, :]), linewidth=1,
-                                 label=f'{target_type_name}_{i}' if n_neurons_to_plot <= 5 else None)
-
-                    plt.xlabel('time', fontsize=24)
-                    plt.ylabel(r'$x_i$', fontsize=24)
-                    plt.xlim([0, n_frames // 400])
-                    plt.xticks(fontsize=18)
-                    plt.yticks(fontsize=18)
-                    plt.title(f'x_i samples - {target_type_name} neurons ({n_neurons_to_plot}/{len(neurons_of_type)})',
-                              fontsize=24)
-                    if n_neurons_to_plot <= 5:
-                        plt.legend(fontsize=24)
-                    plt.ylim([-5, 5])
-                    plt.tight_layout()
-                    plt.savefig(f'./{log_dir}/results/activity_{target_type_name}.png', dpi=300)
-                    plt.close()
-
-
-                    N_samples = 1000
-
-                    xnt = to_numpy(activity[neuron_idx, :])
-                    ynt = None
-                    fs = 1 / delta_t
-                    window = "hann"
-                    nperseg = int(fs * 0.8)
-
-                    # print (f'test: {N_samples / nperseg}')
-
-                    noverlap = None
-                    nfft = None
-                    detrend = "constant"
-                    return_onesided = True
-                    scaling = "spectrum"
-                    abs = True
-                    return_coefs = True
-
-                    num_levels = 10
-                    reps = 2
-
-                    xnt = xnt[0:N_samples]
-                    pxy, freqs, coefs_xnkf = estimate_spectrum(xnt, ynt =ynt, fs=fs, window=window, nperseg=nperseg, noverlap=noverlap, nfft=nfft, detrend=detrend, return_onesided=return_onesided, scaling=scaling, abs=abs, return_coefs=return_coefs)
-
-
-                    # coefs_xnkfs, freqs = myspectral_funcs.compute_multiscale_spectral_coefs(xnt=y_ns[None], fs=fps,
-                    #                                                                          window="hann", noverlap=None,
-                    #                                                                          detrend="constant",
-                    #                                                                          return_onesided=True,
-                    #                                                                          scaling="spectrum", axis=0,
-                    #                                                                          num_levels=num_levels,
-                    #                                                                          reps=reps)
-
-                    coefs_xnkf = coefs_xnkf.compute()
-                    pxy = pxy.compute()
-                    min_freq = freqs[0]
-                    max_freq = freqs[-1]
-                    spectrogram = np.abs(coefs_xnkf[0]).T[::-1]
-
-                    fig, axs = plt.subplots(2, 1, figsize=(12, 6))
-                    cm = plt.get_cmap("coolwarm")
-                    xax = np.linspace(0, xnt.shape[0] * delta_t, spectrogram.shape[1])
-                    im = axs[0].matshow(spectrogram, extent=[xax[0], xax[-1], min_freq, max_freq],
-                                        cmap=cm, aspect="auto", origin="lower")
-                    axs[0].set_xlabel("Time (s)")
-                    axs[0].set_ylabel("Frequency (Hz)")
-                    # fig.colorbar(im, ax=axs[0])
-                    xax = np.arange(0, xnt.shape[0]) * delta_t
-                    axs[1].plot(xax, xnt, color=mc, linewidth=0.5)
-                    axs[1].set_xlabel("Time (s)")
-                    axs[1].set_xlim([0, xax[-1]])
-                    fig.tight_layout()
-                    plt.savefig(f'./{log_dir}/results/spectrogram_{target_type_name}.png', dpi=300)
-                    plt.close(fig)
-                    # print(f'./{log_dir}/results/spectrogram_{target_type_name}.png')
-                    # print(f'plotted {n_neurons_to_plot} out of {len(neurons_of_type)} {target_type_name} neurons')
-                    logger.info(f'plotted {n_neurons_to_plot} out of {len(neurons_of_type)} {target_type_name} neurons')
-                else:
-                    print(f'no neurons found for type {target_type_name}')
-                    logger.info(f'no neurons found for type {target_type_name}')
-            else:
-                print(f'type {target_type_name} not found in index_to_name dictionary')
-                logger.info(f'type {target_type_name} not found in index_to_name dictionary')
-
-        print(f'neurons: {n_neurons}')
-        print(f'edges: {edges.shape[1]}')
-        print(f'neuron types: {n_types}')
-        print(f'region types: {n_region_types}')
-        logger.info(f'number of neurons: {n_neurons}')
-        logger.info(f'true edges: {edges.shape[1]}')
-        logger.info(f'true number of neuron types: {n_types}')
-        logger.info(f'true number of region types: {n_region_types}')
-
-        os.makedirs(f'{log_dir}/results/', exist_ok=True)
-
-
-        if epoch_list[0] == 'all':
-
-            config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
-            files, file_id_list = get_training_files(log_dir, n_runs)
-
-            fps = 10  # frames per second for the video
-            metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
-            writer = FFMpegWriter(fps=fps, metadata=metadata)
-            fig = plt.figure(figsize=(18, 24))
-            plt.subplots_adjust(hspace=3.0)
-            mp4_path = f'{log_dir}/results/training_{config_indices}.mp4'
-
-            with writer.saving(fig, mp4_path, dpi=80):
-                for file_id_ in trange(len(file_id_list)):
-                    epoch = files[file_id_].split('graphs')[1][1:-3]
-
-                    net = f'{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch}.pt'
-                    model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
-                    state_dict = torch.load(net, map_location=device)
-                    model.load_state_dict(state_dict['model_state_dict'])
-                    model.edges = edges
-                    logger.info(f'net: {net}')
-
-                    fig.clf()  # Clear the figure
-
-                    ax4 = fig.add_subplot(3, 2, 3)
-                    slopes_lin_phi_list = []
-                    offsets_list = []
-                    func_list = []
-
-                    for n in range(n_neurons):
-                        if (n % 20 == 0):
-                            rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
-                            embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                            in_features = torch.cat(
-                                (rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
-                            with torch.no_grad():
-                                func = model.lin_phi(in_features.float())
-                                ax4.plot(to_numpy(rr), to_numpy(func), 2,
-                                         color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                                         linewidth=1, alpha=0.025)
-
-                        rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n],
-                                            1000, device=device)
-                        embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                        in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])),
-                                                dim=1)
-                        with torch.no_grad():
-                            func = model.lin_phi(in_features.float())
-                        if (n % 20 == 0):
-                            ax4.plot(to_numpy(rr), to_numpy(func), 2,
-                                     color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                                     linewidth=1, alpha=0.2)
-                        func_list.append(func)
-                        rr_numpy = to_numpy(rr)
-                        func_numpy = to_numpy(func.squeeze())
-                        try:
-                            lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
-                            slope = lin_fit[0]
-                            offset = lin_fit[1]
-                        except:
-                            coeffs = np.polyfit(rr_numpy, func_numpy, 1)
-                            slope = coeffs[0]
-                            offset = coeffs[1]
-                        slopes_lin_phi_list.append(slope)
-                        offsets_list.append(offset)
-
-                    ax4.set_xlim(config.plotting.xlim)
-                    ax4.set_ylim(config.plotting.ylim)
-                    ax4.set_xlabel('$x_i$', fontsize=32)
-                    ax4.set_ylabel('learned $MLP_0(a_i, x_i)$', fontsize=32)
-                    ax4.tick_params(axis='both', which='major', labelsize=24)
-
-                    # Plot 3: Lin_edge functions (middle right) and calculate slopes
-                    ax3 = fig.add_subplot(3, 2, 4)
-                    slopes_lin_edge_list = []
-
-                    for n in range(n_neurons):
-                        if (n % 20 == 0):
-                            rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
-                            embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                            if ('PDE_N9_A' in config.graph_model.signal_model_name) | (
-                                    'PDE_N9_D' in config.graph_model.signal_model_name):
-                                in_features = torch.cat((rr[:, None], embedding_,), dim=1)
-                            elif ('PDE_N9_B' in config.graph_model.signal_model_name):
-                                in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
-                            with torch.no_grad():
-                                func = model.lin_edge(in_features.float())
-                                if config.graph_model.lin_edge_positive:
-                                    func = func ** 2
-                            ax3.plot(to_numpy(rr), to_numpy(func), 2,
-                                     color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                                     linewidth=1, alpha=0.05)
-
-                        rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n],
-                                            1000, device=device)
-                        embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-
-                        if ('PDE_N9_A' in config.graph_model.signal_model_name) | (
-                                'PDE_N9_D' in config.graph_model.signal_model_name):
-                            in_features = torch.cat((rr[:, None], embedding_,), dim=1)
-                        elif ('PDE_N9_B' in config.graph_model.signal_model_name):
-                            in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
-                        with torch.no_grad():
-                            func = model.lin_edge(in_features.float())
-                            if config.graph_model.lin_edge_positive:
-                                func = func ** 2
-                        ax3.plot(to_numpy(rr), to_numpy(func), 2,
-                                 color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                                 linewidth=1, alpha=0.2)
-
-                        rr_numpy = to_numpy(rr[rr.shape[0] // 2 + 1:])
-                        func_numpy = to_numpy(func[rr.shape[0] // 2 + 1:].squeeze())
-                        try:
-                            lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
-                            slope = lin_fit[0]
-                            offset = lin_fit[1]
-                        except:
-                            coeffs = np.polyfit(rr_numpy, func_numpy, 1)
-                            slope = coeffs[0]
-                            offset = coeffs[1]
-                        slopes_lin_edge_list.append(slope)
-
-                    ax3.set_xlim(config.plotting.xlim)
-                    ax3.set_ylim([-config.plotting.xlim[1] / 10, config.plotting.xlim[1] * 2])
-                    ax3.set_xlabel('$x_i$', fontsize=32)
-                    ax3.set_ylabel('learned $MLP_1(a_j, x_i)$', fontsize=32)
-                    ax3.tick_params(axis='both', which='major', labelsize=24)
-
-                    # Calculate corrected_W using proper data construction
-                    k_list = [1]
-                    dataset_batch = []
-                    ids_batch = []
-                    mask_batch = []
-                    ids_index = 0
-                    mask_index = 0
-                    run = 0
-
-                    for batch in range(len(k_list)):
-                        k = k_list[batch]
-                        x = torch.tensor(x_list[0][k], dtype=torch.float32, device=device)
-                        ids = np.arange(n_neurons)
-
-                        if not (torch.isnan(x).any()):
-                            mask = torch.arange(edges.shape[1])
-                            y = torch.tensor(y_list[run][k], device=device) / ynorm
-
-                            if not (torch.isnan(y).any()):
-                                dataset = data.Data(x=x, edge_index=edges)
-                                dataset_batch.append(dataset)
-
-                                if len(dataset_batch) == 1:
-                                    data_id = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run
-                                    x_batch = x[:, 3:4]
-                                    y_batch = y
-                                    ids_batch = ids
-                                    mask_batch = mask
-                                else:
-                                    data_id = torch.cat(
-                                        (data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
-                                    x_batch = torch.cat((x_batch, x[:, 4:5]), dim=0)
-                                    y_batch = torch.cat((y_batch, y), dim=0)
-                                    ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
-                                    mask_batch = torch.cat((mask_batch, mask + mask_index), dim=0)
-
-                                ids_index += x.shape[0]
-                                mask_index += edges.shape[1]
-
-                    with torch.no_grad():
-                        batch_loader = DataLoader(dataset_batch, batch_size=len(k_list), shuffle=False)
-                        for batch in batch_loader:
-                            pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
-
-                    v = in_features[:, 0:1].clone().detach()
-                    embedding = in_features[:, 1:3].clone().detach()
-                    msg = in_features[:, 3:4].clone().detach()
-                    excitation = in_features[:, 4:5].clone().detach()
-
-                    msg.requires_grad_(True)
-                    # Concatenate input features for the final layer
-                    in_features = torch.cat([v, embedding, msg, excitation], dim=1)
-                    out = model.lin_phi(in_features)
-
-                    grad_msg = torch.autograd.grad(
-                        outputs=out,
-                        inputs=msg,
-                        grad_outputs=torch.ones_like(out),
-                        retain_graph=True,
-                        create_graph=True
-                    )[0]
-
-                    grad_msg_flat = grad_msg.squeeze()
-                    target_neuron_ids = edges[1, :] % (model.n_edges + model.n_extra_null_edges)
-                    grad_msg_per_edge = grad_msg_flat[target_neuron_ids]
-                    grad_msg_per_edge = grad_msg_per_edge.unsqueeze(1)
-
-                    slopes_lin_phi_array = torch.tensor(slopes_lin_phi_list, dtype=torch.float32, device=device)
-                    slopes_lin_phi_per_edge = slopes_lin_phi_array[target_neuron_ids]
-
-                    slopes_lin_edge_array = torch.tensor(slopes_lin_edge_list, dtype=torch.float32, device=device)
-                    prior_neuron_ids = edges[0, :] % (model.n_edges + model.n_extra_null_edges)
-                    slopes_lin_edge_per_edge = slopes_lin_edge_array[prior_neuron_ids]
-
-                    corrected_W = -model.W / slopes_lin_phi_per_edge[:,
-                                             None] * grad_msg_per_edge * slopes_lin_edge_per_edge.unsqueeze(1)
-
-                    # Plot 1: Corrected weight comparison (top left)
-                    ax1 = fig.add_subplot(3, 2, 1)
-                    learned_weights = to_numpy(corrected_W.squeeze())
-                    true_weights = to_numpy(gt_weights)
-                    if len(true_weights) > 0 and len(learned_weights) > 0:
-                        ax1.scatter(true_weights, learned_weights, c=mc, s=1, alpha=0.05)
-                        lin_fit, lin_fitv = curve_fit(linear_model, true_weights, learned_weights)
-                        residuals = learned_weights - linear_model(true_weights, *lin_fit)
-                        ss_res = np.sum(residuals ** 2)
-                        ss_tot = np.sum((learned_weights - np.mean(learned_weights)) ** 2)
-                        r_squared = 1 - (ss_res / ss_tot)
-                        ax1.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
-                                 transform=ax1.transAxes, verticalalignment='top', fontsize=24)
-                    ax1.set_xlabel('true $W_{ij}$', fontsize=32)
-                    ax1.set_ylabel('learned $W_{ij}$', fontsize=32)
-                    ax1.set_xlim([-2, 4.5])
-                    ax1.set_ylim([-2, 4.5])
-                    ax1.tick_params(axis='both', which='major', labelsize=24)
-
-                    # Plot 2: Embedding (top right)
-                    with torch.no_grad():
-                        ax2 = fig.add_subplot(3, 2, 2)
-                        embedding_plot = to_numpy(model.a)
-                        for n in range(n_types):
-                            type_mask = (to_numpy(type_list).squeeze() == n)
-                            if np.any(type_mask):
-                                ax2.scatter(embedding_plot[type_mask, 0], embedding_plot[type_mask, 1],
-                                            c=colors_65[n], s=6, alpha=0.25, edgecolors='none')
-                        ax2.set_xlabel('$a_0$', fontsize=32)
-                        ax2.set_ylabel('$a_1$', fontsize=32)
-                        ax2.set_xticks([])
-                        ax2.set_yticks([])
-
-                    # Plot 5: Tau comparison (bottom left)
-                    ax5 = fig.add_subplot(3, 2, 5)
-                    slopes_lin_phi_array_np = np.array(slopes_lin_phi_list)
-                    reconstructed_tau = np.where(slopes_lin_phi_array_np != 0, 1.0 / -slopes_lin_phi_array_np, 1)
-                    reconstructed_tau = reconstructed_tau[:n_neurons]
-                    reconstructed_tau = np.clip(reconstructed_tau, 0, 1)
-                    gt_taus_numpy = to_numpy(gt_taus[:n_neurons])
-                    lin_fit, lin_fitv = curve_fit(linear_model, gt_taus_numpy, reconstructed_tau)
-                    residuals = reconstructed_tau - linear_model(gt_taus_numpy, *lin_fit)
-                    ss_res = np.sum(residuals ** 2)
-                    ss_tot = np.sum((reconstructed_tau - np.mean(reconstructed_tau)) ** 2)
-                    r_squared = 1 - (ss_res / ss_tot)
-                    ax5.scatter(gt_taus_numpy , reconstructed_tau, c=mc, s=1, alpha=0.25)
-                    ax5.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
-                             transform=ax5.transAxes, verticalalignment='top', fontsize=24)
-                    ax5.set_xlabel('true $\\tau$', fontsize=32)
-                    ax5.set_ylabel('learned $\\tau$', fontsize=32)
-                    ax5.set_xlim([0, 0.35])
-                    ax5.set_ylim([0, 0.35])
-                    ax5.tick_params(axis='both', which='major', labelsize=24)
-
-                    # Plot 6: V_rest comparison (bottom right)
-                    ax6 = fig.add_subplot(3, 2, 6)
-                    offsets_array = np.array(offsets_list)
-                    reconstructed_V_rest = np.where(slopes_lin_phi_array_np != 0, -offsets_array / slopes_lin_phi_array_np, 1)
-
-                    gt_V_rest_numpy = to_numpy(gt_V_Rest[:n_neurons])
-                    lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest_numpy, reconstructed_V_rest)
-                    residuals = reconstructed_V_rest - linear_model(gt_V_rest_numpy, *lin_fit)
-                    ss_res = np.sum(residuals ** 2)
-                    ss_tot = np.sum((reconstructed_V_rest - np.mean(reconstructed_V_rest)) ** 2)
-                    r_squared = 1 - (ss_res / ss_tot)
-                    ax6.scatter(gt_V_rest_numpy, reconstructed_V_rest, c=mc, s=1, alpha=0.25)
-                    ax6.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest_numpy)}',
-                             transform=ax6.transAxes, verticalalignment='top', fontsize=24)
-                    ax6.set_xlabel('true $V_{rest}$', fontsize=32)
-                    ax6.set_ylabel('learned $V_{rest}$', fontsize=32)
-                    ax6.set_xlim([-0.05, 0.9])
-                    ax6.set_ylim([-0.05, 0.9])
-                    ax6.tick_params(axis='both', which='major', labelsize=24)
-
-                    plt.tight_layout()
-
-                    # Save 3x2 panels as PNG only for first frame
-                    if file_id_ % 10 == 0:
-                        plt.savefig(f'{log_dir}/results/training_{config_indices}.png', dpi=300, bbox_inches='tight')
-                    writer.grab_frame()
-
-            print(f"MP4 saved as: {mp4_path}")
-
+                print(f'no neurons found for type {target_type_name}')
+                logger.info(f'no neurons found for type {target_type_name}')
         else:
-            config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
-            files, file_id_list = get_training_files(log_dir, n_runs)
+            print(f'type {target_type_name} not found in index_to_name dictionary')
+            logger.info(f'type {target_type_name} not found in index_to_name dictionary')
 
-            if False:
-                fps = 10
-                metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
-                writer = FFMpegWriter(fps=fps, metadata=metadata)
-                fig = plt.figure(figsize=(16, 8))
-                mp4_path = f'{log_dir}/results/MLP_weights_{config_indices}.mp4'
-                if os.path.exists(mp4_path):
-                    os.remove(mp4_path)
-                with writer.saving(fig, mp4_path, dpi=80):
-                    for file_id_ in trange(len(file_id_list)):
-                        epoch = files[file_id_].split('graphs')[1][1:-3]
+    print(f'neurons: {n_neurons}')
+    print(f'edges: {edges.shape[1]}')
+    print(f'neuron types: {n_types}')
+    print(f'region types: {n_region_types}')
+    logger.info(f'number of neurons: {n_neurons}')
+    logger.info(f'true edges: {edges.shape[1]}')
+    logger.info(f'true number of neuron types: {n_types}')
+    logger.info(f'true number of region types: {n_region_types}')
 
-                        net = f'{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch}.pt'
-                        model = Signal_Propagation_FlyVis(
-                            aggr_type=model_config.aggr_type,
-                            config=config,
-                            device=device
-                        )
-                        state_dict = torch.load(net, map_location=device)
-                        model.load_state_dict(state_dict['model_state_dict'])
-                        logger.info(f'net: {net}')
+    os.makedirs(f'{log_dir}/results/', exist_ok=True)
 
-                        # Extract layer-wise parameters from lin_phi
-                        layer_weights, layer_biases = [], []
-                        layer_names = []
 
-                        for name, param in model.lin_phi.named_parameters():
-                            if "weight" in name:
-                                layer_weights.append(param.detach().cpu())
-                                layer_names.append(name)
-                            elif "bias" in name:
-                                layer_biases.append(param.detach().cpu())
+    if epoch_list[0] == 'all':
 
-                        n_layers = len(layer_weights)
+        config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
+        files, file_id_list = get_training_files(log_dir, n_runs)
 
-                        fig.clf()
-                        fig.set_size_inches(4 * n_layers, 8)
-                        axes = fig.subplots(2, n_layers)
-                        if n_layers == 1:
-                            axes = axes.reshape(-1, 1)
+        fps = 10  # frames per second for the video
+        metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
+        writer = FFMpegWriter(fps=fps, metadata=metadata)
+        fig = plt.figure(figsize=(18, 24))
+        plt.subplots_adjust(hspace=3.0)
+        mp4_path = f'{log_dir}/results/training_{config_indices}.mp4'
 
-                        for layer_idx in range(n_layers):
-                            w = layer_weights[layer_idx]
-                            b = layer_biases[layer_idx]
-
-                            # Plot weights
-                            ax_w = axes[0, layer_idx]
-                            im_w = ax_w.imshow(w, cmap="seismic", aspect="equal", vmin=-10,vmax=10)
-                            # cbar_w = fig.colorbar(im_w, ax=ax_w, fraction=0.046, pad=0.04)
-                            # cbar_w.ax.tick_params(labelsize=12)
-                            ax_w.set_title(f"Layer {layer_idx + 1} Weights ({w.shape[0]}x{w.shape[1]})", fontsize=14)
-                            ax_w.axis('off')
-
-                            # Plot biases as row vector
-                            ax_b = axes[1, layer_idx]
-                            b_2d = b.unsqueeze(0) if b.dim() == 1 else b
-                            im_b = ax_b.imshow(b_2d, cmap="seismic", aspect="equal", vmin=-1,vmax=1)
-                            # cbar_b = fig.colorbar(im_b, ax=ax_b, fraction=0.046, pad=0.04)
-                            # cbar_b.ax.tick_params(labelsize=12)
-                            ax_b.set_title(f"Layer {layer_idx + 1} Biases ({len(b)})", fontsize=14)
-                            ax_b.axis('off')
-
-                        plt.tight_layout()
-
-                        if (file_id_ == len(file_id_list) - 1) | (file_id_ == 0):
-                            plt.savefig(f'{log_dir}/results/MLP_weights_{config_indices}.png',
-                                        dpi=300, bbox_inches='tight')
-
-                        writer.grab_frame()
-                print(f"MP4 saved as: {mp4_path}")
-
-            for epoch in epoch_list:
+        with writer.saving(fig, mp4_path, dpi=80):
+            for file_id_ in trange(len(file_id_list)):
+                epoch = files[file_id_].split('graphs')[1][1:-3]
 
                 net = f'{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch}.pt'
                 model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
                 state_dict = torch.load(net, map_location=device)
                 model.load_state_dict(state_dict['model_state_dict'])
                 model.edges = edges
-                print(f'net: {net}')
                 logger.info(f'net: {net}')
 
-                # Plot 1: Loss curve
-                if os.path.exists(os.path.join(log_dir, 'loss.pt')):
-                    fig = plt.figure(figsize=(8, 6))
-                    list_loss = torch.load(os.path.join(log_dir, 'loss.pt'))
-                    plt.plot(list_loss, color=mc, linewidth=2)
-                    plt.xlim([0, len(list_loss)])
-                    plt.ylabel('Loss')
-                    plt.xlabel('Epochs')
-                    plt.title('Training Loss')
-                    plt.tight_layout()
-                    plt.savefig(f'{log_dir}/results/loss.png', dpi=300)
-                    plt.close()
+                fig.clf()  # Clear the figure
 
-                # Plot 2: Embedding using model.a
-                fig = plt.figure(figsize=(8, 8))
-                for n in range(n_types):
-                    pos = torch.argwhere(type_list == n)
-                    plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=2, color=colors_65[n], alpha=0.8,
-                                edgecolors='none')
-                plt.xlabel('embedding 0', fontsize=24)
-                plt.ylabel('embedding 1', fontsize=24)
-                plt.xticks([])
-                plt.yticks([])
-                plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/embedding_{config_indices}.png', dpi=300)
-                plt.close()
-
-                if True:
-                    print('embedding clustering results')
-                    for eps in [0.02]: #[0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
-                        results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
-                        print(f"eps={eps}: {results['n_clusters_found']} clusters, "
-                              f"accuracy={results['accuracy']:.3f}")
-                        logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "f"accuracy={results['accuracy']:.3f}")
-                    time.sleep(1)
-
-                # Plot 3: Edge function visualization
-                slopes_lin_edge_list = []
-                fig = plt.figure(figsize=(8, 8))
-                for n in trange(n_neurons):
-                    if (n % 20 == 0):
-                        rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
-                        embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                        if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
-                            in_features = torch.cat((rr[:, None], embedding_,), dim=1)
-                        elif ('PDE_N9_B' in config.graph_model.signal_model_name):
-                            in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
-                        with torch.no_grad():
-                            func = model.lin_edge(in_features.float())
-                            if config.graph_model.lin_edge_positive:
-                                func = func ** 2
-                        plt.plot(to_numpy(rr), to_numpy(func), 2,
-                                 color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                                 linewidth=1, alpha=0.05)
-
-                    rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
-                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-
-                    if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
-                        in_features = torch.cat((rr[:, None], embedding_,), dim=1)
-                    elif ('PDE_N9_B' in config.graph_model.signal_model_name):
-                        in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
-                    with torch.no_grad():
-                        func = model.lin_edge(in_features.float())
-                        if config.graph_model.lin_edge_positive:
-                            func = func ** 2
-                    plt.plot(to_numpy(rr), to_numpy(func), 2,
-                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                             linewidth=1, alpha=0.2)
-
-                    rr_numpy = to_numpy(rr[rr.shape[0]//2+1:])
-                    func_numpy = to_numpy(func[rr.shape[0]//2+1:].squeeze())
-                    try:
-                        lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
-                        slope = lin_fit[0]
-                        offset = lin_fit[1]
-                    except:
-                        coeffs = np.polyfit(rr_numpy, func_numpy, 1)
-                        slope = coeffs[0]
-                        offset = coeffs[1]
-                    slopes_lin_edge_list.append(slope)
-                plt.xlabel('$x_i$', fontsize=24)
-                plt.ylabel('$MLP_1(a_i, x_i)$', fontsize=24)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.xlim(config.plotting.xlim)
-                plt.ylim([-config.plotting.xlim[1]/10, config.plotting.xlim[1]*2])
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}.png", dpi=300)
-                plt.close()
-
-                # Plot 5: Phi function visualization
-
-                func_list = []
+                ax4 = fig.add_subplot(3, 2, 3)
                 slopes_lin_phi_list = []
                 offsets_list = []
-                fig = plt.figure(figsize=(8, 8))
-                for n in trange(n_neurons):
+                func_list = []
+
+                for n in range(n_neurons):
                     if (n % 20 == 0):
                         rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
                         embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                        in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                        in_features = torch.cat(
+                            (rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
                         with torch.no_grad():
                             func = model.lin_phi(in_features.float())
-                            plt.plot(to_numpy(rr), to_numpy(func), 2,
+                            ax4.plot(to_numpy(rr), to_numpy(func), 2,
                                      color=cmap.color(to_numpy(type_list)[n].astype(int)),
                                      linewidth=1, alpha=0.025)
-                    rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
+
+                    rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n],
+                                        1000, device=device)
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                    in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                    in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])),
+                                            dim=1)
                     with torch.no_grad():
                         func = model.lin_phi(in_features.float())
                     if (n % 20 == 0):
-                        plt.plot(to_numpy(rr), to_numpy(func), 2,
+                        ax4.plot(to_numpy(rr), to_numpy(func), 2,
                                  color=cmap.color(to_numpy(type_list)[n].astype(int)),
                                  linewidth=1, alpha=0.2)
                     func_list.append(func)
@@ -2935,161 +2508,87 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     slopes_lin_phi_list.append(slope)
                     offsets_list.append(offset)
 
-                plt.xlim(config.plotting.xlim)
-                plt.ylim(config.plotting.ylim)
-                plt.xlabel('$x_i$', fontsize=18)
-                plt.ylabel('$MLP_0(a_i, x_i)$', fontsize=18)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}.png", dpi=300)
-                plt.close()
+                ax4.set_xlim(config.plotting.xlim)
+                ax4.set_ylim(config.plotting.ylim)
+                ax4.set_xlabel('$x_i$', fontsize=32)
+                ax4.set_ylabel('learned $MLP_0(a_i, x_i)$', fontsize=32)
+                ax4.tick_params(axis='both', which='major', labelsize=24)
 
-                slopes_lin_phi_array = np.array(slopes_lin_phi_list)
-                offsets_array = np.array(offsets_list)
-                gt_taus = to_numpy(gt_taus[:n_neurons])
-                reconstructed_tau = np.where(slopes_lin_phi_array != 0, 1.0 / -slopes_lin_phi_array, 1)
-                reconstructed_tau = reconstructed_tau[:n_neurons]
-                reconstructed_tau = np.clip(reconstructed_tau, 0, 1)
+                # Plot 3: Lin_edge functions (middle right) and calculate slopes
+                ax3 = fig.add_subplot(3, 2, 4)
+                slopes_lin_edge_list = []
 
-                fig = plt.figure(figsize=(8, 8))
-                plt.scatter(gt_taus, reconstructed_tau, c=mc, s=0.5, alpha=0.3)
-                lin_fit, lin_fitv = curve_fit(linear_model, gt_taus, reconstructed_tau)
-                residuals = reconstructed_tau - linear_model(gt_taus, *lin_fit)
-                ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((reconstructed_tau - np.mean(reconstructed_tau)) ** 2)
-                r_squared = 1 - (ss_res / ss_tot)
-                plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
-                         transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-                plt.xlabel(r'true $\tau$', fontsize=24)
-                plt.ylabel(r'learned $\tau$', fontsize=24)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.xlim([0, 0.35])
-                # plt.ylim([0, 0.35])
-                plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/tau_comparison_{config_indices}.png', dpi=300)
-                plt.close()
+                for n in range(n_neurons):
+                    if (n % 20 == 0):
+                        rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+                        embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                        if ('PDE_N9_A' in config.graph_model.signal_model_name) | (
+                                'PDE_N9_D' in config.graph_model.signal_model_name):
+                            in_features = torch.cat((rr[:, None], embedding_,), dim=1)
+                        elif ('PDE_N9_B' in config.graph_model.signal_model_name):
+                            in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
+                        with torch.no_grad():
+                            func = model.lin_edge(in_features.float())
+                            if config.graph_model.lin_edge_positive:
+                                func = func ** 2
+                        ax3.plot(to_numpy(rr), to_numpy(func), 2,
+                                 color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                                 linewidth=1, alpha=0.05)
 
-                print(" ")
-                print(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-                logger.info(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-                torch.save(torch.tensor(reconstructed_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
+                    rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n],
+                                        1000, device=device)
+                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
 
-                # V_rest comparison (reconstructed vs ground truth)
-                reconstructed_V_rest = np.where(slopes_lin_phi_array != 0, -offsets_array / slopes_lin_phi_array, 1)
-                reconstructed_V_rest = reconstructed_V_rest[:n_neurons]
-                gt_V_rest = to_numpy(gt_V_Rest[:n_neurons])
-                fig = plt.figure(figsize=(8, 8))
-                plt.scatter(gt_V_rest, reconstructed_V_rest, c=mc, s=0.5, alpha=0.3)
-                lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest, reconstructed_V_rest)
-                residuals = reconstructed_V_rest - linear_model(gt_V_rest, *lin_fit)
-                ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((reconstructed_V_rest - np.mean(reconstructed_V_rest)) ** 2)
-                r_squared = 1 - (ss_res / ss_tot)
-                plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest)}',
-                         transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-                plt.xlabel(r'true $V_{rest}$', fontsize=24)
-                plt.ylabel(r'learned $V_{rest}$', fontsize=24)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
-                plt.close()
+                    if ('PDE_N9_A' in config.graph_model.signal_model_name) | (
+                            'PDE_N9_D' in config.graph_model.signal_model_name):
+                        in_features = torch.cat((rr[:, None], embedding_,), dim=1)
+                    elif ('PDE_N9_B' in config.graph_model.signal_model_name):
+                        in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
+                    with torch.no_grad():
+                        func = model.lin_edge(in_features.float())
+                        if config.graph_model.lin_edge_positive:
+                            func = func ** 2
+                    ax3.plot(to_numpy(rr), to_numpy(func), 2,
+                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                             linewidth=1, alpha=0.2)
 
-                print(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-                logger.info(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+                    rr_numpy = to_numpy(rr[rr.shape[0] // 2 + 1:])
+                    func_numpy = to_numpy(func[rr.shape[0] // 2 + 1:].squeeze())
+                    try:
+                        lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
+                        slope = lin_fit[0]
+                        offset = lin_fit[1]
+                    except:
+                        coeffs = np.polyfit(rr_numpy, func_numpy, 1)
+                        slope = coeffs[0]
+                        offset = coeffs[1]
+                    slopes_lin_edge_list.append(slope)
 
-                torch.save(torch.tensor(reconstructed_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
+                ax3.set_xlim(config.plotting.xlim)
+                ax3.set_ylim([-config.plotting.xlim[1] / 10, config.plotting.xlim[1] * 2])
+                ax3.set_xlabel('$x_i$', fontsize=32)
+                ax3.set_ylabel('learned $MLP_1(a_j, x_i)$', fontsize=32)
+                ax3.tick_params(axis='both', which='major', labelsize=24)
 
-                if False:
-                    print('linear fit clustering results')
-                    for eps in [0.005, 0.0075, 0.01, 0.02, 0.05]:
-                        results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
-                        print(f"eps={eps}: {results['n_clusters_found']} clusters, "
-                              f"accuracy={results['accuracy']:.3f}")
-                        logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "f"accuracy={results['accuracy']:.3f}")
-                if False:
-                    print('functionnal clustering results')
-                    logger.info('functionnal results')
-                    func_list = torch.stack(func_list).squeeze()
-                    for eps in [0.05, 0.075, 0.1, 0.2, 0.3]:
-                        functional_results = functional_clustering_evaluation(func_list, type_list,
-                                                                              eps=eps)  # Current functional result
-                        print(
-                            f"eps={eps}: {functional_results['n_clusters_found']} clusters, {functional_results['accuracy']:.3f} accuracy")
-                        logger.info(
-                            f"eps={eps}: {functional_results['n_clusters_found']} clusters, {functional_results['accuracy']:.3f} accuracy")
-
-                # Plot 4: Weight comparison using model.W and gt_weights
-                fig = plt.figure(figsize=(8, 8))
-                learned_weights = to_numpy(model.W.squeeze())
-                true_weights = to_numpy(gt_weights)
-                plt.scatter(true_weights, learned_weights, c=mc, s=0.1, alpha=0.1)
-                lin_fit, lin_fitv = curve_fit(linear_model, true_weights, learned_weights)
-                residuals = learned_weights - linear_model(true_weights, *lin_fit)
-                ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((learned_weights - np.mean(learned_weights)) ** 2)
-                r_squared = 1 - (ss_res / ss_tot)
-                plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
-                         transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-                plt.xlabel('true W_ij')
-                plt.ylabel('learned W_ij')
-                plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/comparison_{epoch}.png', dpi=300)
-                plt.close()
-                print(f"first weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-                logger.info(f"first weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-
-                logger.info('weights comparison per type')
-                # Plot 4bis: Weight comparison using model.W and gt_weights
-                fig = plt.figure(figsize=(8, 8))
-                type_edge_list = x[to_numpy(edges[1, :]), 6]
-                for n in range(n_types):
-                    pos_neurons = torch.argwhere(type_list == n)
-                    pos_neurons = pos_neurons.squeeze()
-                    pos = np.argwhere(type_edge_list == n)
-                    pos = pos.astype(int).squeeze()
-                    plt.scatter(true_weights[pos], learned_weights[pos], c=colors_65[n], s=0.1, alpha=0.01)
-                    lin_fit, lin_fitv = curve_fit(linear_model, true_weights[pos], learned_weights[pos])
-                    residuals = learned_weights[pos] - linear_model(true_weights[pos], *lin_fit)
-                    ss_res = np.sum(residuals ** 2)
-                    ss_tot = np.sum((learned_weights[pos] - np.mean(learned_weights[pos])) ** 2)
-                    r_squared = 1 - (ss_res / ss_tot)
-                    true_weights_mean = np.mean(true_weights[pos])
-                    # print(f"{index_to_name[n]} R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}  edges: {len(pos)}  weights mean: {true_weights_mean:.4f}")
-                    logger.info(
-                        f"{index_to_name[n]} R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}  edges: {len(pos)}  weights mean: {true_weights_mean:.4f}")
-                plt.xlabel('true W_ij', fontsize=24)
-                plt.ylabel('learned W_ij', fontsize=24)
-                plt.tight_layout()
-                # plt.savefig(f'{log_dir}/results/comparison_color_{epoch}.png', dpi=300)
-                plt.close()
-
-                # k_list = [1]
-
-                k_list = np.linspace(n_frames // 10, n_frames-100, 8, dtype=int).tolist()
-
+                # Calculate corrected_W using proper data construction
+                k_list = [1]
                 dataset_batch = []
                 ids_batch = []
                 mask_batch = []
                 ids_index = 0
                 mask_index = 0
+                run = 0
 
                 for batch in range(len(k_list)):
-
                     k = k_list[batch]
                     x = torch.tensor(x_list[0][k], dtype=torch.float32, device=device)
                     ids = np.arange(n_neurons)
 
                     if not (torch.isnan(x).any()):
-
                         mask = torch.arange(edges.shape[1])
-
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                         if not (torch.isnan(y).any()):
-
                             dataset = data.Data(x=x, edge_index=edges)
                             dataset_batch.append(dataset)
 
@@ -3130,176 +2629,597 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     inputs=msg,
                     grad_outputs=torch.ones_like(out),
                     retain_graph=True,
-                    create_graph=True  # optional, only if you want to compute higher-order grads later
+                    create_graph=True
                 )[0]
 
-                # print (f'grad_msg shape: {grad_msg.shape}')
-                # print (f'model.W: {model.W.shape}')
-
-                # plt.figure(figsize=(12, 6))
-                # plt.plot(to_numpy(grad_msg[0:n_neurons]), c=mc, linewidth=1)
-                # plt.xlabel('neuron index')
-                # plt.ylabel('gradient')
-                # plt.tight_layout()
-                # plt.savefig(f'{log_dir}/results/msg_gradients_{epoch}.png', dpi=300)
-                # plt.close()
-
-                plt.figure(figsize=(12, 6))
-
-                n_batches = grad_msg.shape[0] // n_neurons
-                grad_values = grad_msg.view(n_batches, n_neurons)
-                grad_values = grad_values.median(dim=0).values
-                grad_values = to_numpy(grad_values).squeeze()
-
-                # grad_values = to_numpy(grad_msg[0:n_neurons]).squeeze()
-
-                # Flatten to 1D
-                neuron_indices = np.arange(n_neurons)
-                # Create scatter plot colored by neuron type
-                for n in range(n_types):
-                    type_mask = (to_numpy(type_list).squeeze() == n)  # Flatten to 1D
-                    if np.any(type_mask):
-                        plt.scatter(neuron_indices[type_mask], grad_values[type_mask],
-                                    c=colors_65[n], s=1, alpha=0.8)
-
-                        # Add text label for each neuron type
-                        if np.sum(type_mask) > 0:
-                            mean_x = np.mean(neuron_indices[type_mask])
-                            mean_y = np.mean(grad_values[type_mask])
-                            plt.text(mean_x, mean_y, index_to_name.get(n, f'T{n}'),
-                                     fontsize=6, ha='center', va='center')
-                plt.xlabel('neuron index')
-                plt.ylabel('gradient')
-                plt.tight_layout()
-                # plt.savefig(f'{log_dir}/results/msg_gradients_{epoch}.png', dpi=300)
-                plt.close()
-
                 grad_msg_flat = grad_msg.squeeze()
-                assert grad_msg_flat.shape[0] == n_neurons * len(k_list), "Gradient and neuron count mismatch"
                 target_neuron_ids = edges[1, :] % (model.n_edges + model.n_extra_null_edges)
                 grad_msg_per_edge = grad_msg_flat[target_neuron_ids]
-                grad_msg_per_edge = grad_msg_per_edge.unsqueeze(1)  # [434112, 1]
+                grad_msg_per_edge = grad_msg_per_edge.unsqueeze(1)
 
-                slopes_lin_phi_array = torch.tensor(slopes_lin_phi_array, dtype=torch.float32, device=device)
+                slopes_lin_phi_array = torch.tensor(slopes_lin_phi_list, dtype=torch.float32, device=device)
                 slopes_lin_phi_per_edge = slopes_lin_phi_array[target_neuron_ids]
 
-                slopes_lin_edge_array = np.array(slopes_lin_edge_list)
-                slopes_lin_edge_array = torch.tensor(slopes_lin_edge_array, dtype=torch.float32, device=device)
-                prior_neuron_ids = edges[0, :] % (model.n_edges + model.n_extra_null_edges)  # j
+                slopes_lin_edge_array = torch.tensor(slopes_lin_edge_list, dtype=torch.float32, device=device)
+                prior_neuron_ids = edges[0, :] % (model.n_edges + model.n_extra_null_edges)
                 slopes_lin_edge_per_edge = slopes_lin_edge_array[prior_neuron_ids]
 
-                corrected_W = -model.W / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge * slopes_lin_edge_per_edge.unsqueeze(1)
-                torch.save(corrected_W, f'{log_dir}/results/corrected_W.pt')
+                corrected_W = -model.W / slopes_lin_phi_per_edge[:,
+                                         None] * grad_msg_per_edge * slopes_lin_edge_per_edge.unsqueeze(1)
 
+                # Plot 1: Corrected weight comparison (top left)
+                ax1 = fig.add_subplot(3, 2, 1)
                 learned_weights = to_numpy(corrected_W.squeeze())
                 true_weights = to_numpy(gt_weights)
+                if len(true_weights) > 0 and len(learned_weights) > 0:
+                    ax1.scatter(true_weights, learned_weights, c=mc, s=1, alpha=0.05)
+                    lin_fit, lin_fitv = curve_fit(linear_model, true_weights, learned_weights)
+                    residuals = learned_weights - linear_model(true_weights, *lin_fit)
+                    ss_res = np.sum(residuals ** 2)
+                    ss_tot = np.sum((learned_weights - np.mean(learned_weights)) ** 2)
+                    r_squared = 1 - (ss_res / ss_tot)
+                    ax1.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
+                             transform=ax1.transAxes, verticalalignment='top', fontsize=24)
+                ax1.set_xlabel('true $W_{ij}$', fontsize=32)
+                ax1.set_ylabel('learned $W_{ij}$', fontsize=32)
+                ax1.set_xlim([-2, 4.5])
+                ax1.set_ylim([-2, 4.5])
+                ax1.tick_params(axis='both', which='major', labelsize=24)
 
-                # --- Outlier removal: drop weights beyond 3*MAD ---
-                residuals = learned_weights - true_weights
-                # mad = np.median(np.abs(residuals - np.median(residuals))) + 1e-12
-                # z = 0.6745 * (residuals - np.median(residuals)) / mad
-                # mask = np.abs(z) <= 10  # keep only inliers
-                mask = np.abs(residuals) <= 5  # keep only inliers
+                # Plot 2: Embedding (top right)
+                with torch.no_grad():
+                    ax2 = fig.add_subplot(3, 2, 2)
+                    embedding_plot = to_numpy(model.a)
+                    for n in range(n_types):
+                        type_mask = (to_numpy(type_list).squeeze() == n)
+                        if np.any(type_mask):
+                            ax2.scatter(embedding_plot[type_mask, 0], embedding_plot[type_mask, 1],
+                                        c=colors_65[n], s=6, alpha=0.25, edgecolors='none')
+                    ax2.set_xlabel('$a_0$', fontsize=32)
+                    ax2.set_ylabel('$a_1$', fontsize=32)
+                    ax2.set_xticks([])
+                    ax2.set_yticks([])
 
-                true_in = true_weights[mask]
-                learned_in = learned_weights[mask]
-                # --- Global fit after outlier removal ---
-                fig = plt.figure(figsize=(8, 8))
-                plt.scatter(true_in, learned_in, c=mc, s=0.1, alpha=0.1)
-                lin_fit, _ = curve_fit(linear_model, true_in, learned_in)
-                residuals_ = learned_in - linear_model(true_in, *lin_fit)
-                ss_res = np.sum(residuals_ ** 2)
-                ss_tot = np.sum((learned_in - np.mean(learned_in)) ** 2)
+                # Plot 5: Tau comparison (bottom left)
+                ax5 = fig.add_subplot(3, 2, 5)
+                slopes_lin_phi_array_np = np.array(slopes_lin_phi_list)
+                reconstructed_tau = np.where(slopes_lin_phi_array_np != 0, 1.0 / -slopes_lin_phi_array_np, 1)
+                reconstructed_tau = reconstructed_tau[:n_neurons]
+                reconstructed_tau = np.clip(reconstructed_tau, 0, 1)
+                gt_taus_numpy = to_numpy(gt_taus[:n_neurons])
+                lin_fit, lin_fitv = curve_fit(linear_model, gt_taus_numpy, reconstructed_tau)
+                residuals = reconstructed_tau - linear_model(gt_taus_numpy, *lin_fit)
+                ss_res = np.sum(residuals ** 2)
+                ss_tot = np.sum((reconstructed_tau - np.mean(reconstructed_tau)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot)
+                ax5.scatter(gt_taus_numpy , reconstructed_tau, c=mc, s=1, alpha=0.25)
+                ax5.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
+                         transform=ax5.transAxes, verticalalignment='top', fontsize=24)
+                ax5.set_xlabel('true $\\tau$', fontsize=32)
+                ax5.set_ylabel('learned $\\tau$', fontsize=32)
+                ax5.set_xlim([0, 0.35])
+                ax5.set_ylim([0, 0.35])
+                ax5.tick_params(axis='both', which='major', labelsize=24)
 
-                plt.text(0.05, 0.95,
-                         f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_in)}',
-                         transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-                plt.xlabel('true $W_{ij}$', fontsize=24)
-                plt.ylabel('learned $W_{ij}$', fontsize=24)
+                # Plot 6: V_rest comparison (bottom right)
+                ax6 = fig.add_subplot(3, 2, 6)
+                offsets_array = np.array(offsets_list)
+                reconstructed_V_rest = np.where(slopes_lin_phi_array_np != 0, -offsets_array / slopes_lin_phi_array_np, 1)
+
+                gt_V_rest_numpy = to_numpy(gt_V_Rest[:n_neurons])
+                lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest_numpy, reconstructed_V_rest)
+                residuals = reconstructed_V_rest - linear_model(gt_V_rest_numpy, *lin_fit)
+                ss_res = np.sum(residuals ** 2)
+                ss_tot = np.sum((reconstructed_V_rest - np.mean(reconstructed_V_rest)) ** 2)
+                r_squared = 1 - (ss_res / ss_tot)
+                ax6.scatter(gt_V_rest_numpy, reconstructed_V_rest, c=mc, s=1, alpha=0.25)
+                ax6.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest_numpy)}',
+                         transform=ax6.transAxes, verticalalignment='top', fontsize=24)
+                ax6.set_xlabel('true $V_{rest}$', fontsize=32)
+                ax6.set_ylabel('learned $V_{rest}$', fontsize=32)
+                ax6.set_xlim([-0.05, 0.9])
+                ax6.set_ylim([-0.05, 0.9])
+                ax6.tick_params(axis='both', which='major', labelsize=24)
+
                 plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/corrected_comparison_{epoch}.png', dpi=300)
+
+                # Save 3x2 panels as PNG only for first frame
+                if file_id_ % 10 == 0:
+                    plt.savefig(f'{log_dir}/results/training_{config_indices}.png', dpi=300, bbox_inches='tight')
+                writer.grab_frame()
+
+        print(f"MP4 saved as: {mp4_path}")
+
+    else:
+        config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
+        files, file_id_list = get_training_files(log_dir, n_runs)
+
+        for epoch in epoch_list:
+
+            net = f'{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch}.pt'
+            model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
+            state_dict = torch.load(net, map_location=device)
+            model.load_state_dict(state_dict['model_state_dict'])
+            model.edges = edges
+            print(f'net: {net}')
+            logger.info(f'net: {net}')
+
+            # Plot 1: Loss curve
+            if os.path.exists(os.path.join(log_dir, 'loss.pt')):
+                fig = plt.figure(figsize=(8, 6))
+                list_loss = torch.load(os.path.join(log_dir, 'loss.pt'))
+                plt.plot(list_loss, color=mc, linewidth=2)
+                plt.xlim([0, len(list_loss)])
+                plt.ylabel('Loss')
+                plt.xlabel('Epochs')
+                plt.title('Training Loss')
+                plt.tight_layout()
+                plt.savefig(f'{log_dir}/results/loss.png', dpi=300)
                 plt.close()
 
-                print(f"second weights fit R²: \033[92m{r_squared:.4f}\033[0m  slope: {np.round(lin_fit[0], 4)}")
-                logger.info(f"second weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-                print(f'median residuals: {np.median(residuals):.4f}')
-                inlier_residuals = residuals[mask]
-                print(f'inliers: {len(inlier_residuals)}  mean residual: {np.mean(inlier_residuals):.4f}  std: {np.std(inlier_residuals):.4f}  min,max: {np.min(inlier_residuals):.4f}, {np.max(inlier_residuals):.4f}')
-                outlier_residuals = residuals[~mask]
-                if len(outlier_residuals) > 0:
-                    print(
-                        f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
-                else:
-                    print(f'outliers: 0  (no outliers detected)')
+            # Plot 2: Embedding using model.a
+            fig = plt.figure(figsize=(8, 8))
+            for n in range(n_types):
+                pos = torch.argwhere(type_list == n)
+                plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=2, color=colors_65[n], alpha=0.8,
+                            edgecolors='none')
+            plt.xlabel('embedding 0', fontsize=24)
+            plt.ylabel('embedding 1', fontsize=24)
+            plt.xticks([])
+            plt.yticks([])
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/embedding_{config_indices}.png', dpi=300)
+            plt.close()
 
-                # plot distribution
+            if True:
+                print('embedding clustering results')
+                for eps in [0.02]: #[0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
+                    results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
+                    print(f"eps={eps}: {results['n_clusters_found']} clusters, "
+                          f"accuracy={results['accuracy']:.3f}")
+                    logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "f"accuracy={results['accuracy']:.3f}")
+                time.sleep(1)
 
-                if 'visual' in field_type:
-                    n_frames = config.simulation.n_frames
-                    k = 100
-                    reconstructed_field = to_numpy(
-                        model.visual_NNR(torch.tensor([k / n_frames], dtype=torch.float32, device=device)) ** 2)
-                    gt_field = x_list[0][k, :n_input_neurons, 4:5]
+            # Plot 3: Edge function visualization
+            slopes_lin_edge_list = []
+            fig = plt.figure(figsize=(8, 8))
+            for n in trange(n_neurons):
+                if (n % 20 == 0):
+                    rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                    if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
+                        in_features = torch.cat((rr[:, None], embedding_,), dim=1)
+                    elif ('PDE_N9_B' in config.graph_model.signal_model_name):
+                        in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
+                    with torch.no_grad():
+                        func = model.lin_edge(in_features.float())
+                        if config.graph_model.lin_edge_positive:
+                            func = func ** 2
+                    plt.plot(to_numpy(rr), to_numpy(func), 2,
+                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                             linewidth=1, alpha=0.05)
 
-                    # Setup for saving MP4
-                    fps = 10  # frames per second for the video
-                    metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
-                    writer = FFMpegWriter(fps=fps, metadata=metadata)
-                    fig = plt.figure(figsize=(12, 4))
+                rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
+                embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
 
-                    # Start the writer context
-                    if os.path.exists(f'{log_dir}/results/field_movie_{config_indices}.mp4'):
-                        os.remove(f'{log_dir}/results/field_movie_{config_indices}.mp4')
-                    r_squared_list = []
-                    slope_list = []
-                    with writer.saving(fig, f'{log_dir}/results/field_movie_{epoch}.mp4', dpi=80):
-                        for k in range(0, 4000, 10):
-                            # Inference and data extraction
-                            reconstructed_field = to_numpy(
-                                model.visual_NNR(torch.tensor([k / n_frames], dtype=torch.float32, device=device)) ** 2)
-                            gt_field = x_list[0][k, :n_input_neurons, 4:5]
-                            X1 = x_list[0][k, :n_input_neurons, 1:3]
-                            vmin = reconstructed_field.min()
-                            vmax = reconstructed_field.max()
-                            fig.clf()  # Clear the figure
-                            # Ground truth
-                            ax1 = fig.add_subplot(1, 3, 1)
-                            sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=-2, vmax=2)
-                            ax1.set_xticks([])
-                            ax1.set_yticks([])
-                            ax1.set_title("ground Truth", fontsize=24)
-                            # Reconstructed
-                            ax2 = fig.add_subplot(1, 3, 2)
-                            sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=vmin, vmax=vmax)
-                            ax2.set_xticks([])
-                            ax2.set_yticks([])
-                            ax2.set_title("reconstructed", fontsize=24)
+                if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
+                    in_features = torch.cat((rr[:, None], embedding_,), dim=1)
+                elif ('PDE_N9_B' in config.graph_model.signal_model_name):
+                    in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
+                with torch.no_grad():
+                    func = model.lin_edge(in_features.float())
+                    if config.graph_model.lin_edge_positive:
+                        func = func ** 2
+                plt.plot(to_numpy(rr), to_numpy(func), 2,
+                         color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                         linewidth=1, alpha=0.2)
 
-                            ax3 = fig.add_subplot(1, 3, 3)
-                            sc3 = ax3.scatter(gt_field, reconstructed_field, s=1, c=mc)
-                            x_data = gt_field.squeeze()
-                            y_data = reconstructed_field
-                            lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-                            residuals = y_data - linear_model(x_data, *lin_fit)
-                            ss_res = np.sum(residuals ** 2)
-                            ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                            r_squared = 1 - (ss_res / ss_tot)
-                            r_squared_list.append(r_squared)
-                            slope_list.append(lin_fit[0])
-                            ax3.text(0.05, 0.95,
-                                     f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
-                                     transform=ax3.transAxes,
-                                     verticalalignment='top',
-                                     fontsize=12)
-                            ax3.set_xlim([0,1])
-                            ax3.set_ylim([0,1])
-                            plt.tight_layout()
-                            writer.grab_frame()
+                rr_numpy = to_numpy(rr[rr.shape[0]//2+1:])
+                func_numpy = to_numpy(func[rr.shape[0]//2+1:].squeeze())
+                try:
+                    lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
+                    slope = lin_fit[0]
+                    offset = lin_fit[1]
+                except:
+                    coeffs = np.polyfit(rr_numpy, func_numpy, 1)
+                    slope = coeffs[0]
+                    offset = coeffs[1]
+                slopes_lin_edge_list.append(slope)
+            plt.xlabel('$x_i$', fontsize=24)
+            plt.ylabel('$MLP_1(a_i, x_i)$', fontsize=24)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.xlim(config.plotting.xlim)
+            plt.ylim([-config.plotting.xlim[1]/10, config.plotting.xlim[1]*2])
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}.png", dpi=300)
+            plt.close()
 
-                    print(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
-                    logger.info(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
-                print(" ")
+            # Plot 5: Phi function visualization
+
+            func_list = []
+            slopes_lin_phi_list = []
+            offsets_list = []
+            fig = plt.figure(figsize=(8, 8))
+            for n in trange(n_neurons):
+                if (n % 20 == 0):
+                    rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                    in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                    with torch.no_grad():
+                        func = model.lin_phi(in_features.float())
+                        plt.plot(to_numpy(rr), to_numpy(func), 2,
+                                 color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                                 linewidth=1, alpha=0.025)
+                rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
+                embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                with torch.no_grad():
+                    func = model.lin_phi(in_features.float())
+                if (n % 20 == 0):
+                    plt.plot(to_numpy(rr), to_numpy(func), 2,
+                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                             linewidth=1, alpha=0.2)
+                func_list.append(func)
+                rr_numpy = to_numpy(rr)
+                func_numpy = to_numpy(func.squeeze())
+                try:
+                    lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
+                    slope = lin_fit[0]
+                    offset = lin_fit[1]
+                except:
+                    coeffs = np.polyfit(rr_numpy, func_numpy, 1)
+                    slope = coeffs[0]
+                    offset = coeffs[1]
+                slopes_lin_phi_list.append(slope)
+                offsets_list.append(offset)
+
+            plt.xlim(config.plotting.xlim)
+            plt.ylim(config.plotting.ylim)
+            plt.xlabel('$x_i$', fontsize=18)
+            plt.ylabel('$MLP_0(a_i, x_i)$', fontsize=18)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}.png", dpi=300)
+            plt.close()
+
+            slopes_lin_phi_array = np.array(slopes_lin_phi_list)
+            offsets_array = np.array(offsets_list)
+            gt_taus = to_numpy(gt_taus[:n_neurons])
+            reconstructed_tau = np.where(slopes_lin_phi_array != 0, 1.0 / -slopes_lin_phi_array, 1)
+            reconstructed_tau = reconstructed_tau[:n_neurons]
+            reconstructed_tau = np.clip(reconstructed_tau, 0, 1)
+
+            fig = plt.figure(figsize=(8, 8))
+            plt.scatter(gt_taus, reconstructed_tau, c=mc, s=0.5, alpha=0.3)
+            lin_fit, lin_fitv = curve_fit(linear_model, gt_taus, reconstructed_tau)
+            residuals = reconstructed_tau - linear_model(gt_taus, *lin_fit)
+            ss_res = np.sum(residuals ** 2)
+            ss_tot = np.sum((reconstructed_tau - np.mean(reconstructed_tau)) ** 2)
+            r_squared = 1 - (ss_res / ss_tot)
+            plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
+                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
+            plt.xlabel(r'true $\tau$', fontsize=24)
+            plt.ylabel(r'learned $\tau$', fontsize=24)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.xlim([0, 0.35])
+            # plt.ylim([0, 0.35])
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/tau_comparison_{config_indices}.png', dpi=300)
+            plt.close()
+
+            print(" ")
+            print(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            logger.info(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            torch.save(torch.tensor(reconstructed_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
+
+            # V_rest comparison (reconstructed vs ground truth)
+            reconstructed_V_rest = np.where(slopes_lin_phi_array != 0, -offsets_array / slopes_lin_phi_array, 1)
+            reconstructed_V_rest = reconstructed_V_rest[:n_neurons]
+            gt_V_rest = to_numpy(gt_V_Rest[:n_neurons])
+            fig = plt.figure(figsize=(8, 8))
+            plt.scatter(gt_V_rest, reconstructed_V_rest, c=mc, s=0.5, alpha=0.3)
+            lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest, reconstructed_V_rest)
+            residuals = reconstructed_V_rest - linear_model(gt_V_rest, *lin_fit)
+            ss_res = np.sum(residuals ** 2)
+            ss_tot = np.sum((reconstructed_V_rest - np.mean(reconstructed_V_rest)) ** 2)
+            r_squared = 1 - (ss_res / ss_tot)
+            plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest)}',
+                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
+            plt.xlabel(r'true $V_{rest}$', fontsize=24)
+            plt.ylabel(r'learned $V_{rest}$', fontsize=24)
+            plt.xticks(fontsize=12)
+            plt.yticks(fontsize=12)
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
+            plt.close()
+
+            print(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            logger.info(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+
+            torch.save(torch.tensor(reconstructed_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
+
+            # Plot 4: Weight comparison using model.W and gt_weights
+            fig = plt.figure(figsize=(8, 8))
+            learned_weights = to_numpy(model.W.squeeze())
+            true_weights = to_numpy(gt_weights)
+            plt.scatter(true_weights, learned_weights, c=mc, s=0.1, alpha=0.1)
+            lin_fit, lin_fitv = curve_fit(linear_model, true_weights, learned_weights)
+            residuals = learned_weights - linear_model(true_weights, *lin_fit)
+            ss_res = np.sum(residuals ** 2)
+            ss_tot = np.sum((learned_weights - np.mean(learned_weights)) ** 2)
+            r_squared = 1 - (ss_res / ss_tot)
+            plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
+                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
+            plt.xlabel('true W_ij')
+            plt.ylabel('learned W_ij')
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/comparison_{epoch}.png', dpi=300)
+            plt.close()
+            print(f"first weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            logger.info(f"first weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+
+            logger.info('weights comparison per type')
+            # Plot 4bis: Weight comparison using model.W and gt_weights
+            fig = plt.figure(figsize=(8, 8))
+            type_edge_list = x[to_numpy(edges[1, :]), 6]
+            for n in range(n_types):
+                pos_neurons = torch.argwhere(type_list == n)
+                pos_neurons = pos_neurons.squeeze()
+                pos = np.argwhere(type_edge_list == n)
+                pos = pos.astype(int).squeeze()
+                plt.scatter(true_weights[pos], learned_weights[pos], c=colors_65[n], s=0.1, alpha=0.01)
+                lin_fit, lin_fitv = curve_fit(linear_model, true_weights[pos], learned_weights[pos])
+                residuals = learned_weights[pos] - linear_model(true_weights[pos], *lin_fit)
+                ss_res = np.sum(residuals ** 2)
+                ss_tot = np.sum((learned_weights[pos] - np.mean(learned_weights[pos])) ** 2)
+                r_squared = 1 - (ss_res / ss_tot)
+                true_weights_mean = np.mean(true_weights[pos])
+                # print(f"{index_to_name[n]} R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}  edges: {len(pos)}  weights mean: {true_weights_mean:.4f}")
+                logger.info(
+                    f"{index_to_name[n]} R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}  edges: {len(pos)}  weights mean: {true_weights_mean:.4f}")
+            plt.xlabel('true W_ij', fontsize=24)
+            plt.ylabel('learned W_ij', fontsize=24)
+            plt.tight_layout()
+            # plt.savefig(f'{log_dir}/results/comparison_color_{epoch}.png', dpi=300)
+            plt.close()
+
+            # k_list = [1]
+
+            k_list = np.linspace(n_frames // 10, n_frames-100, 8, dtype=int).tolist()
+
+            dataset_batch = []
+            ids_batch = []
+            mask_batch = []
+            ids_index = 0
+            mask_index = 0
+
+            for batch in range(len(k_list)):
+
+                k = k_list[batch]
+                x = torch.tensor(x_list[0][k], dtype=torch.float32, device=device)
+                ids = np.arange(n_neurons)
+
+                if not (torch.isnan(x).any()):
+
+                    mask = torch.arange(edges.shape[1])
+
+                    y = torch.tensor(y_list[run][k], device=device) / ynorm
+
+                    if not (torch.isnan(y).any()):
+
+                        dataset = data.Data(x=x, edge_index=edges)
+                        dataset_batch.append(dataset)
+
+                        if len(dataset_batch) == 1:
+                            data_id = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run
+                            x_batch = x[:, 3:4]
+                            y_batch = y
+                            ids_batch = ids
+                            mask_batch = mask
+                        else:
+                            data_id = torch.cat(
+                                (data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
+                            x_batch = torch.cat((x_batch, x[:, 4:5]), dim=0)
+                            y_batch = torch.cat((y_batch, y), dim=0)
+                            ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
+                            mask_batch = torch.cat((mask_batch, mask + mask_index), dim=0)
+
+                        ids_index += x.shape[0]
+                        mask_index += edges.shape[1]
+
+            with torch.no_grad():
+                batch_loader = DataLoader(dataset_batch, batch_size=len(k_list), shuffle=False)
+                for batch in batch_loader:
+                    pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
+
+            v = in_features[:, 0:1].clone().detach()
+            embedding = in_features[:, 1:3].clone().detach()
+            msg = in_features[:, 3:4].clone().detach()
+            excitation = in_features[:, 4:5].clone().detach()
+
+            msg.requires_grad_(True)
+            # Concatenate input features for the final layer
+            in_features = torch.cat([v, embedding, msg, excitation], dim=1)
+            out = model.lin_phi(in_features)
+
+            grad_msg = torch.autograd.grad(
+                outputs=out,
+                inputs=msg,
+                grad_outputs=torch.ones_like(out),
+                retain_graph=True,
+                create_graph=True  # optional, only if you want to compute higher-order grads later
+            )[0]
+
+            # print (f'grad_msg shape: {grad_msg.shape}')
+            # print (f'model.W: {model.W.shape}')
+
+            # plt.figure(figsize=(12, 6))
+            # plt.plot(to_numpy(grad_msg[0:n_neurons]), c=mc, linewidth=1)
+            # plt.xlabel('neuron index')
+            # plt.ylabel('gradient')
+            # plt.tight_layout()
+            # plt.savefig(f'{log_dir}/results/msg_gradients_{epoch}.png', dpi=300)
+            # plt.close()
+
+            plt.figure(figsize=(12, 6))
+
+            n_batches = grad_msg.shape[0] // n_neurons
+            grad_values = grad_msg.view(n_batches, n_neurons)
+            grad_values = grad_values.median(dim=0).values
+            grad_values = to_numpy(grad_values).squeeze()
+
+            # grad_values = to_numpy(grad_msg[0:n_neurons]).squeeze()
+
+            # Flatten to 1D
+            neuron_indices = np.arange(n_neurons)
+            # Create scatter plot colored by neuron type
+            for n in range(n_types):
+                type_mask = (to_numpy(type_list).squeeze() == n)  # Flatten to 1D
+                if np.any(type_mask):
+                    plt.scatter(neuron_indices[type_mask], grad_values[type_mask],
+                                c=colors_65[n], s=1, alpha=0.8)
+
+                    # Add text label for each neuron type
+                    if np.sum(type_mask) > 0:
+                        mean_x = np.mean(neuron_indices[type_mask])
+                        mean_y = np.mean(grad_values[type_mask])
+                        plt.text(mean_x, mean_y, index_to_name.get(n, f'T{n}'),
+                                 fontsize=6, ha='center', va='center')
+            plt.xlabel('neuron index')
+            plt.ylabel('gradient')
+            plt.tight_layout()
+            # plt.savefig(f'{log_dir}/results/msg_gradients_{epoch}.png', dpi=300)
+            plt.close()
+
+            grad_msg_flat = grad_msg.squeeze()
+            assert grad_msg_flat.shape[0] == n_neurons * len(k_list), "Gradient and neuron count mismatch"
+            target_neuron_ids = edges[1, :] % (model.n_edges + model.n_extra_null_edges)
+            grad_msg_per_edge = grad_msg_flat[target_neuron_ids]
+            grad_msg_per_edge = grad_msg_per_edge.unsqueeze(1)  # [434112, 1]
+
+            slopes_lin_phi_array = torch.tensor(slopes_lin_phi_array, dtype=torch.float32, device=device)
+            slopes_lin_phi_per_edge = slopes_lin_phi_array[target_neuron_ids]
+
+            slopes_lin_edge_array = np.array(slopes_lin_edge_list)
+            slopes_lin_edge_array = torch.tensor(slopes_lin_edge_array, dtype=torch.float32, device=device)
+            prior_neuron_ids = edges[0, :] % (model.n_edges + model.n_extra_null_edges)  # j
+            slopes_lin_edge_per_edge = slopes_lin_edge_array[prior_neuron_ids]
+
+            corrected_W = -model.W / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge * slopes_lin_edge_per_edge.unsqueeze(1)
+            torch.save(corrected_W, f'{log_dir}/results/corrected_W.pt')
+
+            learned_weights = to_numpy(corrected_W.squeeze())
+            true_weights = to_numpy(gt_weights)
+
+            # --- Outlier removal: drop weights beyond 3*MAD ---
+            residuals = learned_weights - true_weights
+            # mad = np.median(np.abs(residuals - np.median(residuals))) + 1e-12
+            # z = 0.6745 * (residuals - np.median(residuals)) / mad
+            # mask = np.abs(z) <= 10  # keep only inliers
+            mask = np.abs(residuals) <= 5  # keep only inliers
+
+            true_in = true_weights[mask]
+            learned_in = learned_weights[mask]
+            # --- Global fit after outlier removal ---
+            fig = plt.figure(figsize=(8, 8))
+            plt.scatter(true_in, learned_in, c=mc, s=0.1, alpha=0.1)
+            lin_fit, _ = curve_fit(linear_model, true_in, learned_in)
+            residuals_ = learned_in - linear_model(true_in, *lin_fit)
+            ss_res = np.sum(residuals_ ** 2)
+            ss_tot = np.sum((learned_in - np.mean(learned_in)) ** 2)
+            r_squared = 1 - (ss_res / ss_tot)
+
+            plt.text(0.05, 0.95,
+                     f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_in)}',
+                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
+            plt.xlabel('true $W_{ij}$', fontsize=24)
+            plt.ylabel('learned $W_{ij}$', fontsize=24)
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/corrected_comparison_{epoch}.png', dpi=300)
+            plt.close()
+
+            print(f"second weights fit R²: \033[92m{r_squared:.4f}\033[0m  slope: {np.round(lin_fit[0], 4)}")
+            logger.info(f"second weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            print(f'median residuals: {np.median(residuals):.4f}')
+            inlier_residuals = residuals[mask]
+            print(f'inliers: {len(inlier_residuals)}  mean residual: {np.mean(inlier_residuals):.4f}  std: {np.std(inlier_residuals):.4f}  min,max: {np.min(inlier_residuals):.4f}, {np.max(inlier_residuals):.4f}')
+            outlier_residuals = residuals[~mask]
+            if len(outlier_residuals) > 0:
+                print(
+                    f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
+            else:
+                print(f'outliers: 0  (no outliers detected)')
+
+            # plot distribution
+
+            if 'visual' in field_type:
+                n_frames = config.simulation.n_frames
+                k = 100
+                reconstructed_field = to_numpy(
+                    model.visual_NNR(torch.tensor([k / n_frames], dtype=torch.float32, device=device)) ** 2)
+                gt_field = x_list[0][k, :n_input_neurons, 4:5]
+
+                # Setup for saving MP4
+                fps = 10  # frames per second for the video
+                metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
+                writer = FFMpegWriter(fps=fps, metadata=metadata)
+                fig = plt.figure(figsize=(12, 4))
+
+                # Start the writer context
+                if os.path.exists(f'{log_dir}/results/field_movie_{config_indices}.mp4'):
+                    os.remove(f'{log_dir}/results/field_movie_{config_indices}.mp4')
+                r_squared_list = []
+                slope_list = []
+                with writer.saving(fig, f'{log_dir}/results/field_movie_{epoch}.mp4', dpi=80):
+                    for k in range(0, 4000, 10):
+                        # Inference and data extraction
+                        reconstructed_field = to_numpy(
+                            model.visual_NNR(torch.tensor([k / n_frames], dtype=torch.float32, device=device)) ** 2)
+                        gt_field = x_list[0][k, :n_input_neurons, 4:5]
+                        X1 = x_list[0][k, :n_input_neurons, 1:3]
+                        vmin = reconstructed_field.min()
+                        vmax = reconstructed_field.max()
+                        fig.clf()  # Clear the figure
+                        # Ground truth
+                        ax1 = fig.add_subplot(1, 3, 1)
+                        sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=-2, vmax=2)
+                        ax1.set_xticks([])
+                        ax1.set_yticks([])
+                        ax1.set_title("ground Truth", fontsize=24)
+                        # Reconstructed
+                        ax2 = fig.add_subplot(1, 3, 2)
+                        sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=vmin, vmax=vmax)
+                        ax2.set_xticks([])
+                        ax2.set_yticks([])
+                        ax2.set_title("reconstructed", fontsize=24)
+
+                        ax3 = fig.add_subplot(1, 3, 3)
+                        sc3 = ax3.scatter(gt_field, reconstructed_field, s=1, c=mc)
+                        x_data = gt_field.squeeze()
+                        y_data = reconstructed_field
+                        lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
+                        residuals = y_data - linear_model(x_data, *lin_fit)
+                        ss_res = np.sum(residuals ** 2)
+                        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+                        r_squared = 1 - (ss_res / ss_tot)
+                        r_squared_list.append(r_squared)
+                        slope_list.append(lin_fit[0])
+                        ax3.text(0.05, 0.95,
+                                 f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
+                                 transform=ax3.transAxes,
+                                 verticalalignment='top',
+                                 fontsize=12)
+                        ax3.set_xlim([0,1])
+                        ax3.set_ylim([0,1])
+                        plt.tight_layout()
+                        writer.grab_frame()
+
+                print(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
+                logger.info(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
+            print(" ")
 
 
 def data_flyvis_compare(config_list, varied_parameter):
@@ -3672,7 +3592,7 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.setp(ax4.get_xticklabels(), rotation=45, ha='right')
 
     plt.tight_layout()
-    plot_filename = f'parameter_comparison_{param_display_name}.png'
+    plot_filename = f'fig/parameter_comparison_{param_display_name}.png'
     plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
     print(f"\nplot saved as: {plot_filename}")
     plt.close()
@@ -3726,7 +3646,7 @@ def data_flyvis_compare(config_list, varied_parameter):
     ax_loss.text(0.02, 0.98, "\n".join(text_content), transform=ax_loss.transAxes,
                  fontsize=10, va='top', ha='left', fontfamily='monospace', color='white')
     plt.tight_layout()
-    loss_plot_filename = f'loss_curves_{param_display_name}.png'
+    loss_plot_filename = f'fig/loss_curves_{param_display_name}.png'
     plt.savefig(loss_plot_filename, dpi=300, bbox_inches='tight')
     print(f"loss curves plot saved as: {loss_plot_filename}")
     plt.close()
@@ -3847,7 +3767,149 @@ def data_flyvis_compare(config_list, varied_parameter):
         )
     print("-" * 180)
 
+    def parse_val(val_str: str) -> float:
+        # split on "±" and take the left part
+        return float(val_str.split("±")[0])
 
+
+
+    def _to_float(v):
+        try:
+            return float(v)
+        except Exception:
+            return math.nan
+
+    # numeric keys (nan if not convertible)
+    _numeric_keys = np.array([_to_float(d["param_value"]) for d in ising_results], dtype=float)
+
+    # sort index: finite numbers in ascending order, then NaNs at the end (stable)
+    finite_mask = np.isfinite(_numeric_keys)
+    finite_idx = np.argsort(_numeric_keys[finite_mask])
+    nan_idx = np.where(~finite_mask)[0]
+    order = np.concatenate([np.where(finite_mask)[0][finite_idx], nan_idx])
+
+    # apply order
+    ising_results = [ising_results[i] for i in order]
+
+    # build arrays AFTER ordering
+    param_values = np.array([_to_float(d["param_value"]) for d in ising_results], dtype=float)
+    IN = np.array([float(d["IN_med_str"].split("±")[0]) for d in ising_results], dtype=float)
+    R = np.array([float(d["R_med_str"].split("±")[0]) for d in ising_results], dtype=float)
+    TKL = np.array([float(d["TKL_med_str"].split("±")[0]) for d in ising_results], dtype=float)
+    TKL_bits = TKL / np.log(2.0)
+
+    # optional: labels for ticks/annotations
+    param_values_str = [str(d["param_value"]) for d in ising_results]
+
+    # choose x for plotting
+    use_logx = np.all(param_values[~np.isnan(param_values)] > 0) and (
+            np.nanmax(param_values) / max(np.nanmin(param_values), 1e-12) > 50
+    )
+
+    use_logx = True
+
+    if use_logx:
+        # drop nonpositive/NaN x for log plots
+        keep = np.isfinite(param_values) & (param_values > 0)
+        x_plot, IN_plot, R_plot, TKL_plot = param_values[keep], IN[keep], R[keep], TKL_bits[keep]
+    else:
+        x_plot, IN_plot, R_plot, TKL_plot = param_values, IN, R, TKL_bits
+
+    plt.style.use('default')
+    fig, axes = plt.subplots(3, 1, figsize=(8, 8), sharex=True)
+    plot_fn = (axes[0].semilogx if use_logx else axes[0].plot)
+    plot_fn(x_plot, IN_plot, 'o-', color='tab:blue',linewidth=3, markersize=8)
+    axes[0].set_ylabel(r"$I_N$ (bits)", fontsize=18)
+    axes[0].grid(True, which="both", ls="--", alpha=0.5)
+    axes[0].tick_params(axis='x', labelsize=12)
+    axes[0].tick_params(axis='y', labelsize=12)
+
+    plot_fn = (axes[1].semilogx if use_logx else axes[1].plot)
+    plot_fn(x_plot, R_plot, 'o-', color='tab:green',linewidth=3, markersize=8)
+    axes[1].set_ylabel(r"$I^{(2)}/I_N$", fontsize=18)
+    axes[1].set_ylim(0.0, 1.1)
+    axes[1].grid(True, which="both", ls="--", alpha=0.5)
+    axes[1].tick_params(axis='x', labelsize=12)
+    axes[1].tick_params(axis='y', labelsize=12)
+
+    plot_fn = (axes[2].semilogx if use_logx else axes[2].plot)
+    plot_fn(x_plot, TKL_plot, 'o-', color='tab:purple',linewidth=3, markersize=8)
+    axes[2].set_ylabel("Triplet KL (bits)", fontsize=18)
+    # axes[2].set_xlabel(varied_parameter if varied_parameter else "condition", fontsize=18)
+    axes[2].set_xlabel("Intrinsic noise level", fontsize=18)
+    axes[2].grid(True, which="both", ls="--", alpha=0.5)
+    axes[2].tick_params(axis='x', labelsize=12)
+    axes[2].tick_params(axis='y', labelsize=12)
+
+    # 1) Define your regime mask (tweak thresholds if desired)
+    mask_best = (R_plot >= 0.995) & (TKL_plot >= 20.0) & (IN_plot < 0.5)
+
+    # 2) Helper to get panel-friendly x-interval edges between your sampled x points
+    def _edges_from_x(x, logx=False):
+        x = np.asarray(x, dtype=float)
+        n = len(x)
+        if n == 0:
+            return np.array([])
+        edges = np.empty(n + 1, dtype=float)
+        if n == 1:
+            # a single point: make a small symmetric interval around it
+            if logx:
+                edges[0] = x[0] / 1.2
+                edges[1] = x[0] * 1.2
+            else:
+                edges[0] = x[0] - 0.5
+                edges[1] = x[0] + 0.5
+            return edges
+
+        # interior edges: midpoints (geometric for log, arithmetic for linear)
+        if use_logx:
+            edges[1:-1] = np.sqrt(x[:-1] * x[1:])
+        else:
+            edges[1:-1] = 0.5 * (x[:-1] + x[1:])
+
+        # extrapolate end edges
+        if use_logx:
+            edges[0] = x[0] * (x[0] / edges[1])
+            edges[-1] = x[-1] * (x[-1] / edges[-2])
+        else:
+            edges[0] = x[0] - (edges[1] - x[0])
+            edges[-1] = x[-1] + (x[-1] - edges[-2])
+        return edges
+
+    # 3) Compute edges for the current x sampling
+    x_edges = _edges_from_x(x_plot, logx=use_logx)
+
+    # 4) Shade each contiguous mask==True segment across ALL subplots
+    def _shade_best_regions(ax_list, x, edges, mask, color="green", alpha=0.15):
+        if len(x) == 0:
+            return
+        # For each point i where mask[i] is True, shade from edges[i] to edges[i+1]
+        for i, ok in enumerate(mask):
+            if ok:
+                left, right = edges[i], edges[i + 1]
+                for ax in ax_list:
+                    ax.axvspan(left, right, color=color, alpha=alpha, zorder=0)
+
+    # Apply shading
+    _shade_best_regions([axes[0], axes[1], axes[2]], x_plot, x_edges, mask_best, color="green", alpha=0.15)
+
+    # Optional: annotate on the top panel
+    try:
+        y_top = axes[0].get_ylim()[1]
+        axes[0].text(
+            x_plot[len(x_plot) // 2] + 0.2,  # mid x (roughly)
+            y_top * 0.95,
+            "GNN best region",
+            ha="center", va="top",
+            fontsize=12,
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.6, edgecolor="none")
+        )
+    except Exception:
+        pass
+
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.savefig("fig/phase_diagram.png", dpi=150)
+    plt.close(fig)
 
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
@@ -6839,19 +6901,16 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     # data_flyvis_compare(config_list, 'simulation.n_extra_null_edges')
 
-    # config_list = ['fly_N9_52_1', 'fly_N9_52_2', 'fly_N9_52_3', 'fly_N9_52_4', 'fly_N9_52_5', 'fly_N9_52_6', 'fly_N9_52_7', 'fly_N9_52_8', 'fly_N9_52_9']
-    # data_flyvis_compare(config_list, 'simulation.n_frames')
-
-    # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
-    # data_flyvis_compare(config_list, None)
-
-
     # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5', 'fly_N9_52_2_6', 'fly_N9_52_2_7',
     # 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
     # data_flyvis_compare(config_list, 'none')
 
-    # config_list = ['fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12']
-    # data_flyvis_compare(config_list,  'simulation.visual_input_type')
+    config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
+                   'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
+                   'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20']
+    # data_flyvis_compare(config_list,  None) #'simulation.visual_input_type')
+
+    config_list = ['fly_N9_22_1']
 
     #
     # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
@@ -6859,32 +6918,26 @@ if __name__ == '__main__':
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
 
 
-    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
-                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
-                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
+    #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    # data_flyvis_compare(config_list, 'training.noise_model_level')
 
-    data_flyvis_compare(config_list, 'training.noise_model_level')
 
-    # config_list = ['fly_N9_44_6']
-    #
-    # for config_file_ in config_list:
-    #     print(' ')
-    #
-    #     config_file, pre_folder = add_pre_folder(config_file_)
-    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-    #     config.dataset = pre_folder + config.dataset
-    #     config.config_file = pre_folder + config_file_
-    #
-    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-    #
-    #     folder_name = './log/' + pre_folder + '/tmp_results/'
-    #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
-    #
-    #
-    #
-    #
-    #
+    for config_file_ in config_list:
+        print(' ')
+
+        config_file, pre_folder = add_pre_folder(config_file_)
+        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+        config.dataset = pre_folder + config.dataset
+        config.config_file = pre_folder + config_file_
+
+        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+
+        folder_name = './log/' + pre_folder + '/tmp_results/'
+        os.makedirs(folder_name, exist_ok=True)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+
 
 
 
