@@ -6979,13 +6979,9 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
     # data_flyvis_compare(config_list, None)
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
-    # data_flyvis_compare(config_list, None)
 
-    # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5', 'fly_N9_52_2_6', 'fly_N9_52_2_7']
-    # data_flyvis_compare(config_list, None)
-
-    # config_list = ['fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
+    # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5', 'fly_N9_52_2_6', 'fly_N9_52_2_7',
+    # 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
     # data_flyvis_compare(config_list, 'none')
 
     # config_list = ['fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12']
@@ -6997,9 +6993,10 @@ if __name__ == '__main__':
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
 
 
-    config_list = ['fly_N9_44_6','fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
                    'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
                    'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # config_list = ['fly_N9_44_6']
