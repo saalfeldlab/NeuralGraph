@@ -23,6 +23,16 @@ from NeuralGraph.models.utils import *
 from NeuralGraph.models.plot_utils import *
 from NeuralGraph.models.MLP import *
 from NeuralGraph.utils import to_numpy, CustomColorMap
+
+from NeuralGraph.models.Ising_analysis import (
+    rebin_voltage_subset,
+    compute_info_ratio_debiased,
+    gibbs_sample_ising,
+    triplet_residual_KL,
+    convert_J_sparse_to_dense,
+    sparse_ising_fit_fast
+)
+
 import matplotlib as mpl
 from io import StringIO
 import sys
@@ -2111,7 +2121,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights[edges[1], edges[0]] = gt_weights
 
 
-    if  os.path.exists(f"./{log_dir}/results/E.npy"):
+    if os.path.exists(f"./{log_dir}/results/E.npy"):
         print (f'first Ising analysis done ...')
         E = np.load(f"./{log_dir}/results/E.npy")
         s = np.load(f"./{log_dir}/results/s.npy")
@@ -2147,7 +2157,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     J_sign_ratio = (J_vals > 0).mean()
     th = np.percentile(np.abs(J_vals), 90.0)
     J_frac_strong = (np.abs(J_vals) > th).mean()
-    J_gini = gini(J_vals)
 
     # Create 2x2 figure
     fig, axs = plt.subplots(1, 2, figsize=(20, 10))
@@ -2166,22 +2175,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     axs[1].set_ylabel("Density", fontsize=24)
     axs[1].tick_params(axis='both', which='major', labelsize=12)
     axs[1].text(0.05, 0.95,
-                   f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}\nGini: {J_gini:.2f}',
+                   f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}',
                    transform=axs[1].transAxes,
                    fontsize=18, verticalalignment='top')
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
     plt.close(fig)
-
-
-
-    from NeuralGraph.models.ising_analysis import (
-        rebin_voltage_subset,
-        compute_info_ratio_debiased,
-        gibbs_sample_ising,
-        triplet_residual_KL,
-        convert_J_sparse_to_dense
-    )
 
     # --- Config ---
     n_subsets = 100
@@ -2191,7 +2190,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     seed = 0
 
     # --- Loop over random 10-cell subsets ---
-    INs, I2s, ratios = [], [], []
+    INs, I2s, ratios, non_monotonic = [], [], [], []
     rng = np.random.default_rng(seed)
 
     for i in trange(n_subsets, desc="processing subsets"):
@@ -2220,23 +2219,33 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         INs.append(point.I_N)
         I2s.append(point.I2)
         ratios.append(point.ratio)
+        non_monotonic.append(point.flag_non_monotonic)
 
     # --- Summary ---
     INs = np.array(INs)
     I2s = np.array(I2s)
     ratios = np.array(ratios)
+    non_monotonic = np.array(non_monotonic)
 
     np.save(f"{log_dir}/results/INs.npy", INs)
     np.save(f"{log_dir}/results/I2s.npy", I2s)
     np.save(f"{log_dir}/results/ratios.npy", ratios)
 
     print("\n=== Summary over all subsets ===")
-    print(f"I_N:    median={np.nanmedian(INs):.6f},   IQR={np.nanpercentile(INs, [25, 75])}")
-    print(f"I2:     median={np.nanmedian(I2s):.6f},   IQR={np.nanpercentile(I2s, [25, 75])}")
-    print(f"Ratio:  median={np.nanmedian(ratios):.4f},   IQR={np.nanpercentile(ratios, [25, 75])}")
-    logger.info(f"I_N:    median={np.nanmedian(INs):.6f},   IQR={np.nanpercentile(INs, [25, 75])}")
-    logger.info(f"I2:     median={np.nanmedian(I2s):.6f},   IQR={np.nanpercentile(I2s, [25, 75])}")
-    logger.info(f"Ratio:  median={np.nanmedian(ratios):.4f},   IQR={np.nanpercentile(ratios, [25, 75])}")
+    print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
+    # I_N statistics
+    q25_IN, q75_IN = np.nanpercentile(INs, [25, 75])
+    print(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
+    # I2 statistics
+    q25_I2, q75_I2 = np.nanpercentile(I2s, [25, 75])
+    print(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
+    # Ratio statistics
+    q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
+    print(f"Ratio:  median={np.nanmedian(ratios):.4f},   IQR=[{q25_ratio:.4f}, {q75_ratio:.4f}],   std={np.nanstd(ratios):.4f}")
+    logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
+    logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
+    logger.info(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
+    logger.info(f"Ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
 
     # --- Triplet KL residuals from full simulation outputs ---
 
@@ -2244,8 +2253,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     s = np.load(f"{log_dir}/results/s.npy")
     h = np.load(f"{log_dir}/results/h.npy")
     J_sparse = np.load(f"{log_dir}/results/J.npy", allow_pickle=True)
-
-    # Convert J from sparse list-of-dicts to dense
     J = convert_J_sparse_to_dense(J_sparse, N=s.shape[1])
 
     # Triplet KL test
@@ -3772,7 +3779,6 @@ def data_flyvis_compare(config_list, varied_parameter):
         return float(val_str.split("±")[0])
 
 
-
     def _to_float(v):
         try:
             return float(v)
@@ -3795,8 +3801,8 @@ def data_flyvis_compare(config_list, varied_parameter):
     param_values = np.array([_to_float(d["param_value"]) for d in ising_results], dtype=float)
     IN = np.array([float(d["IN_med_str"].split("±")[0]) for d in ising_results], dtype=float)
     R = np.array([float(d["R_med_str"].split("±")[0]) for d in ising_results], dtype=float)
-    TKL = np.array([float(d["TKL_med_str"].split("±")[0]) for d in ising_results], dtype=float)
-    TKL_bits = TKL / np.log(2.0)
+    TKL_bits = np.array([float(d["TKL_med_str"].split("±")[0]) for d in ising_results], dtype=float)
+    # TKL_bits = TKL / np.log(2.0)
 
     # optional: labels for ticks/annotations
     param_values_str = [str(d["param_value"]) for d in ising_results]
@@ -6905,12 +6911,15 @@ if __name__ == '__main__':
     # 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
     # data_flyvis_compare(config_list, 'none')
 
-    config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
-                   'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-                   'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20']
-    # data_flyvis_compare(config_list,  None) #'simulation.visual_input_type')
+    # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
+    #                'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
+    #                'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20']
 
-    config_list = ['fly_N9_22_1']
+    #config_list = ['fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
+
+
+
+    # data_flyvis_compare(config_list,  None) #'simulation.visual_input_type')
 
     #
     # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
@@ -6922,6 +6931,8 @@ if __name__ == '__main__':
     #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
     #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
+
+    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
 
 
     for config_file_ in config_list:
