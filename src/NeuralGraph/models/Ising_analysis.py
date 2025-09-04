@@ -10,7 +10,7 @@ from itertools import product
 from math import log
 
 # ========== Rebin utilities ==========
-def _aggregate_time(v: np.ndarray, bin_size: int, agg: str = "mean") -> np.ndarray:
+def aggregate_time(v: np.ndarray, bin_size: int, agg: str = "mean") -> np.ndarray:
     T, K = v.shape
     if bin_size <= 1:
         return v
@@ -22,38 +22,12 @@ def _aggregate_time(v: np.ndarray, bin_size: int, agg: str = "mean") -> np.ndarr
     else:
         return v.mean(axis=1)
 
-def rebin_voltage_subset(
-    x: np.ndarray,
-    idx: np.ndarray,
-    bin_size: int = 1,
-    voltage_col: int = 3,
-    agg: str = "mean",
-    threshold: str = "mean",
+def rebin_voltage_subset( x: np.ndarray, idx: np.ndarray, bin_size: int = 1, voltage_col: int = 3, agg: str = "mean", threshold: str = "mean",
 ) -> np.ndarray:
     v = x[:, idx, voltage_col].astype(np.float32, copy=False)
-    v_b = _aggregate_time(v, bin_size=bin_size, agg=agg)
+    v_b = aggregate_time(v, bin_size=bin_size, agg=agg)
     thr = np.median(v_b, axis=0) if threshold == "median" else v_b.mean(axis=0)
     return np.where(v_b > thr[None, :], 1, -1).astype(np.int8)
-
-def rebin_binary_subset(
-    S: np.ndarray,
-    bin_size: int = 1,
-    rule: str = "majority",
-) -> np.ndarray:
-    T, K = S.shape
-    if bin_size <= 1:
-        return S
-    T_trim = (T // bin_size) * bin_size
-    Sb = S[:T_trim].reshape(T_trim // bin_size, bin_size, K)
-    if rule == "any_pos":
-        out = (Sb.max(axis=1) > 0).astype(np.int8)
-    elif rule == "all_pos":
-        out = (Sb.min(axis=1) > 0).astype(np.int8)
-    else:
-        sums = Sb.sum(axis=1)
-        out = np.where(sums >= 0, 1, -1).astype(np.int8)
-    out[out == 0] = -1
-    return out
 
 # ========== Entropy estimators ==========
 def plugin_entropy(p: np.ndarray, logbase: float = math.e) -> float:
@@ -73,16 +47,6 @@ def empirical_entropy_true(S: np.ndarray, logbase: float = math.e) -> float:
     p = counts[counts > 0] / T
     H = plugin_entropy(p, logbase)
     H += miller_madow_correction(len(p), T, logbase)
-    return H
-
-def independent_entropy(S: np.ndarray, logbase: float = math.e) -> float:
-    T, N = S.shape
-    H = 0.0
-    for i in range(N):
-        p1 = (S[:, i] == 1).mean()
-        p = np.array([p1, 1 - p1])
-        H += plugin_entropy(p, logbase)
-        H += miller_madow_correction(np.count_nonzero(p), T, logbase)
     return H
 
 def entropy_true_pseudocount(S: np.ndarray, logbase: float, alpha: float) -> float:
@@ -110,9 +74,7 @@ def entropy_indep_bernoulli_jeffreys(S: np.ndarray, logbase: float, alpha: float
         H += miller_madow_correction(2, T, logbase)
     return H
 
-# ========== Ising model fitting and sampling ==========
-
-def fit_exact_ising(S, max_iter=200, lr=1.0, lam=0.0, tol=1e-6, logbase=2.0, verbose=False):
+def entropy_exact_ising(S, max_iter=200, lr=1.0, lam=0.0, tol=1e-6, logbase=2.0, verbose=False):
     """
     Maximum likelihood fit of pairwise Ising with exact enumeration.
     S in {-1,+1}^{T x N}. Returns h, J, H_pair.
@@ -196,28 +158,6 @@ def fit_exact_ising(S, max_iter=200, lr=1.0, lam=0.0, tol=1e-6, logbase=2.0, ver
     H_pair = entropy_from_model(h, J, logbase=logbase)
     return h, J, H_pair
 
-
-def fit_ising_pseudolikelihood(S, max_iter=200, lr=0.2, lam=1e-4, tol=1e-7):
-    T, N = S.shape
-    S = S.astype(np.float64)
-    h = np.zeros(N); J = np.zeros((N, N))
-    for it in range(max_iter):
-        field = (S @ J.T) + h
-        tanh_field = np.tanh(field)
-        grad_h = (S - tanh_field).sum(0) - lam * h
-        residual = S - tanh_field
-        grad_J = (residual.T @ S) - lam * J
-        np.fill_diagonal(grad_J, 0.0)
-        h_new = h + lr * grad_h / T
-        J_new = J + lr * grad_J / T
-        J_new = 0.5 * (J_new + J_new.T)
-        np.fill_diagonal(J_new, 0.0)
-        if np.max(np.abs(h_new - h)) + np.max(np.abs(J_new - J)) < tol:
-            break
-        h, J = h_new, J_new
-    # print(f"PL fit converged in {it+1} iterations.")
-    return h, J
-
 def gibbs_sample_ising(h, J, T_samples=100000, burn=20000, seed=None):
     rng = np.random.default_rng(seed)
     N = h.shape[0]
@@ -231,77 +171,6 @@ def gibbs_sample_ising(h, J, T_samples=100000, burn=20000, seed=None):
         if t >= burn:
             samples.append(s.copy())
     return np.array(samples, dtype=np.int8)
-
-def fit_ising_ising_pseudolikelihood_exact_entropy(S: np.ndarray,
-                                        max_iter: int = 400,
-                                        lr: float = 0.2,
-                                        lam: float = 1e-4,
-                                        tol: float = 1e-6) -> Tuple[np.ndarray, np.ndarray, float]:
-    """
-    Fits an Ising model to binarized spin data using pseudolikelihood gradient ascent,
-    then computes the exact entropy via enumeration over all 2^10 states.
-
-    Parameters
-    ----------
-    S : np.ndarray of shape (T, 10)
-        Binarized spin states in {-1, +1} for 10 neurons over T time steps.
-    max_iter : int
-        Maximum number of gradient steps.
-    lr : float
-        Learning rate.
-    lam : float
-        L2 regularization strength.
-    tol : float
-        Convergence threshold.
-
-    Returns
-    -------
-    h : np.ndarray
-        Fitted local fields (length 10).
-    J : np.ndarray
-        Fitted symmetric coupling matrix (10x10).
-    H_pair : float
-        Exact entropy (in bits) of the fitted model.
-    """
-    T, N = S.shape
-    assert N == 10, "This method assumes N = 10 spins."
-
-    S = S.astype(np.float64)
-    h = np.zeros(N)
-    J = np.zeros((N, N))
-
-    for _ in range(max_iter):
-        field = S @ J.T + h
-        tanh_field = np.tanh(field)
-        grad_h = (S - tanh_field).sum(axis=0) - lam * h
-        residual = S - tanh_field
-        grad_J = (residual.T @ S) - lam * J
-        np.fill_diagonal(grad_J, 0.0)
-
-        h_new = h + lr * grad_h / T
-        J_new = J + lr * grad_J / T
-        J_new = 0.5 * (J_new + J_new.T)
-        np.fill_diagonal(J_new, 0.0)
-
-        if np.max(np.abs(h_new - h)) + np.max(np.abs(J_new - J)) < tol:
-            break
-
-        h, J = h_new, J_new
-
-    # Compute exact entropy
-    states = np.array(list(product([-1, 1], repeat=N)), dtype=np.int8)
-    E = -states @ h - 0.5 * np.sum(states @ J * states, axis=1)
-    exp_neg_E = np.exp(-E)
-    Z = np.sum(exp_neg_E)
-    p = exp_neg_E / Z
-    H_pair = -np.sum(p * np.log2(p))
-
-    return h, J, H_pair
-
-def model_entropy_via_sampling(h, J, n_samples=200000, burn=20000, thin=1, logbase=math.e, seed=None):
-    S_model = gibbs_sample_ising(h, J, T_samples=n_samples, burn=burn, seed=seed)
-    return empirical_entropy_true(S_model, logbase=logbase)
-
 
 def enumerate_states_pm1(N):
     # All 2^N states in {-1,+1}^N
@@ -344,54 +213,6 @@ def entropy_from_model(h, J, logbase=2.0):
     H_nats = -(p * (np.log(p + 1e-300))).sum()
     return H_nats / log(logbase)
 
-def sparse_ising_fit(x, voltage_col=3, top_k=50):
-    """
-    Fit a sparse Ising model from neuron voltages using correlation-based approximation.
-    Much faster than full pseudolikelihood logistic regression.
-
-    Parameters
-    ----------
-    x : np.ndarray
-        [n_frames, n_neurons, n_features], voltage in voltage_col
-    voltage_col : int
-        Index of voltage column
-    top_k : int
-        Number of strongest couplings to keep per neuron
-
-    Returns
-    -------
-    s : np.ndarray
-        Binary states [-1,+1], shape [n_frames, n_neurons]
-    h : np.ndarray
-        Bias terms (mean-field approx), shape [n_neurons]
-    J : list of dict
-        Sparse couplings: for neuron i, J[i] = {j: value, ...} for top_k couplings
-    """
-    n_frames, n_neurons, _ = x.shape
-    voltage = x[:, :, voltage_col]
-
-    # Binarize at mean per neuron
-    mean_v = voltage.mean(axis=0)
-    s = np.where(voltage > mean_v, 1, -1).astype(np.int8)  # [n_frames, n_neurons]
-
-    # Mean magnetization
-    m = s.mean(axis=0)
-    # Avoid inf when m ~ +/-1
-    m = np.clip(m, -0.999, 0.999)
-    h = np.arctanh(m)  # mean-field bias approximation
-
-    # Correlation matrix (normalized)
-    C = (s.T @ s) / n_frames
-    np.fill_diagonal(C, 0.0)
-
-    # Sparse coupling dictionary
-    J = [{} for _ in range(n_neurons)]
-    for i in trange(n_neurons):
-        top_idx = np.argsort(np.abs(C[i]))[-top_k:]
-        for j in top_idx:
-            J[i][j] = C[i, j]
-
-    return s, h, J
 
 def sparse_ising_fit_fast(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.float32, energy_stride=10):
     """
@@ -566,50 +387,6 @@ def triplet_residual_KL(S_data, h, J, n_model=200_000, seed=0, n_triplets=200):
     return float(np.median(kl_array)), float(np.percentile(kl_array, 25)), float(np.percentile(kl_array, 75))
 
 
-# ========== Visualization Tools ==========
-
-import matplotlib.pyplot as plt
-
-def plot_ratio_histogram(ratios, title="I2 / IN Ratio Distribution", bins=20):
-    ratios = np.array(ratios)
-    ratios = ratios[np.isfinite(ratios)]
-    plt.figure(figsize=(6,4))
-    plt.hist(ratios, bins=bins, color='steelblue', edgecolor='k', alpha=0.7)
-    plt.xlabel("I^(2) / I_N")
-    plt.ylabel("Count")
-    plt.title(title)
-    plt.axvline(1.0, color='red', linestyle='--', label='Max valid ratio')
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
-
-def plot_triplet_KL_hist(kls, title="Triplet KL Divergence (nats)", bins=30):
-    kls = np.array(kls)
-    kls = kls[np.isfinite(kls)]
-    plt.figure(figsize=(6,4))
-    plt.hist(kls, bins=bins, color='darkorange', edgecolor='k', alpha=0.7)
-    plt.xlabel("Triplet KL (nats)")
-    plt.ylabel("Count")
-    plt.title(title)
-    plt.tight_layout()
-    plt.show()
-
-def plot_IN_vs_tripletKL(INs, triplet_KLs, title="I_N vs. Triplet KL"):
-    INs = np.array(INs)
-    triplet_KLs = np.array(triplet_KLs)
-    mask = np.isfinite(INs) & np.isfinite(triplet_KLs)
-    INs = INs[mask]
-    triplet_KLs = triplet_KLs[mask]
-    plt.figure(figsize=(6,5))
-    plt.scatter(INs, triplet_KLs, color='purple', alpha=0.6)
-    plt.xlabel("I_N (bits)")
-    plt.ylabel("Triplet KL (nats)")
-    plt.title(title)
-    plt.grid(True)
-    plt.tight_layout()
-    plt.show()
-
-
 # ========== API: Debiased ==========
 def compute_info_ratio_debiased(
     S: np.ndarray,
@@ -622,28 +399,23 @@ def compute_info_ratio_debiased(
     gibbs_samples: int = 200000,
     gibbs_burn: int = 20000,
     seed: Optional[int] = None,
-    enforce_monotone: bool = True,
+    enforce_monotone: bool = False,
     ratio_eps: float = 1e-6,
 ) -> Tuple[InfoRatioResult, Tuple[float, float]]:
 
     H_true = entropy_true_pseudocount(S, logbase, alpha_joint)
     H_ind = entropy_indep_bernoulli_jeffreys(S, logbase, alpha_marg)
 
-    # h, J = fit_ising_pseudolikelihood(S, max_iter=pl_max_iter, lr=pl_lr, lam=pl_lam)
-    # H_pair = model_entropy_via_sampling(h, J, n_samples=gibbs_samples, burn=gibbs_burn, logbase=logbase, seed=seed)
-
-    # h, J, H_pair = fit_ising_pseudolikelihood_exact_entropy(S)
-
-    h, J, H_pair = fit_exact_ising(S)
+    h, J, H_pair = entropy_exact_ising(S)
 
     if (H_pair > H_ind) | (H_true > H_pair):
         # print(f"Warning: Non-monotonic entropies detected: H_true={H_true} < H_pair={H_pair} < H_ind={H_ind}")
         flag_non_monotonic = 1
     else:
         flag_non_monotonic = 0
-    # if enforce_monotone:
-    #     H_pair = min(H_pair, H_ind)
-    #     H_true = min(H_true, H_pair)
+    if enforce_monotone:
+        H_pair = min(H_pair, H_ind)
+        H_true = min(H_true, H_pair)
     I_N = H_ind - H_true
     I2 = H_ind - H_pair
     ratio = I2 / I_N if I_N > ratio_eps else float('nan')
