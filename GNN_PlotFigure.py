@@ -60,7 +60,7 @@ from scipy.optimize import linear_sum_assignment
 from datetime import datetime
 from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum, compute_spectral_coefs
 from scipy.special import logsumexp
-
+from colorama import Fore, Style
 
 def get_training_files(log_dir, n_runs):
     files = glob.glob(f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_*.pt")
@@ -2183,7 +2183,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     plt.close(fig)
 
     # --- Config ---
-    n_subsets = 100
+    n_subsets = 1000
     N = 10
     bin_size = 1
     voltage_col = 3
@@ -2235,17 +2235,18 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
     # I_N statistics
     q25_IN, q75_IN = np.nanpercentile(INs, [25, 75])
-    print(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
+    print(
+        f"I_N:    median={Fore.GREEN}{np.nanmedian(INs):.3f}{Style.RESET_ALL},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
     # I2 statistics
     q25_I2, q75_I2 = np.nanpercentile(I2s, [25, 75])
-    print(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
+    print(f"I2:     median={Fore.GREEN}{np.nanmedian(I2s):.3f}{Style.RESET_ALL},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
     # Ratio statistics
     q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
-    print(f"Ratio:  median={np.nanmedian(ratios):.4f},   IQR=[{q25_ratio:.4f}, {q75_ratio:.4f}],   std={np.nanstd(ratios):.4f}")
+    print(f"Ratio:  median={Fore.GREEN}{np.nanmedian(ratios):.4f}{Style.RESET_ALL},   IQR=[{q25_ratio:.4f}, {q75_ratio:.4f}],   std={np.nanstd(ratios):.4f}")
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
     logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
     logger.info(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
-    logger.info(f"Ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+    logger.info(f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
 
     # --- Triplet KL residuals from full simulation outputs ---
 
@@ -2257,8 +2258,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
     # Triplet KL test
     med, q1, q3 = triplet_residual_KL(s, h, J, n_model=200_000, seed=0, n_triplets=200)
-    print("Triplet KL median [IQR]:", med, [q1, q3], "(nats; ~0 means pairwise is excellent)")
-    logger.info(f"Triplet KL median [IQR]: {med} [{q1}, {q3}]")
+    print(f"Triplet KL median [IQR]: {Fore.GREEN}{med:.3f}{Style.RESET_ALL} [{q1:.3f}, {q3:.3f}] (nats; ~0 means pairwise is excellent)")
+    logger.info(f"Triplet KL median [IQR]: {med:.3f} [{q1:.3f}, {q3:.3f}]")
 
     np.save(f"{log_dir}/results/triplet_KL_median.npy", med)
     np.save(f"{log_dir}/results/triplet_KL_IQR.npy", [q1, q3])
