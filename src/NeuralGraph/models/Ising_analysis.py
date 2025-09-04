@@ -8,6 +8,9 @@ from typing import Optional, Tuple, List, Dict
 from tqdm import trange
 from itertools import product
 from math import log
+from tqdm import tqdm
+from collections import defaultdict
+
 
 # ========== Rebin utilities ==========
 def aggregate_time(v: np.ndarray, bin_size: int, agg: str = "mean") -> np.ndarray:
@@ -326,9 +329,6 @@ def sparse_ising_fit_fast(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.
 
 
 
-
-
-
 # ========== Info ratio data class ==========
 @dataclass
 class InfoRatioResult:
@@ -340,6 +340,9 @@ class InfoRatioResult:
     ratio: float
     mean_match: float
     corr_match: float
+    med_KL: float
+    q1_KL: float
+    q3_KL: float
     flag_non_monotonic: float
 
 
@@ -353,7 +356,7 @@ def convert_J_sparse_to_dense(J_sparse, N):
             J_dense[j, i] = val  # enforce symmetry
     return J_dense
 
-def triplet_residual_KL(S_data, h, J, n_model=200_000, seed=0, n_triplets=200):
+def triplet_residual_KL(S_data, h, J, n_model=200_000, seed=0, n_triplets=1000):
     """
     Estimate how well the pairwise model predicts 3-neuron distributions.
     Computes KL divergence between empirical and model triplet marginals.
@@ -366,7 +369,7 @@ def triplet_residual_KL(S_data, h, J, n_model=200_000, seed=0, n_triplets=200):
     S_mod = gibbs_sample_ising(h, J, T_samples=n_model, burn=20000, seed=seed + 1)
 
     kl_list = []
-    for (i, j, k) in triplets:
+    for (i, j, k) in tqdm(triplets, desc="Computing triplet KL divergences"):
         # empirical triplet
         Xd = ((S_data[:, [i, j, k]] + 1) // 2)
         idx_d = Xd @ np.array([4, 2, 1])
@@ -386,38 +389,234 @@ def triplet_residual_KL(S_data, h, J, n_model=200_000, seed=0, n_triplets=200):
     kl_array = np.array(kl_list)
     return float(np.median(kl_array)), float(np.percentile(kl_array, 25)), float(np.percentile(kl_array, 75))
 
+def triplet_residual_exact(S_data: np.ndarray, h: np.ndarray, J: np.ndarray, n_model: int = 200_000, seed: int = 0, n_triplets: int = 200) -> Tuple[float, float, float]:
+    """
+    Compute KL divergences between empirical triplet marginals and those
+    predicted by the fitted Ising model (h,J).
+
+    Parameters
+    ----------
+    S_data : np.ndarray, shape (T, N)
+        Observed spins in {-1,+1}.
+    h, J : np.ndarray
+        Fitted Ising parameters (dense).
+    n_model : int
+        Number of Gibbs samples to draw from the fitted model.
+    seed : int
+        RNG seed.
+    n_triplets : int
+        Number of random triplets to test.
+
+    Returns
+    -------
+    med, q1, q3 : float
+        Median and 25/75 percentiles of KL divergences (in bits).
+    """
+    rng = np.random.default_rng(seed)
+    N = S_data.shape[1]
+    triplets = [tuple(sorted(rng.choice(N, 3, replace=False))) for _ in range(n_triplets)]
+
+    # Generate synthetic samples from model
+    S_mod = gibbs_sample_ising(h, J, T_samples=n_model, burn=20_000, seed=seed+1)
+
+    kl_list = []
+    for (i, j, k) in triplets:
+        # empirical triplet distribution
+        Xd = ((S_data[:, [i, j, k]] + 1) // 2)
+        idx_d = Xd @ np.array([4, 2, 1])
+        pd = np.bincount(idx_d, minlength=8).astype(float) + 1e-6
+        pd /= pd.sum()
+
+        # model triplet distribution
+        Xm = ((S_mod[:, [i, j, k]] + 1) // 2)
+        idx_m = Xm @ np.array([4, 2, 1])
+        pm = np.bincount(idx_m, minlength=8).astype(float) + 1e-6
+        pm /= pm.sum()
+
+        kl = np.sum(pd * (np.log(pd) - np.log(pm))) / np.log(2)  # in bits
+        kl_list.append(kl)
+
+    kl_array = np.array(kl_list)
+    return float(np.median(kl_array)), float(np.percentile(kl_array, 25)), float(np.percentile(kl_array, 75))
+
+# ---- 1) Gibbs sampler for SPARSE Ising (list-of-dicts J) ----
+def gibbs_sample_sparse_ising(h, J_sparse, T_samples=200_000, seed=0, burn=0, thin=1, init=None):
+    """
+    h: (N,) float
+    J_sparse: list of dicts; J_sparse[i][j] = J_ij (symmetric implied)
+    returns S: (T_eff, N) in {-1,+1}
+    """
+    rng = np.random.default_rng(seed)
+    N = len(h)
+    s = rng.choice([-1, 1], size=N) if init is None else init.copy()
+    samples = []
+    total_steps = burn + T_samples*thin
+    for t in range(total_steps):
+        i = rng.integers(0, N)
+        # local field from sparse neighbors
+        local = h[i]
+        for j, Jij in J_sparse[i].items():
+            local += Jij * s[j]
+        p_plus = 1.0 / (1.0 + np.exp(-2.0 * local))
+        s[i] = 1 if rng.random() < p_plus else -1
+        if t >= burn and ((t - burn) % thin == 0):
+            samples.append(s.copy())
+    return np.array(samples, dtype=np.int8)
+
+# ---- 2) Helpers to build strata from sparse graph ----
+def edge_sets_from_sparseJ(J_sparse):
+    edges = set()
+    for i, nbrs in enumerate(J_sparse):
+        for j in nbrs.keys():
+            if j > i:
+                edges.add((i, j))
+    return edges
+
+def sample_triplets_stratified(J_sparse, n_per_stratum=5000, seed=0):
+    rng = np.random.default_rng(seed)
+    N = len(J_sparse)
+    edges = edge_sets_from_sparseJ(J_sparse)
+    adj = defaultdict(set)
+    for i, j in edges:
+        adj[i].add(j); adj[j].add(i)
+
+    triplets = {"triangle": [], "wedge": [], "one_edge": [], "no_edge": []}
+
+    # Triangle / wedge via edge-biased sampling
+    nodes = np.arange(N)
+    while len(triplets["triangle"]) < n_per_stratum:
+        i = rng.integers(0, N)
+        if len(adj[i]) < 2: continue
+        j, k = rng.choice(list(adj[i]), size=2, replace=False)
+        if j in adj[k]:
+            tri = tuple(sorted((i, j, k)))
+            triplets["triangle"].append(tri)
+
+    while len(triplets["wedge"]) < n_per_stratum:
+        i = rng.integers(0, N)
+        if len(adj[i]) < 2: continue
+        j, k = rng.choice(list(adj[i]), size=2, replace=False)
+        if j not in adj[k]:
+            tri = tuple(sorted((i, j, k)))
+            triplets["wedge"].append(tri)
+
+    # One-edge and no-edge via random draws (reject to match class)
+    while len(triplets["one_edge"]) < n_per_stratum or len(triplets["no_edge"]) < n_per_stratum:
+        i, j, k = np.sort(rng.choice(N, size=3, replace=False))
+        e = ((i, j) in edges) + ((i, k) in edges) + ((j, k) in edges)
+        if e == 1 and len(triplets["one_edge"]) < n_per_stratum:
+            triplets["one_edge"].append((i, j, k))
+        elif e == 0 and len(triplets["no_edge"]) < n_per_stratum:
+            triplets["no_edge"].append((i, j, k))
+
+    return triplets  # dict of lists of 3-tuples
+
+# ---- 3) KL for many triplets, reusing a single sample pool ----
+def triplet_KL_full_population(S_data_pm1, S_model_pm1, triplets, eps=1e-6, units="bits"):
+    """
+    S_data_pm1, S_model_pm1: (T, N) in {-1,+1}
+    triplets: list of (i,j,k)
+    returns per-triplet KLs (np.array)
+    """
+    logbase = np.log(2.0) if units == "bits" else 1.0
+    T_data = S_data_pm1.shape[0]; T_mod = S_model_pm1.shape[0]
+    kl = np.empty(len(triplets), dtype=np.float64)
+
+    w = np.array([4, 2, 1], dtype=np.int32)
+    for idx, (i, j, k) in enumerate(triplets):
+        # empirical
+        Xd = (S_data_pm1[:, [i, j, k]] + 1) // 2
+        pd = np.bincount((Xd @ w), minlength=8).astype(float); pd += eps; pd /= pd.sum()
+        # model
+        Xm = (S_model_pm1[:, [i, j, k]] + 1) // 2
+        pm = np.bincount((Xm @ w), minlength=8).astype(float); pm += eps; pm /= pm.sum()
+        # KL(data || model)
+        kl[idx] = np.sum(pd * (np.log(pd) - np.log(pm))) / logbase
+    return kl
+
+# ---- 4) Driver: full-population triplet residuals ----
+def triplet_residuals_full(
+    S_data_pm1,          # (T, N_full) in {-1,+1}
+    h_full, J_sparse,    # from sparse_ising_fit_fast
+    n_model=200_000, seed=0,
+    n_per_stratum=5000,  # total ~ 20k triplets across 4 strata
+    units="bits"
+):
+    # single model sample pool
+    S_model_pm1 = gibbs_sample_sparse_ising(h_full, J_sparse, T_samples=n_model, seed=seed, burn=0)
+
+    # stratified triplets
+    strata = sample_triplets_stratified(J_sparse, n_per_stratum=n_per_stratum, seed=seed)
+
+    out = {}
+    for name, trips in strata.items():
+        kls = triplet_KL_full_population(S_data_pm1, S_model_pm1, trips, units=units)
+        q1, med, q3 = np.percentile(kls, [25, 50, 75])
+        out[name] = dict(median=float(med), q1=float(q1), q3=float(q3), n=len(kls))
+    # optionally also aggregate all strata together
+    all_trips = sum(strata.values(), [])
+    kls_all = triplet_KL_full_population(S_data_pm1, S_model_pm1, all_trips, units=units)
+    q1, med, q3 = np.percentile(kls_all, [25, 50, 75])
+    out["all"] = dict(median=float(med), q1=float(q1), q3=float(q3), n=len(kls_all))
+    return out
+
+
 
 # ========== API: Debiased ==========
 def compute_info_ratio_debiased(
-    S: np.ndarray,
-    logbase: float = 2.0,
-    alpha_joint: float = 1e-3,
-    alpha_marg: float = 0.5,
-    pl_max_iter: int = 400,
-    pl_lr: float = 0.2,
-    pl_lam: float = 1e-4,
-    gibbs_samples: int = 200000,
-    gibbs_burn: int = 20000,
-    seed: Optional[int] = None,
-    enforce_monotone: bool = False,
-    ratio_eps: float = 1e-6,
-) -> Tuple[InfoRatioResult, Tuple[float, float]]:
-
+        S: np.ndarray,
+        logbase: float = 2.0,
+        alpha_joint: float = 1e-3,
+        alpha_marg: float = 0.5,
+        pl_max_iter: int = 400,
+        pl_lr: float = 0.2,
+        pl_lam: float = 1e-4,
+        gibbs_samples: int = 200000,
+        gibbs_burn: int = 20000,
+        seed: Optional[int] = None,
+        enforce_monotone: bool = False,
+        ratio_eps: float = 1e-6,
+) -> InfoRatioResult:
     H_true = entropy_true_pseudocount(S, logbase, alpha_joint)
     H_ind = entropy_indep_bernoulli_jeffreys(S, logbase, alpha_marg)
 
     h, J, H_pair = entropy_exact_ising(S)
 
     if (H_pair > H_ind) | (H_true > H_pair):
-        # print(f"Warning: Non-monotonic entropies detected: H_true={H_true} < H_pair={H_pair} < H_ind={H_ind}")
         flag_non_monotonic = 1
     else:
         flag_non_monotonic = 0
+
     if enforce_monotone:
         H_pair = min(H_pair, H_ind)
         H_true = min(H_true, H_pair)
+
     I_N = H_ind - H_true
     I2 = H_ind - H_pair
     ratio = I2 / I_N if I_N > ratio_eps else float('nan')
 
-    return InfoRatioResult(H_true, H_ind, H_pair, I_N, I2, ratio, 0.0, 0.0, flag_non_monotonic), (float('nan'), float('nan'))
+    # med_KL, q1_KL, q3_KL = triplet_residual_exact(S, h, J, n_model=gibbs_samples, seed=seed or 0, n_triplets=200)
+
+    # Calculate model matching metrics (placeholders - implement based on your needs)
+    mean_match = 0.0  # placeholder
+    corr_match = 0.0  # placeholder
+
+    # KL placeholders when computation is skipped
+    med_KL = float('nan')
+    q1_KL = float('nan')
+    q3_KL = float('nan')
+
+    return InfoRatioResult(
+        H_true=H_true,
+        H_indep=H_ind,
+        H_pair=H_pair,
+        I_N=I_N,
+        I2=I2,
+        ratio=ratio,
+        mean_match=mean_match,
+        corr_match=corr_match,
+        med_KL=med_KL,
+        q1_KL=q1_KL,
+        q3_KL=q3_KL,
+        flag_non_monotonic=flag_non_monotonic
+    )

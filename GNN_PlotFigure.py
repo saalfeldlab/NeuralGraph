@@ -30,9 +30,11 @@ from NeuralGraph.models.Ising_analysis import (
     gibbs_sample_ising,
     triplet_residual_KL,
     convert_J_sparse_to_dense,
-    sparse_ising_fit_fast
+    sparse_ising_fit_fast,
+    triplet_residuals_full
 )
 
+from scipy import stats
 import matplotlib as mpl
 from io import StringIO
 import sys
@@ -2138,8 +2140,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
     E_mean = np.mean(E)
     E_std = np.std(E)
-    E_skew = stats.skew(E)
-    E_kurt = stats.kurtosis(E)
     hist, _ = np.histogram(E, bins=100, density=True)
     E_entropy = -np.sum(hist * np.log(hist + 1e-12))
 
@@ -2166,7 +2166,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     axs[0].set_ylabel("Density", fontsize=24)
     axs[0].tick_params(axis='both', which='major', labelsize=12)
     axs[0].text(0.05, 0.95,
-                   f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nSkew: {E_skew:.2f}\nKurtosis: {E_kurt:.2f}\nEntropy: {E_entropy:.2f}',
+                   f'Mean: {E_mean:.2f}\nStd:\nEntropy: {E_entropy:.2f}',
                    transform=axs[0].transAxes,
                    fontsize=18, verticalalignment='top')
     # Panel 2: Couplings histogram
@@ -2191,6 +2191,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
     # --- Loop over random 10-cell subsets ---
     INs, I2s, ratios, non_monotonic = [], [], [], []
+    KL_meds, KL_q1s, KL_q3s = [], [], []
     rng = np.random.default_rng(seed)
 
     for i in trange(n_subsets, desc="processing subsets"):
@@ -2204,7 +2205,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             threshold="mean"
         )
 
-        point, _ = compute_info_ratio_debiased(
+        point = compute_info_ratio_debiased(
             S,
             logbase=2.0,
             alpha_joint=1e-3,
@@ -2221,48 +2222,80 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         ratios.append(point.ratio)
         non_monotonic.append(point.flag_non_monotonic)
 
+        # NEW: collect triplet-KL stats from this subset
+        KL_meds.append(point.med_KL)
+        KL_q1s.append(point.q1_KL)
+        KL_q3s.append(point.q3_KL)
+
     # --- Summary ---
     INs = np.array(INs)
     I2s = np.array(I2s)
     ratios = np.array(ratios)
     non_monotonic = np.array(non_monotonic)
 
+    KL_meds = np.array(KL_meds)
+    KL_q1s = np.array(KL_q1s)
+    KL_q3s = np.array(KL_q3s)
+
+    # Save everything
     np.save(f"{log_dir}/results/INs.npy", INs)
     np.save(f"{log_dir}/results/I2s.npy", I2s)
     np.save(f"{log_dir}/results/ratios.npy", ratios)
+    # np.save(f"{log_dir}/results/KL_meds.npy", KL_meds)
+    # np.save(f"{log_dir}/results/KL_q1s.npy", KL_q1s)
+    # np.save(f"{log_dir}/results/KL_q3s.npy", KL_q3s)
 
-    print("\n=== Summary over all subsets ===")
     print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
-    # I_N statistics
+
     q25_IN, q75_IN = np.nanpercentile(INs, [25, 75])
-    print(
-        f"I_N:    median={Fore.GREEN}{np.nanmedian(INs):.3f}{Style.RESET_ALL},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
-    # I2 statistics
+    print(f"I_N:    median={Fore.GREEN}{np.nanmedian(INs):.3f}{Style.RESET_ALL},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
     q25_I2, q75_I2 = np.nanpercentile(I2s, [25, 75])
     print(f"I2:     median={Fore.GREEN}{np.nanmedian(I2s):.3f}{Style.RESET_ALL},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
-    # Ratio statistics
     q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
     print(f"Ratio:  median={Fore.GREEN}{np.nanmedian(ratios):.4f}{Style.RESET_ALL},   IQR=[{q25_ratio:.4f}, {q75_ratio:.4f}],   std={np.nanstd(ratios):.4f}")
+    # Triplet-KL statistics (across subsets, summarize via subset medians)
+    # q25_KLmed, q75_KLmed = np.nanpercentile(KL_meds, [25, 75])
+    # print(f"Triplet KL (per-subset median):  median={Fore.GREEN}{np.nanmedian(KL_meds):.5f}{Style.RESET_ALL},   IQR=[{q25_KLmed:.5f}, {q75_KLmed:.5f}],   std={np.nanstd(KL_meds):.5f}")
+    # Optional: pool Q1/Q3 across subsets (diagnostics)
+    # q25_KLq1, q75_KLq1 = np.nanpercentile(KL_q1s, [25, 75])
+    # q25_KLq3, q75_KLq3 = np.nanpercentile(KL_q3s, [25, 75])
+    # print(f"Triplet KL (per-subset Q1):      median={np.nanmedian(KL_q1s):.5f},   IQR=[{q25_KLq1:.5f}, {q75_KLq1:.5f}]")
+    # print(f"Triplet KL (per-subset Q3):      median={np.nanmedian(KL_q3s):.5f},   IQR=[{q25_KLq3:.5f}, {q75_KLq3:.5f}]")
+
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
     logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
     logger.info(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
     logger.info(f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+    # logger.info(f"Triplet KL (subset medians): median={np.nanmedian(KL_meds):.5f}, IQR=[{q25_KLmed:.5f}, {q75_KLmed:.5f}], std={np.nanstd(KL_meds):.5f}")
 
     # --- Triplet KL residuals from full simulation outputs ---
+    # J_sparse = np.load(f"{log_dir}/results/J.npy", allow_pickle=True)
+    # J = convert_J_sparse_to_dense(J_sparse, N=s.shape[1])
+    # med, q1, q3 = triplet_residual_KL(s, h, J, n_model=200_000, seed=0, n_triplets=200)
+    # print(f"Triplet KL median [IQR]: {Fore.GREEN}{med:.3f}{Style.RESET_ALL} [{q1:.3f}, {q3:.3f}] (nats; ~0 means pairwise is excellent)")
+    # logger.info(f"Triplet KL median [IQR]: {med:.3f} [{q1:.3f}, {q3:.3f}]")
+    # np.save(f"{log_dir}/results/triplet_KL_median.npy", med)
+    # np.save(f"{log_dir}/results/triplet_KL_IQR.npy", [q1, q3])
 
-    E = np.load(f"{log_dir}/results/E.npy")
-    s = np.load(f"{log_dir}/results/s.npy")
-    h = np.load(f"{log_dir}/results/h.npy")
-    J_sparse = np.load(f"{log_dir}/results/J.npy", allow_pickle=True)
-    J = convert_J_sparse_to_dense(J_sparse, N=s.shape[1])
+    # Run full-population triplet residuals
+    kl_results = triplet_residuals_full(
+        S_data_pm1=s,  # your binarized {-1,+1} data
+        h_full=h,
+        J_sparse=J,  # keep sparse representation
+        n_model=200_000,
+        seed=0,
+        n_per_stratum=1000  # e.g. 500 per stratum → ~2000 triplets total
+    )
 
-    # Triplet KL test
-    med, q1, q3 = triplet_residual_KL(s, h, J, n_model=200_000, seed=0, n_triplets=200)
-    print(f"Triplet KL median [IQR]: {Fore.GREEN}{med:.3f}{Style.RESET_ALL} [{q1:.3f}, {q3:.3f}] (nats; ~0 means pairwise is excellent)")
-    logger.info(f"Triplet KL median [IQR]: {med:.3f} [{q1:.3f}, {q3:.3f}]")
+    # Print nicely
+    for name, stats in kl_results.items():
+        print(f"Triplet KL [{name}]: median={Fore.GREEN}{stats['median']:.4f}{Style.RESET_ALL}, "
+              f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
+        logger.info(f"Triplet KL [{name}]: median={stats['median']:.4f}, "
+                    f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
 
-    np.save(f"{log_dir}/results/triplet_KL_median.npy", med)
-    np.save(f"{log_dir}/results/triplet_KL_IQR.npy", [q1, q3])
+    # Save results
+    np.save(f"{log_dir}/results/triplet_KL_full.npy", kl_results)
 
     ################
 
@@ -2918,7 +2951,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.savefig(f'{log_dir}/results/tau_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
-            print(" ")
             print(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
             logger.info(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
             torch.save(torch.tensor(reconstructed_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
@@ -6914,11 +6946,8 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
     #                'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-    #                'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20']
-
-    #config_list = ['fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
-
-
+    #                'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
+    #                'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
     # data_flyvis_compare(config_list,  None) #'simulation.visual_input_type')
 
@@ -6927,13 +6956,22 @@ if __name__ == '__main__':
     #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
 
-
     # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
     #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
     #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+
+    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_7',
+                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12', 'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3',
+                   'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
+                   'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
+                   'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
+                   'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
+
+
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
-    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
+    # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
 
 
     for config_file_ in config_list:
