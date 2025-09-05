@@ -565,7 +565,7 @@ def triplet_residuals_full(
 
 
 # ========== API: Debiased ==========
-def compute_info_ratio_debiased(
+def compute_info_ratio_estimator(
         S: np.ndarray,
         logbase: float = 2.0,
         alpha_joint: float = 1e-3,
