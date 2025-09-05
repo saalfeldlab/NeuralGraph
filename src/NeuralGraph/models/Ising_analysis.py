@@ -7,7 +7,8 @@ from itertools import product, combinations
 from math import log
 from tqdm import tqdm
 from collections import defaultdict
-
+import os
+from matplotlib import pyplot as plt
 
 def analyze_ising_model(x_list, log_dir, logger, mc):
     """
