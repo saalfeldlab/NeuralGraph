@@ -31,7 +31,8 @@ from NeuralGraph.models.Ising_analysis import (
     triplet_residual_KL,
     convert_J_sparse_to_dense,
     sparse_ising_fit_fast,
-    triplet_residuals_full
+    triplet_residuals_full,
+    compute_triplet_KL_exact_from_sparseJ
 )
 
 from scipy import stats
@@ -2189,11 +2190,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     voltage_col = 3
     seed = 0
 
-    # --- Loop over random 10-cell subsets ---
     INs, I2s, ratios, non_monotonic = [], [], [], []
-    KL_meds, KL_q1s, KL_q3s = [], [], []
     rng = np.random.default_rng(seed)
-
     for i in trange(n_subsets, desc="processing subsets"):
         idx = np.sort(rng.choice(x.shape[1], size=N, replace=False))
 
@@ -2222,28 +2220,15 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         ratios.append(point.ratio)
         non_monotonic.append(point.flag_non_monotonic)
 
-        # NEW: collect triplet-KL stats from this subset
-        KL_meds.append(point.med_KL)
-        KL_q1s.append(point.q1_KL)
-        KL_q3s.append(point.q3_KL)
-
     # --- Summary ---
     INs = np.array(INs)
     I2s = np.array(I2s)
     ratios = np.array(ratios)
     non_monotonic = np.array(non_monotonic)
 
-    KL_meds = np.array(KL_meds)
-    KL_q1s = np.array(KL_q1s)
-    KL_q3s = np.array(KL_q3s)
-
-    # Save everything
     np.save(f"{log_dir}/results/INs.npy", INs)
     np.save(f"{log_dir}/results/I2s.npy", I2s)
     np.save(f"{log_dir}/results/ratios.npy", ratios)
-    # np.save(f"{log_dir}/results/KL_meds.npy", KL_meds)
-    # np.save(f"{log_dir}/results/KL_q1s.npy", KL_q1s)
-    # np.save(f"{log_dir}/results/KL_q3s.npy", KL_q3s)
 
     print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
 
@@ -2253,14 +2238,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     print(f"I2:     median={Fore.GREEN}{np.nanmedian(I2s):.3f}{Style.RESET_ALL},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
     q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
     print(f"Ratio:  median={Fore.GREEN}{np.nanmedian(ratios):.4f}{Style.RESET_ALL},   IQR=[{q25_ratio:.4f}, {q75_ratio:.4f}],   std={np.nanstd(ratios):.4f}")
-    # Triplet-KL statistics (across subsets, summarize via subset medians)
-    # q25_KLmed, q75_KLmed = np.nanpercentile(KL_meds, [25, 75])
-    # print(f"Triplet KL (per-subset median):  median={Fore.GREEN}{np.nanmedian(KL_meds):.5f}{Style.RESET_ALL},   IQR=[{q25_KLmed:.5f}, {q75_KLmed:.5f}],   std={np.nanstd(KL_meds):.5f}")
-    # Optional: pool Q1/Q3 across subsets (diagnostics)
-    # q25_KLq1, q75_KLq1 = np.nanpercentile(KL_q1s, [25, 75])
-    # q25_KLq3, q75_KLq3 = np.nanpercentile(KL_q3s, [25, 75])
-    # print(f"Triplet KL (per-subset Q1):      median={np.nanmedian(KL_q1s):.5f},   IQR=[{q25_KLq1:.5f}, {q75_KLq1:.5f}]")
-    # print(f"Triplet KL (per-subset Q3):      median={np.nanmedian(KL_q3s):.5f},   IQR=[{q25_KLq3:.5f}, {q75_KLq3:.5f}]")
 
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
     logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
@@ -2286,17 +2263,26 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         seed=0,
         n_per_stratum=1000  # e.g. 500 per stratum → ~2000 triplets total
     )
-
-    # Print nicely
     for name, stats in kl_results.items():
         print(f"Triplet KL [{name}]: median={Fore.GREEN}{stats['median']:.4f}{Style.RESET_ALL}, "
               f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
         logger.info(f"Triplet KL [{name}]: median={stats['median']:.4f}, "
                     f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
-
-    # Save results
     np.save(f"{log_dir}/results/triplet_KL_full.npy", kl_results)
 
+    # results, summary = compute_triplet_KL_exact_from_sparseJ(
+    #     S_pm1=S,
+    #     J_sparse=J,
+    #     n_per_stratum=1000,  # triangles/wedges/one_edge/no_edge each
+    #     neighborhood_size=10,  # exact Ising over 10 cells
+    #     tau_present=0.0,  # edge-present threshold on |J|
+    #     k_neighbors_each=4,  # how aggressively to pull neighbors
+    #     rng_seed=0
+    # )
+    #
+    # print("Triplet KL (nats) summaries:")
+    # for k in ["triangle", "wedge", "one_edge", "no_edge", "all"]:
+    #     print(k, summary[k])
     ################
 
     x = x_list[0][n_frames - 10]
@@ -3423,12 +3409,14 @@ def data_flyvis_compare(config_list, varied_parameter):
 
             # Parse Schneidman/Ising summary lines
             IN_med, IN_q1, IN_q3 = parse_three_nums(
-                r'I_N:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+)\s+([0-9eE+\-\.]+)\s*\]', content)
+                r'I_N:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
             I2_med, I2_q1, I2_q3 = parse_three_nums(
-                r'I2:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+)\s+([0-9eE+\-\.]+)\s*\]', content)
+                r'I2:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
             R_med, R_q1, R_q3 = parse_three_nums(
-                r'Ratio:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+)\s+([0-9eE+\-\.]+)\s*\]', content)
-            m_trip = re.search(r'Triplet KL median \[IQR\]:\s*([0-9eE+\-\.]+)\s*\[\s*([0-9eE+\-\.]+)\s*,\s*([0-9eE+\-\.]+)\s*\]', content)
+                r'ratio:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
+            m_trip = re.search(
+                r'Triplet KL \[all\]:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]',
+                content)
             if m_trip:
                 TKL_med = float(m_trip.group(1))
                 TKL_q1 = float(m_trip.group(2))
@@ -3746,7 +3734,7 @@ def data_flyvis_compare(config_list, varied_parameter):
                     J_frac_strong_list.append(float((np.abs(J_vals) > th).mean()))
                     J_gini_list.append(float(gini(J_vals)))
 
-            # Log-based Schneidman metrics (already parsed above)
+            # # Log-based Schneidman metrics (already parsed above)
             if rcfg.get('IN_med') is not None:
                 IN_med_list.append(rcfg['IN_med']); IN_q1_list.append(rcfg['IN_q1']); IN_q3_list.append(rcfg['IN_q3'])
             if rcfg.get('I2_med') is not None:
@@ -3755,6 +3743,7 @@ def data_flyvis_compare(config_list, varied_parameter):
                 R_med_list.append(rcfg['R_med']);   R_q1_list.append(rcfg['R_q1']);   R_q3_list.append(rcfg['R_q3'])
             if rcfg.get('TKL_med') is not None:
                 TKL_med_list.append(rcfg['TKL_med']); TKL_q1_list.append(rcfg['TKL_q1']); TKL_q3_list.append(rcfg['TKL_q3'])
+
 
         # Add aggregated row
         ising_results.append({
@@ -6956,39 +6945,39 @@ if __name__ == '__main__':
     #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
-    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
-    #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
-
-    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
-                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_7',
-                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12', 'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3',
-                   'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
-                   'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-                   'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
-                   'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
 
-    # data_flyvis_compare(config_list, 'training.noise_model_level')
+
+
+                   # 'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3',
+                   # 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
+                   # 'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
+                   # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
+                   # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
+
+    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
+                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
 
 
-    for config_file_ in config_list:
-        print(' ')
-
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
-
-
-
+    # for config_file_ in config_list:
+    #     print(' ')
+    #
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    #
+    #
+    #
 
 
