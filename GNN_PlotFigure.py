@@ -3005,6 +3005,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             results = analyze_neuron_type_reconstruction(
                 config=config,
                 model=model,
+                edges=to_numpy(edges),
                 true_weights=true_weights,  #  ground truth weights
                 gt_taus=gt_taus,  #  ground truth tau values
                 gt_V_Rest=gt_V_rest,  #  ground truth V_rest values
@@ -3781,7 +3782,7 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.close(fig)
 
 
-def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_V_Rest,
+def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_taus, gt_V_Rest,
                                        learned_weights, learned_tau, learned_V_rest, type_list, n_frames, dimension,
                                        n_neuron_types, device, log_dir, dataset_name, index_to_name, logger):
 
@@ -3791,16 +3792,19 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
     rmse_weights = []
     rmse_taus = []
     rmse_vrests = []
+    n_connections = []
 
     for neuron_type in range(n_neuron_types):
 
-        type_indices = np.where(type_list == neuron_type)[0]
-
+        type_indices = np.where(edges[1,:] == neuron_type)[0]
         gt_w_type = true_weights[type_indices]
+        learned_w_type = learned_weights[type_indices]
+        n_conn = len(type_indices)
+
+        type_indices = np.where(type_list == neuron_type)[0]
         gt_tau_type = gt_taus[type_indices]
         gt_vrest_type = gt_V_Rest[type_indices]
 
-        learned_w_type = learned_weights[type_indices]
         learned_tau_type = learned_tau[type_indices]
         learned_vrest_type = learned_V_rest[type_indices]
 
@@ -3813,11 +3817,12 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
         rmse_weights.append(rmse_w)
         rmse_taus.append(rmse_tau)
         rmse_vrests.append(rmse_vrest)
+        n_connections.append(n_conn)
 
     # Convert to arrays
-    rmse_weights = np.array(rmse_weights)
-    rmse_taus = np.array(rmse_taus)
-    rmse_vrests = np.array(rmse_vrests)
+    rmse_weights = np.array(rmse_weights) * 100
+    rmse_taus = np.array(rmse_taus) * 100
+    rmse_vrests = np.array(rmse_vrests) * 100
 
     unique_types_in_order = []
     seen_types = set()
@@ -3835,49 +3840,107 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
     x_pos = np.arange(len(sort_indices))
 
     # Plot weights RMSE
-    axes[0].bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
-    axes[0].set_ylabel('rel. RMSE weights [%]', fontsize=14)
-    axes[0].grid(True, alpha=0.3)
-    axes[0].set_ylim([0, 10])
-    axes[0].set_xticks(x_pos)
-    axes[0].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
-    axes[0].grid(False)
-    axes[0].tick_params(axis='y', labelsize=12)
+    ax1 = axes[0]
+    ax1.bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
+    ax1.set_ylabel('rel. RMSE weights [%]', fontsize=14)
+    ax1.grid(True, alpha=0.3)
+    ax1.set_ylim([0, 100])
+    ax1.set_xticks(x_pos)
+    ax1.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
+    ax1.grid(False)
+    ax1.tick_params(axis='y', labelsize=12)
 
-    # Color labels red if weights RMSE > 10%
-    for i, (tick, rmse_w) in enumerate(zip(axes[0].get_xticklabels(), rmse_weights[sort_indices])):
-        if rmse_w > 10:
+    # Calculate mean ground truth weights per neuron type
+    mean_gt_weights = []
+    mean_abs_gt_weights = []
+    std_gt_weights = []
+    for neuron_type in range(n_neuron_types):
+        type_indices = np.where(edges[1,:] == neuron_type)[0]
+        gt_w_type = true_weights[type_indices]
+        mean_gt_weights.append(np.mean((gt_w_type)))
+        mean_abs_gt_weights.append(np.mean(np.abs(gt_w_type)))
+        std_gt_weights.append(np.std((gt_w_type)))
+
+    mean_gt_weights = np.array(mean_abs_gt_weights)
+    std_gt_weights = np.array(std_gt_weights)
+
+
+    # Panel 1 (weights) - already done, just need to define ax1_right
+    ax1_right = ax1.twinx()
+    scatter_colors = ['red' if rmse > 100 else 'white' for rmse in rmse_weights[sort_indices]]
+    ax1_right.scatter(x_pos, mean_gt_weights[sort_indices], c=scatter_colors, s=5, alpha=0.5, marker='o')
+    # ax1_right.scatter(x_pos, mean_gt_weights[sort_indices]+std_gt_weights[sort_indices], c=scatter_colors, s=5, alpha=0.5, marker='o')
+    # ax1_right.scatter(x_pos, mean_gt_weights[sort_indices]-std_gt_weights[sort_indices], c=scatter_colors, s=5, alpha=0.5, marker='o')
+    ax1_right.set_ylabel('mean |true weights|', fontsize=14, color='white')
+    ax1_right.tick_params(axis='y', labelcolor='white', labelsize=12)
+    for i, (tick, rmse_w) in enumerate(zip(ax1.get_xticklabels(), rmse_weights[sort_indices])):
+        if rmse_w > 100:
             tick.set_color('red')
             tick.set_fontsize(8)
 
-    axes[1].bar(x_pos, rmse_taus[sort_indices], color='lightcoral', alpha=0.7)
-    axes[1].set_ylabel(r'rel. RMSE $\tau$ [%]', fontsize=14)
-    axes[1].grid(True, alpha=0.3)
-    axes[1].set_ylim([0, 10])
-    axes[1].set_xticks(x_pos)
-    axes[1].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
-    axes[1].grid(False)
-    axes[1].tick_params(axis='y', labelsize=12)
+    # Panel 2 (tau)
+    ax2 = axes[1]
+    ax2.bar(x_pos, rmse_taus[sort_indices], color='lightcoral', alpha=0.7)
+    ax2.set_ylabel(r'rel. RMSE $\tau$ [%]', fontsize=14)
+    ax2.grid(True, alpha=0.3)
+    ax2.set_ylim([0, 100])
+    ax2.set_xticks(x_pos)
+    ax2.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
+    ax2.grid(False)
+    ax2.tick_params(axis='y', labelsize=12)
+
+    # Calculate mean ground truth taus per neuron type
+    mean_gt_taus = []
+    for neuron_type in range(n_neuron_types):
+        type_indices = np.where(type_list == neuron_type)[0]
+        gt_tau_type = gt_taus[type_indices]
+        mean_gt_taus.append(np.mean(np.abs(gt_tau_type)))
+
+    mean_gt_taus = np.array(mean_gt_taus)
+
+    # Create second y-axis for tau scatter plot
+    # ax2_right = ax2.twinx()
+    # scatter_colors_tau = ['red' if rmse > 100 else 'white' for rmse in rmse_taus[sort_indices]]
+    # ax2_right.scatter(x_pos, mean_gt_taus[sort_indices], c=scatter_colors_tau, s=5, alpha=0.5, marker='o')
+    # ax2_right.set_ylabel(r'mean |true $\tau$|', fontsize=14, color='white')
+    # ax2_right.tick_params(axis='y', labelcolor='white', labelsize=12)
 
     # Color labels red if tau RMSE > 10%
-    for i, (tick, rmse_tau) in enumerate(zip(axes[1].get_xticklabels(), rmse_taus[sort_indices])):
-        if rmse_tau > 10:
+    for i, (tick, rmse_tau) in enumerate(zip(ax2.get_xticklabels(), rmse_taus[sort_indices])):
+        if rmse_tau > 100:
             tick.set_color('red')
             tick.set_fontsize(8)
 
-    # Plot V_rest RMSE
-    axes[2].bar(x_pos, rmse_vrests[sort_indices], color='lightgreen', alpha=0.7)
-    axes[2].set_ylabel(r'rel. RMSE $V_{rest}$ [%]', fontsize=14)
-    axes[2].grid(True, alpha=0.3)
-    axes[2].set_ylim([0, 10])
-    axes[2].set_xticks(x_pos)
-    axes[2].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
-    axes[2].grid(False)
-    axes[2].tick_params(axis='y', labelsize=12)
+    # Panel 3 (V_rest)
+    ax3 = axes[2]
+    ax3.bar(x_pos, rmse_vrests[sort_indices], color='lightgreen', alpha=0.7)
+    ax3.set_ylabel(r'rel. RMSE $V_{rest}$ [%]', fontsize=14)
+    ax3.grid(True, alpha=0.3)
+    ax3.set_ylim([0, 100])
+    ax3.set_xticks(x_pos)
+    ax3.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
+    ax3.grid(False)
+    ax3.tick_params(axis='y', labelsize=12)
+
+    # Calculate mean ground truth V_rest per neuron type
+    mean_gt_vrests = []
+    for neuron_type in range(n_neuron_types):
+        type_indices = np.where(type_list == neuron_type)[0]
+        gt_vrest_type = gt_V_Rest[type_indices]
+        mean_gt_vrests.append(np.mean(np.abs(gt_vrest_type)))
+
+    mean_gt_vrests = np.array(mean_gt_vrests)
+
+    # Create second y-axis for V_rest scatter plot
+    # ax3_right = ax3.twinx()
+    # scatter_colors_vrest = ['red' if rmse > 100 else 'white' for rmse in rmse_vrests[sort_indices]]
+    # ax3_right.scatter(x_pos, mean_gt_vrests[sort_indices], c=scatter_colors_vrest, s=5, alpha=0.5, marker='o')
+    # ax3_right.set_ylabel(r'mean |true $V_{rest}$|', fontsize=14, color='white')
+    # ax3_right.tick_params(axis='y', labelcolor='white', labelsize=12)
 
     # Color labels red if V_rest RMSE > 10%
-    for i, (tick, rmse_vrest) in enumerate(zip(axes[2].get_xticklabels(), rmse_vrests[sort_indices])):
-        if rmse_vrest > 10:
+    for i, (tick, rmse_vrest) in enumerate(zip(ax3.get_xticklabels(), rmse_vrests[sort_indices])):
+        if rmse_vrest > 100:
             tick.set_color('red')
             tick.set_fontsize(8)
 
