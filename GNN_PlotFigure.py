@@ -26,8 +26,7 @@ from NeuralGraph.utils import to_numpy, CustomColorMap
 
 from NeuralGraph.models.Ising_analysis import (
     rebin_voltage_subset,
-    compute_info_ratio_debiased,
-    gibbs_sample_ising,
+    compute_info_ratio_estimator,
     triplet_residual_KL,
     convert_J_sparse_to_dense,
     sparse_ising_fit_fast,
@@ -2190,8 +2189,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     voltage_col = 3
     seed = 0
 
-    INs, I2s, ratios, non_monotonic = [], [], [], []
-    rng = np.random.default_rng(seed)
+    # Initialize results collection
+    results = []
+
     for i in trange(n_subsets, desc="processing subsets"):
         idx = np.sort(rng.choice(x.shape[1], size=N, replace=False))
 
@@ -2203,7 +2203,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             threshold="mean"
         )
 
-        point = compute_info_ratio_debiased(
+        point = compute_info_ratio_estimator(
             S,
             logbase=2.0,
             alpha_joint=1e-3,
@@ -2214,21 +2214,29 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             seed=i,
             enforce_monotone=True
         )
+        results.append(point)
 
-        INs.append(point.I_N)
-        I2s.append(point.I2)
-        ratios.append(point.ratio)
-        non_monotonic.append(point.flag_non_monotonic)
+    results_dict = {
+        'I_N': INs,
+        'I2': I2s,
+        'ratio': ratios,
+        'flag_non_monotonic': non_monotonic,
+        'H_true': np.array([r.H_true for r in results]),
+        'H_indep': np.array([r.H_indep for r in results]),
+        'H_pair': np.array([r.H_pair for r in results]),
+        'mean_match': np.array([r.mean_match for r in results]),
+        'corr_match': np.array([r.corr_match for r in results]),
+        'med_KL': np.array([r.med_KL for r in results]),
+        'q1_KL': np.array([r.q1_KL for r in results]),
+        'q3_KL': np.array([r.q3_KL for r in results])
+    }
 
-    # --- Summary ---
-    INs = np.array(INs)
-    I2s = np.array(I2s)
-    ratios = np.array(ratios)
-    non_monotonic = np.array(non_monotonic)
+    np.savez_compressed(f"{log_dir}/results/info_ratio_results.npz", **results_dict)
 
-    np.save(f"{log_dir}/results/INs.npy", INs)
-    np.save(f"{log_dir}/results/I2s.npy", I2s)
-    np.save(f"{log_dir}/results/ratios.npy", ratios)
+    INs = np.array([r.I_N for r in results])
+    I2s = np.array([r.I2 for r in results])
+    ratios = np.array([r.ratio for r in results])
+    non_monotonic = np.array([r.flag_non_monotonic for r in results])
 
     print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
 
@@ -2237,24 +2245,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     q25_I2, q75_I2 = np.nanpercentile(I2s, [25, 75])
     print(f"I2:     median={Fore.GREEN}{np.nanmedian(I2s):.3f}{Style.RESET_ALL},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
     q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
-    print(f"Ratio:  median={Fore.GREEN}{np.nanmedian(ratios):.4f}{Style.RESET_ALL},   IQR=[{q25_ratio:.4f}, {q75_ratio:.4f}],   std={np.nanstd(ratios):.4f}")
+    print(f"ratio:  median={Fore.GREEN}{np.nanmedian(ratios):.3f}{Style.RESET_ALL},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
 
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
     logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
     logger.info(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
     logger.info(f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
-    # logger.info(f"Triplet KL (subset medians): median={np.nanmedian(KL_meds):.5f}, IQR=[{q25_KLmed:.5f}, {q75_KLmed:.5f}], std={np.nanstd(KL_meds):.5f}")
 
-    # --- Triplet KL residuals from full simulation outputs ---
-    # J_sparse = np.load(f"{log_dir}/results/J.npy", allow_pickle=True)
-    # J = convert_J_sparse_to_dense(J_sparse, N=s.shape[1])
-    # med, q1, q3 = triplet_residual_KL(s, h, J, n_model=200_000, seed=0, n_triplets=200)
-    # print(f"Triplet KL median [IQR]: {Fore.GREEN}{med:.3f}{Style.RESET_ALL} [{q1:.3f}, {q3:.3f}] (nats; ~0 means pairwise is excellent)")
-    # logger.info(f"Triplet KL median [IQR]: {med:.3f} [{q1:.3f}, {q3:.3f}]")
-    # np.save(f"{log_dir}/results/triplet_KL_median.npy", med)
-    # np.save(f"{log_dir}/results/triplet_KL_IQR.npy", [q1, q3])
-
-    # Run full-population triplet residuals
     kl_results = triplet_residuals_full(
         S_data_pm1=s,  # your binarized {-1,+1} data
         h_full=h,
@@ -2270,19 +2267,19 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
     np.save(f"{log_dir}/results/triplet_KL_full.npy", kl_results)
 
-    # results, summary = compute_triplet_KL_exact_from_sparseJ(
-    #     S_pm1=S,
-    #     J_sparse=J,
-    #     n_per_stratum=1000,  # triangles/wedges/one_edge/no_edge each
-    #     neighborhood_size=10,  # exact Ising over 10 cells
-    #     tau_present=0.0,  # edge-present threshold on |J|
-    #     k_neighbors_each=4,  # how aggressively to pull neighbors
-    #     rng_seed=0
-    # )
-    #
-    # print("Triplet KL (nats) summaries:")
-    # for k in ["triangle", "wedge", "one_edge", "no_edge", "all"]:
-    #     print(k, summary[k])
+    results, summary = compute_triplet_KL_exact_from_sparseJ(
+        S_pm1=S,
+        J_sparse=J,
+        n_per_stratum=1000,  # triangles/wedges/one_edge/no_edge each
+        neighborhood_size=10,  # exact Ising over 10 cells
+        tau_present=0.0,  # edge-present threshold on |J|
+        k_neighbors_each=4,  # how aggressively to pull neighbors
+        rng_seed=0
+    )
+
+    print("Triplet KL (nats) summaries:")
+    for k in ["triangle", "wedge", "one_edge", "no_edge", "all"]:
+        print(k, summary[k])
     ################
 
     x = x_list[0][n_frames - 10]
@@ -6946,38 +6943,32 @@ if __name__ == '__main__':
     #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
 
 
-
-
-
                    # 'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3',
                    # 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
                    # 'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
-                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
-                   'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
-    data_flyvis_compare(config_list, 'training.noise_model_level')
+    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8',
+    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8',
+    #                'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    # data_flyvis_compare(config_list, 'training.noise_model_level')
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
+    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
 
+    for config_file_ in config_list:
+        print(' ')
 
-    # for config_file_ in config_list:
-    #     print(' ')
-    #
-    #     config_file, pre_folder = add_pre_folder(config_file_)
-    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-    #     config.dataset = pre_folder + config.dataset
-    #     config.config_file = pre_folder + config_file_
-    #
-    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-    #
-    #     folder_name = './log/' + pre_folder + '/tmp_results/'
-    #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
-    #
-    #
-    #
+        config_file, pre_folder = add_pre_folder(config_file_)
+        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+        config.dataset = pre_folder + config.dataset
+        config.config_file = pre_folder + config_file_
+
+        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+
+        folder_name = './log/' + pre_folder + '/tmp_results/'
+        os.makedirs(folder_name, exist_ok=True)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+
 
 
