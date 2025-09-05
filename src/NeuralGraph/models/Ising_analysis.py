@@ -1,6 +1,3 @@
-
-# ising_analysis.py
-
 import numpy as np
 import math
 from dataclasses import dataclass
@@ -11,6 +8,206 @@ from math import log
 from tqdm import tqdm
 from collections import defaultdict
 
+
+def analyze_ising_model(x_list, log_dir, logger, mc):
+    """
+    Perform comprehensive Ising model analysis including energy distribution,
+    coupling analysis, information ratio estimation, and triplet KL analysis.
+
+    Args:
+        x_list: List of input data arrays
+        log_dir: Directory for saving results
+        logger: Logger object for recording results
+        mc: Matplotlib color for plots
+
+    Returns:
+        dict: Dictionary containing all analysis results
+    """
+
+    # Load or compute Ising fit
+    if os.path.exists(f"./{log_dir}/results/E.npy"):
+        print(f'Loading existing sparse Ising analysis...')
+        E = np.load(f"./{log_dir}/results/E.npy")
+        s = np.load(f"./{log_dir}/results/s.npy")
+        h = np.load(f"./{log_dir}/results/h.npy")
+        J = np.load(f"./{log_dir}/results/J.npy", allow_pickle=True)
+    else:
+        print(f'Computing sparse Ising analysis...')
+        energy_stride = 1
+        s, h, J, E = sparse_ising_fit_fast(
+            x=x_list[0],
+            voltage_col=3,
+            top_k=51,
+            block_size=2000,
+            energy_stride=energy_stride
+        )
+        np.save(f"./{log_dir}/results/E.npy", E)
+        np.save(f"./{log_dir}/results/s.npy", s)
+        np.save(f"./{log_dir}/results/h.npy", h)
+        np.save(f"./{log_dir}/results/J.npy", J)
+
+    # Energy statistics
+    E_mean = np.mean(E)
+    E_std = np.std(E)
+    hist, _ = np.histogram(E, bins=100, density=True)
+    E_entropy = -np.sum(hist * np.log(hist + 1e-12))
+
+    # Coupling statistics
+    J_vals = []
+    for Ji in J:
+        if isinstance(Ji, dict):
+            J_vals.extend(Ji.values())
+        else:
+            J_vals.extend(np.asarray(Ji).ravel())
+    J_vals = np.asarray(J_vals, dtype=np.float32)
+    J_vals = J_vals[np.isfinite(J_vals)]
+
+    J_mean = np.mean(J_vals)
+    J_std = np.std(J_vals)
+    J_sign_ratio = (J_vals > 0).mean()
+    th = np.percentile(np.abs(J_vals), 90.0)
+    J_frac_strong = (np.abs(J_vals) > th).mean()
+
+    # Create visualization
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+
+    # Panel 1: Energy histogram
+    axs[0].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
+    axs[0].set_xlabel("Energy", fontsize=24)
+    axs[0].set_ylabel("Density", fontsize=24)
+    axs[0].tick_params(axis='both', which='major', labelsize=12)
+    axs[0].text(0.05, 0.95,
+                f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nEntropy: {E_entropy:.2f}',
+                transform=axs[0].transAxes,
+                fontsize=18, verticalalignment='top')
+
+    # Panel 2: Couplings histogram
+    axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
+    axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
+    axs[1].set_ylabel("Density", fontsize=24)
+    axs[1].tick_params(axis='both', which='major', labelsize=12)
+    axs[1].text(0.05, 0.95,
+                f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}',
+                transform=axs[1].transAxes,
+                fontsize=18, verticalalignment='top')
+
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
+    plt.close(fig)
+
+    # Information ratio analysis
+    n_subsets = 1000
+    N = 10
+    bin_size = 1
+    voltage_col = 3
+    seed = 0
+    rng = np.random.RandomState(seed)
+
+    print('Computing information ratio estimates...')
+    results = []
+    for i in trange(n_subsets, desc="processing subsets"):
+        idx = np.sort(rng.choice(x_list[0].shape[1], size=N, replace=False))
+
+        s_subset = rebin_voltage_subset(
+            x_list[0], idx,
+            bin_size=bin_size,
+            voltage_col=voltage_col,
+            agg="mean",
+            threshold="mean"
+        )
+
+        point = compute_info_ratio_estimator(
+            s_subset,
+            logbase=2.0,
+            alpha_joint=1e-3,
+            alpha_marg=0.5,
+            enforce_monotone=True
+        )
+        results.append(point)
+
+    # Extract results
+    INs = np.array([r.I_N for r in results])
+    I2s = np.array([r.I2 for r in results])
+    ratios = np.array([r.ratio for r in results])
+    non_monotonic = np.array([r.count_non_monotonic for r in results])
+
+    results_dict = {
+        'I_N': INs,
+        'I2': I2s,
+        'ratio': ratios,
+        'count_non_monotonic': non_monotonic,
+        'H_true': np.array([r.H_true for r in results]),
+        'H_indep': np.array([r.H_indep for r in results]),
+        'H_pair': np.array([r.H_pair for r in results]),
+        'mean_match': np.array([r.mean_match for r in results]),
+        'corr_match': np.array([r.corr_match for r in results]),
+    }
+
+    np.savez_compressed(f"{log_dir}/results/info_ratio_results.npz", **results_dict)
+
+    # Log results
+    print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
+
+    q25_IN, q75_IN = np.nanpercentile(INs, [25, 75])
+    q25_I2, q75_I2 = np.nanpercentile(I2s, [25, 75])
+    q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
+
+    print(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
+    print(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
+    print(
+        f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+
+    logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
+    logger.info(
+        f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
+    logger.info(
+        f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
+    logger.info(
+        f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+
+    # Triplet KL analysis
+    print('Computing triplet KL analysis...')
+    kl_results = triplet_residuals_full(
+        S_data_pm1=s,
+        h_full=h,
+        J_sparse=J,
+        n_model=200_000,
+        seed=0,
+        n_per_stratum=1000
+    )
+
+    for name, stats in kl_results.items():
+        print(f"Triplet KL [{name}]: median={stats['median']:.4f}, "
+              f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
+        logger.info(f"Triplet KL [{name}]: median={stats['median']:.4f}, "
+                    f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
+
+    np.save(f"{log_dir}/results/triplet_KL_full.npy", kl_results)
+
+    # Exact triplet KL analysis
+    triplet_results, summary = compute_triplet_KL_exact_from_sparseJ(
+        S_pm1=s,
+        J_sparse=J,
+        n_per_stratum=1000,
+        neighborhood_size=10,
+        tau_present=0.0,
+        k_neighbors_each=4,
+        rng_seed=0
+    )
+
+    print("Triplet KL (nats) summaries:")
+    for k in ["triangle", "wedge", "one_edge", "no_edge", "all"]:
+        print(k, summary[k])
+        logger.info(f"Triplet KL exact [{k}]: {summary[k]}")
+
+    return {
+        'energy_stats': {'mean': E_mean, 'std': E_std, 'entropy': E_entropy},
+        'coupling_stats': {'mean': J_mean, 'std': J_std, 'sign_ratio': J_sign_ratio, 'frac_strong': J_frac_strong},
+        'info_ratio_results': results_dict,
+        'triplet_kl_results': kl_results,
+        'triplet_kl_exact': {'results': triplet_results, 'summary': summary},
+        'ising_params': {'s': s, 'h': h, 'J': J, 'E': E}
+    }
 
 
 # ========== Rebin utilities ==========
@@ -338,13 +535,7 @@ class InfoRatioResult:
     I_N: float
     I2: float
     ratio: float
-    mean_match: float
-    corr_match: float
-    med_KL: float
-    q1_KL: float
-    q3_KL: float
-    flag_non_monotonic: float
-
+    count_non_monotonic: float
 
 # ========== Triplet KL Residuals ==========
 
@@ -570,12 +761,6 @@ def compute_info_ratio_estimator(
         logbase: float = 2.0,
         alpha_joint: float = 1e-3,
         alpha_marg: float = 0.5,
-        pl_max_iter: int = 400,
-        pl_lr: float = 0.2,
-        pl_lam: float = 1e-4,
-        gibbs_samples: int = 200000,
-        gibbs_burn: int = 20000,
-        seed: Optional[int] = None,
         enforce_monotone: bool = False,
         ratio_eps: float = 1e-6,
 ) -> InfoRatioResult:
@@ -585,9 +770,9 @@ def compute_info_ratio_estimator(
     h, J, H_pair = entropy_exact_ising(S)
 
     if (H_pair > H_ind) | (H_true > H_pair):
-        flag_non_monotonic = 1
+        count_non_monotonic = 1
     else:
-        flag_non_monotonic = 0
+        count_non_monotonic = 0
 
     if enforce_monotone:
         H_pair = min(H_pair, H_ind)
@@ -597,16 +782,6 @@ def compute_info_ratio_estimator(
     I2 = H_ind - H_pair
     ratio = I2 / I_N if I_N > ratio_eps else float('nan')
 
-    # med_KL, q1_KL, q3_KL = triplet_residual_exact(S, h, J, n_model=gibbs_samples, seed=seed or 0, n_triplets=200)
-
-    # Calculate model matching metrics (placeholders - implement based on your needs)
-    mean_match = 0.0  # placeholder
-    corr_match = 0.0  # placeholder
-
-    # KL placeholders when computation is skipped
-    med_KL = float('nan')
-    q1_KL = float('nan')
-    q3_KL = float('nan')
 
     return InfoRatioResult(
         H_true=H_true,
@@ -615,12 +790,7 @@ def compute_info_ratio_estimator(
         I_N=I_N,
         I2=I2,
         ratio=ratio,
-        mean_match=mean_match,
-        corr_match=corr_match,
-        med_KL=med_KL,
-        q1_KL=q1_KL,
-        q3_KL=q3_KL,
-        flag_non_monotonic=flag_non_monotonic
+        count_non_monotonic=count_non_monotonic
     )
 
 

@@ -24,44 +24,21 @@ from NeuralGraph.models.plot_utils import *
 from NeuralGraph.models.MLP import *
 from NeuralGraph.utils import to_numpy, CustomColorMap
 
-from NeuralGraph.models.Ising_analysis import (
-    rebin_voltage_subset,
-    compute_info_ratio_estimator,
-    triplet_residual_KL,
-    convert_J_sparse_to_dense,
-    sparse_ising_fit_fast,
-    triplet_residuals_full,
-    compute_triplet_KL_exact_from_sparseJ
-)
+from NeuralGraph.models.Ising_analysis import analyze_ising_model
 
 from scipy import stats
-import matplotlib as mpl
 from io import StringIO
 import sys
-from scipy.stats import pearsonr
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from sklearn.mixture import GaussianMixture
 import warnings
 import seaborn as sns
 import glob
-import shutil
-from skimage import measure, morphology, segmentation, filters
-from scipy import ndimage as ndi
-from skimage.feature import peak_local_max
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 import pickle
 import json
 
-from sklearn.cluster import KMeans
-from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, accuracy_score
-from scipy.optimize import linear_sum_assignment
-# from pysr import PySRRegressor
-from datetime import datetime
 from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum, compute_spectral_coefs
-from scipy.special import logsumexp
+
 from colorama import Fore, Style
 
 def get_training_files(log_dir, n_runs):
@@ -2122,234 +2099,79 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
-
-    if os.path.exists(f"./{log_dir}/results/E.npy"):
-        print (f'first Ising analysis done ...')
-        E = np.load(f"./{log_dir}/results/E.npy")
-        s = np.load(f"./{log_dir}/results/s.npy")
-        h = np.load(f"./{log_dir}/results/h.npy")
-        J = np.load(f"./{log_dir}/results/J.npy", allow_pickle=True)
-
-    else:
-        energy_stride = 1
-        s, h, J, E = sparse_ising_fit_fast(x=x_list[0], voltage_col=3, top_k=50, block_size=2000, energy_stride=energy_stride)
-        np.save(f"./{log_dir}/results/E.npy", E)
-        np.save(f"./{log_dir}/results/s.npy", s)
-        np.save(f"./{log_dir}/results/h.npy", h)
-        np.save(f"./{log_dir}/results/J.npy", J)
-
-    E_mean = np.mean(E)
-    E_std = np.std(E)
-    hist, _ = np.histogram(E, bins=100, density=True)
-    E_entropy = -np.sum(hist * np.log(hist + 1e-12))
-
-    J_vals = []
-    for Ji in J:
-        if isinstance(Ji, dict):
-            J_vals.extend(Ji.values())
-        else:
-            J_vals.extend(np.asarray(Ji).ravel())
-    J_vals = np.asarray(J_vals, dtype=np.float32)
-    J_vals = J_vals[np.isfinite(J_vals)]
-
-    J_mean = np.mean(J_vals)
-    J_std = np.std(J_vals)
-    J_sign_ratio = (J_vals > 0).mean()
-    th = np.percentile(np.abs(J_vals), 90.0)
-    J_frac_strong = (np.abs(J_vals) > th).mean()
-
-    # Create 2x2 figure
-    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-    # Panel 1: Energy histogram
-    axs[0].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
-    axs[0].set_xlabel("Energy", fontsize=24)
-    axs[0].set_ylabel("Density", fontsize=24)
-    axs[0].tick_params(axis='both', which='major', labelsize=12)
-    axs[0].text(0.05, 0.95,
-                   f'Mean: {E_mean:.2f}\nStd:\nEntropy: {E_entropy:.2f}',
-                   transform=axs[0].transAxes,
-                   fontsize=18, verticalalignment='top')
-    # Panel 2: Couplings histogram
-    axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
-    axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
-    axs[1].set_ylabel("Density", fontsize=24)
-    axs[1].tick_params(axis='both', which='major', labelsize=12)
-    axs[1].text(0.05, 0.95,
-                   f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}',
-                   transform=axs[1].transAxes,
-                   fontsize=18, verticalalignment='top')
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
-    plt.close(fig)
-
-    # --- Config ---
-    n_subsets = 1000
-    N = 10
-    bin_size = 1
-    voltage_col = 3
-    seed = 0
-
-    # Initialize results collection
-    results = []
-
-    for i in trange(n_subsets, desc="processing subsets"):
-        idx = np.sort(rng.choice(x.shape[1], size=N, replace=False))
-
-        S = rebin_voltage_subset(
-            x, idx,
-            bin_size=bin_size,
-            voltage_col=voltage_col,
-            agg="mean",
-            threshold="mean"
-        )
-
-        point = compute_info_ratio_estimator(
-            S,
-            logbase=2.0,
-            alpha_joint=1e-3,
-            alpha_marg=0.5,
-            pl_max_iter=400,
-            gibbs_samples=200_000,
-            gibbs_burn=20_000,
-            seed=i,
-            enforce_monotone=True
-        )
-        results.append(point)
-
-    results_dict = {
-        'I_N': INs,
-        'I2': I2s,
-        'ratio': ratios,
-        'flag_non_monotonic': non_monotonic,
-        'H_true': np.array([r.H_true for r in results]),
-        'H_indep': np.array([r.H_indep for r in results]),
-        'H_pair': np.array([r.H_pair for r in results]),
-        'mean_match': np.array([r.mean_match for r in results]),
-        'corr_match': np.array([r.corr_match for r in results]),
-        'med_KL': np.array([r.med_KL for r in results]),
-        'q1_KL': np.array([r.q1_KL for r in results]),
-        'q3_KL': np.array([r.q3_KL for r in results])
-    }
-
-    np.savez_compressed(f"{log_dir}/results/info_ratio_results.npz", **results_dict)
-
-    INs = np.array([r.I_N for r in results])
-    I2s = np.array([r.I2 for r in results])
-    ratios = np.array([r.ratio for r in results])
-    non_monotonic = np.array([r.flag_non_monotonic for r in results])
-
-    print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
-
-    q25_IN, q75_IN = np.nanpercentile(INs, [25, 75])
-    print(f"I_N:    median={Fore.GREEN}{np.nanmedian(INs):.3f}{Style.RESET_ALL},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
-    q25_I2, q75_I2 = np.nanpercentile(I2s, [25, 75])
-    print(f"I2:     median={Fore.GREEN}{np.nanmedian(I2s):.3f}{Style.RESET_ALL},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
-    q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
-    print(f"ratio:  median={Fore.GREEN}{np.nanmedian(ratios):.3f}{Style.RESET_ALL},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
-
-    logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
-    logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
-    logger.info(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
-    logger.info(f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
-
-    kl_results = triplet_residuals_full(
-        S_data_pm1=s,  # your binarized {-1,+1} data
-        h_full=h,
-        J_sparse=J,  # keep sparse representation
-        n_model=200_000,
-        seed=0,
-        n_per_stratum=1000  # e.g. 500 per stratum → ~2000 triplets total
-    )
-    for name, stats in kl_results.items():
-        print(f"Triplet KL [{name}]: median={Fore.GREEN}{stats['median']:.4f}{Style.RESET_ALL}, "
-              f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
-        logger.info(f"Triplet KL [{name}]: median={stats['median']:.4f}, "
-                    f"IQR=[{stats['q1']:.4f}, {stats['q3']:.4f}], n={stats['n']}")
-    np.save(f"{log_dir}/results/triplet_KL_full.npy", kl_results)
-
-    results, summary = compute_triplet_KL_exact_from_sparseJ(
-        S_pm1=S,
-        J_sparse=J,
-        n_per_stratum=1000,  # triangles/wedges/one_edge/no_edge each
-        neighborhood_size=10,  # exact Ising over 10 cells
-        tau_present=0.0,  # edge-present threshold on |J|
-        k_neighbors_each=4,  # how aggressively to pull neighbors
-        rng_seed=0
-    )
-
-    print("Triplet KL (nats) summaries:")
-    for k in ["triangle", "wedge", "one_edge", "no_edge", "all"]:
-        print(k, summary[k])
-    ################
-
+    # Perform Ising model analysis
+    # ising_results = analyze_ising_model(x_list, log_dir, logger, mc)
+    # Extract neuron type and region information
     x = x_list[0][n_frames - 10]
     type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
     n_types = len(np.unique(to_numpy(type_list)))
-    # print (f'{n_types} neuron types in datasets')
     region_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
     n_region_types = len(np.unique(to_numpy(region_list)))
     n_neurons = len(type_list)
 
+    # Neuron type index to name mapping
     index_to_name = {
-        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4',
-        9: 'L5',
+        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
         10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
-        18: 'Mi15', 19: 'Mi2',
-        20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4', 27: 'R5', 28: 'R6',
-        29: 'R7',
-        30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a', 36: 'T4b', 37: 'T4c', 38: 'T4d',
-        39: 'T5a',
-        40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1', 44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28',
-        48: 'Tm3', 49: 'Tm30',
-        50: 'Tm4', 51: 'Tm5Y', 52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13',
-        58: 'TmY14', 59: 'TmY15',
-        60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
+        18: 'Mi15', 19: 'Mi2', 20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
+        27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a',
+        36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1',
+        44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28', 48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y',
+        52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14',
+        59: 'TmY15', 60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
     }
 
+    # Extract and process activity data
     activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
-    activity = activity.squeeze()
-    activity = activity.t()
+    activity = activity.squeeze().t()
 
-    mu_activity = torch.mean(activity, dim=1)  # shape: (n_neurons,)
+    # Calculate mean and std for each neuron
+    mu_activity = torch.mean(activity, dim=1)
     sigma_activity = torch.std(activity, dim=1)
 
-    plt.figure(figsize=(15, 10))  # Made wider to accommodate labels
-    plt.errorbar(np.arange(n_neurons), to_numpy(mu_activity), yerr=to_numpy(sigma_activity), fmt='o',
-                 ecolor='lightgray', alpha=0.1, elinewidth=1, capsize=0, markersize=2, color='red')
+    # Create the plot
+    plt.figure(figsize=(16, 8))
+    plt.errorbar(np.arange(n_neurons), to_numpy(mu_activity), yerr=to_numpy(sigma_activity),
+                 fmt='o', ecolor='lightgray', alpha=0.6, elinewidth=1, capsize=0,
+                 markersize=3, color='red')
 
-    # Add neuron type labels for unique positions only
-    type_positions = {}
+    # Group neurons by type and add labels at type boundaries
+    type_boundaries = {}
+    current_type = None
     for i in range(n_neurons):
         neuron_type_id = to_numpy(type_list[i]).item()
-        if neuron_type_id not in type_positions:
-            type_positions[neuron_type_id] = i
+        if neuron_type_id != current_type:
+            if current_type is not None:
+                type_boundaries[current_type] = (type_boundaries[current_type][0], i - 1)
+            type_boundaries[neuron_type_id] = (i, i)
+            current_type = neuron_type_id
 
-    # Add labels at representative positions for each neuron type
-    for neuron_type_id, pos in type_positions.items():
+    # Close the last type boundary
+    if current_type is not None:
+        type_boundaries[current_type] = (type_boundaries[current_type][0], n_neurons - 1)
+
+    # Add vertical lines and labels for each neuron type
+    for neuron_type_id, (start_idx, end_idx) in type_boundaries.items():
+        center_pos = (start_idx + end_idx) / 2
         neuron_type_name = index_to_name.get(neuron_type_id, f'Type{neuron_type_id}')
-        plt.text(pos+100, to_numpy(mu_activity[pos]) + to_numpy(sigma_activity[pos]) * 1.1 + 0.1, neuron_type_name,
-                 rotation=90, ha='center', va='bottom', fontsize=8, alpha=0.7)
 
-    plt.xlabel('neuron', fontsize=24)
-    plt.ylabel(r'$\mu_i \pm \sigma_i$', fontsize=24)
-    plt.xticks(fontsize=18)
-    plt.yticks(fontsize=18)
-    plt.title(r'$\mu_i \pm \sigma_i$ for each neuron', fontsize=24)
+        # Add vertical line at type boundary
+        if start_idx > 0:
+            plt.axvline(x=start_idx, color='gray', linestyle='--', alpha=0.3)
+
+        # Add label at center of type group
+        max_activity = torch.max(mu_activity[start_idx:end_idx + 1] + sigma_activity[start_idx:end_idx + 1])
+        plt.text(center_pos, to_numpy(max_activity) + 0.1, neuron_type_name,
+                 rotation=45, ha='center', va='bottom', fontsize=10, alpha=0.8)
+
+    plt.xlabel('neuron index', fontsize=16)
+    plt.ylabel(r'neuron voltage $v_i(t)\quad\mu_i \pm \sigma_i$', fontsize=16)
+    plt.xticks(fontsize = 12)
+    plt.yticks(fontsize = 12)
+
+    plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300)
-    plt.close()
-
-    plt.figure(figsize=(10, 10))
-    n = np.random.randint(0, n_neurons, 10)
-    for i in range(len(n)):
-        plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=1)
-    plt.xlabel('time', fontsize=24)
-    plt.ylabel(r'$x_i$', fontsize=24)
-    plt.xlim([0, n_frames // 400])
-    plt.xticks(fontsize=18)
-    plt.yticks(fontsize=18)
-    plt.ylim([-6, 6])
-    plt.savefig(f'./{log_dir}/results/activity.png', dpi=300)
+    plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300, bbox_inches='tight')
     plt.close()
 
     # Additional plot for specific neuron type (e.g., 'Am')
@@ -2707,16 +2529,16 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 # Plot 5: Tau comparison (bottom left)
                 ax5 = fig.add_subplot(3, 2, 5)
                 slopes_lin_phi_array_np = np.array(slopes_lin_phi_list)
-                reconstructed_tau = np.where(slopes_lin_phi_array_np != 0, 1.0 / -slopes_lin_phi_array_np, 1)
-                reconstructed_tau = reconstructed_tau[:n_neurons]
-                reconstructed_tau = np.clip(reconstructed_tau, 0, 1)
+                learned_tau = np.where(slopes_lin_phi_array_np != 0, 1.0 / -slopes_lin_phi_array_np, 1)
+                learned_tau = learned_tau[:n_neurons]
+                learned_tau = np.clip(learned_tau, 0, 1)
                 gt_taus_numpy = to_numpy(gt_taus[:n_neurons])
-                lin_fit, lin_fitv = curve_fit(linear_model, gt_taus_numpy, reconstructed_tau)
-                residuals = reconstructed_tau - linear_model(gt_taus_numpy, *lin_fit)
+                lin_fit, lin_fitv = curve_fit(linear_model, gt_taus_numpy, learned_tau)
+                residuals = learned_tau - linear_model(gt_taus_numpy, *lin_fit)
                 ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((reconstructed_tau - np.mean(reconstructed_tau)) ** 2)
+                ss_tot = np.sum((learned_tau - np.mean(learned_tau)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot)
-                ax5.scatter(gt_taus_numpy , reconstructed_tau, c=mc, s=1, alpha=0.25)
+                ax5.scatter(gt_taus_numpy , learned_tau, c=mc, s=1, alpha=0.25)
                 ax5.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
                          transform=ax5.transAxes, verticalalignment='top', fontsize=24)
                 ax5.set_xlabel('true $\\tau$', fontsize=32)
@@ -2728,15 +2550,15 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 # Plot 6: V_rest comparison (bottom right)
                 ax6 = fig.add_subplot(3, 2, 6)
                 offsets_array = np.array(offsets_list)
-                reconstructed_V_rest = np.where(slopes_lin_phi_array_np != 0, -offsets_array / slopes_lin_phi_array_np, 1)
+                learned_V_rest = np.where(slopes_lin_phi_array_np != 0, -offsets_array / slopes_lin_phi_array_np, 1)
 
                 gt_V_rest_numpy = to_numpy(gt_V_Rest[:n_neurons])
-                lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest_numpy, reconstructed_V_rest)
-                residuals = reconstructed_V_rest - linear_model(gt_V_rest_numpy, *lin_fit)
+                lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest_numpy, learned_V_rest)
+                residuals = learned_V_rest - linear_model(gt_V_rest_numpy, *lin_fit)
                 ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((reconstructed_V_rest - np.mean(reconstructed_V_rest)) ** 2)
+                ss_tot = np.sum((learned_V_rest - np.mean(learned_V_rest)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot)
-                ax6.scatter(gt_V_rest_numpy, reconstructed_V_rest, c=mc, s=1, alpha=0.25)
+                ax6.scatter(gt_V_rest_numpy, learned_V_rest, c=mc, s=1, alpha=0.25)
                 ax6.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest_numpy)}',
                          transform=ax6.transAxes, verticalalignment='top', fontsize=24)
                 ax6.set_xlabel('true $V_{rest}$', fontsize=32)
@@ -2911,16 +2733,16 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             slopes_lin_phi_array = np.array(slopes_lin_phi_list)
             offsets_array = np.array(offsets_list)
             gt_taus = to_numpy(gt_taus[:n_neurons])
-            reconstructed_tau = np.where(slopes_lin_phi_array != 0, 1.0 / -slopes_lin_phi_array, 1)
-            reconstructed_tau = reconstructed_tau[:n_neurons]
-            reconstructed_tau = np.clip(reconstructed_tau, 0, 1)
+            learned_tau = np.where(slopes_lin_phi_array != 0, 1.0 / -slopes_lin_phi_array, 1)
+            learned_tau = learned_tau[:n_neurons]
+            learned_tau = np.clip(learned_tau, 0, 1)
 
             fig = plt.figure(figsize=(8, 8))
-            plt.scatter(gt_taus, reconstructed_tau, c=mc, s=0.5, alpha=0.3)
-            lin_fit, lin_fitv = curve_fit(linear_model, gt_taus, reconstructed_tau)
-            residuals = reconstructed_tau - linear_model(gt_taus, *lin_fit)
+            plt.scatter(gt_taus, learned_tau, c=mc, s=0.5, alpha=0.3)
+            lin_fit, lin_fitv = curve_fit(linear_model, gt_taus, learned_tau)
+            residuals = learned_tau - linear_model(gt_taus, *lin_fit)
             ss_res = np.sum(residuals ** 2)
-            ss_tot = np.sum((reconstructed_tau - np.mean(reconstructed_tau)) ** 2)
+            ss_tot = np.sum((learned_tau - np.mean(learned_tau)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
@@ -2936,18 +2758,18 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
             print(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
             logger.info(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-            torch.save(torch.tensor(reconstructed_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
+            torch.save(torch.tensor(learned_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
 
             # V_rest comparison (reconstructed vs ground truth)
-            reconstructed_V_rest = np.where(slopes_lin_phi_array != 0, -offsets_array / slopes_lin_phi_array, 1)
-            reconstructed_V_rest = reconstructed_V_rest[:n_neurons]
+            learned_V_rest = np.where(slopes_lin_phi_array != 0, -offsets_array / slopes_lin_phi_array, 1)
+            learned_V_rest = learned_V_rest[:n_neurons]
             gt_V_rest = to_numpy(gt_V_Rest[:n_neurons])
             fig = plt.figure(figsize=(8, 8))
-            plt.scatter(gt_V_rest, reconstructed_V_rest, c=mc, s=0.5, alpha=0.3)
-            lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest, reconstructed_V_rest)
-            residuals = reconstructed_V_rest - linear_model(gt_V_rest, *lin_fit)
+            plt.scatter(gt_V_rest, learned_V_rest, c=mc, s=0.5, alpha=0.3)
+            lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest, learned_V_rest)
+            residuals = learned_V_rest - linear_model(gt_V_rest, *lin_fit)
             ss_res = np.sum(residuals ** 2)
-            ss_tot = np.sum((reconstructed_V_rest - np.mean(reconstructed_V_rest)) ** 2)
+            ss_tot = np.sum((learned_V_rest - np.mean(learned_V_rest)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest)}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
@@ -2962,7 +2784,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             print(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
             logger.info(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
 
-            torch.save(torch.tensor(reconstructed_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
+            torch.save(torch.tensor(learned_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
 
             # Plot 4: Weight comparison using model.W and gt_weights
             fig = plt.figure(figsize=(8, 8))
@@ -3176,7 +2998,26 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             else:
                 print(f'outliers: 0  (no outliers detected)')
 
-            # plot distribution
+            # plot analyze_neuron_type_reconstruction
+            results = analyze_neuron_type_reconstruction(
+                config=config,
+                model=model,
+                true_weights=true_weights,  #  ground truth weights
+                gt_taus=gt_taus,  #  ground truth tau values
+                gt_V_Rest=gt_V_rest,  #  ground truth V_rest values
+                learned_weights=learned_weights,
+                learned_tau = learned_tau,
+                learned_V_rest=learned_V_rest, # Learned V_rest
+                type_list=to_numpy(type_list),
+                n_frames=n_frames,
+                dimension=dimension,
+                n_neuron_types=n_neuron_types,
+                device=device,
+                log_dir=log_dir,
+                dataset_name=dataset_name,
+                logger=logger,
+                index_to_name=index_to_name
+            )
 
             if 'visual' in field_type:
                 n_frames = config.simulation.n_frames
@@ -3935,6 +3776,114 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig("fig/phase_diagram.png", dpi=150)
     plt.close(fig)
+
+
+def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_V_Rest,
+                                       learned_weights, learned_tau, learned_V_rest, type_list, n_frames, dimension,
+                                       n_neuron_types, device, log_dir, dataset_name, index_to_name, logger):
+
+
+    print('Stratified analysis by neuron type...')
+
+    rmse_weights = []
+    rmse_taus = []
+    rmse_vrests = []
+
+    for neuron_type in range(n_neuron_types):
+
+        type_indices = np.where(type_list == neuron_type)[0]
+
+        gt_w_type = true_weights[type_indices]
+        gt_tau_type = gt_taus[type_indices]
+        gt_vrest_type = gt_V_Rest[type_indices]
+
+        learned_w_type = learned_weights[type_indices]
+        learned_tau_type = learned_tau[type_indices]
+        learned_vrest_type = learned_V_rest[type_indices]
+
+        rmse_w =  np.sqrt(np.mean((gt_w_type - learned_w_type) ** 2)) / (np.mean(np.abs(gt_w_type)) + 1e-6)
+
+        rmse_tau = np.sqrt(np.mean((gt_tau_type - learned_tau_type) ** 2)) / (np.mean(np.abs(gt_tau_type)) + 1e-6)
+
+        rmse_vrest = np.sqrt(np.mean((gt_vrest_type - learned_vrest_type) ** 2)) / (np.mean(np.abs(gt_vrest_type)) + 1e-6)
+
+        rmse_weights.append(rmse_w)
+        rmse_taus.append(rmse_tau)
+        rmse_vrests.append(rmse_vrest)
+
+    # Convert to arrays
+    rmse_weights = np.array(rmse_weights)
+    rmse_taus = np.array(rmse_taus)
+    rmse_vrests = np.array(rmse_vrests)
+
+    # Create figure with 3 subplots
+    fig, axes = plt.subplots(3, 1, figsize=(10, 12))
+    sort_indices = np.argsort(rmse_weights)[::-1]  # Descending order
+    sort_indices = np.arange(n_neuron_types)
+
+    x_pos = np.arange(len(sort_indices))
+    # Plot weights R²
+    axes[0].bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
+    axes[0].set_ylabel('rel. RMSE weights [%]', fontsize=14)
+    axes[0].grid(True, alpha=0.3)
+    axes[0].set_ylim([0, 10])
+
+    axes[0].set_xticks([])
+    axes[0].grid(False)
+    axes[0].tick_params(axis='y', labelsize=12)
+
+    axes[1].bar(x_pos, rmse_taus[sort_indices], color='lightcoral', alpha=0.7)
+    axes[1].set_ylabel(r'rel. RMSE $\tau$ [%]', fontsize=14)
+    axes[1].grid(True, alpha=0.3)
+    axes[1].set_ylim([0, 10])
+    max_rmse_tau = np.max(rmse_vrests) if len(rmse_taus) > 0 else 1
+    axes[1].set_xticks([])
+    axes[1].grid(False)
+    axes[1].tick_params(axis='y', labelsize=12)
+
+    # Plot V_rest RMSE (lower is better)
+    x_pos = np.arange(len(sort_indices))
+    axes[2].bar(x_pos, rmse_vrests[sort_indices], color='lightgreen', alpha=0.7)
+    axes[2].set_ylabel(r'rel. RMSE $V_{rest}$ [%]', fontsize=14)
+    axes[2].grid(True, alpha=0.3)
+    max_rmse_vrest = np.max(rmse_vrests) if len(rmse_vrests) > 0 else 1
+    axes[2].set_ylim([0, max_rmse_vrest * 1.1])
+    axes[2].set_xticks(x_pos)
+    axes[2].set_ylim([0, 10])
+    axes[2].grid(False)
+    axes[2].tick_params(axis='y', labelsize=12)
+
+    # Set x-axis labels with conditional coloring
+    axes[2].set_xticks(x_pos)
+    axes[2].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
+
+    # Color labels red if rmse_vrests > 10
+    for i, (tick, rmse_vrest, rmse_tau) in enumerate(
+            zip(axes[2].get_xticklabels(), rmse_vrests[sort_indices], rmse_taus[sort_indices])):
+        if rmse_vrest > 10 or rmse_tau > 10:
+            tick.set_color('red')
+            tick.set_fontsize(10)
+
+    # Only show x-axis labels on the bottom subplot
+    axes[0].set_xticks([])
+    axes[1].set_xticks([])
+
+
+    plt.tight_layout()
+    plt.savefig(f'./{log_dir}/results/neuron_type_reconstruction.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Log summary statistics
+    logger.info(f"Neuron type reconstruction analysis:")
+    logger.info(f"Mean weights RMSE: {np.mean(rmse_weights):.3f} ± {np.std(rmse_weights):.3f}")
+    logger.info(f"Mean tau RMSE: {np.mean(rmse_taus):.3f} ± {np.std(rmse_taus):.3f}")
+    logger.info(f"Mean V_rest RMSE: {np.mean(rmse_vrests):.3f} ± {np.std(rmse_vrests):.3f}")
+
+    return {
+        'rmse_weights': rmse_weights,
+        'rmse_taus': rmse_taus,
+        'rmse_vrests': rmse_vrests,
+    }
 
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
