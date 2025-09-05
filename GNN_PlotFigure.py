@@ -2019,10 +2019,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     n_input_neurons = config.simulation.n_input_neurons
     field_type = model_config.field_type
     delta_t = config.simulation.delta_t
-    dimension = config.simulation.dimension
 
     colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
     colors_65 = colors_65[:65]
+
+    max_radius = config.simulation.max_radius if hasattr(config.simulation, 'max_radius') else 2.5
+    dimension = config.simulation.dimension
 
     log_file = os.path.join(log_dir, 'results.log')
     if os.path.exists(log_file):
@@ -2097,6 +2099,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
+    # Perform Ising model analysis
+    # ising_results = analyze_ising_model(x_list, log_dir, logger, mc)
     # Extract neuron type and region information
     x = x_list[0][n_frames - 10]
     type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
@@ -2282,8 +2286,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
     os.makedirs(f'{log_dir}/results/', exist_ok=True)
 
-    # Perform Ising model analysis
-    ising_results = analyze_ising_model(x_list, log_dir, logger, mc)
 
     if epoch_list[0] == 'all':
 
@@ -3813,11 +3815,11 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
     rmse_weights = np.array(rmse_weights)
     rmse_taus = np.array(rmse_taus)
     rmse_vrests = np.array(rmse_vrests)
-    # Create mapping from neuron type order in data to names
+
     unique_types_in_order = []
     seen_types = set()
-    for i in range(n_neurons):
-        neuron_type_id = to_numpy(type_list[i]).item()
+    for i in range(len(type_list)):
+        neuron_type_id = type_list[i].item() if hasattr(type_list[i], 'item') else int(type_list[i])
         if neuron_type_id not in seen_types:
             unique_types_in_order.append(neuron_type_id)
             seen_types.add(neuron_type_id)
@@ -3827,15 +3829,16 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
 
     # Create figure with 3 subplots
     fig, axes = plt.subplots(3, 1, figsize=(10, 12))
+    sort_indices = np.argsort(rmse_weights)[::-1]  # Descending order
     sort_indices = np.arange(n_neuron_types)
 
     x_pos = np.arange(len(sort_indices))
-
-    # Plot weights RMSE
+    # Plot weights R²
     axes[0].bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
     axes[0].set_ylabel('rel. RMSE weights [%]', fontsize=14)
     axes[0].grid(True, alpha=0.3)
     axes[0].set_ylim([0, 10])
+
     axes[0].set_xticks([])
     axes[0].grid(False)
     axes[0].tick_params(axis='y', labelsize=12)
@@ -3844,28 +3847,38 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
     axes[1].set_ylabel(r'rel. RMSE $\tau$ [%]', fontsize=14)
     axes[1].grid(True, alpha=0.3)
     axes[1].set_ylim([0, 10])
+    max_rmse_tau = np.max(rmse_vrests) if len(rmse_taus) > 0 else 1
     axes[1].set_xticks([])
     axes[1].grid(False)
     axes[1].tick_params(axis='y', labelsize=12)
 
-    # Plot V_rest RMSE
+    # Plot V_rest RMSE (lower is better)
+    x_pos = np.arange(len(sort_indices))
     axes[2].bar(x_pos, rmse_vrests[sort_indices], color='lightgreen', alpha=0.7)
     axes[2].set_ylabel(r'rel. RMSE $V_{rest}$ [%]', fontsize=14)
     axes[2].grid(True, alpha=0.3)
+    max_rmse_vrest = np.max(rmse_vrests) if len(rmse_vrests) > 0 else 1
+    axes[2].set_ylim([0, max_rmse_vrest * 1.1])
+    axes[2].set_xticks(x_pos)
     axes[2].set_ylim([0, 10])
     axes[2].grid(False)
     axes[2].tick_params(axis='y', labelsize=12)
 
     # Set x-axis labels with conditional coloring
     axes[2].set_xticks(x_pos)
-    axes[2].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
+    # axes[2].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
 
-    # Color labels red if rmse_vrests > 10 or rmse_taus > 10
+    # Color labels red if rmse_vrests > 10
     for i, (tick, rmse_vrest, rmse_tau) in enumerate(
             zip(axes[2].get_xticklabels(), rmse_vrests[sort_indices], rmse_taus[sort_indices])):
         if rmse_vrest > 10 or rmse_tau > 10:
             tick.set_color('red')
             tick.set_fontsize(10)
+
+    # Only show x-axis labels on the bottom subplot
+    axes[0].set_xticks([])
+    axes[1].set_xticks([])
+
 
     plt.tight_layout()
     plt.savefig(f'./{log_dir}/results/neuron_type_reconstruction.png', dpi=300, bbox_inches='tight')
@@ -3882,6 +3895,20 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
         'rmse_taus': rmse_taus,
         'rmse_vrests': rmse_vrests,
     }
+
+    # Create mapping from neuron type order in data to names
+    unique_types_in_order = []
+    seen_types = set()
+    n_neurons = len(type_list)
+
+    for i in range(n_neurons):
+        neuron_type_id = type_list[i].item() if hasattr(type_list[i], 'item') else int(type_list[i])
+        if neuron_type_id not in seen_types:
+            unique_types_in_order.append(neuron_type_id)
+            seen_types.add(neuron_type_id)
+
+    # Create neuron type names in the same order as they appear in data
+    sorted_neuron_type_names = [index_to_name.get(type_id, f'Type{type_id}') for type_id in unique_types_in_order]
 
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
@@ -6894,10 +6921,10 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
-    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
+    # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8']
 
     for config_file_ in config_list:
         print(' ')
