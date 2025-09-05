@@ -2798,8 +2798,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-            plt.xlabel('true W_ij')
-            plt.ylabel('learned W_ij')
+            plt.xlabel('true $W_{ij}$', fontsize=24)
+            plt.ylabel('learned $W_{ij}$', fontsize=24)
+            plt.xticks(fontsize = 12)
+            plt.yticks(fontsize = 12)
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/comparison_{epoch}.png', dpi=300)
             plt.close()
@@ -2976,12 +2978,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             ss_res = np.sum(residuals_ ** 2)
             ss_tot = np.sum((learned_in - np.mean(learned_in)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-
             plt.text(0.05, 0.95,
                      f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_in)}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
             plt.xlabel('true $W_{ij}$', fontsize=24)
             plt.ylabel('learned $W_{ij}$', fontsize=24)
+            plt.xticks(fontsize = 12)
+            plt.yticks(fontsize = 12)
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/corrected_comparison_{epoch}.png', dpi=300)
             plt.close()
@@ -3783,7 +3786,7 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
                                        n_neuron_types, device, log_dir, dataset_name, index_to_name, logger):
 
 
-    print('Stratified analysis by neuron type...')
+    print('stratified analysis by neuron type...')
 
     rmse_weights = []
     rmse_taus = []
@@ -3827,58 +3830,56 @@ def analyze_neuron_type_reconstruction(config, model, true_weights, gt_taus, gt_
     # Create neuron type names in the same order as they appear in data
     sorted_neuron_type_names = [index_to_name.get(type_id, f'Type{type_id}') for type_id in unique_types_in_order]
 
-    # Create figure with 3 subplots
     fig, axes = plt.subplots(3, 1, figsize=(10, 12))
-    sort_indices = np.argsort(rmse_weights)[::-1]  # Descending order
     sort_indices = np.arange(n_neuron_types)
-
     x_pos = np.arange(len(sort_indices))
-    # Plot weights R²
+
+    # Plot weights RMSE
     axes[0].bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
     axes[0].set_ylabel('rel. RMSE weights [%]', fontsize=14)
     axes[0].grid(True, alpha=0.3)
     axes[0].set_ylim([0, 10])
-
-    axes[0].set_xticks([])
+    axes[0].set_xticks(x_pos)
+    axes[0].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
     axes[0].grid(False)
     axes[0].tick_params(axis='y', labelsize=12)
+
+    # Color labels red if weights RMSE > 10%
+    for i, (tick, rmse_w) in enumerate(zip(axes[0].get_xticklabels(), rmse_weights[sort_indices])):
+        if rmse_w > 10:
+            tick.set_color('red')
+            tick.set_fontsize(8)
 
     axes[1].bar(x_pos, rmse_taus[sort_indices], color='lightcoral', alpha=0.7)
     axes[1].set_ylabel(r'rel. RMSE $\tau$ [%]', fontsize=14)
     axes[1].grid(True, alpha=0.3)
     axes[1].set_ylim([0, 10])
-    max_rmse_tau = np.max(rmse_vrests) if len(rmse_taus) > 0 else 1
-    axes[1].set_xticks([])
+    axes[1].set_xticks(x_pos)
+    axes[1].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
     axes[1].grid(False)
     axes[1].tick_params(axis='y', labelsize=12)
 
-    # Plot V_rest RMSE (lower is better)
-    x_pos = np.arange(len(sort_indices))
+    # Color labels red if tau RMSE > 10%
+    for i, (tick, rmse_tau) in enumerate(zip(axes[1].get_xticklabels(), rmse_taus[sort_indices])):
+        if rmse_tau > 10:
+            tick.set_color('red')
+            tick.set_fontsize(8)
+
+    # Plot V_rest RMSE
     axes[2].bar(x_pos, rmse_vrests[sort_indices], color='lightgreen', alpha=0.7)
     axes[2].set_ylabel(r'rel. RMSE $V_{rest}$ [%]', fontsize=14)
     axes[2].grid(True, alpha=0.3)
-    max_rmse_vrest = np.max(rmse_vrests) if len(rmse_vrests) > 0 else 1
-    axes[2].set_ylim([0, max_rmse_vrest * 1.1])
-    axes[2].set_xticks(x_pos)
     axes[2].set_ylim([0, 10])
+    axes[2].set_xticks(x_pos)
+    axes[2].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
     axes[2].grid(False)
     axes[2].tick_params(axis='y', labelsize=12)
 
-    # Set x-axis labels with conditional coloring
-    axes[2].set_xticks(x_pos)
-    # axes[2].set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=6)
-
-    # Color labels red if rmse_vrests > 10
-    for i, (tick, rmse_vrest, rmse_tau) in enumerate(
-            zip(axes[2].get_xticklabels(), rmse_vrests[sort_indices], rmse_taus[sort_indices])):
-        if rmse_vrest > 10 or rmse_tau > 10:
+    # Color labels red if V_rest RMSE > 10%
+    for i, (tick, rmse_vrest) in enumerate(zip(axes[2].get_xticklabels(), rmse_vrests[sort_indices])):
+        if rmse_vrest > 10:
             tick.set_color('red')
-            tick.set_fontsize(10)
-
-    # Only show x-axis labels on the bottom subplot
-    axes[0].set_xticks([])
-    axes[1].set_xticks([])
-
+            tick.set_fontsize(8)
 
     plt.tight_layout()
     plt.savefig(f'./{log_dir}/results/neuron_type_reconstruction.png', dpi=300, bbox_inches='tight')
