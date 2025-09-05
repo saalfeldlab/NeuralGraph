@@ -6,10 +6,11 @@ import math
 from dataclasses import dataclass
 from typing import Optional, Tuple, List, Dict
 from tqdm import trange
-from itertools import product
+from itertools import product, combinations
 from math import log
 from tqdm import tqdm
 from collections import defaultdict
+
 
 
 # ========== Rebin utilities ==========
@@ -215,7 +216,6 @@ def entropy_from_model(h, J, logbase=2.0):
     # H = -sum p log p
     H_nats = -(p * (np.log(p + 1e-300))).sum()
     return H_nats / log(logbase)
-
 
 def sparse_ising_fit_fast(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.float32, energy_stride=10):
     """
@@ -562,6 +562,8 @@ def triplet_residuals_full(
 
 
 
+
+
 # ========== API: Debiased ==========
 def compute_info_ratio_debiased(
         S: np.ndarray,
@@ -620,3 +622,207 @@ def compute_info_ratio_debiased(
         q3_KL=q3_KL,
         flag_non_monotonic=flag_non_monotonic
     )
+
+
+
+
+
+
+
+# ----------------- helpers -----------------
+
+def _symmetrize_sparse_J(J_sparse, mode="avg"):
+    """
+    Make a symmetric view J_sym (dict-of-dicts) from row-sparse list-of-dicts.
+    mode="avg": J_ij = 0.5*(J_ij + J_ji) when both present; else the one that exists.
+    """
+    N = len(J_sparse)
+    J_sym = [defaultdict(float) for _ in range(N)]
+    for i in range(N):
+        for j, v in J_sparse[i].items():
+            if i == j:
+                continue
+            if mode == "avg" and i < j and i in J_sparse[j]:
+                v = 0.5 * (v + J_sparse[j][i])
+            # write sym
+            J_sym[i][j] = v
+            J_sym[j][i] = v
+    return J_sym
+
+def _edge_present(J_sym, i, j, tau=0.0):
+    """Presence indicator from symmetric weights (by magnitude > tau)."""
+    return (j in J_sym[i]) and (abs(J_sym[i][j]) > tau)
+
+def _triplet_pattern(J_sym, i, j, k, tau=0.0):
+    """Return (m, pat) where m=#edges in {ij,ik,jk}, pat is 3-bit code."""
+    bij = int(_edge_present(J_sym, i, j, tau))
+    bik = int(_edge_present(J_sym, i, k, tau))
+    bjk = int(_edge_present(J_sym, j, k, tau))
+    m = bij + bik + bjk
+    pat = 4*bij + 2*bik + bjk
+    return m, pat, (bij, bik, bjk)
+
+def _neighbors_by_absJ(J_sym, nodes, k_each=3, exclude=None):
+    """
+    Collect top-|J| neighbors around a set of 'nodes'.
+    Returns a ranked list of candidate neighbor indices (no duplicates, excludes 'exclude').
+    """
+    if exclude is None:
+        exclude = set(nodes)
+    else:
+        exclude = set(exclude) | set(nodes)
+    scores = defaultdict(float)
+    for u in nodes:
+        for v, w in J_sym[u].items():
+            if v in exclude:
+                continue
+            scores[v] = max(scores[v], abs(w))  # keep the strongest link seen
+    # sort by descending strength
+    ranked = sorted(scores.keys(), key=lambda v: scores[v], reverse=True)
+    return ranked
+
+def _empirical_triplet_marginal(S_sub_10, idx_triplet_10):
+    """
+    S_sub_10: [T,10] in {-1,+1}; idx_triplet_10: tuple of 3 positions in 0..9
+    Returns p_data(8,) over states ordered lexicographically for (si,sj,sk) in {-1,+1}^3 with -1 < +1.
+    """
+    T = S_sub_10.shape[0]
+    i, j, k = idx_triplet_10
+    # map {-1,+1} -> {0,1}
+    X = ((S_sub_10[:, [i, j, k]] + 1) // 2).astype(np.int8)  # [T,3]
+    keys = X @ np.array([4, 2, 1], dtype=np.int8)            # 3-bit code: 4*si+2*sj+1*sk
+    counts = np.bincount(keys, minlength=8).astype(np.float64)
+    p = counts / counts.sum()
+    return p
+
+def _model_triplet_marginal_from_exact(h10, J10, triplet_idx):
+    """
+    Use exact 10-neuron model to get P(s) over 2^10 states, then marginalize to (i,j,k).
+    """
+    X = enumerate_states_pm1(10)  # [1024,10]  # :contentReference[oaicite:4]{index=4}
+    p, _, _ = model_probs(h10, J10, X)        # :contentReference[oaicite:5]{index=5}
+    i, j, k = triplet_idx
+    # extract 3 bits for each 10-bit state, map {-1,+1}->{0,1} and then to 0..7 keys
+    bits = ((X[:, [i, j, k]] + 1) // 2).astype(np.int8)
+    keys = bits @ np.array([4, 2, 1], dtype=np.int8)
+    p3 = np.zeros(8, dtype=np.float64)
+    np.add.at(p3, keys, p)  # sum probabilities of 10-state that share same 3-state
+    return p3
+
+def _kl(p, q, eps=1e-12, logbase=np.e):
+    """KL(p||q) with safety eps; returns nats if logbase=e, bits if logbase=2."""
+    p = np.clip(p, eps, 1.0); p /= p.sum()
+    q = np.clip(q, eps, 1.0); q /= q.sum()
+    log = np.log if logbase == np.e else (lambda x: np.log(x)/np.log(logbase))
+    return np.sum(p * (log(p) - log(q)))
+
+def _sample_triplets_by_stratum(J_sym, n_per_stratum=1000, tau=0.0, rng=None):
+    """
+    Randomly sample triplets per stratum from J_sym support.
+    Returns dict: {'triangle':[(i,j,k),...], 'wedge':..., 'one_edge':..., 'no_edge':...}
+    """
+    if rng is None:
+        rng = np.random.default_rng(0)
+    N = len(J_sym)
+    buckets = {'triangle': [], 'wedge': [], 'one_edge': [], 'no_edge': []}
+
+    # quick neighbor lists to bias sampling toward places with edges (speeds up triangles/wedges)
+    deg = [len(J_sym[i]) for i in range(N)]
+    candidates = np.argsort(deg)[::-1]  # start from higher-degree nodes
+
+    # try until filled
+    max_trials = 200000
+    trials = 0
+    while any(len(buckets[k]) < n_per_stratum for k in buckets) and trials < max_trials:
+        trials += 1
+        # choose a seed node with probability ~ degree+1 (so no-edge still possible)
+        u = candidates[min(int(rng.exponential(scale=100)), len(candidates)-1)]
+        # pick two others near u (or random)
+        neigh = list(J_sym[u].keys())
+        if len(neigh) >= 2:
+            v, w = rng.choice(neigh, size=2, replace=False)
+        else:
+            v, w = rng.integers(0, N, size=2)
+        i, j, k = sorted({int(u), int(v), int(w)})
+        if len({i,j,k}) < 3:
+            continue
+
+        m, _, _ = _triplet_pattern(J_sym, i, j, k, tau)
+        if   m == 3 and len(buckets['triangle'])  < n_per_stratum: buckets['triangle'].append((i,j,k))
+        elif m == 2 and len(buckets['wedge'])     < n_per_stratum: buckets['wedge'].append((i,j,k))
+        elif m == 1 and len(buckets['one_edge'])  < n_per_stratum: buckets['one_edge'].append((i,j,k))
+        elif m == 0 and len(buckets['no_edge'])   < n_per_stratum: buckets['no_edge'].append((i,j,k))
+    return buckets
+
+# ----------------- main API -----------------
+
+def compute_triplet_KL_exact_from_sparseJ(
+    S_pm1,                 # ndarray [T,N] in {-1,+1}
+    J_sparse,              # list[dict], from sparse_ising_fit_fast  # :contentReference[oaicite:6]{index=6}
+    n_per_stratum=500,
+    neighborhood_size=10,
+    tau_present=0.0,
+    k_neighbors_each=4,
+    rng_seed=0,
+):
+    """
+    For each stratum (triangle/wedge/one_edge/no_edge), sample triplets from the
+    symmetric support of J_sparse. For each triplet, build a 10-neuron neighborhood
+    (triplet + strongest-|J| neighbors), fit an exact 10-neuron Ising, and compute
+    D_KL(P_data^{(3)} || P_model^{(3)}). Returns per-stratum arrays and a summary.
+    """
+    rng = np.random.default_rng(rng_seed)
+    N = S_pm1.shape[1]
+    assert S_pm1.dtype in (np.int8, np.int16, np.int32), "S must be in {-1,+1}"
+
+    # 0) symmetric view of J
+    J_sym = _symmetrize_sparse_J(J_sparse, mode="avg")
+
+    # 1) sample triplets by stratum
+    strata = _sample_triplets_by_stratum(J_sym, n_per_stratum=n_per_stratum, tau=tau_present, rng=rng)
+
+    # 2) loop & compute KL per triplet via local exact 10-neuron fit
+    results = {k: [] for k in strata}
+    for cat, triplets in strata.items():
+        for (i, j, k) in tqdm(triplets, desc=f"Processing {cat}", leave=False):
+            # --- build 10-neuron neighborhood anchored on (i,j,k)
+            neigh_ranked = _neighbors_by_absJ(J_sym, nodes=[i,j,k], k_each=k_neighbors_each, exclude=[i,j,k])
+            take = [i, j, k] + neigh_ranked[:max(0, neighborhood_size-3)]
+            take = take[:neighborhood_size]
+            if len(take) < neighborhood_size:
+                # pad with random non-duplicates if neighborhood too small
+                pool = np.setdiff1d(np.arange(N), np.array(take))
+                add = rng.choice(pool, size=neighborhood_size-len(take), replace=False).tolist()
+                take += add
+            take = np.array(take, dtype=int)
+            # positions of (i,j,k) within the 10
+            triplet_pos = (int(np.where(take==i)[0][0]),
+                           int(np.where(take==j)[0][0]),
+                           int(np.where(take==k)[0][0]))
+
+            # --- slice data and fit exact 10-neuron Ising
+            S10 = S_pm1[:, take]                    # [T,10]
+            h10, J10, _Hpair = entropy_exact_ising(S10, logbase=np.e, verbose=False)  # :contentReference[oaicite:7]{index=7}
+
+            # --- compute empirical & model triplet marginals
+            p_data = _empirical_triplet_marginal(S10, triplet_pos)               # (8,)
+            p_mod  = _model_triplet_marginal_from_exact(h10, J10, triplet_pos)   # (8,)
+
+            # --- KL (nats)
+            dkl = _kl(p_data, p_mod, eps=1e-12, logbase=np.e)
+            results[cat].append(dkl)
+
+    # 3) summarize
+    def _summary(vec):
+        v = np.asarray(vec, dtype=float)
+        if v.size == 0:
+            return dict(n=0, median=np.nan, iqr=[np.nan, np.nan], std=np.nan)
+        q1, q3 = np.percentile(v, [25, 75])
+        return dict(n=v.size, median=float(np.median(v)), iqr=[float(q1), float(q3)], std=float(v.std(ddof=0)))
+
+    summary = {k: _summary(v) for k, v in results.items()}
+    # overall (concatenate all strata)
+    all_vals = np.concatenate([np.asarray(v, dtype=float) for v in results.values()]) if results else np.array([])
+    summary["all"] = _summary(all_vals)
+
+    return results, summary
