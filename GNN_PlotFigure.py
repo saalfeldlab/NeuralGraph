@@ -3780,11 +3780,11 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
 def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, type_list, n_neuron_types,
                                     sorted_neuron_type_names, log_dir):
     """
-    Create a 4-panel vertical figure showing ground truth parameter distributions per neuron type
+    Create a 5-panel vertical figure showing ground truth parameter distributions per neuron type
     with neuron type names as x-axis labels
     """
 
-    fig, axes = plt.subplots(4, 1, figsize=(12, 16))
+    fig, axes = plt.subplots(5, 1, figsize=(12, 20))
 
     # Get type boundaries for labels
     type_boundaries = {}
@@ -3815,15 +3815,9 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
                 sorted_neuron_type_names) else f'Type{neuron_type_id}'
             type_names.append(neuron_type_name)
 
-            # Add vertical line at type boundary
-            # if start_idx > 0:
-            #     ax.axvline(start_idx - 0.5, color='gray', linewidth=1)
             # Add mean line for this type
             type_mean = np.mean(y_values[start_idx:end_idx + 1])
             ax.hlines(type_mean, start_idx, end_idx, colors='red', linewidth=3)
-
-        # ax.set_title(title, fontsize=14)
-        # ax.set_xlabel('neuron type', fontsize=16)
 
         # Set x-ticks to neuron type names
         ax.set_xticks(type_positions)
@@ -3847,27 +3841,41 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
 
     add_type_labels_and_setup_axes(ax1, weight_means_per_neuron, 'distribution of true weights by neuron type')
 
-    # Panel 2: Number of connections per neuron
+    # Panel 2: Standard deviation of true weights per neuron
     ax2 = axes[1]
+    weight_stds_per_neuron = np.zeros(n_neurons)
+    for i in range(n_neurons):
+        incoming_edges = np.where(edges[1, :] == i)[0]
+        if len(incoming_edges) > 1:
+            weight_stds_per_neuron[i] = np.std(true_weights[incoming_edges])
+        elif len(incoming_edges) == 1:
+            weight_stds_per_neuron[i] = 0.0
+
+    ax2.scatter(np.arange(n_neurons), weight_stds_per_neuron, c='white', s=1)
+    ax2.set_ylabel('std true weights', fontsize=16)
+    add_type_labels_and_setup_axes(ax2, weight_stds_per_neuron, 'standard deviation of true weights by neuron type')
+
+    # Panel 3: Number of connections per neuron
+    ax3 = axes[2]
     n_connections_per_neuron = np.zeros(n_neurons)
     for i in range(n_neurons):
         n_connections_per_neuron[i] = np.sum(edges[1, :] == i)
 
-    ax2.scatter(np.arange(n_neurons), n_connections_per_neuron, c='white', s=1)
-    ax2.set_ylabel('number of connections', fontsize=16)
-    add_type_labels_and_setup_axes(ax2, n_connections_per_neuron, 'number of incoming connections by neuron type')
+    ax3.scatter(np.arange(n_neurons), n_connections_per_neuron, c='white', s=1)
+    ax3.set_ylabel('number of connections', fontsize=16)
+    add_type_labels_and_setup_axes(ax3, n_connections_per_neuron, 'number of incoming connections by neuron type')
 
-    # Panel 3: Scatter plot of true tau values per neuron
-    ax3 = axes[2]
-    ax3.scatter(np.arange(n_neurons), gt_taus, c='white', s=1)
-    ax3.set_ylabel(r'true $\tau$ values', fontsize=16)
-    add_type_labels_and_setup_axes(ax3, gt_taus, r'distribution of true $\tau$ by neuron type')
-
-    # Panel 4: Scatter plot of true V_rest values per neuron
+    # Panel 4: Scatter plot of true tau values per neuron
     ax4 = axes[3]
-    ax4.scatter(np.arange(n_neurons), gt_V_Rest, c='white', s=1)
-    ax4.set_ylabel(r'true $v_{rest}$ values', fontsize=16)
-    add_type_labels_and_setup_axes(ax4, gt_V_Rest, r'distribution of true $v_{rest}$ by neuron type')
+    ax4.scatter(np.arange(n_neurons), gt_taus, c='white', s=1)
+    ax4.set_ylabel(r'true $\tau$ values', fontsize=16)
+    add_type_labels_and_setup_axes(ax4, gt_taus, r'distribution of true $\tau$ by neuron type')
+
+    # Panel 5: Scatter plot of true V_rest values per neuron
+    ax5 = axes[4]
+    ax5.scatter(np.arange(n_neurons), gt_V_Rest, c='white', s=1)
+    ax5.set_ylabel(r'true $v_{rest}$ values', fontsize=16)
+    add_type_labels_and_setup_axes(ax5, gt_V_Rest, r'distribution of true $v_{rest}$ by neuron type')
 
     plt.tight_layout()
     plt.savefig(f'{log_dir}/results/ground_truth_distributions.png', dpi=300, bbox_inches='tight')
