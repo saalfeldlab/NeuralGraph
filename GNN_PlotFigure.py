@@ -2119,6 +2119,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
     activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
     activity = activity.squeeze().t()
+    mu_activity = torch.mean(activity, dim=1)
+    sigma_activity = torch.std(activity, dim=1)
     plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc)
 
     print(f'neurons: {n_neurons}')
@@ -2133,7 +2135,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
 
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
-    plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_neuron_types, sorted_neuron_type_names, log_dir)
+    plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
     # Perform Ising model analysis
     # ising_results = analyze_ising_model(x_list, log_dir, logger, mc)
 
@@ -2495,7 +2497,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     plt.plot(to_numpy(rr), to_numpy(func), 2,
                              color=cmap.color(to_numpy(type_list)[n].astype(int)),
                              linewidth=1, alpha=0.05)
-
                 rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
 
@@ -3779,83 +3780,101 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
 def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, type_list, n_neuron_types,
                                     sorted_neuron_type_names, log_dir):
     """
-    Create a 4-panel figure showing ground truth parameter distributions per neuron type
+    Create a 4-panel vertical figure showing ground truth parameter distributions per neuron type
+    with neuron type names as x-axis labels
     """
 
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
-    axes = axes.flatten()
+    fig, axes = plt.subplots(4, 1, figsize=(12, 16))
 
-    # Collect data per neuron type
-    weights_per_type = []
-    taus_per_type = []
-    vrest_per_type = []
-    n_connections = []
+    # Get type boundaries for labels
+    type_boundaries = {}
+    current_type = None
+    n_neurons = len(type_list)
 
-    for neuron_type in range(n_neuron_types):
-        type_indices = np.where(edges[1, :] == neuron_type)[0]
-        gt_w_type = true_weights[type_indices]
-        weights_per_type.append(gt_w_type)
-        n_connections.append(len(type_indices))
+    for i in range(n_neurons):
+        neuron_type_id = int(type_list[i])
+        if neuron_type_id != current_type:
+            if current_type is not None:
+                type_boundaries[current_type] = (type_boundaries[current_type][0], i - 1)
+            type_boundaries[neuron_type_id] = (i, i)
+            current_type = neuron_type_id
 
-        # Get tau and V_rest values for this neuron type
-        neuron_indices = np.where(type_list == neuron_type)[0]
-        tau_type = gt_taus[neuron_indices]
-        vrest_type = gt_V_Rest[neuron_indices]
-        taus_per_type.append(tau_type)
-        vrest_per_type.append(vrest_type)
+    # Close the last type boundary
+    if current_type is not None:
+        type_boundaries[current_type] = (type_boundaries[current_type][0], n_neurons - 1)
 
-    x_pos = np.arange(n_neuron_types)
+    def add_type_labels_and_setup_axes(ax, y_values, title):
+        # Add mean line for each type and collect type positions
+        type_positions = []
+        type_names = []
 
-    # Panel 1: Box plot of true weights per neuron type
+        for neuron_type_id, (start_idx, end_idx) in type_boundaries.items():
+            center_pos = (start_idx + end_idx) / 2
+            type_positions.append(center_pos)
+            neuron_type_name = sorted_neuron_type_names[int(neuron_type_id)] if int(neuron_type_id) < len(
+                sorted_neuron_type_names) else f'Type{neuron_type_id}'
+            type_names.append(neuron_type_name)
+
+            # Add vertical line at type boundary
+            # if start_idx > 0:
+            #     ax.axvline(start_idx - 0.5, color='gray', linewidth=1)
+            # Add mean line for this type
+            type_mean = np.mean(y_values[start_idx:end_idx + 1])
+            ax.hlines(type_mean, start_idx, end_idx, colors='red', linewidth=3)
+
+        # ax.set_title(title, fontsize=14)
+        # ax.set_xlabel('neuron type', fontsize=16)
+
+        # Set x-ticks to neuron type names
+        ax.set_xticks(type_positions)
+        ax.set_xticklabels(type_names, rotation=90, fontsize=8)
+        ax.tick_params(axis='y', labelsize=16)
+
+    # Panel 1: Scatter plot of true weights per connection with neuron index
     ax1 = axes[0]
-    bp1 = ax1.boxplot(weights_per_type, positions=x_pos, patch_artist=True)
-    for patch in bp1['boxes']:
-        patch.set_facecolor('lightblue')
-        patch.set_alpha(0.7)
-    ax1.set_ylabel('true weights', fontsize=14)
-    ax1.set_title('distribution of true weights by neuron type', fontsize=16)
-    ax1.set_xticks(x_pos)
-    ax1.set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=8)
-    ax1.tick_params(axis='y', labelsize=12)
+    connection_targets = edges[1, :]
+    connection_weights = true_weights
 
-    # Panel 2: Number of connections per neuron type
+    ax1.scatter(connection_targets, connection_weights, c='white', s=3)
+    ax1.set_ylabel('true weights', fontsize=16)
+
+    # For weights, compute means per target neuron
+    weight_means_per_neuron = np.zeros(n_neurons)
+    for i in range(n_neurons):
+        incoming_edges = np.where(edges[1, :] == i)[0]
+        if len(incoming_edges) > 0:
+            weight_means_per_neuron[i] = np.mean(true_weights[incoming_edges])
+
+    add_type_labels_and_setup_axes(ax1, weight_means_per_neuron, 'distribution of true weights by neuron type')
+
+    # Panel 2: Number of connections per neuron
     ax2 = axes[1]
-    ax2.bar(x_pos, n_connections, color='lightgreen', alpha=0.7)
-    ax2.set_ylabel('number of connections', fontsize=14)
-    ax2.set_title('number of incoming connections by neuron type', fontsize=16)
-    ax2.set_xticks(x_pos)
-    ax2.set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=8)
-    ax2.tick_params(axis='y', labelsize=12)
+    n_connections_per_neuron = np.zeros(n_neurons)
+    for i in range(n_neurons):
+        n_connections_per_neuron[i] = np.sum(edges[1, :] == i)
 
-    # Panel 3: Box plot of true tau values per neuron type
+    ax2.scatter(np.arange(n_neurons), n_connections_per_neuron, c='white', s=1)
+    ax2.set_ylabel('number of connections', fontsize=16)
+    add_type_labels_and_setup_axes(ax2, n_connections_per_neuron, 'number of incoming connections by neuron type')
+
+    # Panel 3: Scatter plot of true tau values per neuron
     ax3 = axes[2]
-    bp3 = ax3.boxplot(taus_per_type, positions=x_pos, patch_artist=True)
-    for patch in bp3['boxes']:
-        patch.set_facecolor('lightcoral')
-        patch.set_alpha(0.7)
-    ax3.set_ylabel(r'true $\tau$ values', fontsize=14)
-    ax3.set_title(r'distribution of true $\tau$ by neuron type', fontsize=16)
-    ax3.set_xticks(x_pos)
-    ax3.set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=8)
-    ax3.tick_params(axis='y', labelsize=12)
+    ax3.scatter(np.arange(n_neurons), gt_taus, c='white', s=1)
+    ax3.set_ylabel(r'true $\tau$ values', fontsize=16)
+    add_type_labels_and_setup_axes(ax3, gt_taus, r'distribution of true $\tau$ by neuron type')
 
-    # Panel 4: Box plot of true V_rest values per neuron type
+    # Panel 4: Scatter plot of true V_rest values per neuron
     ax4 = axes[3]
-    bp4 = ax4.boxplot(vrest_per_type, positions=x_pos, patch_artist=True)
-    for patch in bp4['boxes']:
-        patch.set_facecolor('lightyellow')
-        patch.set_alpha(0.7)
-    ax4.set_ylabel(r'true $v_{rest}$ values', fontsize=14)
-    ax4.set_title(r'distribution of true $v_{rest}$ by neuron type', fontsize=16)
-    ax4.set_xticks(x_pos)
-    ax4.set_xticklabels(sorted_neuron_type_names, rotation=45, ha='right', fontsize=8)
-    ax4.tick_params(axis='y', labelsize=12)
+    ax4.scatter(np.arange(n_neurons), gt_V_Rest, c='white', s=1)
+    ax4.set_ylabel(r'true $v_{rest}$ values', fontsize=16)
+    add_type_labels_and_setup_axes(ax4, gt_V_Rest, r'distribution of true $v_{rest}$ by neuron type')
 
     plt.tight_layout()
     plt.savefig(f'{log_dir}/results/ground_truth_distributions.png', dpi=300, bbox_inches='tight')
     plt.close()
 
     return fig
+
 
 def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_taus, gt_V_Rest,
                                        learned_weights, learned_tau, learned_V_rest, type_list, n_frames, dimension,
@@ -3925,14 +3944,6 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     ax1.grid(False)
     ax1.tick_params(axis='y', labelsize=12)
 
-    # Panel 1 (weights) - already done, just need to define ax1_right
-    ax1_right = ax1.twinx()
-    scatter_colors = ['red' if rmse > 100 else 'white' for rmse in rmse_weights[sort_indices]]
-    ax1_right.scatter(x_pos, mean_gt_weights[sort_indices], c=scatter_colors, s=5, alpha=0.5, marker='o')
-    # ax1_right.scatter(x_pos, mean_gt_weights[sort_indices]+std_gt_weights[sort_indices], c=scatter_colors, s=5, alpha=0.5, marker='o')
-    # ax1_right.scatter(x_pos, mean_gt_weights[sort_indices]-std_gt_weights[sort_indices], c=scatter_colors, s=5, alpha=0.5, marker='o')
-    # ax1_right.set_ylabel('mean |true weights|', fontsize=14, color='white')
-    # ax1_right.tick_params(axis='y', labelcolor='white', labelsize=12)
     for i, (tick, rmse_w) in enumerate(zip(ax1.get_xticklabels(), rmse_weights[sort_indices])):
         if rmse_w > 100:
             tick.set_color('red')
@@ -3958,14 +3969,6 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
 
     mean_gt_taus = np.array(mean_gt_taus)
 
-    # Create second y-axis for tau scatter plot
-    # ax2_right = ax2.twinx()
-    # scatter_colors_tau = ['red' if rmse > 100 else 'white' for rmse in rmse_taus[sort_indices]]
-    # ax2_right.scatter(x_pos, mean_gt_taus[sort_indices], c=scatter_colors_tau, s=5, alpha=0.5, marker='o')
-    # ax2_right.set_ylabel(r'mean |true $\tau$|', fontsize=14, color='white')
-    # ax2_right.tick_params(axis='y', labelcolor='white', labelsize=12)
-
-    # Color labels red if tau RMSE > 10%
     for i, (tick, rmse_tau) in enumerate(zip(ax2.get_xticklabels(), rmse_taus[sort_indices])):
         if rmse_tau > 100:
             tick.set_color('red')
@@ -3990,15 +3993,6 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         mean_gt_vrests.append(np.mean(np.abs(gt_vrest_type)))
 
     mean_gt_vrests = np.array(mean_gt_vrests)
-
-    # Create second y-axis for V_rest scatter plot
-    # ax3_right = ax3.twinx()
-    # scatter_colors_vrest = ['red' if rmse > 100 else 'white' for rmse in rmse_vrests[sort_indices]]
-    # ax3_right.scatter(x_pos, mean_gt_vrests[sort_indices], c=scatter_colors_vrest, s=5, alpha=0.5, marker='o')
-    # ax3_right.set_ylabel(r'mean |true $V_{rest}$|', fontsize=14, color='white')
-    # ax3_right.tick_params(axis='y', labelcolor='white', labelsize=12)
-
-    # Color labels red if V_rest RMSE > 10%
     for i, (tick, rmse_vrest) in enumerate(zip(ax3.get_xticklabels(), rmse_vrests[sort_indices])):
         if rmse_vrest > 100:
             tick.set_color('red')
