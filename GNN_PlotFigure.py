@@ -7249,15 +7249,15 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # plot no noise at all
     # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
     # data_flyvis_compare(config_list, None)
 
-    # config_list = ['fly_N9_22_13', 'fly_N9_44_6', 'fly_N9_44_8']
-    #
+    config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
+
     for config_file_ in config_list:
         print(' ')
 
