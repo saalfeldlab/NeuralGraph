@@ -1,4 +1,4 @@
-description: 'small MLP, no extra null edges, noise_model_level: 0 training seed: 84'
+description: 'small MLP, no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24'
 dataset: 'fly_N9_18_4_0'
 
 simulation:
@@ -44,7 +44,7 @@ training:
     n_epochs: 10
     n_runs: 1
     device: 'auto'
-    seed: 847
+    seed: 241
 
     recursive_loop: 0
     batch_size: 1
@@ -60,7 +60,7 @@ training:
 
     measurement_noise_level: 0
     noise_model_level: 0
-    coeff_edge_diff: 500
+    coeff_edge_diff: 0
     coeff_update_u_diff: 0
     coeff_update_msg_diff: 0
-    coeff_edge_norm: 1000.0
+    coeff_edge_norm: 0

@@ -3634,8 +3634,8 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.close(fig)
 
 
-def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc):
-
+def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir,
+                                  config_indices, logger, mc):
     from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum
 
     # Calculate mean and std for each neuron
@@ -3648,7 +3648,7 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
                  fmt='o', ecolor='lightgray', alpha=0.6, elinewidth=1, capsize=0,
                  markersize=3, color='red')
 
-    # Group neurons by type and add labels at type boundaries
+    # Group neurons by type and add labels at type boundaries (similar to plot_ground_truth_distributions)
     type_boundaries = {}
     current_type = None
     for i in range(n_neurons):
@@ -3663,26 +3663,26 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
     if current_type is not None:
         type_boundaries[current_type] = (type_boundaries[current_type][0], n_neurons - 1)
 
-    # Add vertical lines and labels for each neuron type
+    # Add vertical lines and x-tick labels for each neuron type
+    tick_positions = []
+    tick_labels = []
+
     for neuron_type_id, (start_idx, end_idx) in type_boundaries.items():
         center_pos = (start_idx + end_idx) / 2
         neuron_type_name = index_to_name.get(neuron_type_id, f'Type{neuron_type_id}')
+
+        tick_positions.append(center_pos)
+        tick_labels.append(neuron_type_name)
 
         # Add vertical line at type boundary
         if start_idx > 0:
             plt.axvline(x=start_idx, color='gray', linestyle='--', alpha=0.3)
 
-        # Add label at center of type group
-        max_activity = torch.max(mu_activity[start_idx:end_idx + 1] + sigma_activity[start_idx:end_idx + 1])
-        plt.text(center_pos, to_numpy(max_activity) + 0.1, neuron_type_name,
-                 rotation=45, ha='center', va='bottom', fontsize=10, alpha=0.8)
-
-    plt.xlabel('neuron index', fontsize=16)
+    # Set x-ticks with neuron type names rotated 90 degrees
+    plt.xticks(tick_positions, tick_labels, rotation=90, fontsize=10)
     plt.ylabel(r'neuron voltage $v_i(t)\quad\mu_i \pm \sigma_i$', fontsize=16)
-    plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
 
-    plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300, bbox_inches='tight')
     plt.close()
@@ -3700,78 +3700,9 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
             type_mask = (to_numpy(type_list).squeeze() == target_type_index)
             neurons_of_type = np.where(type_mask)[0]
             if len(neurons_of_type) > 0:
-                # Select up to 10 neurons of this type
-                n_neurons_to_plot = min(10, len(neurons_of_type))
-                selected_neurons = neurons_of_type[:n_neurons_to_plot]
-
-                plt.figure(figsize=(10, 10))
-                for i, neuron_idx in enumerate(selected_neurons):
-                    plt.plot(to_numpy(activity[neuron_idx, :]), linewidth=1,
-                             label=f'{target_type_name}_{i}' if n_neurons_to_plot <= 5 else None)
-
-                plt.xlabel('time', fontsize=24)
-                plt.ylabel(r'$x_i$', fontsize=24)
-                plt.xlim([0, n_frames // 400])
-                plt.xticks(fontsize=18)
-                plt.yticks(fontsize=18)
-                plt.title(f'x_i samples - {target_type_name} neurons ({n_neurons_to_plot}/{len(neurons_of_type)})',
-                          fontsize=24)
-                if n_neurons_to_plot <= 5:
-                    plt.legend(fontsize=24)
-                plt.ylim([-5, 5])
-                plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/activity_{target_type_name}.png', dpi=300)
-                plt.close()
-
-                N_samples = 1000
-
-                xnt = to_numpy(activity[neuron_idx, :])
-                ynt = None
-                fs = 1 / delta_t
-                window = "hann"
-                nperseg = int(fs * 0.8)
-
-                noverlap = None
-                nfft = None
-                detrend = "constant"
-                return_onesided = True
-                scaling = "spectrum"
-                abs = True
-                return_coefs = True
-
-                num_levels = 10
-                reps = 2
-
-                xnt = xnt[0:N_samples]
-                pxy, freqs, coefs_xnkf = estimate_spectrum(xnt, ynt=ynt, fs=fs, window=window, nperseg=nperseg,
-                                                           noverlap=noverlap, nfft=nfft, detrend=detrend,
-                                                           return_onesided=return_onesided, scaling=scaling,
-                                                           abs=abs, return_coefs=return_coefs)
-
-                coefs_xnkf = coefs_xnkf.compute()
-                pxy = pxy.compute()
-                min_freq = freqs[0]
-                max_freq = freqs[-1]
-                spectrogram = np.abs(coefs_xnkf[0]).T[::-1]
-
-                fig, axs = plt.subplots(2, 1, figsize=(12, 6))
-                cm = plt.get_cmap("coolwarm")
-                xax = np.linspace(0, xnt.shape[0] * delta_t, spectrogram.shape[1])
-                im = axs[0].matshow(spectrogram, extent=[xax[0], xax[-1], min_freq, max_freq],
-                                    cmap=cm, aspect="auto", origin="lower")
-                axs[0].set_xlabel("Time (s)")
-                axs[0].set_ylabel("Frequency (Hz)")
-                xax = np.arange(0, xnt.shape[0]) * delta_t
-                axs[1].plot(xax, xnt, color=mc, linewidth=0.5)
-                axs[1].set_xlabel("Time (s)")
-                axs[1].set_xlim([0, xax[-1]])
-                fig.tight_layout()
-                plt.savefig(f'./{log_dir}/results/spectrogram_{target_type_name}.png', dpi=300)
-                plt.close(fig)
-                logger.info(f'plotted {n_neurons_to_plot} out of {len(neurons_of_type)} {target_type_name} neurons')
+                pass  # Additional plotting code here
             else:
-                print(f'no neurons found for type {target_type_name}')
-                logger.info(f'no neurons found for type {target_type_name}')
+                pass
         else:
             print(f'type {target_type_name} not found in index_to_name dictionary')
             logger.info(f'type {target_type_name} not found in index_to_name dictionary')
@@ -3877,6 +3808,9 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
 
     print('stratified analysis by neuron type...')
 
+    colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
+    colors_65 = colors_65[:65]
+
     rmse_weights = []
     rmse_taus = []
     rmse_vrests = []
@@ -3884,7 +3818,7 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
 
     for neuron_type in range(n_neuron_types):
 
-        type_indices = np.where(edges[1,:] == neuron_type)[0]
+        type_indices = np.where(type_list[edges[1,:]] == neuron_type)[0]
         gt_w_type = true_weights[type_indices]
         learned_w_type = learned_weights[type_indices]
         n_conn = len(type_indices)
@@ -4004,6 +3938,53 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     logger.info(f"Mean weights RMSE: {np.mean(rmse_weights):.3f} ± {np.std(rmse_weights):.3f}")
     logger.info(f"Mean tau RMSE: {np.mean(rmse_taus):.3f} ± {np.std(rmse_taus):.3f}")
     logger.info(f"Mean V_rest RMSE: {np.mean(rmse_vrests):.3f} ± {np.std(rmse_vrests):.3f}")
+
+    worst_indices = np.argsort(rmse_weights)[-10:]  # Get indices of 5 highest RMSE values
+    worst_types_info = []
+    for i, idx in enumerate(worst_indices):
+        type_name = index_to_name.get(idx, f'Type{idx}')
+        rmse_value = rmse_weights[idx]
+        worst_types_info.append({
+            'rank': i + 1,
+            'type_index': idx,
+            'type_name': type_name,
+            'rmse_weights': rmse_value
+        })
+    # Create learned vs true weights scatter plot highlighting worst neuron types
+    plt.figure(figsize=(12, 10))
+
+    all_learned_weights = learned_weights.flatten()
+    all_true_weights = true_weights.flatten()
+    plt.scatter(all_true_weights, all_learned_weights, c='lightgray', alpha=0.3, s=1, label='All connections')
+
+    # Plot connections for each worst neuron type
+    for i, worst_type_info in enumerate(worst_types_info):
+        type_idx = worst_type_info['type_index']
+        type_name = worst_type_info['type_name']
+
+        type_indices = np.where(type_list == type_idx)[0]
+        type_learned = learned_weights[type_indices]
+        type_true = true_weights[type_indices]
+
+        if len(type_learned) > 0:
+            plt.scatter(type_true, type_learned, c=colors_65[i], alpha=0.8, s=3, label=f'{type_name} ({type_idx})', edgecolors='None')
+    #
+    # # Add perfect correlation line
+    # min_val = min(np.min(all_true_weights), np.min(all_learned_weights))
+    # max_val = max(np.max(all_true_weights), np.max(all_learned_weights))
+    # plt.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.8, linewidth=2, label='Perfect correlation')
+    #
+    plt.xlabel('true weights', fontsize=16)
+    plt.ylabel('learned weights', fontsize=16)
+    # plt.title('Learned vs True Weights for Worst Reconstructed Neuron Types', fontsize=14)
+    plt.legend(fontsize=12, markerscale=3)
+    plt.xlim([-2,5])
+    plt.ylim([-2,5])
+    # plt.axis('equal')
+    plt.tight_layout()
+    plt.savefig(f'./{log_dir}/results/weights_correlation_worst_types.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
 
     return {
         'rmse_weights': rmse_weights,
