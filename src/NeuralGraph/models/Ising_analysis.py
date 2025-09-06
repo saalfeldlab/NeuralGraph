@@ -526,8 +526,6 @@ def sparse_ising_fit_fast(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.
     return s, h, J, E
 
 
-
-# ========== Info ratio data class ==========
 @dataclass
 class InfoRatioResult:
     H_true: float
@@ -537,6 +535,9 @@ class InfoRatioResult:
     I2: float
     ratio: float
     count_non_monotonic: float
+    observed_rates: np.ndarray
+    predicted_rates_pairwise: np.ndarray  # P2 model (Ising)
+    predicted_rates_independent: np.ndarray  # P1 model
 
 # ========== Triplet KL Residuals ==========
 
@@ -753,10 +754,6 @@ def triplet_residuals_full(
     return out
 
 
-
-
-
-# ========== API: Debiased ==========
 def compute_info_ratio_estimator(
         S: np.ndarray,
         logbase: float = 2.0,
@@ -765,6 +762,21 @@ def compute_info_ratio_estimator(
         enforce_monotone: bool = False,
         ratio_eps: float = 1e-6,
 ) -> InfoRatioResult:
+    """
+    Compute information ratio and pattern rates for both pairwise and independent models.
+
+    Parameters
+    ----------
+    S : np.ndarray, shape (T, N)
+        Binary activity patterns in {-1, +1}
+
+    Returns
+    -------
+    InfoRatioResult with pattern rates:
+        - observed_rates: empirical probability of each 2^N pattern
+        - predicted_rates_pairwise: Ising model (P2) probability of each pattern
+        - predicted_rates_independent: Independent model (P1) probability of each pattern
+    """
     H_true = entropy_true_pseudocount(S, logbase, alpha_joint)
     H_ind = entropy_indep_bernoulli_jeffreys(S, logbase, alpha_marg)
 
@@ -783,6 +795,53 @@ def compute_info_ratio_estimator(
     I2 = H_ind - H_pair
     ratio = I2 / I_N if I_N > ratio_eps else float('nan')
 
+    # Pattern rate computation (always done)
+    T, N = S.shape
+
+    # Convert {-1,+1} to {0,1} for pattern indexing
+    S_binary = (S + 1) // 2  # shape (T, N)
+
+    # Compute pattern indices (each pattern -> integer 0 to 2^N-1)
+    powers = 2 ** np.arange(N)  # [1, 2, 4, 8, ...]
+    pattern_indices = S_binary @ powers  # shape (T,)
+
+    # Count empirical pattern occurrences
+    pattern_counts = np.bincount(pattern_indices, minlength=2 ** N)
+    observed_rates = pattern_counts.astype(float) / T
+
+    # Compute individual neuron firing probabilities for independent model
+    p_i = np.mean(S_binary, axis=0)  # shape (N,)
+
+    # Compute model predictions for all 2^N patterns
+    predicted_rates_pairwise = np.zeros(2 ** N)
+    predicted_rates_independent = np.zeros(2 ** N)
+
+    # Generate all possible binary patterns
+    for pattern_idx in range(2 ** N):
+        # Convert pattern index back to binary array
+        binary_pattern = np.array([(pattern_idx >> i) & 1 for i in range(N)])
+
+        # PAIRWISE MODEL (P2): Ising model
+        sigma = 2 * binary_pattern - 1  # Convert to {-1, +1}
+        field_energy = -np.sum(h * sigma)
+        coupling_energy = -0.5 * np.sum(J * np.outer(sigma, sigma))
+        energy = field_energy + coupling_energy
+        predicted_rates_pairwise[pattern_idx] = np.exp(-energy)
+
+        # INDEPENDENT MODEL (P1): Product of individual probabilities
+        prob_independent = 1.0
+        for i in range(N):
+            if binary_pattern[i] == 1:
+                prob_independent *= p_i[i]
+            else:
+                prob_independent *= (1.0 - p_i[i])
+        predicted_rates_independent[pattern_idx] = prob_independent
+
+    # Normalize pairwise model to get probabilities
+    Z_pairwise = np.sum(predicted_rates_pairwise)
+    predicted_rates_pairwise = predicted_rates_pairwise / Z_pairwise
+
+    # Independent model already normalized (probabilities sum to 1)
 
     return InfoRatioResult(
         H_true=H_true,
@@ -791,7 +850,10 @@ def compute_info_ratio_estimator(
         I_N=I_N,
         I2=I2,
         ratio=ratio,
-        count_non_monotonic=count_non_monotonic
+        count_non_monotonic=count_non_monotonic,
+        observed_rates=observed_rates,
+        predicted_rates_pairwise=predicted_rates_pairwise,
+        predicted_rates_independent=predicted_rates_independent
     )
 
 
