@@ -75,35 +75,6 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             device=self.device,
         )
 
-        if model_config.init_update_gradient:
-            # Initialize first layer to encode desired gradient directions
-            first_layer = self.lin_phi.layers[0]  # Maps input_size_update to hidden_dim_update
-            with torch.no_grad():
-                # Initialize with small random weights
-                nn.init.normal_(first_layer.weight, mean=0, std=0.02)
-                nn.init.zeros_(first_layer.bias)
-
-                # Set specific weights to approximate desired gradients
-                desired_gradients = torch.tensor([-1.0, 0.0, 0.0, 1.0, 1.0], device=self.device)
-
-                # Spread each input's desired gradient across multiple hidden units
-                units_per_input = self.hidden_dim_update // self.input_size_update
-                for i in range(self.input_size_update):  # For each input feature
-                    start_idx = i * units_per_input
-                    end_idx = min((i + 1) * units_per_input, self.hidden_dim_update)
-                    first_layer.weight.data[start_idx:end_idx, i] = desired_gradients[i] * 0.1
-
-            # Initialize middle hidden layers with small weights
-            for layer_idx in range(1, self.n_layers_update - 1):
-                layer = self.lin_phi.layers[layer_idx]
-                nn.init.normal_(layer.weight, mean=0, std=0.01)
-                nn.init.zeros_(layer.bias)
-
-            # Initialize final layer with small uniform weights
-            final_layer = self.lin_phi.layers[-1]  # Maps hidden_dim_update to output_size
-            nn.init.normal_(final_layer.weight, mean=0, std=0.01)
-            nn.init.zeros_(final_layer.bias)
-
         # embedding
         self.a = nn.Parameter(
             torch.tensor(
@@ -150,12 +121,8 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             edge_index, v=v, embedding=embedding, data_id=self.data_id[:, None]
         )
 
-        if 'PDE_N9_C' in self.model:
-            in_features = torch.cat([v, embedding, excitation], dim=1)
-            pred = self.lin_phi(in_features) + msg
-        else:
-            in_features = torch.cat([v, embedding, msg, excitation], dim=1)
-            pred = self.lin_phi(in_features)
+        in_features = torch.cat([v, embedding, msg, excitation], dim=1)
+        pred = self.lin_phi(in_features)
         
         if return_all:
             return pred, in_features, msg

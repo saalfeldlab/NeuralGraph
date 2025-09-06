@@ -10,7 +10,7 @@ from collections import defaultdict
 import os
 from matplotlib import pyplot as plt
 
-def analyze_ising_model(x_list, log_dir, logger, mc):
+def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     """
     Perform comprehensive Ising model analysis including energy distribution,
     coupling analysis, information ratio estimation, and triplet KL analysis.
@@ -122,6 +122,7 @@ def analyze_ising_model(x_list, log_dir, logger, mc):
             logbase=2.0,
             alpha_joint=1e-3,
             alpha_marg=0.5,
+            delta_t = delta_t,
             enforce_monotone=True
         )
         results.append(point)
@@ -132,6 +133,83 @@ def analyze_ising_model(x_list, log_dir, logger, mc):
     ratios = np.array([r.ratio for r in results])
     non_monotonic = np.array([r.count_non_monotonic for r in results])
 
+
+    # Plot like Schneidman Figure 2a
+    # Collect all patterns from all subsets
+    all_observed = []
+    all_predicted_pairwise = []
+    all_predicted_independent = []
+
+    for r in results:
+        all_observed.extend(r.observed_rates)
+        all_predicted_pairwise.extend(r.predicted_rates_pairwise)
+        all_predicted_independent.extend(r.predicted_rates_independent)
+
+
+
+    # Create 2x3 subplot layout (removed panel d, added independent model to panel c)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
+
+    # Panel A: Pattern rates scatter plot (like Figure 2a)
+    ax1.loglog(all_observed, all_predicted_pairwise, 'ro', alpha=0.1, markersize=0.5,
+               label='pairwise model')
+    ax1.loglog(all_observed, all_predicted_independent, 'go', alpha=0.1, markersize=0.5,
+               label='independent model')
+    ax1.plot([1e-4, 1e1], [1e-4, 1e1], 'w-', linewidth=2)
+    ax1.set_xlim(1e-4, 1e1)
+    ax1.set_ylim(1e-4, 1e1)
+    ax1.set_xlabel('observed rate', fontsize=18)
+    ax1.set_ylabel('predicted rate', fontsize=18)
+    ax1.legend(fontsize=16)
+    ax1.grid(True, alpha=0.3)
+    ax1.tick_params(axis='both', which='major', labelsize=14)
+    # ax1.text(0.05, 0.95, f'N={len(results)} groups\n2^10=1024 patterns',
+    #          transform=ax1.transAxes, fontsize=12, verticalalignment='top')
+
+    # Panel B: Jensen-Shannon divergences histogram with log scale (like Figure 2b)
+    js_pairwise = []
+    js_independent = []
+
+    for r in results:
+        obs = r.observed_rates + 1e-12  # avoid log(0)
+        pred_pair = r.predicted_rates_pairwise + 1e-12
+        pred_indep = r.predicted_rates_independent + 1e-12
+
+        # Jensen-Shannon divergence: JS(P,Q) = 0.5*[KL(P,M) + KL(Q,M)] where M=(P+Q)/2
+        def js_divergence(p, q):
+            m = 0.5 * (p + q)
+            return 0.5 * (np.sum(p * np.log(p / m)) + np.sum(q * np.log(q / m)))
+
+        js_pairwise.append(js_divergence(obs, pred_pair))
+        js_independent.append(js_divergence(obs, pred_indep))
+
+    ax2.hist(js_independent, bins=50, alpha=0.7, color='gray', label='independent model', density=True)
+    ax2.hist(js_pairwise, bins=50, alpha=0.7, color='red', label='pairwise model', density=True)
+    ax2.set_xlabel('jensen-shannon divergence', fontsize=18)
+    ax2.set_ylabel('probability density', fontsize=18)
+    ax2.set_xscale('log')
+    ax2.legend(fontsize=16)
+    ax2.set_xlim(1e-2, 2e1)
+    ax2.tick_params(axis='both', which='major', labelsize=14)
+
+    # Panel C: I2/IN vs IN scatter with both models (like Figure 2c)
+    # For pairwise model
+    ax3.scatter(INs, ratios, c='red', alpha=0.6, s=20, edgecolors='none', label='pairwise model')
+    ax3.set_xlabel(r'multi-information $I_N$ (bits)', fontsize=18)
+    ax3.set_ylabel(r'$I^{(2)}/I_N$', fontsize=18)
+    ax3.set_ylim(0, 1.1)
+    ax3.grid(True, alpha=0.3)
+    ax3.axhline(y=0.9, color='black', linestyle='--', alpha=0.5)
+    ax3.tick_params(axis='both', which='major', labelsize=16)
+    ax3.set_xlim(0, 150)
+    ax3.set_ylim(0, 1.1)
+    # Remove panel D - hide the 4th subplot
+    ax4.set_visible(False)
+
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/Ising_rates.png", dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
     results_dict = {
         'I_N': INs,
         'I2': I2s,
@@ -140,8 +218,6 @@ def analyze_ising_model(x_list, log_dir, logger, mc):
         'H_true': np.array([r.H_true for r in results]),
         'H_indep': np.array([r.H_indep for r in results]),
         'H_pair': np.array([r.H_pair for r in results]),
-        'mean_match': np.array([r.mean_match for r in results]),
-        'corr_match': np.array([r.corr_match for r in results]),
     }
 
     np.savez_compressed(f"{log_dir}/results/info_ratio_results.npz", **results_dict)
@@ -185,28 +261,29 @@ def analyze_ising_model(x_list, log_dir, logger, mc):
 
     np.save(f"{log_dir}/results/triplet_KL_full.npy", kl_results)
 
-    # Exact triplet KL analysis
-    triplet_results, summary = compute_triplet_KL_exact_from_sparseJ(
-        S_pm1=s,
-        J_sparse=J,
-        n_per_stratum=1000,
-        neighborhood_size=10,
-        tau_present=0.0,
-        k_neighbors_each=4,
-        rng_seed=0
-    )
+    if False:
+        # Exact triplet KL analysis
+        triplet_results, summary = compute_triplet_KL_exact_from_sparseJ(
+            S_pm1=s,
+            J_sparse=J,
+            n_per_stratum=1000,
+            neighborhood_size=10,
+            tau_present=0.0,
+            k_neighbors_each=4,
+            rng_seed=0
+        )
 
-    print("Triplet KL (nats) summaries:")
-    for k in ["triangle", "wedge", "one_edge", "no_edge", "all"]:
-        print(k, summary[k])
-        logger.info(f"Triplet KL exact [{k}]: {summary[k]}")
+        print("Triplet KL (nats) summaries:")
+        for k in ["triangle", "wedge", "one_edge", "no_edge", "all"]:
+            print(k, summary[k])
+            logger.info(f"Triplet KL exact [{k}]: {summary[k]}")
 
     return {
         'energy_stats': {'mean': E_mean, 'std': E_std, 'entropy': E_entropy},
         'coupling_stats': {'mean': J_mean, 'std': J_std, 'sign_ratio': J_sign_ratio, 'frac_strong': J_frac_strong},
         'info_ratio_results': results_dict,
         'triplet_kl_results': kl_results,
-        'triplet_kl_exact': {'results': triplet_results, 'summary': summary},
+        # 'triplet_kl_exact': {'results': triplet_results, 'summary': summary},
         'ising_params': {'s': s, 'h': h, 'J': J, 'E': E}
     }
 
@@ -761,6 +838,7 @@ def compute_info_ratio_estimator(
         alpha_marg: float = 0.5,
         enforce_monotone: bool = False,
         ratio_eps: float = 1e-6,
+        delta_t: float = 0.02,
 ) -> InfoRatioResult:
     """
     Compute information ratio and pattern rates for both pairwise and independent models.
@@ -847,13 +925,13 @@ def compute_info_ratio_estimator(
         H_true=H_true,
         H_indep=H_ind,
         H_pair=H_pair,
-        I_N=I_N,
-        I2=I2,
+        I_N=I_N / delta_t,
+        I2=I2 / delta_t,
         ratio=ratio,
         count_non_monotonic=count_non_monotonic,
-        observed_rates=observed_rates,
-        predicted_rates_pairwise=predicted_rates_pairwise,
-        predicted_rates_independent=predicted_rates_independent
+        observed_rates=observed_rates / delta_t,  # NOW in s^-1
+        predicted_rates_pairwise=predicted_rates_pairwise / delta_t,  # NOW in s^-1
+        predicted_rates_independent=predicted_rates_independent / delta_t
     )
 
 
