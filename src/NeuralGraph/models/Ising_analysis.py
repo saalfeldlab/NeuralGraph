@@ -145,8 +145,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
         all_predicted_pairwise.extend(r.predicted_rates_pairwise)
         all_predicted_independent.extend(r.predicted_rates_independent)
 
-
-
     # Create 2x3 subplot layout (removed panel d, added independent model to panel c)
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
 
@@ -160,7 +158,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     ax1.set_ylim(1e-4, 1e1)
     ax1.set_xlabel('observed rate', fontsize=18)
     ax1.set_ylabel('predicted rate', fontsize=18)
-    ax1.legend(fontsize=16)
+    # ax1.legend(fontsize=16)
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(axis='both', which='major', labelsize=14)
     # ax1.text(0.05, 0.95, f'N={len(results)} groups\n2^10=1024 patterns',
@@ -183,7 +181,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
         js_pairwise.append(js_divergence(obs, pred_pair))
         js_independent.append(js_divergence(obs, pred_indep))
 
-    ax2.hist(js_independent, bins=50, alpha=0.7, color='gray', label='independent model', density=True)
+    ax2.hist(js_independent, bins=50, alpha=0.7, color='green', label='independent model', density=True)
     ax2.hist(js_pairwise, bins=50, alpha=0.7, color='red', label='pairwise model', density=True)
     ax2.set_xlabel('jensen-shannon divergence', fontsize=18)
     ax2.set_ylabel('probability density', fontsize=18)
@@ -218,6 +216,9 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
         'H_true': np.array([r.H_true for r in results]),
         'H_indep': np.array([r.H_indep for r in results]),
         'H_pair': np.array([r.H_pair for r in results]),
+        'predicted_rates_pairwise': np.array([r.predicted_rates_pairwise for r in results]),
+        'predicted_rates_independent': np.array([r.predicted_rates_independent for r in results]),
+        'observed_rates': np.array([r.observed_rates for r in results])
     }
 
     np.savez_compressed(f"{log_dir}/results/info_ratio_results.npz", **results_dict)
