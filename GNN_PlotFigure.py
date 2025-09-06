@@ -3118,15 +3118,6 @@ def data_flyvis_compare(config_list, varied_parameter):
             else:
                 TKL_med = TKL_q1 = TKL_q3 = None
 
-            # Video file sizes
-            video_dir = f'./graphs_data/fly/{config.dataset}'
-            config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'no_id'
-            ffv1_path = os.path.join(video_dir, f'input_{config_indices}_ffv1.mkv')
-            libx264_path = os.path.join(video_dir, f'input_{config_indices}_libx264.mkv')
-
-            ffv1_size_mb = os.path.getsize(ffv1_path) / (1024 * 1024) if os.path.exists(ffv1_path) else None
-            libx264_size_mb = os.path.getsize(libx264_path) / (1024 * 1024) if os.path.exists(libx264_path) else None
-            compression_ratio = (ffv1_size_mb / libx264_size_mb) if (ffv1_size_mb and libx264_size_mb and libx264_size_mb > 0) else None
 
             # Collect
             results.append({
@@ -3137,9 +3128,6 @@ def data_flyvis_compare(config_list, varied_parameter):
                 'vrest_r2': vrest_r2,
                 'best_clustering_acc': best_clustering_acc,
                 'best_eps': best_eps,
-                'ffv1_size_mb': ffv1_size_mb,
-                'libx264_size_mb': libx264_size_mb,
-                'compression_ratio': compression_ratio,
                 # Schneidman/Ising metrics from logs
                 'IN_med': IN_med, 'IN_q1': IN_q1, 'IN_q3': IN_q3,
                 'I2_med': I2_med, 'I2_q1': I2_q1, 'I2_q3': I2_q3,
@@ -3372,6 +3360,203 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.savefig(loss_plot_filename, dpi=300, bbox_inches='tight')
     print(f"loss curves plot saved as: {loss_plot_filename}")
     plt.close()
+
+
+
+
+
+    # Read all corrected_W.pt files
+    all_corrected_weights = []
+    all_tau = []
+    all_V_rest = []
+
+    for config_file_ in config_list:
+        config_file, pre_folder = add_pre_folder(config_file_)
+        log_dir = f'./log/{config_file}'
+
+        corrected_W = torch.load(os.path.join(log_dir, 'results', 'corrected_W.pt'), map_location='cpu')
+        corrected_weights = to_numpy(corrected_W.squeeze())
+        all_corrected_weights.append(corrected_weights)
+
+        tau = torch.load(os.path.join(log_dir, 'results', 'tau.pt'), map_location='cpu')
+        all_tau.append(to_numpy(tau.squeeze()))
+        V_rest = torch.load(os.path.join(log_dir, 'results', 'V_rest.pt'), map_location='cpu')
+        all_V_rest.append(to_numpy(V_rest.squeeze()))
+
+
+    config_file, pre_folder = add_pre_folder(config_list[0])
+    config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    dataset_name = config.dataset
+
+    gt_weights = torch.load(f'./graphs_data/fly/{dataset_name}/weights.pt', map_location='cpu')
+    true_weights = to_numpy(gt_weights)
+    gt_taus = torch.load(f'./graphs_data/fly/{dataset_name}/taus.pt', map_location='cpu')
+    true_taus = to_numpy(gt_taus)
+    gt_V_rest = torch.load(f'./graphs_data/fly/{dataset_name}/V_i_rest.pt', map_location='cpu')
+    true_V_rest = to_numpy(gt_V_rest)
+
+    corrected_weights_stack = np.stack(all_corrected_weights, axis=0)
+    tau_stack = np.stack(all_tau, axis=0)
+    V_rest_stack = np.stack(all_V_rest, axis=0)
+
+    median_weights = np.median(corrected_weights_stack, axis=0)
+    mean_weights = np.mean(corrected_weights_stack, axis=0)
+
+    median_tau = np.median(tau_stack, axis=0)
+    mean_tau = np.mean(tau_stack, axis=0)
+    median_V_rest = np.median(V_rest_stack, axis=0)
+    mean_V_rest = np.mean(V_rest_stack, axis=0)
+
+    all_corrected_flat = corrected_weights_stack.flatten()
+    all_true_flat = np.tile(true_weights, len(all_corrected_weights))
+    all_tau_flat = tau_stack.flatten()
+    all_true_tau_flat = np.tile(true_taus, len(all_tau))
+    all_V_rest_flat = V_rest_stack.flatten()
+    all_true_V_rest_flat = np.tile(true_V_rest, len(all_V_rest))
+
+    # Verify consistent experiment counts
+    assert len(all_corrected_weights) == len(all_tau) == len(all_V_rest), \
+        f"inconsistent experiment counts: weights={len(all_corrected_weights)}, tau={len(all_tau)}, V_rest={len(all_V_rest)}"
+    n_experiments = len(all_corrected_weights)
+    weights_shape = corrected_weights_stack.shape
+    tau_shape = tau_stack.shape
+    vrest_shape = V_rest_stack.shape
+
+    assert weights_shape[0] == tau_shape[0] == vrest_shape[0] == n_experiments, \
+        f"inconsistent batch dimensions: weights={weights_shape[0]}, tau={tau_shape[0]}, V_rest={vrest_shape[0]}"
+    print(f"✓ Successfully loaded {n_experiments} experiments")
+
+    print(f"✓ Weights shape: {weights_shape}")
+    print(f"✓ Tau shape: {tau_shape}")
+    print(f"✓ V_rest shape: {vrest_shape}")
+
+    # Create six-panel plot (2x3: rows for weights/tau/V_rest, columns for all/median)
+    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12, 18))
+
+    def linear_model(x, a, b):
+        return a * x + b
+
+    ax1.scatter(all_true_flat, all_corrected_flat, c='lightblue', s=0.5, alpha=0.3)
+
+    lin_fit, _ = curve_fit(linear_model, all_true_flat, all_corrected_flat)
+    residuals = all_corrected_flat - linear_model(all_true_flat, *lin_fit)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((all_corrected_flat - np.mean(all_corrected_flat)) ** 2)
+    r_squared_all_weights = 1 - (ss_res / ss_tot)
+    ax1.text(0.05, 0.95, f'R²: {r_squared_all_weights:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(all_true_flat)}',
+             transform=ax1.transAxes, verticalalignment='top', fontsize=12, color='white')
+    x_line = np.linspace(all_true_flat.min(), all_true_flat.max(), 100)
+    y_line = linear_model(x_line, *lin_fit)
+    ax1.plot(x_line, y_line, 'r-', linewidth=2)
+    print(f"all weights R²: {r_squared_all_weights:.4f}, slope: {lin_fit[0]:.4f}")
+    ax1.set_xlabel('true $W_{ij}$', fontsize=14, color='white')
+    ax1.set_ylabel('learned $W_{ij}$ (all)', fontsize=14, color='white')
+    ax1.set_xlim([-2, 4.5])
+    ax1.set_ylim([-2, 4.5])
+    ax1.grid(False)
+    ax1.tick_params(colors='white')
+
+    ax2.scatter(true_weights, median_weights, c='lightgreen', s=1, alpha=0.7)
+    lin_fit_w, _ = curve_fit(linear_model, true_weights, median_weights)
+    residuals = median_weights - linear_model(true_weights, *lin_fit_w)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((median_weights - np.mean(median_weights)) ** 2)
+    r2_median_weights = 1 - (ss_res / ss_tot)
+    ax2.text(0.05, 0.95, f'R²: {r2_median_weights:.3f}\nslope: {lin_fit_w[0]:.2f}\nN: {len(true_weights)}',
+             transform=ax2.transAxes, verticalalignment='top', fontsize=12, color='white')
+    x_line = np.linspace(true_weights.min(), true_weights.max(), 100)
+    y_line = linear_model(x_line, *lin_fit_w)
+    ax2.plot(x_line, y_line, 'r-', linewidth=2)
+    print(f"median weights R²: {r2_median_weights:.4f}, slope: {lin_fit_w[0]:.4f}")
+    ax2.set_xlabel('true $W_{ij}$', fontsize=14, color='white')
+    ax2.set_ylabel('median $W_{ij}$', fontsize=14, color='white')
+    ax2.set_xlim([-2, 4.5])
+    ax2.set_ylim([-2, 4.5])
+    ax2.grid(False)
+    ax2.tick_params(colors='white')
+
+    ax3.scatter(all_true_tau_flat, all_tau_flat, c='orange', s=0.5, alpha=0.3)
+    lin_fit, _ = curve_fit(linear_model, all_true_tau_flat, all_tau_flat)
+    residuals = all_tau_flat - linear_model(all_true_tau_flat, *lin_fit)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((all_tau_flat - np.mean(all_tau_flat)) ** 2)
+    r_squared_all_tau = 1 - (ss_res / ss_tot)
+    ax3.text(0.05, 0.95, f'R²: {r_squared_all_tau:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(all_true_tau_flat)}',
+             transform=ax3.transAxes, verticalalignment='top', fontsize=12, color='white')
+    x_line = np.linspace(all_true_tau_flat.min(), all_true_tau_flat.max(), 100)
+    y_line = linear_model(x_line, *lin_fit)
+    ax3.plot(x_line, y_line, 'r-', linewidth=2)
+    print(f"all tau R²: {r_squared_all_tau:.4f}, slope: {lin_fit[0]:.4f}")
+    ax3.set_xlabel(r'true $\tau$', fontsize=14, color='white')
+    ax3.set_ylabel(r'learned $\tau$ (all)', fontsize=14, color='white')
+    ax3.set_xlim([0, 0.35])
+    ax3.set_ylim([0, 0.35])
+    ax3.grid(False)
+    ax3.tick_params(colors='white')
+
+    min_len_tau = min(len(true_taus), len(median_tau))
+    ax4.scatter(true_taus[:min_len_tau], median_tau[:min_len_tau], c='yellow', s=1, alpha=0.7)
+    lin_fit_t, _ = curve_fit(linear_model, true_taus[:min_len_tau], median_tau[:min_len_tau])
+    residuals = median_tau[:min_len_tau] - linear_model(true_taus[:min_len_tau], *lin_fit_t)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((median_tau[:min_len_tau] - np.mean(median_tau[:min_len_tau])) ** 2)
+    r2_median_tau = 1 - (ss_res / ss_tot)
+    ax4.text(0.05, 0.95, f'R²: {r2_median_tau:.3f}\nslope: {lin_fit_t[0]:.2f}\nN: {min_len_tau}',
+             transform=ax4.transAxes, verticalalignment='top', fontsize=12, color='white')
+    x_line = np.linspace(true_taus[:min_len_tau].min(), true_taus[:min_len_tau].max(), 100)
+    y_line = linear_model(x_line, *lin_fit_t)
+    ax4.plot(x_line, y_line, 'r-', linewidth=2)
+    print(f"median tau R²: {r2_median_tau:.4f}, slope: {lin_fit_t[0]:.4f}")
+    ax4.set_xlabel(r'true $\tau$', fontsize=14, color='white')
+    ax4.set_ylabel(r'median $\tau$', fontsize=14, color='white')
+    ax4.set_xlim([0, 0.35])
+    ax4.set_ylim([0, 0.35])
+    ax4.grid(False)
+    ax4.tick_params(colors='white')
+
+    ax5.scatter(all_true_V_rest_flat, all_V_rest_flat, c='lightcoral', s=0.5, alpha=0.3)
+    lin_fit, _ = curve_fit(linear_model, all_true_V_rest_flat, all_V_rest_flat)
+    residuals = all_V_rest_flat - linear_model(all_true_V_rest_flat, *lin_fit)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((all_V_rest_flat - np.mean(all_V_rest_flat)) ** 2)
+    r_squared_all_vrest = 1 - (ss_res / ss_tot)
+    ax5.text(0.05, 0.95, f'R²: {r_squared_all_vrest:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(all_true_V_rest_flat)}',
+             transform=ax5.transAxes, verticalalignment='top', fontsize=12, color='white')
+    x_line = np.linspace(all_true_V_rest_flat.min(), all_true_V_rest_flat.max(), 100)
+    y_line = linear_model(x_line, *lin_fit)
+    ax5.plot(x_line, y_line, 'r-', linewidth=2)
+    print(f"all V_rest R²: {r_squared_all_vrest:.4f}, slope: {lin_fit[0]:.4f}")
+    ax5.set_xlabel('true $V_{rest}$', fontsize=14, color='white')
+    ax5.set_ylabel('learned $V_{rest}$ (all)', fontsize=14, color='white')
+    ax5.grid(False)
+    ax5.tick_params(colors='white')
+
+    min_len_vrest = min(len(true_V_rest), len(median_V_rest))
+    ax6.scatter(true_V_rest[:min_len_vrest], median_V_rest[:min_len_vrest], c='pink', s=1, alpha=0.7)
+    lin_fit_v, _ = curve_fit(linear_model, true_V_rest[:min_len_vrest], median_V_rest[:min_len_vrest])
+    residuals = median_V_rest[:min_len_vrest] - linear_model(true_V_rest[:min_len_vrest], *lin_fit_v)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((median_V_rest[:min_len_vrest] - np.mean(median_V_rest[:min_len_vrest])) ** 2)
+    r2_median_V_rest = 1 - (ss_res / ss_tot)
+    ax6.text(0.05, 0.95, f'R²: {r2_median_V_rest:.3f}\nslope: {lin_fit_v[0]:.2f}\nN: {min_len_vrest}',
+             transform=ax6.transAxes, verticalalignment='top', fontsize=12, color='white')
+    x_line = np.linspace(true_V_rest[:min_len_vrest].min(), true_V_rest[:min_len_vrest].max(), 100)
+    y_line = linear_model(x_line, *lin_fit_v)
+    ax6.plot(x_line, y_line, 'r-', linewidth=2)
+    print(f"median V_rest R²: {r2_median_V_rest:.4f}, slope: {lin_fit_v[0]:.4f}")
+    ax6.set_xlabel('true $V_{rest}$', fontsize=14, color='white')
+    ax6.set_ylabel('median $V_{rest}$', fontsize=14, color='white')
+    ax6.grid(False)
+    ax6.tick_params(colors='white')
+    plt.tight_layout()
+    aggregated_plot_filename = f'fig/aggregated_parameters_comparison_{param_display_name}.png'
+    plt.savefig(aggregated_plot_filename, dpi=300, bbox_inches='tight')
+    plt.close()
+
+
+
+
+
 
     # ---------------------------------------------------------------
     # Ising metrics aggregated per parameter value (mirrors summary_results)
@@ -3627,6 +3812,7 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.savefig("fig/phase_diagram.png", dpi=150)
     plt.close(fig)
+
 
 
 def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir,
@@ -6966,8 +7152,6 @@ if __name__ == '__main__':
     #config_list = ['signal_N5_v6','signal_N5_v6_0','signal_N5_v6_1','signal_N5_v6_2', 'signal_N5_v6_3', 'signal_N5_v7_1','signal_N5_v7_2','signal_N5_v7_3', 'signal_N5_v8','signal_N5_v9','signal_N5_v10',
     #                'signal_N5_v11','signal_N5_v12','signal_N5_v13','signal_N5_v14','signal_N5_v15']
     # config_list = ['signal_N4_a3','signal_N4_a4']
-    # config_list = ['signal_N2_a43_3_1_t8','signal_N2_a43_3_5_t8','signal_N2_a43_3_10_t8','signal_N2_a43_3_20_t8','signal_N2_a43_3_1_t16','signal_N2_a43_3_5_t16',
-    #                'signal_N2_a43_3_10_t16','signal_N2_a43_3_20_t16','signal_N2_a43_3_20_t20','signal_N2_a43_3_20_t24','signal_N2_a43_3_20_t28']
 
     # config_list = ['signal_N4_CElegans_a6', 'signal_N4_CElegans_a7', 'signal_N4_CElegans_a8', 'signal_N4_CElegans_a9',
     # config_list = ['signal_N4_CElegans_a7_1', 'signal_N4_CElegans_a7_2', 'signal_N4_CElegans_a7_3', 'signal_N4_CElegans_a7_4', 'signal_N4_CElegans_a7_5', 'signal_N4_CElegans_a7_6', 'signal_N4_CElegans_a7_7', 'signal_N4_CElegans_a9_1', 'signal_N4_CElegans_a9_2', 'signal_N4_CElegans_a9_3', 'signal_N4_CElegans_a9_4', 'signal_N4_CElegans_a9_5']
@@ -6978,9 +7162,6 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_18_4_1', 'fly_N9_18_4_0', 'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_23_1', 'fly_N9_23_2', 'fly_N9_23_3', 'fly_N9_23_4', 'fly_N9_23_5', 'fly_N9_18_4_2', 'fly_N9_18_4_3', 'fly_N9_18_4_4', 'fly_N9_18_4_5', 'fly_N9_18_4_6']
 
-    # plot no noise at all
-    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4']
-    # data_flyvis_compare(config_list, 'training.seed')
 
     # # plot noise on video input
     # config_list = ['fly_N9_18_4_0_bis', 'fly_N9_18_4_0',  'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_23_1', 'fly_N9_23_2', 'fly_N9_23_3', 'fly_N9_23_4', 'fly_N9_23_5']
@@ -7016,9 +7197,6 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_18_4_15', 'fly_N9_18_4_16', 'fly_N9_18_4_17', 'fly_N9_18_4_18', 'fly_N9_38_1', 'fly_N9_38_2', 'fly_N9_38_3', 'fly_N9_38_4', 'fly_N9_39_0', 'fly_N9_39_1', 'fly_N9_39_2', 'fly_N9_39_3']
     # data_flyvis_compare(config_list, None)
-
-    # config_list = ['fly_N9_18_4_0', 'fly_N9_33_5', 'fly_N9_18_4_1', 'fly_N9_33_5_1']
-    # config_list = ['fly_N9_18_4_14', 'fly_N9_31_5']
 
     # config_list = ['fly_N9_40_1', 'fly_N9_40_2', 'fly_N9_40_3', 'fly_N9_40_5', 'fly_N9_40_6', 'fly_N9_40_7', 'fly_N9_40_8', 'fly_N9_40_9','fly_N9_40_10','fly_N9_40_10', 'fly_N9_40_12'] #, 'fly_N9_41_1', 'fly_N9_41_2']
     # data_flyvis_compare(config_list, None)
@@ -7074,21 +7252,24 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
+    # plot no noise at all
+    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
+    data_flyvis_compare(config_list, None)
+
     # config_list = ['fly_N9_22_13', 'fly_N9_44_6', 'fly_N9_44_8']
-
-    for config_file_ in config_list:
-        print(' ')
-
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
-
+    #
+    # for config_file_ in config_list:
+    #     print(' ')
+    #
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
