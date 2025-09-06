@@ -2137,7 +2137,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    # ising_results = analyze_ising_model(x_list, log_dir, logger, mc)
+    ising_results = analyze_ising_model(x_list, log_dir, logger, mc)
 
 
     if epoch_list[0] == 'all':
