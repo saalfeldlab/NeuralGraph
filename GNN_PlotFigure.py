@@ -3490,18 +3490,13 @@ def data_flyvis_compare(config_list, varied_parameter):
         )
     print("-" * 180)
 
-    def parse_val(val_str: str) -> float:
-        # split on "±" and take the left part
-        return float(val_str.split("±")[0])
-
-
     def _to_float(v):
         try:
             return float(v)
         except Exception:
             return math.nan
 
-    # numeric keys (nan if not convertible)
+
     _numeric_keys = np.array([_to_float(d["param_value"]) for d in ising_results], dtype=float)
 
     # sort index: finite numbers in ascending order, then NaNs at the end (stable)

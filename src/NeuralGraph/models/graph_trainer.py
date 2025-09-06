@@ -824,7 +824,6 @@ def data_train_flyvis(config, erase, best_model, device):
 
     field_type = model_config.field_type
     time_step = train_config.time_step
-    Ising_filter = train_config.Ising_filter
 
     coeff_W_sign = train_config.coeff_W_sign
     coeff_update_msg_diff = train_config.coeff_update_msg_diff
@@ -869,56 +868,6 @@ def data_train_flyvis(config, erase, best_model, device):
         y_list.append(y)
     print(f'dataset: {len(x_list)} run, {len(x_list[0])} frames')
     x = x_list[0][n_frames - 10]
-
-    if (os.path.exists(f"./{log_dir}/results/E_panels.png")) & (Ising_filter== "none"):
-        print (f'energy plot already exist, skipping computation')
-    else:
-        energy_stride = 1
-        s, h, J, E = sparse_ising_fit_fast(x=x_list[0], voltage_col=3, top_k=50, block_size=2000, energy_stride=energy_stride)
-
-        # Panel 4: Compute approximate probabilities for observed states
-        # P(s) ~ exp(-E(s)/T), approximate T=1 for simplicity
-        T = 1.0
-        logP = -E / T
-        logP -= logsumexp(logP)  # normalize in log space
-        P_s = np.exp(logP) # normalize to get a probability distribution
-
-        # Flatten all non-zero couplings for histogram
-        J_vals = [v for Ji in J for v in Ji.values()]
-        J_vals = np.array(J_vals, dtype=np.float32)
-
-        # Create 2x2 figure
-        fig, axs = plt.subplots(2, 2, figsize=(12, 10))
-
-        # Panel 1: Energy over time
-        axs[0, 0].plot(np.arange(0, len(E) * energy_stride, energy_stride), E, lw=1.0, color='k')
-        axs[0, 0].set_xlabel("Frame", fontsize=14)
-        axs[0, 0].set_ylabel("Energy", fontsize=14)
-        axs[0, 0].set_title("Ising energy over frames", fontsize=14)
-        axs[0, 0].set_xlim(0, 600)
-        axs[0, 0].tick_params(axis='both', which='major', labelsize=12)
-
-        # Panel 2: Energy histogram
-        axs[0, 1].hist(E, bins=100, color='salmon', edgecolor='k', density=True)
-        axs[0, 1].set_xlabel("Energy", fontsize=14)
-        axs[0, 1].set_ylabel("Density", fontsize=14)
-        axs[0, 1].set_title("Ising energy distribution", fontsize=14)
-        axs[0, 1].tick_params(axis='both', which='major', labelsize=12)
-
-        # Panel 3: Couplings histogram
-        axs[1, 0].hist(J_vals, bins=100, color='skyblue', edgecolor='k', density=True)
-        axs[1, 0].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=14)
-        axs[1, 0].set_ylabel("Density", fontsize=14)
-        axs[1, 0].set_title("Sparse Couplings Histogram", fontsize=14)
-        axs[1, 0].tick_params(axis='both', which='major', labelsize=12)
-
-        axs[1, 1].axis('off')  # Empty panel
-
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/E_panels.png", dpi=150)
-        plt.close(fig)
-
-        print("s.shape:", s.shape, "h.shape:", h.shape, "len(J):", len(J), "E.shape:", E.shape)
 
     activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
     activity = activity.squeeze()
@@ -1025,10 +974,6 @@ def data_train_flyvis(config, erase, best_model, device):
     list_loss_regul = []
     time.sleep(0.2)
 
-    if Ising_filter != "none":
-        idxs = select_frames_by_energy(E, strategy=Ising_filter)
-        print (f'Ising_filter: {Ising_filter}, selected {len(idxs)} frames among {n_frames}')
-
     for epoch in range(start_epoch, n_epochs + 1):
 
         if batch_ratio < 1:
@@ -1074,11 +1019,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
             for batch in range(batch_size):
 
-                if Ising_filter!="none":
-                    k = np.random.choice(idxs)
-                    k = min(k, n_frames - 4 - time_step)
-                else:
-                    k = np.random.randint(n_frames - 4 - time_step)
+                k = np.random.randint(n_frames - 4 - time_step)
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                 ids = np.arange(n_neurons)
 
