@@ -2137,7 +2137,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    ising_results = analyze_ising_model(x_list, log_dir, logger, mc)
+    ising_results = analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
 
 
     if epoch_list[0] == 'all':
@@ -7249,27 +7249,27 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # plot no noise at all
-    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
-    data_flyvis_compare(config_list, None)
+    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
+    # data_flyvis_compare(config_list, None)
 
     # config_list = ['fly_N9_22_13', 'fly_N9_44_6', 'fly_N9_44_8']
     #
-    # for config_file_ in config_list:
-    #     print(' ')
-    #
-    #     config_file, pre_folder = add_pre_folder(config_file_)
-    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-    #     config.dataset = pre_folder + config.dataset
-    #     config.config_file = pre_folder + config_file_
-    #
-    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-    #
-    #     folder_name = './log/' + pre_folder + '/tmp_results/'
-    #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    for config_file_ in config_list:
+        print(' ')
+
+        config_file, pre_folder = add_pre_folder(config_file_)
+        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+        config.dataset = pre_folder + config.dataset
+        config.config_file = pre_folder + config_file_
+
+        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+
+        folder_name = './log/' + pre_folder + '/tmp_results/'
+        os.makedirs(folder_name, exist_ok=True)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
