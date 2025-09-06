@@ -3707,6 +3707,8 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
             print(f'type {target_type_name} not found in index_to_name dictionary')
             logger.info(f'type {target_type_name} not found in index_to_name dictionary')
 
+        
+
 
 def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, type_list, n_neuron_types,
                                     sorted_neuron_type_names, log_dir):
