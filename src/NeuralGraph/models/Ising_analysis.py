@@ -81,7 +81,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
                 f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nEntropy: {E_entropy:.2f}',
                 transform=axs[0].transAxes,
                 fontsize=18, verticalalignment='top')
-
     # Panel 2: Couplings histogram
     axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
     axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
@@ -91,7 +90,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
                 f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}',
                 transform=axs[1].transAxes,
                 fontsize=18, verticalalignment='top')
-
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
     plt.close(fig)
@@ -133,7 +131,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     ratios = np.array([r.ratio for r in results])
     non_monotonic = np.array([r.count_non_monotonic for r in results])
 
-
     # Plot like Schneidman Figure 2a
     # Collect all patterns from all subsets
     all_observed = []
@@ -161,10 +158,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     # ax1.legend(fontsize=16)
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(axis='both', which='major', labelsize=14)
-    # ax1.text(0.05, 0.95, f'N={len(results)} groups\n2^10=1024 patterns',
-    #          transform=ax1.transAxes, fontsize=12, verticalalignment='top')
-
-    # Panel B: Jensen-Shannon divergences histogram with log scale (like Figure 2b)
     js_pairwise = []
     js_independent = []
 
@@ -189,9 +182,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     ax2.legend(fontsize=16)
     ax2.set_xlim(1e-2, 2e1)
     ax2.tick_params(axis='both', which='major', labelsize=14)
-
-    # Panel C: I2/IN vs IN scatter with both models (like Figure 2c)
-    # For pairwise model
     ax3.scatter(INs, ratios, c='red', alpha=0.6, s=20, edgecolors='none', label='pairwise model')
     ax3.set_xlabel(r'multi-information $I_N$ (bits)', fontsize=18)
     ax3.set_ylabel(r'$I^{(2)}/I_N$', fontsize=18)
@@ -201,7 +191,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     ax3.tick_params(axis='both', which='major', labelsize=16)
     ax3.set_xlim(0, 150)
     ax3.set_ylim(0, 1.1)
-    # Remove panel D - hide the 4th subplot
     ax4.set_visible(False)
 
     plt.tight_layout()

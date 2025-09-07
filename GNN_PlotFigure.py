@@ -2124,22 +2124,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sigma_activity = torch.std(activity, dim=1)
     plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc)
 
-    print(f'neurons: {n_neurons}')
-    print(f'edges: {edges.shape[1]}')
-    print(f'neuron types: {n_types}')
-    print(f'region types: {n_region_types}')
-    logger.info(f'number of neurons: {n_neurons}')
-    logger.info(f'true edges: {edges.shape[1]}')
-    logger.info(f'true number of neuron types: {n_types}')
-    logger.info(f'true number of region types: {n_region_types}')
+    print(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
+    logger.info(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
     os.makedirs(f'{log_dir}/results/', exist_ok=True)
-
 
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    # ising_results = analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
-
+    ising_results = analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
 
     if epoch_list[0] == 'all':
 
@@ -2546,8 +2538,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
             # plot analyze_neuron_type_reconstruction
             results = analyze_neuron_type_reconstruction(
-                model=model,
                 config=config,
+                model=model,
+                edges = edges,
                 slopes_lin_phi_list=slopes_lin_phi_list,
                 offsets_list=offsets_list,
                 slopes_lin_edge_list=slopes_lin_edge_list,
@@ -2688,14 +2681,196 @@ def create_combined_movie(config, log_dir, config_indices, files, file_id_list, 
 
     print(f"Combined MP4 saved as: {mp4_path}")
 
-def create_neuron_type_reconstruction_movie(fig, model, config, slopes_lin_phi_list, slopes_lin_edge_list,
-                                           type_list, n_types, colors_65, rows, cols, pos):
-    """Create neuron type reconstruction subplot for movie."""
-    # Call the existing analysis function
-    results = analyze_neuron_type_reconstruction(
-        model, slopes_lin_phi_list, slopes_lin_edge_list, type_list, n_types, colors_65,
-        config, fig, rows, cols, pos)
-    return results
+
+def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_taus, gt_V_Rest,
+                                       learned_weights, learned_tau, learned_V_rest, type_list, n_frames, dimension,
+                                       n_neuron_types, device, log_dir, dataset_name, index_to_name, logger):
+
+    print('stratified analysis by neuron type...')
+
+    colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
+    colors_65 = colors_65[:65]
+
+    rmse_weights = []
+    rmse_taus = []
+    rmse_vrests = []
+    n_connections = []
+
+    for neuron_type in range(n_neuron_types):
+
+        type_indices = np.where(type_list[edges[1,:]] == neuron_type)[0]
+        gt_w_type = true_weights[type_indices]
+        learned_w_type = learned_weights[type_indices]
+        n_conn = len(type_indices)
+
+        type_indices = np.where(type_list == neuron_type)[0]
+        gt_tau_type = gt_taus[type_indices]
+        gt_vrest_type = gt_V_Rest[type_indices]
+
+        learned_tau_type = learned_tau[type_indices]
+        learned_vrest_type = learned_V_rest[type_indices]
+
+        rmse_w =  np.sqrt(np.mean((gt_w_type - learned_w_type) ** 2)) / (np.mean(np.abs(gt_w_type)) + 1e-6)
+
+        rmse_tau = np.sqrt(np.mean((gt_tau_type - learned_tau_type) ** 2)) / (np.mean(np.abs(gt_tau_type)) + 1e-6)
+
+        rmse_vrest = np.sqrt(np.mean((gt_vrest_type - learned_vrest_type) ** 2)) / (np.mean(np.abs(gt_vrest_type)) + 1e-6)
+
+        rmse_weights.append(rmse_w)
+        rmse_taus.append(rmse_tau)
+        rmse_vrests.append(rmse_vrest)
+        n_connections.append(n_conn)
+
+    # Convert to arrays
+    rmse_weights = np.array(rmse_weights) * 100
+    rmse_taus = np.array(rmse_taus) * 100
+    rmse_vrests = np.array(rmse_vrests) * 100
+
+    unique_types_in_order = []
+    seen_types = set()
+    for i in range(len(type_list)):
+        neuron_type_id = type_list[i].item() if hasattr(type_list[i], 'item') else int(type_list[i])
+        if neuron_type_id not in seen_types:
+            unique_types_in_order.append(neuron_type_id)
+            seen_types.add(neuron_type_id)
+
+    # Create neuron type names in the same order as they appear in data
+    sorted_neuron_type_names = [index_to_name.get(type_id, f'Type{type_id}') for type_id in unique_types_in_order]
+    unique_types_in_order = np.array(unique_types_in_order)
+
+    sort_indices = unique_types_in_order.astype(int)
+
+    fig, axes = plt.subplots(3, 1, figsize=(10, 12))
+
+    x_pos = np.arange(len(sort_indices))
+
+    # Plot weights RMSE
+    ax1 = axes[0]
+    ax1.bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
+    ax1.set_ylabel('rel. RMSE weights [%]', fontsize=14)
+    ax1.grid(True, alpha=0.3)
+    ax1.set_ylim([0, 100])
+    ax1.set_xticks(x_pos)
+    ax1.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
+    ax1.grid(False)
+    ax1.tick_params(axis='y', labelsize=12)
+
+    for i, (tick, rmse_w) in enumerate(zip(ax1.get_xticklabels(), rmse_weights[sort_indices])):
+        if rmse_w > 100:
+            tick.set_color('red')
+            tick.set_fontsize(8)
+
+    # Panel 2 (tau)
+    ax2 = axes[1]
+    ax2.bar(x_pos, rmse_taus[sort_indices], color='lightcoral', alpha=0.7)
+    ax2.set_ylabel(r'rel. RMSE $\tau$ [%]', fontsize=14)
+    ax2.grid(True, alpha=0.3)
+    ax2.set_ylim([0, 100])
+    ax2.set_xticks(x_pos)
+    ax2.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
+    ax2.grid(False)
+    ax2.tick_params(axis='y', labelsize=12)
+
+    # Calculate mean ground truth taus per neuron type
+    mean_gt_taus = []
+    for neuron_type in range(n_neuron_types):
+        type_indices = np.where(type_list == neuron_type)[0]
+        gt_tau_type = gt_taus[type_indices]
+        mean_gt_taus.append(np.mean(np.abs(gt_tau_type)))
+
+    mean_gt_taus = np.array(mean_gt_taus)
+
+    for i, (tick, rmse_tau) in enumerate(zip(ax2.get_xticklabels(), rmse_taus[sort_indices])):
+        if rmse_tau > 100:
+            tick.set_color('red')
+            tick.set_fontsize(8)
+
+    # Panel 3 (V_rest)
+    ax3 = axes[2]
+    ax3.bar(x_pos, rmse_vrests[sort_indices], color='lightgreen', alpha=0.7)
+    ax3.set_ylabel(r'rel. RMSE $V_{rest}$ [%]', fontsize=14)
+    ax3.grid(True, alpha=0.3)
+    ax3.set_ylim([0, 100])
+    ax3.set_xticks(x_pos)
+    ax3.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
+    ax3.grid(False)
+    ax3.tick_params(axis='y', labelsize=12)
+
+    # Calculate mean ground truth V_rest per neuron type
+    mean_gt_vrests = []
+    for neuron_type in range(n_neuron_types):
+        type_indices = np.where(type_list == neuron_type)[0]
+        gt_vrest_type = gt_V_Rest[type_indices]
+        mean_gt_vrests.append(np.mean(np.abs(gt_vrest_type)))
+
+    mean_gt_vrests = np.array(mean_gt_vrests)
+    for i, (tick, rmse_vrest) in enumerate(zip(ax3.get_xticklabels(), rmse_vrests[sort_indices])):
+        if rmse_vrest > 100:
+            tick.set_color('red')
+            tick.set_fontsize(8)
+
+    plt.tight_layout()
+    plt.savefig(f'./{log_dir}/results/neuron_type_reconstruction.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Log summary statistics
+    logger.info(f"Neuron type reconstruction analysis:")
+    logger.info(f"Mean weights RMSE: {np.mean(rmse_weights):.3f} ± {np.std(rmse_weights):.3f}")
+    logger.info(f"Mean tau RMSE: {np.mean(rmse_taus):.3f} ± {np.std(rmse_taus):.3f}")
+    logger.info(f"Mean V_rest RMSE: {np.mean(rmse_vrests):.3f} ± {np.std(rmse_vrests):.3f}")
+
+    worst_indices = np.argsort(rmse_weights)[-10:]  # Get indices of 5 highest RMSE values
+    worst_types_info = []
+    for i, idx in enumerate(worst_indices):
+        type_name = index_to_name.get(idx, f'Type{idx}')
+        rmse_value = rmse_weights[idx]
+        worst_types_info.append({
+            'rank': i + 1,
+            'type_index': idx,
+            'type_name': type_name,
+            'rmse_weights': rmse_value
+        })
+    # Create learned vs true weights scatter plot highlighting worst neuron types
+    plt.figure(figsize=(12, 10))
+
+    all_learned_weights = learned_weights.flatten()
+    all_true_weights = true_weights.flatten()
+    plt.scatter(all_true_weights, all_learned_weights, c='lightgray', alpha=0.3, s=1, label='All connections')
+
+    # Plot connections for each worst neuron type
+    for i, worst_type_info in enumerate(worst_types_info):
+        type_idx = worst_type_info['type_index']
+        type_name = worst_type_info['type_name']
+
+        type_indices = np.where(type_list == type_idx)[0]
+        type_learned = learned_weights[type_indices]
+        type_true = true_weights[type_indices]
+
+        if len(type_learned) > 0:
+            plt.scatter(type_true, type_learned, c=colors_65[i], alpha=0.8, s=3, label=f'{type_name} ({type_idx})', edgecolors='None')
+    #
+    # # Add perfect correlation line
+    # min_val = min(np.min(all_true_weights), np.min(all_learned_weights))
+    # max_val = max(np.max(all_true_weights), np.max(all_learned_weights))
+    # plt.plot([min_val, max_val], [min_val, max_val], 'k--', alpha=0.8, linewidth=2, label='Perfect correlation')
+    #
+    plt.xlabel('true weights', fontsize=16)
+    plt.ylabel('learned weights', fontsize=16)
+    # plt.title('Learned vs True Weights for Worst Reconstructed Neuron Types', fontsize=14)
+    plt.legend(fontsize=12, markerscale=3)
+    plt.xlim([-2,5])
+    plt.ylim([-2,5])
+    # plt.axis('equal')
+    plt.tight_layout()
+    plt.savefig(f'./{log_dir}/results/weights_correlation_worst_types.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+
+    return {
+        'rmse_weights': rmse_weights,
+        'rmse_taus': rmse_taus,
+        'rmse_vrests': rmse_vrests,
+    }
 
 
 def create_individual_movies(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
@@ -2704,7 +2879,6 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
     """Create individual movies for each subplot component."""
 
     movie_configs = [
-        ("neuron_type_reconstruction", (12, 8), create_neuron_type_reconstruction_movie),
         ('weight_reconstruction', (8, 8), create_weight_subplot),
         ('embedding_recons', (8, 8), create_embedding_subplot),
         ('tau_recons', (8, 8), create_tau_subplot),
@@ -2747,12 +2921,6 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
                 elif movie_name == 'lin_edge_recons':
                     create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list,
                                             device, 1, 1, 1)
-                elif movie_name == 'neuron_type_reconstruction':
-                # Analyze neuron type reconstruction
-                    results = analyze_neuron_type_reconstruction(
-                        model, config, slopes_lin_phi_list, offsets_list, slopes_lin_edge_list,
-                        gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, edges,
-                        cmap, mc, logger, True, fig)
 
                 # plt.title(f'Epoch {epoch}', fontsize=16)
                 plt.tight_layout()
@@ -7125,7 +7293,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
 
-    config_list = ['fly_N9_22_1', 'fly_N9_44_2', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_9']
+    config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14', ]
 
     for config_file_ in config_list:
         print(' ')
@@ -7139,6 +7307,6 @@ if __name__ == '__main__':
 
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', device=device)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
