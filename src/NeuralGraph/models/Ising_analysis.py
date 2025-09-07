@@ -27,7 +27,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
 
     # Load or compute Ising fit
     if os.path.exists(f"./{log_dir}/results/E.npy"):
-        print(f'Loading existing sparse Ising analysis...')
+        print(f'loading existing sparse Ising analysis...')
         E = np.load(f"./{log_dir}/results/E.npy")
         s = np.load(f"./{log_dir}/results/s.npy")
         h = np.load(f"./{log_dir}/results/h.npy")
@@ -104,7 +104,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     seed = 0
     rng = np.random.RandomState(seed)
 
-    print('Computing information ratio estimates...')
+    print('computing information ratio estimates...')
     results = []
     for i in trange(n_subsets, desc="processing subsets"):
         idx = np.sort(rng.choice(x_list[0].shape[1], size=N, replace=False))
@@ -244,7 +244,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
         f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
 
     # Triplet KL analysis
-    print('Computing triplet KL analysis...')
+    print('computing triplet KL analysis...')
     kl_results = triplet_residuals_full(
         S_data_pm1=s,
         h_full=h,
