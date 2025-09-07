@@ -4111,15 +4111,15 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
 
     # Panel 3: Scatter plot of true tau values per neuron
     ax3 = axes[2]
-    ax3.scatter(np.arange(n_neurons), gt_taus, c='white', s=0.1)
-    ax3.set_ylabel(r'true $\tau$ values', fontsize=16)
-    add_type_labels_and_setup_axes(ax3, gt_taus, r'distribution of true $\tau$ by neuron type')
+    ax3.scatter(np.arange(n_neurons), gt_taus * 1000, c='white', s=0.1)
+    ax3.set_ylabel(r'true $\tau$ values [ms]', fontsize=16)
+    add_type_labels_and_setup_axes(ax3, gt_taus * 1000, r'distribution of true $\tau$ by neuron type')
 
     # Panel 4: Scatter plot of true V_rest values per neuron
     ax4 = axes[3]
-    ax4.scatter(np.arange(n_neurons), gt_V_Rest, c='white', s=0.1)
-    ax4.set_ylabel(r'true $v_{rest}$ values', fontsize=16)
-    add_type_labels_and_setup_axes(ax4, gt_V_Rest, r'distribution of true $v_{rest}$ by neuron type')
+    ax4.scatter(np.arange(n_neurons), gt_V_Rest * 100, c='white', s=0.1)
+    ax4.set_ylabel(r'true $v_{rest}$ values [mV]', fontsize=16)
+    add_type_labels_and_setup_axes(ax4, gt_V_Rest * 100, r'distribution of true $v_{rest}$ by neuron type')
 
     plt.tight_layout()
     plt.savefig(f'{log_dir}/results/ground_truth_distributions.png', dpi=300, bbox_inches='tight')
@@ -7370,7 +7370,7 @@ if __name__ == '__main__':
 
     config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
 
-    config_list = ['fly_N9_22_1', 'fly_N9_44_2', 'fly_N9_44_6', 'fly_N9_44_8']
+    config_list = ['fly_N9_22_9', 'fly_N9_22_1', 'fly_N9_44_2', 'fly_N9_44_6', 'fly_N9_44_8']
 
     for config_file_ in config_list:
         print(' ')
