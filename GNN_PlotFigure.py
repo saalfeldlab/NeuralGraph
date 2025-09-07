@@ -4112,7 +4112,7 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
 
     return fig
 
-### 
+###
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
 
