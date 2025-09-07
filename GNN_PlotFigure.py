@@ -36,6 +36,7 @@ import numpy as np
 from matplotlib.colors import LinearSegmentedColormap
 import pickle
 import json
+from tqdm import tqdm
 
 from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum, compute_spectral_coefs
 
@@ -2137,7 +2138,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    ising_results = analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
+    # ising_results = analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
 
 
     if epoch_list[0] == 'all':
@@ -2631,6 +2632,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             print(" ")
 
 
+
 def movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges, gt_weights, gt_taus, gt_V_Rest,
                           type_list, n_neurons, n_types, colors_65, mu_activity, sigma_activity, cmap, mc, ynorm,
                           logger):
@@ -2643,9 +2645,10 @@ def movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges
     metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
 
     # Create main combined movie
-    create_combined_movie(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
-                          edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
-                          mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata)
+    # create_combined_movie(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
+    #                       edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
+    #                       mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata)
+
     # Create individual subplot movies
     create_individual_movies(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
                              edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
@@ -2679,47 +2682,20 @@ def create_combined_movie(config, log_dir, config_indices, files, file_id_list, 
             create_lin_phi_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list, device, 1, 4, 3)
             create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list, device, 1, 4, 4)
 
-            plt.suptitle(f'Epoch {epoch}', fontsize=20)
+            # plt.suptitle(f'Epoch {epoch}', fontsize=20)
             plt.tight_layout()
             writer.grab_frame()
 
     print(f"Combined MP4 saved as: {mp4_path}")
 
-
-def create_neuron_type_reconstruction_movie(config, log_dir, config_indices, files, file_id_list, n_runs, device,
-                                            x_list, y_list, edges, gt_weights, gt_taus, gt_V_Rest, type_list,
-                                            n_neurons, n_types, colors_65, mu_activity, sigma_activity, cmap, mc,
-                                            ynorm, logger, fps, metadata):
-    """Create movie showing neuron type reconstruction evolution during training."""
-
-    writer = FFMpegWriter(fps=fps, metadata=metadata)
-    fig = plt.figure(figsize=(12, 8))
-    mp4_path = f'{log_dir}/results/neuron_type_reconstruction_{config_indices}.mp4'
-
-    logger.info('Creating neuron type reconstruction movie...')
-
-    with writer.saving(fig, mp4_path, dpi=80):
-        for file_id_ in trange(len(file_id_list)):
-            plt.clf()
-
-            # Load model for this epoch
-            model, epoch = load_model_for_epoch(config, log_dir, files, file_id_, n_runs, device, edges, logger)
-
-            # Analyze model functions
-            slopes_lin_phi_list, offsets_list, slopes_lin_edge_list, _ = analyze_model_functions(
-                model, config, n_neurons, mu_activity, sigma_activity, device, x_list, y_list, edges, ynorm)
-
-            # Analyze neuron type reconstruction
-            results = analyze_neuron_type_reconstruction(
-                model, config, slopes_lin_phi_list, offsets_list, slopes_lin_edge_list,
-                gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, edges,
-                cmap, mc, logger, create_plot=True, fig=fig)
-
-            plt.suptitle(f'Neuron Type Reconstruction - Epoch {epoch}', fontsize=16)
-            plt.tight_layout()
-            writer.grab_frame()
-
-    logger.info(f'Neuron type reconstruction movie saved as: {mp4_path}')
+def create_neuron_type_reconstruction_movie(fig, model, config, slopes_lin_phi_list, slopes_lin_edge_list,
+                                           type_list, n_types, colors_65, rows, cols, pos):
+    """Create neuron type reconstruction subplot for movie."""
+    # Call the existing analysis function
+    results = analyze_neuron_type_reconstruction(
+        model, slopes_lin_phi_list, slopes_lin_edge_list, type_list, n_types, colors_65,
+        config, fig, rows, cols, pos)
+    return results
 
 
 def create_individual_movies(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
@@ -2728,24 +2704,25 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
     """Create individual movies for each subplot component."""
 
     movie_configs = [
+        ("neuron_type_reconstruction", (12, 8), create_neuron_type_reconstruction_movie),
         ('weight_reconstruction', (8, 8), create_weight_subplot),
         ('embedding_recons', (8, 8), create_embedding_subplot),
         ('tau_recons', (8, 8), create_tau_subplot),
         ('V_rest_recons', (8, 8), create_vrest_subplot),
         ('lin_phi_recons', (8, 8), create_lin_phi_subplot),
-        ('lin_edge_recons', (8, 8), create_lin_edge_subplot),
-        ("neuron_type_reconstruction", (12, 8), create_neuron_type_reconstruction_movie)
+        ('lin_edge_recons', (8, 8), create_lin_edge_subplot)
     ]
 
     for movie_name, figsize, subplot_func in movie_configs:
         writer = FFMpegWriter(fps=fps, metadata=metadata)
         fig = plt.figure(figsize=figsize)
         mp4_path = f'{log_dir}/results/{movie_name}_{config_indices}.mp4'
+        png_path = f'{log_dir}/results/{movie_name}_{config_indices}_first_frame.png'
 
         logger.info(f'Creating {movie_name} movie...')
 
         with writer.saving(fig, mp4_path, dpi=80):
-            for file_id_ in tqdm(file_id_list, desc=f'Creating {movie_name}'):
+            for file_id_ in tqdm(file_id_list, desc=f'creating {movie_name}'):
                 plt.clf()  # Clear the figure
 
                 # Load model for this epoch
@@ -2770,10 +2747,19 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
                 elif movie_name == 'lin_edge_recons':
                     create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list,
                                             device, 1, 1, 1)
+                elif movie_name == 'neuron_type_reconstruction':
+                # Analyze neuron type reconstruction
+                    results = analyze_neuron_type_reconstruction(
+                        model, config, slopes_lin_phi_list, offsets_list, slopes_lin_edge_list,
+                        gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, edges,
+                        cmap, mc, logger, True, fig)
 
-                plt.title(f'Epoch {epoch}', fontsize=16)
+                # plt.title(f'Epoch {epoch}', fontsize=16)
                 plt.tight_layout()
                 writer.grab_frame()
+
+                if i == 0:
+                    plt.savefig(png_path, dpi=300, bbox_inches='tight')
 
         logger.info(f'{movie_name} saved as: {mp4_path}')
 
@@ -2878,8 +2864,6 @@ def create_weight_subplot(fig, model, gt_weights, mc, rows, cols, pos):
     learned_weights = to_numpy(model.W.squeeze())
     true_weights = to_numpy(gt_weights)
 
-    plt.scatter(true_weights, learned_weights, c=mc, s=0.1, alpha=0.1)
-
     # Fit linear model for R² calculation
     from scipy.optimize import curve_fit
     lin_fit, _ = curve_fit(linear_model, true_weights, learned_weights)
@@ -2891,6 +2875,7 @@ def create_weight_subplot(fig, model, gt_weights, mc, rows, cols, pos):
     plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
              transform=ax.transAxes, verticalalignment='top', fontsize=24)
 
+    plt.scatter(true_weights, learned_weights , c=mc, s=0.1, alpha=0.1)
     ax.set_xlabel('true $W_{ij}$', fontsize=32)
     ax.set_ylabel('learned $W_{ij}$', fontsize=32)
     ax.set_xlim([-2, 4.5])
@@ -2908,11 +2893,11 @@ def create_embedding_subplot(fig, model, type_list, n_types, colors_65, rows, co
         if np.any(type_mask):
             ax.scatter(embedding_plot[type_mask, 0], embedding_plot[type_mask, 1],
                        c=colors_65[n], s=6, alpha=0.25, edgecolors='none')
-
     ax.set_xlabel('$a_0$', fontsize=32)
     ax.set_ylabel('$a_1$', fontsize=32)
-    ax.set_xticks([])
-    ax.set_yticks([])
+    ax.tick_params(axis='both', which='major', labelsize=24)
+    ax.xaxis.set_major_formatter(FormatStrFormatter('%.1f'))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.1f'))
 
 
 def create_lin_phi_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list, device, rows,
@@ -4117,9 +4102,9 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
 
     # Panel 4: Scatter plot of true V_rest values per neuron
     ax4 = axes[3]
-    ax4.scatter(np.arange(n_neurons), gt_V_Rest * 100, c='white', s=0.1)
-    ax4.set_ylabel(r'true $v_{rest}$ values [mV]', fontsize=16)
-    add_type_labels_and_setup_axes(ax4, gt_V_Rest * 100, r'distribution of true $v_{rest}$ by neuron type')
+    ax4.scatter(np.arange(n_neurons), gt_V_Rest, c='white', s=0.1)
+    ax4.set_ylabel(r'true $v_{rest}$ values [a.u.]', fontsize=16)
+    add_type_labels_and_setup_axes(ax4, gt_V_Rest, r'distribution of true $v_{rest}$ by neuron type')
 
     plt.tight_layout()
     plt.savefig(f'{log_dir}/results/ground_truth_distributions.png', dpi=300, bbox_inches='tight')
@@ -4127,237 +4112,7 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
 
     return fig
 
-
-def analyze_neuron_type_reconstruction(model, config, slopes_lin_phi_list, offsets_list, slopes_lin_edge_list,
-                                       gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, edges,
-                                       cmap, mc, logger, create_plot=True, fig=None):
-    """
-    Analyze neuron type reconstruction by clustering learned embeddings and comparing with ground truth.
-
-    Args:
-        model: Trained neural network model
-        config: Configuration object
-        slopes_lin_phi_list: List of phi function slopes for each neuron
-        offsets_list: List of phi function offsets for each neuron
-        slopes_lin_edge_list: List of edge function slopes for each neuron
-        gt_weights, gt_taus, gt_V_Rest: Ground truth parameters
-        type_list: True neuron type labels
-        n_neurons: Number of neurons
-        n_types: Number of neuron types
-        edges: Edge connectivity
-        cmap: Color map
-        mc: Main color
-        logger: Logger instance
-        create_plot: Whether to create and save plot
-        fig: Figure to plot on (for movie creation)
-
-    Returns:
-        Dictionary containing reconstruction results
-    """
-
-    # Get learned embeddings
-    embeddings = to_numpy(model.a[:n_neurons, :])
-
-    # Perform UMAP dimensionality reduction
-    with warnings.catch_warnings():
-        warnings.simplefilter('ignore')
-        reducer = umap.UMAP(n_neighbors=min(50, n_neurons // 2), n_components=2,
-                            transform_queue_size=0, random_state=config.training.seed)
-        embedding_2d = reducer.fit_transform(embeddings)
-
-    # Normalize UMAP coordinates
-    embedding_2d = (embedding_2d - np.min(embedding_2d)) / (np.max(embedding_2d) - np.min(embedding_2d) + 1e-10)
-
-    # Cluster embeddings using multiple methods
-    cluster_methods = ['kmeans', 'spectral', 'agglomerative']
-    best_accuracy = 0
-    best_labels = None
-    best_method = None
-
-    true_labels = to_numpy(type_list[:n_neurons])
-
-    for method in cluster_methods:
-        try:
-            if method == 'kmeans':
-                from sklearn.cluster import KMeans
-                clusterer = KMeans(n_clusters=n_types, random_state=config.training.seed, n_init=10)
-            elif method == 'spectral':
-                from sklearn.cluster import SpectralClustering
-                clusterer = SpectralClustering(n_clusters=n_types, random_state=config.training.seed)
-            elif method == 'agglomerative':
-                from sklearn.cluster import AgglomerativeClustering
-                clusterer = AgglomerativeClustering(n_clusters=n_types)
-
-            cluster_labels = clusterer.fit_predict(embeddings)
-
-            # Find best label assignment using Hungarian algorithm
-            from scipy.optimize import linear_sum_assignment
-            confusion_matrix = metrics.confusion_matrix(true_labels, cluster_labels)
-            row_ind, col_ind = linear_sum_assignment(-confusion_matrix)
-
-            # Remap cluster labels to match ground truth
-            label_mapping = dict(zip(col_ind, row_ind))
-            remapped_labels = np.array([label_mapping.get(label, label) for label in cluster_labels])
-
-            accuracy = metrics.accuracy_score(true_labels, remapped_labels)
-
-            if accuracy > best_accuracy:
-                best_accuracy = accuracy
-                best_labels = remapped_labels
-                best_method = method
-
-        except Exception as e:
-            logger.warning(f"Clustering method {method} failed: {e}")
-            continue
-
-    # If all methods failed, use original type labels
-    if best_labels is None:
-        best_labels = true_labels
-        best_accuracy = 1.0
-        best_method = 'ground_truth'
-
-    # Calculate additional metrics
-    adjusted_rand_score = metrics.adjusted_rand_score(true_labels, best_labels)
-    normalized_mutual_info = metrics.normalized_mutual_info_score(true_labels, best_labels)
-
-    # Analyze functional similarity within clusters
-    slopes_array = np.array(slopes_lin_phi_list[:n_neurons])
-    offsets_array = np.array(offsets_list[:n_neurons])
-
-    cluster_coherence = []
-    for cluster_id in range(n_types):
-        cluster_mask = (best_labels == cluster_id)
-        if np.sum(cluster_mask) > 1:
-            cluster_slopes = slopes_array[cluster_mask]
-            cluster_offsets = offsets_array[cluster_mask]
-
-            # Calculate coefficient of variation as coherence measure
-            slope_coherence = 1 - (np.std(cluster_slopes) / (np.abs(np.mean(cluster_slopes)) + 1e-6))
-            offset_coherence = 1 - (np.std(cluster_offsets) / (np.abs(np.mean(cluster_offsets)) + 1e-6))
-            cluster_coherence.append((slope_coherence + offset_coherence) / 2)
-        else:
-            cluster_coherence.append(0)
-
-    mean_coherence = np.mean(cluster_coherence)
-
-    # Create visualization if requested
-    if create_plot:
-        if fig is not None:
-            plt.figure(fig.number)
-            plt.clf()
-        else:
-            fig = plt.figure(figsize=(15, 10))
-
-        # Subplot 1: True types in embedding space
-        plt.subplot(2, 3, 1)
-        for n in range(n_types):
-            mask = (true_labels == n)
-            if np.sum(mask) > 0:
-                plt.scatter(embedding_2d[mask, 0], embedding_2d[mask, 1],
-                            c=[cmap.color(n)], s=20, alpha=0.7, label=f'Type {n}')
-        plt.title('True Types in UMAP Space', fontsize=12)
-        plt.xlabel('UMAP 1', fontsize=10)
-        plt.ylabel('UMAP 2', fontsize=10)
-        plt.xlim([-0.1, 1.1])
-        plt.ylim([-0.1, 1.1])
-
-        # Subplot 2: Predicted types in embedding space
-        plt.subplot(2, 3, 2)
-        for n in range(n_types):
-            mask = (best_labels == n)
-            if np.sum(mask) > 0:
-                plt.scatter(embedding_2d[mask, 0], embedding_2d[mask, 1],
-                            c=[cmap.color(n)], s=20, alpha=0.7, label=f'Pred {n}')
-        plt.title(f'Predicted Types ({best_method})', fontsize=12)
-        plt.xlabel('UMAP 1', fontsize=10)
-        plt.ylabel('UMAP 2', fontsize=10)
-        plt.xlim([-0.1, 1.1])
-        plt.ylim([-0.1, 1.1])
-
-        # Subplot 3: Confusion matrix
-        plt.subplot(2, 3, 3)
-        confusion_mat = metrics.confusion_matrix(true_labels, best_labels)
-        im = plt.imshow(confusion_mat, cmap='Blues', aspect='auto')
-        plt.title(f'Confusion Matrix\nAcc: {best_accuracy:.3f}', fontsize=12)
-        plt.xlabel('Predicted', fontsize=10)
-        plt.ylabel('True', fontsize=10)
-        plt.colorbar(im, shrink=0.6)
-
-        # Subplot 4: Phi function slopes by type
-        plt.subplot(2, 3, 4)
-        for n in range(n_types):
-            true_mask = (true_labels == n)
-            pred_mask = (best_labels == n)
-            if np.sum(true_mask) > 0:
-                plt.scatter(np.full(np.sum(true_mask), n - 0.2), slopes_array[true_mask],
-                            c='gray', alpha=0.3, s=10, label='True' if n == 0 else "")
-            if np.sum(pred_mask) > 0:
-                plt.scatter(np.full(np.sum(pred_mask), n + 0.2), slopes_array[pred_mask],
-                            c=cmap.color(n), alpha=0.7, s=10, label='Pred' if n == 0 else "")
-        plt.title('Phi Function Slopes', fontsize=12)
-        plt.xlabel('Type', fontsize=10)
-        plt.ylabel('Slope', fontsize=10)
-        if n_types <= 10:
-            plt.xticks(range(n_types))
-
-        # Subplot 5: Coherence scores
-        plt.subplot(2, 3, 5)
-        plt.bar(range(len(cluster_coherence)), cluster_coherence,
-                color=[cmap.color(i) for i in range(len(cluster_coherence))])
-        plt.title(f'Cluster Coherence\nMean: {mean_coherence:.3f}', fontsize=12)
-        plt.xlabel('Cluster', fontsize=10)
-        plt.ylabel('Coherence', fontsize=10)
-        plt.ylim([0, 1])
-
-        # Subplot 6: Performance metrics
-        plt.subplot(2, 3, 6)
-        metrics_names = ['Accuracy', 'Adj. Rand', 'Norm. MI', 'Coherence']
-        metrics_values = [best_accuracy, adjusted_rand_score, normalized_mutual_info, mean_coherence]
-        bars = plt.bar(metrics_names, metrics_values, color=['skyblue', 'lightgreen', 'salmon', 'gold'])
-        plt.title('Reconstruction Metrics', fontsize=12)
-        plt.ylabel('Score', fontsize=10)
-        plt.ylim([0, 1])
-        plt.xticks(rotation=45, fontsize=8)
-
-        # Add value labels on bars
-        for bar, value in zip(bars, metrics_values):
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width() / 2., height + 0.01,
-                     f'{value:.3f}', ha='center', va='bottom', fontsize=8)
-
-        plt.tight_layout()
-
-        # Save plot if not creating movie
-        if fig is None or create_plot:
-            config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'analysis'
-            plt.savefig(f'{log_dir}/results/neuron_type_reconstruction_{config_indices}.png', dpi=300,
-                        bbox_inches='tight')
-            if fig is None:
-                plt.close()
-
-    # Log results
-    logger.info(f'Neuron type reconstruction - Method: {best_method}')
-    logger.info(f'Accuracy: {best_accuracy:.4f}')
-    logger.info(f'Adjusted Rand Score: {adjusted_rand_score:.4f}')
-    logger.info(f'Normalized Mutual Information: {normalized_mutual_info:.4f}')
-    logger.info(f'Mean Cluster Coherence: {mean_coherence:.4f}')
-
-    # Return results dictionary
-    results = {
-        'accuracy': best_accuracy,
-        'predicted_labels': best_labels,
-        'true_labels': true_labels,
-        'embedding_2d': embedding_2d,
-        'adjusted_rand_score': adjusted_rand_score,
-        'normalized_mutual_info': normalized_mutual_info,
-        'cluster_coherence': cluster_coherence,
-        'mean_coherence': mean_coherence,
-        'best_method': best_method,
-        'confusion_matrix': metrics.confusion_matrix(true_labels, best_labels)
-    }
-
-    return results
-
+### 
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
 
@@ -7368,9 +7123,9 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
     # data_flyvis_compare(config_list, None)
 
-    config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
+    # config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
 
-    config_list = ['fly_N9_22_9', 'fly_N9_22_1', 'fly_N9_44_2', 'fly_N9_44_6', 'fly_N9_44_8']
+    config_list = ['fly_N9_22_1', 'fly_N9_44_2', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_9']
 
     for config_file_ in config_list:
         print(' ')
