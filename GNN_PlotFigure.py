@@ -25,6 +25,7 @@ from NeuralGraph.models.MLP import *
 from NeuralGraph.utils import to_numpy, CustomColorMap
 
 from NeuralGraph.models.Ising_analysis import analyze_ising_model
+
 from scipy import stats
 from io import StringIO
 import sys
@@ -2130,7 +2131,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
+    analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
 
     if epoch_list[0] == 'all':
 
@@ -7284,7 +7285,15 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    config_list = ['fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    config_list = ['fly_N9_22_1', 'fly_N9_44_2', 'fly_N9_44_6', 'fly_N9_44_8']
+
+    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 
+    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12',
+    #                'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
+    #                'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
+    #                'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
+    #                'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
+    
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # plot no noise at all
