@@ -10,27 +10,34 @@ from collections import defaultdict
 import os
 from matplotlib import pyplot as plt
 
-def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
+def analyze_ising_model(x_list, delta_t, log_dir, logger, edges):
     """
     Perform comprehensive Ising model analysis including energy distribution,
     coupling analysis, information ratio estimation, and triplet KL analysis.
-
-    Args:
-        x_list: List of input data arrays
-        log_dir: Directory for saving results
-        logger: Logger object for recording results
-        mc: Matplotlib color for plots
-
-    Returns:
-        dict: Dictionary containing all analysis results
     """
-
     # binarize at per-neuron mean -> {-1,+1}
     voltage = x_list[0][:, :, 3]
     mean_v = voltage.mean(axis=0)
     s = np.where(voltage > mean_v, 1, -1).astype(np.int8)
 
-    results_dict = compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=200, N=10)
+    # Random sampling (baseline)
+    results_random = compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10)
+    
+    # Connectivity-aware sampling
+    results_hoc = analyze_higher_order_correlations(s, edges, delta_t, log_dir, logger, n_subsets=1000, N=10)
+    
+    # Compare the two approaches
+    logger.info("\n=== Connectivity-aware vs Random sampling ===")
+    logger.info(f"I_HOC improvement: {results_hoc['I_HOC_median']/results_random['I_HOC_median']:.2f}x")
+    logger.info(f"I_N improvement: {results_hoc['I_N_median']/results_random['I_N_median']:.2f}x")
+    
+    return {
+        'random_sampling': results_random,
+        'connected_sampling': results_hoc
+    }
+
+    
+
 
 
 
@@ -147,7 +154,9 @@ def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
     plt.savefig(f"./{log_dir}/results/Ising_rates.png", dpi=150, bbox_inches='tight')
     plt.close(fig)
 
-    # Create results dictionary
+    # Add I_HOC calculations
+    I_HOCs = INs - I2s  # Higher-order contribution
+    # Create results dictionary (add I_HOC_median for compatibility)
     results_dict = {
         'I_N': INs,
         'I2': I2s,
@@ -158,7 +167,11 @@ def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
         'H_pair': np.array([r.H_pair for r in results]),
         'predicted_rates_pairwise': np.array([r.predicted_rates_pairwise for r in results]),
         'predicted_rates_independent': np.array([r.predicted_rates_independent for r in results]),
-        'observed_rates': np.array([r.observed_rates for r in results])
+        'observed_rates': np.array([r.observed_rates for r in results]),
+        'I_HOC_median': np.nanmedian(I_HOCs),
+        'I_N_median': np.nanmedian(INs),
+        'I_2_median': np.nanmedian(I2s),
+        'ratio_median': np.nanmedian(ratios)
     }
 
     # Save results
@@ -174,16 +187,16 @@ def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
     q25_IHOC, q75_IHOC = np.nanpercentile(I_HOCs, [25, 75])
 
     print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
-    print(f"I_N:    median=\033[32m{np.nanmedian(INs):.3f}\033[0m,   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.1f}")
-    print(f"I2:     median=\033[32m{np.nanmedian(I2s):.3f}\033[0m,   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.1f}")
-    print(f"I_HOC:  median=\033[32m{np.nanmedian(I_HOCs):.3f}\033[0m,   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
-    print(f"ratio:  median=\033[32m{np.nanmedian(ratios):.3f}\033[0m,    IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],     std={np.nanstd(ratios):.3f}")
+    print(f"I_N:      median=\033[32m{np.nanmedian(INs):.3f}\033[0m,   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.1f}")
+    print(f"I2:       median=\033[32m{np.nanmedian(I2s):.3f}\033[0m,   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.1f}")
+    print(f"I_HOC:    median=\033[32m{np.nanmedian(I_HOCs):.3f}\033[0m,   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
+    print(f"I_2/I_N:  median=\033[32m{np.nanmedian(ratios):.3f}\033[0m,    IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],     std={np.nanstd(ratios):.3f}")
 
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
-    logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
-    logger.info(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
-    logger.info(f"I_HOC:  median={np.nanmedian(I_HOCs):.3f},   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
-    logger.info(f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+    logger.info(f"I_N:      median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
+    logger.info(f"I2:       median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
+    logger.info(f"I_HOC:    median={np.nanmedian(I_HOCs):.3f},   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
+    logger.info(f"I_2/I_N:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
 
     return results_dict
 
@@ -469,6 +482,247 @@ def entropy_from_model(h, J, logbase=2.0):
     # H = -sum p log p
     H_nats = -(p * (np.log(p + 1e-300))).sum()
     return H_nats / log(logbase)
+
+
+
+
+
+
+
+
+
+
+
+def sample_connected_subgraphs_fast(edges, n_neurons=13741, n=10, n_samples=100):
+   """Faster implementation using adjacency list"""
+   
+   # Build adjacency list
+   adj_list = defaultdict(set)
+   for j, i in edges.T:
+       adj_list[i].add(j)
+       adj_list[j].add(i)  # Treat as undirected for connectivity
+   
+   subgraphs = []
+   attempts = 0
+   max_attempts = n_samples * 10
+   pbar = tqdm(total=n_samples, desc="sampling connected subgraphs")
+   while len(subgraphs) < n_samples and attempts < max_attempts:
+       attempts += 1
+       # Start from random neuron with connections
+       connected_neurons = list(adj_list.keys())
+       if not connected_neurons:
+           break
+       seed = np.random.choice(connected_neurons)
+       # BFS to find 2-hop neighborhood
+       visited = {seed}
+       current_level = {seed}
+       for hop in range(2):
+           next_level = set()
+           for node in current_level:
+               next_level.update(adj_list[node])
+           visited.update(next_level)
+           current_level = next_level
+       if len(visited) >= n:
+           subset = np.random.choice(list(visited), n, replace=False)
+           subgraphs.append(subset)
+           pbar.update(1)
+   pbar.close()
+   
+   return np.array(subgraphs)
+
+def analyze_higher_order_correlations(s, edges, delta_t, log_dir, logger, n_subsets=100, N=10):
+    """Analyze HOC using connectivity-aware sampling"""
+    
+    # Sample connected subgraphs
+    subgraphs = sample_connected_subgraphs_fast(edges, n_neurons=s.shape[1], n=N, n_samples=n_subsets)
+    
+    # Storage for metrics
+    I_Ns = []
+    I_2s = []
+    I_HOCs = []
+    C_3s = []  # Connected triple correlations
+    ratios = []
+    
+    for subset in subgraphs:
+        s_subset = s[:, subset]
+        
+        # Use the existing function!
+        result = analyze_N_10_information_structure(
+            s_subset,
+            logbase=2.0,
+            alpha_joint=1e-3,
+            alpha_marg=0.5,
+            delta_t=delta_t,
+            enforce_monotone=True
+        )
+        
+        I_N = result.I_N
+        I_2 = result.I2
+        I_HOC = I_N - I_2
+        
+        I_Ns.append(I_N)
+        I_2s.append(I_2)
+        I_HOCs.append(I_HOC)
+        ratios.append(result.ratio)
+        
+        # Connected triple correlations (genuine 3-body)
+        C_3 = compute_connected_triplets(s_subset)
+        C_3s.append(C_3)
+    
+    # Convert to arrays
+    I_Ns = np.array(I_Ns)
+    I_2s = np.array(I_2s)
+    I_HOCs = np.array(I_HOCs)
+    C_3s = np.array(C_3s)
+    ratios = np.array(ratios)
+    
+    # Compute percentiles
+    q25_IN, q75_IN = np.nanpercentile(I_Ns, [25, 75])
+    q25_I2, q75_I2 = np.nanpercentile(I_2s, [25, 75])
+    q25_IHOC, q75_IHOC = np.nanpercentile(I_HOCs, [25, 75])
+    q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
+    
+    # Print to console (with colors)
+    print(f"Connected subgraph analysis (N={N}):")
+    print(f"I_N:      median=\033[32m{np.nanmedian(I_Ns):.3f}\033[0m,   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(I_Ns):.1f}")
+    print(f"I2:       median=\033[32m{np.nanmedian(I_2s):.3f}\033[0m,   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I_2s):.1f}")
+    print(f"I_HOC:    median=\033[32m{np.nanmedian(I_HOCs):.3f}\033[0m,   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
+    print(f"I_2/I_N:  median=\033[32m{np.nanmedian(ratios):.3f}\033[0m,    IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],     std={np.nanstd(ratios):.3f}")
+    print(f"C_3:      mean=\033[32m{np.mean(C_3s):.4f}\033[0m ± {np.std(C_3s):.4f}")
+    
+    # Log to file (consistent format)
+    logger.info(f"Connected subgraph analysis (N={N}):")
+    logger.info(f"I_N:      median={np.nanmedian(I_Ns):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(I_Ns):.3f}")
+    logger.info(f"I2:       median={np.nanmedian(I_2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I_2s):.3f}")
+    logger.info(f"I_HOC:    median={np.nanmedian(I_HOCs):.3f},   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
+    logger.info(f"I_2/I_N:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+    logger.info(f"C_3:      mean={np.mean(C_3s):.4f} ± {np.std(C_3s):.4f}")
+    
+    # Compute statistics for return
+    results = {
+        'I_N': I_Ns,
+        'I2': I_2s,
+        'ratio': ratios,
+        'I_N_median': np.nanmedian(I_Ns),
+        'I_2_median': np.nanmedian(I_2s),
+        'I_HOC_median': np.nanmedian(I_HOCs),
+        'ratio_median': np.nanmedian(ratios),
+        'C_3_mean': np.mean(C_3s),
+        'C_3_std': np.std(C_3s)
+    }
+    
+    return results
+    """Analyze HOC using connectivity-aware sampling"""
+    
+    # Sample connected subgraphs
+    subgraphs = sample_connected_subgraphs_fast(edges, n_neurons=s.shape[1], n=N, n_samples=n_subsets)
+    
+    # Storage for metrics
+    I_Ns = []
+    I_2s = []
+    I_HOCs = []
+    C_3s = []  # Connected triple correlations
+    ratios = []
+    
+    for idx in trange(len(subgraphs), desc="processing connected subgraphs"):
+        subset = subgraphs[idx]
+        s_subset = s[:, subset]
+        
+        # Use the existing function!
+        result = analyze_N_10_information_structure(
+            s_subset,
+            logbase=2.0,
+            alpha_joint=1e-3,
+            alpha_marg=0.5,
+            delta_t=delta_t,
+            enforce_monotone=True
+        )
+        
+        I_N = result.I_N
+        I_2 = result.I2
+        I_HOC = I_N - I_2
+        
+        I_Ns.append(I_N)
+        I_2s.append(I_2)
+        I_HOCs.append(I_HOC)
+        ratios.append(result.ratio)
+        
+        # Connected triple correlations (genuine 3-body)
+        C_3 = compute_connected_triplets(s_subset)
+        C_3s.append(C_3)
+    
+    # Convert to arrays
+    I_Ns = np.array(I_Ns)
+    I_2s = np.array(I_2s)
+    I_HOCs = np.array(I_HOCs)
+    C_3s = np.array(C_3s)
+    ratios = np.array(ratios)
+    
+    # Compute statistics - match the structure from compute_entropy_analysis
+    results = {
+        'I_N': I_Ns,
+        'I2': I_2s,
+        'ratio': ratios,
+        'I_N_median': np.nanmedian(I_Ns),
+        'I_2_median': np.nanmedian(I_2s),
+        'I_HOC_median': np.nanmedian(I_HOCs),
+        'ratio_median': np.nanmedian(ratios),
+        'C_3_mean': np.mean(C_3s),
+        'C_3_std': np.std(C_3s)
+    }
+    
+    # Log results
+    print(f"I_N:    median=\033[32m{results['I_N_median']:.4f}\033[0m")
+    print(f"I_2:    median=\033[32m{results['I_2_median']:.4f}\033[0m")
+    print(f"I_HOC:  median=\033[32m{results['I_HOC_median']:.4f}\033[0m")
+    print(f"I_2/I_N:   {results['ratio_median']:.3f}")
+    print(f"C_3:   {results['C_3_mean']:.4f} ± {results['C_3_std']:.4f}")
+    logger.info(f"I_N:   {results['I_N_median']:.4f} bits")
+    logger.info(f"I_2:   {results['I_2_median']:.4f} bits")
+    logger.info(f"I_HOC: {results['I_HOC_median']:.4f} bits")
+    logger.info(f"I_2/I_N:   {results['ratio_median']:.3f}")
+    logger.info(f"C_3:   {results['C_3_mean']:.4f} ± {results['C_3_std']:.4f}")
+    
+    return results
+
+def compute_connected_triplets(s_subset):
+   """Compute connected correlation for all triplets"""
+   N = s_subset.shape[1]
+   if N < 3:
+       return 0.0
+   
+   # Convert to {0,1}
+   s_binary = (s_subset + 1) // 2
+   
+   C_3_values = []
+   
+   # Sample random triplets (exhaustive for small N)
+   n_triplets = min(100, N*(N-1)*(N-2)//6)
+   
+   for _ in range(n_triplets):
+       i, j, k = np.random.choice(N, 3, replace=False)
+       
+       # Means
+       μ_i = s_binary[:, i].mean()
+       μ_j = s_binary[:, j].mean()
+       μ_k = s_binary[:, k].mean()
+       
+       # Pairwise covariances
+       C_ij = np.cov(s_binary[:, i], s_binary[:, j])[0, 1]
+       C_ik = np.cov(s_binary[:, i], s_binary[:, k])[0, 1]
+       C_jk = np.cov(s_binary[:, j], s_binary[:, k])[0, 1]
+       
+       # Triple correlation
+       μ_ijk = (s_binary[:, i] * s_binary[:, j] * s_binary[:, k]).mean()
+       
+       # Connected correlation (cumulant)
+       C_ijk = μ_ijk - μ_i*μ_j*μ_k - μ_i*C_jk - μ_j*C_ik - μ_k*C_ij
+       
+       C_3_values.append(abs(C_ijk))
+   
+   return np.mean(C_3_values)
+
+
 
 
 
