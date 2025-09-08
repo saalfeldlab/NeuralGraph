@@ -169,14 +169,20 @@ def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
     q25_I2, q75_I2 = np.nanpercentile(I2s, [25, 75])
     q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
 
+    # Add I_HOC calculations
+    I_HOCs = INs - I2s  # Higher-order contribution
+    q25_IHOC, q75_IHOC = np.nanpercentile(I_HOCs, [25, 75])
+
     print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
     print(f"I_N:    median=\033[32m{np.nanmedian(INs):.3f}\033[0m,   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.1f}")
     print(f"I2:     median=\033[32m{np.nanmedian(I2s):.3f}\033[0m,   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.1f}")
+    print(f"I_HOC:  median=\033[32m{np.nanmedian(I_HOCs):.3f}\033[0m,   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
     print(f"ratio:  median=\033[32m{np.nanmedian(ratios):.3f}\033[0m,    IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],     std={np.nanstd(ratios):.3f}")
-    
+
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
     logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
     logger.info(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
+    logger.info(f"I_HOC:  median={np.nanmedian(I_HOCs):.3f},   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
     logger.info(f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
 
     return results_dict
