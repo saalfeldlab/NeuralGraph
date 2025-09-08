@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Debug",
+    "color": "yellow",
+    "icon": "bug",
+    "command": "workbench.action.debug.start"
+  }
+]

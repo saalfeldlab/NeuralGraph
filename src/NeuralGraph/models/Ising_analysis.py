@@ -221,8 +221,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
 
     print(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
     print(f"I2:     median={np.nanmedian(I2s):.3f},   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
-    print(
-        f"ratio:  median={np.nanmedian(ratios):.3f},   IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+    print(f"ratio:  median={np.nanmedian(ratios):.3f},    IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
 
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
     logger.info(
@@ -253,7 +252,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
 
     if False:
         # Exact triplet KL analysis
-        triplet_results, summary = compute_triplet_KL_exact_from_sparseJ(
+        triplet_results, summary = triplet_residuals_from_sparseJ(
             S_pm1=s,
             J_sparse=J,
             n_per_stratum=1000,
@@ -278,209 +277,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     }
 
 
-# ========== Rebin utilities ==========
-def aggregate_time(v: np.ndarray, bin_size: int, agg: str = "mean") -> np.ndarray:
-    T, K = v.shape
-    if bin_size <= 1:
-        return v
-    T_trim = (T // bin_size) * bin_size
-    v = v[:T_trim]
-    v = v.reshape(T_trim // bin_size, bin_size, K)
-    if agg == "median":
-        return np.median(v, axis=1)
-    else:
-        return v.mean(axis=1)
 
-def rebin_voltage_subset( x: np.ndarray, idx: np.ndarray, bin_size: int = 1, voltage_col: int = 3, agg: str = "mean", threshold: str = "mean",
-) -> np.ndarray:
-    v = x[:, idx, voltage_col].astype(np.float32, copy=False)
-    v_b = aggregate_time(v, bin_size=bin_size, agg=agg)
-    thr = np.median(v_b, axis=0) if threshold == "median" else v_b.mean(axis=0)
-    return np.where(v_b > thr[None, :], 1, -1).astype(np.int8)
-
-# ========== Entropy estimators ==========
-def plugin_entropy(p: np.ndarray, logbase: float = math.e) -> float:
-    p = p[p > 0]
-    H = -np.sum(p * np.log(p))
-    return H / math.log(logbase)
-
-def miller_madow_correction(k: int, n: int, logbase: float = math.e) -> float:
-    if n <= 0: return 0.0
-    return ((k - 1) / (2.0 * n)) / math.log(logbase)
-
-def empirical_entropy_true(S: np.ndarray, logbase: float = math.e) -> float:
-    T, N = S.shape
-    X = ((S + 1) // 2).astype(np.int8)
-    keys = X @ (1 << np.arange(N, dtype=np.int64))
-    counts = np.bincount(keys, minlength=1 << N).astype(np.float64)
-    p = counts[counts > 0] / T
-    H = plugin_entropy(p, logbase)
-    H += miller_madow_correction(len(p), T, logbase)
-    return H
-
-def entropy_true_pseudocount(S: np.ndarray, logbase: float, alpha: float) -> float:
-    T, N = S.shape
-    X = ((S + 1) // 2).astype(np.int8)
-    keys = X @ (1 << np.arange(N, dtype=np.int64))
-    counts = np.bincount(keys, minlength=1 << N).astype(np.float64) + alpha
-    p = counts / counts.sum()
-    H = plugin_entropy(p, logbase)
-    H += miller_madow_correction(np.count_nonzero(p), int(counts.sum()), logbase)
-    return H
-
-def entropy_indep_bernoulli_jeffreys(S: np.ndarray, logbase: float, alpha: float) -> float:
-    T, N = S.shape
-    X = ((S + 1) // 2).astype(np.int8)
-    H = 0.0
-    for i in range(N):
-        k1 = X[:, i].sum()
-        p1 = (k1 + alpha) / (T + 2 * alpha)
-        p0 = 1.0 - p1
-        h = 0.0
-        if p1 > 0: h -= p1 * math.log(p1)
-        if p0 > 0: h -= p0 * math.log(p0)
-        H += h / math.log(logbase)
-        H += miller_madow_correction(2, T, logbase)
-    return H
-
-def entropy_exact_ising(S, max_iter=200, lr=1.0, lam=0.0, tol=1e-6, logbase=2.0, verbose=False):
-    """
-    Maximum likelihood fit of pairwise Ising with exact enumeration.
-    S in {-1,+1}^{T x N}. Returns h, J, H_pair.
-    """
-    S = S.astype(np.int8)
-    # Ensure {-1,+1}
-    uniq = np.unique(S)
-    if set(uniq.tolist()) == {0,1}:
-        S = 2*S - 1
-    elif not set(uniq.tolist()) <= {-1,1}:
-        raise ValueError("S must be binary in {-1,+1} or {0,1}.")
-
-    T, N = S.shape
-    m_data = S.mean(axis=0)                                 # ⟨s_i⟩_data
-    C_data = (S[:, :, None] * S[:, None, :]).mean(axis=0)   # ⟨s_i s_j⟩_data
-    np.fill_diagonal(C_data, 1.0)
-
-    # Initialize (PL result or zeros). Start from PL helps, but zeros also work for N=10.
-    h = np.zeros(N, dtype=np.float64)
-    J = np.zeros((N, N), dtype=np.float64)
-
-    X = enumerate_states_pm1(N)
-
-    def neg_loglike_and_grad(h, J):
-        # ℓ(θ) = ∑_t [ h·s + 1/2 s^T J s ] - T * log Z(θ)
-        # We return -ℓ for minimization.
-        p, _, _ = model_probs(h, J, X)
-        m_mod = p @ X
-        C_mod = np.tensordot(p, X[:, :, None] * X[:, None, :], axes=(0,0))
-        np.fill_diagonal(C_mod, 1.0)
-        # Gradients of -ℓ (so we can do standard gradient DESCENT on f = -ℓ)
-        # For ascent on ℓ, use the negative of these.
-        g_h = -(m_data - m_mod) + lam * h
-        g_J = -(C_data - C_mod) + lam * J
-        np.fill_diagonal(g_J, 0.0)
-        # Negative log-likelihood:
-        # -ℓ = -T*( h·⟨s⟩_data + 1/2 tr(J C_data) ) + T*logZ + reg
-        # The constant “−T * H_emp” is irrelevant, so omitted.
-        # We don’t compute f precisely here; we only need gradients for optimization & monitoring.
-        return g_h, g_J
-
-    # Backtracking line search on ℓ (maximize ℓ)
-    prev_ll = -np.inf
-    for it in range(1, max_iter+1):
-        # Compute model stats and log-likelihood for monitoring
-        p, _, logZ = model_probs(h, J, X)
-        m_mod = p @ X
-        C_mod = np.tensordot(p, X[:, :, None] * X[:, None, :], axes=(0,0))
-        np.fill_diagonal(C_mod, 1.0)
-
-        ll = T * (m_data @ h + 0.5 * np.sum(J * C_data) - logZ) - 0.5*lam*(h@h + (J*J).sum())
-        # Gradient for ascent on ℓ:
-        g_h, g_J = neg_loglike_and_grad(h, J)
-        g_h *= -1.0
-        g_J *= -1.0
-
-        step = lr
-        # Backtracking to ensure ll increases
-        for _ in range(30):
-            h_new = h + step * g_h
-            J_new = J + step * g_J
-            J_new = 0.5 * (J_new + J_new.T)
-            np.fill_diagonal(J_new, 0.0)
-            p_new, _, logZ_new = model_probs(h_new, J_new, X)
-            ll_new = T * (m_data @ h_new + 0.5 * np.sum(J_new * C_data) - logZ_new) - 0.5*lam*(h_new@h_new + (J_new*J_new).sum())
-            if ll_new >= ll:
-                break
-            step *= 0.5
-
-        h, J, ll = h_new, J_new, ll_new
-
-        # Convergence checks
-        grad_norm = np.sqrt((g_h @ g_h) + (g_J*g_J).sum())
-        if verbose and (it % 10 == 0 or it == 1):
-            print(f"[it {it:3d}] ll/T = {ll/T:.6f}  step={step:.3e}  ||grad||={grad_norm:.3e}")
-
-        if abs(ll - prev_ll) / (1 + abs(prev_ll)) < tol and grad_norm < 1e-5:
-            break
-        prev_ll = ll
-
-    H_pair = entropy_from_model(h, J, logbase=logbase)
-    return h, J, H_pair
-
-def gibbs_sample_ising(h, J, T_samples=100000, burn=20000, seed=None):
-    rng = np.random.default_rng(seed)
-    N = h.shape[0]
-    s = rng.choice([-1, 1], size=N)
-    samples = []
-    for t in range(burn + T_samples):
-        i = rng.integers(0, N)
-        local = h[i] + J[i] @ s - J[i, i] * s[i]
-        p_plus = 1.0 / (1.0 + np.exp(-2.0 * local))
-        s[i] = 1 if rng.random() < p_plus else -1
-        if t >= burn:
-            samples.append(s.copy())
-    return np.array(samples, dtype=np.int8)
-
-def enumerate_states_pm1(N):
-    # All 2^N states in {-1,+1}^N
-    X = np.array(list(product([-1, 1], repeat=N)), dtype=np.int8)
-    return X  # shape [2^N, N]
-
-def energy(h, J, X):
-    # E(s) = - h·s - 1/2 s^T J s  (assumes J symmetric, diag(J)=0)
-    # X: [M, N], h: [N], J: [N, N]
-    lin = X @ h
-    quad = np.einsum('bi,ij,bj->b', X, J, X)  # s^T J s
-    return -(lin + 0.5 * quad)
-
-def log_partition(E):
-    # log Z = logsumexp(-E) if E is defined as +energy; here E is already energy
-    # We defined p ∝ exp(-E), so we need logsumexp(-E)
-    m = (-E).max()
-    return m + np.log(np.exp((-E - m)).sum())
-
-def model_probs(h, J, X):
-    E = energy(h, J, X)
-    logZ = log_partition(E)
-    logp = -E - logZ
-    p = np.exp(logp)
-    return p, E, logZ
-
-def model_moments_exact(h, J):
-    N = len(h)
-    X = enumerate_states_pm1(N)
-    p, _, _ = model_probs(h, J, X)
-    m = p @ X                          # ⟨s_i⟩
-    C = (X[:, :, None] * X[:, None, :])  # [M, N, N]
-    C = np.tensordot(p, C, axes=(0,0))   # ⟨s_i s_j⟩
-    return m, C
-
-def entropy_from_model(h, J, logbase=2.0):
-    X = enumerate_states_pm1(len(h))
-    p, E, logZ = model_probs(h, J, X)
-    # H = -sum p log p
-    H_nats = -(p * (np.log(p + 1e-300))).sum()
-    return H_nats / log(logbase)
 
 def sparse_ising_fit_fast(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.float32, energy_stride=10):
     """
@@ -593,6 +390,8 @@ def sparse_ising_fit_fast(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.
     return s, h, J, E
 
 
+
+
 @dataclass
 class InfoRatioResult:
     H_true: float
@@ -605,230 +404,25 @@ class InfoRatioResult:
     observed_rates: np.ndarray
     predicted_rates_pairwise: np.ndarray  # P2 model (Ising)
     predicted_rates_independent: np.ndarray  # P1 model
-
-# ========== Triplet KL Residuals ==========
-
-def convert_J_sparse_to_dense(J_sparse, N):
-    J_dense = np.zeros((N, N), dtype=np.float32)
-    for i, Ji in enumerate(J_sparse):
-        for j, val in Ji.items():
-            J_dense[i, j] = val
-            J_dense[j, i] = val  # enforce symmetry
-    return J_dense
-
-def triplet_residual_KL(S_data, h, J, n_model=200_000, seed=0, n_triplets=1000):
-    """
-    Estimate how well the pairwise model predicts 3-neuron distributions.
-    Computes KL divergence between empirical and model triplet marginals.
-    Returns median and IQR of KLs across sampled triplets.
-    """
-    rng = np.random.default_rng(seed)
-    N = S_data.shape[1]
-    triplets = [tuple(sorted(rng.choice(N, 3, replace=False))) for _ in range(n_triplets)]
-
-    S_mod = gibbs_sample_ising(h, J, T_samples=n_model, burn=20000, seed=seed + 1)
-
-    kl_list = []
-    for (i, j, k) in tqdm(triplets, desc="Computing triplet KL divergences"):
-        # empirical triplet
-        Xd = ((S_data[:, [i, j, k]] + 1) // 2)
-        idx_d = Xd @ np.array([4, 2, 1])
-        pd = np.bincount(idx_d, minlength=8).astype(float) + 1e-6
-        pd /= pd.sum()
-
-        # model triplet
-        Xm = ((S_mod[:, [i, j, k]] + 1) // 2)
-        idx_m = Xm @ np.array([4, 2, 1])
-        pm = np.bincount(idx_m, minlength=8).astype(float) + 1e-6
-        pm /= pm.sum()
-
-        # KL divergence
-        kl = np.sum(pd * (np.log(pd) - np.log(pm))) / np.log(2)  # in bits
-        kl_list.append(kl)
-
-    kl_array = np.array(kl_list)
-    return float(np.median(kl_array)), float(np.percentile(kl_array, 25)), float(np.percentile(kl_array, 75))
-
-def triplet_residual_exact(S_data: np.ndarray, h: np.ndarray, J: np.ndarray, n_model: int = 200_000, seed: int = 0, n_triplets: int = 200) -> Tuple[float, float, float]:
-    """
-    Compute KL divergences between empirical triplet marginals and those
-    predicted by the fitted Ising model (h,J).
-
-    Parameters
-    ----------
-    S_data : np.ndarray, shape (T, N)
-        Observed spins in {-1,+1}.
-    h, J : np.ndarray
-        Fitted Ising parameters (dense).
-    n_model : int
-        Number of Gibbs samples to draw from the fitted model.
-    seed : int
-        RNG seed.
-    n_triplets : int
-        Number of random triplets to test.
-
-    Returns
-    -------
-    med, q1, q3 : float
-        Median and 25/75 percentiles of KL divergences (in bits).
-    """
-    rng = np.random.default_rng(seed)
-    N = S_data.shape[1]
-    triplets = [tuple(sorted(rng.choice(N, 3, replace=False))) for _ in range(n_triplets)]
-
-    # Generate synthetic samples from model
-    S_mod = gibbs_sample_ising(h, J, T_samples=n_model, burn=20_000, seed=seed+1)
-
-    kl_list = []
-    for (i, j, k) in triplets:
-        # empirical triplet distribution
-        Xd = ((S_data[:, [i, j, k]] + 1) // 2)
-        idx_d = Xd @ np.array([4, 2, 1])
-        pd = np.bincount(idx_d, minlength=8).astype(float) + 1e-6
-        pd /= pd.sum()
-
-        # model triplet distribution
-        Xm = ((S_mod[:, [i, j, k]] + 1) // 2)
-        idx_m = Xm @ np.array([4, 2, 1])
-        pm = np.bincount(idx_m, minlength=8).astype(float) + 1e-6
-        pm /= pm.sum()
-
-        kl = np.sum(pd * (np.log(pd) - np.log(pm))) / np.log(2)  # in bits
-        kl_list.append(kl)
-
-    kl_array = np.array(kl_list)
-    return float(np.median(kl_array)), float(np.percentile(kl_array, 25)), float(np.percentile(kl_array, 75))
-
-# ---- 1) Gibbs sampler for SPARSE Ising (list-of-dicts J) ----
-def gibbs_sample_sparse_ising(h, J_sparse, T_samples=200_000, seed=0, burn=0, thin=1, init=None):
-    """
-    h: (N,) float
-    J_sparse: list of dicts; J_sparse[i][j] = J_ij (symmetric implied)
-    returns S: (T_eff, N) in {-1,+1}
-    """
-    rng = np.random.default_rng(seed)
-    N = len(h)
-    s = rng.choice([-1, 1], size=N) if init is None else init.copy()
-    samples = []
-    total_steps = burn + T_samples*thin
-    for t in range(total_steps):
-        i = rng.integers(0, N)
-        # local field from sparse neighbors
-        local = h[i]
-        for j, Jij in J_sparse[i].items():
-            local += Jij * s[j]
-        p_plus = 1.0 / (1.0 + np.exp(-2.0 * local))
-        s[i] = 1 if rng.random() < p_plus else -1
-        if t >= burn and ((t - burn) % thin == 0):
-            samples.append(s.copy())
-    return np.array(samples, dtype=np.int8)
-
-# ---- 2) Helpers to build strata from sparse graph ----
-def edge_sets_from_sparseJ(J_sparse):
-    edges = set()
-    for i, nbrs in enumerate(J_sparse):
-        for j in nbrs.keys():
-            if j > i:
-                edges.add((i, j))
-    return edges
-
-def sample_triplets_stratified(J_sparse, n_per_stratum=5000, seed=0):
-    rng = np.random.default_rng(seed)
-    N = len(J_sparse)
-    edges = edge_sets_from_sparseJ(J_sparse)
-    adj = defaultdict(set)
-    for i, j in edges:
-        adj[i].add(j); adj[j].add(i)
-
-    triplets = {"triangle": [], "wedge": [], "one_edge": [], "no_edge": []}
-
-    # Triangle / wedge via edge-biased sampling
-    nodes = np.arange(N)
-    while len(triplets["triangle"]) < n_per_stratum:
-        i = rng.integers(0, N)
-        if len(adj[i]) < 2: continue
-        j, k = rng.choice(list(adj[i]), size=2, replace=False)
-        if j in adj[k]:
-            tri = tuple(sorted((i, j, k)))
-            triplets["triangle"].append(tri)
-
-    while len(triplets["wedge"]) < n_per_stratum:
-        i = rng.integers(0, N)
-        if len(adj[i]) < 2: continue
-        j, k = rng.choice(list(adj[i]), size=2, replace=False)
-        if j not in adj[k]:
-            tri = tuple(sorted((i, j, k)))
-            triplets["wedge"].append(tri)
-
-    # One-edge and no-edge via random draws (reject to match class)
-    while len(triplets["one_edge"]) < n_per_stratum or len(triplets["no_edge"]) < n_per_stratum:
-        i, j, k = np.sort(rng.choice(N, size=3, replace=False))
-        e = ((i, j) in edges) + ((i, k) in edges) + ((j, k) in edges)
-        if e == 1 and len(triplets["one_edge"]) < n_per_stratum:
-            triplets["one_edge"].append((i, j, k))
-        elif e == 0 and len(triplets["no_edge"]) < n_per_stratum:
-            triplets["no_edge"].append((i, j, k))
-
-    return triplets  # dict of lists of 3-tuples
-
-# ---- 3) KL for many triplets, reusing a single sample pool ----
-def triplet_KL_full_population(S_data_pm1, S_model_pm1, triplets, eps=1e-6, units="bits"):
-    """
-    S_data_pm1, S_model_pm1: (T, N) in {-1,+1}
-    triplets: list of (i,j,k)
-    returns per-triplet KLs (np.array)
-    """
-    logbase = np.log(2.0) if units == "bits" else 1.0
-    T_data = S_data_pm1.shape[0]; T_mod = S_model_pm1.shape[0]
-    kl = np.empty(len(triplets), dtype=np.float64)
-
-    w = np.array([4, 2, 1], dtype=np.int32)
-    for idx, (i, j, k) in enumerate(triplets):
-        # empirical
-        Xd = (S_data_pm1[:, [i, j, k]] + 1) // 2
-        pd = np.bincount((Xd @ w), minlength=8).astype(float); pd += eps; pd /= pd.sum()
-        # model
-        Xm = (S_model_pm1[:, [i, j, k]] + 1) // 2
-        pm = np.bincount((Xm @ w), minlength=8).astype(float); pm += eps; pm /= pm.sum()
-        # KL(data || model)
-        kl[idx] = np.sum(pd * (np.log(pd) - np.log(pm))) / logbase
-    return kl
-
-# ---- 4) Driver: full-population triplet residuals ----
-def triplet_residuals_full(
-    S_data_pm1,          # (T, N_full) in {-1,+1}
-    h_full, J_sparse,    # from sparse_ising_fit_fast
-    n_model=200_000, seed=0,
-    n_per_stratum=5000,  # total ~ 20k triplets across 4 strata
-    units="bits"
-):
-    # single model sample pool
-    S_model_pm1 = gibbs_sample_sparse_ising(h_full, J_sparse, T_samples=n_model, seed=seed, burn=0)
-
-    # stratified triplets
-    strata = sample_triplets_stratified(J_sparse, n_per_stratum=n_per_stratum, seed=seed)
-
-    out = {}
-    for name, trips in strata.items():
-        kls = triplet_KL_full_population(S_data_pm1, S_model_pm1, trips, units=units)
-        q1, med, q3 = np.percentile(kls, [25, 50, 75])
-        out[name] = dict(median=float(med), q1=float(q1), q3=float(q3), n=len(kls))
-    # optionally also aggregate all strata together
-    all_trips = sum(strata.values(), [])
-    kls_all = triplet_KL_full_population(S_data_pm1, S_model_pm1, all_trips, units=units)
-    q1, med, q3 = np.percentile(kls_all, [25, 50, 75])
-    out["all"] = dict(median=float(med), q1=float(q1), q3=float(q3), n=len(kls_all))
-    return out
-
-
-def compute_info_ratio_estimator(
-        S: np.ndarray,
-        logbase: float = 2.0,
-        alpha_joint: float = 1e-3,
-        alpha_marg: float = 0.5,
-        enforce_monotone: bool = False,
-        ratio_eps: float = 1e-6,
-        delta_t: float = 0.02,
+# ========== Rebin utilities ==========
+def aggregate_time(v: np.ndarray, bin_size: int, agg: str = "mean") -> np.ndarray:
+    T, K = v.shape
+    if bin_size <= 1:
+        return v
+    T_trim = (T // bin_size) * bin_size
+    v = v[:T_trim]
+    v = v.reshape(T_trim // bin_size, bin_size, K)
+    if agg == "median":
+        return np.median(v, axis=1)
+    else:
+        return v.mean(axis=1)
+def rebin_voltage_subset( x: np.ndarray, idx: np.ndarray, bin_size: int = 1, voltage_col: int = 3, agg: str = "mean", threshold: str = "mean",
+) -> np.ndarray:
+    v = x[:, idx, voltage_col].astype(np.float32, copy=False)
+    v_b = aggregate_time(v, bin_size=bin_size, agg=agg)
+    thr = np.median(v_b, axis=0) if threshold == "median" else v_b.mean(axis=0)
+    return np.where(v_b > thr[None, :], 1, -1).astype(np.int8)
+def compute_info_ratio_estimator(S: np.ndarray,logbase: float = 2.0,alpha_joint: float = 1e-3,alpha_marg: float = 0.5,enforce_monotone: bool = False,ratio_eps: float = 1e-6,delta_t: float = 0.02,
 ) -> InfoRatioResult:
     """
     Compute information ratio and pattern rates for both pairwise and independent models.
@@ -923,45 +517,350 @@ def compute_info_ratio_estimator(
         predicted_rates_pairwise=predicted_rates_pairwise / delta_t,  # NOW in s^-1
         predicted_rates_independent=predicted_rates_independent / delta_t
     )
-
-
-
-
-
-
-
-# ----------------- helpers -----------------
-
-def _symmetrize_sparse_J(J_sparse, mode="avg"):
+# ========== Entropy estimators ==========
+def plugin_entropy(p: np.ndarray, logbase: float = math.e) -> float:
+    p = p[p > 0]
+    H = -np.sum(p * np.log(p))
+    return H / math.log(logbase)
+def miller_madow_correction(k: int, n: int, logbase: float = math.e) -> float:
+    if n <= 0: return 0.0
+    return ((k - 1) / (2.0 * n)) / math.log(logbase)
+def empirical_entropy_true(S: np.ndarray, logbase: float = math.e) -> float:
+    T, N = S.shape
+    X = ((S + 1) // 2).astype(np.int8)
+    keys = X @ (1 << np.arange(N, dtype=np.int64))
+    counts = np.bincount(keys, minlength=1 << N).astype(np.float64)
+    p = counts[counts > 0] / T
+    H = plugin_entropy(p, logbase)
+    H += miller_madow_correction(len(p), T, logbase)
+    return H
+def entropy_true_pseudocount(S: np.ndarray, logbase: float, alpha: float) -> float:
+    T, N = S.shape
+    X = ((S + 1) // 2).astype(np.int8)
+    keys = X @ (1 << np.arange(N, dtype=np.int64))
+    counts = np.bincount(keys, minlength=1 << N).astype(np.float64) + alpha
+    p = counts / counts.sum()
+    H = plugin_entropy(p, logbase)
+    H += miller_madow_correction(np.count_nonzero(p), int(counts.sum()), logbase)
+    return H
+def entropy_indep_bernoulli_jeffreys(S: np.ndarray, logbase: float, alpha: float) -> float:
+    T, N = S.shape
+    X = ((S + 1) // 2).astype(np.int8)
+    H = 0.0
+    for i in range(N):
+        k1 = X[:, i].sum()
+        p1 = (k1 + alpha) / (T + 2 * alpha)
+        p0 = 1.0 - p1
+        h = 0.0
+        if p1 > 0: h -= p1 * math.log(p1)
+        if p0 > 0: h -= p0 * math.log(p0)
+        H += h / math.log(logbase)
+        H += miller_madow_correction(2, T, logbase)
+    return H
+def entropy_exact_ising(S, max_iter=200, lr=1.0, lam=0.0, tol=1e-6, logbase=2.0, verbose=False):
     """
-    Make a symmetric view J_sym (dict-of-dicts) from row-sparse list-of-dicts.
-    mode="avg": J_ij = 0.5*(J_ij + J_ji) when both present; else the one that exists.
+    Maximum likelihood fit of pairwise Ising with exact enumeration.
+    S in {-1,+1}^{T x N}. Returns h, J, H_pair.
     """
+    S = S.astype(np.int8)
+    # Ensure {-1,+1}
+    uniq = np.unique(S)
+    if set(uniq.tolist()) == {0,1}:
+        S = 2*S - 1
+    elif not set(uniq.tolist()) <= {-1,1}:
+        raise ValueError("S must be binary in {-1,+1} or {0,1}.")
+
+    T, N = S.shape
+    m_data = S.mean(axis=0)                                 # ⟨s_i⟩_data
+    C_data = (S[:, :, None] * S[:, None, :]).mean(axis=0)   # ⟨s_i s_j⟩_data
+    np.fill_diagonal(C_data, 1.0)
+
+    # Initialize (PL result or zeros). Start from PL helps, but zeros also work for N=10.
+    h = np.zeros(N, dtype=np.float64)
+    J = np.zeros((N, N), dtype=np.float64)
+
+    X = enumerate_states_pm1(N)
+
+    def neg_loglike_and_grad(h, J):
+        # ℓ(θ) = ∑_t [ h·s + 1/2 s^T J s ] - T * log Z(θ)
+        # We return -ℓ for minimization.
+        p, _, _ = model_probs(h, J, X)
+        m_mod = p @ X
+        C_mod = np.tensordot(p, X[:, :, None] * X[:, None, :], axes=(0,0))
+        np.fill_diagonal(C_mod, 1.0)
+        # Gradients of -ℓ (so we can do standard gradient DESCENT on f = -ℓ)
+        # For ascent on ℓ, use the negative of these.
+        g_h = -(m_data - m_mod) + lam * h
+        g_J = -(C_data - C_mod) + lam * J
+        np.fill_diagonal(g_J, 0.0)
+        # Negative log-likelihood:
+        # -ℓ = -T*( h·⟨s⟩_data + 1/2 tr(J C_data) ) + T*logZ + reg
+        # The constant “−T * H_emp” is irrelevant, so omitted.
+        # We don’t compute f precisely here; we only need gradients for optimization & monitoring.
+        return g_h, g_J
+
+    # Backtracking line search on ℓ (maximize ℓ)
+    prev_ll = -np.inf
+    for it in range(1, max_iter+1):
+        # Compute model stats and log-likelihood for monitoring
+        p, _, logZ = model_probs(h, J, X)
+        m_mod = p @ X
+        C_mod = np.tensordot(p, X[:, :, None] * X[:, None, :], axes=(0,0))
+        np.fill_diagonal(C_mod, 1.0)
+
+        ll = T * (m_data @ h + 0.5 * np.sum(J * C_data) - logZ) - 0.5*lam*(h@h + (J*J).sum())
+        # Gradient for ascent on ℓ:
+        g_h, g_J = neg_loglike_and_grad(h, J)
+        g_h *= -1.0
+        g_J *= -1.0
+
+        step = lr
+        # Backtracking to ensure ll increases
+        for _ in range(30):
+            h_new = h + step * g_h
+            J_new = J + step * g_J
+            J_new = 0.5 * (J_new + J_new.T)
+            np.fill_diagonal(J_new, 0.0)
+            p_new, _, logZ_new = model_probs(h_new, J_new, X)
+            ll_new = T * (m_data @ h_new + 0.5 * np.sum(J_new * C_data) - logZ_new) - 0.5*lam*(h_new@h_new + (J_new*J_new).sum())
+            if ll_new >= ll:
+                break
+            step *= 0.5
+
+        h, J, ll = h_new, J_new, ll_new
+
+        # Convergence checks
+        grad_norm = np.sqrt((g_h @ g_h) + (g_J*g_J).sum())
+        if verbose and (it % 10 == 0 or it == 1):
+            print(f"[it {it:3d}] ll/T = {ll/T:.6f}  step={step:.3e}  ||grad||={grad_norm:.3e}")
+
+        if abs(ll - prev_ll) / (1 + abs(prev_ll)) < tol and grad_norm < 1e-5:
+            break
+        prev_ll = ll
+
+    H_pair = entropy_from_model(h, J, logbase=logbase)
+    return h, J, H_pair
+def gibbs_sample_ising(h, J, T_samples=100000, burn=20000, seed=None):
+    rng = np.random.default_rng(seed)
+    N = h.shape[0]
+    s = rng.choice([-1, 1], size=N)
+    samples = []
+    for t in range(burn + T_samples):
+        i = rng.integers(0, N)
+        local = h[i] + J[i] @ s - J[i, i] * s[i]
+        p_plus = 1.0 / (1.0 + np.exp(-2.0 * local))
+        s[i] = 1 if rng.random() < p_plus else -1
+        if t >= burn:
+            samples.append(s.copy())
+    return np.array(samples, dtype=np.int8)
+def enumerate_states_pm1(N):
+    # All 2^N states in {-1,+1}^N
+    X = np.array(list(product([-1, 1], repeat=N)), dtype=np.int8)
+    return X  # shape [2^N, N]
+def energy(h, J, X):
+    # E(s) = - h·s - 1/2 s^T J s  (assumes J symmetric, diag(J)=0)
+    # X: [M, N], h: [N], J: [N, N]
+    lin = X @ h
+    quad = np.einsum('bi,ij,bj->b', X, J, X)  # s^T J s
+    return -(lin + 0.5 * quad)
+def log_partition(E):
+    # log Z = logsumexp(-E) if E is defined as +energy; here E is already energy
+    # We defined p ∝ exp(-E), so we need logsumexp(-E)
+    m = (-E).max()
+    return m + np.log(np.exp((-E - m)).sum())
+def model_probs(h, J, X):
+    E = energy(h, J, X)
+    logZ = log_partition(E)
+    logp = -E - logZ
+    p = np.exp(logp)
+    return p, E, logZ
+def model_moments_exact(h, J):
+    N = len(h)
+    X = enumerate_states_pm1(N)
+    p, _, _ = model_probs(h, J, X)
+    m = p @ X                          # ⟨s_i⟩
+    C = (X[:, :, None] * X[:, None, :])  # [M, N, N]
+    C = np.tensordot(p, C, axes=(0,0))   # ⟨s_i s_j⟩
+    return m, C
+def entropy_from_model(h, J, logbase=2.0):
+    X = enumerate_states_pm1(len(h))
+    p, E, logZ = model_probs(h, J, X)
+    # H = -sum p log p
+    H_nats = -(p * (np.log(p + 1e-300))).sum()
+    return H_nats / log(logbase)
+
+
+
+
+def gibbs_sample_sparse_ising(h, J_sparse, T_samples=200_000, seed=0, burn=0, thin=1, init=None):
+    """
+    h: (N,) float
+    J_sparse: list of dicts; J_sparse[i][j] = J_ij (symmetric implied)
+    returns S: (T_eff, N) in {-1,+1}
+    """
+    rng = np.random.default_rng(seed)
+    N = len(h)
+    s = rng.choice([-1, 1], size=N) if init is None else init.copy()
+    samples = []
+    total_steps = burn + T_samples*thin
+    for t in range(total_steps):
+        i = rng.integers(0, N)
+        # local field from sparse neighbors
+        local = h[i]
+        for j, Jij in J_sparse[i].items():
+            local += Jij * s[j]
+        p_plus = 1.0 / (1.0 + np.exp(-2.0 * local))
+        s[i] = 1 if rng.random() < p_plus else -1
+        if t >= burn and ((t - burn) % thin == 0):
+            samples.append(s.copy())
+    return np.array(samples, dtype=np.int8)
+def sample_triplets_stratified(J_sparse, n_per_stratum=5000, seed=0):
+    rng = np.random.default_rng(seed)
     N = len(J_sparse)
+    edges = set()
+    for i, nbrs in enumerate(J_sparse):
+        for j in nbrs.keys():
+            if j > i:
+                edges.add((i, j))
+    adj = defaultdict(set)
+    for i, j in edges:
+        adj[i].add(j); adj[j].add(i)
+
+    triplets = {"triangle": [], "wedge": [], "one_edge": [], "no_edge": []}
+    nodes = np.arange(N)
+    while len(triplets["triangle"]) < n_per_stratum:
+        i = rng.integers(0, N)
+        if len(adj[i]) < 2: continue
+        j, k = rng.choice(list(adj[i]), size=2, replace=False)
+        if j in adj[k]:
+            tri = tuple(sorted((i, j, k)))
+            triplets["triangle"].append(tri)
+    while len(triplets["wedge"]) < n_per_stratum:
+        i = rng.integers(0, N)
+        if len(adj[i]) < 2: continue
+        j, k = rng.choice(list(adj[i]), size=2, replace=False)
+        if j not in adj[k]:
+            tri = tuple(sorted((i, j, k)))
+            triplets["wedge"].append(tri)
+    while len(triplets["one_edge"]) < n_per_stratum or len(triplets["no_edge"]) < n_per_stratum:
+        i, j, k = np.sort(rng.choice(N, size=3, replace=False))
+        e = ((i, j) in edges) + ((i, k) in edges) + ((j, k) in edges)
+        if e == 1 and len(triplets["one_edge"]) < n_per_stratum:
+            triplets["one_edge"].append((i, j, k))
+        elif e == 0 and len(triplets["no_edge"]) < n_per_stratum:
+            triplets["no_edge"].append((i, j, k))
+
+    return triplets  # dict of lists of 3-tuples
+def triplet_KL_full_population(S_data_pm1, S_model_pm1, triplets, eps=1e-6, units="bits"):
+    """
+    S_data_pm1, S_model_pm1: (T, N) in {-1,+1}
+    triplets: list of (i,j,k)
+    returns per-triplet KLs (np.array)
+    """
+    logbase = np.log(2.0) if units == "bits" else 1.0
+    T_data = S_data_pm1.shape[0]; T_mod = S_model_pm1.shape[0]
+    kl = np.empty(len(triplets), dtype=np.float64)
+
+    w = np.array([4, 2, 1], dtype=np.int32)
+    for idx, (i, j, k) in enumerate(triplets):
+        # empirical
+        Xd = (S_data_pm1[:, [i, j, k]] + 1) // 2
+        pd = np.bincount((Xd @ w), minlength=8).astype(float); pd += eps; pd /= pd.sum()
+        # model
+        Xm = (S_model_pm1[:, [i, j, k]] + 1) // 2
+        pm = np.bincount((Xm @ w), minlength=8).astype(float); pm += eps; pm /= pm.sum()
+        # KL(data || model)
+        kl[idx] = np.sum(pd * (np.log(pd) - np.log(pm))) / logbase
+    return kl
+def triplet_residuals_full(S_data_pm1, h_full, J_sparse, n_model=200_000, seed=0, n_per_stratum=5000, units="bits"):
+    # single model sample pool
+    S_model_pm1 = gibbs_sample_sparse_ising(h_full, J_sparse, T_samples=n_model, seed=seed, burn=0)
+    # stratified triplets
+    strata = sample_triplets_stratified(J_sparse, n_per_stratum=n_per_stratum, seed=seed)
+
+    out = {}
+    for name, trips in strata.items():
+        kls = triplet_KL_full_population(S_data_pm1, S_model_pm1, trips, units=units)
+        q1, med, q3 = np.percentile(kls, [25, 50, 75])
+        out[name] = dict(median=float(med), q1=float(q1), q3=float(q3), n=len(kls))
+    # optionally also aggregate all strata together
+    all_trips = sum(strata.values(), [])
+    kls_all = triplet_KL_full_population(S_data_pm1, S_model_pm1, all_trips, units=units)
+    q1, med, q3 = np.percentile(kls_all, [25, 50, 75])
+    out["all"] = dict(median=float(med), q1=float(q1), q3=float(q3), n=len(kls_all))
+    return out
+
+
+
+
+
+
+
+
+
+
+def sample_stratified_triplets_from_sparse_J(J_sparse, n_per_stratum=1000, tau=0.0, rng_seed=0):
+
+    rng = np.random.default_rng(rng_seed)
+    N = len(J_sparse)
+    # Convert sparse J to symmetric (mode="avg")
     J_sym = [defaultdict(float) for _ in range(N)]
     for i in range(N):
         for j, v in J_sparse[i].items():
-            if i == j:
-                continue
-            if mode == "avg" and i < j and i in J_sparse[j]:
-                v = 0.5 * (v + J_sparse[j][i])
-            # write sym
+            if i == j: continue
+            if i < j and i in J_sparse[j]:
+                v = 0.5 * (v + J_sparse[j][i])  # average if both exist
             J_sym[i][j] = v
             J_sym[j][i] = v
-    return J_sym
 
-def _edge_present(J_sym, i, j, tau=0.0):
-    """Presence indicator from symmetric weights (by magnitude > tau)."""
-    return (j in J_sym[i]) and (abs(J_sym[i][j]) > tau)
+    # Helper functions (inlined)
+    def edge_present(i, j):
+        return (j in J_sym[i]) and (abs(J_sym[i][j]) > tau)
 
-def _triplet_pattern(J_sym, i, j, k, tau=0.0):
-    """Return (m, pat) where m=#edges in {ij,ik,jk}, pat is 3-bit code."""
-    bij = int(_edge_present(J_sym, i, j, tau))
-    bik = int(_edge_present(J_sym, i, k, tau))
-    bjk = int(_edge_present(J_sym, j, k, tau))
-    m = bij + bik + bjk
-    pat = 4*bij + 2*bik + bjk
-    return m, pat, (bij, bik, bjk)
+    def triplet_pattern(i, j, k):
+        bij = int(edge_present(i, j))
+        bik = int(edge_present(i, k))
+        bjk = int(edge_present(j, k))
+        return bij + bik + bjk  # return edge count
+
+    # Initialize buckets
+    buckets = {'triangle': [], 'wedge': [], 'one_edge': [], 'no_edge': []}
+
+    # Bias sampling toward high-degree nodes for efficiency
+    deg = [len(J_sym[i]) for i in range(N)]
+    candidates = np.argsort(deg)[::-1]
+
+    # Sample until all strata filled
+    max_trials = 200000
+    trials = 0
+    while any(len(buckets[k]) < n_per_stratum for k in buckets) and trials < max_trials:
+        trials += 1
+
+        # Choose seed node (biased toward high degree)
+        u = candidates[min(int(rng.exponential(scale=100)), len(candidates) - 1)]
+
+        # Pick two others (preferably neighbors)
+        neigh = list(J_sym[u].keys())
+        if len(neigh) >= 2:
+            v, w = rng.choice(neigh, size=2, replace=False)
+        else:
+            v, w = rng.integers(0, N, size=2)
+
+        i, j, k = sorted({int(u), int(v), int(w)})
+        if len({i, j, k}) < 3: continue
+
+        # Classify and add to appropriate bucket
+        m = triplet_pattern(i, j, k)
+        if m == 3 and len(buckets['triangle']) < n_per_stratum:
+            buckets['triangle'].append((i, j, k))
+        elif m == 2 and len(buckets['wedge']) < n_per_stratum:
+            buckets['wedge'].append((i, j, k))
+        elif m == 1 and len(buckets['one_edge']) < n_per_stratum:
+            buckets['one_edge'].append((i, j, k))
+        elif m == 0 and len(buckets['no_edge']) < n_per_stratum:
+            buckets['no_edge'].append((i, j, k))
+
+    return buckets, J_sym
 
 def _neighbors_by_absJ(J_sym, nodes, k_each=3, exclude=None):
     """
@@ -981,7 +880,6 @@ def _neighbors_by_absJ(J_sym, nodes, k_each=3, exclude=None):
     # sort by descending strength
     ranked = sorted(scores.keys(), key=lambda v: scores[v], reverse=True)
     return ranked
-
 def _empirical_triplet_marginal(S_sub_10, idx_triplet_10):
     """
     S_sub_10: [T,10] in {-1,+1}; idx_triplet_10: tuple of 3 positions in 0..9
@@ -995,7 +893,6 @@ def _empirical_triplet_marginal(S_sub_10, idx_triplet_10):
     counts = np.bincount(keys, minlength=8).astype(np.float64)
     p = counts / counts.sum()
     return p
-
 def _model_triplet_marginal_from_exact(h10, J10, triplet_idx):
     """
     Use exact 10-neuron model to get P(s) over 2^10 states, then marginalize to (i,j,k).
@@ -1009,55 +906,13 @@ def _model_triplet_marginal_from_exact(h10, J10, triplet_idx):
     p3 = np.zeros(8, dtype=np.float64)
     np.add.at(p3, keys, p)  # sum probabilities of 10-state that share same 3-state
     return p3
-
 def _kl(p, q, eps=1e-12, logbase=np.e):
     """KL(p||q) with safety eps; returns nats if logbase=e, bits if logbase=2."""
     p = np.clip(p, eps, 1.0); p /= p.sum()
     q = np.clip(q, eps, 1.0); q /= q.sum()
     log = np.log if logbase == np.e else (lambda x: np.log(x)/np.log(logbase))
     return np.sum(p * (log(p) - log(q)))
-
-def _sample_triplets_by_stratum(J_sym, n_per_stratum=1000, tau=0.0, rng=None):
-    """
-    Randomly sample triplets per stratum from J_sym support.
-    Returns dict: {'triangle':[(i,j,k),...], 'wedge':..., 'one_edge':..., 'no_edge':...}
-    """
-    if rng is None:
-        rng = np.random.default_rng(0)
-    N = len(J_sym)
-    buckets = {'triangle': [], 'wedge': [], 'one_edge': [], 'no_edge': []}
-
-    # quick neighbor lists to bias sampling toward places with edges (speeds up triangles/wedges)
-    deg = [len(J_sym[i]) for i in range(N)]
-    candidates = np.argsort(deg)[::-1]  # start from higher-degree nodes
-
-    # try until filled
-    max_trials = 200000
-    trials = 0
-    while any(len(buckets[k]) < n_per_stratum for k in buckets) and trials < max_trials:
-        trials += 1
-        # choose a seed node with probability ~ degree+1 (so no-edge still possible)
-        u = candidates[min(int(rng.exponential(scale=100)), len(candidates)-1)]
-        # pick two others near u (or random)
-        neigh = list(J_sym[u].keys())
-        if len(neigh) >= 2:
-            v, w = rng.choice(neigh, size=2, replace=False)
-        else:
-            v, w = rng.integers(0, N, size=2)
-        i, j, k = sorted({int(u), int(v), int(w)})
-        if len({i,j,k}) < 3:
-            continue
-
-        m, _, _ = _triplet_pattern(J_sym, i, j, k, tau)
-        if   m == 3 and len(buckets['triangle'])  < n_per_stratum: buckets['triangle'].append((i,j,k))
-        elif m == 2 and len(buckets['wedge'])     < n_per_stratum: buckets['wedge'].append((i,j,k))
-        elif m == 1 and len(buckets['one_edge'])  < n_per_stratum: buckets['one_edge'].append((i,j,k))
-        elif m == 0 and len(buckets['no_edge'])   < n_per_stratum: buckets['no_edge'].append((i,j,k))
-    return buckets
-
-# ----------------- main API -----------------
-
-def compute_triplet_KL_exact_from_sparseJ(
+def triplet_residuals_from_sparseJ(
     S_pm1,                 # ndarray [T,N] in {-1,+1}
     J_sparse,              # list[dict], from sparse_ising_fit_fast  # :contentReference[oaicite:6]{index=6}
     n_per_stratum=500,
@@ -1066,23 +921,14 @@ def compute_triplet_KL_exact_from_sparseJ(
     k_neighbors_each=4,
     rng_seed=0,
 ):
-    """
-    For each stratum (triangle/wedge/one_edge/no_edge), sample triplets from the
-    symmetric support of J_sparse. For each triplet, build a 10-neuron neighborhood
-    (triplet + strongest-|J| neighbors), fit an exact 10-neuron Ising, and compute
-    D_KL(P_data^{(3)} || P_model^{(3)}). Returns per-stratum arrays and a summary.
-    """
+
     rng = np.random.default_rng(rng_seed)
     N = S_pm1.shape[1]
     assert S_pm1.dtype in (np.int8, np.int16, np.int32), "S must be in {-1,+1}"
 
-    # 0) symmetric view of J
-    J_sym = _symmetrize_sparse_J(J_sparse, mode="avg")
+    strata, J_sym = sample_stratified_triplets_from_sparse_J(J_sparse, n_per_stratum=1000, tau=0.0, rng_seed=0)
 
-    # 1) sample triplets by stratum
-    strata = _sample_triplets_by_stratum(J_sym, n_per_stratum=n_per_stratum, tau=tau_present, rng=rng)
-
-    # 2) loop & compute KL per triplet via local exact 10-neuron fit
+    # loop & compute KL per triplet via local exact 10-neuron fit
     results = {k: [] for k in strata}
     for cat, triplets in strata.items():
         for (i, j, k) in tqdm(triplets, desc=f"Processing {cat}", leave=False):
