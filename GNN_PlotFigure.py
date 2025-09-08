@@ -2066,7 +2066,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     x_list = []
     y_list = []
     time.sleep(0.5)
-    print('load data...')
+    print('load simulation data...')
     for run in range(0, n_runs):
         if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
             x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
@@ -2184,7 +2184,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 for eps in [0.02]: #[0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
                     results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
                     print(f"eps={eps}: {results['n_clusters_found']} clusters, "
-                          f"accuracy={results['accuracy']:.3f}")
+                          f"accuracy=\033[32m{results['accuracy']:.3f}\033[0m")
                     logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "f"accuracy={results['accuracy']:.3f}")
                 time.sleep(1)
 
@@ -2622,7 +2622,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 print(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
                 logger.info(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
             print(" ")
-
 
 
 def movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges, gt_weights, gt_taus, gt_V_Rest,
@@ -4279,7 +4278,6 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
 
     return fig
 
-###
 
 def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
 
@@ -7283,7 +7281,7 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # plot no noise at all
@@ -7292,9 +7290,9 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
 
-    config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14', ]
+    # config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14', ]
 
-    # config_list = ['fly_N9_52_9']
+    # config_list = ['fly_N9_22_10']
 
     for config_file_ in config_list:
         print(' ')
