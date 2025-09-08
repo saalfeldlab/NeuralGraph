@@ -2130,7 +2130,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    ising_results = analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
+    analyze_ising_model(x_list, delta_t, log_dir, logger, mc)
 
     if epoch_list[0] == 'all':
 
@@ -2180,7 +2180,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.close()
 
             if True:
-                print('embedding clustering results')
+                print('embedding clustering...')
                 for eps in [0.02]: #[0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
                     results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
                     print(f"eps={eps}: {results['n_clusters_found']} clusters, "
@@ -2315,8 +2315,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.savefig(f'{log_dir}/results/tau_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
-            print(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-            logger.info(f"tau reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            print(f"tau reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit[0]:.2f}")
+            logger.info(f"tau reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
             torch.save(torch.tensor(learned_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
 
             # V_rest comparison (reconstructed vs ground truth)
@@ -2330,7 +2330,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_V_rest - np.mean(learned_V_rest)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest)}',
+            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest)}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
             plt.xlabel(r'true $V_{rest}$', fontsize=24)
             plt.ylabel(r'learned $V_{rest}$', fontsize=24)
@@ -2340,8 +2340,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
-            print(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-            logger.info(f"V_rest reconstruction R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            print(f"V_rest reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit[0]:.2f}")
+            logger.info(f"V_rest reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
 
             torch.save(torch.tensor(learned_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
 
@@ -2364,8 +2364,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/comparison_{epoch}.png', dpi=300)
             plt.close()
-            print(f"first weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
-            logger.info(f"first weights fit R²: {r_squared:.4f}  slope: {np.round(lin_fit[0], 4)}")
+            print(f"first weights fit R²: {r_squared:.2f}  slope: {np.round(lin_fit[0], 4)}")
+            logger.info(f"first weights fit R²: {r_squared:.2f}  slope: {np.round(lin_fit[0], 4)}")
 
             # k_list = [1]
 
@@ -7281,7 +7281,7 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    config_list = ['fly_N9_22_1', 'fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
+    config_list = ['fly_N9_44_6', 'fly_N9_44_8', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12']
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # plot no noise at all
