@@ -271,6 +271,8 @@ class InfoRatioResult:
 
 
 
+
+
 def plugin_entropy(p: np.ndarray, logbase: float = math.e) -> float:
     p = p[p > 0]
     H = -np.sum(p * np.log(p))
