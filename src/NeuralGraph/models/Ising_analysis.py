@@ -34,9 +34,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
     mean_v = voltage.mean(axis=0)
     s = np.where(voltage > mean_v, 1, -1).astype(np.int8)
 
-    results_dict = compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10)
-
-
+    results_dict = compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=200, N=10)
 
 
     # if os.path.exists(f"./{log_dir}/results/E.npy"):
@@ -92,17 +90,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
             print(f"triplet KL [{name}]: \033[38;5;208mmedian=\033[0m{stats['median']:.4f}, IQR=[{q1:.4f}, {q3:.4f}], n={stats['n']}")
             logger.info(f"triplet KL exact [{name}]: median={stats['median']:.4f}, IQR=[{q1:.4f}, {q3:.4f}], n={stats['n']}")
         np.save(f"{log_dir}/results/triplet_KL_full.npy", kl_results_approx)
-
-
-    return {
-        'energy_stats': {'mean': E_mean, 'std': E_std, 'entropy': E_entropy},
-        'coupling_stats': {'mean': J_mean, 'std': J_std, 'sign_ratio': J_sign_ratio, 'frac_strong': J_frac_strong},
-        'info_ratio_results': results_dict,
-        'triplet_kl_results': kl_results,
-        # 'triplet_kl_exact': {'results': triplet_results, 'summary': summary},
-        'ising_params': {'s': s, 'h': h, 'J': J, 'E': E}
-    }
-
 
 
 
@@ -243,9 +230,9 @@ def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
     q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
 
     print(f"non monotonic ratio {non_monotonic.sum()} out of {n_subsets}")
-    print(f"I_N:    median=\033[32m{np.nanmedian(INs):.3f}\033[0m,   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
-    print(f"I2:     median=\033[32m{np.nanmedian(I2s):.3f}\033[0m,   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.3f}")
-    print(f"ratio:  median=\033[32m{np.nanmedian(ratios):.3f}\033[0m,    IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],   std={np.nanstd(ratios):.3f}")
+    print(f"I_N:    median=\033[32m{np.nanmedian(INs):.3f}\033[0m,   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.1f}")
+    print(f"I2:     median=\033[32m{np.nanmedian(I2s):.3f}\033[0m,   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I2s):.1f}")
+    print(f"ratio:  median=\033[32m{np.nanmedian(ratios):.3f}\033[0m,    IQR=[{q25_ratio:.3f}, {q75_ratio:.3f}],     std={np.nanstd(ratios):.3f}")
     
     logger.info(f"non monotonic ratio {non_monotonic.sum() / n_subsets:.2f}")
     logger.info(f"I_N:    median={np.nanmedian(INs):.3f},   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(INs):.3f}")
@@ -269,9 +256,101 @@ class InfoRatioResult:
     predicted_rates_independent: np.ndarray  # P1 model
 
 
+def analyze_N_10_information_structure(S: np.ndarray,logbase: float = 2.0,alpha_joint: float = 1e-3,alpha_marg: float = 0.5,enforce_monotone: bool = False,ratio_eps: float = 1e-6,delta_t: float = 0.02,
+) -> InfoRatioResult:
+    """
+    Compute information ratio and pattern rates for both pairwise and independent models.
 
+    Parameters
+    ----------
+    S : np.ndarray, shape (T, N)
+        Binary activity patterns in {-1, +1}
 
+    Returns
+    -------
+    InfoRatioResult with pattern rates:
+        - observed_rates: empirical probability of each 2^N pattern
+        - predicted_rates_pairwise: Ising model (P2) probability of each pattern
+        - predicted_rates_independent: Independent model (P1) probability of each pattern
+    """
+    H_true = entropy_true_pseudocount(S, logbase, alpha_joint)
+    H_ind = entropy_indep_bernoulli_jeffreys(S, logbase, alpha_marg)
 
+    h, J, H_pair = entropy_exact_ising(S)
+
+    if (H_pair > H_ind) | (H_true > H_pair):
+        count_non_monotonic = 1
+    else:
+        count_non_monotonic = 0
+
+    if enforce_monotone:
+        H_pair = min(H_pair, H_ind)
+        H_true = min(H_true, H_pair)
+
+    I_N = H_ind - H_true
+    I2 = H_ind - H_pair
+    ratio = I2 / I_N if I_N > ratio_eps else float('nan')
+
+    # Pattern rate computation (always done)
+    T, N = S.shape
+
+    # Convert {-1,+1} to {0,1} for pattern indexing
+    S_binary = (S + 1) // 2  # shape (T, N)
+
+    # Compute pattern indices (each pattern -> integer 0 to 2^N-1)
+    powers = 2 ** np.arange(N)  # [1, 2, 4, 8, ...]
+    pattern_indices = S_binary @ powers  # shape (T,)
+
+    # Count empirical pattern occurrences
+    pattern_counts = np.bincount(pattern_indices, minlength=2 ** N)
+    observed_rates = pattern_counts.astype(float) / T
+
+    # Compute individual neuron firing probabilities for independent model
+    p_i = np.mean(S_binary, axis=0)  # shape (N,)
+
+    # Compute model predictions for all 2^N patterns
+    predicted_rates_pairwise = np.zeros(2 ** N)
+    predicted_rates_independent = np.zeros(2 ** N)
+
+    # Generate all possible binary patterns
+    for pattern_idx in range(2 ** N):
+        # Convert pattern index back to binary array
+        binary_pattern = np.array([(pattern_idx >> i) & 1 for i in range(N)])
+
+        # PAIRWISE MODEL (P2): Ising model
+        sigma = 2 * binary_pattern - 1  # Convert to {-1, +1}
+        field_energy = -np.sum(h * sigma)
+        coupling_energy = -0.5 * np.sum(J * np.outer(sigma, sigma))
+        energy = field_energy + coupling_energy
+        predicted_rates_pairwise[pattern_idx] = np.exp(-energy)
+
+        # INDEPENDENT MODEL (P1): Product of individual probabilities
+        prob_independent = 1.0
+        for i in range(N):
+            if binary_pattern[i] == 1:
+                prob_independent *= p_i[i]
+            else:
+                prob_independent *= (1.0 - p_i[i])
+        predicted_rates_independent[pattern_idx] = prob_independent
+
+    # Normalize pairwise model to get probabilities
+    Z_pairwise = np.sum(predicted_rates_pairwise)
+    predicted_rates_pairwise = predicted_rates_pairwise / Z_pairwise
+
+    # Independent model already normalized (probabilities sum to 1)
+
+    return InfoRatioResult(
+        H_true=H_true,
+        H_indep=H_ind,
+        H_pair=H_pair,
+        I_N=I_N / delta_t,
+        I2=I2 / delta_t,
+        ratio=ratio,
+        count_non_monotonic=count_non_monotonic,
+        observed_rates=observed_rates / delta_t,  # NOW in s^-1
+        predicted_rates_pairwise=predicted_rates_pairwise / delta_t,  # NOW in s^-1
+        predicted_rates_independent=predicted_rates_independent / delta_t
+    )
 
 def plugin_entropy(p: np.ndarray, logbase: float = math.e) -> float:
     p = p[p > 0]
