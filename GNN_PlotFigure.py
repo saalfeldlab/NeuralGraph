@@ -2817,7 +2817,7 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     logger.info(f"Mean tau RMSE: {np.mean(rmse_taus):.3f} ± {np.std(rmse_taus):.3f}")
     logger.info(f"Mean V_rest RMSE: {np.mean(rmse_vrests):.3f} ± {np.std(rmse_vrests):.3f}")
 
-    worst_indices = np.argsort(rmse_weights)[-10:]  # Get indices of 5 highest RMSE values
+    worst_indices = np.argsort(rmse_weights)[-3:]  # Get indices of 5 highest RMSE values
     worst_types_info = []
     for i, idx in enumerate(worst_indices):
         type_name = index_to_name.get(idx, f'Type{idx}')
@@ -2843,6 +2843,9 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         type_indices = np.where(type_list == type_idx)[0]
         type_learned = learned_weights[type_indices]
         type_true = true_weights[type_indices]
+
+        rmse_ = np.sqrt(np.mean((type_true - type_learned) ** 2)) / (np.mean(np.abs(type_true)) + 1e-6)
+        print(f"Neuron type {type_name} (index {type_idx}) weights RMSE: {rmse_:.3f}")
 
         if len(type_learned) > 0:
             plt.scatter(type_true, type_learned, c=colors_65[i], alpha=0.8, s=3, label=f'{type_name} ({type_idx})', edgecolors='None')
