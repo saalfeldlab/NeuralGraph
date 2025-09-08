@@ -3,8 +3,6 @@ channels:
   - conda-forge
 dependencies:
   - python=3.10.0
-  - pytorch
-  - torchvision
   - umap-learn
   - numpy
   - scipy
@@ -27,6 +25,8 @@ dependencies:
   - seaborn
   - dask
   - pip:
+    # Install PyTorch with CUDA support via pip
+    - torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
     - geomloss
     - torch_geometric
     - PyQt5

@@ -25,7 +25,6 @@ from NeuralGraph.models.MLP import *
 from NeuralGraph.utils import to_numpy, CustomColorMap
 
 from NeuralGraph.models.Ising_analysis import analyze_ising_model
-
 from scipy import stats
 from io import StringIO
 import sys
@@ -2540,22 +2539,22 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             results = analyze_neuron_type_reconstruction(
                 config=config,
                 model=model,
-                edges = edges,
-                slopes_lin_phi_list=slopes_lin_phi_list,
-                offsets_list=offsets_list,
-                slopes_lin_edge_list=slopes_lin_edge_list,
-                gt_weights=gt_weights,
-                gt_taus=gt_taus,
-                gt_V_Rest=gt_V_Rest,
-                type_list=type_list,
-                n_neurons=n_neurons,
-                n_types=n_types,
-                edges=edges,
-                cmap=cmap,
-                mc=mc,
+                edges=to_numpy(edges),
+                true_weights=true_weights,  #  ground truth weights
+                gt_taus=gt_taus,  #  ground truth tau values
+                gt_V_Rest=gt_V_rest,  #  ground truth V_rest values
+                learned_weights=learned_weights,
+                learned_tau = learned_tau,
+                learned_V_rest=learned_V_rest, # Learned V_rest
+                type_list=to_numpy(type_list),
+                n_frames=n_frames,
+                dimension=dimension,
+                n_neuron_types=n_neuron_types,
+                device=device,
+                log_dir=log_dir,
+                dataset_name=dataset_name,
                 logger=logger,
-                create_plot=True,
-                fig=None
+                index_to_name=index_to_name
             )
 
             if 'visual' in field_type:
@@ -7167,7 +7166,7 @@ def get_figures(index):
     print(' ')
 
     return config_list,epoch_list
-
+ 
 
 if __name__ == '__main__':
 
@@ -7294,6 +7293,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
 
     config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14', ]
+
+    # config_list = ['fly_N9_52_9']
 
     for config_file_ in config_list:
         print(' ')
