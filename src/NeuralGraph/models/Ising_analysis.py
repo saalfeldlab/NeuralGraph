@@ -428,8 +428,11 @@ def enumerate_states_pm1(N):
 def energy(h, J, X):
     # E(s) = - h·s - 1/2 s^T J s  (assumes J symmetric, diag(J)=0)
     # X: [M, N], h: [N], J: [N, N]
+    # Ensure diagonal is zero to avoid double-counting
+    J_offdiag = J.copy()
+    np.fill_diagonal(J_offdiag, 0)
     lin = X @ h
-    quad = np.einsum('bi,ij,bj->b', X, J, X)  # s^T J s
+    quad = np.einsum('bi,ij,bj->b', X, J_offdiag, X)
     return -(lin + 0.5 * quad)
 
 def log_partition(E):
