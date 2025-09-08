@@ -41,7 +41,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, edges):
 
 
 
-
 def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
     """
     Compute information structure analysis on random neuron subsets.
@@ -200,7 +199,6 @@ def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
 
     return results_dict
 
-
 @dataclass
 class InfoRatioResult:
     H_true: float
@@ -213,7 +211,6 @@ class InfoRatioResult:
     observed_rates: np.ndarray
     predicted_rates_pairwise: np.ndarray  # P2 model (Ising)
     predicted_rates_independent: np.ndarray  # P1 model
-
 
 def analyze_N_10_information_structure(S: np.ndarray,logbase: float = 2.0,alpha_joint: float = 1e-3,alpha_marg: float = 0.5,enforce_monotone: bool = False,ratio_eps: float = 1e-6,delta_t: float = 0.02,
 ) -> InfoRatioResult:
@@ -482,9 +479,6 @@ def entropy_from_model(h, J, logbase=2.0):
     # H = -sum p log p
     H_nats = -(p * (np.log(p + 1e-300))).sum()
     return H_nats / log(logbase)
-
-
-
 
 
 

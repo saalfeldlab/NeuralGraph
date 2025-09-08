@@ -2647,6 +2647,10 @@ def movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges
                              mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata)
 
 
+
+
+
+
 def create_combined_movie(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
                           edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
                           mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata):
@@ -3170,37 +3174,17 @@ def create_vrest_subplot(fig, slopes_lin_phi_list, offsets_list, gt_V_Rest, n_ne
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
-def data_flyvis_compare(config_list, varied_parameter):
+
+
+
+
+
+def compare_gnn_results(config_list, varied_parameter):
     """
-    Compare flyvis experiments by reading config files and results.log files
-
-    Changes / Features:
-      - Parse standard metrics (weights/tau/V_rest R², clustering, video sizes)
-      - Parse Schneidman/Ising metrics from results.log:
-            I_N:    median=...,   IQR=[q1, q3]
-            I2:     median=...,   IQR=[q1, q3]
-            Ratio:  median=...,   IQR=[q1, q3]
-            Triplet KL median [IQR]: med [q1, q3]
-      - Aggregate Ising metrics into ising_results per parameter value
-      - Plots:
-            1) parameter_comparison_{param_display_name}.png   (R² + clustering)
-            2) loss_curves_{param_display_name}.png            (loss vs epochs)
-            3) ising_three_panels_{param_display_name}.png     (Energy/Entropy/|J|, Gini)
-            4) ising_summary_{param_display_name}.png          (IN, I2, Ratio, Triplet KL)
-            5) energy_distributions_{param_display_name}.png   (overlayed energy histograms)
+    Compare GNN experiments by reading config files and results.log files
+    Focuses on: weights/tau/V_rest R², clustering accuracy, loss curves
     """
-    import os
-    import re
-    import yaml
-    import numpy as np
-    import matplotlib.pyplot as plt
-    from collections import defaultdict
-
-    # Disable LaTeX usage completely
-    plt.rcParams['text.usetex'] = False
-    # Use default matplotlib fonts instead of LaTeX fonts
-    plt.rc('font', family='sans-serif')
-
+    
     # Global style
     plt.style.use('ggplot')
     plt.rcParams['axes.facecolor'] = 'black'
@@ -3211,68 +3195,18 @@ def data_flyvis_compare(config_list, varied_parameter):
     plt.rcParams['ytick.color'] = 'white'
     plt.rcParams['grid.color'] = 'gray'
     plt.rcParams['text.color'] = 'white'
-
-    # ---- Internal, minimal fallbacks / helpers
-    try:
-        from scipy import stats
-    except Exception:
-        class _StatsFallback:
-            @staticmethod
-            def skew(x):
-                x = np.asarray(x); m = np.mean(x); s = np.std(x)
-                if s == 0: return 0.0
-                return np.mean(((x - m)/s)**3)
-            @staticmethod
-            def kurtosis(x):
-                x = np.asarray(x); m = np.mean(x); s = np.std(x)
-                if s == 0: return 0.0
-                return np.mean(((x - m)/s)**4) - 3.0
-        stats = _StatsFallback()
-
-    def gini(arr):
-        arr = np.asarray(arr, dtype=float)
-        arr = arr[np.isfinite(arr)]
-        if arr.size == 0: return np.nan
-        if np.all(arr == 0): return 0.0
-        arr = np.abs(arr)
-        arr.sort()
-        n = arr.size
-        cum = np.cumsum(arr)
-        return (n + 1 - 2*np.sum(cum)/cum[-1]) / n
-
-    def first_float(x):
-        m = re.search(r'-?\d+(?:\.\d+)?', str(x))
-        return float(m.group(0)) if m else float('nan')
-
-    def parse_three_nums(line_pat, text):
-        m = re.search(line_pat, text)
-        if not m: return (None, None, None)
-        return float(m.group(1)), float(m.group(2)), float(m.group(3))
-
-    def fmt_vals(vals, w=12):
-        vals = [v for v in vals if v is not None and np.isfinite(v)]
-        if len(vals) == 0:
-            return f"{'NA':<{w}}"
-        if len(vals) == 1:
-            return f"{vals[0]:<{w}.4f}"
-        m, s = np.mean(vals), np.std(vals)
-        return f"{m:.4f}±{s:.4f}".ljust(w)
-
-    # Imports that depend on your project
+    
     from NeuralGraph.config import NeuralGraphConfig
-    from NeuralGraph.models.utils import add_pre_folder
-
+    from NeuralGraph.models.utils import add_pre_folder, to_numpy
+    
     results = []
-
-    # -----------------------------
+    
     # Read & parse per-config files
-    # -----------------------------
     for config_file_ in config_list:
         try:
-            # Load config for parameter readout
             config_file, pre_folder = add_pre_folder(config_file_)
             config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-
+            
             # Resolve varied parameter value
             if varied_parameter is None:
                 parts = config_file_.split('_')
@@ -3283,71 +3217,54 @@ def data_flyvis_compare(config_list, varied_parameter):
                     continue
             else:
                 if '.' not in varied_parameter:
-                    raise ValueError(f"parameter must be in 'section.parameter' format, got: {varied_parameter}")
+                    raise ValueError(f"parameter must be in 'section.parameter' format")
                 section_name, param_name = varied_parameter.split('.', 1)
                 section = getattr(config, section_name, None)
                 if section is None:
                     raise ValueError(f"config section '{section_name}' not found")
                 param_value = getattr(section, param_name, None)
                 if param_value is None:
-                    print(f"warning: parameter '{param_name}' not found in section '{section_name}' for {config_file_}")
+                    print(f"warning: parameter '{param_name}' not found")
                     continue
-
-            # Paths
+            
+            # Parse results.log
             results_log_path = os.path.join('./log', config_file, 'results.log')
             if not os.path.exists(results_log_path):
                 print(f"warning: {results_log_path} not found")
                 continue
-
-            # Parse results.log
+                
             with open(results_log_path, 'r') as f:
                 content = f.read()
-
+            
             # Parse standard metrics
             r2_match = re.search(r'second weights fit\s+R²:\s*([\d.-]+)', content)
             r2 = float(r2_match.group(1)) if r2_match else None
-
+            
             tau_r2_match = re.search(r'tau reconstruction R²:\s*([\d.-]+)', content)
             tau_r2 = float(tau_r2_match.group(1)) if tau_r2_match else None
-
+            
             vrest_r2_match = re.search(r'V_rest reconstruction R²:\s*([\d.-]+)', content)
             vrest_r2 = float(vrest_r2_match.group(1)) if vrest_r2_match else None
-
+            
             clustering_results = []
             for line in content.splitlines():
                 if 'eps=' in line and 'accuracy' in line:
                     eps_match = re.search(r'eps=([\d.-]+)', line)
                     acc_match = re.search(r'accuracy[=:]\s*([\d.-]+)', line)
                     if eps_match and acc_match:
-                        clustering_results.append({'eps': float(eps_match.group(1)),
-                                                   'accuracy': float(acc_match.group(1))})
+                        clustering_results.append({
+                            'eps': float(eps_match.group(1)),
+                            'accuracy': float(acc_match.group(1))
+                        })
+            
             if clustering_results:
-                best_clustering_result = max(clustering_results, key=lambda x: x['accuracy'])
-                best_clustering_acc = best_clustering_result['accuracy']
-                best_eps = best_clustering_result['eps']
+                best_result = max(clustering_results, key=lambda x: x['accuracy'])
+                best_clustering_acc = best_result['accuracy']
+                best_eps = best_result['eps']
             else:
                 best_clustering_acc = None
                 best_eps = None
-
-            # Parse Schneidman/Ising summary lines
-            IN_med, IN_q1, IN_q3 = parse_three_nums(
-                r'I_N:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
-            I2_med, I2_q1, I2_q3 = parse_three_nums(
-                r'I2:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
-            R_med, R_q1, R_q3 = parse_three_nums(
-                r'ratio:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
-            m_trip = re.search(
-                r'Triplet KL \[all\]:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]',
-                content)
-            if m_trip:
-                TKL_med = float(m_trip.group(1))
-                TKL_q1 = float(m_trip.group(2))
-                TKL_q3 = float(m_trip.group(3))
-            else:
-                TKL_med = TKL_q1 = TKL_q3 = None
-
-
-            # Collect
+            
             results.append({
                 'config': config_file_,
                 'param_value': param_value,
@@ -3355,691 +3272,339 @@ def data_flyvis_compare(config_list, varied_parameter):
                 'tau_r2': tau_r2,
                 'vrest_r2': vrest_r2,
                 'best_clustering_acc': best_clustering_acc,
-                'best_eps': best_eps,
-                # Schneidman/Ising metrics from logs
-                'IN_med': IN_med, 'IN_q1': IN_q1, 'IN_q3': IN_q3,
-                'I2_med': I2_med, 'I2_q1': I2_q1, 'I2_q3': I2_q3,
-                'R_med': R_med,   'R_q1': R_q1,   'R_q3': R_q3,
-                'TKL_med': TKL_med, 'TKL_q1': TKL_q1, 'TKL_q3': TKL_q3,
+                'best_eps': best_eps
             })
-
+            
         except Exception as e:
             print(f"error processing {config_file_}: {e}")
-
-    # -----------------------------
+    
     # Group by parameter value
-    # -----------------------------
     grouped_results = defaultdict(list)
     for r in results:
-        # require baseline metrics to include in summary tables
-        if (r['r2'] is not None and r['tau_r2'] is not None and
-            r['vrest_r2'] is not None and r['best_clustering_acc'] is not None and
-            r['best_eps'] is not None):
+        if all(r[k] is not None for k in ['r2', 'tau_r2', 'vrest_r2', 'best_clustering_acc']):
             grouped_results[r['param_value']].append(r)
-
-    # Aggregate standard metrics into summary_results
+    
+    # Aggregate into summary
     summary_results = []
     for param_val, group in grouped_results.items():
         r2_values = [r['r2'] for r in group]
         tau_r2_values = [r['tau_r2'] for r in group]
         vrest_r2_values = [r['vrest_r2'] for r in group]
         acc_values = [r['best_clustering_acc'] for r in group]
-        eps_values = [r['best_eps'] for r in group]
-
-        ffv1_sizes = [r['ffv1_size_mb'] for r in group if r['ffv1_size_mb'] is not None]
-        libx264_sizes = [r['libx264_size_mb'] for r in group if r['libx264_size_mb'] is not None]
-        compression_ratios = [r['compression_ratio'] for r in group if r['compression_ratio'] is not None]
-
-        configs = [r['config'] for r in group]
-        n_configs = len(group)
-
-        unique_eps = list(set(eps_values))
-        eps_str = f"{unique_eps[0]}" if len(unique_eps) == 1 else f"{min(unique_eps)}-{max(unique_eps)}"
-
-        if n_configs == 1:
-            r2_str = f"{r2_values[0]:.4f}"
-            tau_r2_str = f"{tau_r2_values[0]:.4f}"
-            vrest_r2_str = f"{vrest_r2_values[0]:.4f}"
-            acc_str = f"{acc_values[0]:.3f}"
-        else:
-            r2_mean, r2_std = np.mean(r2_values), np.std(r2_values)
-            tau_r2_mean, tau_r2_std = np.mean(tau_r2_values), np.std(tau_r2_values)
-            vrest_r2_mean, vrest_r2_std = np.mean(vrest_r2_values), np.std(vrest_r2_values)
-            acc_mean, acc_std = np.mean(acc_values), np.std(acc_values)
-            r2_str = f"{r2_mean:.4f}±{r2_std:.4f}"
-            tau_r2_str = f"{tau_r2_mean:.4f}±{tau_r2_std:.4f}"
-            vrest_r2_str = f"{vrest_r2_mean:.4f}±{vrest_r2_std:.4f}"
-            acc_str = f"{acc_mean:.3f}±{acc_std:.3f}"
-
+        
         summary_results.append({
             'param_value': param_val,
-            'r2_values': r2_values,
-            'tau_r2_values': tau_r2_values,
-            'vrest_r2_values': vrest_r2_values,
-            'acc_values': acc_values,
-            'ffv1_sizes': ffv1_sizes,
-            'libx264_sizes': libx264_sizes,
-            'compression_ratios': compression_ratios,
             'r2_mean': np.mean(r2_values),
             'tau_r2_mean': np.mean(tau_r2_values),
             'vrest_r2_mean': np.mean(vrest_r2_values),
             'acc_mean': np.mean(acc_values),
-            'ffv1_mean': np.mean(ffv1_sizes) if ffv1_sizes else None,
-            'libx264_mean': np.mean(libx264_sizes) if libx264_sizes else None,
-            'compression_mean': np.mean(compression_ratios) if compression_ratios else None,
-            'r2_str': r2_str,
-            'tau_r2_str': tau_r2_str,
-            'vrest_r2_str': vrest_r2_str,
-            'acc_str': acc_str,
-            'eps_str': eps_str,
-            'n_configs': n_configs,
-            'configs': configs
+            'r2_std': np.std(r2_values) if len(r2_values) > 1 else 0,
+            'tau_r2_std': np.std(tau_r2_values) if len(tau_r2_values) > 1 else 0,
+            'vrest_r2_std': np.std(vrest_r2_values) if len(vrest_r2_values) > 1 else 0,
+            'acc_std': np.std(acc_values) if len(acc_values) > 1 else 0,
+            'n_configs': len(group)
         })
-
-    # Sort by parameter value
-    if varied_parameter is None:
-        try:
-            summary_results.sort(key=lambda x: [int(part) for part in str(x['param_value']).split('_')])
-        except ValueError:
-            summary_results.sort(key=lambda x: str(x['param_value']))
-    else:
-        summary_results.sort(key=lambda x: x['param_value'])
-
-    # -----------------------------
-    # Pretty print summary table
-    # -----------------------------
+    
+    # Sort results
+    summary_results.sort(key=lambda x: x['param_value'])
+    
+    # Display parameter name
     if varied_parameter is None:
         param_display_name = "config_indices"
-        parameter_name = "config file indices"
     else:
-        full_param_name = varied_parameter.split('.')[1]
-        parts = full_param_name.split('_')
-        param_display_name = '_'.join(parts[:2]) if len(parts) >= 2 else parts[0]
-        parameter_name = varied_parameter
-
-    print(f"\n=== parameter comparison: {parameter_name} ===")
-    print(f"{param_display_name:<15} {'weights R²':<15} {'tau R²':<15} {'V_rest R²':<15} {'clustering acc':<18} {'best eps':<10} {'n_configs':<10}")
-    print("-" * 100)
+        param_display_name = varied_parameter.split('.')[1]
+    
+    # Print summary table
+    print(f"\n=== GNN Performance Comparison: {param_display_name} ===")
+    print(f"{'Parameter':<15} {'Weights R²':<15} {'Tau R²':<15} {'V_rest R²':<15} {'Clustering':<15}")
+    print("-" * 75)
+    
     for r in summary_results:
-        print(f"{str(r['param_value']):<15} {r['r2_str']:<15} {r['tau_r2_str']:<15} {r['vrest_r2_str']:<15} {r['acc_str']:<18} {r['eps_str']:<10} {r['n_configs']:<10}")
-    print("-" * 100)
-    if summary_results:
-        best_r2_result = max(summary_results, key=lambda x: x['r2_mean'])
-        best_tau_r2_result = max(summary_results, key=lambda x: x['tau_r2_mean'])
-        best_vrest_r2_result = max(summary_results, key=lambda x: x['vrest_r2_mean'])
-        best_acc_result = max(summary_results, key=lambda x: x['acc_mean'])
-
-        print(f"\n🏆 best mean weights R²: {best_r2_result['r2_str']}")
-        print(f"   {param_display_name}: {best_r2_result['param_value']}, n={best_r2_result['n_configs']}")
-
-        print(f"\n⚡ best mean tau R²: {best_tau_r2_result['tau_r2_str']}")
-        print(f"   {param_display_name}: {best_tau_r2_result['param_value']}, n={best_tau_r2_result['n_configs']}")
-
-        print(f"\n🔋 best mean V_rest R²: {best_vrest_r2_result['vrest_r2_str']}")
-        print(f"   {param_display_name}: {best_vrest_r2_result['param_value']}, n={best_vrest_r2_result['n_configs']}")
-
-        print(f"\n🎯 best mean clustering accuracy: {best_acc_result['acc_str']}")
-        print(f"   {param_display_name}: {best_acc_result['param_value']}, n={best_acc_result['n_configs']}")
-    print("\n" + "=" * 100)
-
-    # -----------------------------
-    # Standard comparison plot (2x2)
-    # -----------------------------
-    param_values_str = [str(r['param_value']) for r in summary_results]
-    r2_means  = [r['r2_mean'] for r in summary_results]
-    tau_means = [r['tau_r2_mean'] for r in summary_results]
-    vrest_means = [r['vrest_r2_mean'] for r in summary_results]
-    acc_means = [r['acc_mean'] for r in summary_results]
-
-    r2_errors, tau_errors, vrest_errors, acc_errors = [], [], [], []
-    for r in summary_results:
-        if r['n_configs'] > 1:
-            r2_errors.append(np.std(r['r2_values']))
-            tau_errors.append(np.std(r['tau_r2_values']))
-            vrest_errors.append(np.std(r['vrest_r2_values']))
-            acc_errors.append(np.std(r['acc_values']))
-        else:
-            r2_errors.append(0); tau_errors.append(0); vrest_errors.append(0); acc_errors.append(0)
-
-    fig, ((ax1, ax4), (ax2, ax3)) = plt.subplots(2, 2, figsize=(16, 12))
-    plt.subplots_adjust(hspace=0.4, wspace=0.3)
-
-    # weights R²
-    ax1.errorbar(param_values_str, r2_means, yerr=r2_errors, fmt='o', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightblue')
-    ax1.set_xlabel(param_display_name, fontsize=24, color='white'); ax1.set_ylabel('weights R²', fontsize=24, color='white')
-    ax1.set_ylim(0, 1.1); ax1.grid(True, alpha=0.3); ax1.tick_params(colors='white', labelsize=14)
-    plt.setp(ax1.get_xticklabels(), rotation=45, ha='right')
-
-    # tau R²
-    ax2.errorbar(param_values_str, tau_means, yerr=tau_errors, fmt='s', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightgreen')
-    ax2.set_xlabel(param_display_name, fontsize=24, color='white'); ax2.set_ylabel('tau R²', fontsize=24, color='white')
-    ax2.set_ylim(0, 1.1); ax2.grid(True, alpha=0.3); ax2.tick_params(colors='white', labelsize=14)
-    plt.setp(ax2.get_xticklabels(), rotation=45, ha='right')
-
+        r2_str = f"{r['r2_mean']:.3f}±{r['r2_std']:.3f}" if r['r2_std'] > 0 else f"{r['r2_mean']:.3f}"
+        tau_str = f"{r['tau_r2_mean']:.3f}±{r['tau_r2_std']:.3f}" if r['tau_r2_std'] > 0 else f"{r['tau_r2_mean']:.3f}"
+        vrest_str = f"{r['vrest_r2_mean']:.3f}±{r['vrest_r2_std']:.3f}" if r['vrest_r2_std'] > 0 else f"{r['vrest_r2_mean']:.3f}"
+        acc_str = f"{r['acc_mean']:.3f}±{r['acc_std']:.3f}" if r['acc_std'] > 0 else f"{r['acc_mean']:.3f}"
+        
+        print(f"{str(r['param_value']):<15} {r2_str:<15} {tau_str:<15} {vrest_str:<15} {acc_str:<15}")
+    
+    # Create comparison plot
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
+    
+    param_values = [str(r['param_value']) for r in summary_results]
+    
+    # Weights R²
+    ax1.errorbar(param_values, [r['r2_mean'] for r in summary_results],
+                 yerr=[r['r2_std'] for r in summary_results],
+                 fmt='o-', capsize=5, markersize=8, linewidth=2, color='lightblue')
+    ax1.set_ylabel('Weights R²', fontsize=14)
+    ax1.set_ylim(0, 1.1)
+    ax1.grid(True, alpha=0.3)
+    
+    # Tau R²
+    ax2.errorbar(param_values, [r['tau_r2_mean'] for r in summary_results],
+                 yerr=[r['tau_r2_std'] for r in summary_results],
+                 fmt='s-', capsize=5, markersize=8, linewidth=2, color='lightgreen')
+    ax2.set_ylabel('Tau R²', fontsize=14)
+    ax2.set_ylim(0, 1.1)
+    ax2.grid(True, alpha=0.3)
+    
     # V_rest R²
-    ax3.errorbar(param_values_str, vrest_means, yerr=vrest_errors, fmt='^', capsize=5, capthick=2, markersize=8, linewidth=2, color='lightcoral')
-    ax3.set_xlabel(param_display_name, fontsize=24, color='white'); ax3.set_ylabel(r'$V_{rest}$ R²', fontsize=24, color='white')
-    ax3.set_ylim(0, 1.1); ax3.grid(True, alpha=0.3); ax3.tick_params(colors='white', labelsize=14)
-    plt.setp(ax3.get_xticklabels(), rotation=45, ha='right')
-
-    # clustering accuracy (%)
-    acc_means_pct = [a * 100 for a in acc_means]; acc_errors_pct = [e * 100 for e in acc_errors]
-    ax4.errorbar(param_values_str, acc_means_pct, yerr=acc_errors_pct, fmt='D', capsize=5, capthick=2, markersize=8, linewidth=2, color='orange')
-    ax4.set_xlabel(param_display_name, fontsize=24, color='white'); ax4.set_ylabel('clustering accuracy (%)', fontsize=24, color='white')
-    ax4.set_ylim(0, 100); ax4.grid(True, alpha=0.3); ax4.tick_params(colors='white', labelsize=14)
-    plt.setp(ax4.get_xticklabels(), rotation=45, ha='right')
-
+    ax3.errorbar(param_values, [r['vrest_r2_mean'] for r in summary_results],
+                 yerr=[r['vrest_r2_std'] for r in summary_results],
+                 fmt='^-', capsize=5, markersize=8, linewidth=2, color='lightcoral')
+    ax3.set_xlabel(param_display_name, fontsize=14)
+    ax3.set_ylabel('V_rest R²', fontsize=14)
+    ax3.set_ylim(0, 1.1)
+    ax3.grid(True, alpha=0.3)
+    
+    # Clustering accuracy
+    ax4.errorbar(param_values, [r['acc_mean'] for r in summary_results],
+                 yerr=[r['acc_std'] for r in summary_results],
+                 fmt='D-', capsize=5, markersize=8, linewidth=2, color='orange')
+    ax4.set_xlabel(param_display_name, fontsize=14)
+    ax4.set_ylabel('Clustering Accuracy', fontsize=14)
+    ax4.set_ylim(0, 1)
+    ax4.grid(True, alpha=0.3)
+    
+    plt.suptitle(f'GNN Performance vs {param_display_name}', fontsize=16)
     plt.tight_layout()
-    plot_filename = f'fig/parameter_comparison_{param_display_name}.png'
-    plt.savefig(plot_filename, dpi=300, bbox_inches='tight')
-    print(f"\nplot saved as: {plot_filename}")
-    plt.close()
+    plt.savefig(f'fig/gnn_comparison_{param_display_name}.png', dpi=150, bbox_inches='tight')
+    plt.show()
+    
+    return summary_results
 
-    # -----------------------------
-    # Loss curves figure
-    # -----------------------------
-    fig_loss, ax_loss = plt.subplots(1, 1, figsize=(12, 8))
-    ax_loss.set_xlabel('epochs', fontsize=24, color='white'); ax_loss.set_ylabel('loss', fontsize=24, color='white')
-    ax_loss.tick_params(colors='white', labelsize=14); ax_loss.set_ylim(0, 4000); ax_loss.grid(True, alpha=0.3)
 
-    import matplotlib.cm as cm
-    colors = cm.tab10(np.linspace(0, 1, len(config_list)))
-    legend_info = []
-    for i, config_file_ in enumerate(config_list):
+def compare_ising_results(config_list, varied_parameter):
+    """
+    Compare Ising/information theory metrics across experiments
+    Focuses on: I_N, I_2, I_2/I_N ratio, higher-order correlations
+    """
+    
+    from NeuralGraph.config import NeuralGraphConfig
+    from NeuralGraph.models.utils import add_pre_folder
+    
+    def parse_ising_metrics(content):
+        """Extract Ising metrics from results.log content"""
+        metrics = {}
+        
+        # Parse I_N
+        match = re.search(r'I_N:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
+        if match:
+            metrics['I_N_median'] = float(match.group(1))
+            metrics['I_N_q1'] = float(match.group(2))
+            metrics['I_N_q3'] = float(match.group(3))
+        
+        # Parse I2
+        match = re.search(r'I2:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
+        if match:
+            metrics['I2_median'] = float(match.group(1))
+            metrics['I2_q1'] = float(match.group(2))
+            metrics['I2_q3'] = float(match.group(3))
+        
+        # Parse I_HOC
+        match = re.search(r'I_HOC:\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
+        if match:
+            metrics['I_HOC_median'] = float(match.group(1))
+            metrics['I_HOC_q1'] = float(match.group(2))
+            metrics['I_HOC_q3'] = float(match.group(3))
+        
+        # Parse ratio
+        match = re.search(r'(?:ratio|I_2/I_N):\s*median=([0-9eE+\-\.]+),\s*IQR=\[\s*([0-9eE+\-\.]+),\s*([0-9eE+\-\.]+)\s*\]', content)
+        if match:
+            metrics['ratio_median'] = float(match.group(1))
+            metrics['ratio_q1'] = float(match.group(2))
+            metrics['ratio_q3'] = float(match.group(3))
+        
+        # Parse C_3 (connected triplets)
+        match = re.search(r'C_3:\s*(?:mean=)?([0-9eE+\-\.]+)\s*±\s*([0-9eE+\-\.]+)', content)
+        if match:
+            metrics['C3_mean'] = float(match.group(1))
+            metrics['C3_std'] = float(match.group(2))
+        
+        return metrics
+    
+    results = []
+    
+    # Parse each config
+    for config_file_ in config_list:
         try:
             config_file, _ = add_pre_folder(config_file_)
-            loss_path = os.path.join('./log', config_file, 'loss.pt')
-            if os.path.exists(loss_path):
-                import torch
-                loss_values = torch.load(loss_path, map_location='cpu')
-                loss_values = np.array(loss_values)
-                epochs = np.arange(len(loss_values))
-                ax_loss.plot(epochs, loss_values, color=colors[i], linewidth=2, alpha=0.8)
-                # label
-                if varied_parameter is None:
-                    parts = config_file_.split('_')
-                    param_val = f"{parts[-2]}_{parts[-1]}" if len(parts) >= 2 else config_file_
-                else:
-                    try:
-                        cfg = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                        section_name, param_name = varied_parameter.split('.', 1)
-                        sec = getattr(cfg, section_name, None)
-                        param_val = getattr(sec, param_name, config_file_) if sec is not None else config_file_
-                    except:
-                        param_val = config_file_
-                legend_info.append(f"{param_val}")
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            
+            # Get parameter value
+            if varied_parameter is None:
+                parts = config_file_.split('_')
+                param_value = f"{parts[-2]}_{parts[-1]}" if len(parts) >= 2 else config_file_
+            else:
+                section_name, param_name = varied_parameter.split('.', 1)
+                section = getattr(config, section_name, None)
+                param_value = getattr(section, param_name, config_file_) if section else config_file_
+            
+            # Read results.log
+            results_log_path = os.path.join('./log', config_file, 'results.log')
+            if not os.path.exists(results_log_path):
+                continue
+            
+            with open(results_log_path, 'r') as f:
+                content = f.read()
+            
+            # Parse Ising metrics
+            metrics = parse_ising_metrics(content)
+            if metrics:
+                metrics['param_value'] = param_value
+                metrics['config'] = config_file_
+                results.append(metrics)
+                
         except Exception as e:
-            print(f"Warning: Could not load loss for {config_file_}: {e}")
-    if legend_info:
-        ax_loss.legend(legend_info, fontsize=12, loc='upper right')
-        leg = ax_loss.get_legend()
-        leg.get_frame().set_facecolor('black'); leg.get_frame().set_alpha(0.8)
-        for t in leg.get_texts(): t.set_color('white')
-
-    # Annotate
-    text_content = [f"parameter: {parameter_name}", f"configs: {len(config_list)}"]
-    param_groups = {r['param_value']: r['n_configs'] for r in summary_results}
-    for param_val, n_configs in param_groups.items():
-        text_content.append(f"{param_display_name}={param_val}: n={n_configs}")
-    ax_loss.text(0.02, 0.98, "\n".join(text_content), transform=ax_loss.transAxes,
-                 fontsize=10, va='top', ha='left', fontfamily='monospace', color='white')
-    plt.tight_layout()
-    loss_plot_filename = f'fig/loss_curves_{param_display_name}.png'
-    plt.savefig(loss_plot_filename, dpi=300, bbox_inches='tight')
-    print(f"loss curves plot saved as: {loss_plot_filename}")
-    plt.close()
-
-
-
-
-
-    # Read all corrected_W.pt files
-    all_corrected_weights = []
-    all_tau = []
-    all_V_rest = []
-
-    for config_file_ in config_list:
-        config_file, pre_folder = add_pre_folder(config_file_)
-        log_dir = f'./log/{config_file}'
-
-        corrected_W = torch.load(os.path.join(log_dir, 'results', 'corrected_W.pt'), map_location='cpu')
-        corrected_weights = to_numpy(corrected_W.squeeze())
-        all_corrected_weights.append(corrected_weights)
-
-        tau = torch.load(os.path.join(log_dir, 'results', 'tau.pt'), map_location='cpu')
-        all_tau.append(to_numpy(tau.squeeze()))
-        V_rest = torch.load(os.path.join(log_dir, 'results', 'V_rest.pt'), map_location='cpu')
-        all_V_rest.append(to_numpy(V_rest.squeeze()))
-
-
-    config_file, pre_folder = add_pre_folder(config_list[0])
-    config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-    dataset_name = config.dataset
-
-    gt_weights = torch.load(f'./graphs_data/fly/{dataset_name}/weights.pt', map_location='cpu')
-    true_weights = to_numpy(gt_weights)
-    gt_taus = torch.load(f'./graphs_data/fly/{dataset_name}/taus.pt', map_location='cpu')
-    true_taus = to_numpy(gt_taus)
-    gt_V_rest = torch.load(f'./graphs_data/fly/{dataset_name}/V_i_rest.pt', map_location='cpu')
-    true_V_rest = to_numpy(gt_V_rest)
-
-    corrected_weights_stack = np.stack(all_corrected_weights, axis=0)
-    tau_stack = np.stack(all_tau, axis=0)
-    V_rest_stack = np.stack(all_V_rest, axis=0)
-
-    median_weights = np.median(corrected_weights_stack, axis=0)
-    mean_weights = np.mean(corrected_weights_stack, axis=0)
-
-    median_tau = np.median(tau_stack, axis=0)
-    mean_tau = np.mean(tau_stack, axis=0)
-    median_V_rest = np.median(V_rest_stack, axis=0)
-    mean_V_rest = np.mean(V_rest_stack, axis=0)
-
-    all_corrected_flat = corrected_weights_stack.flatten()
-    all_true_flat = np.tile(true_weights, len(all_corrected_weights))
-    all_tau_flat = tau_stack.flatten()
-    all_true_tau_flat = np.tile(true_taus, len(all_tau))
-    all_V_rest_flat = V_rest_stack.flatten()
-    all_true_V_rest_flat = np.tile(true_V_rest, len(all_V_rest))
-
-    # Verify consistent experiment counts
-    assert len(all_corrected_weights) == len(all_tau) == len(all_V_rest), \
-        f"inconsistent experiment counts: weights={len(all_corrected_weights)}, tau={len(all_tau)}, V_rest={len(all_V_rest)}"
-    n_experiments = len(all_corrected_weights)
-    weights_shape = corrected_weights_stack.shape
-    tau_shape = tau_stack.shape
-    vrest_shape = V_rest_stack.shape
-
-    assert weights_shape[0] == tau_shape[0] == vrest_shape[0] == n_experiments, \
-        f"inconsistent batch dimensions: weights={weights_shape[0]}, tau={tau_shape[0]}, V_rest={vrest_shape[0]}"
-    print(f"✓ Successfully loaded {n_experiments} experiments")
-
-    print(f"✓ Weights shape: {weights_shape}")
-    print(f"✓ Tau shape: {tau_shape}")
-    print(f"✓ V_rest shape: {vrest_shape}")
-
-    # Create six-panel plot (2x3: rows for weights/tau/V_rest, columns for all/median)
-    fig, ((ax1, ax2), (ax3, ax4), (ax5, ax6)) = plt.subplots(3, 2, figsize=(12, 18))
-
-    def linear_model(x, a, b):
-        return a * x + b
-
-    ax1.scatter(all_true_flat, all_corrected_flat, c='lightblue', s=0.5, alpha=0.3)
-
-    lin_fit, _ = curve_fit(linear_model, all_true_flat, all_corrected_flat)
-    residuals = all_corrected_flat - linear_model(all_true_flat, *lin_fit)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((all_corrected_flat - np.mean(all_corrected_flat)) ** 2)
-    r_squared_all_weights = 1 - (ss_res / ss_tot)
-    ax1.text(0.05, 0.95, f'R²: {r_squared_all_weights:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(all_true_flat)}',
-             transform=ax1.transAxes, verticalalignment='top', fontsize=12, color='white')
-    x_line = np.linspace(all_true_flat.min(), all_true_flat.max(), 100)
-    y_line = linear_model(x_line, *lin_fit)
-    ax1.plot(x_line, y_line, 'r-', linewidth=2)
-    print(f"all weights R²: {r_squared_all_weights:.4f}, slope: {lin_fit[0]:.4f}")
-    ax1.set_xlabel('true $W_{ij}$', fontsize=14, color='white')
-    ax1.set_ylabel('learned $W_{ij}$ (all)', fontsize=14, color='white')
-    ax1.set_xlim([-2, 4.5])
-    ax1.set_ylim([-2, 4.5])
-    ax1.grid(False)
-    ax1.tick_params(colors='white')
-
-    ax2.scatter(true_weights, median_weights, c='lightgreen', s=1, alpha=0.7)
-    lin_fit_w, _ = curve_fit(linear_model, true_weights, median_weights)
-    residuals = median_weights - linear_model(true_weights, *lin_fit_w)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((median_weights - np.mean(median_weights)) ** 2)
-    r2_median_weights = 1 - (ss_res / ss_tot)
-    ax2.text(0.05, 0.95, f'R²: {r2_median_weights:.3f}\nslope: {lin_fit_w[0]:.2f}\nN: {len(true_weights)}',
-             transform=ax2.transAxes, verticalalignment='top', fontsize=12, color='white')
-    x_line = np.linspace(true_weights.min(), true_weights.max(), 100)
-    y_line = linear_model(x_line, *lin_fit_w)
-    ax2.plot(x_line, y_line, 'r-', linewidth=2)
-    print(f"median weights R²: {r2_median_weights:.4f}, slope: {lin_fit_w[0]:.4f}")
-    ax2.set_xlabel('true $W_{ij}$', fontsize=14, color='white')
-    ax2.set_ylabel('median $W_{ij}$', fontsize=14, color='white')
-    ax2.set_xlim([-2, 4.5])
-    ax2.set_ylim([-2, 4.5])
-    ax2.grid(False)
-    ax2.tick_params(colors='white')
-
-    ax3.scatter(all_true_tau_flat, all_tau_flat, c='orange', s=0.5, alpha=0.3)
-    lin_fit, _ = curve_fit(linear_model, all_true_tau_flat, all_tau_flat)
-    residuals = all_tau_flat - linear_model(all_true_tau_flat, *lin_fit)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((all_tau_flat - np.mean(all_tau_flat)) ** 2)
-    r_squared_all_tau = 1 - (ss_res / ss_tot)
-    ax3.text(0.05, 0.95, f'R²: {r_squared_all_tau:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(all_true_tau_flat)}',
-             transform=ax3.transAxes, verticalalignment='top', fontsize=12, color='white')
-    x_line = np.linspace(all_true_tau_flat.min(), all_true_tau_flat.max(), 100)
-    y_line = linear_model(x_line, *lin_fit)
-    ax3.plot(x_line, y_line, 'r-', linewidth=2)
-    print(f"all tau R²: {r_squared_all_tau:.4f}, slope: {lin_fit[0]:.4f}")
-    ax3.set_xlabel(r'true $\tau$', fontsize=14, color='white')
-    ax3.set_ylabel(r'learned $\tau$ (all)', fontsize=14, color='white')
-    ax3.set_xlim([0, 0.35])
-    ax3.set_ylim([0, 0.35])
-    ax3.grid(False)
-    ax3.tick_params(colors='white')
-
-    min_len_tau = min(len(true_taus), len(median_tau))
-    ax4.scatter(true_taus[:min_len_tau], median_tau[:min_len_tau], c='yellow', s=1, alpha=0.7)
-    lin_fit_t, _ = curve_fit(linear_model, true_taus[:min_len_tau], median_tau[:min_len_tau])
-    residuals = median_tau[:min_len_tau] - linear_model(true_taus[:min_len_tau], *lin_fit_t)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((median_tau[:min_len_tau] - np.mean(median_tau[:min_len_tau])) ** 2)
-    r2_median_tau = 1 - (ss_res / ss_tot)
-    ax4.text(0.05, 0.95, f'R²: {r2_median_tau:.3f}\nslope: {lin_fit_t[0]:.2f}\nN: {min_len_tau}',
-             transform=ax4.transAxes, verticalalignment='top', fontsize=12, color='white')
-    x_line = np.linspace(true_taus[:min_len_tau].min(), true_taus[:min_len_tau].max(), 100)
-    y_line = linear_model(x_line, *lin_fit_t)
-    ax4.plot(x_line, y_line, 'r-', linewidth=2)
-    print(f"median tau R²: {r2_median_tau:.4f}, slope: {lin_fit_t[0]:.4f}")
-    ax4.set_xlabel(r'true $\tau$', fontsize=14, color='white')
-    ax4.set_ylabel(r'median $\tau$', fontsize=14, color='white')
-    ax4.set_xlim([0, 0.35])
-    ax4.set_ylim([0, 0.35])
-    ax4.grid(False)
-    ax4.tick_params(colors='white')
-
-    ax5.scatter(all_true_V_rest_flat, all_V_rest_flat, c='lightcoral', s=0.5, alpha=0.3)
-    lin_fit, _ = curve_fit(linear_model, all_true_V_rest_flat, all_V_rest_flat)
-    residuals = all_V_rest_flat - linear_model(all_true_V_rest_flat, *lin_fit)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((all_V_rest_flat - np.mean(all_V_rest_flat)) ** 2)
-    r_squared_all_vrest = 1 - (ss_res / ss_tot)
-    ax5.text(0.05, 0.95, f'R²: {r_squared_all_vrest:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(all_true_V_rest_flat)}',
-             transform=ax5.transAxes, verticalalignment='top', fontsize=12, color='white')
-    x_line = np.linspace(all_true_V_rest_flat.min(), all_true_V_rest_flat.max(), 100)
-    y_line = linear_model(x_line, *lin_fit)
-    ax5.plot(x_line, y_line, 'r-', linewidth=2)
-    print(f"all V_rest R²: {r_squared_all_vrest:.4f}, slope: {lin_fit[0]:.4f}")
-    ax5.set_xlabel('true $V_{rest}$', fontsize=14, color='white')
-    ax5.set_ylabel('learned $V_{rest}$ (all)', fontsize=14, color='white')
-    ax5.grid(False)
-    ax5.tick_params(colors='white')
-
-    min_len_vrest = min(len(true_V_rest), len(median_V_rest))
-    ax6.scatter(true_V_rest[:min_len_vrest], median_V_rest[:min_len_vrest], c='pink', s=1, alpha=0.7)
-    lin_fit_v, _ = curve_fit(linear_model, true_V_rest[:min_len_vrest], median_V_rest[:min_len_vrest])
-    residuals = median_V_rest[:min_len_vrest] - linear_model(true_V_rest[:min_len_vrest], *lin_fit_v)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((median_V_rest[:min_len_vrest] - np.mean(median_V_rest[:min_len_vrest])) ** 2)
-    r2_median_V_rest = 1 - (ss_res / ss_tot)
-    ax6.text(0.05, 0.95, f'R²: {r2_median_V_rest:.3f}\nslope: {lin_fit_v[0]:.2f}\nN: {min_len_vrest}',
-             transform=ax6.transAxes, verticalalignment='top', fontsize=12, color='white')
-    x_line = np.linspace(true_V_rest[:min_len_vrest].min(), true_V_rest[:min_len_vrest].max(), 100)
-    y_line = linear_model(x_line, *lin_fit_v)
-    ax6.plot(x_line, y_line, 'r-', linewidth=2)
-    print(f"median V_rest R²: {r2_median_V_rest:.4f}, slope: {lin_fit_v[0]:.4f}")
-    ax6.set_xlabel('true $V_{rest}$', fontsize=14, color='white')
-    ax6.set_ylabel('median $V_{rest}$', fontsize=14, color='white')
-    ax6.grid(False)
-    ax6.tick_params(colors='white')
-    plt.tight_layout()
-    aggregated_plot_filename = f'fig/aggregated_parameters_comparison_{param_display_name}.png'
-    plt.savefig(aggregated_plot_filename, dpi=300, bbox_inches='tight')
-    plt.close()
-
-
-
-
-
-
-    # ---------------------------------------------------------------
-    # Ising metrics aggregated per parameter value (mirrors summary_results)
-    # ---------------------------------------------------------------
-    ising_results = []
-
-    for param_val, group in grouped_results.items():
-        configs = [r['config'] for r in group]
-
-        # Per-config lists
-        E_mean_list, E_std_list, E_skew_list, E_kurt_list, E_entropy_list = [], [], [], [], []
-        J_mean_list, J_std_list, J_sign_ratio_list, J_frac_strong_list, J_gini_list = [], [], [], [], []
-
-        # Schneidman/Ising lists (from logs)
-        IN_med_list, IN_q1_list, IN_q3_list = [], [], []
-        I2_med_list, I2_q1_list, I2_q3_list = [], [], []
-        R_med_list,  R_q1_list,  R_q3_list  = [], [], []
-        TKL_med_list, TKL_q1_list, TKL_q3_list = [], [], []
-
-        # Derive from loaded group dictionary: energy/couplings (E.npy, J.npy)
-        for rcfg in group:
-            cfg = rcfg['config']
-            ising_dir = os.path.join(f"./log/fly/{cfg}", "results")
-            try:
-                E = np.load(os.path.join(ising_dir, "E.npy"))
-                J = np.load(os.path.join(ising_dir, "J.npy"), allow_pickle=True)
-            except Exception:
-                # Missing per-config energy/couplings — skip those metrics but still keep log-based metrics
-                pass
-            else:
-                # Energy stats
-                E_mean = float(np.mean(E)); E_std = float(np.std(E))
-                E_skew = float(stats.skew(E)); E_kurt = float(stats.kurtosis(E))
-                hist, _ = np.histogram(E, bins=100, density=True)
-                E_entropy = float(-np.sum(hist * np.log(hist + 1e-12)))
-                E_mean_list.append(E_mean); E_std_list.append(E_std)
-                E_skew_list.append(E_skew); E_kurt_list.append(E_kurt)
-                E_entropy_list.append(E_entropy)
-
-                # Coupling stats (sparse list-of-dicts or dense)
-                J_vals = []
-                for Ji in J:
-                    if isinstance(Ji, dict):
-                        J_vals.extend(Ji.values())
-                    else:
-                        J_vals.extend(np.asarray(Ji).ravel())
-                J_vals = np.asarray(J_vals, dtype=np.float32)
-                J_vals = J_vals[np.isfinite(J_vals)]
-                if J_vals.size > 0:
-                    J_mean_list.append(float(np.mean(J_vals)))
-                    J_std_list.append(float(np.std(J_vals)))
-                    J_sign_ratio_list.append(float((J_vals > 0).mean()))
-                    th = np.percentile(np.abs(J_vals), 90.0)
-                    J_frac_strong_list.append(float((np.abs(J_vals) > th).mean()))
-                    J_gini_list.append(float(gini(J_vals)))
-
-            # # Log-based Schneidman metrics (already parsed above)
-            if rcfg.get('IN_med') is not None:
-                IN_med_list.append(rcfg['IN_med']); IN_q1_list.append(rcfg['IN_q1']); IN_q3_list.append(rcfg['IN_q3'])
-            if rcfg.get('I2_med') is not None:
-                I2_med_list.append(rcfg['I2_med']); I2_q1_list.append(rcfg['I2_q1']); I2_q3_list.append(rcfg['I2_q3'])
-            if rcfg.get('R_med') is not None:
-                R_med_list.append(rcfg['R_med']);   R_q1_list.append(rcfg['R_q1']);   R_q3_list.append(rcfg['R_q3'])
-            if rcfg.get('TKL_med') is not None:
-                TKL_med_list.append(rcfg['TKL_med']); TKL_q1_list.append(rcfg['TKL_q1']); TKL_q3_list.append(rcfg['TKL_q3'])
-
-
-        # Add aggregated row
-        ising_results.append({
-            "param_value": param_val,
-            "E_mean_str": fmt_vals(E_mean_list),
-            "E_std_str": fmt_vals(E_std_list),
-            "E_skew_str": fmt_vals(E_skew_list),
-            "E_kurt_str": fmt_vals(E_kurt_list),
-            "E_entropy_str": fmt_vals(E_entropy_list),
-            "J_mean_str": fmt_vals(J_mean_list),
-            "J_std_str": fmt_vals(J_std_list),
-            "J_sign_ratio_str": fmt_vals(J_sign_ratio_list),
-            "J_frac_strong_str": fmt_vals(J_frac_strong_list),
-            "J_gini_str": fmt_vals(J_gini_list),
-
-            # Schneidman/Ising medians across configs
-            "IN_med_str":  fmt_vals(IN_med_list),
-            "I2_med_str":  fmt_vals(I2_med_list),
-            "R_med_str":   fmt_vals(R_med_list),
-            "TKL_med_str": fmt_vals(TKL_med_list),
-
-            # Half-IQR (per-config (q3-q1)/2) aggregated across configs
-            "IN_iqr_str":  fmt_vals([ (q3 - q1)/2 for q1, q3 in zip(IN_q1_list,  IN_q3_list) ]),
-            "I2_iqr_str":  fmt_vals([ (q3 - q1)/2 for q1, q3 in zip(I2_q1_list,  I2_q3_list) ]),
-            "R_iqr_str":   fmt_vals([ (q3 - q1)/2 for q1, q3 in zip(R_q1_list,   R_q3_list) ]),
-            "TKL_iqr_str": fmt_vals([ (q3 - q1)/2 for q1, q3 in zip(TKL_q1_list, TKL_q3_list) ]),
-
-            "n_configs": len(group)
-        })
-
-    # Print Ising table
-    print(f"\n=== parameter comparison (Ising metrics): {parameter_name} ===")
-    print(
-        f"{param_display_name:<15} "
-        f"{'E_mean':<12} {'E_std':<12} {'E_skew':<12} {'E_kurt':<12} {'E_entropy':<12} "
-        f"{'J_mean':<12} {'J_std':<12} {'J_sign_ratio':<15} {'J_frac_strong':<15} {'J_gini':<12} "
-        f"{'IN_med':<12} {'I2_med':<12} {'R_med':<12} {'TKL_med':<12} "
-        f"{'IN_IQR/2':<12} {'I2_IQR/2':<12} {'R_IQR/2':<12} {'TKL_IQR/2':<12} {'n_configs':<10}"
-    )
-    print("-" * 180)
-    ising_results.sort(key=lambda x: str(x['param_value']))
-    for r in ising_results:
-        print(
-            f"{str(r['param_value']):<15} "
-            f"{r['E_mean_str']:<12}{r['E_std_str']:<12}{r['E_skew_str']:<12}{r['E_kurt_str']:<12}{r['E_entropy_str']:<12}"
-            f"{r['J_mean_str']:<12}{r['J_std_str']:<12}{r['J_sign_ratio_str']:<12}{r['J_frac_strong_str']:<12}{r['J_gini_str']:<12}"
-            f"{r['IN_med_str']:<12}{r['I2_med_str']:<12}{r['R_med_str']:<12}{r['TKL_med_str']:<12}"
-            f"{r['IN_iqr_str']:<12}{r['I2_iqr_str']:<12}{r['R_iqr_str']:<12}{r['TKL_iqr_str']:<12}"
-            f"{str(r['n_configs']):>10}"
-        )
-    print("-" * 180)
-
-    def _to_float(v):
-        try:
-            return float(v)
-        except Exception:
-            return math.nan
-
-
-    _numeric_keys = np.array([_to_float(d["param_value"]) for d in ising_results], dtype=float)
-
-    # sort index: finite numbers in ascending order, then NaNs at the end (stable)
-    finite_mask = np.isfinite(_numeric_keys)
-    finite_idx = np.argsort(_numeric_keys[finite_mask])
-    nan_idx = np.where(~finite_mask)[0]
-    order = np.concatenate([np.where(finite_mask)[0][finite_idx], nan_idx])
-
-    # apply order
-    ising_results = [ising_results[i] for i in order]
-
-    # build arrays AFTER ordering
-    param_values = np.array([_to_float(d["param_value"]) for d in ising_results], dtype=float)
-    IN = np.array([float(d["IN_med_str"].split("±")[0]) for d in ising_results], dtype=float)
-    R = np.array([float(d["R_med_str"].split("±")[0]) for d in ising_results], dtype=float)
-    TKL_bits = np.array([float(d["TKL_med_str"].split("±")[0]) for d in ising_results], dtype=float)
-    # TKL_bits = TKL / np.log(2.0)
-
-    # optional: labels for ticks/annotations
-    param_values_str = [str(d["param_value"]) for d in ising_results]
-
-    # choose x for plotting
-    use_logx = np.all(param_values[~np.isnan(param_values)] > 0) and (
-            np.nanmax(param_values) / max(np.nanmin(param_values), 1e-12) > 50
-    )
-
-    use_logx = True
-
-    if use_logx:
-        # drop nonpositive/NaN x for log plots
-        keep = np.isfinite(param_values) & (param_values > 0)
-        x_plot, IN_plot, R_plot, TKL_plot = param_values[keep], IN[keep], R[keep], TKL_bits[keep]
-    else:
-        x_plot, IN_plot, R_plot, TKL_plot = param_values, IN, R, TKL_bits
-
-    plt.style.use('default')
-    fig, axes = plt.subplots(3, 1, figsize=(8, 8), sharex=True)
-    plot_fn = (axes[0].semilogx if use_logx else axes[0].plot)
-    plot_fn(x_plot, IN_plot, 'o-', color='tab:blue',linewidth=3, markersize=8)
-    axes[0].set_ylabel(r"$I_N$ (bits)", fontsize=18)
-    axes[0].grid(True, which="both", ls="--", alpha=0.5)
-    axes[0].tick_params(axis='x', labelsize=12)
-    axes[0].tick_params(axis='y', labelsize=12)
-
-    plot_fn = (axes[1].semilogx if use_logx else axes[1].plot)
-    plot_fn(x_plot, R_plot, 'o-', color='tab:green',linewidth=3, markersize=8)
-    axes[1].set_ylabel(r"$I^{(2)}/I_N$", fontsize=18)
-    axes[1].set_ylim(0.0, 1.1)
-    axes[1].grid(True, which="both", ls="--", alpha=0.5)
-    axes[1].tick_params(axis='x', labelsize=12)
-    axes[1].tick_params(axis='y', labelsize=12)
-
-    plot_fn = (axes[2].semilogx if use_logx else axes[2].plot)
-    plot_fn(x_plot, TKL_plot, 'o-', color='tab:purple',linewidth=3, markersize=8)
-    axes[2].set_ylabel("Triplet KL (bits)", fontsize=18)
-    # axes[2].set_xlabel(varied_parameter if varied_parameter else "condition", fontsize=18)
-    axes[2].set_xlabel("Intrinsic noise level", fontsize=18)
-    axes[2].grid(True, which="both", ls="--", alpha=0.5)
-    axes[2].tick_params(axis='x', labelsize=12)
-    axes[2].tick_params(axis='y', labelsize=12)
-
-    # 1) Define your regime mask (tweak thresholds if desired)
-    mask_best = (R_plot >= 0.995) & (TKL_plot >= 20.0) & (IN_plot < 0.5)
-
-    # 2) Helper to get panel-friendly x-interval edges between your sampled x points
-    def _edges_from_x(x, logx=False):
-        x = np.asarray(x, dtype=float)
-        n = len(x)
-        if n == 0:
-            return np.array([])
-        edges = np.empty(n + 1, dtype=float)
-        if n == 1:
-            # a single point: make a small symmetric interval around it
-            if logx:
-                edges[0] = x[0] / 1.2
-                edges[1] = x[0] * 1.2
-            else:
-                edges[0] = x[0] - 0.5
-                edges[1] = x[0] + 0.5
-            return edges
-
-        # interior edges: midpoints (geometric for log, arithmetic for linear)
-        if use_logx:
-            edges[1:-1] = np.sqrt(x[:-1] * x[1:])
-        else:
-            edges[1:-1] = 0.5 * (x[:-1] + x[1:])
-
-        # extrapolate end edges
-        if use_logx:
-            edges[0] = x[0] * (x[0] / edges[1])
-            edges[-1] = x[-1] * (x[-1] / edges[-2])
-        else:
-            edges[0] = x[0] - (edges[1] - x[0])
-            edges[-1] = x[-1] + (x[-1] - edges[-2])
-        return edges
-
-    # 3) Compute edges for the current x sampling
-    x_edges = _edges_from_x(x_plot, logx=use_logx)
-
-    # 4) Shade each contiguous mask==True segment across ALL subplots
-    def _shade_best_regions(ax_list, x, edges, mask, color="green", alpha=0.15):
-        if len(x) == 0:
-            return
-        # For each point i where mask[i] is True, shade from edges[i] to edges[i+1]
-        for i, ok in enumerate(mask):
-            if ok:
-                left, right = edges[i], edges[i + 1]
-                for ax in ax_list:
-                    ax.axvspan(left, right, color=color, alpha=alpha, zorder=0)
-
-    # Apply shading
-    _shade_best_regions([axes[0], axes[1], axes[2]], x_plot, x_edges, mask_best, color="green", alpha=0.15)
-
-    # Optional: annotate on the top panel
+            print(f"Error processing {config_file_}: {e}")
+    
+    if not results:
+        print("No Ising metrics found")
+        return None
+    
+    # Sort by parameter value
     try:
-        y_top = axes[0].get_ylim()[1]
-        axes[0].text(
-            x_plot[len(x_plot) // 2] + 0.2,  # mid x (roughly)
-            y_top * 0.95,
-            "GNN best region",
-            ha="center", va="top",
-            fontsize=12,
-            bbox=dict(boxstyle="round,pad=0.2", facecolor="white", alpha=0.6, edgecolor="none")
-        )
-    except Exception:
-        pass
+        results.sort(key=lambda x: float(x['param_value']))
+    except:
+        results.sort(key=lambda x: str(x['param_value']))
+    
+    # Display name
+    if varied_parameter is None:
+        param_display_name = "config"
+    else:
+        param_display_name = varied_parameter.split('.')[1]
+    
+    # Print summary table
+    print(f"\n=== Ising Analysis Comparison: {param_display_name} ===")
+    print(f"{'Parameter':<12} {'I_N (bits)':<15} {'I_2 (bits)':<15} {'I_HOC (bits)':<15} {'I_2/I_N':<12} {'C_3':<15}")
+    print("-" * 85)
+    
+    for r in results:
+        i_n = f"{r.get('I_N_median', 0):.3f}" if 'I_N_median' in r else "N/A"
+        i_2 = f"{r.get('I2_median', 0):.3f}" if 'I2_median' in r else "N/A"
+        i_hoc = f"{r.get('I_HOC_median', 0):.3f}" if 'I_HOC_median' in r else "N/A"
+        ratio = f"{r.get('ratio_median', 0):.3f}" if 'ratio_median' in r else "N/A"
+        c3 = f"{r.get('C3_mean', 0):.4f}±{r.get('C3_std', 0):.4f}" if 'C3_mean' in r else "N/A"
+        
+        print(f"{str(r['param_value']):<12} {i_n:<15} {i_2:<15} {i_hoc:<15} {ratio:<12} {c3:<15}")
+    
+    # Create plots
+    plt.style.use('default')
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    
+    param_values = [r['param_value'] for r in results]
+    
+    # Try to convert to numeric for better plotting
+    try:
+        x_values = [float(p) for p in param_values]
+        use_log = min(x_values) > 0 and max(x_values)/min(x_values) > 10
+    except:
+        x_values = range(len(param_values))
+        use_log = False
+    
+    # Panel 1: I_N and I_2
+    ax = axes[0, 0]
+    if 'I_N_median' in results[0]:
+        i_n_vals = [r.get('I_N_median', 0) for r in results]
+        i_2_vals = [r.get('I2_median', 0) for r in results]
+        
+        plot_fn = ax.semilogx if use_log else ax.plot
+        plot_fn(x_values, i_n_vals, 'o-', label='$I_N$', linewidth=2, markersize=8)
+        plot_fn(x_values, i_2_vals, 's-', label='$I^{(2)}$', linewidth=2, markersize=8)
+        ax.set_ylabel('Information (bits)', fontsize=12)
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+    
+    # Panel 2: I_2/I_N ratio
+    ax = axes[0, 1]
+    if 'ratio_median' in results[0]:
+        ratio_vals = [r.get('ratio_median', 0) for r in results]
+        plot_fn = ax.semilogx if use_log else ax.plot
+        plot_fn(x_values, ratio_vals, 'o-', color='green', linewidth=2, markersize=8)
+        ax.set_ylabel('$I^{(2)}/I_N$', fontsize=12)
+        ax.set_ylim(0, 1.1)
+        ax.axhline(y=0.9, color='gray', linestyle='--', alpha=0.5)
+        ax.grid(True, alpha=0.3)
+    
+    # Panel 3: Higher-order correlation
+    ax = axes[1, 0]
+    if 'I_HOC_median' in results[0]:
+        i_hoc_vals = [r.get('I_HOC_median', 0) for r in results]
+        plot_fn = ax.semilogx if use_log else ax.plot
+        plot_fn(x_values, i_hoc_vals, 'o-', color='purple', linewidth=2, markersize=8)
+        ax.set_xlabel(param_display_name, fontsize=12)
+        ax.set_ylabel('$I_{HOC}$ (bits)', fontsize=12)
+        ax.grid(True, alpha=0.3)
+    
+    # Panel 4: Connected triplets C_3
+    ax = axes[1, 1]
+    if 'C3_mean' in results[0]:
+        c3_vals = [r.get('C3_mean', 0) for r in results]
+        c3_err = [r.get('C3_std', 0) for r in results]
+        
+        if use_log:
+            ax.errorbar(x_values, c3_vals, yerr=c3_err, fmt='o-', color='teal',
+                       linewidth=2, markersize=8, capsize=5)
+            ax.set_xscale('log')
+        else:
+            ax.errorbar(x_values, c3_vals, yerr=c3_err, fmt='o-', color='teal',
+                       linewidth=2, markersize=8, capsize=5)
+        ax.set_xlabel(param_display_name, fontsize=12)
+        ax.set_ylabel('$C_3$ (triplet correlation)', fontsize=12)
+        ax.grid(True, alpha=0.3)
+    
+    # Set x-axis labels if not numeric
+    if not isinstance(x_values[0], (int, float)):
+        for ax in axes.flat:
+            ax.set_xticks(x_values)
+            ax.set_xticklabels(param_values, rotation=45, ha='right')
+    
+    plt.suptitle(f'Information Structure vs {param_display_name}', fontsize=14)
+    plt.tight_layout()
+    plt.savefig(f'fig/ising_comparison_{param_display_name}.png', dpi=150, bbox_inches='tight')
+    plt.show()
+    
+    return results
 
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
-    plt.savefig("fig/phase_diagram.png", dpi=150)
-    plt.close(fig)
+
+def compare_experiments(config_list, varied_parameter=None):
+    """
+    Run both GNN and Ising comparisons
+    
+    Args:
+        config_list: list of config file names
+        varied_parameter: 'section.parameter' format or None for config indices
+    """
+    
+    print("\n" + "="*80)
+    print("EXPERIMENT COMPARISON")
+    print("="*80)
+    
+    # Run GNN comparison
+    gnn_results = compare_gnn_results(config_list, varied_parameter)
+    
+    # Run Ising comparison
+    ising_results = compare_ising_results(config_list, varied_parameter)
+    
+    # Optional: Create combined summary plot if both analyses succeeded
+    if gnn_results and ising_results:
+        create_combined_summary_plot(gnn_results, ising_results, varied_parameter)
+    
+    return {'gnn': gnn_results, 'ising': ising_results}
+
+
+def create_combined_summary_plot(gnn_results, ising_results, varied_parameter):
+    """Create a combined plot showing both GNN performance and information metrics"""
+    
+    # This is where you could create your custom combined visualization
+    # For example, showing GNN accuracy alongside I_HOC to demonstrate
+    # the relationship between higher-order correlations and performance
+    
+    pass  # Implement as needed
+
+
+
+
 
 
 def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir,
@@ -7285,20 +6850,21 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-    config_list = ['fly_N9_22_1', 'fly_N9_44_2', 'fly_N9_44_6', 'fly_N9_44_8']
 
-    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 
-    #                'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12',
-    #                'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
-    #                'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-    #                'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
-    #                'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
+    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 
+                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12',
+                   'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
+                   'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
+                   'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
+                   'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
     
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
     # plot no noise at all
     # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
     # data_flyvis_compare(config_list, None)
+
+    # results = compare_experiments(config_list, 'dataset.noise_model_level')
 
     # config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
 
