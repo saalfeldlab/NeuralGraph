@@ -2708,11 +2708,13 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         learned_tau_type = learned_tau[type_indices]
         learned_vrest_type = learned_V_rest[type_indices]
 
-        rmse_w =  np.sqrt(np.mean((gt_w_type - learned_w_type) ** 2)) / (np.mean(np.abs(gt_w_type)) + 1e-6)
+        # rmse_w =  np.sqrt(np.mean((gt_w_type - learned_w_type) ** 2)) / (np.mean(np.abs(gt_w_type)) + 1e-6)
+        # rmse_tau = np.sqrt(np.mean((gt_tau_type - learned_tau_type) ** 2)) / (np.mean(np.abs(gt_tau_type)) + 1e-6)
+        # rmse_vrest = np.sqrt(np.mean((gt_vrest_type - learned_vrest_type) ** 2)) / (np.mean(np.abs(gt_vrest_type)) + 1e-6)
 
-        rmse_tau = np.sqrt(np.mean((gt_tau_type - learned_tau_type) ** 2)) / (np.mean(np.abs(gt_tau_type)) + 1e-6)
-
-        rmse_vrest = np.sqrt(np.mean((gt_vrest_type - learned_vrest_type) ** 2)) / (np.mean(np.abs(gt_vrest_type)) + 1e-6)
+        rmse_w = np.sqrt(np.mean(((gt_w_type - learned_w_type) / gt_w_type) ** 2)) * 100
+        rmse_tau = np.sqrt(np.mean(((gt_tau_type - learned_tau_type) / gt_tau_type) ** 2)) * 100
+        rmse_vrest = np.sqrt(np.mean(((gt_vrest_type - learned_vrest_type) / gt_vrest_type) ** 2)) * 100
 
         rmse_weights.append(rmse_w)
         rmse_taus.append(rmse_tau)
@@ -2720,9 +2722,9 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         n_connections.append(n_conn)
 
     # Convert to arrays
-    rmse_weights = np.array(rmse_weights) * 100
-    rmse_taus = np.array(rmse_taus) * 100
-    rmse_vrests = np.array(rmse_vrests) * 100
+    rmse_weights = np.array(rmse_weights)
+    rmse_taus = np.array(rmse_taus)
+    rmse_vrests = np.array(rmse_vrests)
 
     unique_types_in_order = []
     seen_types = set()
@@ -2833,22 +2835,20 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
 
     all_learned_weights = learned_weights.flatten()
     all_true_weights = true_weights.flatten()
-    plt.scatter(all_true_weights, all_learned_weights, c='lightgray', alpha=0.3, s=1, label='All connections')
+    plt.scatter(all_true_weights, all_learned_weights, c='lightgray', alpha=0.05, s=1, label='All connections')
 
     # Plot connections for each worst neuron type
     for i, worst_type_info in enumerate(worst_types_info):
         type_idx = worst_type_info['type_index']
         type_name = worst_type_info['type_name']
+        type_rmse_value = worst_type_info['rmse_weights']
 
-        type_indices = np.where(type_list == type_idx)[0]
+        type_indices = np.where(type_list[edges[1,:]] == type_idx)[0]  # Edge indices, not neuron indices
         type_learned = learned_weights[type_indices]
         type_true = true_weights[type_indices]
 
-        rmse_ = np.sqrt(np.mean((type_true - type_learned) ** 2)) / (np.mean(np.abs(type_true)) + 1e-6)
-        print(f"Neuron type {type_name} (index {type_idx}) weights RMSE: {rmse_:.3f}")
-
         if len(type_learned) > 0:
-            plt.scatter(type_true, type_learned, c=colors_65[i], alpha=0.8, s=3, label=f'{type_name} ({type_idx})', edgecolors='None')
+            plt.scatter(type_true, type_learned, c=colors_65[i], alpha=1.0, s=3, label=f'{type_name} ({type_idx})', edgecolors='None')
     #
     # # Add perfect correlation line
     # min_val = min(np.min(all_true_weights), np.min(all_learned_weights))
