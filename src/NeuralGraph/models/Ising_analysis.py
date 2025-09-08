@@ -30,7 +30,7 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
 
 
     # binarize at per-neuron mean -> {-1,+1}
-    voltage = x[:, :, 3]
+    voltage = x_list[0][:, :, 3]
     mean_v = voltage.mean(axis=0)
     s = np.where(voltage > mean_v, 1, -1).astype(np.int8)
 
@@ -106,167 +106,6 @@ def analyze_ising_model(x_list, delta_t, log_dir, logger, mc):
 
 
 
-def approximated_Ising(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.float32, energy_stride=10, log_dir=''):
-    """
-    fast, blockwise sparse Ising approximation (correlation-based).
-    also computes Ising energy for every `energy_stride` frames.
-
-    Returns
-    -------
-    s : np.ndarray (int8)
-        binarized states {-1,+1}, shape [n_frames, n_neurons]
-    h : np.ndarray (float32)
-        bias terms (mean-field approx), shape [n_neurons]
-    J : list of dict
-        sparse couplings: J[i] is dict {j: value, ...} (top_k entries)
-    E : np.ndarray (float32)
-        energy per frame (subsampled), shape [n_frames//energy_stride]
-    """
-    n_frames, n_neurons, _ = x.shape
-    voltage = x[:, :, voltage_col]
-
-    # 1) Binarize at per-neuron mean -> {-1,+1}
-    mean_v = voltage.mean(axis=0)
-    s = np.where(voltage > mean_v, 1, -1).astype(np.int8)
-
-    # 2) mean magnetization and biases
-    m = s.mean(axis=0).astype(dtype)
-    m = np.clip(m, -0.999, 0.999)
-    h = np.arctanh(m).astype(dtype)
-
-    # 3) Blockwise correlation scan, keeping top_k couplings safely
-    J = [dict() for _ in range(n_neurons)]
-    blocks = list(range(0, n_neurons, block_size))
-
-    # Temporary storage for top-k values and indices
-    topk_vals = np.full((n_neurons, top_k), -np.inf, dtype=dtype)
-    topk_idx = np.full((n_neurons, top_k), -1, dtype=np.int32)
-
-    for bj in trange(len(blocks), desc="blocks (j)"):
-        j0, j1 = blocks[bj], min(n_neurons, blocks[bj] + block_size)
-        sj = s[:, j0:j1].astype(dtype)
-
-        for bi in range(0, n_neurons, block_size):
-            i0, i1 = bi, min(n_neurons, bi + block_size)
-            si = s[:, i0:i1].astype(dtype)
-
-            # compute block correlation
-            C_block = (si.T @ sj) / n_frames
-
-            for local_i in range(i1 - i0):
-                global_i = i0 + local_i
-                vals = np.ascontiguousarray(C_block[local_i]).ravel()  # flatten safely
-                cur_vals = topk_vals[global_i]
-                cur_idx = topk_idx[global_i]
-
-                # concatenate previous top-k and current block
-                new_vals = np.concatenate([cur_vals, vals])
-                new_idx = np.concatenate([cur_idx, np.arange(j0, j1, dtype=np.int32)])
-
-                # filter out non-finite values before selecting top-k
-                mask = np.isfinite(new_vals)
-                filtered_vals = new_vals[mask]
-                filtered_idx = new_idx[mask]
-
-                # select top-k by absolute value
-                if len(filtered_vals) > 0:
-                    order = np.argsort(np.abs(filtered_vals))[-top_k:]
-                    topk_vals[global_i] = filtered_vals[order]
-                    topk_idx[global_i] = filtered_idx[order]
-
-    # fill sparse coupling dictionaries
-    for i in trange(n_neurons, desc="fill J"):
-        vals, idxs = topk_vals[i], topk_idx[i]
-        for v, j in zip(vals, idxs):
-            if j != i and np.isfinite(v):
-                J[i][int(j)] = float(v)
-
-    # Convert J to edge list (upper triangle only)
-    rows, cols, vals = [], [], []
-    for i, Ji in enumerate(J):
-        for j, Jij in Ji.items():
-            if j > i:
-                rows.append(i)
-                cols.append(j)
-                vals.append(Jij)
-
-    rows = np.array(rows, dtype=np.int32)
-    cols = np.array(cols, dtype=np.int32)
-    vals = np.array(vals, dtype=np.float32)
-
-    # Parameters
-    chunk_size = 5000  # adjust based on RAM
-    n_frames = s.shape[0]
-    E = np.zeros(n_frames, dtype=np.float32)
-
-    # Vectorized energy calculation in chunks with tqdm
-    for start in trange(0, n_frames, chunk_size, desc="energy chunks"):
-        end = min(start + chunk_size, n_frames)
-        s_chunk = s[start:end].astype(np.float32)  # shape (chunk_size, n_neurons)
-
-    # Field term
-    field_E = -(s_chunk @ h)
-
-    # Coupling term (vectorized over chunk)
-    coupling_E = -0.5 * np.sum(vals[None, :] * s_chunk[:, rows] * s_chunk[:, cols], axis=1)
-
-    E[start:end] = field_E + coupling_E
-
-E = E / 1000 # arbitrary
-
-    np.save(f"./{log_dir}/results/E.npy", E)
-    np.save(f"./{log_dir}/results/s.npy", s)
-    np.save(f"./{log_dir}/results/h.npy", h)
-    np.save(f"./{log_dir}/results/J.npy", J)
-
-    # Energy statistics
-    E_mean = np.mean(E)
-    E_std = np.std(E)
-    hist, _ = np.histogram(E, bins=100, density=True)
-    E_entropy = -np.sum(hist * np.log(hist + 1e-12))
-
-    # Coupling statistics
-    J_vals = []
-    for Ji in J:
-        if isinstance(Ji, dict):
-            J_vals.extend(Ji.values())
-        else:
-            J_vals.extend(np.asarray(Ji).ravel())
-    J_vals = np.asarray(J_vals, dtype=np.float32)
-    J_vals = J_vals[np.isfinite(J_vals)]
-
-    J_mean = np.mean(J_vals)
-    J_std = np.std(J_vals)
-    J_sign_ratio = (J_vals > 0).mean()
-    th = np.percentile(np.abs(J_vals), 90.0)
-    J_frac_strong = (np.abs(J_vals) > th).mean()
-
-    # Create visualization
-    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
-
-    # Panel 1: Energy histogram
-    axs[0].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
-    axs[0].set_xlabel("Energy", fontsize=24)
-    axs[0].set_ylabel("Density", fontsize=24)
-    axs[0].tick_params(axis='both', which='major', labelsize=12)
-    axs[0].text(0.05, 0.95,
-                f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nEntropy: {E_entropy:.2f}',
-                transform=axs[0].transAxes,
-                fontsize=18, verticalalignment='top')
-    # Panel 2: Couplings histogram
-    axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
-    axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
-    axs[1].set_ylabel("Density", fontsize=24)
-    axs[1].tick_params(axis='both', which='major', labelsize=12)
-    axs[1].text(0.05, 0.95,
-                f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}',
-                transform=axs[1].transAxes,
-                fontsize=18, verticalalignment='top')
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
-    plt.close(fig)
-
-    return s, h, J, E
 
 
 def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
@@ -288,6 +127,8 @@ def compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10):
 
     print('computing entropies...')
     
+    rng = np.random.default_rng(seed=0)
+
     results = []
     for i in trange(n_subsets, desc="processing N-10 subsets"):
         idx = np.sort(rng.choice(s.shape[1], size=N, replace=False))
@@ -427,107 +268,8 @@ class InfoRatioResult:
     predicted_rates_pairwise: np.ndarray  # P2 model (Ising)
     predicted_rates_independent: np.ndarray  # P1 model
 
-# ========== Rebin utilities ==========
-def aggregate_time(v: np.ndarray, bin_size: int, agg: str = "mean") -> np.ndarray:
-    T, K = v.shape
-    if bin_size <= 1:
-        return v
-    T_trim = (T // bin_size) * bin_size
-    v = v[:T_trim]
-    v = v.reshape(T_trim // bin_size, bin_size, K)
-    if agg == "median":
-        return np.median(v, axis=1)
-    else:
-        return v.mean(axis=1)
 
-def rebin_voltage_subset( x: np.ndarray, idx: np.ndarray, bin_size: int = 1, voltage_col: int = 3, agg: str = "mean", threshold: str = "mean",
-) -> np.ndarray:
-    v = x[:, idx, voltage_col].astype(np.float32, copy=False)
-    v_b = aggregate_time(v, bin_size=bin_size, agg=agg)
-    thr = np.median(v_b, axis=0) if threshold == "median" else v_b.mean(axis=0)
-    return np.where(v_b > thr[None, :], 1, -1).astype(np.int8)
 
-def analyze_N_10_information_structure(S: np.ndarray,logbase: float = 2.0,alpha_joint: float = 1e-3,alpha_marg: float = 0.5,enforce_monotone: bool = False,ratio_eps: float = 1e-6,delta_t: float = 0.02,
-) -> InfoRatioResult:
-
-    H_true = entropy_true_pseudocount(S, logbase, alpha_joint)
-    H_ind = entropy_indep_bernoulli_jeffreys(S, logbase, alpha_marg)
-
-    h, J, H_pair = entropy_exact_ising(S)
-
-    if (H_pair > H_ind) | (H_true > H_pair):
-        count_non_monotonic = 1
-    else:
-        count_non_monotonic = 0
-
-    if enforce_monotone:
-        H_pair = min(H_pair, H_ind)
-        H_true = min(H_true, H_pair)
-
-    I_N = H_ind - H_true
-    I2 = H_ind - H_pair
-    ratio = I2 / I_N if I_N > ratio_eps else float('nan')
-
-    # Pattern rate computation (always done)
-    T, N = S.shape
-
-    # Convert {-1,+1} to {0,1} for pattern indexing
-    S_binary = (S + 1) // 2  # shape (T, N)
-
-    # Compute pattern indices (each pattern -> integer 0 to 2^N-1)
-    powers = 2 ** np.arange(N)  # [1, 2, 4, 8, ...]
-    pattern_indices = S_binary @ powers  # shape (T,)
-
-    # Count empirical pattern occurrences
-    pattern_counts = np.bincount(pattern_indices, minlength=2 ** N)
-    observed_rates = pattern_counts.astype(float) / T
-
-    # Compute individual neuron firing probabilities for independent model
-    p_i = np.mean(S_binary, axis=0)  # shape (N,)
-
-    # Compute model predictions for all 2^N patterns
-    predicted_rates_pairwise = np.zeros(2 ** N)
-    predicted_rates_independent = np.zeros(2 ** N)
-
-    # Generate all possible binary patterns
-    for pattern_idx in range(2 ** N):
-        # Convert pattern index back to binary array
-        binary_pattern = np.array([(pattern_idx >> i) & 1 for i in range(N)])
-
-        # PAIRWISE MODEL (P2): Ising model
-        sigma = 2 * binary_pattern - 1  # Convert to {-1, +1}
-        field_energy = -np.sum(h * sigma)
-        coupling_energy = -0.5 * np.sum(J * np.outer(sigma, sigma))
-        energy = field_energy + coupling_energy
-        predicted_rates_pairwise[pattern_idx] = np.exp(-energy)
-
-        # INDEPENDENT MODEL (P1): Product of individual probabilities
-        prob_independent = 1.0
-        for i in range(N):
-            if binary_pattern[i] == 1:
-                prob_independent *= p_i[i]
-            else:
-                prob_independent *= (1.0 - p_i[i])
-        predicted_rates_independent[pattern_idx] = prob_independent
-
-    # Normalize pairwise model to get probabilities
-    Z_pairwise = np.sum(predicted_rates_pairwise)
-    predicted_rates_pairwise = predicted_rates_pairwise / Z_pairwise
-
-    # Independent model already normalized (probabilities sum to 1)
-
-    return InfoRatioResult(
-        H_true=H_true,
-        H_indep=H_ind,
-        H_pair=H_pair,
-        I_N=I_N / delta_t,
-        I2=I2 / delta_t,
-        ratio=ratio,
-        count_non_monotonic=count_non_monotonic,
-        observed_rates=observed_rates / delta_t,  # NOW in s^-1
-        predicted_rates_pairwise=predicted_rates_pairwise / delta_t,  # NOW in s^-1
-        predicted_rates_independent=predicted_rates_independent / delta_t
-    )
 
 def plugin_entropy(p: np.ndarray, logbase: float = math.e) -> float:
     p = p[p > 0]
@@ -657,20 +399,6 @@ def entropy_exact_ising(S, max_iter=200, lr=1.0, lam=0.0, tol=1e-6, logbase=2.0,
     H_pair = entropy_from_model(h, J, logbase=logbase)
     return h, J, H_pair
 
-def gibbs_sample_ising(h, J, T_samples=100000, burn=20000, seed=None):
-    rng = np.random.default_rng(seed)
-    N = h.shape[0]
-    s = rng.choice([-1, 1], size=N)
-    samples = []
-    for t in range(burn + T_samples):
-        i = rng.integers(0, N)
-        local = h[i] + J[i] @ s - J[i, i] * s[i]
-        p_plus = 1.0 / (1.0 + np.exp(-2.0 * local))
-        s[i] = 1 if rng.random() < p_plus else -1
-        if t >= burn:
-            samples.append(s.copy())
-    return np.array(samples, dtype=np.int8)
-
 def enumerate_states_pm1(N):
     # All 2^N states in {-1,+1}^N
     X = np.array(list(product([-1, 1], repeat=N)), dtype=np.int8)
@@ -719,6 +447,169 @@ def entropy_from_model(h, J, logbase=2.0):
 
 
 
+
+def approximated_Ising(x, voltage_col=3, top_k=50, block_size=2000, dtype=np.float32, energy_stride=10, log_dir=''):
+    """
+    fast, blockwise sparse Ising approximation (correlation-based).
+    also computes Ising energy for every `energy_stride` frames.
+
+    Returns
+    -------
+    s : np.ndarray (int8)
+        binarized states {-1,+1}, shape [n_frames, n_neurons]
+    h : np.ndarray (float32)
+        bias terms (mean-field approx), shape [n_neurons]
+    J : list of dict
+        sparse couplings: J[i] is dict {j: value, ...} (top_k entries)
+    E : np.ndarray (float32)
+        energy per frame (subsampled), shape [n_frames//energy_stride]
+    """
+    n_frames, n_neurons, _ = x.shape
+    voltage = x[:, :, voltage_col]
+
+    # 1) Binarize at per-neuron mean -> {-1,+1}
+    mean_v = voltage.mean(axis=0)
+    s = np.where(voltage > mean_v, 1, -1).astype(np.int8)
+
+    # 2) mean magnetization and biases
+    m = s.mean(axis=0).astype(dtype)
+    m = np.clip(m, -0.999, 0.999)
+    h = np.arctanh(m).astype(dtype)
+
+    # 3) Blockwise correlation scan, keeping top_k couplings safely
+    J = [dict() for _ in range(n_neurons)]
+    blocks = list(range(0, n_neurons, block_size))
+
+    # Temporary storage for top-k values and indices
+    topk_vals = np.full((n_neurons, top_k), -np.inf, dtype=dtype)
+    topk_idx = np.full((n_neurons, top_k), -1, dtype=np.int32)
+
+    for bj in trange(len(blocks), desc="blocks (j)"):
+        j0, j1 = blocks[bj], min(n_neurons, blocks[bj] + block_size)
+        sj = s[:, j0:j1].astype(dtype)
+
+        for bi in range(0, n_neurons, block_size):
+            i0, i1 = bi, min(n_neurons, bi + block_size)
+            si = s[:, i0:i1].astype(dtype)
+
+            # compute block correlation
+            C_block = (si.T @ sj) / n_frames
+
+            for local_i in range(i1 - i0):
+                global_i = i0 + local_i
+                vals = np.ascontiguousarray(C_block[local_i]).ravel()  # flatten safely
+                cur_vals = topk_vals[global_i]
+                cur_idx = topk_idx[global_i]
+
+                # concatenate previous top-k and current block
+                new_vals = np.concatenate([cur_vals, vals])
+                new_idx = np.concatenate([cur_idx, np.arange(j0, j1, dtype=np.int32)])
+
+                # filter out non-finite values before selecting top-k
+                mask = np.isfinite(new_vals)
+                filtered_vals = new_vals[mask]
+                filtered_idx = new_idx[mask]
+
+                # select top-k by absolute value
+                if len(filtered_vals) > 0:
+                    order = np.argsort(np.abs(filtered_vals))[-top_k:]
+                    topk_vals[global_i] = filtered_vals[order]
+                    topk_idx[global_i] = filtered_idx[order]
+
+    # fill sparse coupling dictionaries
+    for i in trange(n_neurons, desc="fill J"):
+        vals, idxs = topk_vals[i], topk_idx[i]
+        for v, j in zip(vals, idxs):
+            if j != i and np.isfinite(v):
+                J[i][int(j)] = float(v)
+
+    # Convert J to edge list (upper triangle only)
+    rows, cols, vals = [], [], []
+    for i, Ji in enumerate(J):
+        for j, Jij in Ji.items():
+            if j > i:
+                rows.append(i)
+                cols.append(j)
+                vals.append(Jij)
+
+    rows = np.array(rows, dtype=np.int32)
+    cols = np.array(cols, dtype=np.int32)
+    vals = np.array(vals, dtype=np.float32)
+
+    # Parameters
+    chunk_size = 5000  # adjust based on RAM
+    n_frames = s.shape[0]
+    E = np.zeros(n_frames, dtype=np.float32)
+
+    # Vectorized energy calculation in chunks with tqdm
+    for start in trange(0, n_frames, chunk_size, desc="energy chunks"):
+        end = min(start + chunk_size, n_frames)
+        s_chunk = s[start:end].astype(np.float32)  # shape (chunk_size, n_neurons)
+
+    # Field term
+    field_E = -(s_chunk @ h)
+
+    # Coupling term (vectorized over chunk)
+    coupling_E = -0.5 * np.sum(vals[None, :] * s_chunk[:, rows] * s_chunk[:, cols], axis=1)
+
+    E[start:end] = field_E + coupling_E
+
+    E = E / 1000 # arbitrary
+
+    np.save(f"./{log_dir}/results/E.npy", E)
+    np.save(f"./{log_dir}/results/s.npy", s)
+    np.save(f"./{log_dir}/results/h.npy", h)
+    np.save(f"./{log_dir}/results/J.npy", J)
+
+    # Energy statistics
+    E_mean = np.mean(E)
+    E_std = np.std(E)
+    hist, _ = np.histogram(E, bins=100, density=True)
+    E_entropy = -np.sum(hist * np.log(hist + 1e-12))
+
+    # Coupling statistics
+    J_vals = []
+    for Ji in J:
+        if isinstance(Ji, dict):
+            J_vals.extend(Ji.values())
+        else:
+            J_vals.extend(np.asarray(Ji).ravel())
+    J_vals = np.asarray(J_vals, dtype=np.float32)
+    J_vals = J_vals[np.isfinite(J_vals)]
+
+    J_mean = np.mean(J_vals)
+    J_std = np.std(J_vals)
+    J_sign_ratio = (J_vals > 0).mean()
+    th = np.percentile(np.abs(J_vals), 90.0)
+    J_frac_strong = (np.abs(J_vals) > th).mean()
+
+    # Create visualization
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+
+    # Panel 1: Energy histogram
+    axs[0].hist(E, bins=100, color='salmon', edgecolor=mc, density=True)
+    axs[0].set_xlabel("Energy", fontsize=24)
+    axs[0].set_ylabel("Density", fontsize=24)
+    axs[0].tick_params(axis='both', which='major', labelsize=12)
+    axs[0].text(0.05, 0.95,
+                f'Mean: {E_mean:.2f}\nStd: {E_std:.2f}\nEntropy: {E_entropy:.2f}',
+                transform=axs[0].transAxes,
+                fontsize=18, verticalalignment='top')
+    # Panel 2: Couplings histogram
+    axs[1].hist(J_vals, bins=100, color='skyblue', edgecolor=mc, density=True)
+    axs[1].set_xlabel(r"Coupling strength $J_{ij}$", fontsize=24)
+    axs[1].set_ylabel("Density", fontsize=24)
+    axs[1].tick_params(axis='both', which='major', labelsize=12)
+    axs[1].text(0.05, 0.95,
+                f'Mean: {J_mean:.2f}\nStd: {J_std:.2f}\nSign ratio: {J_sign_ratio:.2f}\nFrac strong: {J_frac_strong:.2f}',
+                transform=axs[1].transAxes,
+                fontsize=18, verticalalignment='top')
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/Ising_panels.png", dpi=150)
+    plt.close(fig)
+
+    return s, h, J, E
+
 def gibbs_sample_sparse_ising(h, J_sparse, T_samples=200_000, seed=0, burn=0, thin=1, init=None):
     """
     h: (N,) float
@@ -741,6 +632,7 @@ def gibbs_sample_sparse_ising(h, J_sparse, T_samples=200_000, seed=0, burn=0, th
         if t >= burn and ((t - burn) % thin == 0):
             samples.append(s.copy())
     return np.array(samples, dtype=np.int8)
+
 def sample_triplets_stratified(J_sparse, n_per_stratum=5000, seed=0):
     rng = np.random.default_rng(seed)
     N = len(J_sparse)
@@ -778,6 +670,7 @@ def sample_triplets_stratified(J_sparse, n_per_stratum=5000, seed=0):
             triplets["no_edge"].append((i, j, k))
 
     return triplets  # dict of lists of 3-tuples
+
 def triplet_KL_full_population(S_data_pm1, S_model_pm1, triplets, eps=1e-6, units="bits"):
     """
     S_data_pm1, S_model_pm1: (T, N) in {-1,+1}
@@ -799,6 +692,7 @@ def triplet_KL_full_population(S_data_pm1, S_model_pm1, triplets, eps=1e-6, unit
         # KL(data || model)
         kl[idx] = np.sum(pd * (np.log(pd) - np.log(pm))) / logbase
     return kl
+
 def triplet_residuals_full(S_data_pm1, h_full, J_sparse, n_model=200_000, seed=0, n_per_stratum=5000, units="bits"):
     # single model sample pool
     S_model_pm1 = gibbs_sample_sparse_ising(h_full, J_sparse, T_samples=n_model, seed=seed, burn=0)
@@ -895,6 +789,7 @@ def sample_stratified_triplets_from_sparse_J(J_sparse, n_per_stratum=1000, tau=0
     pbar.close()
 
     return buckets, J_sym
+
 def neighbors_by_absJ(J_sym, nodes, k_each=3, exclude=None):
     """
     Collect top-|J| neighbors around a set of 'nodes'.
@@ -913,6 +808,7 @@ def neighbors_by_absJ(J_sym, nodes, k_each=3, exclude=None):
     # sort by descending strength
     ranked = sorted(scores.keys(), key=lambda v: scores[v], reverse=True)
     return ranked
+
 def empirical_triplet_marginal(S_sub_10, idx_triplet_10):
     """
     S_sub_10: [T,10] in {-1,+1}; idx_triplet_10: tuple of 3 positions in 0..9
@@ -926,6 +822,7 @@ def empirical_triplet_marginal(S_sub_10, idx_triplet_10):
     counts = np.bincount(keys, minlength=8).astype(np.float64)
     p = counts / counts.sum()
     return p
+
 def model_triplet_marginal_from_exact(h10, J10, triplet_idx):
     """
     Use exact 10-neuron model to get P(s) over 2^10 states, then marginalize to (i,j,k).
@@ -939,12 +836,14 @@ def model_triplet_marginal_from_exact(h10, J10, triplet_idx):
     p3 = np.zeros(8, dtype=np.float64)
     np.add.at(p3, keys, p)  # sum probabilities of 10-state that share same 3-state
     return p3
+
 def kl(p, q, eps=1e-12, logbase=np.e):
     """KL(p||q) with safety eps; returns nats if logbase=e, bits if logbase=2."""
     p = np.clip(p, eps, 1.0); p /= p.sum()
     q = np.clip(q, eps, 1.0); q /= q.sum()
     log = np.log if logbase == np.e else (lambda x: np.log(x)/np.log(logbase))
     return np.sum(p * (log(p) - log(q)))
+
 def triplet_residuals_from_sparseJ(
     S_pm1,                 # ndarray [T,N] in {-1,+1}
     J_sparse,              # list[dict], from sparse_ising_fit_fast  # :contentReference[oaicite:6]{index=6}
