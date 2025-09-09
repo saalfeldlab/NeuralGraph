@@ -2122,7 +2122,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     activity = activity.squeeze().t()
     mu_activity = torch.mean(activity, dim=1)
     sigma_activity = torch.std(activity, dim=1)
-    plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc)
+
+    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30'] 
+    plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc)
 
     print(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
     logger.info(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
@@ -2131,7 +2133,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
+    # analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
 
     if epoch_list[0] == 'all':
 
@@ -2345,6 +2347,74 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             logger.info(f"V_rest reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
 
             torch.save(torch.tensor(learned_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
+
+
+            for target_type_name in target_type_name_list:  # Change this to any desired type name
+                target_type_index = None
+                for idx, name in index_to_name.items():
+                    if name == target_type_name:
+                        target_type_index = idx
+                        break
+                if target_type_index is not None:
+                    type_mask = (to_numpy(type_list).squeeze() == target_type_index)
+                    neurons_of_type = np.where(type_mask)[0]
+                    fig = plt.figure(figsize=(10, 10))
+                    for n in neurons_of_type:
+                        with torch.no_grad():
+                            rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+                            in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                            func = model.lin_phi(in_features.float())
+                            plt.plot(to_numpy(rr), to_numpy(func), 2,
+                                        color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                                        linewidth=1, alpha=0.01)
+                            rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
+                            embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                            in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                            func = model.lin_phi(in_features.float())
+                            plt.plot(to_numpy(rr), to_numpy(func), 2,
+                                    color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                                    linewidth=1, alpha=0.2)
+                    # plt.xlim([to_numpy(mu_activity[n] - 3 * sigma_activity[n]), to_numpy(mu_activity[n] + 3 * sigma_activity[n])])
+                    plt.xlim(config.plotting.xlim)
+                    plt.ylim(config.plotting.ylim)
+                    plt.xlabel('$v_i$', fontsize=24)
+                    plt.ylabel('$MLP_0(a_i, v_i)$', fontsize=24)
+
+                    # Calculate mean tau and V_rest values for neurons of this type
+                    type_gt_taus = gt_taus[neurons_of_type]
+                    type_learned_tau = learned_tau[neurons_of_type]
+                    type_gt_V_rest = gt_V_rest[neurons_of_type] 
+                    type_learned_V_rest = learned_V_rest[neurons_of_type]
+                    
+                    mean_gt_tau = np.mean(type_gt_taus)
+                    mean_learned_tau = np.mean(type_learned_tau)
+                    mean_gt_V_rest = np.mean(type_gt_V_rest)
+                    mean_learned_V_rest = np.mean(type_learned_V_rest)
+
+                    # Plot true function in red: y = -x/tau + V_rest/tau
+                    if len(neurons_of_type) > 0:
+                        # Use a representative neuron for the activity range
+                        n_rep = neurons_of_type[0]
+                        x_min = to_numpy(mu_activity[n_rep] - 25 * sigma_activity[n_rep])
+                        x_max = to_numpy(mu_activity[n_rep] + 25 * sigma_activity[n_rep])
+                        x_true = np.linspace(x_min, x_max, 1000)
+                        y_true = -x_true / mean_gt_tau + mean_gt_V_rest / mean_gt_tau
+                        plt.plot(x_true, y_true, 'r-', linewidth=1, alpha=0.5, label='true function')
+                    
+                    # Add text with tau and V_rest information
+                    text_info = f'$\\tau$ (true): {mean_gt_tau:.3f}\n$\\tau$ (learned): {mean_learned_tau:.3f}\n$V_{{rest}}$ (true): {mean_gt_V_rest:.3f}\n$V_{{rest}}$ (learned): {mean_learned_V_rest:.3f}'
+                    plt.text(0.02, 0.98, text_info, transform=plt.gca().transAxes, 
+                            verticalalignment='top', horizontalalignment='left', fontsize=14)
+                    
+                    plt.title(f'{target_type_name} id:{target_type_index}  ({len(neurons_of_type)} traces)',fontsize=24)
+                    plt.xticks(fontsize=12)
+                    plt.yticks(fontsize=12)
+                    plt.tight_layout()
+                    plt.savefig(f"./{log_dir}/results/phi_functions_{target_type_name}.png", dpi=300)
+                    plt.close()
+
+
+
 
             # Plot 4: Weight comparison using model.W and gt_weights
             fig = plt.figure(figsize=(8, 8))
@@ -3607,7 +3677,7 @@ def create_combined_summary_plot(gnn_results, ising_results, varied_parameter):
 
 
 
-def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir,
+def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir,
                                   config_indices, logger, mc):
     from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum
 
@@ -3660,8 +3730,6 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
     plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300, bbox_inches='tight')
     plt.close()
 
-    # Additional plot for specific neuron type (e.g., 'Am')
-    target_type_name_list = ['R1', 'R7', 'Am', 'L1', 'L2', 'TmY4', 'TmY5a', 'TmY9', 'T4a', 'T4b', 'T4c', 'T4d']
     for target_type_name in target_type_name_list:  # Change this to any desired type name
         target_type_index = None
         for idx, name in index_to_name.items():
@@ -3686,11 +3754,11 @@ def plot_neuron_activity_analysis(activity, type_list, index_to_name, n_neurons,
                 plt.xlim([0, n_frames // 400])
                 plt.xticks(fontsize=18)
                 plt.yticks(fontsize=18)
-                plt.title(f'{target_type_name} neurons ({n_neurons_to_plot} traces)',
+                plt.title(f'{target_type_name}  id:{target_type_index}  ({n_neurons_to_plot} traces)',
                           fontsize=24)
                 if n_neurons_to_plot <= 5:
                     plt.legend(fontsize=24)
-                plt.ylim([-5, 5])
+                # plt.ylim([-5, 5])
                 plt.tight_layout()
                 plt.savefig(f'./{log_dir}/results/activity_{target_type_name}.png', dpi=300)
                 plt.close()
@@ -6851,12 +6919,12 @@ if __name__ == '__main__':
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
 
-    config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 
-                   'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12',
-                   'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
-                   'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-                   'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
-                   'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
+    config_list = ['fly_N9_22_1'] #, 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8', 
+                #    'fly_N9_44_1', 'fly_N9_44_2', 'fly_N9_44_3', 'fly_N9_44_4', 'fly_N9_44_5', 'fly_N9_44_6', 'fly_N9_44_7', 'fly_N9_44_8', 'fly_N9_44_9', 'fly_N9_44_10', 'fly_N9_44_11', 'fly_N9_44_12',
+                #    'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
+                #    'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
+                #    'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
+                #    'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
     
     # data_flyvis_compare(config_list, 'training.noise_model_level')
 
