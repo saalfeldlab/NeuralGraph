@@ -9,34 +9,264 @@ from tqdm import tqdm
 from collections import defaultdict
 import os
 from matplotlib import pyplot as plt
+from scipy import stats
 
 def analyze_ising_model(x_list, delta_t, log_dir, logger, edges):
     """
     Perform comprehensive Ising model analysis including energy distribution,
     coupling analysis, information ratio estimation, and triplet KL analysis.
+    
+    Args:
+        x_list: List of input data arrays
+        log_dir: Directory for saving results
+        logger: Logger object for recording results
+        edges: Edge list for connectivity-aware sampling
+    
+    Returns:
+        dict: Dictionary containing all analysis results
     """
+    
     # binarize at per-neuron mean -> {-1,+1}
     voltage = x_list[0][:, :, 3]
     mean_v = voltage.mean(axis=0)
     s = np.where(voltage > mean_v, 1, -1).astype(np.int8)
-
+    
     # Random sampling (baseline)
     results_random = compute_entropy_analysis(s, delta_t, log_dir, logger, n_subsets=1000, N=10)
     
     # Connectivity-aware sampling
-    results_hoc = analyze_higher_order_correlations(s, edges, delta_t, log_dir, logger, n_subsets=1000, N=10)
+    results_connected = analyze_higher_order_correlations(s, edges, delta_t, log_dir, logger, n_subsets=1000, N=10)
     
-    # Compare the two approaches
-    logger.info("\n=== Connectivity-aware vs Random sampling ===")
-    logger.info(f"I_HOC improvement: {results_hoc['I_HOC_median']/results_random['I_HOC_median']:.2f}x")
-    logger.info(f"I_N improvement: {results_hoc['I_N_median']/results_random['I_N_median']:.2f}x")
+    # Calculate enrichment metrics
+    enrichment_metrics = calculate_enrichment_metrics(results_random, results_connected, s, edges, logger)
+    
+    # Combine all results
+    results_dict = {
+        'random_sampling': results_random,
+        'connected_sampling': results_connected,
+        'enrichment': enrichment_metrics
+    }
+    
+    return results_dict
+
+
+def calculate_enrichment_metrics(results_random, results_connected, s, edges, logger):
+    """
+    Calculate and log enrichment metrics comparing random vs connected sampling
+    """
+    
+    # Basic enrichment ratios (using medians)
+    enrichment_I_N = results_connected['I_N_median'] / (results_random['I_N_median'] + 1e-10)
+    enrichment_I_2 = results_connected['I_2_median'] / (results_random['I_2_median'] + 1e-10)
+    enrichment_I_HOC = results_connected['I_HOC_median'] / (results_random['I_HOC_median'] + 1e-10)
+    
+    # Extract C_3 for random sampling (need to calculate if not present)
+    if 'C_3_mean' not in results_random:
+        # Calculate C_3 for a subset of random samples for comparison
+        C_3_random = calculate_C3_for_random_samples(s, n_samples=100)
+        results_random['C_3_mean'] = np.mean(C_3_random)
+        results_random['C_3_std'] = np.std(C_3_random)
+    
+    enrichment_C3 = results_connected['C_3_mean'] / (results_random['C_3_mean'] + 1e-10)
+    
+    # Statistical comparison using Mann-Whitney U test
+    from scipy.stats import mannwhitneyu
+    
+    # Compare distributions of I_N values
+    I_N_random = results_random['I_N']
+    I_N_connected = results_connected['I_N']
+    
+    if len(I_N_random) > 0 and len(I_N_connected) > 0:
+        statistic, pvalue = mannwhitneyu(I_N_connected, I_N_random, alternative='greater')
+        
+        # Calculate effect size (Cohen's d)
+        mean_diff = np.mean(I_N_connected) - np.mean(I_N_random)
+        pooled_std = np.sqrt((np.var(I_N_connected) + np.var(I_N_random)) / 2)
+        cohens_d = mean_diff / (pooled_std + 1e-10)
+    else:
+        pvalue = np.nan
+        cohens_d = np.nan
+    
+    # Percentage of connected subgraphs with higher I_N than median random
+    median_random_I_N = np.median(I_N_random)
+    pct_connected_above_median = np.mean(I_N_connected > median_random_I_N) * 100
+    
+    # Calculate edge density metrics
+    edge_density_random, edge_density_connected = calculate_edge_densities(s, edges)
+    
+    # Calculate correlation decay with distance
+    correlation_decay = analyze_correlation_decay(s, edges)
+    
+    # Calculate signal-to-noise ratio
+    snr = calculate_snr(s, edges)
+    
+    # Log all enrichment metrics
+    logger.info("\n" + "="*60)
+    logger.info("=== ENRICHMENT ANALYSIS ===")
+    logger.info("="*60)
+    
+    logger.info(f"Enrichment I_N:    {enrichment_I_N:.3f}x")
+    logger.info(f"Enrichment I_2:    {enrichment_I_2:.3f}x")
+    logger.info(f"Enrichment I_HOC:  {enrichment_I_HOC:.3f}x")
+    logger.info(f"Enrichment C_3:    {enrichment_C3:.3f}x")
+    
+    logger.info(f"\nStatistical comparison (Mann-Whitney U):")
+    logger.info(f"  p-value: {pvalue:.4e}")
+    logger.info(f"  Cohen's d: {cohens_d:.3f}")
+    logger.info(f"  Connected > median(random): {pct_connected_above_median:.1f}%")
+    
+    logger.info(f"\nConnectivity statistics:")
+    logger.info(f"  Edge density random:    {edge_density_random:.4f}")
+    logger.info(f"  Edge density connected: {edge_density_connected:.4f}")
+    logger.info(f"  Density ratio:          {edge_density_connected/(edge_density_random+1e-10):.2f}x")
+    
+    logger.info(f"\nCorrelation structure:")
+    logger.info(f"  Mean corr (1-hop):   {correlation_decay['one_hop']:.4f}")
+    logger.info(f"  Mean corr (2-hop):   {correlation_decay['two_hop']:.4f}")
+    logger.info(f"  Mean corr (no edge): {correlation_decay['no_edge']:.4f}")
+    logger.info(f"  SNR (edge/non-edge): {snr:.3f}")
+    
+    # Store all metrics in dictionary
+    enrichment_metrics = {
+        'enrichment_I_N': enrichment_I_N,
+        'enrichment_I_2': enrichment_I_2,
+        'enrichment_I_HOC': enrichment_I_HOC,
+        'enrichment_C3': enrichment_C3,
+        'pvalue': pvalue,
+        'cohens_d': cohens_d,
+        'pct_above_median': pct_connected_above_median,
+        'edge_density_random': edge_density_random,
+        'edge_density_connected': edge_density_connected,
+        'correlation_decay': correlation_decay,
+        'snr': snr
+    }
+    
+    return enrichment_metrics
+
+
+def calculate_C3_for_random_samples(s, n_samples=100, N=10):
+    """Calculate C_3 for random samples to enable comparison"""
+    C_3_values = []
+    rng = np.random.default_rng(seed=42)
+    
+    for _ in range(n_samples):
+        idx = rng.choice(s.shape[1], size=N, replace=False)
+        s_subset = s[:, idx]
+        C_3 = compute_connected_triplets(s_subset)
+        C_3_values.append(C_3)
+    
+    return np.array(C_3_values)
+
+
+def calculate_edge_densities(s, edges):
+    """Calculate average edge density for random and connected subgraphs"""
+    n_neurons = s.shape[1]
+    
+    # Build adjacency matrix
+    adj_matrix = np.zeros((n_neurons, n_neurons), dtype=bool)
+    for j, i in edges.T:
+        if i < n_neurons and j < n_neurons:
+            adj_matrix[i, j] = True
+            adj_matrix[j, i] = True
+    
+    # Random subgraphs
+    rng = np.random.default_rng(seed=43)
+    densities_random = []
+    for _ in range(100):
+        idx = rng.choice(n_neurons, size=10, replace=False)
+        subgraph_adj = adj_matrix[np.ix_(idx, idx)]
+        density = np.sum(subgraph_adj) / (10 * 9)  # Directed edges
+        densities_random.append(density)
+    
+    # Connected subgraphs  
+    subgraphs = sample_connected_subgraphs_fast(edges, n_neurons, n=10, n_samples=100)
+    densities_connected = []
+    for subset in subgraphs:
+        subgraph_adj = adj_matrix[np.ix_(subset, subset)]
+        density = np.sum(subgraph_adj) / (10 * 9)
+        densities_connected.append(density)
+    
+    return np.mean(densities_random), np.mean(densities_connected)
+
+
+def analyze_correlation_decay(s, edges, n_samples=1000):
+    """Analyze how correlations decay with graph distance"""
+    n_neurons = s.shape[1]
+    
+    # Build adjacency list
+    from collections import defaultdict
+    adj_list = defaultdict(set)
+    for j, i in edges.T:
+        if i < n_neurons and j < n_neurons:
+            adj_list[i].add(j)
+            adj_list[j].add(i)
+    
+    # Sample neuron pairs and compute correlations by distance
+    rng = np.random.default_rng(seed=44)
+    one_hop_corrs = []
+    two_hop_corrs = []
+    no_edge_corrs = []
+    
+    for _ in range(n_samples):
+        i, j = rng.choice(n_neurons, size=2, replace=False)
+        
+        # Calculate correlation
+        corr = np.corrcoef(s[:, i], s[:, j])[0, 1]
+        
+        # Determine graph distance
+        if j in adj_list[i]:
+            one_hop_corrs.append(abs(corr))
+        else:
+            # Check for 2-hop connection
+            two_hop = False
+            for neighbor in adj_list[i]:
+                if j in adj_list[neighbor]:
+                    two_hop = True
+                    break
+            
+            if two_hop:
+                two_hop_corrs.append(abs(corr))
+            else:
+                no_edge_corrs.append(abs(corr))
     
     return {
-        'random_sampling': results_random,
-        'connected_sampling': results_hoc
+        'one_hop': np.mean(one_hop_corrs) if one_hop_corrs else 0,
+        'two_hop': np.mean(two_hop_corrs) if two_hop_corrs else 0,
+        'no_edge': np.mean(no_edge_corrs) if no_edge_corrs else 0
     }
 
+
+def calculate_snr(s, edges):
+    """Calculate signal-to-noise ratio (edge vs non-edge correlations)"""
+    n_neurons = s.shape[1]
     
+    # Build edge set for quick lookup
+    edge_set = set()
+    for j, i in edges.T:
+        if i < n_neurons and j < n_neurons:
+            edge_set.add((min(i,j), max(i,j)))
+    
+    # Sample correlations
+    rng = np.random.default_rng(seed=45)
+    edge_corrs = []
+    non_edge_corrs = []
+    
+    for _ in range(1000):
+        i, j = rng.choice(n_neurons, size=2, replace=False)
+        i, j = min(i,j), max(i,j)
+        
+        corr = abs(np.corrcoef(s[:, i], s[:, j])[0, 1])
+        
+        if (i, j) in edge_set:
+            edge_corrs.append(corr)
+        else:
+            non_edge_corrs.append(corr)
+    
+    mean_edge = np.mean(edge_corrs) if edge_corrs else 0
+    mean_non_edge = np.mean(non_edge_corrs) if non_edge_corrs else 1e-10
+    
+    return mean_edge / mean_non_edge
+
 
 
 
@@ -577,7 +807,7 @@ def analyze_higher_order_correlations(s, edges, delta_t, log_dir, logger, n_subs
     q25_ratio, q75_ratio = np.nanpercentile(ratios, [25, 75])
     
     # Print to console (with colors)
-    print(f"Connected subgraph analysis (N={N}):")
+    print(f"connected subgraph analysis (N={N}):")
     print(f"I_N:      median=\033[32m{np.nanmedian(I_Ns):.3f}\033[0m,   IQR=[{q25_IN:.3f}, {q75_IN:.3f}],   std={np.nanstd(I_Ns):.1f}")
     print(f"I2:       median=\033[32m{np.nanmedian(I_2s):.3f}\033[0m,   IQR=[{q25_I2:.3f}, {q75_I2:.3f}],   std={np.nanstd(I_2s):.1f}")
     print(f"I_HOC:    median=\033[32m{np.nanmedian(I_HOCs):.3f}\033[0m,   IQR=[{q25_IHOC:.3f}, {q75_IHOC:.3f}],   std={np.nanstd(I_HOCs):.3f}")
