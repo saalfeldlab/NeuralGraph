@@ -389,11 +389,21 @@ def data_train_synaptic2(config, erase, best_model, device):
 
             for batch in range(batch_size):
 
-                k = np.random.randint(n_frames - 4 - time_step)
+                k = np.random.randint(n_frames - 4 - 10 - time_step) + 10
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                 ids = torch.argwhere(x[:, 6] != baseline_value)
                 ids = to_numpy(ids.squeeze())
+
+                def prepare_temporal_input(x_list, time_window=6):
+                    for k in range(time_window, n_frames):
+                        # Stack historical voltages
+                        x_temporal = np.stack([
+                            x_list[run][k-t, :, 6:7]  # voltage channel
+                            for t in range(time_window-1, -1, -1)
+                        ], axis=-1)
+
+                temporal_window = prepare_temporal_input(x_list, time_window=6)
 
                 if not (torch.isnan(x).any()):
                     if has_missing_activity:
