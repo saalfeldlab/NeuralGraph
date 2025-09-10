@@ -3365,7 +3365,7 @@ def compare_gnn_results(config_list, varied_parameter):
             if varied_parameter is None:
                 parts = config_file_.split('_')
                 if len(parts) >= 2:
-                    param_value = f"{parts[-2]}_{parts[-1]}"
+                    param_value = parts[-1]
                 else:
                     print(f"warning: cannot extract indices from config name '{config_file_}'")
                     continue
