@@ -2735,6 +2735,20 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         rmse_vrests.append(rmse_vrest)
         n_connections.append(n_conn)
 
+    n_neurons = len(type_list)
+    
+    # Per-neuron RMSE for tau
+    rmse_tau_per_neuron = np.abs(learned_tau - gt_taus) / (np.abs(gt_taus) + 1e-8) * 100
+    # Per-neuron RMSE for V_rest  
+    rmse_vrest_per_neuron = np.abs(learned_V_rest - gt_V_Rest) / (np.abs(gt_V_Rest) + 1e-8) * 100
+    # Per-neuron RMSE for weights (incoming connections)
+    rmse_weights_per_neuron = np.zeros(n_neurons)
+    for neuron_idx in range(n_neurons):
+        incoming_edges = np.where(edges[1, :] == neuron_idx)[0]
+        if len(incoming_edges) > 0:
+            true_w = true_weights[incoming_edges]
+            learned_w = learned_weights[incoming_edges]
+            rmse_weights_per_neuron[neuron_idx] = np.sqrt(np.mean((learned_w - true_w)**2)) / (np.sqrt(np.mean(true_w**2)) + 1e-8) * 100
 
     # Convert to arrays
     rmse_weights = np.array(rmse_weights)
