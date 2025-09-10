@@ -2702,60 +2702,66 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
                                        learned_weights, learned_tau, learned_V_rest, type_list, n_frames, dimension, 
                                        n_neuron_types, device, log_dir, dataset_name, logger, index_to_name):
     
-    # Convert to numpy arrays
-    edges = np.array(edges)
-    true_weights = to_numpy(true_weights)
-    learned_weights = to_numpy(learned_weights)
-    type_list = np.array(type_list).squeeze()
-    gt_taus = to_numpy(gt_taus)
-    learned_tau = to_numpy(learned_tau)
-    gt_V_Rest = to_numpy(gt_V_Rest)
-    learned_V_rest = to_numpy(learned_V_rest)
-    
-    n_neurons = len(type_list)
-    
-    # Per-neuron RMSE for tau
-    rmse_tau_per_neuron = np.abs(learned_tau - gt_taus) / (np.abs(gt_taus) + 1e-8) * 100
-    
-    # Per-neuron RMSE for V_rest  
-    rmse_vrest_per_neuron = np.abs(learned_V_rest - gt_V_Rest) / (np.abs(gt_V_Rest) + 1e-8) * 100
-    
-    # Per-neuron RMSE for weights (incoming connections)
-    rmse_weights_per_neuron = np.zeros(n_neurons)
-    for neuron_idx in range(n_neurons):
-        incoming_edges = np.where(edges[1, :] == neuron_idx)[0]
-        if len(incoming_edges) > 0:
-            true_w = true_weights[incoming_edges]
-            learned_w = learned_weights[incoming_edges]
-            rmse_weights_per_neuron[neuron_idx] = np.sqrt(np.mean((learned_w - true_w)**2)) / (np.sqrt(np.mean(true_w**2)) + 1e-8) * 100
-    
-    # Aggregate per-type for plotting (keeping original plot functionality)
-    rmse_weights = np.zeros(n_neuron_types)
-    rmse_taus = np.zeros(n_neuron_types)
-    rmse_vrests = np.zeros(n_neuron_types)
-    
+    print('stratified analysis by neuron type...')
+
+    colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
+    colors_65 = colors_65[:65]
+
+    rmse_weights = []
+    rmse_taus = []
+    rmse_vrests = []
+    n_connections = []
+
     for neuron_type in range(n_neuron_types):
+
+        type_indices = np.where(type_list[edges[1,:]] == neuron_type)[0]
+        gt_w_type = true_weights[type_indices]
+        learned_w_type = learned_weights[type_indices]
+        n_conn = len(type_indices)
+
         type_indices = np.where(type_list == neuron_type)[0]
-        if len(type_indices) > 0:
-            rmse_weights[neuron_type] = np.mean(rmse_weights_per_neuron[type_indices])
-            rmse_taus[neuron_type] = np.mean(rmse_tau_per_neuron[type_indices])
-            rmse_vrests[neuron_type] = np.mean(rmse_vrest_per_neuron[type_indices])
-    
-    # # Sort by weights RMSE for consistent ordering
-    # sort_indices = np.argsort(rmse_weights)
-    # sorted_neuron_type_names = []
-    # for idx in sort_indices:
-    #     neuron_type_name = index_to_name.get(idx, f'Type{idx}')
-    #     sorted_neuron_type_names.append(neuron_type_name)
-    
-    # Create visualization (keeping original plot)
-    fig, axes = plt.subplots(3, 1, figsize=(14, 12))
-    x_pos = np.arange(n_neuron_types)
-    
-    # Panel 1 (weights)
+        gt_tau_type = gt_taus[type_indices]
+        gt_vrest_type = gt_V_Rest[type_indices]
+
+        learned_tau_type = learned_tau[type_indices]
+        learned_vrest_type = learned_V_rest[type_indices]
+
+        rmse_w = np.sqrt(np.mean(((gt_w_type - learned_w_type) / gt_w_type) ** 2)) * 100
+        rmse_tau = np.sqrt(np.mean(((gt_tau_type - learned_tau_type) / gt_tau_type) ** 2)) * 100
+        rmse_vrest = np.sqrt(np.mean(((gt_vrest_type - learned_vrest_type) / gt_vrest_type) ** 2)) * 100
+
+        rmse_weights.append(rmse_w)
+        rmse_taus.append(rmse_tau)
+        rmse_vrests.append(rmse_vrest)
+        n_connections.append(n_conn)
+
+    # Convert to arrays
+    rmse_weights = np.array(rmse_weights)
+    rmse_taus = np.array(rmse_taus)
+    rmse_vrests = np.array(rmse_vrests)
+
+    unique_types_in_order = []
+    seen_types = set()
+    for i in range(len(type_list)):
+        neuron_type_id = type_list[i].item() if hasattr(type_list[i], 'item') else int(type_list[i])
+        if neuron_type_id not in seen_types:
+            unique_types_in_order.append(neuron_type_id)
+            seen_types.add(neuron_type_id)
+
+    # Create neuron type names in the same order as they appear in data
+    sorted_neuron_type_names = [index_to_name.get(type_id, f'Type{type_id}') for type_id in unique_types_in_order]
+    unique_types_in_order = np.array(unique_types_in_order)
+
+    sort_indices = unique_types_in_order.astype(int)
+
+    fig, axes = plt.subplots(3, 1, figsize=(10, 12))
+
+    x_pos = np.arange(len(sort_indices))
+
+    # Plot weights RMSE
     ax1 = axes[0]
     ax1.bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
-    ax1.set_ylabel(r'rel. RMSE weights [%]', fontsize=14)
+    ax1.set_ylabel('rel. RMSE weights [%]', fontsize=14)
     ax1.grid(True, alpha=0.3)
     ax1.set_ylim([0, 100])
     ax1.set_xticks(x_pos)
@@ -2779,6 +2785,15 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     ax2.grid(False)
     ax2.tick_params(axis='y', labelsize=12)
 
+    # Calculate mean ground truth taus per neuron type
+    mean_gt_taus = []
+    for neuron_type in range(n_neuron_types):
+        type_indices = np.where(type_list == neuron_type)[0]
+        gt_tau_type = gt_taus[type_indices]
+        mean_gt_taus.append(np.mean(np.abs(gt_tau_type)))
+
+    mean_gt_taus = np.array(mean_gt_taus)
+
     for i, (tick, rmse_tau) in enumerate(zip(ax2.get_xticklabels(), rmse_taus[sort_indices])):
         if rmse_tau > 100:
             tick.set_color('red')
@@ -2795,6 +2810,14 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     ax3.grid(False)
     ax3.tick_params(axis='y', labelsize=12)
 
+    # Calculate mean ground truth V_rest per neuron type
+    mean_gt_vrests = []
+    for neuron_type in range(n_neuron_types):
+        type_indices = np.where(type_list == neuron_type)[0]
+        gt_vrest_type = gt_V_Rest[type_indices]
+        mean_gt_vrests.append(np.mean(np.abs(gt_vrest_type)))
+
+    mean_gt_vrests = np.array(mean_gt_vrests)
     for i, (tick, rmse_vrest) in enumerate(zip(ax3.get_xticklabels(), rmse_vrests[sort_indices])):
         if rmse_vrest > 100:
             tick.set_color('red')
