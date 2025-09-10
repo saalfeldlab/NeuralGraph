@@ -2009,6 +2009,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #         #     logger.info(symbolic(n))
 
 
+
 def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device):
     dataset_name = config.dataset
     model_config = config.graph_model
@@ -2134,7 +2135,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    # analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
+    analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
 
     if epoch_list[0] == 'all':
 
@@ -2740,12 +2741,12 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
             rmse_taus[neuron_type] = np.mean(rmse_tau_per_neuron[type_indices])
             rmse_vrests[neuron_type] = np.mean(rmse_vrest_per_neuron[type_indices])
     
-    # Sort by weights RMSE for consistent ordering
-    sort_indices = np.argsort(rmse_weights)
-    sorted_neuron_type_names = []
-    for idx in sort_indices:
-        neuron_type_name = index_to_name.get(idx, f'Type{idx}')
-        sorted_neuron_type_names.append(neuron_type_name)
+    # # Sort by weights RMSE for consistent ordering
+    # sort_indices = np.argsort(rmse_weights)
+    # sorted_neuron_type_names = []
+    # for idx in sort_indices:
+    #     neuron_type_name = index_to_name.get(idx, f'Type{idx}')
+    #     sorted_neuron_type_names.append(neuron_type_name)
     
     # Create visualization (keeping original plot)
     fig, axes = plt.subplots(3, 1, figsize=(14, 12))
@@ -3448,101 +3449,80 @@ def compare_gnn_results(config_list, varied_parameter):
     # Create comparison plot with extra space for panel labels
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
     fig.subplots_adjust(left=0.13, right=0.97, top=0.90, bottom=0.10, wspace=0.32, hspace=0.32)
-    # Add panel labels a) b) c) d) above and between panels (top left, outside axes)
-    fig.text(0.13, 0.92, 'a)', fontsize=18, ha='left', va='bottom')
-    fig.text(0.57, 0.92, 'b)', fontsize=18, ha='left', va='bottom')
-    fig.text(0.13, 0.48, 'c)', fontsize=18, ha='left', va='bottom')
-    fig.text(0.57, 0.48, 'd)', fontsize=18, ha='left', va='bottom')
+    # Add panel labels a), b), c), d) in upper left of each panel
+    ax1.text(-0.15, 1.08, 'a)', transform=ax1.transAxes, fontsize=18, va='top', ha='right')
+    ax2.text(-0.15, 1.08, 'b)', transform=ax2.transAxes, fontsize=18, va='top', ha='right')
+    ax3.text(-0.15, 1.08, 'c)', transform=ax3.transAxes, fontsize=18, va='top', ha='right')
+    ax4.text(-0.15, 1.08, 'd)', transform=ax4.transAxes, fontsize=18, va='top', ha='right')
 
     param_values = [r['param_value'] for r in summary_results]
     param_display_name = 'noise level'
 
-    # Try to convert to numeric for better plotting
 
+    # Try to convert to numeric for better plotting
     x_values = [float(p) for p in param_values]
     use_log = min(x_values) > 0 and max(x_values)/min(x_values) > 10
 
-        
 
     # Weights R²
-    plot_fn = ax1.semilogx if use_log else ax1.plot
-    plot_fn(x_values, [r['r2_mean'] for r in summary_results],
+    ax = ax1
+    ax.plot(x_values, [r['r2_mean'] for r in summary_results],
             'o', label='weights R²', linewidth=2, markersize=8, color='blue')
-    ax1.set_xlabel(param_display_name, fontsize=18)
-    ax1.set_ylabel(r'learned $W_{ij}\quadR²$', fontsize=18)
-    ax1.set_ylim(0, 1.1)
-    # Set x-axis limit to 5 for all panels
-    for ax in [ax1, ax2, ax3, ax4]:
-        ax.set_xlim(left=0, right=5)
-    # ax1.grid(True, alpha=0.3)
+    ax.set_xlabel(param_display_name, fontsize=18)
+    ax.set_ylabel(r'learned $W_{ij}\quadR²$', fontsize=18)
+    ax.set_ylim(0, 1.1)
+    ax.set_xlim(left=0, right=5)
+    ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+    ax.tick_params(axis='both', which='major', labelsize=18)
 
     # Tau R²
-    plot_fn = ax2.semilogx if use_log else ax2.plot
-    plot_fn(x_values, [r['tau_r2_mean'] for r in summary_results],
+    ax = ax2
+    ax.plot(x_values, [r['tau_r2_mean'] for r in summary_results],
             'o', label='tau R²', linewidth=2, markersize=8, color='green')
-    ax2.set_xlabel(param_display_name, fontsize=18)
-    ax2.set_ylabel(r'learned $\tau_i\quad R^2$', fontsize=18)
-    ax2.set_ylim(0, 1.1)
-    ax2.set_xlim(left=0, right=5)
-    # ax2.grid(True, alpha=0.3)
-
+    ax.set_xlabel(param_display_name, fontsize=18)
+    ax.set_ylabel(r'learned $\tau_i\quad R^2$', fontsize=18)
+    ax.set_ylim(0, 1.1)
+    ax.set_xlim(left=0, right=5)
+    ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+    ax.tick_params(axis='both', which='major', labelsize=18)
 
     # V_rest R²
-    plot_fn = ax3.semilogx if use_log else ax3.plot
-    plot_fn(x_values, [r['vrest_r2_mean'] for r in summary_results],
+    ax = ax3
+    ax.plot(x_values, [r['vrest_r2_mean'] for r in summary_results],
             'o', label='V_rest R²', linewidth=2, markersize=8, color='orange')
-    ax3.set_xlabel(param_display_name, fontsize=18)
-    ax3.set_ylabel(r'learned $V^{rest}_i\quad R^2$', fontsize=18)
-    ax3.set_ylim(0, 1.1)
-    ax3.set_xlim(left=0, right=5)
-    # ax3.grid(True, alpha=0.3)
-
+    ax.set_xlabel(param_display_name, fontsize=18)
+    ax.set_ylabel(r'learned $V^{rest}_i\quad R^2$', fontsize=18)
+    ax.set_ylim(0, 1.1)
+    ax.set_xlim(left=0, right=5)
+    ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+    ax.tick_params(axis='both', which='major', labelsize=18)
 
     # Clustering accuracy
-    plot_fn = ax4.semilogx if use_log else ax4.plot
-    plot_fn(x_values, [r['acc_mean'] for r in summary_results],
+    ax = ax4
+    ax.plot(x_values, [r['acc_mean'] for r in summary_results],
             'o', label='clustering accuracy', linewidth=2, markersize=8, color='red')
-    ax4.set_xlabel(param_display_name, fontsize=18)
-    ax4.set_ylabel('classification accuracy', fontsize=18)
-    ax4.set_ylim(0, 1.1)
-    ax4.set_xlim(left=0, right=5)
-    # ax4.grid(True, alpha=0.3)
-    ax4.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+    ax.set_xlabel(param_display_name, fontsize=18)
+    ax.set_ylabel('classification accuracy', fontsize=18)
+    ax.set_ylim(0, 1.1)
+    ax.set_xlim(left=0, right=5)
+    ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+    ax.tick_params(axis='both', which='major', labelsize=18)
 
-    # Custom xtick labels for sigma
-    sigma_labels = [r"$\sigma=1E-6$", r"$\sigma=0.25$", r"$\sigma=2.5$"]
-    if not use_log and len(x_values) == 3:
-        for ax in [ax1, ax2, ax3, ax4]:
-            ax.set_xticks(x_values)
-            ax.set_xticklabels(sigma_labels, fontsize=18)
-
-    # Set font size for all labels and ticks
+    # Use log scale for x-axis, let Matplotlib handle ticks/labels (default log axis)
     for ax in [ax1, ax2, ax3, ax4]:
-        ax.xaxis.label.set_size(18)
-        ax.yaxis.label.set_size(18)
-        ax.tick_params(axis='both', which='major', labelsize=18)
-
-    # Set xlim for second row
-    for ax in [ax3, ax4]:
-        ax.set_xlim(left=1e-4, right=1)
-
-    # Last row: increase transparency and set edgecolor=None for scatter (if used)
-    # (Assuming scatter is used, otherwise this is a placeholder for your actual scatter call)
-    # ax4.scatter(x, y, alpha=0.5, edgecolor=None)
-
-    # Add horizontal line at y=1.0 in all panels, red, xlim left=-5
-    for ax in [ax1, ax2, ax3, ax4]:
-        ax.set_xlim(left=-5, right=ax.get_xlim()[1])
+        ax.set_xscale('log')
+        # Do not set custom xticks or xticklabels
+        # Do not set major/minor locators or formatters
+        # Let Matplotlib handle ticks and labels for log axis
 
     # Add shaded region for sigma in [0.25, right edge] to all panels
     for ax in [ax1, ax2, ax3, ax4]:
         ax.axvspan(0.25, 100, color='green', alpha=0.35, zorder=-1, linewidth=0)
 
-    # plt.suptitle(f'GNN Performance vs {param_display_name}', fontsize=16)
     plt.tight_layout()
     plt.savefig(f'fig/gnn_comparison_{param_display_name}.png', dpi=400, bbox_inches='tight')
     plt.show()
-    
+
     return summary_results
 
 
@@ -7080,20 +7060,19 @@ if __name__ == '__main__':
     config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     compare_experiments(config_list,'training.noise_model_level')
     
-    config_list = ['fly_N9_44_15', 'fly_N9_44_23', 'fly_N9_44_26']
-    plot_ising_comparison_from_saved(config_list)
+    # config_list = ['fly_N9_44_15', 'fly_N9_44_23', 'fly_N9_44_26']
+    # plot_ising_comparison_from_saved(config_list)
+
+    # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
 
 
     # for config_file_ in config_list:
     #     print(' ')
-
     #     config_file, pre_folder = add_pre_folder(config_file_)
     #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
     #     config.dataset = pre_folder + config.dataset
     #     config.config_file = pre_folder + config_file_
-
     #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-
     #     folder_name = './log/' + pre_folder + '/tmp_results/'
     #     os.makedirs(folder_name, exist_ok=True)
     #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)

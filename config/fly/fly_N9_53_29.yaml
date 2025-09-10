@@ -1,5 +1,5 @@
 description: 'idem 49-6 tile_blue_noise tile_contrast: 0.2  tile_corr_strength: 0.6  tile_flip_prob: 0.1'
-dataset: 'fly_N9_53_29'
+dataset: 'fly_N9_53_28'
 
 simulation:
     connectivity_file: 'to be specified'
