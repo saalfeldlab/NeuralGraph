@@ -6,11 +6,28 @@ from NeuralGraph.utils import to_numpy
 import numpy as np
 from NeuralGraph.models.Siren_Network import *
 
-class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
+class Signal_Propagation_Temporal(pyg.nn.MessagePassing):
+    """Interaction Network as proposed in this paper:
+    https://proceedings.neurips.cc/paper/2016/hash/3147da8ab4a0437c15ef51a5cc7f2dc4-Abstract.html"""
+
+    """
+    Model learning the first derivative of a scalar field on a mesh.
+    The node embedding is defined by a table self.a
+    Note the Laplacian coeeficients are in data.edge_attr
+
+    Inputs
+    ----------
+    data : a torch_geometric.data object
+
+    Returns
+    -------
+    pred : float
+        the first derivative of a scalar field on a mesh (dimension 3).
+    """
 
     def __init__(
         self, aggr_type='add', config=None, device=None ):
-        super(Signal_Propagation_FlyVis, self).__init__(aggr=aggr_type)
+        super(Signal_Propagation_Temporal, self).__init__(aggr=aggr_type)
 
         simulation_config = config.simulation
         model_config = config.graph_model
@@ -25,6 +42,8 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.calcium_type = simulation_config.calcium_type
+
+        self.training_time_window = config.training.time_window
 
         self.input_size = model_config.input_size
         self.output_size = model_config.output_size
@@ -82,31 +101,48 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
                   outermost_linear=model_config.outermost_linear_nnr)
             self.visual_NNR.to(self.device)
 
-    def forward(self, data=[], mask=[]):
+
+    def forward(self, data=[], data_id=[], mask=[], return_all=False):
+        self.return_all = return_all
         x, edge_index = data.x, data.edge_index
+
+        self.data_id = data_id.squeeze().long().clone().detach()
         self.mask = mask.squeeze().long().clone().detach()
 
-        v = data.x[:, 3:4]
+        v = data.x[:, 9:9+self.training_time_window]
+
         excitation = data.x[:, 4:5]
+
         particle_id = x[:, 0].long()
         embedding = self.a[particle_id].squeeze()
 
-        msg = self.propagate(edge_index, v=v, embedding=embedding)
+        msg = self.propagate(
+            edge_index, v=v, embedding=embedding, data_id=self.data_id[:, None]
+        )
 
         in_features = torch.cat([v, embedding, msg, excitation], dim=1)
         pred = self.lin_phi(in_features)
         
-        return pred
+        if return_all:
+            return pred, in_features, msg
+        else:
+            return pred
 
-    def message(self, edge_index_i, edge_index_j, v_i, v_j, embedding_i, embedding_j):
+    def message(self, edge_index_i, edge_index_j, v_i, v_j, embedding_i, embedding_j, data_id_i):
 
-        in_features = torch.cat([v_j, embedding_j], dim=1)
+        # Flatten to [N*D, 1]
+        reshaped = v_j.reshape(-1, 1)
+        embedding_j_expanded = embedding_j.repeat_interleave(self.training_time_window, dim=0)
+        in_features = torch.cat([reshaped, embedding_j_expanded], dim=1)
 
         lin_edge = self.lin_edge(in_features)
         if self.lin_edge_positive:
             lin_edge = lin_edge**2
 
-        return self.W[self.mask % self.n_edges] * lin_edge
+        # Restore to [N, D]
+        lin_edge = lin_edge.reshape(v_j.shape[0], v_j.shape[1])
+
+        return self.W[self.mask % (self.n_edges+ self.n_extra_null_edges)] * lin_edge
 
     def update(self, aggr_out):
         return aggr_out

@@ -371,7 +371,10 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
         if ('PDE_N9_C' in signal_model_name):
             in_features = torch.cat((rr[:, None], embedding_, torch.zeros_like(rr[:, None])), dim=1)
         else:
-            in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+            if model.training_time_window>0:
+                in_features = torch.cat((rr[:, None].repeat(1, model.training_time_window-1), embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None]), torch.zeros((rr.shape[0],model.training_time_window))),dim=1)
+            else:
+                in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
         with torch.no_grad():
             func = model.lin_phi(in_features.float())
         if (n % 20 == 0):
