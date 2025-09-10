@@ -11,6 +11,7 @@ from NeuralGraph.models.utils import *
 from NeuralGraph.utils import *
 from NeuralGraph.models.Siren_Network import *
 from NeuralGraph.models.Signal_Propagation_FlyVis import *
+from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
@@ -92,6 +93,7 @@ def data_train_synaptic2(config, erase, best_model, device):
     has_missing_activity = train_config.has_missing_activity
     multi_connectivity = config.training.multi_connectivity
     baseline_value = simulation_config.baseline_value
+    time_window = train_config.time_window
 
     if config.training.seed != 42:
         torch.random.fork_rng(devices=device)
@@ -389,21 +391,11 @@ def data_train_synaptic2(config, erase, best_model, device):
 
             for batch in range(batch_size):
 
-                k = np.random.randint(n_frames - 4 - 10 - time_step) + 10
+                k = np.random.randint(n_frames - 4 - time_step)
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                 ids = torch.argwhere(x[:, 6] != baseline_value)
                 ids = to_numpy(ids.squeeze())
-
-                def prepare_temporal_input(x_list, time_window=6):
-                    for k in range(time_window, n_frames):
-                        # Stack historical voltages
-                        x_temporal = np.stack([
-                            x_list[run][k-t, :, 6:7]  # voltage channel
-                            for t in range(time_window-1, -1, -1)
-                        ], axis=-1)
-
-                temporal_window = prepare_temporal_input(x_list, time_window=6)
 
                 if not (torch.isnan(x).any()):
                     if has_missing_activity:
@@ -831,6 +823,7 @@ def data_train_flyvis(config, erase, best_model, device):
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
+    time_window = train_config.time_window
 
     field_type = model_config.field_type
     time_step = train_config.time_step
@@ -906,7 +899,10 @@ def data_train_flyvis(config, erase, best_model, device):
     logger.info(f'vnorm ynorm: {to_numpy(vnorm)} {to_numpy(ynorm)}')
 
     print('create models ...')
-    model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
+    if time_window >0:
+        model = Signal_Propagation_Temporal(aggr_type=model_config.aggr_type, config=config, device=device)
+    else:   
+        model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
 
     start_epoch = 0
     list_loss = []
@@ -1029,9 +1025,15 @@ def data_train_flyvis(config, erase, best_model, device):
 
             for batch in range(batch_size):
 
-                k = np.random.randint(n_frames - 4 - time_step)
+                k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                 ids = np.arange(n_neurons)
+
+
+                if time_window > 0:
+                    x_temporal = x_list[run][k - time_window + 1: k + 1, :, 3:4].transpose(1, 0, 2).squeeze(-1)
+                    x = torch.cat((x, torch.tensor(x_temporal.reshape(n_neurons, time_window), dtype=torch.float32, device=device)), dim=1)
+
 
                 if (has_visual_field) & (epoch >= training_NNR_start_epoch):
                     if model_config.input_size_nnr == 1:
@@ -1184,9 +1186,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss += loss.item()
 
                 if ((N % plot_frequency == 0) | (N == 0)):
-
                     plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
-
                     torch.save(
                         {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
                         os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))

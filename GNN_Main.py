@@ -58,12 +58,12 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'generate'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
         # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
-        config_list = ['fly_N9_53_29']
+        config_list = ['fly_N9_56_1']
 
         # config_list = ['signal_fig_supp6_4']
 

@@ -3481,43 +3481,36 @@ def compare_gnn_results(config_list, varied_parameter):
         
         print(f"{str(r['param_value']):<15} {r2_str:<15} {tau_str:<15} {vrest_str:<15} {acc_str:<15}")
     
-    # Create comparison plot with extra space for panel labels
-    # Create comparison plot with extra space for panel labels
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
-    # Increase vertical space between top and bottom panels
-    fig.subplots_adjust(left=0.13, right=0.97, top=0.90, bottom=0.10, wspace=0.32, hspace=0.45)
 
-    # Panel labels a) b) c) d) placed just outside each axes, matching compare_ising_results
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
+    fig.subplots_adjust(left=0.13, right=0.97, top=0.90, bottom=0.10, wspace=0.32, hspace=0.45)
     ax1.text(-0.15, 1.08, 'a)', transform=ax1.transAxes, fontsize=18, va='top', ha='right')
     ax2.text(-0.15, 1.08, 'b)', transform=ax2.transAxes, fontsize=18, va='top', ha='right')
     ax3.text(-0.15, 1.08, 'c)', transform=ax3.transAxes, fontsize=18, va='top', ha='right')
     ax4.text(-0.15, 1.08, 'd)', transform=ax4.transAxes, fontsize=18, va='top', ha='right')
 
     param_values = [r['param_value'] for r in summary_results]
-    param_display_name = 'noise level'
-
-    # Try to convert to numeric for better plotting
+    # param_display_name = 'noise level'
 
     x_values = [float(p) for p in param_values]
-    use_log = min(x_values) > 0 and max(x_values)/min(x_values) > 10
+    use_log = min(x_values) > 0 and max(x_values)/min(x_values) > 10 and varied_parameter != None
 
-    # All panels: log x-axis and matching x-limits
     for ax, ydata, label, color in [
         (ax1, [r['r2_mean'] for r in summary_results], 'weights R²', 'blue'),
         (ax2, [r['tau_r2_mean'] for r in summary_results], 'tau R²', 'green'),
         (ax3, [r['vrest_r2_mean'] for r in summary_results], 'V_rest R²', 'orange'),
         (ax4, [r['acc_mean'] for r in summary_results], 'clustering accuracy', 'red'),
     ]:
-        # ax.semilogx(x_values, ydata, 'o', label=label, linewidth=2, markersize=8, color=color)
 
-
-
-        plot_fn = ax.semilogx
-        plot_fn(x_values, ydata, 'o', color=color, linewidth=2, markersize=8)
-        ax.set_xlim(left=0, right=5)
+        if use_log:
+            plot_fn = ax.semilogx
+            plot_fn(x_values, ydata, 'o', color=color, linewidth=2, markersize=8)
+            ax.set_xlim(left=0, right=5)
+        else:
+            plot_fn = ax.plot
+            plot_fn(x_values, ydata, 'o', color=color, linewidth=2, markersize=8)
 
         ax.set_xlabel(param_display_name, fontsize=18)
-
 
         if label == 'clustering accuracy':
             ax.set_ylabel('classification accuracy', fontsize=18)
@@ -3528,30 +3521,25 @@ def compare_gnn_results(config_list, varied_parameter):
         elif label == 'V_rest R²':
             ax.set_ylabel(r'learned $V^{rest}_i\quad R^2$', fontsize=18)
         ax.set_ylim(0, 1.1)
-        ax.set_xscale('log')
+        if use_log:
+            ax.set_xscale('log')
         # ax.set_xlim(left=1e-6, right=1)
         ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
 
-    # Custom xtick labels for sigma
     sigma_labels = [r"$\sigma=1E-6$", r"$\sigma=0.25$", r"$\sigma=2.5$"]
     if not use_log and len(x_values) == 3:
         for ax in [ax1, ax2, ax3, ax4]:
             ax.set_xticks(x_values)
             ax.set_xticklabels(sigma_labels, fontsize=18)
 
-    # Set font size for all labels and ticks
     for ax in [ax1, ax2, ax3, ax4]:
         ax.xaxis.label.set_size(18)
         ax.yaxis.label.set_size(18)
         ax.tick_params(axis='both', which='major', labelsize=10)
 
-    # (Removed inconsistent set_xlim loop)
+    # for ax in [ax1, ax2, ax3, ax4]:
+    #     ax.axvspan(0.25, 100, color='green', alpha=0.35, zorder=-1, linewidth=0)
 
-    # Add shaded region for sigma in [0.25, right edge] to all panels
-    for ax in [ax1, ax2, ax3, ax4]:
-        ax.axvspan(0.25, 100, color='green', alpha=0.35, zorder=-1, linewidth=0)
-
-    # plt.suptitle(f'GNN Performance vs {param_display_name}', fontsize=16)
     plt.tight_layout()
     plt.savefig(f'fig/gnn_comparison_{param_display_name}.png', dpi=400, bbox_inches='tight')
     plt.show()
@@ -7098,17 +7086,17 @@ if __name__ == '__main__':
     # plot_ising_comparison_from_saved(config_list)
 
     config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
+    compare_experiments(config_list, None)
 
-
-    for config_file_ in config_list:
-        print(' ')
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    # for config_file_ in config_list:
+    #     print(' ')
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 
