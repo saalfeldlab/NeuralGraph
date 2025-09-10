@@ -41,6 +41,7 @@ from tqdm import tqdm
 from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum, compute_spectral_coefs
 
 from colorama import Fore, Style
+from scipy.spatial.distance import jensenshannon
 
 def get_training_files(log_dir, n_runs):
     files = glob.glob(f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_*.pt")
@@ -2626,8 +2627,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 index_to_name=index_to_name
             )
 
-            plot_reconstruction_correlations(activity_results=activity_results, results_per_neuron=results_per_neuron, gt_taus=gt_taus, gt_V_Rest=gt_V_Rest, type_list=type_list, index_to_name=index_to_name, log_dir=log_dir, config_indices=config_indices
-)
+            plot_reconstruction_correlations(activity_results=activity_results, results_per_neuron=results_per_neuron, gt_taus=gt_taus, gt_V_Rest=gt_V_Rest, type_list=type_list, index_to_name=index_to_name, log_dir=log_dir)
 
             if 'visual' in field_type:
                 n_frames = config.simulation.n_frames
@@ -2820,11 +2820,11 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     }
 
 
-def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_taus, gt_V_Rest, 
-                                   type_list, index_to_name, log_dir, config_indices):
+
+def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_taus, gt_V_Rest,
+                                   type_list, index_to_name, log_dir, alpha_individual=0.0):
    """
    Plot correlations between neuron statistics and reconstruction performance.
-   
    Parameters:
    -----------
    activity_results : dict with 'mu_activity', 'sigma_activity'
@@ -2834,9 +2834,8 @@ def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_ta
    type_list : neuron type labels
    index_to_name : mapping from type index to name
    log_dir : directory to save plots
-   config_indices : config identifier for filename
+   alpha_individual : transparency for individual neurons (default 0.2)
    """
-   
    mu_activity = activity_results['mu_activity']
    sigma_activity = activity_results['sigma_activity']
    rmse_weights = results_per_neuron['rmse_weights_per_neuron']
@@ -2857,44 +2856,71 @@ def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_ta
    colors = [cmap(i/n_types) for i in range(n_types)]
    neuron_colors = [colors[int(t)] for t in type_list]
    
+   # Compute type-averaged values
+   unique_types = np.unique(type_list)
+   type_mean_mu = np.zeros(len(unique_types))
+   type_mean_sigma = np.zeros(len(unique_types))
+   type_mean_tau = np.zeros(len(unique_types))
+   type_mean_vrest = np.zeros(len(unique_types))
+   type_mean_rmse_weights = np.zeros(len(unique_types))
+   type_mean_rmse_tau = np.zeros(len(unique_types))
+   type_mean_rmse_vrest = np.zeros(len(unique_types))
+   
+   for i, type_id in enumerate(unique_types):
+       type_mask = (type_list == type_id)
+       type_mean_mu[i] = np.mean(mu_activity[type_mask])
+       type_mean_sigma[i] = np.mean(sigma_activity[type_mask])
+       type_mean_tau[i] = np.mean(gt_taus[type_mask])
+       type_mean_vrest[i] = np.mean(gt_V_Rest[type_mask])
+       type_mean_rmse_weights[i] = np.mean(rmse_weights[type_mask])
+       type_mean_rmse_tau[i] = np.mean(rmse_tau[type_mask])
+       type_mean_rmse_vrest[i] = np.mean(rmse_vrest[type_mask])
+   
    # Create figure with spacing between columns
    fig = plt.figure(figsize=(20, 16))
-   gs = fig.add_gridspec(4, 3, hspace=0.3, wspace=0.4, 
+   gs = fig.add_gridspec(4, 3, hspace=0.3, wspace=0.4,
                         left=0.06, right=0.94, top=0.96, bottom=0.06)
    
    # Define row labels and data
    row_data = [
-       (mu_activity, r'$\mu_{activity}$'),
-       (sigma_activity, r'$\sigma_{activity}$'),
-       (gt_taus * 1000, r'$\tau$ [ms]'),  # Convert to ms
-       (gt_V_Rest, r'$V_{rest}$')
+       (mu_activity, type_mean_mu, r'$\mu_{activity}$'),
+       (sigma_activity, type_mean_sigma, r'$\sigma_{activity}$'),
+       (gt_taus * 1000, type_mean_tau * 1000, r'$\tau$ [ms]'),  # Convert to ms
+       (gt_V_Rest, type_mean_vrest, r'$V_{rest}$')
    ]
    
    # Define column labels and data
    col_data = [
-       (rmse_weights, 'RMSE weights [%]'),
-       (rmse_tau, r'RMSE $\tau$ [%]'),
-       (rmse_vrest, r'RMSE $V_{rest}$ [%]')
+       (rmse_weights, type_mean_rmse_weights, 'RMSE weights [%]'),
+       (rmse_tau, type_mean_rmse_tau, r'RMSE $\tau$ [%]'),
+       (rmse_vrest, type_mean_rmse_vrest, r'RMSE $V_{rest}$ [%]')
    ]
    
    # Create all panels
-   for row_idx, (x_data, x_label) in enumerate(row_data):
-       for col_idx, (y_data, y_label) in enumerate(col_data):
+   for row_idx, (x_data, x_type_mean, x_label) in enumerate(row_data):
+       for col_idx, (y_data, y_type_mean, y_label) in enumerate(col_data):
            ax = fig.add_subplot(gs[row_idx, col_idx])
            
-           # Filter out inf/nan values
+           # Filter out inf/nan values for individuals
            valid_mask = np.isfinite(x_data) & np.isfinite(y_data) & (y_data < 200)
            x_valid = x_data[valid_mask]
            y_valid = y_data[valid_mask]
            colors_valid = [neuron_colors[i] for i in range(n_neurons) if valid_mask[i]]
            
-           # Scatter plot
-           scatter = ax.scatter(x_valid, y_valid, c=colors_valid, 
-                              alpha=0.4, s=10, edgecolors='none')
+           # Plot individual neurons with low alpha
+           scatter = ax.scatter(x_valid, y_valid, c=colors_valid,
+                              alpha=alpha_individual, s=10, edgecolors='none')
+           
+           # Plot type-averaged values with high visibility
+           for i, type_id in enumerate(unique_types):
+               ax.scatter(x_type_mean[i], y_type_mean[i], 
+                         c=[colors[int(type_id)]], s=100, 
+                         edgecolors='black', linewidth=1.5, 
+                         alpha=1.0, zorder=10)
            
            # Labels and formatting
            ax.set_xlabel(x_label, fontsize=12)
-           ax.set_ylabel(y_label, fontsize=12)
+           ax.set_ylabel('', fontsize=12)
            ax.grid(True, alpha=0.2)
            ax.tick_params(labelsize=10)
            
@@ -2903,14 +2929,13 @@ def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_ta
            
            # Add column title for first row
            if row_idx == 0:
-               col_title = y_label.replace('RMSE ', '').replace(' [%]', '').replace(r' $', ' ').replace(r'$', '')
-               ax.set_title(f'Reconstruction: {col_title}', fontsize=14, fontweight='bold', pad=10)
-   
+               ax.set_title(y_label, fontsize=16, pad=10)
    
    plt.tight_layout()
-   plt.savefig(f'{log_dir}/results/reconstruction_correlations_{config_indices}.png', 
+   plt.savefig(f'{log_dir}/results/reconstruction_correlations.png',
                dpi=300, bbox_inches='tight')
    plt.close()
+
 
 
 
@@ -3286,6 +3311,8 @@ def compare_gnn_results(config_list, varied_parameter):
     plt.rcParams['ytick.color'] = 'white'
     plt.rcParams['grid.color'] = 'gray'
     plt.rcParams['text.color'] = 'white'
+
+    plt.style.use('default')
     
     from NeuralGraph.config import NeuralGraphConfig
     from NeuralGraph.models.utils import add_pre_folder, to_numpy
@@ -3418,48 +3445,102 @@ def compare_gnn_results(config_list, varied_parameter):
         
         print(f"{str(r['param_value']):<15} {r2_str:<15} {tau_str:<15} {vrest_str:<15} {acc_str:<15}")
     
-    # Create comparison plot
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 10))
-    
-    param_values = [str(r['param_value']) for r in summary_results]
-    
+    # Create comparison plot with extra space for panel labels
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
+    fig.subplots_adjust(left=0.13, right=0.97, top=0.90, bottom=0.10, wspace=0.32, hspace=0.32)
+    # Add panel labels a) b) c) d) above and between panels (top left, outside axes)
+    fig.text(0.13, 0.92, 'a)', fontsize=18, ha='left', va='bottom')
+    fig.text(0.57, 0.92, 'b)', fontsize=18, ha='left', va='bottom')
+    fig.text(0.13, 0.48, 'c)', fontsize=18, ha='left', va='bottom')
+    fig.text(0.57, 0.48, 'd)', fontsize=18, ha='left', va='bottom')
+
+    param_values = [r['param_value'] for r in summary_results]
+    param_display_name = 'noise level'
+
+    # Try to convert to numeric for better plotting
+
+    x_values = [float(p) for p in param_values]
+    use_log = min(x_values) > 0 and max(x_values)/min(x_values) > 10
+
+        
+
     # Weights R²
-    ax1.errorbar(param_values, [r['r2_mean'] for r in summary_results],
-                 yerr=[r['r2_std'] for r in summary_results],
-                 fmt='o-', capsize=5, markersize=8, linewidth=2, color='lightblue')
-    ax1.set_ylabel('Weights R²', fontsize=14)
+    plot_fn = ax1.semilogx if use_log else ax1.plot
+    plot_fn(x_values, [r['r2_mean'] for r in summary_results],
+            'o', label='weights R²', linewidth=2, markersize=8, color='blue')
+    ax1.set_xlabel(param_display_name, fontsize=18)
+    ax1.set_ylabel(r'learned $W_{ij}\quadR²$', fontsize=18)
     ax1.set_ylim(0, 1.1)
-    ax1.grid(True, alpha=0.3)
-    
+    # Set x-axis limit to 5 for all panels
+    for ax in [ax1, ax2, ax3, ax4]:
+        ax.set_xlim(left=0, right=5)
+    # ax1.grid(True, alpha=0.3)
+
     # Tau R²
-    ax2.errorbar(param_values, [r['tau_r2_mean'] for r in summary_results],
-                 yerr=[r['tau_r2_std'] for r in summary_results],
-                 fmt='s-', capsize=5, markersize=8, linewidth=2, color='lightgreen')
-    ax2.set_ylabel('Tau R²', fontsize=14)
+    plot_fn = ax2.semilogx if use_log else ax2.plot
+    plot_fn(x_values, [r['tau_r2_mean'] for r in summary_results],
+            'o', label='tau R²', linewidth=2, markersize=8, color='green')
+    ax2.set_xlabel(param_display_name, fontsize=18)
+    ax2.set_ylabel(r'learned $\tau_i\quad R^2$', fontsize=18)
     ax2.set_ylim(0, 1.1)
-    ax2.grid(True, alpha=0.3)
-    
+    ax2.set_xlim(left=0, right=5)
+    # ax2.grid(True, alpha=0.3)
+
+
     # V_rest R²
-    ax3.errorbar(param_values, [r['vrest_r2_mean'] for r in summary_results],
-                 yerr=[r['vrest_r2_std'] for r in summary_results],
-                 fmt='^-', capsize=5, markersize=8, linewidth=2, color='lightcoral')
-    ax3.set_xlabel(param_display_name, fontsize=14)
-    ax3.set_ylabel('V_rest R²', fontsize=14)
+    plot_fn = ax3.semilogx if use_log else ax3.plot
+    plot_fn(x_values, [r['vrest_r2_mean'] for r in summary_results],
+            'o', label='V_rest R²', linewidth=2, markersize=8, color='orange')
+    ax3.set_xlabel(param_display_name, fontsize=18)
+    ax3.set_ylabel(r'learned $V^{rest}_i\quad R^2$', fontsize=18)
     ax3.set_ylim(0, 1.1)
-    ax3.grid(True, alpha=0.3)
-    
+    ax3.set_xlim(left=0, right=5)
+    # ax3.grid(True, alpha=0.3)
+
+
     # Clustering accuracy
-    ax4.errorbar(param_values, [r['acc_mean'] for r in summary_results],
-                 yerr=[r['acc_std'] for r in summary_results],
-                 fmt='D-', capsize=5, markersize=8, linewidth=2, color='orange')
-    ax4.set_xlabel(param_display_name, fontsize=14)
-    ax4.set_ylabel('Clustering Accuracy', fontsize=14)
-    ax4.set_ylim(0, 1)
-    ax4.grid(True, alpha=0.3)
-    
-    plt.suptitle(f'GNN Performance vs {param_display_name}', fontsize=16)
+    plot_fn = ax4.semilogx if use_log else ax4.plot
+    plot_fn(x_values, [r['acc_mean'] for r in summary_results],
+            'o', label='clustering accuracy', linewidth=2, markersize=8, color='red')
+    ax4.set_xlabel(param_display_name, fontsize=18)
+    ax4.set_ylabel('classification accuracy', fontsize=18)
+    ax4.set_ylim(0, 1.1)
+    ax4.set_xlim(left=0, right=5)
+    # ax4.grid(True, alpha=0.3)
+    ax4.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+
+    # Custom xtick labels for sigma
+    sigma_labels = [r"$\sigma=1E-6$", r"$\sigma=0.25$", r"$\sigma=2.5$"]
+    if not use_log and len(x_values) == 3:
+        for ax in [ax1, ax2, ax3, ax4]:
+            ax.set_xticks(x_values)
+            ax.set_xticklabels(sigma_labels, fontsize=18)
+
+    # Set font size for all labels and ticks
+    for ax in [ax1, ax2, ax3, ax4]:
+        ax.xaxis.label.set_size(18)
+        ax.yaxis.label.set_size(18)
+        ax.tick_params(axis='both', which='major', labelsize=18)
+
+    # Set xlim for second row
+    for ax in [ax3, ax4]:
+        ax.set_xlim(left=1e-4, right=1)
+
+    # Last row: increase transparency and set edgecolor=None for scatter (if used)
+    # (Assuming scatter is used, otherwise this is a placeholder for your actual scatter call)
+    # ax4.scatter(x, y, alpha=0.5, edgecolor=None)
+
+    # Add horizontal line at y=1.0 in all panels, red, xlim left=-5
+    for ax in [ax1, ax2, ax3, ax4]:
+        ax.set_xlim(left=-5, right=ax.get_xlim()[1])
+
+    # Add shaded region for sigma in [0.25, right edge] to all panels
+    for ax in [ax1, ax2, ax3, ax4]:
+        ax.axvspan(0.25, 100, color='green', alpha=0.35, zorder=-1, linewidth=0)
+
+    # plt.suptitle(f'GNN Performance vs {param_display_name}', fontsize=16)
     plt.tight_layout()
-    plt.savefig(f'fig/gnn_comparison_{param_display_name}.png', dpi=150, bbox_inches='tight')
+    plt.savefig(f'fig/gnn_comparison_{param_display_name}.png', dpi=400, bbox_inches='tight')
     plt.show()
     
     return summary_results
@@ -3582,8 +3663,14 @@ def compare_ising_results(config_list, varied_parameter):
     # Create plots
     plt.style.use('default')
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    # Add panel labels a), b), c), d)
+    axes[0, 0].text(-0.15, 1.08, 'a)', transform=axes[0, 0].transAxes, fontsize=18, va='top', ha='right')
+    axes[0, 1].text(-0.15, 1.08, 'b)', transform=axes[0, 1].transAxes, fontsize=18, va='top', ha='right')
+    axes[1, 0].text(-0.15, 1.08, 'c)', transform=axes[1, 0].transAxes, fontsize=18, va='top', ha='right')
+    # axes[1, 1].text(-0.15, 1.08, 'd)', transform=axes[1, 1].transAxes, fontsize=18, va='top', ha='right')
     
     param_values = [r['param_value'] for r in results]
+    param_display_name = 'noise level'
     
     # Try to convert to numeric for better plotting
     try:
@@ -3600,49 +3687,62 @@ def compare_ising_results(config_list, varied_parameter):
         i_2_vals = [r.get('I2_median', 0) for r in results]
         
         plot_fn = ax.semilogx if use_log else ax.plot
-        plot_fn(x_values, i_n_vals, 'o-', label='$I_N$', linewidth=2, markersize=8)
-        plot_fn(x_values, i_2_vals, 's-', label='$I^{(2)}$', linewidth=2, markersize=8)
-        ax.set_ylabel('Information (bits)', fontsize=12)
-        ax.legend()
-        ax.grid(True, alpha=0.3)
+        plot_fn(x_values, i_n_vals, 'o', label='$I_N$', linewidth=2, markersize=8)
+        plot_fn(x_values, i_2_vals, 's', label='$I^{(2)}$', linewidth=2, markersize=8)
+        # Add shaded region for sigma in [0.25, right edge]
+        ax.axvspan(0.25, 100, color='green', alpha=0.35, zorder=-1, linewidth=0)
+        ax.set_xlabel(param_display_name, fontsize=18)
+        ax.set_ylabel('information (bits)', fontsize=18)
+        ax.legend(fontsize=18)
+        ax.set_xlim(left=0, right=5)
+        # ax.grid(True, alpha=0.3)
     
     # Panel 2: I_2/I_N ratio
     ax = axes[0, 1]
     if 'ratio_median' in results[0]:
         ratio_vals = [r.get('ratio_median', 0) for r in results]
         plot_fn = ax.semilogx if use_log else ax.plot
-        plot_fn(x_values, ratio_vals, 'o-', color='green', linewidth=2, markersize=8)
-        ax.set_ylabel('$I^{(2)}/I_N$', fontsize=12)
+        plot_fn(x_values, ratio_vals, 'o', color='green', linewidth=2, markersize=8)
+        # Add shaded region for sigma in [0.25, right edge]
+        ax.axvspan(0.25, 100, color='green', alpha=0.35, zorder=-1, linewidth=0)
+        ax.set_xlabel(param_display_name, fontsize=18)
+        ax.set_ylabel('$I^{(2)}/I_N$', fontsize=18)
         ax.set_ylim(0, 1.1)
-        ax.axhline(y=0.9, color='gray', linestyle='--', alpha=0.5)
-        ax.grid(True, alpha=0.3)
+        ax.set_xlim(left=0, right=5)
+        ax.axhline(y=1.0, color='gray', linestyle='--', alpha=0.5)
+        # ax.grid(True, alpha=0.3)
     
     # Panel 3: Higher-order correlation
     ax = axes[1, 0]
     if 'I_HOC_median' in results[0]:
         i_hoc_vals = [r.get('I_HOC_median', 0) for r in results]
         plot_fn = ax.semilogx if use_log else ax.plot
-        plot_fn(x_values, i_hoc_vals, 'o-', color='purple', linewidth=2, markersize=8)
-        ax.set_xlabel(param_display_name, fontsize=12)
-        ax.set_ylabel('$I_{HOC}$ (bits)', fontsize=12)
-        ax.grid(True, alpha=0.3)
+        plot_fn(x_values, i_hoc_vals, 'o', color='purple', linewidth=2, markersize=8)
+        # Add shaded region for sigma in [0.25, right edge]
+        ax.axvspan(0.25, 100, color='green', alpha=0.35, zorder=-1, linewidth=0)
+        ax.set_xlabel(param_display_name, fontsize=18)
+        ax.set_ylabel('$I_{HOC}$ (bits)', fontsize=18)
+        ax.set_xlim(left=0, right=5)
+        # ax.grid(True, alpha=0.3)
     
     # Panel 4: Connected triplets C_3
     ax = axes[1, 1]
-    if 'C3_mean' in results[0]:
-        c3_vals = [r.get('C3_mean', 0) for r in results]
-        c3_err = [r.get('C3_std', 0) for r in results]
+    # if 'C3_mean' in results[0]:
+    #     c3_vals = [r.get('C3_mean', 0) for r in results]
+    #     c3_err = [r.get('C3_std', 0) for r in results]
         
-        if use_log:
-            ax.errorbar(x_values, c3_vals, yerr=c3_err, fmt='o-', color='teal',
-                       linewidth=2, markersize=8, capsize=5)
-            ax.set_xscale('log')
-        else:
-            ax.errorbar(x_values, c3_vals, yerr=c3_err, fmt='o-', color='teal',
-                       linewidth=2, markersize=8, capsize=5)
-        ax.set_xlabel(param_display_name, fontsize=12)
-        ax.set_ylabel('$C_3$ (triplet correlation)', fontsize=12)
-        ax.grid(True, alpha=0.3)
+    #     if use_log:
+    #         ax.errorbar(x_values, c3_vals, yerr=c3_err, fmt='o', color='teal',
+    #                    linewidth=2, markersize=8, capsize=5)
+    #         ax.set_xscale('log')
+    #     else:
+    #         ax.errorbar(x_values, c3_vals, yerr=c3_err, fmt='o', color='teal',
+    #                    linewidth=2, markersize=8, capsize=5)
+    #     ax.set_xlabel(param_display_name, fontsize=18)
+    #     ax.set_ylabel('$C_3$ (triplet correlation)', fontsize=18)
+    #     # ax.grid(True, alpha=0.3)
+
+    ax.axis('off')
     
     # Set x-axis labels if not numeric
     if not isinstance(x_values[0], (int, float)):
@@ -3650,9 +3750,9 @@ def compare_ising_results(config_list, varied_parameter):
             ax.set_xticks(x_values)
             ax.set_xticklabels(param_values, rotation=45, ha='right')
     
-    plt.suptitle(f'Information Structure vs {param_display_name}', fontsize=14)
+    # plt.suptitle(f'Information Structure vs {param_display_name}', fontsize=14)
     plt.tight_layout()
-    plt.savefig(f'fig/ising_comparison_{param_display_name}.png', dpi=150, bbox_inches='tight')
+    plt.savefig(f'fig/ising_comparison_{param_display_name}.png', dpi=400, bbox_inches='tight')
     plt.show()
     
     return results
@@ -6770,6 +6870,74 @@ def get_figures(index):
     return config_list,epoch_list
  
 
+
+def plot_ising_comparison_from_saved(config_list, labels=None, output_path='fig/ising_noise_comparison.png'):
+    valid_configs = []
+    
+    for config_file_ in config_list:
+        try:
+            config_file, pre_folder = add_pre_folder(config_file_)
+            data_path = f'./log/{config_file}/results/info_ratio_results.npz'
+            if not os.path.exists(data_path):
+                print(f"Warning: {data_path} not found")
+                continue
+            valid_configs.append(config_file)
+        except Exception as e:
+            print(f"Error processing {config_file_}: {e}")
+            continue
+
+    if len(valid_configs) != 3:
+        raise ValueError(f"Need exactly 3 valid configs, got {len(valid_configs)}")
+
+    # Default sigma labels with lowercase noise descriptions
+    if labels is None:
+        labels = [r'$\sigma=10^{-6}$ (low noise)', 
+                 r'$\sigma=0.25$ (moderate noise)', 
+                 r'$\sigma=2.5$ (large noise)']
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    plt.subplots_adjust(wspace=0.4)
+
+    for col, (config_file, label) in enumerate(zip(valid_configs, labels)):
+        data_path = f'./log/{config_file}/results/info_ratio_results.npz'
+        data = np.load(data_path)
+        
+        obs_rates = data['observed_rates'].flatten()
+        pair_rates = data['predicted_rates_pairwise'].flatten()
+        indep_rates = data['predicted_rates_independent'].flatten()
+        
+        # Rate scatter plots
+        ax = axes[col]
+        
+        # Plot data
+        ax.loglog(obs_rates, pair_rates, 'r.', alpha=0.1, markersize=1.5)
+        ax.loglog(obs_rates, indep_rates, 'g.', alpha=0.1, markersize=1.5)
+        ax.plot([1e-4, 1e1], [1e-4, 1e1], 'k--', alpha=0.5, linewidth=1)
+        
+        ax.set_xlabel(r'observed rate (s$^{-1}$)', fontsize=18)
+        ax.set_ylabel(r'predicted rate (s$^{-1}$)' if col == 0 else '', fontsize=18)
+        ax.set_title(f'{label}\n$I_N$={data["I_N_median"]:.2f} bits', fontsize=16)
+        ax.set_xlim(1e-4, 1e1)
+        ax.set_ylim(1e-4, 1e1)
+        ax.tick_params(labelsize=14)
+        
+        # Legend only on the first panel - top left
+        if col == 0:
+            red_patch = plt.Rectangle((0, 0), 1, 1, facecolor='red', alpha=1.0)
+            green_patch = plt.Rectangle((0, 0), 1, 1, facecolor='green', alpha=1.0)
+            ax.legend([red_patch, green_patch], ['pairwise ($P_2$)', 'independent ($P_1$)'], 
+                     loc='upper left', fontsize=14, frameon=False)
+
+    # Add panel labels - moved upwards
+    for i, ax in enumerate(axes):
+        ax.text(-0.15, 1.15, f'{chr(97+i)})', transform=ax.transAxes, fontsize=20, va='top', ha='left')
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=400, bbox_inches='tight')
+    plt.show()
+
+
+
 if __name__ == '__main__':
 
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -6908,23 +7076,26 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_22_10']
 
-    config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 
-
-    # config_list = ['fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
-    # compare_experiments(config_list,'training.noise_model_level')
+    # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
+    config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
+    compare_experiments(config_list,'training.noise_model_level')
     
-    for config_file_ in config_list:
-        print(' ')
+    config_list = ['fly_N9_44_15', 'fly_N9_44_23', 'fly_N9_44_26']
+    plot_ising_comparison_from_saved(config_list)
 
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
 
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    # for config_file_ in config_list:
+    #     print(' ')
 
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
 
 

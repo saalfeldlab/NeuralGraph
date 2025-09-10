@@ -45,6 +45,8 @@ def to_numpy(tensor: torch.Tensor) -> np.ndarray:
     Returns:
         np.ndarray: The NumPy array.
     """
+    if isinstance(tensor, np.ndarray):
+        return tensor
     return tensor.detach().cpu().numpy()
 
 
