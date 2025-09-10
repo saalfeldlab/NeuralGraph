@@ -3547,7 +3547,6 @@ def compare_gnn_results(config_list, varied_parameter):
     return summary_results
 
 
-
 def compare_ising_results(config_list, varied_parameter):
     """
     Compare Ising/information theory metrics across experiments
@@ -6871,7 +6870,6 @@ def get_figures(index):
 
     return config_list,epoch_list
  
-
 
 def plot_ising_comparison_from_saved(config_list, labels=None, output_path='fig/ising_noise_comparison.png'):
     valid_configs = []
