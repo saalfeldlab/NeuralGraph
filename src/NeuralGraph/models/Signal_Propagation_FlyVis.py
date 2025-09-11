@@ -43,6 +43,8 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         self.multi_connectivity = config.training.multi_connectivity
         self.calcium_type = simulation_config.calcium_type
 
+        self.training_time_window = config.training.time_window
+
         self.input_size = model_config.input_size
         self.output_size = model_config.output_size
         self.hidden_dim = model_config.hidden_dim

@@ -37,11 +37,13 @@ from matplotlib.colors import LinearSegmentedColormap
 import pickle
 import json
 from tqdm import tqdm
+from tifffile import imread
 
 from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum, compute_spectral_coefs
 
 from colorama import Fore, Style
 from scipy.spatial.distance import jensenshannon
+import matplotlib.ticker as ticker
 
 def get_training_files(log_dir, n_runs):
     files = glob.glob(f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_*.pt")
@@ -132,7 +134,7 @@ def plot_confusion_matrix(index, true_labels, new_labels, n_neuron_types, epoch,
     return accuracy
 
 
-def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, device):
+def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
 
@@ -350,7 +352,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                             spine.set_edgecolor(cmap.color(k))  # Set the color of the outline
                             spine.set_linewidth(3)
                         if k==0:
-                            plt.ylabel(r'learned $MLP_1( a_i, a_j, v_j)$', fontsize=32)
+                            plt.ylabel(r'learned $\mathrm{MLP_1}( a_i, a_j, v_j)$', fontsize=32)
                         for n in range(n_neuron_types):
                             for m in range(250):
                                 pos0 = to_numpy(torch.argwhere(type_list == k).squeeze())
@@ -391,7 +393,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                                 func = model.lin_edge(in_features.float()) * correction
                             plt.plot(to_numpy(rr), to_numpy(func), color=cmap.color(k), linewidth=2, alpha=0.25)
                     plt.xlabel(r'$x_j$', fontsize=68)
-                    plt.ylabel(r'learned $MLP_1(a_j, v_j)$', fontsize=68)
+                    plt.ylabel(r'learned $\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=68)
                     if config.graph_model.lin_edge_positive:
                         plt.ylim([-0.2, 1.2])
                     else:
@@ -417,8 +419,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                                 func = func ** 2
                             plt.plot(to_numpy(rr-k), to_numpy(func), 2, color=cmap.color(idx), linewidth=2, alpha=0.25)
                     plt.xlabel(r'$x_i-x_j$', fontsize=68)
-                    # plt.ylabel(r'learned $\psi^*(a_i, v_i)$', fontsize=68)
-                    plt.ylabel(r'$MLP_1(a_i, a_j, v_i, v_j)$', fontsize=68)
+                    # plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                    plt.ylabel(r'$\mathrm{MLP_1}(\mathbf{a}_i, a_j, v_i, v_j)$', fontsize=68)
                     plt.ylim([0,4])
                     plt.tight_layout()
                     plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
@@ -432,8 +434,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                         func = func ** 2
                     plt.plot(to_numpy(rr), to_numpy(func), color=mc, linewidth=8, label=r'learned')
                     plt.xlabel(r'$x_j$', fontsize=68)
-                    # plt.ylabel(r'learned $\psi^*(a_i, v_i)$', fontsize=68)
-                    plt.ylabel(r'learned $MLP_1(a_j, v_j)$', fontsize=68)
+                    # plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=68)
                     plt.ylim([-1.5, 1.5])
                     plt.xlim([-5,5])
                     plt.tight_layout()
@@ -453,8 +455,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
                     plt.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm), color=cmap.color(to_numpy(type_list[n]).astype(int)), linewidth=2, alpha=0.25) #
                 plt.ylim([-4,4])
                 plt.xlabel(r'$v_i$', fontsize=68)
-                # plt.ylabel(r'learned $\phi^*(a_i, v_i)$', fontsize=68)
-                plt.ylabel(r'learned $MLP_0(a_i, v_i)$', fontsize=68)
+                # plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                plt.ylabel(r'learned $\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=68)
 
                 plt.tight_layout()
                 plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
@@ -1132,7 +1134,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # func_list = torch.stack(func_list).squeeze()
             # y_min, y_max = func_list.min().item(), func_list.max().item()
             # plt.xlabel(r'$v_i$', fontsize=68)
-            # plt.ylabel(r'Learned $\psi^*(a_i, v_i)$', fontsize=68)
+            # plt.ylabel(r'Learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
             # # if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
             # #     plt.ylim([-0.5,0.5])
             # # plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
@@ -1223,7 +1225,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #             plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
             #             plt.xticks(fontsize=18)
             #             plt.yticks(fontsize=18)
-            #             # plt.ylabel(r'learned $\psi^*(a_i, a_j, v_i)$', fontsize=24)
+            #             # plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, v_i)$', fontsize=24)
             #             # plt.xlabel(r'$v_i$', fontsize=24)
             #             # plt.ylim([-1.5, 1.5])
             #             # plt.xlim([-5, 5])
@@ -1269,9 +1271,9 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #
             #     plt.xlabel(r'$v_i$', fontsize=68)
             #     if (model_config.signal_model_name == 'PDE_N4'):
-            #         plt.ylabel(r'learned $\psi^*(a_i, v_i)$', fontsize=68)
+            #         plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
             #     elif model_config.signal_model_name == 'PDE_N5':
-            #         plt.ylabel(r'learned $\psi^*(a_i, a_j, v_i)$', fontsize=68)
+            #         plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, v_i)$', fontsize=68)
             #     else:
             #         plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
             #     if config.graph_model.lin_edge_positive:
@@ -1308,7 +1310,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             # phi_list = torch.stack(phi_list)
             # func_list_ = to_numpy(phi_list)
             # plt.xlabel(r'$v_i$', fontsize=68)
-            # plt.ylabel(r'learned $\phi^*(a_i, v_i)$', fontsize=68)
+            # plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, v_i)$', fontsize=68)
             # plt.tight_layout()
             # # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             # if not (is_CElegans):
@@ -1813,7 +1815,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #     msg_list = torch.stack(msg_list).squeeze()
             #     y_min, y_max = msg_list.min().item(), msg_list.max().item()
             #     plt.xlabel(r'$v_i$', fontsize=68)
-            #     plt.ylabel(r'learned $MLP_0$', fontsize=68)
+            #     plt.ylabel(r'learned $\mathrm{MLP_0}$', fontsize=68)
             #     plt.ylim([y_min - y_max / 2, y_max * 1.5])
             #     plt.tight_layout()
             #     plt.savefig(f'./{log_dir}/results/learned_multiple_psi_{epoch}.png', dpi=300)
@@ -1847,7 +1849,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
             #         func_list.append(pred)
             #         rr_list.append(msgs)
             #     plt.xlabel(r'$sum_i$', fontsize=68)
-            #     plt.ylabel(r'$MLP_0(a_i, x_i=0, sum_i, g_i=1)$', fontsize=48)
+            #     plt.ylabel(r'$\mathrm{MLP_0}(\mathbf{a}_i, x_i=0, sum_i, g_i=1)$', fontsize=48)
             #     plt.tight_layout()
             #     plt.savefig(f'./{log_dir}/results/learned_multivariate_phi_{epoch}.png', dpi=300)
             #     plt.close()
@@ -2010,7 +2012,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, devic
 
 
 
-def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device):
+def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extended, device):
     dataset_name = config.dataset
     model_config = config.graph_model
     config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
@@ -2034,13 +2036,18 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
         os.remove(log_file)
     for handler in logging.root.handlers[:]:
         logging.root.removeHandler(handler)
-    logging.basicConfig(
-        filename=log_file,
-        format='%(asctime)s %(message)s',
-        filemode='w'
-    )
+    
+    # Create file handler only, no console output
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
+    logger.handlers.clear()  # Clear any existing handlers
+    
+    file_handler = logging.FileHandler(log_file, mode='w')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+    logger.addHandler(file_handler)
+    
+    # Prevent propagation to root logger (which might have console handlers)
+    logger.propagate = False
 
     print(f'experiment description: {config.description}')
     logger.info(f'experiment description: {config.description}')
@@ -2062,8 +2069,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     cmap = CustomColorMap(config=config)
 
     if 'black' in style:
+        plt.style.use('dark_background')
         mc = 'w'
     else:
+        plt.style.use('default')
         mc = 'k'
 
     x_list = []
@@ -2135,7 +2144,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
     plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
 
-    # analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
+    if ('Ising' in extended) | ('ising' in extended):
+        analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
 
     if epoch_list[0] == 'all':
 
@@ -2176,8 +2186,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 pos = torch.argwhere(type_list == n)
                 plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=2, color=colors_65[n], alpha=0.8,
                             edgecolors='none')
-            plt.xlabel('embedding 0', fontsize=24)
-            plt.ylabel('embedding 1', fontsize=24)
+            plt.xlabel('embedding 0', fontsize=48)
+            plt.ylabel('embedding 1', fontsize=48)
             plt.xticks([])
             plt.yticks([])
             plt.tight_layout()
@@ -2193,11 +2203,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "f"accuracy={results['accuracy']:.3f}")
                 time.sleep(1)
 
-            # Plot 3: Edge function visualization
-            slopes_lin_edge_list = []
-            fig = plt.figure(figsize=(8, 8))
-            for n in trange(n_neurons):
-                if (n % 20 == 0):
+            if 'plots' in extended:
+                # Plot 3: Edge function visualization
+                fig = plt.figure(figsize=(8, 8))
+                for n in trange(n_neurons):
                     rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
@@ -2209,68 +2218,113 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                         if config.graph_model.lin_edge_positive:
                             func = func ** 2
                     plt.plot(to_numpy(rr), to_numpy(func), 2,
-                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                             linewidth=1, alpha=0.05)
-                rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
-                embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                                color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                                linewidth=1, alpha=0.1)
+                plt.xlabel('$v_j$', fontsize=48)
+                plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_i, v_j)$', fontsize=48)
+                plt.xticks(fontsize=24)
+                plt.yticks(fontsize=24)
+                plt.xlim(config.plotting.xlim)
+                plt.ylim([-config.plotting.xlim[1]/10, config.plotting.xlim[1]*2])
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}_all.png", dpi=300)
+                plt.close()
 
-                if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
-                    in_features = torch.cat((rr[:, None], embedding_,), dim=1)
-                elif ('PDE_N9_B' in config.graph_model.signal_model_name):
-                    in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
-                with torch.no_grad():
-                    func = model.lin_edge(in_features.float())
-                    if config.graph_model.lin_edge_positive:
-                        func = func ** 2
-                plt.plot(to_numpy(rr), to_numpy(func), 2,
-                         color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                         linewidth=1, alpha=0.2)
-                rr_numpy = to_numpy(rr[rr.shape[0]//2+1:])
-                func_numpy = to_numpy(func[rr.shape[0]//2+1:].squeeze())
-                try:
-                    lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
-                    slope = lin_fit[0]
-                    offset = lin_fit[1]
-                except:
-                    coeffs = np.polyfit(rr_numpy, func_numpy, 1)
-                    slope = coeffs[0]
-                    offset = coeffs[1]
-                slopes_lin_edge_list.append(slope)
-            plt.xlabel('$v_i$', fontsize=24)
-            plt.ylabel('$MLP_1(a_i, v_i)$', fontsize=24)
-            plt.xticks(fontsize=12)
-            plt.yticks(fontsize=12)
+
+            slopes_lin_edge_list = []
+            fig = plt.figure(figsize=(8, 8))
+            for n in trange(n_neurons):
+                if mu_activity[n] + 2 * sigma_activity[n] > 0:
+                    rr = torch.linspace(max(mu_activity[n] - 2 * sigma_activity[n],0), mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
+                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                    if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
+                        in_features = torch.cat((rr[:, None], embedding_,), dim=1)
+                    elif ('PDE_N9_B' in config.graph_model.signal_model_name):
+                        in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
+                    with torch.no_grad():
+                        func = model.lin_edge(in_features.float())
+                        if config.graph_model.lin_edge_positive:
+                            func = func ** 2
+                    plt.plot(to_numpy(rr), to_numpy(func), 2,
+                                color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                                linewidth=1, alpha=0.1)
+                    # rr_numpy = to_numpy(rr[rr.shape[0]//2+1:])
+                    # func_numpy = to_numpy(func[rr.shape[0]//2+1:].squeeze())
+                    rr_numpy = to_numpy(rr)
+                    func_numpy = to_numpy(func.squeeze())
+                    try:
+                        lin_fit, _ = curve_fit(linear_model, rr_numpy, func_numpy)
+                        slope = lin_fit[0]
+                        offset = lin_fit[1]
+                    except:
+                        coeffs = np.polyfit(rr_numpy, func_numpy, 1)
+                        slope = coeffs[0]
+                        offset = coeffs[1]
+                    slopes_lin_edge_list.append(slope)
+                else:
+                    slopes_lin_edge_list.append(1)
+            plt.xlabel('$v_j$', fontsize=48)
+            plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_i, v_j)$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
             plt.xlim(config.plotting.xlim)
             plt.ylim([-config.plotting.xlim[1]/10, config.plotting.xlim[1]*2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}.png", dpi=300)
+            plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}_domain.png", dpi=300)
             plt.close()
 
+
+            fig = plt.figure(figsize=(8, 8))
+            slopes_lin_edge_array = np.array(slopes_lin_edge_list)
+            plt.scatter(np.arange(n_neurons), slopes_lin_edge_array,
+                        c=cmap.color(to_numpy(type_list).astype(int)), s=2, alpha=0.5)
+            plt.xlabel('neuron index', fontsize=48)
+            plt.ylabel(r'$r_j$', fontsize=48)
+            plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+
+            plt.xticks(fontsize=18) 
+            plt.yticks(fontsize=24)
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/edge_function_slope_{config_indices}.png", dpi=300)
+            plt.close()
+
+
+
+            
             # Plot 5: Phi function visualization
+
+            if 'plots' in extended:
+                fig = plt.figure(figsize=(8, 8))
+                for n in trange(n_neurons):
+                    rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                    in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                    with torch.no_grad():
+                        func = model.lin_phi(in_features.float())
+                        plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(to_numpy(type_list)[n].astype(int)), linewidth=1, alpha=0.1)
+                plt.xlim(config.plotting.xlim)
+                plt.ylim(config.plotting.ylim)
+                plt.xlabel('$v_i$', fontsize=48)
+                plt.ylabel('$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
+                plt.xticks(fontsize=24)
+                plt.yticks(fontsize=24)
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_all.png", dpi=300)
+                plt.close()
 
             func_list = []
             slopes_lin_phi_list = []
             offsets_list = []
             fig = plt.figure(figsize=(8, 8))
             for n in trange(n_neurons):
-                if (n % 20 == 0):
-                    rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
-                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                    in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
-                    with torch.no_grad():
-                        func = model.lin_phi(in_features.float())
-                        plt.plot(to_numpy(rr), to_numpy(func), 2,
-                                 color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                                 linewidth=1, alpha=0.025)
                 rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                 in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
                 with torch.no_grad():
                     func = model.lin_phi(in_features.float())
-                if (n % 20 == 0):
-                    plt.plot(to_numpy(rr), to_numpy(func), 2,
-                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                             linewidth=1, alpha=0.2)
+                plt.plot(to_numpy(rr), to_numpy(func), 2,
+                        color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                        linewidth=1, alpha=0.1)
                 func_list.append(func)
                 rr_numpy = to_numpy(rr)
                 func_numpy = to_numpy(func.squeeze())
@@ -2286,12 +2340,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                 offsets_list.append(offset)
             plt.xlim(config.plotting.xlim)
             plt.ylim(config.plotting.ylim)
-            plt.xlabel('$v_i$', fontsize=18)
-            plt.ylabel('$MLP_0(a_i, v_i)$', fontsize=18)
-            plt.xticks(fontsize=12)
-            plt.yticks(fontsize=12)
+            plt.xlabel('$v_i$', fontsize=48)
+            plt.ylabel('$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}.png", dpi=300)
+            plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_domain.png", dpi=300)
             plt.close()
 
             slopes_lin_phi_array = np.array(slopes_lin_phi_list)
@@ -2310,10 +2364,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_taus)}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-            plt.xlabel(r'true $\tau$', fontsize=24)
-            plt.ylabel(r'learned $\tau$', fontsize=24)
-            plt.xticks(fontsize=12)
-            plt.yticks(fontsize=12)
+            plt.xlabel(r'true $\tau$', fontsize=48)
+            plt.ylabel(r'learned $\tau$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
             plt.xlim([0, 0.35])
             # plt.ylim([0, 0.35])
             plt.tight_layout()
@@ -2337,10 +2391,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest)}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-            plt.xlabel(r'true $V_{rest}$', fontsize=24)
-            plt.ylabel(r'learned $V_{rest}$', fontsize=24)
-            plt.xticks(fontsize=12)
-            plt.yticks(fontsize=12)
+            plt.xlabel(r'true $V_{rest}$', fontsize=48)
+            plt.ylabel(r'learned $V_{rest}$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
             plt.close()
@@ -2349,6 +2403,27 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             logger.info(f"V_rest reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
 
             torch.save(torch.tensor(learned_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
+
+            fig = plt.figure(figsize=(8, 8))
+            ax = plt.subplot(2, 1, 1)
+            plt.scatter(np.arange(n_neurons), learned_tau,
+                        c=cmap.color(to_numpy(type_list).astype(int)), s=2, alpha=0.5)
+            plt.ylabel(r'$\tau_i$', fontsize=48)
+            plt.xticks([])   # no xticks for top plot
+            plt.yticks(fontsize=24)
+            ax = plt.subplot(2, 1, 2)
+            plt.scatter(np.arange(n_neurons), learned_V_rest,
+                        c=cmap.color(to_numpy(type_list).astype(int)), s=2, alpha=0.5)
+            plt.xlabel('neuron index', fontsize=48)
+            plt.ylabel(r'$V^{\mathrm{rest}}_i$', fontsize=48)
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+            plt.xticks(fontsize=18)
+            plt.yticks(fontsize=24)
+            plt.ylim([0, 1])
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_params.png", dpi=300)
+            plt.close()
+
 
 
             for target_type_name in target_type_name_list:  # Change this to any desired type name
@@ -2379,8 +2454,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     # plt.xlim([to_numpy(mu_activity[n] - 3 * sigma_activity[n]), to_numpy(mu_activity[n] + 3 * sigma_activity[n])])
                     plt.xlim(config.plotting.xlim)
                     plt.ylim(config.plotting.ylim)
-                    plt.xlabel('$v_i$', fontsize=24)
-                    plt.ylabel('$MLP_0(a_i, v_i)$', fontsize=24)
+                    plt.xlabel('$v_i$', fontsize=48)
+                    plt.ylabel('$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
 
                     # Calculate mean tau and V_rest values for neurons of this type
                     type_gt_taus = gt_taus[neurons_of_type]
@@ -2408,9 +2483,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                     plt.text(0.02, 0.98, text_info, transform=plt.gca().transAxes, 
                             verticalalignment='top', horizontalalignment='left', fontsize=14)
                     
-                    plt.title(f'{target_type_name} id:{target_type_index}  ({len(neurons_of_type)} traces)',fontsize=24)
-                    plt.xticks(fontsize=12)
-                    plt.yticks(fontsize=12)
+                    plt.title(f'{target_type_name} id:{target_type_index}  ({len(neurons_of_type)} traces)',fontsize=48)
+                    plt.xticks(fontsize=24)
+                    plt.yticks(fontsize=24)
                     plt.tight_layout()
                     plt.savefig(f"./{log_dir}/results/phi_functions_{target_type_name}.png", dpi=300)
                     plt.close()
@@ -2426,14 +2501,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_weights - np.mean(learned_weights)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_weights)}',
-                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-            plt.xlabel('true $W_{ij}$', fontsize=24)
-            plt.ylabel('learned $W_{ij}$', fontsize=24)
-            plt.xticks(fontsize = 12)
-            plt.yticks(fontsize = 12)
+            plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
+                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
+            plt.xlabel('true $W_{ij}$', fontsize=48)
+            plt.ylabel('learned $W_{ij}$', fontsize=48)
+            plt.xticks(fontsize = 24)
+            plt.yticks(fontsize = 24)
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/comparison_{epoch}.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/comparison_raw.png', dpi=300)
             plt.close()
             print(f"first weights fit R²: {r_squared:.2f}  slope: {np.round(lin_fit[0], 4)}")
             logger.info(f"first weights fit R²: {r_squared:.2f}  slope: {np.round(lin_fit[0], 4)}")
@@ -2560,6 +2635,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             prior_neuron_ids = edges[0, :] % (model.n_edges + model.n_extra_null_edges)  # j
             slopes_lin_edge_per_edge = slopes_lin_edge_array[prior_neuron_ids]
 
+            corrected_W_ = -model.W / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge
             corrected_W = -model.W / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge * slopes_lin_edge_per_edge.unsqueeze(1)
             torch.save(corrected_W, f'{log_dir}/results/corrected_W.pt')
 
@@ -2575,7 +2651,31 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
 
             true_in = true_weights[mask]
             learned_in = learned_weights[mask]
-            # --- Global fit after outlier removal ---
+
+            if extended:
+
+                learned_in_ = to_numpy(corrected_W_.squeeze())
+                learned_in_ = learned_in_[mask]
+
+                fig = plt.figure(figsize=(8, 8))
+                plt.scatter(true_in, learned_in_, c=mc, s=0.1, alpha=0.1)
+                lin_fit, _ = curve_fit(linear_model, true_in, learned_in_)
+                residuals_ = learned_in_ - linear_model(true_in, *lin_fit)
+                ss_res = np.sum(residuals_ ** 2)
+                ss_tot = np.sum((learned_in_ - np.mean(learned_in_)) ** 2)
+                r_squared = 1 - (ss_res / ss_tot)
+                plt.text(0.05, 0.95,
+                        f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
+                        transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
+                plt.xlabel('true $W_{ij}$', fontsize=48)
+                plt.ylabel('learned $W_{ij}$', fontsize=48)
+                plt.xticks(fontsize = 24)
+                plt.yticks(fontsize = 24)
+                plt.tight_layout()
+                plt.savefig(f'{log_dir}/results/comparison_rj.png', dpi=300)
+                plt.close()
+
+
             fig = plt.figure(figsize=(8, 8))
             plt.scatter(true_in, learned_in, c=mc, s=0.1, alpha=0.1)
             lin_fit, _ = curve_fit(linear_model, true_in, learned_in)
@@ -2584,14 +2684,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
             ss_tot = np.sum((learned_in - np.mean(learned_in)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95,
-                     f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(true_in)}',
-                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=16)
-            plt.xlabel('true $W_{ij}$', fontsize=24)
-            plt.ylabel('learned $W_{ij}$', fontsize=24)
-            plt.xticks(fontsize = 12)
-            plt.yticks(fontsize = 12)
+                     f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
+                     transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
+            plt.xlabel('true $W_{ij}$', fontsize=48)
+            plt.ylabel('learned $W_{ij}$', fontsize=48)
+            plt.xticks(fontsize = 24)
+            plt.yticks(fontsize = 24)
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/corrected_comparison_{epoch}.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/corrected_comparison.png', dpi=300)
             plt.close()
 
             print(f"second weights fit R²: \033[92m{r_squared:.4f}\033[0m  slope: {np.round(lin_fit[0], 4)}")
@@ -2663,13 +2763,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, device)
                         sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=-2, vmax=2)
                         ax1.set_xticks([])
                         ax1.set_yticks([])
-                        ax1.set_title("ground Truth", fontsize=24)
+                        ax1.set_title("ground Truth", fontsize=48)
                         # Reconstructed
                         ax2 = fig.add_subplot(1, 3, 2)
                         sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=vmin, vmax=vmax)
                         ax2.set_xticks([])
                         ax2.set_yticks([])
-                        ax2.set_title("reconstructed", fontsize=24)
+                        ax2.set_title("reconstructed", fontsize=48)
 
                         ax3 = fig.add_subplot(1, 3, 3)
                         sc3 = ax3.scatter(gt_field, reconstructed_field, s=1, c=mc)
@@ -3246,7 +3346,7 @@ def create_lin_phi_subplot(fig, model, config, n_neurons, mu_activity, sigma_act
     ax.set_xlim(config.plotting.xlim)
     ax.set_ylim(config.plotting.ylim)
     ax.set_xlabel('$v_i$', fontsize=32)
-    ax.set_ylabel('learned $MLP_0(a_i, v_i)$', fontsize=32)
+    ax.set_ylabel('learned $\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=32)
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
@@ -3275,7 +3375,7 @@ def create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_ac
     ax.set_xlim(config.plotting.xlim)
     ax.set_ylim([-config.plotting.xlim[1] / 10, config.plotting.xlim[1] * 2])
     ax.set_xlabel('$v_i$', fontsize=32)
-    ax.set_ylabel('learned $MLP_1(a_j, v_i)$', fontsize=32)
+    ax.set_ylabel('learned $\mathrm{MLP_1}(\mathbf{a}_j, v_i)$', fontsize=32)
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
@@ -3484,10 +3584,10 @@ def compare_gnn_results(config_list, varied_parameter):
 
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
     fig.subplots_adjust(left=0.13, right=0.97, top=0.90, bottom=0.10, wspace=0.32, hspace=0.45)
-    ax1.text(-0.15, 1.08, 'a)', transform=ax1.transAxes, fontsize=18, va='top', ha='right')
-    ax2.text(-0.15, 1.08, 'b)', transform=ax2.transAxes, fontsize=18, va='top', ha='right')
-    ax3.text(-0.15, 1.08, 'c)', transform=ax3.transAxes, fontsize=18, va='top', ha='right')
-    ax4.text(-0.15, 1.08, 'd)', transform=ax4.transAxes, fontsize=18, va='top', ha='right')
+    ax1.text(-0.08, 1.05, 'a)', transform=ax1.transAxes, fontsize=18, va='top', ha='right')
+    ax2.text(-0.08, 1.05, 'b)', transform=ax2.transAxes, fontsize=18, va='top', ha='right')
+    ax3.text(-0.08, 1.05, 'c)', transform=ax3.transAxes, fontsize=18, va='top', ha='right')
+    ax4.text(-0.08, 1.05, 'd)', transform=ax4.transAxes, fontsize=18, va='top', ha='right')
 
     param_values = [r['param_value'] for r in summary_results]
     # param_display_name = 'noise level'
@@ -3665,9 +3765,9 @@ def compare_ising_results(config_list, varied_parameter):
     plt.style.use('default')
     fig, axes = plt.subplots(2, 2, figsize=(12, 10))
     # Add panel labels a), b), c), d)
-    axes[0, 0].text(-0.15, 1.08, 'a)', transform=axes[0, 0].transAxes, fontsize=18, va='top', ha='right')
-    axes[0, 1].text(-0.15, 1.08, 'b)', transform=axes[0, 1].transAxes, fontsize=18, va='top', ha='right')
-    axes[1, 0].text(-0.15, 1.08, 'c)', transform=axes[1, 0].transAxes, fontsize=18, va='top', ha='right')
+    axes[0, 0].text(-0.08, 1.05, 'a)', transform=axes[0, 0].transAxes, fontsize=18, va='top', ha='right')
+    axes[0, 1].text(-0.08, 1.05, 'b)', transform=axes[0, 1].transAxes, fontsize=18, va='top', ha='right')
+    axes[1, 0].text(-0.08, 1.05, 'c)', transform=axes[1, 0].transAxes, fontsize=18, va='top', ha='right')
     # axes[1, 1].text(-0.15, 1.08, 'd)', transform=axes[1, 1].transAxes, fontsize=18, va='top', ha='right')
     
     param_values = [r['param_value'] for r in results]
@@ -3845,7 +3945,7 @@ def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, in
    # Set x-ticks with neuron type names rotated 90 degrees
    plt.xticks(tick_positions, tick_labels, rotation=90, fontsize=10)
    plt.ylabel(r'neuron voltage $v_i(t)\quad\mu_i \pm \sigma_i$', fontsize=16)
-   plt.yticks(fontsize=12)
+   plt.yticks(fontsize=18)
 
    plt.tight_layout()
    plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300, bbox_inches='tight')
@@ -3984,7 +4084,7 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
     return fig
 
 
-def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
+def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
     data_folder_name = config.data_folder_name
@@ -4249,7 +4349,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                             spine.set_edgecolor(cmap.color(k))  # Set the color of the outline
                             spine.set_linewidth(3)
                         if k==0:
-                            plt.ylabel(r'learned $MLP_1( a_i, a_j, v_j)$', fontsize=32)
+                            plt.ylabel(r'learned $\mathrm{MLP_1}( a_i, a_j, v_j)$', fontsize=32)
                         for n in range(n_neuron_types):
                             for m in range(250):
                                 pos0 = to_numpy(torch.argwhere(type_list == k).squeeze())
@@ -4290,7 +4390,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                                 func = model.lin_edge(in_features.float()) * correction
                             plt.plot(to_numpy(rr), to_numpy(func), color=cmap.color(k), linewidth=2, alpha=0.25)
                     plt.xlabel(r'$x_j$', fontsize=68)
-                    plt.ylabel(r'learned $MLP_1(a_j, v_j)$', fontsize=68)
+                    plt.ylabel(r'learned $\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=68)
                     if config.graph_model.lin_edge_positive:
                         plt.ylim([-0.2, 1.2])
                     else:
@@ -4317,8 +4417,8 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                                 func = func ** 2
                             plt.plot(to_numpy(rr-k), to_numpy(func), 2, color=cmap.color(idx), linewidth=2, alpha=0.25)
                     plt.xlabel(r'$x_i-x_j$', fontsize=68)
-                    # plt.ylabel(r'learned $\psi^*(a_i, v_i)$', fontsize=68)
-                    plt.ylabel(r'$MLP_1(a_i, a_j, v_i, v_j)$', fontsize=68)
+                    # plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                    plt.ylabel(r'$\mathrm{MLP_1}(\mathbf{a}_i, a_j, v_i, v_j)$', fontsize=68)
                     plt.ylim([0,4])
                     plt.tight_layout()
                     plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
@@ -4332,8 +4432,8 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         func = func ** 2
                     plt.plot(to_numpy(rr), to_numpy(func), color=mc, linewidth=8, label=r'learned')
                     plt.xlabel(r'$x_j$', fontsize=68)
-                    # plt.ylabel(r'learned $\psi^*(a_i, v_i)$', fontsize=68)
-                    plt.ylabel(r'learned $MLP_1(a_j, v_j)$', fontsize=68)
+                    # plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=68)
                     plt.ylim([-1.5, 1.5])
                     plt.xlim([-5,5])
                     plt.tight_layout()
@@ -4353,8 +4453,8 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     plt.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm), color=cmap.color(to_numpy(type_list[n]).astype(int)), linewidth=2, alpha=0.25) #
                 plt.ylim([-4,4])
                 plt.xlabel(r'$v_i$', fontsize=68)
-                # plt.ylabel(r'learned $\phi^*(a_i, v_i)$', fontsize=68)
-                plt.ylabel(r'learned $MLP_0(a_i, v_i)$', fontsize=68)
+                # plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                plt.ylabel(r'learned $\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=68)
 
                 plt.tight_layout()
                 plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
@@ -4931,7 +5031,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             func_list = torch.stack(func_list).squeeze()
             y_min, y_max = func_list.min().item(), func_list.max().item()
             plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'Learned $\psi^*(a_i, v_i)$', fontsize=68)
+            plt.ylabel(r'Learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
             # if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
             #     plt.ylim([-0.5,0.5])
             # plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
@@ -5022,7 +5122,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
                         plt.xticks(fontsize=18)
                         plt.yticks(fontsize=18)
-                        # plt.ylabel(r'learned $\psi^*(a_i, a_j, v_i)$', fontsize=24)
+                        # plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, v_i)$', fontsize=24)
                         # plt.xlabel(r'$v_i$', fontsize=24)
                         # plt.ylim([-1.5, 1.5])
                         # plt.xlim([-5, 5])
@@ -5064,9 +5164,9 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
 
                 plt.xlabel(r'$v_i$', fontsize=68)
                 if (model_config.signal_model_name == 'PDE_N4'):
-                    plt.ylabel(r'learned $\psi^*(a_i, v_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
                 elif model_config.signal_model_name == 'PDE_N5':
-                    plt.ylabel(r'learned $\psi^*(a_i, a_j, v_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, v_i)$', fontsize=68)
                 else:
                     plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
                 if config.graph_model.lin_edge_positive:
@@ -5102,7 +5202,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
             phi_list = torch.stack(phi_list)
             func_list_ = to_numpy(phi_list)
             plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'learned $\phi^*(a_i, v_i)$', fontsize=68)
+            plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, v_i)$', fontsize=68)
             plt.tight_layout()
             # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim(config.plotting.ylim)
@@ -5625,7 +5725,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                 msg_list = torch.stack(msg_list).squeeze()
                 y_min, y_max = msg_list.min().item(), msg_list.max().item()
                 plt.xlabel(r'$v_i$', fontsize=68)
-                plt.ylabel(r'learned $MLP_0$', fontsize=68)
+                plt.ylabel(r'learned $\mathrm{MLP_0}$', fontsize=68)
                 plt.ylim([y_min - y_max / 2, y_max * 1.5])
                 plt.tight_layout()
                 plt.savefig(f'./{log_dir}/results/learned_multiple_psi_{epoch}.png', dpi=300)
@@ -5659,7 +5759,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     func_list.append(pred)
                     rr_list.append(msgs)
                 plt.xlabel(r'$sum_i$', fontsize=68)
-                plt.ylabel(r'$MLP_0(a_i, x_i=0, sum_i, g_i=1)$', fontsize=48)
+                plt.ylabel(r'$\mathrm{MLP_0}(\mathbf{a}_i, x_i=0, sum_i, g_i=1)$', fontsize=48)
                 plt.tight_layout()
                 plt.savefig(f'./{log_dir}/results/learned_multivariate_phi_{epoch}.png', dpi=300)
                 plt.close()
@@ -5821,7 +5921,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, device):
                     #     logger.info(symbolic(n))
 
 
-def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
+def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
 
@@ -6031,9 +6131,9 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                     # true_func = true_model.func(rr, it + 1, 'update')
                     # plt.plot(to_numpy(rr), to_numpy(true_func), c=mc, linewidth=1)
                     # plt.xlabel(r'$v_i$', fontsize=24)
-                    # plt.ylabel(r'Learned $\phi^*(a_i(t), v_i)$', fontsize=68)
+                    # plt.ylabel(r'Learned $\phi^*(\mathbf{a}_i(t), v_i)$', fontsize=68)
                     if k==0:
-                        plt.ylabel(r'Learned $MLP_0(a_i(t), v_i)$', fontsize=32)
+                        plt.ylabel(r'Learned $\mathrm{MLP_0}(\mathbf{a}_i(t), v_i)$', fontsize=32)
                     plt.ylim([-8, 8])
                     plt.xlim([-5, 5])
                     plt.xticks([])
@@ -6050,7 +6150,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                         plt.plot(to_numpy(rr), to_numpy(func), 2, color=mc, linewidth=2, alpha=0.25)
                 plt.xlabel(r'$x_j$', fontsize=68)
                 # plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
-                plt.ylabel(r'learned $MLP_1(v_j)$', fontsize=68)
+                plt.ylabel(r'learned $\mathrm{MLP_1}(v_j)$', fontsize=68)
                 plt.ylim([-1.1, 1.1])
                 plt.xlim(config.plotting.xlim)
                 plt.tight_layout()
@@ -6188,7 +6288,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
             fig, ax = fig_init()
             plt.axis('off')
             ax = plt.subplot(2, 2, 1)
-            plt.ylabel(r'learned $MLP_0(a_i(t), v_i)$', fontsize=38)
+            plt.ylabel(r'learned $\mathrm{MLP_0}(\mathbf{a}_i(t), v_i)$', fontsize=38)
             for it, k in enumerate(indices):
                 if (it%250 == 0) and (it>0):
                     ax = plt.subplot(2, 2, it//250+1)
@@ -6218,8 +6318,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
             #             func = model.lin_phi(in_features.float())
             #         plt.plot(to_numpy(rr), to_numpy(func), 2, color=mc, alpha=0.025)
             #     plt.xlabel(r'$v_i$', fontsize=16)
-            #     # plt.ylabel(r'Learned $\phi^*(a_i(t), v_i)$', fontsize=68)
-            #     plt.ylabel(r'Learned $MLP_0(a_i(t), v_i)$', fontsize=16)
+            #     # plt.ylabel(r'Learned $\phi^*(\mathbf{a}_i(t), v_i)$', fontsize=68)
+            #     plt.ylabel(r'Learned $\mathrm{MLP_0}(\mathbf{a}_i(t), v_i)$', fontsize=16)
             #
             #
             # for k in range(n_neuron_types):
@@ -6528,7 +6628,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                 true_func = true_model.func(rr, it+1, 'update')
                 plt.plot(to_numpy(rr), to_numpy(true_func), c=mc, linewidth=1)
                 plt.xlabel(r'$v_i$', fontsize=68)
-                plt.ylabel(r'Learned $\phi^*(a_i(t), v_i)$', fontsize=68)
+                plt.ylabel(r'Learned $\phi^*(\mathbf{a}_i(t), v_i)$', fontsize=68)
                 plt.ylim([-8,8])
                 plt.xlim([-5,5])
                 plt.tight_layout()
@@ -6555,7 +6655,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, device):
                          linewidth=8 // ( 1 + (n_neuron_types>16)*1.0), alpha=0.25)
             func_list = torch.stack(func_list)
             plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'Learned $\psi^*(a_i, v_i)$', fontsize=68)
+            plt.ylabel(r'Learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
             plt.xlim([-5,5])
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/raw_psi.png", dpi=170.7)
@@ -6686,7 +6786,7 @@ def plot_loss_curves(log_dir, ylim=None):
     plt.close()
 
 
-def data_plot(config, config_file, epoch_list, style, device):
+def data_plot(config, config_file, epoch_list, style, extended, device):
 
     # plt.rcParams['text.usetex'] = True
     # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
@@ -6703,10 +6803,6 @@ def data_plot(config, config_file, epoch_list, style, device):
         plt.rcParams['text.usetex'] = True
         rc('font', **{'family': 'serif', 'serif': ['Palatino']})
 
-    # plt.rc('font', family='sans-serif')
-    # plt.rc('font', family='serif')
-    # plt.rcParams['font.family'] = 'Times New Roman'
-    # plt.rc('text', usetex=False)
     matplotlib.rcParams['savefig.pad_inches'] = 0
 
     log_dir, logger = create_log_dir(config=config, erase=False)
@@ -6714,12 +6810,10 @@ def data_plot(config, config_file, epoch_list, style, device):
     os.makedirs(os.path.join(log_dir, 'results'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'results/all'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'results/training'), exist_ok=True)
+
     files = glob.glob(f"{log_dir}/results/training/*")
     for f in files:
         os.remove(f)
-    # files = glob.glob(f"{log_dir}/results/all/*")
-    # for f in files:
-    #     os.remove(f)
     os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
     files = glob.glob(f"{log_dir}/results/field/*")
     for f in files:
@@ -6749,16 +6843,16 @@ def data_plot(config, config_file, epoch_list, style, device):
         # print('final loss {:.3e}'.format(loss[-1]))
         # logger.info('final loss {:.3e}'.format(loss[-1]))
 
-    if ('PDE_N' in config.graph_model.signal_model_name):
+    if 'PDE_N' in config.graph_model.signal_model_name:
         if ('PDE_N3' in config.graph_model.signal_model_name):
-            plot_synaptic3(config, epoch_list, log_dir, logger, 'viridis', style, device)
+            plot_synaptic3(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
         else:
             if 'CElegans' in config.dataset:
-                plot_synaptic_CElegans(config, epoch_list, log_dir, logger, 'viridis', style, device)
+                plot_synaptic_CElegans(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
             if 'fly' in config.dataset:
-                plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, device)
+                plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
             else:
-                plot_synaptic2(config, epoch_list, log_dir, logger, 'viridis', style, device)
+                plot_synaptic2(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
 
     for handler in logger.handlers[:]:
         handler.close()
@@ -6767,109 +6861,107 @@ def data_plot(config, config_file, epoch_list, style, device):
 
 def get_figures(index):
 
-    epoch_list = ['20']
-    match index:
-        
-        case 'synaptic_2_fig2':
-            config_list = ['signal_N2_a10']
-            epoch_list = ['best']
-        case 'synaptic_supp1':
-            config_list = [f'signal_N2_a{i}' for i in range(0, 11)]
-            epoch_list = ['all']
-        case 'synaptic_supp6':
-            config_list = ['signal_N2_a_SNR1', 'signal_N2_a_SNR3', 'signal_N2_a_SNR7']
-            epoch_list = ['best']
-
-        case _:
-            config_list = []
+    plt.style.use('default')
 
     match index:
-        case 'synaptic_2':
-            for config_file in config_list:
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                data_plot(config=config, config_file=config_file, epoch_list=epoch_list, device=device, style=True)
-                data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                                  best_model='best', run=0, step=100, test_simulation=False,
-                                  sample_embedding=False, device=device)
-                print(' ')
-                print(' ')
-        case 'synaptic_supp1' | 'synaptic_supp6':
-            for config_file in config_list:
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                data_plot(config=config, config_file=config_file, epoch_list=['best'], device=device, style=True)
-                data_plot(config=config, config_file=config_file, epoch_list=['all'], device=device, style=True)
-        case 'synaptic_supp2':
-            plt.rcParams['text.usetex'] = True
-            rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-            matplotlib.rcParams['savefig.pad_inches'] = 0
+        case 'correction_weight':
 
-            config_list = ['signal_N2_a1', 'signal_N2_a2', 'signal_N2_a3', 'signal_N2_a4', 'signal_N2_a5', 'signal_N2_a10']
-            it_list = [1, 2, 3, 4, 5, 10]
-            fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
-            plt.xlim([0, 100])
-            plt.ylim([0, 1.1])
-            plt.yticks(fontsize=24)
-            plt.xticks([0, 100], [0, 20], fontsize=24)
-            plt.ylabel(r'$R^2$', fontsize=48)
-            plt.xlabel(r'epoch', fontsize=48)
-            for it, config_file_ in enumerate(config_list):
+            config_file_ = 'fly_N9_22_10'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            print('figure correction_weight...')
 
-                config_file, pre_folder = add_pre_folder(config_file_)
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                l_dir = get_log_dir(config)
-                log_dir = os.path.join(l_dir, config_file.split('/')[-1])
-                r_squared_list = np.load(f'./{log_dir}/results/R2.npy')
-                plt.plot(r_squared_list, linewidth = 4, label=f'{(it_list[it])*10000}')
-                plt.legend(fontsize=20)
-            plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/R2_all.png', dpi=300)
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+
+            log_dir = 'log/fly/fly_N9_22_10'
+            config_indices = '18_4_0'
+            
+            fig = plt.figure(figsize=(10, 10))
+            
+            ax1 = fig.add_subplot(3, 3, 1)
+            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_all.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax1.text(0.01, 1.01, 'a)', transform=ax1.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax2 = fig.add_subplot(3, 3, 2)
+            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax2.text(0.01, 1.01, 'b)', transform=ax2.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax3 = fig.add_subplot(3, 3, 3)
+            panel_pic_path = f"./{log_dir}/results/edge_function_slope_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax3.text(0.01, 1.01, 'c)', transform=ax3.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            # Second row
+            ax4 = fig.add_subplot(3, 3, 4)
+            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_all.png"
+
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax4.text(0.01, 1.01, 'd)', transform=ax4.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax5 = fig.add_subplot(3, 3, 5)
+            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax5.text(0.01, 1.01, 'e)', transform=ax5.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax6 = fig.add_subplot(3, 3, 6)
+            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_params.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax6.text(0.01, 1.01, 'f)', transform=ax6.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            # Third row
+            ax7 = fig.add_subplot(3, 3, 7)
+            panel_pic_path = f"./{log_dir}/results/comparison_raw.png"
+            if os.path.exists(panel_pic_path):
+                img = imageio.imread(panel_pic_path)
+                plt.imshow(img)
+            else:
+                plt.text(0.5, 0.5, 'Neuron\nEmbedding', ha='center', va='center', fontsize=16, transform=ax7.transAxes)
+            plt.axis('off')
+            ax7.text(0.01, 1.01, 'g)', transform=ax7.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax8 = fig.add_subplot(3, 3, 8)
+            panel_pic_path = f"./{log_dir}/results/comparison_rj.png"
+            if os.path.exists(panel_pic_path):
+                img = imageio.imread(panel_pic_path)
+                plt.imshow(img)
+            else:
+                plt.text(0.5, 0.5, 'Type\nReconstruction', ha='center', va='center', fontsize=16, transform=ax8.transAxes)
+            plt.axis('off')
+            ax8.text(0.01, 1.01, 'h)', transform=ax8.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax9 = fig.add_subplot(3, 3, 9)
+            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
+            if os.path.exists(panel_pic_path):
+                img = imageio.imread(panel_pic_path)
+                plt.imshow(img)
+            else:
+                plt.text(0.5, 0.5, 'Reconstruction\nCorrelations', ha='center', va='center', fontsize=16, transform=ax9.transAxes)
+            plt.axis('off')
+            ax9.text(0.01, 1.01, 'i)', transform=ax9.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
+            plt.savefig(f"/groups/saalfeld/home/allierc/Py/NeuralGraph/fig/figure_correction_weight.png", dpi=300, bbox_inches='tight')
             plt.close()
 
-        case 'synaptic_supp5':
-
-            plt.rcParams['text.usetex'] = True
-            rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-            matplotlib.rcParams['savefig.pad_inches'] = 0
-
-            config_list = ['signal_N2_a10','signal_N2_e1','signal_N2_e2','signal_N2_e3','signal_N2_e']
-            labels = [r'100\%', r'50\%', r'20\%', r'10\%', r'5\%']
-            fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
-            plt.xlim([0, 100])
-            plt.ylim([0, 1.1])
-            plt.yticks(fontsize=24)
-            plt.xticks([0, 100], [0, 20], fontsize=24)
-            plt.ylabel(r'$R^2$', fontsize=48)
-            plt.xlabel(r'epoch', fontsize=48)
-            for it, config_file_ in enumerate(config_list):
-
-                config_file, pre_folder = add_pre_folder(config_file_)
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                l_dir = get_log_dir(config)
-                log_dir = os.path.join(l_dir, config_file.split('/')[-1])
-                r_squared_list = np.load(f'./{log_dir}/results/R2.npy')
-                plt.plot(r_squared_list, linewidth = 4, label=labels[it])
-                plt.legend(fontsize=20)
-            plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/R2_all.png', dpi=300)
-            plt.close()
 
 
-        case '3' | '4' |'4_bis' | 'supp4' | 'supp5' | 'supp6' | 'supp7' | 'supp8' | 'supp9' | 'supp10' | 'supp11' | 'supp12' | 'supp15' |'supp16' |'supp18':
-            for config_file in config_list:
-                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-                data_plot(config=config, config_file=config_file, epoch_list=epoch_list, device=device)
-                data_test(config=config, config_file=config_file, visualize=True, style='latex frame color', verbose=False,
-                                  best_model=20, run=0, step=64, test_simulation=False,
-                                  sample_embedding=False, device=device)  # config.simulation.n_frames // 7
-                print(' ')
-                print(' ')
 
-
-    print(' ')
-    print(' ')
-
-    return config_list,epoch_list
- 
 
 def plot_ising_comparison_from_saved(config_list, labels=None, output_path='fig/ising_noise_comparison.png'):
     valid_configs = []
@@ -7011,7 +7103,6 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_43_1', 'fly_N9_43_2', 'fly_N9_43_3', 'fly_N9_43_4', 'fly_N9_43_5']
     # data_flyvis_compare(config_list, 'training.loss_noise_level')
 
-
     # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
 
     # config_list = ['fly_N9_46_1', 'fly_N9_46_2', 'fly_N9_46_3', 'fly_N9_46_4', 'fly_N9_46_5', 'fly_N9_46_6']
@@ -7053,9 +7144,6 @@ if __name__ == '__main__':
                    # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
                    # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
 
-
-
-
     # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
     #                 'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
     #                 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20', 'fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
@@ -7074,7 +7162,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14', ]
 
-    # config_list = ['fly_N9_22_10']
+    config_list = ['fly_N9_22_10']
 
     # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
     # config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
@@ -7083,8 +7171,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_15', 'fly_N9_44_23', 'fly_N9_44_26']
     # plot_ising_comparison_from_saved(config_list)
 
-    config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
-    compare_experiments(config_list, None)
+    # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
+    # compare_experiments(config_list, None)
 
     # for config_file_ in config_list:
     #     print(' ')
@@ -7095,6 +7183,8 @@ if __name__ == '__main__':
     #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
     #     folder_name = './log/' + pre_folder + '/tmp_results/'
     #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', device=device)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
 
+
+    get_figures('correction_weight')
