@@ -584,8 +584,8 @@ def create_log_dir(config=[], erase=True):
                         format='%(asctime)s %(message)s',
                         filemode='w')
     logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    # logger.info(config)
+    logger.setLevel(logging.WARNING)
+
 
     return log_dir, logger
 
