@@ -55,7 +55,6 @@ def data_train(config=None, erase=False, best_model=None, device=None):
         data_train_synaptic2(config, erase, best_model, device)
 
 
-
 def data_train_synaptic2(config, erase, best_model, device):
     simulation_config = config.simulation
     train_config = config.training
@@ -1307,8 +1306,6 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     model_config = config.graph_model
     training_config = config.training
 
-    has_adjacency_matrix = (simulation_config.connectivity_file != '')
-
     n_neuron_types = simulation_config.n_neuron_types
     n_neurons = simulation_config.n_neurons
     n_nodes = simulation_config.n_nodes
@@ -1386,27 +1383,27 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     if vnorm == 0:
         vnorm = ynorm
 
-    if has_adjacency_matrix:
-        mat = scipy.io.loadmat(simulation_config.connectivity_file)
-        adjacency = torch.tensor(mat['A'], device=device)
-        adj_t = adjacency > 0
-        edge_index = adj_t.nonzero().t().contiguous()
-        edge_attr_adjacency = adjacency[adj_t]
+    # if has_adjacency_matrix:
+    #     mat = scipy.io.loadmat(simulation_config.connectivity_file)
+    #     adjacency = torch.tensor(mat['A'], device=device)
+    #     adj_t = adjacency > 0
+    #     edge_index = adj_t.nonzero().t().contiguous()
+    #     edge_attr_adjacency = adjacency[adj_t]
 
-    if 'PDE_N' in model_config.signal_model_name:
-        has_adjacency_matrix = True
-        adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
-        if training_config.with_connectivity_mask:
-            model_mask = (adjacency > 0) * 1.0
-            adj_t = model_mask.float() * 1
-            adj_t = adj_t.t()
-            edge_index = adj_t.nonzero().t().contiguous()
-        else:
-            edge_index = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
-        if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
-            print('load b_i movie ...')
-            im = imread(f"graphs_data/{simulation_config.node_value_map}")
-            A1 = torch.zeros((n_neurons, 1), device=device)
+
+    connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+    if training_config.with_connectivity_mask:
+        model_mask = (connectivity > 0) * 1.0
+        adj_t = model_mask.float() * 1
+        adj_t = adj_t.t()
+        edge_index = adj_t.nonzero().t().contiguous()
+    else:
+        edge_index = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
+    
+    if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
+        print('load b_i movie ...')
+        im = imread(f"graphs_data/{simulation_config.node_value_map}")
+        A1 = torch.zeros((n_neurons, 1), device=device)
 
         # neuron_index = torch.randint(0, n_neurons, (6,))
         neuron_gt_list = []
@@ -1434,6 +1431,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     if 'test_simulation' in 'test_mode':
         model, bc_pos, bc_dpos = choose_model(config, device=device)
+    else:
+        
 
     rmserr_list = []
     pred_err_list = []
@@ -1453,6 +1452,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     x = x_list[0][start_it].clone().detach()
     n_neurons = x.shape[0]
     x_inference_list = []
+    neuron_gt_list = []
+    neuron_pred_list = []
 
 
     for it in trange(start_it,start_it+800):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
@@ -1472,11 +1473,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             x[:, 10: 10 + model_config.excitation_dim] = x0[:, 10: 10 + model_config.excitation_dim]
 
         # error calculations
-        nan_mask = torch.isnan(x0[:, 6])
-        x0[nan_mask, 6] = baseline_value
-        nan_mask = torch.isnan(x[:, 6])
-        x[nan_mask, 6] = baseline_value
-        rmserr = torch.sqrt(torch.mean(torch.sum(bc_dpos(x[:n_neurons, 6:7] - x0[:, 6:7]) ** 2, axis=1)))
+        x0[:, 6] = torch.where(torch.isnan(x0[:, 6]), baseline_value, x0[:, 6])
+        x[:, 6]  = torch.where(torch.isnan(x[:, 6]),  baseline_value, x[:, 6])
+        rmserr = torch.sqrt(torch.mean((x[:n_neurons, 6] - x0[:, 6]) ** 2))
         neuron_gt_list.append(x0[:, 6:7])
         neuron_pred_list.append(x[:n_neurons, 6:7].clone().detach())
         if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
