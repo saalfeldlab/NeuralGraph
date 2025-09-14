@@ -793,6 +793,9 @@ def data_train_synaptic2(config, erase, best_model, device):
                                                                      lr_modulation=lr_modulation)
                 logger.info( f'learning rates: lr_W {lr_W}, lr {lr}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
+            if (epoch == 20) & (train_config.coeff_anneal_L1 > 0):
+                coeff_W_L1 = train_config.coeff_anneal_L1
+                logger.info(f'coeff_W_L1: {coeff_W_L1}')
 
 
 def data_train_flyvis(config, erase, best_model, device):
@@ -1322,6 +1325,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     has_excitation = ('excitation' in model_config.update_type)
     baseline_value = simulation_config.baseline_value
     omega = model_config.omega
+    has_mesh = ('Mesh' in model_config.mesh_model_name) if hasattr(model_config, 'mesh_model_name') else False
 
     field_type = model_config.field_type
     if field_type != '':
@@ -1367,7 +1371,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         x_list.append(x)
         y_list.append(y)
         x = x_list[0][0].clone().detach()
-        n_neurons = int(x.shape[0] 
+        n_neurons = int(x.shape[0]) 
         config.simulation.n_neurons = n_neurons
         n_frames = len(x_list[0])
         index_particles = get_index_particles(x, n_neuron_types, dimension)
@@ -1398,7 +1402,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             adj_t = adj_t.t()
             edge_index = adj_t.nonzero().t().contiguous()
         else:
-            edge_index = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device
+            edge_index = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
             print('load b_i movie ...')
             im = imread(f"graphs_data/{simulation_config.node_value_map}")
@@ -1409,6 +1413,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         neuron_pred_list = []
         modulation_gt_list = []
         modulation_pred_list = []
+        node_gt_list = []
+        node_pred_list = []
 
         if os.path.exists(f'./graphs_data/{dataset_name}/X1.pt') > 0:
             X1_first = torch.load(f'./graphs_data/{dataset_name}/X1.pt', map_location=device)
@@ -1424,6 +1430,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             perm = torch.randperm(X_msg.size(0))
             X_msg = X_msg[perm]
             torch.save(X_msg, f'./graphs_data/{dataset_name}/X_msg.pt')
+
 
     if 'test_simulation' in 'test_mode':
         model, bc_pos, bc_dpos = choose_model(config, device=device)
@@ -1451,7 +1458,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     for it in trange(start_it,start_it+800):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
         # check_and_clear_memory(device=device, iteration_number=it, every_n_iterations=25,
-                               memory_percentage_threshold=0.6)
+        #                        memory_percentage_threshold=0.6)
         # print(f"Total allocated memory: {torch.cuda.memory_allocated(device) / 1024 ** 3:.2f} GB")
         # print(f"Total reserved memory:  {torch.cuda.memory_reserved(device) / 1024 ** 3:.2f} GB")
 
