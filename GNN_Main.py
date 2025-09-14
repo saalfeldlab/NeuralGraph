@@ -111,7 +111,7 @@ if __name__ == "__main__":
                 verbose=False,
                 best_model='best',
                 run=0,
-                test_mode="test_simulation",
+                test_mode="",
                 sample_embedding=False,
                 step=5,
                 device=device,

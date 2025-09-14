@@ -1432,7 +1432,66 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     if 'test_simulation' in 'test_mode':
         model, bc_pos, bc_dpos = choose_model(config, device=device)
     else:
-        
+        model, bc_pos, bc_dpos = choose_training_model(config, device)
+        model.ynorm = ynorm
+        model.vnorm = vnorm
+        model.particle_of_interest = particle_of_interest
+        if training_config.with_connectivity_mask:
+            model.mask = (connectivity > 0) * 1.0
+        table = PrettyTable(["Modules", "Parameters"])
+        total_params = 0
+        for name, parameter in model.named_parameters():
+            if not parameter.requires_grad:
+                continue
+            param = parameter.numel()
+            table.add_row([name, param])
+            total_params += param
+        state_dict = torch.load(net, map_location=device, weights_only=True)
+        model.load_state_dict(state_dict['model_state_dict'])
+        model.eval()
+        mesh_model = None
+
+        if ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
+            model_f = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
+                            hidden_features=model_config.hidden_dim_nnr,
+                            hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
+                            hidden_omega_0=model_config.omega,
+                            outermost_linear=model_config.outermost_linear_nnr)
+            net = f'{log_dir}/models/best_model_f_with_1_graphs_{best_model}.pt'
+            state_dict = torch.load(net, map_location=device)
+            model_f.load_state_dict(state_dict['model_state_dict'])
+            model_f.to(device=device)
+            model_f.eval()
+        if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
+            model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
+                                    out_features=model_config.output_size_nnr,
+                                    hidden_features=model_config.hidden_dim_nnr,
+                                    hidden_layers=model_config.n_layers_nnr, outermost_linear=True,
+                                    device=device,
+                                    first_omega_0=model_config.omega, hidden_omega_0=model_config.omega)
+            net = f'{log_dir}/models/best_model_f_with_1_graphs_{best_model}.pt'
+            state_dict = torch.load(net, map_location=device)
+            model_f.load_state_dict(state_dict['model_state_dict'])
+            model_f.to(device=device)
+            model_f.eval()
+        if has_missing_activity:
+            model_missing_activity = nn.ModuleList([
+                Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
+                        hidden_features=model_config.hidden_dim_nnr,
+                        hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
+                        hidden_omega_0=model_config.omega,
+                        outermost_linear=model_config.outermost_linear_nnr)
+                for n in range(n_runs)
+            ])
+            model_missing_activity.to(device=device)
+            net = f'{log_dir}/models/best_model_missing_activity_with_{n_runs - 1}_graphs_{best_model}.pt'
+            state_dict = torch.load(net, map_location=device)
+            model_missing_activity.load_state_dict(state_dict['model_state_dict'])
+            model_missing_activity.to(device=device)
+            model_missing_activity.eval()
+
+
+
 
     rmserr_list = []
     pred_err_list = []
@@ -1547,55 +1606,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             fig, ax = fig_init(formatx='%.1f', formaty='%.1f')
             ax.tick_params(axis='both', which='major', pad=15)
 
-            if has_mesh:
-                pts = x[:, 1:3].detach().cpu().numpy()
-                tri = Delaunay(pts)
-                colors = torch.sum(x[tri.simplices, 6], dim=1) / 3.0
-                if model_config.mesh_model_name == 'DiffMesh':
-                    plt.tripcolor(pts[:, 0], pts[:, 1], tri.simplices.copy(),
-                                  facecolors=colors.detach().cpu().numpy(), vmin=0, vmax=1000)
-                if 'WaveMesh' in model_config.mesh_model_name:
-                    plt.tripcolor(pts[:, 0], pts[:, 1], tri.simplices.copy(),
-                                  facecolors=colors.detach().cpu().numpy(), vmin=-1000, vmax=1000)
-                    fmt = lambda x, pos: '{:.1f}'.format((x) / 100, pos)
-                    ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(fmt))
-                    ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(fmt))
-                if 'RD_Gray_Scott_Mesh' in model_config.mesh_model_name:
-                    fig = plt.figure(figsize=(12, 6))
-                    ax = fig.add_subplot(1, 2, 1)
-                    colors = torch.sum(x[tri.simplices, 6], dim=1) / 3.0
-                    plt.tripcolor(pts[:, 0], pts[:, 1], tri.simplices.copy(),
-                                  facecolors=colors.detach().cpu().numpy(), vmin=0, vmax=1)
-                    plt.xticks([])
-                    plt.yticks([])
-                    plt.axis('off')
-                    ax = fig.add_subplot(1, 2, 2)
-                    colors = torch.sum(x[tri.simplices, 7], dim=1) / 3.0
-                    plt.tripcolor(pts[:, 0], pts[:, 1], tri.simplices.copy(),
-                                  facecolors=colors.detach().cpu().numpy(), vmin=0, vmax=1)
-                    plt.xticks([])
-                    plt.yticks([])
-                    plt.axis('off')
-                if 'RD_Mesh' in model_config.mesh_model_name:
-                    H1_IM = torch.reshape(x[:, 6:9], (n_nodes_per_axis, n_nodes_per_axis, 3))
-                    H1_IM = torch.clip(H1_IM, 0, 1)
-
-                    imwrite(f"./{log_dir}/tmp_recons/H1_IM_{config_file}_{num}.tif",
-                            (to_numpy(H1_IM) * 255).astype(np.uint8))
-
-                    plt.imshow(to_numpy(H1_IM))
-                    plt.axis('off')
-                    plt.xticks([])
-                    plt.yticks([])
-                    # plt.xticks([])
-                    # plt.yticks([])
-                    # plt.axis('off')
-
-                    # plt.figure()
-                    # plt.scatter(to_numpy(x[:, 2]), to_numpy(x[:, 1]), s=8, c=to_numpy(pred[:, 0] * delta_t * hnorm), cmap='viridis', vmin=0, vmax=5)
-            elif ('visual' in field_type):
+            if ('visual' in field_type):
                 if 'plot_data' in test_mode:
-
                     plt.close()
 
                     im_ = im[int(it / n_frames * 256)].squeeze()
@@ -1667,65 +1679,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 plt.yticks([])
 
             # save figure
-            if not ('PDE_N' in model_config.signal_model_name):
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/tmp_recons/Fig_{config_file}_{run}_{num}.tif", dpi=100)
-                plt.close()
 
-                node_gt_list_ = torch.cat(node_gt_list, 0)
-                node_pred_list_ = torch.cat(node_pred_list, 0)
-                node_gt_list_ = torch.reshape(node_gt_list_, (node_gt_list_.shape[0] // n_neurons, n_neurons, 3))
-                node_pred_list_ = torch.reshape(node_pred_list_,
-                                                (node_pred_list_.shape[0] // n_neurons, n_neurons, 3))
 
-                plt.figure(figsize=(10, 10))
-                n_list = []
-                for k in range(0, n_neurons, n_neurons // 20):
-                    if torch.max(node_gt_list_[:, k, 0].squeeze()) > 0.5:
-                        plt.plot(to_numpy(node_gt_list_[:, k, 0].squeeze()))
-                        n_list.append(k)
-
-                if n_nodes == 4096:
-                    n = [612, 714, 1428, 1632, 1836, 2142, 2346, 3162, 3264, 3672]
-                elif n_nodes == 16384:
-                    n = [2454, 3272, 4908, 5317, 7362, 7771, 9407, 11452, 12270, 14724]
-                elif n_nodes == 65536:
-                    n = [13104, 14742, 18018, 22932, 26208, 31122, 36036, 39312, 42588, 49140, 50778, 58968]
-                elif n_nodes == 10000:
-                    n = [2250, 2500, 3500, 4750, 5000, 5750, 6250, 9500]
-
-                plt.figure(figsize=(20, 10))
-                ax = plt.subplot(121)
-                plt.plot(to_numpy(node_gt_list_[:, n[0], 0]), c='r', linewidth=4, label='true', alpha=0.5)
-                plt.plot(to_numpy(node_pred_list_[:, n[0], 0]), linewidth=2, c='r', label='learned')
-                plt.legend(fontsize=24)
-
-                plt.plot(to_numpy(node_gt_list_[:, n[1:5], 0]), c='r', linewidth=4, alpha=0.5)
-                plt.plot(to_numpy(node_pred_list_[:, n[1:5], 0]), c='r', linewidth=2)
-                plt.ylim([0, 1])
-                plt.xlim([0, 200])
-
-                ax = plt.subplot(122)
-                plt.scatter(to_numpy(node_gt_list_[-1, :]), to_numpy(node_pred_list_[-1, :]), s=1, c=mc)
-                plt.xlim([0, 1])
-                plt.ylim([0, 1])
-
-                x_data = to_numpy(node_gt_list_[-1, :, 0])
-                y_data = to_numpy(node_pred_list_[-1, :, 0])
-                lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-                residuals = y_data - linear_model(x_data, *lin_fit)
-                ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                r_squared = 1 - (ss_res / ss_tot)
-                plt.xlabel(r'true $x_i$', fontsize=48)
-                plt.ylabel(r'learned $x_i$', fontsize=48)
-                plt.text(0.05, 0.95, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
-                plt.text(0.05, 0.85, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
-                plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/comparison_xi_{it}.png', dpi=80)
-                plt.close()
-
-            if ('PDE_N' in model_config.signal_model_name) & (it % 200 == 0) & (it > 0):
+            if (it % 200 == 0) & (it > 0):
                 if 'CElegans' in dataset_name:
                     n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
                 else:
@@ -1750,12 +1706,12 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 plt.legend(fontsize=24)
                 plt.plot(neuron_gt_list_[:, n[1:10]].detach().cpu().numpy(), c=mc, linewidth=8, alpha=0.25)
                 plt.plot(neuron_pred_list_[:, n[1:10]].detach().cpu().numpy(), linewidth=4)
-                plt.xlim([0, n_frames])
+                plt.xlim([0, it])
                 plt.xlabel(r'time-points', fontsize=48)
-                plt.ylabel(r'$x_i$', fontsize=48)
+                plt.ylabel(r'$v_i$', fontsize=48)
                 plt.xticks(fontsize=24)
                 plt.yticks(fontsize=24)
-                plt.ylim([0, 10])
+                plt.ylim([-30, 30])
                 # plt.ylim([-30, 30])
                 # plt.text(40, 26, f'time: {it}', fontsize=34)
                 ax = plt.subplot(122)
@@ -1771,12 +1727,12 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 ss_res = np.sum(residuals ** 2)
                 ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot)
-                plt.xlabel(r'true $x_i$', fontsize=48)
-                plt.ylabel(r'learned $x_i$', fontsize=48)
+                plt.xlabel(r'true $v_i$', fontsize=48)
+                plt.ylabel(r'learned $v_i$', fontsize=48)
                 plt.text(-28.5, 26, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
                 plt.text(-28.5, 22, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
                 plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/comparison_xi_{it}.png', dpi=80)
+                plt.savefig(f'./{log_dir}/results/comparison_vi_{it}.png', dpi=80)
                 plt.close()
 
                 if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
