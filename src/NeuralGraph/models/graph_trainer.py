@@ -793,9 +793,6 @@ def data_train_synaptic2(config, erase, best_model, device):
                                                                      lr_modulation=lr_modulation)
                 logger.info( f'learning rates: lr_W {lr_W}, lr {lr}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
-            if (epoch == 20) & (train_config.coeff_anneal_L1 > 0):
-                coeff_W_L1 = train_config.coeff_anneal_L1
-                logger.info(f'coeff_W_L1: {coeff_W_L1}')
 
 
 def data_train_flyvis(config, erase, best_model, device):
