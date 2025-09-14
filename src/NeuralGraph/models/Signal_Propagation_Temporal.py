@@ -109,7 +109,9 @@ class Signal_Propagation_Temporal(pyg.nn.MessagePassing):
         self.data_id = data_id.squeeze().long().clone().detach()
         self.mask = mask.squeeze().long().clone().detach()
 
-        v = data.x[:, 9:9+self.training_time_window]
+        v = data.x[:, -5:]
+
+        # print(data.x.shape, v.shape)
 
         excitation = data.x[:, 4:5]
 
@@ -132,8 +134,11 @@ class Signal_Propagation_Temporal(pyg.nn.MessagePassing):
 
         # Flatten to [N*D, 1]
         reshaped = v_j.reshape(-1, 1)
+        # print (v_j.shape, reshaped.shape, embedding_j.shape)
         embedding_j_expanded = embedding_j.repeat_interleave(self.training_time_window, dim=0)
+        # print (embedding_j_expanded.shape)
         in_features = torch.cat([reshaped, embedding_j_expanded], dim=1)
+        # print (in_features.shape)
 
         lin_edge = self.lin_edge(in_features)
         if self.lin_edge_positive:

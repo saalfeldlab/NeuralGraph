@@ -2221,7 +2221,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                                 color=cmap.color(to_numpy(type_list)[n].astype(int)),
                                 linewidth=1, alpha=0.1)
                 plt.xlabel('$v_j$', fontsize=48)
-                plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_i, v_j)$', fontsize=48)
+                plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
                 plt.xticks(fontsize=24)
                 plt.yticks(fontsize=24)
                 plt.xlim(config.plotting.xlim)
@@ -2234,7 +2234,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             slopes_lin_edge_list = []
             fig = plt.figure(figsize=(8, 8))
             for n in trange(n_neurons):
-                if mu_activity[n] + 2 * sigma_activity[n] > 0:
+                if mu_activity[n] + 1 * sigma_activity[n] > 0:
                     rr = torch.linspace(max(mu_activity[n] - 2 * sigma_activity[n],0), mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
@@ -2264,7 +2264,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 else:
                     slopes_lin_edge_list.append(1)
             plt.xlabel('$v_j$', fontsize=48)
-            plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_i, v_j)$', fontsize=48)
+            plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.xlim(config.plotting.xlim)
@@ -2826,9 +2826,9 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         learned_tau_type = learned_tau[type_indices]
         learned_vrest_type = learned_V_rest[type_indices]
 
-        rmse_w = np.sqrt(np.mean(((gt_w_type - learned_w_type) / gt_w_type) ** 2)) * 100
-        rmse_tau = np.sqrt(np.mean(((gt_tau_type - learned_tau_type) / gt_tau_type) ** 2)) * 100
-        rmse_vrest = np.sqrt(np.mean(((gt_vrest_type - learned_vrest_type) / gt_vrest_type) ** 2)) * 100
+        rmse_w = np.sqrt(np.mean((gt_w_type - learned_w_type)** 2)) 
+        rmse_tau = np.sqrt(np.mean((gt_tau_type - learned_tau_type)** 2)) 
+        rmse_vrest = np.sqrt(np.mean((gt_vrest_type - learned_vrest_type)** 2)) 
 
         rmse_weights.append(rmse_w)
         rmse_taus.append(rmse_tau)
@@ -2838,9 +2838,9 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     n_neurons = len(type_list)
     
     # Per-neuron RMSE for tau
-    rmse_tau_per_neuron = np.abs(learned_tau - gt_taus) / (np.abs(gt_taus) + 1e-8) * 100
+    rmse_tau_per_neuron = np.abs(learned_tau - gt_taus) 
     # Per-neuron RMSE for V_rest  
-    rmse_vrest_per_neuron = np.abs(learned_V_rest - gt_V_Rest) / (np.abs(gt_V_Rest) + 1e-8) * 100
+    rmse_vrest_per_neuron = np.abs(learned_V_rest - gt_V_Rest)
     # Per-neuron RMSE for weights (incoming connections)
     rmse_weights_per_neuron = np.zeros(n_neurons)
     for neuron_idx in range(n_neurons):
@@ -2848,7 +2848,7 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         if len(incoming_edges) > 0:
             true_w = true_weights[incoming_edges]
             learned_w = learned_weights[incoming_edges]
-            rmse_weights_per_neuron[neuron_idx] = np.sqrt(np.mean((learned_w - true_w)**2)) / (np.sqrt(np.mean(true_w**2)) + 1e-8) * 100
+            rmse_weights_per_neuron[neuron_idx] = np.sqrt(np.mean((learned_w - true_w)**2))
 
     # Convert to arrays
     rmse_weights = np.array(rmse_weights)
@@ -2875,25 +2875,25 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     # Plot weights RMSE
     ax1 = axes[0]
     ax1.bar(x_pos, rmse_weights[sort_indices], color='skyblue', alpha=0.7)
-    ax1.set_ylabel('rel. RMSE weights [%]', fontsize=14)
+    ax1.set_ylabel('RMSE weights', fontsize=14)
     ax1.grid(True, alpha=0.3)
-    ax1.set_ylim([0, 100])
+    ax1.set_ylim([0, 2.5])
     ax1.set_xticks(x_pos)
     ax1.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
     ax1.grid(False)
     ax1.tick_params(axis='y', labelsize=12)
 
     for i, (tick, rmse_w) in enumerate(zip(ax1.get_xticklabels(), rmse_weights[sort_indices])):
-        if rmse_w > 100:
+        if rmse_w > 0.5:
             tick.set_color('red')
             tick.set_fontsize(8)
 
     # Panel 2 (tau)
     ax2 = axes[1]
     ax2.bar(x_pos, rmse_taus[sort_indices], color='lightcoral', alpha=0.7)
-    ax2.set_ylabel(r'rel. RMSE $\tau$ [%]', fontsize=14)
+    ax2.set_ylabel(r'RMSE $\tau$', fontsize=14)
     ax2.grid(True, alpha=0.3)
-    ax2.set_ylim([0, 100])
+    ax2.set_ylim([0, 0.3])
     ax2.set_xticks(x_pos)
     ax2.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
     ax2.grid(False)
@@ -2909,16 +2909,16 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     mean_gt_taus = np.array(mean_gt_taus)
 
     for i, (tick, rmse_tau) in enumerate(zip(ax2.get_xticklabels(), rmse_taus[sort_indices])):
-        if rmse_tau > 100:
+        if rmse_tau > 0.03:
             tick.set_color('red')
             tick.set_fontsize(8)
 
     # Panel 3 (V_rest)
     ax3 = axes[2]
     ax3.bar(x_pos, rmse_vrests[sort_indices], color='lightgreen', alpha=0.7)
-    ax3.set_ylabel(r'rel. RMSE $V_{rest}$ [%]', fontsize=14)
+    ax3.set_ylabel(r'RMSE $V_{rest}$', fontsize=14)
     ax3.grid(True, alpha=0.3)
-    ax3.set_ylim([0, 100])
+    ax3.set_ylim([0, 0.8])
     ax3.set_xticks(x_pos)
     ax3.set_xticklabels(sorted_neuron_type_names, rotation=90, ha='right', fontsize=6)
     ax3.grid(False)
@@ -2933,7 +2933,7 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
 
     mean_gt_vrests = np.array(mean_gt_vrests)
     for i, (tick, rmse_vrest) in enumerate(zip(ax3.get_xticklabels(), rmse_vrests[sort_indices])):
-        if rmse_vrest > 100:
+        if rmse_vrest > 0.08:
             tick.set_color('red')
             tick.set_fontsize(8)
 
@@ -3029,9 +3029,9 @@ def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_ta
    
    # Define column labels and data
    col_data = [
-       (rmse_weights, type_mean_rmse_weights, 'RMSE weights [%]'),
-       (rmse_tau, type_mean_rmse_tau, r'RMSE $\tau$ [%]'),
-       (rmse_vrest, type_mean_rmse_vrest, r'RMSE $V_{rest}$ [%]')
+       (rmse_weights, type_mean_rmse_weights, 'RMSE weights'),
+       (rmse_tau, type_mean_rmse_tau, r'RMSE $\tau$'),
+       (rmse_vrest, type_mean_rmse_vrest, r'RMSE $V_{rest}$')
    ]
    
    # Create all panels
@@ -6885,21 +6885,21 @@ def get_figures(index):
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
-            ax1.text(0.01, 1.01, 'a)', transform=ax1.transAxes, fontsize=18, va='bottom', ha='right')
+            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=18, va='bottom', ha='right')
             
             ax2 = fig.add_subplot(3, 3, 2)
             panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
-            ax2.text(0.01, 1.01, 'b)', transform=ax2.transAxes, fontsize=18, va='bottom', ha='right')
+            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=18, va='bottom', ha='right')
             
             ax3 = fig.add_subplot(3, 3, 3)
             panel_pic_path = f"./{log_dir}/results/edge_function_slope_{config_indices}.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
-            ax3.text(0.01, 1.01, 'c)', transform=ax3.transAxes, fontsize=18, va='bottom', ha='right')
+            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=18, va='bottom', ha='right')
             
             # Second row
             ax4 = fig.add_subplot(3, 3, 4)
@@ -6908,21 +6908,21 @@ def get_figures(index):
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
-            ax4.text(0.01, 1.01, 'd)', transform=ax4.transAxes, fontsize=18, va='bottom', ha='right')
+            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=18, va='bottom', ha='right')
             
             ax5 = fig.add_subplot(3, 3, 5)
             panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
-            ax5.text(0.01, 1.01, 'e)', transform=ax5.transAxes, fontsize=18, va='bottom', ha='right')
+            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=18, va='bottom', ha='right')
             
             ax6 = fig.add_subplot(3, 3, 6)
             panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_params.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
-            ax6.text(0.01, 1.01, 'f)', transform=ax6.transAxes, fontsize=18, va='bottom', ha='right')
+            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=18, va='bottom', ha='right')
             
             # Third row
             ax7 = fig.add_subplot(3, 3, 7)
@@ -6933,7 +6933,7 @@ def get_figures(index):
             else:
                 plt.text(0.5, 0.5, 'Neuron\nEmbedding', ha='center', va='center', fontsize=16, transform=ax7.transAxes)
             plt.axis('off')
-            ax7.text(0.01, 1.01, 'g)', transform=ax7.transAxes, fontsize=18, va='bottom', ha='right')
+            ax7.text(0.1, 1.01, 'g)', transform=ax7.transAxes, fontsize=18, va='bottom', ha='right')
             
             ax8 = fig.add_subplot(3, 3, 8)
             panel_pic_path = f"./{log_dir}/results/comparison_rj.png"
@@ -6943,7 +6943,7 @@ def get_figures(index):
             else:
                 plt.text(0.5, 0.5, 'Type\nReconstruction', ha='center', va='center', fontsize=16, transform=ax8.transAxes)
             plt.axis('off')
-            ax8.text(0.01, 1.01, 'h)', transform=ax8.transAxes, fontsize=18, va='bottom', ha='right')
+            ax8.text(0.1, 1.01, 'h)', transform=ax8.transAxes, fontsize=18, va='bottom', ha='right')
             
             ax9 = fig.add_subplot(3, 3, 9)
             panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
@@ -6953,11 +6953,107 @@ def get_figures(index):
             else:
                 plt.text(0.5, 0.5, 'Reconstruction\nCorrelations', ha='center', va='center', fontsize=16, transform=ax9.transAxes)
             plt.axis('off')
-            ax9.text(0.01, 1.01, 'i)', transform=ax9.transAxes, fontsize=18, va='bottom', ha='right')
+            ax9.text(0.1, 1.01, 'i)', transform=ax9.transAxes, fontsize=18, va='bottom', ha='right')
             
             plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
-            plt.savefig(f"/groups/saalfeld/home/allierc/Py/NeuralGraph/fig/figure_correction_weight.png", dpi=300, bbox_inches='tight')
+            plt.savefig(f"./fig_paper/figure_correction_weight.png", dpi=300, bbox_inches='tight')
             plt.close()
+
+        case 'correction_weight_noise':
+
+            config_file_ = 'fly_N9_44_6'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            print('figure correction_weight...')
+
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+
+            log_dir = 'log/fly/fly_N9_44_6'
+            config_indices = '44_6'
+            
+            fig = plt.figure(figsize=(10, 10))
+            
+            ax1 = fig.add_subplot(3, 3, 1)
+            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_all.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax2 = fig.add_subplot(3, 3, 2)
+            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax3 = fig.add_subplot(3, 3, 3)
+            panel_pic_path = f"./{log_dir}/results/edge_function_slope_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            # Second row
+            ax4 = fig.add_subplot(3, 3, 4)
+            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_all.png"
+
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax5 = fig.add_subplot(3, 3, 5)
+            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax6 = fig.add_subplot(3, 3, 6)
+            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_params.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            # Third row
+            ax7 = fig.add_subplot(3, 3, 7)
+            panel_pic_path = f"./{log_dir}/results/comparison_raw.png"
+            if os.path.exists(panel_pic_path):
+                img = imageio.imread(panel_pic_path)
+                plt.imshow(img)
+            else:
+                plt.text(0.5, 0.5, 'Neuron\nEmbedding', ha='center', va='center', fontsize=16, transform=ax7.transAxes)
+            plt.axis('off')
+            ax7.text(0.1, 1.01, 'g)', transform=ax7.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax8 = fig.add_subplot(3, 3, 8)
+            panel_pic_path = f"./{log_dir}/results/comparison_rj.png"
+            if os.path.exists(panel_pic_path):
+                img = imageio.imread(panel_pic_path)
+                plt.imshow(img)
+            else:
+                plt.text(0.5, 0.5, 'Type\nReconstruction', ha='center', va='center', fontsize=16, transform=ax8.transAxes)
+            plt.axis('off')
+            ax8.text(0.1, 1.01, 'h)', transform=ax8.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            ax9 = fig.add_subplot(3, 3, 9)
+            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
+            if os.path.exists(panel_pic_path):
+                img = imageio.imread(panel_pic_path)
+                plt.imshow(img)
+            else:
+                plt.text(0.5, 0.5, 'Reconstruction\nCorrelations', ha='center', va='center', fontsize=16, transform=ax9.transAxes)
+            plt.axis('off')
+            ax9.text(0.1, 1.01, 'i)', transform=ax9.transAxes, fontsize=18, va='bottom', ha='right')
+            
+            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
+            plt.savefig(f"./fig_paper/figure_correction_weight_noise.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
 
 
 
@@ -7162,7 +7258,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14', ]
 
-    config_list = ['fly_N9_22_10']
+    # config_list = ['fly_N9_22_10']
 
     # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
     # config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
@@ -7188,3 +7284,4 @@ if __name__ == '__main__':
 
 
     get_figures('correction_weight')
+    get_figures('correction_weight_44_6')
