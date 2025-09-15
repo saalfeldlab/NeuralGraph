@@ -671,8 +671,10 @@ def data_train_synaptic2(config, erase, best_model, device):
         ax = fig.add_subplot(2, 3, 1)
         plt.plot(list_loss, color='k', linewidth=1)
         plt.xlim([0, n_epochs])
-        plt.ylabel('loss', fontsize=12)
-        plt.xlabel('epochs', fontsize=12)
+        plt.ylabel('loss', fontsize=48)
+        plt.xlabel('epochs', fontsize=48)
+        plt.xticks(fontsize=24)
+        plt.yticks(fontsize=24)
 
         # Find the last saved file to get epoch and N
         embedding_files = glob.glob(f"./{log_dir}/tmp_training/embedding/*.tif")
@@ -689,28 +691,25 @@ def data_train_synaptic2(config, erase, best_model, device):
             img = imread(f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
-            plt.title('Embedding', fontsize=12)
 
             # Plot 3: Last weight comparison
             ax = fig.add_subplot(2, 3, 3)
             img = imread(f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
-            plt.title('Weight Comparison', fontsize=12)
 
-            # Plot 4: Last edge function
+            # Plot 4: Last phi function
             ax = fig.add_subplot(2, 3, 4)
-            img = imread(f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
-            plt.imshow(img)
-            plt.axis('off')
-            plt.title('Edge Function', fontsize=12)
-
-            # Plot 5: Last phi function
-            ax = fig.add_subplot(2, 3, 5)
             img = imread(f"./{log_dir}/tmp_training/function/lin_phi/func_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
-            plt.title('Phi Function', fontsize=12)
+
+            # Plot 5: Last edge function
+            ax = fig.add_subplot(2, 3, 5)
+            img = imread(f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
+            plt.imshow(img)
+            plt.axis('off')
+
 
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
@@ -1687,31 +1686,38 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                                                   (neuron_pred_list_.shape[0] // n_neurons, n_neurons))
 
                 plt.figure(figsize=(20, 10))
-                if 'latex' in style:
-                    plt.rcParams['text.usetex'] = True
-                    rc('font', **{'family': 'serif', 'serif': ['Palatino']})
                 ax = plt.subplot(121)
-                plt.plot(neuron_gt_list_[:, n[0]].detach().cpu().numpy(), c=mc, linewidth=8, label='true',
-                         alpha=0.25)
-                plt.plot(neuron_pred_list_[:, n[0]].detach().cpu().numpy(), linewidth=4, c='k',
-                         label='learned')
+
+                # Plot ground truth with distinct gray color, visible in legend
+                for i in range(10):
+                    color = 'gray' if i == 0 else None  # Only label first
+                    label = 'true' if i == 0 else None
+                    plt.plot(neuron_gt_list_[:, n[i]].detach().cpu().numpy(), 
+                            c='gray', linewidth=16, alpha=0.5, label=label)
+
+                # Plot predictions with colored lines
+                colors = plt.cm.tab10(np.linspace(0, 1, 10))
+                for i in range(10):
+                    label = 'learned' if i == 0 else None
+                    plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy(), 
+                            linewidth=3, c=colors[i], label=label)
+
                 plt.legend(fontsize=24)
-                plt.plot(neuron_gt_list_[:, n[1:10]].detach().cpu().numpy(), c=mc, linewidth=8, alpha=0.25)
-                plt.plot(neuron_pred_list_[:, n[1:10]].detach().cpu().numpy(), linewidth=4)
                 plt.xlim([0, it])
-                plt.xlabel(r'time-points', fontsize=48)
-                plt.ylabel(r'$v_i$', fontsize=48)
+                plt.xlabel('time-points', fontsize=48)
+                plt.ylabel('$v_i$', fontsize=48)
                 plt.xticks(fontsize=24)
                 plt.yticks(fontsize=24)
                 plt.ylim([-30, 30])
-                # plt.ylim([-30, 30])
-                # plt.text(40, 26, f'time: {it}', fontsize=34)
+
                 ax = plt.subplot(122)
-                plt.scatter(to_numpy(neuron_gt_list_[-1, :]), to_numpy(neuron_pred_list_[-1, :]), s=10, c=mc)
+                plt.scatter(to_numpy(neuron_gt_list_[-1, :]), 
+                        to_numpy(neuron_pred_list_[-1, :]), s=10, c=mc)
                 plt.xlim([-30, 30])
                 plt.ylim([-30, 30])
                 plt.xticks(fontsize=24)
                 plt.yticks(fontsize=24)
+
                 x_data = to_numpy(neuron_gt_list_[-1, :])
                 y_data = to_numpy(neuron_pred_list_[-1, :])
                 lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
@@ -1719,10 +1725,12 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
                 ss_res = np.sum(residuals ** 2)
                 ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot)
-                plt.xlabel(r'true $v_i$', fontsize=48)
-                plt.ylabel(r'learned $v_i$', fontsize=48)
+
+                plt.xlabel('true $v_i$', fontsize=48)
+                plt.ylabel('learned $v_i$', fontsize=48)
                 plt.text(-28.5, 26, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
                 plt.text(-28.5, 22, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
+
                 plt.tight_layout()
                 plt.savefig(f'./{log_dir}/results/comparison_vi_{it}.png', dpi=80)
                 plt.close()
@@ -1780,7 +1788,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     if 'inference' in test_mode:
         torch.save(x_inference_list, f"./{log_dir}/x_inference_list_{run}.pt")
--
+
     print('average rollout RMSE {:.3e}+/-{:.3e}'.format(np.mean(rmserr_list), np.std(rmserr_list)))
 
     if 'PDE_N' in model_config.signal_model_name:
