@@ -792,10 +792,6 @@ def data_train_synaptic2(config, erase, best_model, device):
                                                                      lr_modulation=lr_modulation)
                 logger.info( f'learning rates: lr_W {lr_W}, lr {lr}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
-            if (epoch == 20) & (train_config.coeff_anneal_L1 > 0):
-                coeff_W_L1 = train_config.coeff_anneal_L1
-                logger.info(f'coeff_W_L1: {coeff_W_L1}')
-
 
 def data_train_flyvis(config, erase, best_model, device):
     simulation_config = config.simulation
@@ -1490,9 +1486,6 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             model_missing_activity.to(device=device)
             model_missing_activity.eval()
 
-
-
-
     rmserr_list = []
     pred_err_list = []
     geomloss_list = []
@@ -1540,7 +1533,6 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
             modulation_gt_list.append(x0[:, 8:9])
             modulation_pred_list.append(x[:, 8:9].clone().detach())
-
         rmserr_list.append(rmserr.item())
 
         if config.training.shared_embedding:
@@ -1788,10 +1780,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     if 'inference' in test_mode:
         torch.save(x_inference_list, f"./{log_dir}/x_inference_list_{run}.pt")
-
-    print('prediction error {:.3e}+/-{:.3e}'.format(np.mean(pred_err_list), np.std(pred_err_list)))
+-
     print('average rollout RMSE {:.3e}+/-{:.3e}'.format(np.mean(rmserr_list), np.std(rmserr_list)))
-
 
     if 'PDE_N' in model_config.signal_model_name:
 
