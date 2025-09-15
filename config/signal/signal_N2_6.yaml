@@ -1,5 +1,5 @@
-description: 'synaptic network 100.000 points  1000 000 iterations per epoch batchsize 1'
-dataset: 'signal_N2_a37'
+description: 'synaptic network 100.000 points  1000 000 iterations per epoch batchsize 1 noise_model_level: 1'
+dataset: 'signal_N2_6'
 
 simulation:
     connectivity_file: 'random'
@@ -68,4 +68,6 @@ training:
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 5.0E-3
+
+    noise_model_level: 1
 
