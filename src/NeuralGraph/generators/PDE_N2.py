@@ -30,7 +30,7 @@ class PDE_N2(pyg.nn.MessagePassing):
         self.W = W
         self.phi = phi
 
-    def forward(self, data=[], has_field=False):
+    def forward(self, data=[], has_field=False, data_id=[]):
         x, edge_index = data.x, data.edge_index
         # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = x[:, 5].long()

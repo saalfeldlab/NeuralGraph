@@ -43,7 +43,7 @@ class PDE_N9(pyg.nn.MessagePassing):
         else:
             self.params = torch.tensor(params, dtype=torch.float32, device=device).squeeze()
 
-    def forward(self, data=[], has_field=False):
+    def forward(self, data=[], has_field=False, data_id=[]):
         x, edge_index = data.x, data.edge_index
         v = x[:, 3:4]
         v_rest = self.p["V_i_rest"][:, None]
