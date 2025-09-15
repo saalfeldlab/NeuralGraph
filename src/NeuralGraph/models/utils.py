@@ -399,7 +399,8 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
             if x[n, 6] != config.simulation.baseline_value:
                 plt.scatter(to_numpy(model.a[n, 0]), to_numpy(model.a[n, 1]), s=100,
                             color=cmap.color(int(type_list[n])), alpha=1.0, edgecolors='none')
-
+    plt.xlabel(r'$a_0$', fontsize=48)
+    plt.ylabel(r'$a_1$', fontsize=48)
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
@@ -441,8 +442,8 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         fig = plt.figure(figsize=(8, 8))
         fig, ax = fig_init()
         plt.scatter(gt_weight, pred_weight / 10, s=0.1, c='k', alpha=0.1)
-        plt.xlabel(r'true $W_{ij}$', fontsize=68)
-        plt.ylabel(r'learned $W_{ij}$', fontsize=68)
+        plt.xlabel(r'true $W_{ij}$', fontsize=48)
+        plt.ylabel(r'learned $W_{ij}$', fontsize=48)
         if n_neurons == 8000:
             plt.xlim([-0.05, 0.05])
         else:
@@ -541,6 +542,10 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
                          linewidth=2, alpha=0.25)
         plt.xlim(config.plotting.xlim)
         plt.ylim(config.plotting.ylim)
+        plt.xticks(fontsize=24)
+        plt.yticks(fontsize=24)
+        plt.xlabel('$v_j$', fontsize=48)
+        plt.ylabel('$\mathrm{MLP_1}(a_j, v_j)$', fontsize=48)
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/function/lin_edge/func_{epoch}_{N}.tif", dpi=87)
         plt.close()
@@ -560,6 +565,11 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
                      color=cmap.color(to_numpy(type_list)[n].astype(int)),
                      linewidth=1, alpha=0.1)
     plt.xlim(config.plotting.xlim)
+    plt.ylim([-1,1])
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+    plt.xlabel('$v_i$', fontsize=48)
+    plt.ylabel('$\mathrm{MLP_0}(a_i, v_i)$', fontsize=48)
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
