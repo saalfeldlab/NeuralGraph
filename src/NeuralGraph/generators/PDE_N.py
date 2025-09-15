@@ -26,7 +26,7 @@ class PDE_N(pyg.nn.MessagePassing):
         self.p = p
         self.bc_dpos = bc_dpos
 
-    def forward(self, data=[], return_all=False):
+    def forward(self, data=[], return_all=False, data_id=[]):
         x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
         edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = to_numpy(x[:, 5])

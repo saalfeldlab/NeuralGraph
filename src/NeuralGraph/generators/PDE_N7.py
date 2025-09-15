@@ -31,7 +31,7 @@ class PDE_N7(pyg.nn.MessagePassing):
         self.phi = phi
         self.short_term_plasticity_mode = short_term_plasticity_mode
 
-    def forward(self, data=[], has_field=False):
+    def forward(self, data=[], has_field=False, data_id=[]):
         x, edge_index = data.x, data.edge_index
         # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = to_numpy(x[:, 5])
