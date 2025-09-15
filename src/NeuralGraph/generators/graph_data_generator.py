@@ -1182,12 +1182,6 @@ def data_generate_synaptic(
         for it in trange(simulation_config.start_frame, n_frames + 1):
             # calculate type change
             with torch.no_grad():
-                if simulation_config.state_type == "sequence":
-                    sample = torch.rand((len(T1), 1), device=device)
-                    sample = (
-                        sample < (1 / config.simulation.state_params[0])
-                    ) * torch.randint(0, n_neuron_types, (len(T1), 1), device=device)
-                    T1 = (T1 + sample) % n_neuron_types
                 if ("modulation" in field_type) & (it >= 0):
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
@@ -1489,47 +1483,6 @@ def data_generate_synaptic(
             print('Ising analysis ...')
             x_list = np.array(x_list)
             y_list = np.array(y_list)
-
-            energy_stride = 1
-            s, h, J, E = sparse_ising_fit_fast(x=x_list, voltage_col=6, top_k=20, block_size=2000,
-                                               energy_stride=energy_stride)
-
-            analysis_J_W(J, connectivity)
-
-            fig = plt.figure(figsize=(12, 10))
-            plt.subplot(2, 2, (1, 2))
-            plt.plot(np.arange(0, len(E) * energy_stride, energy_stride), E, lw=0.5, c='white')
-            plt.xlabel("Frame", fontsize=18)
-            plt.ylabel("Energy", fontsize=18)
-            plt.title("Ising Energy Over Frames", fontsize=18)
-            plt.xlim(0, 600)
-            plt.xticks(np.arange(0, 601, 100), fontsize=12)  # Only show every 100 frames
-            plt.yticks(fontsize=12)
-
-            plt.subplot(2, 2, 3)
-            plt.hist(E, bins=200, color='salmon', edgecolor='k', density=True)
-            plt.xlabel("Energy", fontsize=18)
-            plt.ylabel("Density", fontsize=18)
-            plt.title("Energy Distribution", fontsize=18)
-            plt.xticks(fontsize=12)
-            plt.yticks(fontsize=12)
-
-            # Flatten all non-zero couplings for histogram
-            J_vals = [v for Ji in J for v in Ji.values()]
-            J_vals = np.array(J_vals, dtype=np.float32)
-
-            # Panel 3: Couplings histogram
-            plt.subplot(2, 2, 4)
-            plt.hist(J_vals, bins=100, color='skyblue', edgecolor='k', density=True)
-            plt.xlabel(r"Coupling strength $J_{ij}$", fontsize=18)
-            plt.ylabel("Density", fontsize=18)
-            plt.title("Sparse Couplings Histogram", fontsize=18)
-            plt.xticks(fontsize=12)
-            plt.yticks(fontsize=12)
-
-            plt.tight_layout()
-            plt.savefig(f"graphs_data/{dataset_name}/E_panels.png", dpi=150)
-            plt.close(fig)
 
         if bSave:
             x_list = np.array(x_list)
