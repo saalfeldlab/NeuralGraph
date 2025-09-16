@@ -7286,7 +7286,7 @@ if __name__ == '__main__':
         print(f'\033[94mconfig_file  {config.config_file}\033[0m')
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='white color', extended='plots', device=device)
 
 
     get_figures('weight_vs_noise')
