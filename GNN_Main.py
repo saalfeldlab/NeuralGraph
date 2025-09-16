@@ -107,19 +107,24 @@ if __name__ == "__main__":
             # data_test(config=config, visualize=True, style='black color name', verbose=False, best_model='best',
             #           run=run_, test_mode='fixed_bounce_all', sample_embedding=False, step=4,
             #           device=device)  # particle_of_interest=100, 'fixed_bounce_all'
-            data_test(
-                config=config,
-                visualize=True,
-                style="black color name",
-                verbose=False,
-                best_model=best_model,
-                run=0,
-                test_mode="test_ablation_0",
-                sample_embedding=False,
-                step=100,
-                device=device,
-                particle_of_interest=0,
-            )  # particle_of_interest=100,  'fixed_bounce_all'
+
+
+            best_model_list = ['0_0', '0_22680', '0_45360', '0_68040', '0_90720', '0_113400', '0_136080', '0_158760', '0_181440', '0_226800', '0_204120', '1_0', '2_0', '3_0', '4_0', '5_0', '6_0', '7_0', '8_0', '9_0']
+            for best_model in best_model_list:  
+
+                data_test(
+                    config=config,
+                    visualize=True,
+                    style="black color name",
+                    verbose=False,
+                    best_model=best_model,
+                    run=0,
+                    test_mode="test_ablation_0",
+                    sample_embedding=False,
+                    step=100,
+                    device=device,
+                    particle_of_interest=0,
+                )  # particle_of_interest=100,  'fixed_bounce_all'
 
 
 # bsub -n 4 -gpu "num=1" -q gpu_h100 -Is "python GNN_Main.py"

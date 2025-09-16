@@ -2724,18 +2724,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     # 8x8 panel plot for each neuron type - comparing ground truth vs predicted
     print('plot 8x8 panel for neuron types (ground truth vs predicted)...')
 
-    fig, axes = plt.subplots(8, 8, figsize=(24, 24))
-    axes_flat = axes.flatten()
-
-    panel_order = [23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
-                22, 13, 14, 15, 16, 17, 18, 43, 45, 48, 50, 44, 46, 47, 49, 51, 52, 53, 54,
-                55, 61, 62, 63, 56, 57, 58, 59, 60, 64, 1, 2, 4, 3, 31, 32, 33, 34, 35, 36,
-                37, 38, 39, 40, 41, 42, 0]
-
-    # 8x8 panel plot for each neuron type - comparing ground truth vs predicted
-    print('plot 8x8 panel for neuron types (ground truth vs predicted)...')
-
-    fig, axes = plt.subplots(8, 8, figsize=(24, 24))
+    fig, axes = plt.subplots(8, 8, figsize=(36, 24))
     axes_flat = axes.flatten()
 
     panel_order = [23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
@@ -2846,7 +2835,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     for idx in range(64, len(axes_flat)):
         axes_flat[idx].set_visible(False)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison.png", dpi=150)
+    plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison_{best_model}.png", dpi=150)
     plt.close()
 
     print(f'Saved 8x8 comparison panel to {log_dir}/results/activity_8x8_panel_comparison.png')
