@@ -45,6 +45,8 @@ from colorama import Fore, Style
 from scipy.spatial.distance import jensenshannon
 import matplotlib.ticker as ticker
 import shutil
+import imageio.v2 as imageio
+
 
 def get_training_files(log_dir, n_runs):
     files = glob.glob(f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_*.pt")
@@ -4143,11 +4145,6 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
     config.simulation.n_neurons = n_neurons
     type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
 
-    # activity = torch.tensor(x_list[0],device=device)
-    # activity = activity[:, :, 6:7].squeeze()
-    # distrib = to_numpy(activity.flatten())
-    # activity = activity.t()
-
     activity = torch.tensor(x_list[0][:, :, 6:7],device=device)
     activity = activity.squeeze()
     distrib = to_numpy(activity.flatten())
@@ -4158,56 +4155,6 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
         raw_activity = raw_activity.squeeze()
         raw_activity = raw_activity.t()
 
-    # plt.figure(figsize=(15, 10))
-    # window_size = 25
-    # window_end = 50000
-    # ts = to_numpy(activity[600, :])
-    # ts_avg = np.convolve(ts, np.ones(window_size) / window_size, mode='valid')
-    # plt.plot(ts[window_size // 2:window_end + window_size // 2], linewidth=1)
-    # plt.plot(ts_avg, linewidth=2)
-    # plt.plot(ts[window_size // 2:window_end + window_size // 2] - ts_avg[0:window_end])
-    # plt.xlim([window_end - 5000, window_end])
-    # plt.close
-    # signal_power = np.mean(ts_avg[window_size // 2:window_end + window_size // 2] ** 2)
-    # # Compute the noise power
-    # noise_power = np.mean((ts[window_size // 2:window_end + window_size // 2] - ts_avg[0:window_end]) ** 2)
-    # # Calculate the signal-to-noise ratio (SNR)
-    # snr = signal_power / noise_power
-    # print(f"Signal-to-Noise Ratio (SNR): {snr:0.2f} 10log10 {10 * np.log10(snr):0.2f}")
-
-    # # Parameters
-    # fs = 1000  # Sampling frequency
-    # t = np.arange(0, 1, 1 / fs)  # Time vector
-    # frequency = 5  # Frequency of the sine wave
-    # desired_snr_db = 10 * np.log10(snr)  # Desired SNR in dB
-    # # Generate a clean signal (sine wave)
-    # clean_signal = np.sin(2 * np.pi * frequency * t)
-    # # Calculate the power of the clean signal
-    # signal_power = np.mean(clean_signal ** 2)
-    # # Calculate the noise power required to achieve the desired SNR
-    # desired_snr_linear = 10 ** (desired_snr_db / 10)
-    # noise_power = signal_power / desired_snr_linear
-    # # Generate noise with the calculated power
-    # noise = np.sqrt(noise_power) * np.random.randn(len(t))
-    # # Create a noisy signal by adding noise to the clean signal
-    # noisy_signal = clean_signal + noise
-    # # Plot the clean signal and the noisy signal
-    # plt.figure(figsize=(15, 10))
-    # plt.subplot(2, 1, 1)
-    # plt.plot(t, clean_signal)
-    # plt.title('Clean Signal')
-    # plt.subplot(2, 1, 2)
-    # plt.plot(t, noisy_signal)
-    # plt.plot(t, noise)
-    # plt.title(f'Noisy Signal with SNR = {desired_snr_db} dB')
-    # plt.tight_layout()
-    # plt.show()
-
-
-    # if os.path.exists(f'./graphs_data/{dataset_name}/X1.pt') > 0:
-    #     X1_first = torch.load(f'./graphs_data/{dataset_name}/X1.pt', map_location=device)
-    #     X_msg = torch.load(f'./graphs_data/{dataset_name}/X_msg.pt', map_location=device)
-    # else:
     xc, yc = get_equidistant_points(n_points=n_neurons)
     X1_first = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
     perm = torch.randperm(X1_first.size(0))
@@ -4299,9 +4246,9 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 fig, ax = fig_init()
                 for n in range(n_neuron_types-1,-1,-1):
                     pos = torch.argwhere(type_list == n).squeeze()
-                    plt.scatter(to_numpy(model_a[pos, 0]), to_numpy(model_a[pos, 1]), s=50, color=mc, alpha=1.0, edgecolors='none')   # cmap.color(n)
-                plt.xlabel(r'$a_{0}$', fontsize=68)
-                plt.ylabel(r'$a_{1}$', fontsize=68)
+                    plt.scatter(to_numpy(model_a[pos, 0]), to_numpy(model_a[pos, 1]), s=50, color=cmap.color(n), alpha=1.0, edgecolors='none')   # cmap.color(n)
+                plt.xlabel(r'$\mathbf{a}_0$', fontsize=68)
+                plt.ylabel(r'$\mathbf{a}_1$', fontsize=68)
                 plt.xlim([-0.1, 1.1])
                 plt.ylim([-0.1, 1.1])
                 plt.tight_layout()
@@ -4322,14 +4269,13 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 A = A.t()
 
                 fig, ax = fig_init()
-                ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=-4,vmax=4)
+                ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=-0.1,vmax=0.1)
                 cbar = ax.collections[0].colorbar
                 cbar.ax.tick_params(labelsize=48)
                 plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=24)
                 plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=24)
                 plt.subplot(2, 2, 1)
-
-                ax = sns.heatmap(to_numpy(A[0:20, 0:20])/second_correction, cbar=False, center=0, square=True, cmap='bwr', vmin=-4, vmax=4)
+                ax = sns.heatmap(to_numpy(A[0:20, 0:20])/second_correction, cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
                 plt.xticks([])
                 plt.yticks([])
                 plt.tight_layout()
@@ -4435,7 +4381,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     plt.ylim([-1.5, 1.5])
                     plt.xlim([-5,5])
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/all/MLP1_{epoch}.png", dpi=80)
+                    plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
 
                 fig, ax = fig_init()
@@ -4458,9 +4404,10 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
                 plt.close()
 
-                adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
-                adjacency_ = adjacency.t().clone().detach()
-                adj_t = torch.abs(adjacency_) > 0
+                connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+
+                adjacency = connectivity.t().clone().detach()
+                adj_t = torch.abs(adjacency) > 0
                 edge_index = adj_t.nonzero().t().contiguous()
 
                 i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
@@ -4648,12 +4595,11 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     plt.savefig(f'./{log_dir}/results/all/MLP1_{num}.png', dpi=80)
                     plt.close()
 
+                im0 = imageio.imread(f"./{log_dir}/results/all/comparison_{num}.png")
+                im1 = imageio.imread(f"./{log_dir}/results/all/embedding_{num}.png")
+                im2 = imageio.imread(f"./{log_dir}/results/all/MLP0_{num}.png")
+                im3 = imageio.imread(f"./{log_dir}/results/all/MLP1_{num}.png")
 
-                im0 = imread(f"./{log_dir}/results/all/W_{num}.png")
-                # im0 = imread(f"./{log_dir}/results/all/comparison_{num}.png")
-                im1 = imread(f"./{log_dir}/results/all/embedding_{num}.png")
-                im2 = imread(f"./{log_dir}/results/all/MLP0_{num}.png")
-                im3 = imread(f"./{log_dir}/results/all/MLP1_{num}.png")
                 fig = plt.figure(figsize=(16, 16))
                 plt.axis('off')
                 plt.subplot(2, 2, 1)
@@ -4813,9 +4759,12 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
             plt.savefig(f'./{log_dir}/results/activity_comparison.png', dpi=80)
             plt.close()
 
-        adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
-        adjacency_ = adjacency.t().clone().detach()
-        adj_t = torch.abs(adjacency_) > 0
+        connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+
+        adjacency = connectivity.t().clone().detach()
+        adj_t = torch.abs(adjacency) > 0
+        edge_index = adj_t.nonzero().t().contiguous()
+
         edge_index = adj_t.nonzero().t().contiguous()
         weights = to_numpy(adjacency.flatten())
         pos = np.argwhere(weights != 0)
@@ -4849,7 +4798,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
         plt.close()
 
         plt.figure(figsize=(10, 10))
-        if True: # config.graph_model.signal_model_name == 'PDE_N8':
+        if False: # config.graph_model.signal_model_name == 'PDE_N8':
             with open(f'graphs_data/{dataset_name}/larynx_neuron_list.json', 'r') as file:
                 larynx_neuron_list = json.load(file)
             with open(f'graphs_data/{dataset_name}/all_neuron_list.json', 'r') as file:
@@ -5013,7 +4962,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
             fig, ax = fig_init()
             rr = torch.linspace(-xnorm.squeeze() * 2 , xnorm.squeeze() * 2 , 1000).to(device)
             func_list = []
-            for n in trange(0,n_neurons,n_neurons//100):
+            for n in trange(0,n_neurons):
                 if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
@@ -5046,9 +4995,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
             torch.save(correction, f'{log_dir}/correction.pt')
 
             matrix_correction = torch.mean(func_list[:,950:1000], dim=1)
-            A_corrected = A
-            for i in range(n_neurons):
-                A_corrected[i, :] = A[i, :] * matrix_correction[i]
+            A_corrected = A * matrix_correction[:, None]
             plt.figure(figsize=(10, 10))
             ax = sns.heatmap(to_numpy(A_corrected), center=0, square=True, cmap='bwr',
                              cbar_kws={'fraction': 0.046}, vmin=-0.1, vmax=0.1)
@@ -5190,7 +5137,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
             for n in trange(n_neurons):
                 embedding_ = model.a[n, :] * torch.ones((1500, config.graph_model.embedding_dim), device=device)
                 # in_features = torch.cat((rr[:, None], embedding_), dim=1)
-                in_features = get_in_features_update(rr[:, None], n_neurons, embedding_, model.update_type, device)
+                in_features = get_in_features_update(rr[:, None], model, embedding_, device)
                 with torch.no_grad():
                     func = model.lin_phi(in_features.float())
                 func = func[:, 0]
@@ -5267,7 +5214,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
             plt.close()
 
             fig, ax = fig_init()
-            gt_weight = to_numpy(adjacency)
+            gt_weight = to_numpy(connectivity)
             pred_weight = to_numpy(A)
             plt.scatter(gt_weight, pred_weight / 10 , s=0.1, c=mc, alpha=0.1)
             plt.xlabel(r'true $W_{ij}$', fontsize=68)
@@ -5297,7 +5244,7 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
             np.save(f'{log_dir}/second_correction.npy', second_correction)
 
             fig, ax = fig_init()
-            gt_weight = to_numpy(adjacency)
+            gt_weight = to_numpy(connectivity)
             pred_weight = to_numpy(A)
             plt.scatter(gt_weight, pred_weight / second_correction, s=0.1, c=mc, alpha=0.1)
             plt.xlabel(r'true $W_{ij}$', fontsize=68)
@@ -7268,7 +7215,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_22_10']
 
     # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
-    config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
+    # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
     
     # config_list = ['fly_N9_44_15', 'fly_N9_44_23', 'fly_N9_44_26']
@@ -7276,6 +7223,8 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
     # compare_experiments(config_list, None)
+
+    config_list = ['signal_N2_1', 'signal_2', 'signal_3', 'signal_4', 'signal_5', 'signal_6', 'signal_7', 'signal_8']
 
     for config_file_ in config_list:
         print(' ')
@@ -7289,6 +7238,6 @@ if __name__ == '__main__':
         data_plot(config=config, config_file=config_file, epoch_list=['all'], style='white color', extended='plots', device=device)
 
 
-    get_figures('weight_vs_noise')
+    # get_figures('weight_vs_noise')
     # get_figures('correction_weight')
     # get_figures('correction_weight_44_6')

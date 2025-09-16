@@ -13,6 +13,8 @@ from NeuralGraph.models.Siren_Network import *
 from NeuralGraph.models.Signal_Propagation_FlyVis import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
+from NeuralGraph.generators.davis import *
+
 from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
 
@@ -1302,7 +1304,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
     if 'fly' in config.dataset:
-        data_test_flyvis(config, visualize, style, verbose, best_model, step, device)
+        data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, device)
     else:
         data_test_synaptic2(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, device)
 
@@ -1436,7 +1438,6 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
             perm = torch.randperm(X_msg.size(0))
             X_msg = X_msg[perm]
             torch.save(X_msg, f'./graphs_data/{dataset_name}/X_msg.pt')
-
 
     model_generator, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
 
@@ -1979,7 +1980,7 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
         plt.close
 
 
-def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, device=None):
+def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', device=None):
 
     if "black" in style:
         plt.style.use("dark_background")
@@ -2028,7 +2029,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     calcium_beta = simulation_config.calcium_beta
 
     run = 0
-
 
     extent = 8
     # Import only what's needed for mixed functionality
@@ -2214,9 +2214,21 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     mask = torch.arange(edges.shape[1])
 
+    if 'test_ablation' in test_mode:
+        #  test_mode="test_ablation_100"
+        ablation_ratio = int(test_mode.split('_')[-1]) / 100
+        print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
+        n_ablation = int(edges.shape[1] * ablation_ratio)
+        index_ablation = np.random.choice(np.arange(edges.shape[1]), n_ablation, replace=False)
+
+        with torch.no_grad():
+            pde.p['w'][index_ablation] = 0
+            model.W[index_ablation] = 0
+
+
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
-            for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="Processing stimulus data")):
+            for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="processing stimulus data")):
 
                 sequences = data["lum"]
 
@@ -2721,6 +2733,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         plt.savefig(f"./{log_dir}/results/activity_voltage.tif", dpi=300)
         plt.close()
 
+    # Add this code after the existing activity plots (around line 800)
+
     # 8x8 panel plot for each neuron type - comparing ground truth vs predicted
     print('plot 8x8 panel for neuron types (ground truth vs predicted)...')
 
@@ -2804,7 +2818,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             
             # Add y-axis ticks for all panels
             ax.set_yticks([y_min, (y_min+y_max)/2, y_max])
-            ax.set_yticklabels([f'{y_min:.1f}', f'{(y_min+y_max)/2:.1f}', f'{y_max:.1f}'], fontsize=14)
+            ax.set_yticklabels([f'{y_min:.2f}', f'{(y_min+y_max)/2:.2f}', f'{y_max:.2f}'], fontsize=14)
             
         else:
             # No neurons of this type
@@ -2829,13 +2843,11 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             y_min_panel = min(np.min(true_data_panel), np.min(pred_data_panel))
             y_max_panel = max(np.max(true_data_panel), np.max(pred_data_panel))
             ax.set_yticks([y_min_panel, (y_min_panel+y_max_panel)/2, y_max_panel])
-            ax.set_yticklabels([f'{y_min_panel:.1f}', f'{(y_min_panel+y_max_panel)/2:.1f}', f'{y_max_panel:.1f}'], fontsize=14)
+            ax.set_yticklabels([f'{y_min_panel:.2f}', f'{(y_min_panel+y_max_panel)/2:.2f}', f'{y_max_panel:.2f}'], fontsize=14)
 
     # Hide remaining panels if any
     for idx in range(64, len(axes_flat)):
         axes_flat[idx].set_visible(False)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison_{best_model}.png", dpi=150)
+    plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison.png", dpi=150)
     plt.close()
-
-    print(f'Saved 8x8 comparison panel to {log_dir}/results/activity_8x8_panel_comparison.png')
