@@ -58,17 +58,17 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = 'best'
-        # best_model = '0_22680'
-        task = 'test'  # 'generate', 'train', 'test'
+        best_model = '3_960000'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
         # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
-        # config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
+        # config_list = ['fly_N9_44_26'] #, 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
 
-        # config_list = ['signal_N2_3', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
+        config_list = ['signal_N2_1', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
 
-        config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
+        # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
         # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
@@ -103,28 +103,23 @@ if __name__ == "__main__":
             data_train(config=config, erase=False, best_model=best_model, device=device)
             
         if "test" in task:
-            # for run_ in range(2,10):
-            # data_test(config=config, visualize=True, style='black color name', verbose=False, best_model='best',
-            #           run=run_, test_mode='fixed_bounce_all', sample_embedding=False, step=4,
-            #           device=device)  # particle_of_interest=100, 'fixed_bounce_all'
 
+            # best_model_list = ['0_0', '0_22680', '0_45360', '0_68040', '0_90720', '0_113400', '0_136080', '0_158760', '0_181440', '0_226800', '0_204120', '1_0', '2_0', '3_0', '4_0', '5_0', '6_0', '7_0', '8_0', '9_0']
+            # for best_model in best_model_list:  
 
-            best_model_list = ['0_0', '0_22680', '0_45360', '0_68040', '0_90720', '0_113400', '0_136080', '0_158760', '0_181440', '0_226800', '0_204120', '1_0', '2_0', '3_0', '4_0', '5_0', '6_0', '7_0', '8_0', '9_0']
-            for best_model in best_model_list:  
-
-                data_test(
-                    config=config,
-                    visualize=True,
-                    style="black color name",
-                    verbose=False,
-                    best_model=best_model,
-                    run=0,
-                    test_mode="test_ablation_0",
-                    sample_embedding=False,
-                    step=100,
-                    device=device,
-                    particle_of_interest=0,
-                )  # particle_of_interest=100,  'fixed_bounce_all'
+            data_test(
+                config=config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model=best_model,
+                run=0,
+                test_mode="test_ablation_0",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )  # particle_of_interest=100,  'fixed_bounce_all'
 
 
 # bsub -n 4 -gpu "num=1" -q gpu_h100 -Is "python GNN_Main.py"
