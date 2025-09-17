@@ -145,7 +145,6 @@ def skip_to(file, start_line):
         return pos + 1
 
 
-
 def process_trace(trace):
     '''
     Returns activity traces with normalization based on mean and standard devation.
@@ -768,57 +767,3 @@ def load_csv_from_descriptors(
 
     return data
 
-
-def load_wanglab_salivary_gland(
-        file_path: str,
-        *,
-        device: str = 'cuda:0'
-) -> Tuple[TimeSeries, torch.Tensor]:
-    """
-    Load the Wanglab salivary gland data from a CSV file and convert it to a pytorch_geometric Data object.
-
-    :param file_path: The path to the CSV file.
-    :param device: The PyTorch device to allocate the tensors on.
-    :return: A :py:class:`TimeSeries` object containing the loaded data for each time point.
-    """
-
-    # Load the data of interest from the CSV file
-    column_descriptors = {
-        'x': CsvDescriptor(filename=file_path, column_name="Position X", type=np.float32, unit=u.micrometer),
-        'y': CsvDescriptor(filename=file_path, column_name="Position Y", type=np.float32, unit=u.micrometer),
-        'z': CsvDescriptor(filename=file_path, column_name="Position Z", type=np.float32, unit=u.micrometer),
-        't': CsvDescriptor(filename=file_path, column_name="Time", type=np.float32, unit=u.day),
-        'track_id': CsvDescriptor(filename=file_path, column_name="TrackID", type=np.int64,
-                                  unit=u.dimensionless_unscaled),
-    }
-    raw_data = load_csv_from_descriptors(column_descriptors, skiprows=3)
-    raw_tensors = {name: torch.tensor(raw_data[name].to_numpy(), device=device) for name in column_descriptors.keys()}
-
-    # Split into individual data objects for each time point
-    t = raw_tensors['t']
-    time_jumps = torch.where(torch.diff(t).ne(0))[0] + 1
-    time = torch.unique_consecutive(t)
-    x = torch.tensor_split(raw_tensors['x'], time_jumps.tolist())
-    y = torch.tensor_split(raw_tensors['y'], time_jumps.tolist())
-    z = torch.tensor_split(raw_tensors['z'], time_jumps.tolist())
-    global_ids, id_indices = torch.unique(raw_tensors['track_id'], return_inverse=True)
-    id = torch.tensor_split(id_indices, time_jumps.tolist())
-
-    # Combine the data into a TimeSeries object
-    n_time_steps = len(time)
-    data = []
-    for i in range(n_time_steps):
-        data.append(Data(
-            time=time[i],
-            pos=torch.stack([x[i], y[i], z[i]], dim=1),
-            track_id=id[i],
-        ))
-
-    time_series = TimeSeries(time, data)
-
-    # Compute the velocity as the derivative of the position and add it to the time series
-    velocity, _ = time_series.compute_derivative('pos', id_name='track_id')
-    for i in range(n_time_steps):
-        data[i].velocity = velocity[i]
-
-    return time_series, global_ids

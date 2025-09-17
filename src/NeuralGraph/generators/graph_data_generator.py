@@ -1550,10 +1550,10 @@ def data_generate_synaptic(
         for i in range(NN):
             plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=2)
         plt.xlabel("time", fontsize=64)
-        plt.ylabel("$x_{i}$", fontsize=64)
+        plt.ylabel("$v_{i}$", fontsize=64)
         # plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
-        plt.xticks(fontsize=48)
-        plt.yticks(fontsize=48)
+        plt.xticks(fontsize=24)
+        plt.yticks(fontsize=24)
         plt.tight_layout()
         plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
         plt.xlim([0, 1000])

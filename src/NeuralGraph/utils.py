@@ -721,9 +721,9 @@ def check_and_clear_memory(
             gc.collect()
             torch.cuda.empty_cache()
 
-            if (iteration_number==0):
-                logger.info(f"total allocated memory: {torch.cuda.memory_allocated(device) / 1024 ** 3:.2f} GB")
-                logger.info(f"total reserved memory:  {torch.cuda.memory_reserved(device) / 1024 ** 3:.2f} GB")
+            # if (iteration_number==0):
+            #     logger.info(f"total allocated memory: {torch.cuda.memory_allocated(device) / 1024 ** 3:.2f} GB")
+            #     logger.info(f"total reserved memory:  {torch.cuda.memory_reserved(device) / 1024 ** 3:.2f} GB")
 
 
         if torch.cuda.memory_allocated(device) > memory_percentage_threshold * torch.cuda.get_device_properties(device).total_memory:
