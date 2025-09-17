@@ -4084,7 +4084,7 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
     return fig
 
 
-def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, device):
+def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
     data_folder_name = config.data_folder_name
@@ -4223,8 +4223,6 @@ def plot_synaptic2(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 file_id = file_id_list[file_id_]
                 epoch = files[file_id].split('graphs')[1][1:-3]
                 net = f"{log_dir}/models/best_model_with_{n_runs-1}_graphs_{epoch}.pt"
-
-                print(net)
 
                 state_dict = torch.load(net, map_location=device)
                 model.load_state_dict(state_dict['model_state_dict'])
@@ -6797,7 +6795,7 @@ def data_plot(config, config_file, epoch_list, style, extended, device):
             if 'fly' in config.dataset:
                 plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
             else:
-                plot_synaptic2(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
+                plot_signal(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
 
     for handler in logger.handlers[:]:
         handler.close()
@@ -6809,6 +6807,168 @@ def get_figures(index):
     plt.style.use('default')
 
     match index:
+
+
+        case 'new_network_1':
+            config_file_ = 'signal_N2_3'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_0",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+                new_params = [50, 10, 20, 30, 60],
+            )
+
+        case 'ablation_weights':
+            config_file_ = 'signal_N2_3'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_0",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_50",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_90",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+
+        case 'ablation_cells':
+            config_file_ = 'signal_N2_3'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_inactivity_0",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_inactivity_25",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_inactivity_50",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+
+        case 'permutation_types':
+            config_file_ = 'signal_N2_3'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_permutation_0",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_permutation_50",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_permutation_90",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+            )
+
+
         case 'weight_vs_noise':
 
             config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
@@ -7224,20 +7384,25 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
     # compare_experiments(config_list, None)
 
-    config_list = ['signal_N2_1', 'signal_2', 'signal_3', 'signal_4', 'signal_5', 'signal_6', 'signal_7', 'signal_8']
-
-    for config_file_ in config_list:
-        print(' ')
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='white color', extended='plots', device=device)
+    # config_list = ['signal_N2_1', 'signal_N2_1', 'signal_N2_3', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
+    
+    # for config_file_ in config_list:
+    #     print(' ')
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
 
     # get_figures('weight_vs_noise')
     # get_figures('correction_weight')
     # get_figures('correction_weight_44_6')
+
+    # get_figures('ablation_weights')
+    # get_figures('ablation_cells')
+    # get_figures('permutation_types')
+    get_figures('new_network_1')

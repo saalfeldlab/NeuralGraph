@@ -416,9 +416,9 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         actual_connections = mask.sum().item()
         effective_filling_factor = actual_connections / total_possible
 
-        print(f"Target filling factor: {connectivity_filling_factor}")
-        print(f"Effective filling factor: {effective_filling_factor:.6f}")
-        print(f"Actual connections: {int(actual_connections)}/{total_possible}")
+        print(f"target filling factor: {connectivity_filling_factor}")
+        print(f"effective filling factor: {effective_filling_factor:.6f}")
+        print(f"actual connections: {int(actual_connections)}/{total_possible}")
 
         if n_neurons > 10000:
             edge_index = large_tensor_nonzero(mask)

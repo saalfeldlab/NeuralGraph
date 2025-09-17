@@ -2,6 +2,7 @@ import os
 import time
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import torch
 import torch.nn.functional as F
 import random
@@ -14,11 +15,11 @@ from NeuralGraph.models.Signal_Propagation_FlyVis import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.generators.davis import *
+from NeuralGraph.fitting_models import linear_model
 
 from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
 
-from NeuralGraph.fitting_models import linear_model
 from torch_geometric.utils import dense_to_sparse
 import torch.optim as optim
 import seaborn as sns
@@ -54,10 +55,10 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     if 'fly' in config.dataset:
         data_train_flyvis(config, erase, best_model, device)
     else:
-        data_train_synaptic2(config, erase, best_model, device)
+        data_train_signal(config, erase, best_model, device)
 
 
-def data_train_synaptic2(config, erase, best_model, device):
+def data_train_signal(config, erase, best_model, device):
     simulation_config = config.simulation
     train_config = config.training
     model_config = config.graph_model
@@ -1297,19 +1298,19 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
 def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15,
-              ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, device=[]):
+              ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
 
     dataset_name = config.dataset
     print('')
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
     if 'fly' in config.dataset:
-        data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, device)
+        data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, new_params, device)
     else:
-        data_test_synaptic2(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, device)
+        data_test_signal(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 
 
-def data_test_synaptic2(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, device=[]):
+def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
     dataset_name = config.dataset
     simulation_config = config.simulation
     model_config = config.graph_model
@@ -1333,6 +1334,26 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
 
     torch.random.fork_rng(devices=device)
     torch.random.manual_seed(simulation_config.seed)
+
+    if 'latex' in style:
+        print('latex style...')
+        # plt.rcParams['text.usetex'] = True
+        # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+        mpl.rcParams.update({
+            "text.usetex": True,                    # use LaTeX for all text
+            "font.family": "serif",                 # tell mpl to prefer serifs
+            "text.latex.preamble": r"""
+                \usepackage[T1]{fontenc}
+                \usepackage[sc]{mathpazo} % Palatino text + math
+                \linespread{1.05}         % optional: Palatino needs a bit more leading
+            """,
+        })
+    if 'black' in style:
+        plt.style.use('dark_background')
+        mc = 'w'
+    else:
+        plt.style.use('default')
+        mc = 'k'
 
 
     field_type = model_config.field_type
@@ -1394,13 +1415,6 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
     if vnorm == 0:
         vnorm = ynorm
 
-    # if has_adjacency_matrix:
-    #     mat = scipy.io.loadmat(simulation_config.connectivity_file)
-    #     adjacency = torch.tensor(mat['A'], device=device)
-    #     adj_t = adjacency > 0
-    #     edge_index = adj_t.nonzero().t().contiguous()
-    #     edge_attr_adjacency = adjacency[adj_t]
-
 
     connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
     if training_config.with_connectivity_mask:
@@ -1458,17 +1472,7 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
     state_dict = torch.load(net, map_location=device, weights_only=True)
     model.load_state_dict(state_dict['model_state_dict'])
     model.eval()
-    
-    if 'test_ablation' in test_mode:
-        #  test_mode="test_ablation_100"
-        ablation_ratio = int(test_mode.split('_')[-1]) / 100
-        print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
-        n_ablation = int(n_neurons * ablation_ratio)
-        index_ablation = np.random.choice(np.arange(n_neurons), n_ablation, replace=False)
 
-        with torch.no_grad():
-            model.W[index_ablation, :] = 0
-            model_generator.W[index_ablation, :] = 0
 
     if ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
         model_f = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
@@ -1526,22 +1530,88 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
 
     x = x_list[0][start_it].clone().detach()
     x_generated = x_list[0][start_it].clone().detach()
-    
+
+    if 'test_ablation' in test_mode:
+        #  test_mode="test_ablation_100"
+        ablation_ratio = int(test_mode.split('_')[-1]) / 100
+        print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
+        n_ablation = int(n_neurons * ablation_ratio)
+        index_ablation = np.random.choice(np.arange(n_neurons), n_ablation, replace=False)
+        with torch.no_grad():
+            model.W[index_ablation, :] = 0
+            model_generator.W[index_ablation, :] = 0
+    else:
+        ablation_ratio = 0
+
+    if 'test_inactivity' in test_mode:
+        #  test_mode="test_inactivity_100"
+        inactivity_ratio = int(test_mode.split('_')[-1]) / 100
+        print(f'\033[93mtest inactivity ratio {inactivity_ratio} \033[0m')
+        n_inactivity = int(n_neurons * inactivity_ratio)
+        index_inactivity = np.random.choice(np.arange(n_neurons), n_inactivity, replace=False)
+
+        x[index_inactivity, 6] = 0
+        x_generated[index_inactivity, 6] = 0
+
+        with torch.no_grad():
+            model.W[index_inactivity, :] = 0
+            model.W[:, index_inactivity] = 0
+            model_generator.W[index_inactivity, :] = 0
+            model_generator.W[:, index_inactivity] = 0
+    else:
+        inactivity_ratio = 0
+
+    if 'test_permutation' in test_mode:
+        permutation_ratio = int(test_mode.split('_')[-1]) / 100
+        print(f'\033[93mtest permutation ratio {permutation_ratio} \033[0m')
+
+        n_permutation = int(n_neurons * permutation_ratio)
+        index_permutation = np.random.choice(np.arange(n_neurons), n_permutation, replace=False)
+        rnd_perm = torch.randperm(n_permutation)
+        
+        x_permuted = x[index_permutation, 5].clone().detach()
+        x_generated_permuted = x_generated[index_permutation, 5].clone().detach()
+
+        x[index_permutation, 5] = x_permuted[rnd_perm]
+        x_generated[index_permutation, 5] = x_generated_permuted[rnd_perm]
+
+        a_permuted = model.a[index_permutation].clone().detach()
+        with torch.no_grad():
+            model.a[index_permutation] = a_permuted[rnd_perm]
+    else:
+        permutation_ratio = 0
+
+    if new_params is not None:
+        print('set new parameters for testing ...')
+        
+        edge_index_, connectivity, mask = init_connectivity(
+                simulation_config.connectivity_file,
+                simulation_config.connectivity_distribution,
+                new_params[0],
+                None,
+                n_neurons,
+                n_neuron_types,
+                dataset_name,
+                device,
+            )
+
+        second_correction = np.load(f'{log_dir}/second_correction.npy')
+        print(f'second_correction: {second_correction}')
+        # calculate slope between model.W and model_generator.W
+        slope = (model_generator.W / model.W).mean()
+        print(f'slope between model.W and model_generator.W: {slope}')
+
+        with torch.no_grad():
+            model_generator.W = torch.nn.Parameter(torch.tensor(connectivity, device=device))
+            model.W = torch.nn.Parameter(model_generator.W.clone() * torch.tensor(second_correction, device=device))
+
     n_neurons = x.shape[0]
-    x_inference_list = []
     neuron_gt_list = []
     neuron_pred_list = []
     neuron_generated_list = []
 
-
     for it in trange(start_it,start_it+800):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
-        # check_and_clear_memory(device=device, iteration_number=it, every_n_iterations=25,
-        #                        memory_percentage_threshold=0.6)
-        # print(f"Total allocated memory: {torch.cuda.memory_allocated(device) / 1024 ** 3:.2f} GB")
-        # print(f"Total reserved memory:  {torch.cuda.memory_reserved(device) / 1024 ** 3:.2f} GB")
-
-        # with torch.no_grad():
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
             x0_next = x_list[0][(it + time_step)].clone().detach()
@@ -1594,12 +1664,6 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
             ids_missing = torch.argwhere(x[:, 6] == baseline_value)
             x[ids_missing, 6] = missing_activity[ids_missing]
 
-        # nan_mask = torch.isnan(x[:, 6])
-        # x[nan_mask, 6] = baseline_value
-        # nan_mask = torch.isnan(x_generated[:, 6])
-        # x_generated[nan_mask, 6] = baseline_value
-
-
         with torch.no_grad():
             dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
             pred = model(dataset, data_id=data_id)
@@ -1611,11 +1675,12 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
         x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
         x_generated[:n_neurons, 6:7] = x_generated[:n_neurons, 6:7] + pred_generator[:n_neurons] * delta_t
 
+        if 'test_inactivity' in test_mode:
+            x[index_inactivity, 6:7] = 0
+            x_generated[index_inactivity, 6:7] = 0
 
         # if 'CElegans' in dataset_name:
         #     x[:n_neurons, 6:7] = torch.clamp(x[:n_neurons, 6:7], min=0, max=10)
-
-
 
         # vizualization
         if 'plot_data' in test_mode:
@@ -1624,16 +1689,6 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
         if (it % step == 0) & (it >= 0) & visualize:
 
             num = f"{it:06}"
-
-            if 'latex' in style:
-                plt.rcParams['text.usetex'] = True
-                rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-            if 'black' in style:
-                plt.style.use('dark_background')
-                mc = 'w'
-            else:
-                plt.style.use('default')
-                mc = 'k'
 
             fig, ax = fig_init(formatx='%.1f', formaty='%.1f')
             ax.tick_params(axis='both', which='major', pad=15)
@@ -1668,7 +1723,9 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
                 plt.tight_layout()
                 plt.savefig(f"./{log_dir}/tmp_recons/Fig_{config_file}_{num}.tif", dpi=80)
                 plt.close()
+
             else:
+
                 plt.close()
                 matplotlib.rcParams['savefig.pad_inches'] = 0
 
@@ -1677,12 +1734,6 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
 
                 plt.figure(figsize=(10, 10))
                 plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), s=700, c=to_numpy(x[:, 6]), alpha=1, edgecolors='none', vmin =2 , vmax=8, cmap=black_to_green)
-
-                # if 'excitation' in model.update_type:
-                #     plt.scatter(-0.45, 0.5, s=700, c=to_numpy(x[0, 10]) + 0.25, cmap=black_to_yellow, vmin=0, vmax=1)
-                #     plt.scatter(-0.4, 0.5, s=700, c=to_numpy(x[0, 11]) + 0.25, cmap=black_to_yellow, vmin=0, vmax=1)
-                #     plt.scatter(-0.35, 0.5, s=700, c=to_numpy(x[0, 12]) + 0.25, cmap=black_to_yellow, vmin=0, vmax=1)
-
                 plt.axis('off')
                 plt.xticks([])
                 plt.yticks([])
@@ -1691,27 +1742,6 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
                 plt.tight_layout()
                 plt.savefig(f"./{log_dir}/tmp_recons/Nodes_{config_file}_{num}.tif", dpi=80)
                 plt.close()
-
-                # im = imread(f"./{log_dir}/tmp_recons/Nodes_{config_file}_{num}.tif")
-                # plt.figure(figsize=(10, 10))
-                # plt.imshow(im)
-                # plt.axis('off')
-                # plt.xticks([])
-                # plt.yticks([])
-                # plt.subplot(3, 3, 1)
-                # plt.imshow(im[800:1000, 800:1000, :])
-                # plt.xticks([])
-                # plt.yticks([])
-                # plt.tight_layout()
-                # plt.savefig(f"./{log_dir}/tmp_recons/Nodes_{config_file}_{num}.tif", dpi=80)
-                # plt.close()
-
-            if 'no_ticks' in style:
-                plt.xticks([])
-                plt.yticks([])
-
-            # save figure
-
 
             if (it % 200 == 0) & (it > 0):
                 if 'CElegans' in dataset_name:
@@ -1726,107 +1756,89 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
                 neuron_pred_list_ = torch.reshape(neuron_pred_list_, (neuron_pred_list_.shape[0] // n_neurons, n_neurons))
                 neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // n_neurons, n_neurons))
 
+
+                mpl.rcParams.update({
+                    "text.usetex": True,
+                    "font.family": "serif",
+                    "font.size": 12,           # Base font size
+                    "axes.labelsize": 14,      # Axis labels
+                    "legend.fontsize": 12,     # Legend
+                    "xtick.labelsize": 10,     # Tick labels
+                    "ytick.labelsize": 10,
+                    "text.latex.preamble": r"""
+                        \usepackage[T1]{fontenc}
+                        \usepackage[sc]{mathpazo}
+                        \linespread{1.05}
+                    """,
+                })
+
+
                 plt.figure(figsize=(20, 10))
 
-
-                if 'ablation' not in test_mode:
-
-                    ax = plt.subplot(121)
-
-                    # Plot ground truth with distinct gray color, visible in legend
-                    for i in range(10):
-                        color = 'gray' if i == 0 else None  # Only label first
+                ax = plt.subplot(121)
+                # Plot ground truth with distinct gray color, visible in legend
+                for i in range(10):
+                    color = 'gray' if i == 0 else None  # Only label first
+                    if ablation_ratio > 0:
+                        label = f'true ablation {ablation_ratio}' if i == 0 else None
+                    elif inactivity_ratio > 0:
+                        label = f'true inactivity {inactivity_ratio}' if i == 0 else None
+                    elif permutation_ratio > 0:
+                        label = f'true permutation {permutation_ratio}' if i == 0 else None
+                    else:
                         label = 'true' if i == 0 else None
-                        plt.plot(neuron_gt_list_[:, n[i]].detach().cpu().numpy(), 
-                                c='gray', linewidth=16, alpha=0.5, label=label)
+                    plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy(), 
+                            c='gray', linewidth=8, alpha=0.5, label=label)
+                # Plot predictions with colored lines
+                colors = plt.cm.tab10(np.linspace(0, 1, 10))
+                for i in range(10):
+                    label = 'learned' if i == 0 else None
+                    plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy(), 
+                            linewidth=3, c=colors[i], label=label)
+                plt.legend(fontsize=24)
+                plt.xlim([0, it])
+                plt.xlabel('time-points', fontsize=48)
+                plt.ylabel('$x_i$', fontsize=48)
+                plt.xticks(fontsize=24)
+                plt.yticks(fontsize=24)
+                plt.ylim([-30, 30])
 
-                    # Plot predictions with colored lines
-                    colors = plt.cm.tab10(np.linspace(0, 1, 10))
-                    for i in range(10):
-                        label = 'learned' if i == 0 else None
-                        plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy(), 
-                                linewidth=3, c=colors[i], label=label)
+                ax = plt.subplot(122)
+                plt.scatter(to_numpy(neuron_generated_list_[-1, :]), 
+                        to_numpy(neuron_pred_list_[-1, :]), s=10, c=mc)
+                plt.xlim([-30, 30])
+                plt.ylim([-30, 30])
+                plt.xticks(fontsize=24)
+                plt.yticks(fontsize=24)
 
-                    plt.legend(fontsize=24)
-                    plt.xlim([0, it])
-                    plt.xlabel('time-points', fontsize=48)
-                    plt.ylabel('$v_i$', fontsize=48)
-                    plt.xticks(fontsize=24)
-                    plt.yticks(fontsize=24)
-                    plt.ylim([-30, 30])
+                x_data = to_numpy(neuron_generated_list_[-1, :])
+                y_data = to_numpy(neuron_pred_list_[-1, :])
+                lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
+                residuals = y_data - linear_model(x_data, *lin_fit)
+                ss_res = np.sum(residuals ** 2)
+                ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+                r_squared = 1 - (ss_res / ss_tot)
 
-                    ax = plt.subplot(122)
-                    plt.scatter(to_numpy(neuron_gt_list_[-1, :]), 
-                            to_numpy(neuron_pred_list_[-1, :]), s=10, c=mc)
-                    plt.xlim([-30, 30])
-                    plt.ylim([-30, 30])
-                    plt.xticks(fontsize=24)
-                    plt.yticks(fontsize=24)
+                plt.xlabel('true $x_i$', fontsize=48)
+                plt.ylabel('learned $x_i$', fontsize=48)
+                plt.text(-28.5, 26, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
+                plt.text(-28.5, 22, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
 
-                    x_data = to_numpy(neuron_gt_list_[-1, :])
-                    y_data = to_numpy(neuron_pred_list_[-1, :])
-                    lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-                    residuals = y_data - linear_model(x_data, *lin_fit)
-                    ss_res = np.sum(residuals ** 2)
-                    ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                    r_squared = 1 - (ss_res / ss_tot)
-
-                    plt.xlabel('true $v_i$', fontsize=48)
-                    plt.ylabel('learned $v_i$', fontsize=48)
-                    plt.text(-28.5, 26, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
-                    plt.text(-28.5, 22, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
-
-                else:
-
-                    ax = plt.subplot(121)
-
-                    # Plot ground truth with distinct gray color, visible in legend
-                    for i in range(10):
-                        color = 'gray' if i == 0 else None  # Only label first
-                        if ablation_ratio == 0:
-                            label = 'true' if i == 0 else None
-                        else:
-                            label = f'true ablation {ablation_ratio}' if i == 0 else None
-                        plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy(), 
-                                c='gray', linewidth=16, alpha=0.5, label=label)
-                    # Plot predictions with colored lines
-                    colors = plt.cm.tab10(np.linspace(0, 1, 10))
-                    for i in range(10):
-                        label = 'learned' if i == 0 else None
-                        plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy(), 
-                                linewidth=3, c=colors[i], label=label)
-                    plt.legend(fontsize=24)
-                    plt.xlim([0, it])
-                    plt.xlabel('time-points', fontsize=48)
-                    plt.ylabel('$v_i$', fontsize=48)
-                    plt.xticks(fontsize=24)
-                    plt.yticks(fontsize=24)
-                    plt.ylim([-30, 30])
-
-                    ax = plt.subplot(122)
-                    plt.scatter(to_numpy(neuron_generated_list_[-1, :]), 
-                            to_numpy(neuron_pred_list_[-1, :]), s=10, c=mc)
-                    plt.xlim([-30, 30])
-                    plt.ylim([-30, 30])
-                    plt.xticks(fontsize=24)
-                    plt.yticks(fontsize=24)
-
-                    x_data = to_numpy(neuron_generated_list_[-1, :])
-                    y_data = to_numpy(neuron_pred_list_[-1, :])
-                    lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-                    residuals = y_data - linear_model(x_data, *lin_fit)
-                    ss_res = np.sum(residuals ** 2)
-                    ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                    r_squared = 1 - (ss_res / ss_tot)
-
-                    plt.xlabel('true $v_i$', fontsize=48)
-                    plt.ylabel('learned $v_i$', fontsize=48)
-                    plt.text(-28.5, 26, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
-                    plt.text(-28.5, 22, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
 
                 plt.tight_layout()
-                plt.savefig(f'./{log_dir}/results/comparison_vi_{it}.png', dpi=80)
+
+                if ablation_ratio>0:
+                    filename = f'comparison_vi_{it}_ablation_{ablation_ratio}.png'
+                elif inactivity_ratio>0:
+                    filename = f'comparison_vi_{it}_inactivity_{inactivity_ratio}.png'
+                elif permutation_ratio>0:
+                    filename = f'comparison_vi_{it}_permutation_{permutation_ratio}.png'
+                else:
+                    filename = f'comparison_vi_{it}.png'
+                
+                plt.savefig(f'./{log_dir}/results/{filename}', dpi=80)
                 plt.close()
+                print(f'saved figure ./log/{log_dir}/results/{filename}')
 
                 if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
 
@@ -1874,10 +1886,7 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
                     plt.yticks(fontsize=24)
                     plt.ylim([0, 2])
                     # plt.text(40, 26, f'time: {it}', fontsize=34)
-                    plt.tight_layout()
-                    plt.tight_layout()
-                    plt.savefig(f'./{log_dir}/results/comparison_modulation_{it}.png', dpi=80)
-                    plt.close()
+
 
     if 'inference' in test_mode:
         torch.save(x_inference_list, f"./{log_dir}/x_inference_list_{run}.pt")
@@ -1980,7 +1989,7 @@ def data_test_synaptic2(config=None, config_file=None, visualize=False, style='c
         plt.close
 
 
-def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', device=None):
+def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', new_params = None, device=None):
 
     if "black" in style:
         plt.style.use("dark_background")
