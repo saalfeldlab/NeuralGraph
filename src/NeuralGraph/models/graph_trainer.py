@@ -2,6 +2,7 @@ import os
 import time
 
 import matplotlib.pyplot as plt
+from matplotlib import rc
 import matplotlib as mpl
 import torch
 import torch.nn.functional as F
@@ -1339,15 +1340,17 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         print('latex style...')
         # plt.rcParams['text.usetex'] = True
         # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-        mpl.rcParams.update({
-            "text.usetex": True,                    # use LaTeX for all text
-            "font.family": "serif",                 # tell mpl to prefer serifs
-            "text.latex.preamble": r"""
-                \usepackage[T1]{fontenc}
-                \usepackage[sc]{mathpazo} % Palatino text + math
-                \linespread{1.05}         % optional: Palatino needs a bit more leading
-            """,
-        })
+        # mpl.rcParams.update({
+        #     "text.usetex": True,                    # use LaTeX for all text
+        #     "font.family": "serif",                 # tell mpl to prefer serifs
+        #     "text.latex.preamble": r"""
+        #         \usepackage[T1]{fontenc}
+        #         \usepackage[sc]{mathpazo} % Palatino text + math
+        #         \linespread{1.05}         % optional: Palatino needs a bit more leading
+        #     """,
+        # })
+        plt.rcParams['text.usetex'] = True
+        rc('font', **{'family': 'serif', 'serif': ['Palatino']})
     if 'black' in style:
         plt.style.use('dark_background')
         mc = 'w'
@@ -1583,6 +1586,25 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     if new_params is not None:
         print('set new parameters for testing ...')
+
+
+        plt.figure(figsize=(10, 10))
+        plt.rcParams['font.family'] = 'serif'
+        plt.rcParams['font.serif'] = ['Times New Roman', 'DejaVu Serif', 'Bitstream Vera Serif']
+        ax = sns.heatmap(to_numpy(connectivity), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
+                         vmin=-0.1, vmax=0.1)
+        cbar = ax.collections[0].colorbar
+        cbar.ax.tick_params(labelsize=32)
+        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.xticks(rotation=0)
+        plt.subplot(2, 2, 1)
+        ax = sns.heatmap(to_numpy(connectivity[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.tight_layout()
+        plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
+        plt.close()
         
         edge_index_, connectivity, mask = init_connectivity(
                 simulation_config.connectivity_file,
@@ -1594,16 +1616,99 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 dataset_name,
                 device,
             )
+        
+
+        plt.figure(figsize=(10, 10))
+        ax = sns.heatmap(to_numpy(connectivity), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
+                         vmin=-0.1, vmax=0.1)
+        cbar = ax.collections[0].colorbar
+        cbar.ax.tick_params(labelsize=32)
+        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.xticks(rotation=0)
+        plt.subplot(2, 2, 1)
+        ax = sns.heatmap(to_numpy(connectivity[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.tight_layout()
+        plt.savefig(f'./{log_dir}/results/new connectivity.png', dpi=300)
+        plt.close()
 
         second_correction = np.load(f'{log_dir}/second_correction.npy')
         print(f'second_correction: {second_correction}')
-        # calculate slope between model.W and model_generator.W
-        slope = (model_generator.W / model.W).mean()
-        print(f'slope between model.W and model_generator.W: {slope}')
 
         with torch.no_grad():
             model_generator.W = torch.nn.Parameter(torch.tensor(connectivity, device=device))
             model.W = torch.nn.Parameter(model_generator.W.clone() * torch.tensor(second_correction, device=device))
+
+        cell_types = to_numpy(x[:, 5]).astype(int)
+        type_counts = [np.sum(cell_types == n) for n in range(n_neuron_types)]
+        plt.figure(figsize=(10, 10))
+        bars = plt.bar(range(n_neuron_types), type_counts, 
+                    color=[cmap.color(n) for n in range(n_neuron_types)])
+
+        plt.xlabel('neuron type', fontsize=48)
+        plt.ylabel('count', fontsize=48)
+        plt.xticks(range(n_neuron_types),fontsize=24)
+        plt.yticks(fontsize=24)
+        plt.grid(axis='y', alpha=0.3)
+        for i, count in enumerate(type_counts):
+            plt.text(i, count + max(type_counts)*0.01, str(count), 
+                    ha='center', va='bottom', fontsize=32)
+        plt.ylim(0, 1000)
+        plt.tight_layout()
+        plt.savefig(f'./{log_dir}/results/neuron_type_histogram.png', dpi=300)
+        plt.close()        
+
+
+        first_cell_id_neurons = []
+        for n in range(n_neuron_types):
+            index = np.arange(n_neurons * n // n_neuron_types, n_neurons * (n + 1) // n_neuron_types)
+            first_cell_id_neurons.append(index)
+        id=0
+        for n in range(n_neuron_types):
+            print(f'neuron type {n}, first cell id {id}')
+            x[id:id+int(new_params[n+1]*n_neurons/100), 5] = n
+            x_generated[id:id+int(new_params[n+1]*n_neurons/100), 5] = n
+            id = id + int(new_params[n+1]*n_neurons/100)    
+        print(f'last cell id {id}, total number of neurons {n_neurons}')
+
+        first_embedding = model.a.clone().detach()
+        model_a_ = nn.Parameter(torch.tensor(np.ones((int(n_neurons), model.embedding_dim)), device=device, requires_grad=False,dtype=torch.float32))
+        for n in range(n_neurons):
+            t = to_numpy(x[n, 5]).astype(int)
+            index = first_cell_id_neurons[t][np.random.randint(len(first_cell_id_neurons[t]))]
+            with torch.no_grad():
+                model_a_[n] = first_embedding[index].clone().detach()
+        model.a = nn.Parameter(
+            torch.tensor(np.ones((int(n_neurons), model.embedding_dim)), device=device,
+                         requires_grad=False, dtype=torch.float32))
+        with torch.no_grad():
+            for n in range(model.a.shape[0]):
+                model.a[n] = model_a_[n]
+
+                cell_types = to_numpy(x[:, 5]).astype(int)
+        type_counts = [np.sum(cell_types == n) for n in range(n_neuron_types)]
+        plt.figure(figsize=(10, 10))
+        bars = plt.bar(range(n_neuron_types), type_counts, 
+                    color=[cmap.color(n) for n in range(n_neuron_types)])
+
+        plt.xlabel('neuron type', fontsize=48)
+        plt.ylabel('count', fontsize=48)
+        plt.xticks(range(n_neuron_types),fontsize=24)
+        plt.yticks(fontsize=24)
+        plt.grid(axis='y', alpha=0.3)
+        for i, count in enumerate(type_counts):
+            plt.text(i, count + max(type_counts)*0.01, str(count), 
+                    ha='center', va='bottom', fontsize=32)
+        plt.ylim(0, 1000)
+        plt.tight_layout()
+        plt.savefig(f'./{log_dir}/results/new_neuron_type_histogram.png', dpi=300)
+        plt.close()  
+
+
+
+
 
     n_neurons = x.shape[0]
     neuron_gt_list = []
@@ -1796,7 +1901,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy(), 
                             linewidth=3, c=colors[i], label=label)
                 plt.legend(fontsize=24)
-                plt.xlim([0, it])
+                plt.xlim([0, 800])
                 plt.xlabel('time-points', fontsize=48)
                 plt.ylabel('$x_i$', fontsize=48)
                 plt.xticks(fontsize=24)
