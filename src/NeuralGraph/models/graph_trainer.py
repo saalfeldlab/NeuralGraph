@@ -18,6 +18,7 @@ from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.generators.davis import *
 from NeuralGraph.fitting_models import linear_model
+from NeuralGraph.models.utils_zebra import *
 
 from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
@@ -1346,6 +1347,8 @@ def data_train_zebra(config, erase, best_model, device):
         torch.random.manual_seed(config.training.seed)
 
     cmap = CustomColorMap(config=config)
+    plt.style.use('dark_background')
+
     coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
 
     log_dir, logger = create_log_dir(config, erase)
@@ -1462,8 +1465,7 @@ def data_train_zebra(config, erase, best_model, device):
     list_loss_regul = []
     time.sleep(0.2)
 
-    k = 20
-    x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
 
     Niter = 20000
@@ -1472,61 +1474,76 @@ def data_train_zebra(config, erase, best_model, device):
 
         for N in trange(Niter):
 
+            k = np.random.randint(n_frames - data_augmentation_loop - 1)
+
             optimizer.zero_grad()
 
-            in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
-            field = model.NNR_f(in_features)**2
+            loss = 0
 
-            loss = (field - x[:, 6:7]).norm(2)
+            for k_ in range(k, k + data_augmentation_loop):
 
-            if N % 1000 == 0:
-                print("loss: {:.6f}".format(loss.item()))
-                plt.style.use('dark_background')
-
-                vmin, vmax = np.percentile(to_numpy(x[:,6]), [2, 98])
-
-                fig = plt.figure(figsize=(20, 10))
-                plt.subplot(2, 2, 1)
-                plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(x[:, 6].squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
-                plt.title('true field', fontsize=24)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.xlim([0, 2])
-                plt.ylim([0, 1.35])
-                plt.subplot(2, 2, 2)
+                x = torch.tensor(x_list[run][k_], dtype=torch.float32, device=device)
                 in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
                 field = model.NNR_f(in_features)**2
-                plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(field.squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
-                plt.title('NNR field', fontsize=24)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.xlim([0, 2])
-                plt.ylim([0, 1.35])
-                plt.subplot(2, 2, 4)
-                for k in range(500):
-                    x_ = x.clone().detach()
-                    x_ = x_ + torch.randn(x_.shape, device=device) * 0.1
-                    in_features = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
-                    field = model.NNR_f(in_features)**2
-                    plt.scatter(to_numpy(x_[:, 1]), to_numpy(x_[:, 2]), c=to_numpy(field.squeeze()), s=0.15, alpha=0.5, edgecolors='None', cmap='plasma', vmin=vmin, vmax=vmax)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.xlim([0, 2])
-                plt.ylim([0, 1.35])
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", dpi=150)
+
+                loss = loss + (field - x[:, 6:7].clone().detach()).norm(2)
 
             loss.backward()
             optimizer.step()
 
 
+            if N % 1000 == 0:
+
+                k = 20
+                x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+                with torch.no_grad():
+                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 500)
+                
+                # x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+                # in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
+                # field = model.NNR_f(in_features)**2
+                # vmin, vmax = np.percentile(to_numpy(x[:,6]), [2, 98])
+                # loss = (field - x[:, 6:7]).norm(2)
+                # print("loss: {:.6f}".format(loss.item()))
+
+                # fig = plt.figure(figsize=(17, 10))
+                # plt.subplot(2, 2, 1)
+                # plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(x[:, 6].squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
+                # plt.title('true field', fontsize=24)
+                # plt.xticks(fontsize=12)
+                # plt.yticks(fontsize=12)
+                # plt.xlim([0, 2])
+                # plt.ylim([0, 1.35])
+                # plt.subplot(2, 2, 2)
+                # in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
+                # field = model.NNR_f(in_features)**2
+                # plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(field.squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
+                # plt.title('NNR field', fontsize=24)
+                # plt.xticks(fontsize=12)
+                # plt.yticks(fontsize=12)
+                # plt.xlim([0, 2])
+                # plt.ylim([0, 1.35])
+                # plt.subplot(2, 2, 4)
+                # for loop in range(500):
+                #     x_ = x.clone().detach()
+                #     x_ = x_ + torch.randn(x_.shape, device=device) * 0.1
+                #     in_features = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
+                #     field = model.NNR_f(in_features)**2
+                #     plt.scatter(to_numpy(x_[:, 1]), to_numpy(x_[:, 2]), c=to_numpy(field.squeeze()), s=0.15, alpha=0.5, edgecolors='None', cmap='plasma', vmin=vmin, vmax=vmax)
+                # plt.xticks(fontsize=12)
+                # plt.yticks(fontsize=12)
+                # plt.xlim([0, 2])
+                # plt.ylim([0, 1.35])
+                # plt.tight_layout()
+                # plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", dpi=150)
+
+                torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
+
+
+
+
                                                     
                                             
-
-
-
-
-
 
 
 
@@ -1539,6 +1556,8 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     if 'fly' in config.dataset:
         data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, new_params, device)
+    elif 'zebra' in config.dataset:
+        data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
     else:
         data_test_signal(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 
@@ -2327,6 +2346,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
 def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', new_params = None, device=None):
+
 
     if "black" in style:
         plt.style.use("dark_background")
@@ -3197,3 +3217,123 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison.png", dpi=150)
     plt.close()
+
+
+def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device):
+
+    dataset_name = config.dataset
+    simulation_config = config.simulation
+    model_config = config.graph_model
+    training_config = config.training
+
+    n_neuron_types = simulation_config.n_neuron_types
+    n_neurons = simulation_config.n_neurons
+    n_nodes = simulation_config.n_nodes
+    n_runs = training_config.n_runs
+    n_frames = simulation_config.n_frames
+    delta_t = simulation_config.delta_t
+    time_window = training_config.time_window
+    time_step = training_config.time_step
+
+    cmap = CustomColorMap(config=config)
+    dimension = simulation_config.dimension
+
+    has_missing_activity = training_config.has_missing_activity
+    has_excitation = ('excitation' in model_config.update_type)
+    baseline_value = simulation_config.baseline_value
+
+    torch.random.fork_rng(devices=device)
+    torch.random.manual_seed(simulation_config.seed)
+
+    ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
+
+    run = 0
+
+    if 'latex' in style:
+        print('latex style...')
+        # plt.rcParams['text.usetex'] = True
+        # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+        # mpl.rcParams.update({
+        #     "text.usetex": True,                    # use LaTeX for all text
+        #     "font.family": "serif",                 # tell mpl to prefer serifs
+        #     "text.latex.preamble": r"""
+        #         \usepackage[T1]{fontenc}
+        #         \usepackage[sc]{mathpazo} % Palatino text + math
+        #         \linespread{1.05}         % optional: Palatino needs a bit more leading
+        #     """,
+        # })
+        plt.rcParams['text.usetex'] = True
+        rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+    if 'black' in style:
+        plt.style.use('dark_background')
+        mc = 'w'
+    else:
+        plt.style.use('default')
+        mc = 'k'
+
+
+    log_dir = 'log/' + config.config_file
+    files = glob.glob(f"./{log_dir}/tmp_recons/*")
+    for f in files:
+        os.remove(f)
+
+    if best_model == 'best':
+        files = glob.glob(f"{log_dir}/models/*")
+        files.sort(key=sort_key)
+        filename = files[-1]
+        filename = filename.split('/')[-1]
+        filename = filename.split('graphs')[-1][1:-3]
+        best_model = filename
+        print(f'best model: {best_model}')
+    net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
+
+    x_list = []
+    y_list = []
+
+    print('load data...')
+    if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
+        x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
+        y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
+        x_list.append(x)
+        y_list.append(y)
+    else:
+        x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
+        x = torch.tensor(x, dtype=torch.float32, device=device)
+        y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+        y = torch.tensor(y, dtype=torch.float32, device=device)
+        x_list.append(x)
+        y_list.append(y)
+        x = x_list[0][0].clone().detach()
+        n_neurons = int(x.shape[0]) 
+        config.simulation.n_neurons = n_neurons
+        n_frames = len(x_list[0])
+        index_particles = get_index_particles(x, n_neuron_types, dimension)
+        if n_neuron_types > 1000:
+            index_particles = []
+            for n in range(3):
+                index = np.arange(n_neurons * n // 3, n_neurons * (n + 1) // 3)
+                index_particles.append(index)
+                n_neuron_types = 3
+    ynorm = torch.load(f'{log_dir}/ynorm.pt', map_location=device, weights_only=True)
+    vnorm = torch.load(f'{log_dir}/vnorm.pt', map_location=device, weights_only=True)
+
+
+    model = Signal_Propagation_Zebra(aggr_type=model_config.aggr_type, config=config, device=device)
+    state_dict = torch.load(net, map_location=device, weights_only=True)
+    model.load_state_dict(state_dict['model_state_dict'])
+    model.eval()
+
+    print('recons...')
+    for it in trange(0, n_frames):
+        x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
+        with torch.no_grad():
+            plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/tmp_recons/field_{it:06d}.png", 200)
+                
+
+
+
+
+
+
+
+

@@ -57,9 +57,9 @@ if __name__ == "__main__":
         else:
             best_model = None
     else:
-        best_model = None
+        best_model ='best' 
         # best_model = '3_960000'
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
