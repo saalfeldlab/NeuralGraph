@@ -1,6 +1,7 @@
-description: 'n_frames: 700'
+description: 'n_frames: 700 slice_selection'
 dataset: 'zebra_N10_2'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
+slice_selection: True
 
 simulation:
     connectivity_file: 'to be specified'
@@ -15,10 +16,10 @@ simulation:
     delta_t: 1
     baseline_value: 0
 
-    visual_input_type: "DAVIS"
+    visual_input_type: ""
 
 graph_model:
-    signal_model_name: 'PDE_N9_A'
+    signal_model_name: 'PDE_N10'
     prediction: 'first_derivative'
 
     input_size: 3
@@ -29,6 +30,15 @@ graph_model:
     input_size_update: 5
     n_layers_update: 3
     hidden_dim_update: 64
+    aggr_type: 'add'
+    embedding_dim: 2
+
+    input_size_nnr: 4
+    hidden_dim_nnr: 128
+    n_layers_nnr: 3
+    omega: 30
+    outermost_linear_nnr: True
+    output_size_nnr: 1
     aggr_type: 'add'
     embedding_dim: 2
 

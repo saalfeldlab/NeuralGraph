@@ -13,6 +13,7 @@ from NeuralGraph.models.utils import *
 from NeuralGraph.utils import *
 from NeuralGraph.models.Siren_Network import *
 from NeuralGraph.models.Signal_Propagation_FlyVis import *
+from NeuralGraph.models.Signal_Propagation_Zebra import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.generators.davis import *
@@ -55,6 +56,8 @@ def data_train(config=None, erase=False, best_model=None, device=None):
 
     if 'fly' in config.dataset:
         data_train_flyvis(config, erase, best_model, device)
+    elif 'zebra' in config.dataset:
+        data_train_zebra(config, erase, best_model, device)
     else:
         data_train_signal(config, erase, best_model, device)
 
@@ -235,7 +238,6 @@ def data_train_signal(config, erase, best_model, device):
                 modulation = modulation.clone().detach()
                 d_modulation = (modulation[:, 1:] - modulation[:, :-1]) / delta_t
                 modulation_norm = torch.tensor(1.0E-2, device=device)
-
         elif 'visual' in field_type:
             n_nodes_per_axis = int(np.sqrt(n_nodes))
             model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
@@ -1296,6 +1298,236 @@ def data_train_flyvis(config, erase, best_model, device):
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
         plt.close()
+
+
+def data_train_zebra(config, erase, best_model, device):
+    simulation_config = config.simulation
+    train_config = config.training
+    model_config = config.graph_model
+
+    dimension = simulation_config.dimension
+    n_epochs = train_config.n_epochs
+    n_neurons = simulation_config.n_neurons
+    n_input_neurons = simulation_config.n_input_neurons
+    n_neuron_types = simulation_config.n_neuron_types
+    calcium_type = simulation_config.calcium_type
+    delta_t = simulation_config.delta_t
+
+    dataset_name = config.dataset
+    n_runs = train_config.n_runs
+    n_frames = simulation_config.n_frames
+
+    data_augmentation_loop = train_config.data_augmentation_loop
+    recursive_training = train_config.recursive_training
+    recursive_loop = train_config.recursive_loop
+    batch_size = train_config.batch_size
+    batch_ratio = train_config.batch_ratio
+    training_NNR_start_epoch = train_config.training_NNR_start_epoch
+    time_window = train_config.time_window
+
+    field_type = model_config.field_type
+    time_step = train_config.time_step
+
+    coeff_W_sign = train_config.coeff_W_sign
+    coeff_update_msg_diff = train_config.coeff_update_msg_diff
+    coeff_update_u_diff = train_config.coeff_update_u_diff
+    coeff_edge_norm = train_config.coeff_edge_norm
+    coeff_update_msg_sign = train_config.coeff_update_msg_sign
+    coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
+    coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
+
+    pre_trained_W = train_config.pre_trained_W
+
+    replace_with_cluster = 'replace' in train_config.sparsity
+    sparsity_freq = train_config.sparsity_freq
+
+    if config.training.seed != 42:
+        torch.random.fork_rng(devices=device)
+        torch.random.manual_seed(config.training.seed)
+
+    cmap = CustomColorMap(config=config)
+    coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
+
+    log_dir, logger = create_log_dir(config, erase)
+    print(f'loading graph files N: {n_runs} ...')
+    logger.info(f'Graph files N: {n_runs}')
+
+    x_list = []
+    y_list = []
+    for run in trange(0,n_runs):
+        x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
+        y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+        x_list.append(x)
+        y_list.append(y)
+    print(f'dataset: {len(x_list)} run, {len(x_list[0])} frames')
+    x = x_list[0][n_frames - 10]
+
+    activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
+    activity = activity.squeeze()
+    distrib = activity.flatten()
+    valid_distrib = distrib[~torch.isnan(distrib)]
+    if len(valid_distrib) > 0:
+        xnorm = torch.round(1.5 * torch.std(valid_distrib))
+    else:
+        print('no valid distribution found, setting xnorm to 1.0')
+        xnorm = torch.tensor(1.0, device=device)
+    torch.save(xnorm, os.path.join(log_dir, 'xnorm.pt'))
+    print(f'xnorm: {to_numpy(xnorm)}')
+    logger.info(f'xnorm: {to_numpy(xnorm)}')
+
+    n_neurons = x.shape[0]
+    print(f'N neurons: {n_neurons}')
+    logger.info(f'N neurons: {n_neurons}')
+    config.simulation.n_neurons =n_neurons
+    type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
+    vnorm = torch.tensor(1.0, device=device)
+    ynorm = torch.tensor(1.0, device=device)
+    torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
+    torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
+    time.sleep(0.5)
+    print(f'vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
+    logger.info(f'vnorm ynorm: {to_numpy(vnorm)} {to_numpy(ynorm)}')
+
+    print('create models ...')
+    model = Signal_Propagation_Zebra(aggr_type=model_config.aggr_type, config=config, device=device)
+
+    start_epoch = 0
+    list_loss = []
+    if (best_model != None) & (best_model != ''):
+        net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
+        print(f'load {net} ...')
+        state_dict = torch.load(net, map_location=device)
+        model.load_state_dict(state_dict['model_state_dict'])
+        start_epoch = int(best_model.split('_')[0])
+        print(f'best_model: {best_model}  start_epoch: {start_epoch}')
+        logger.info(f'best_model: {best_model}  start_epoch: {start_epoch}')
+        list_loss = torch.load(f"{log_dir}/loss.pt")
+    elif  train_config.pretrained_model !='':
+        net = train_config.pretrained_model
+        print(f'load pretrained {net} ...')
+        state_dict = torch.load(net, map_location=device)
+        model.load_state_dict(state_dict['model_state_dict'])
+        logger.info(f'pretrained: {net}')
+
+    if pre_trained_W != '':
+        print(f'load pre-trained W: {pre_trained_W}')
+        logger.info(f'load pre-trained W: {pre_trained_W}')
+        W_ = np.load(pre_trained_W)
+        with torch.no_grad():
+            model.W = nn.Parameter(torch.tensor(W_[:,None], dtype=torch.float32, device=device), requires_grad=False)
+
+    lr = train_config.learning_rate_start
+    if train_config.learning_rate_update_start == 0:
+        lr_update = train_config.learning_rate_start
+    else:
+        lr_update = train_config.learning_rate_update_start
+    lr_embedding = train_config.learning_rate_embedding_start
+    lr_W = train_config.learning_rate_W_start
+    learning_rate_NNR = train_config.learning_rate_NNR
+
+    print(
+        f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
+    logger.info(
+        f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
+
+    optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
+                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR)
+    model.train()
+
+    net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
+    print(f'network: {net}')
+    print(f'initial batch_size: {batch_size}')
+    logger.info(f'network: {net}')
+    logger.info(f'N epochs: {n_epochs}')
+    logger.info(f'initial batch_size: {batch_size}')
+
+    # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+
+    if coeff_W_sign > 0:
+        index_weight = []
+        for i in range(n_neurons):
+            index_weight.append(torch.argwhere(model.mask[:, i] > 0).squeeze())
+
+    coeff_W_L1 = train_config.coeff_W_L1
+    coeff_edge_diff = train_config.coeff_edge_diff
+    coeff_update_diff = train_config.coeff_update_diff
+    logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
+    print(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
+
+    print("start training ...")
+
+    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
+    # torch.autograd.set_detect_anomaly(True)
+
+    list_loss_regul = []
+    time.sleep(0.2)
+
+    k = 20
+    x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+    ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
+
+    Niter = 20000
+
+    for epoch in range(start_epoch, n_epochs + 1):
+
+        for N in trange(Niter):
+
+            optimizer.zero_grad()
+
+            in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
+            field = model.NNR_f(in_features)**2
+
+            loss = (field - x[:, 6:7]).norm(2)
+
+            if N % 1000 == 0:
+                print("loss: {:.6f}".format(loss.item()))
+                plt.style.use('dark_background')
+
+                vmin, vmax = np.percentile(to_numpy(x[:,6]), [2, 98])
+
+                fig = plt.figure(figsize=(20, 10))
+                plt.subplot(2, 2, 1)
+                plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(x[:, 6].squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
+                plt.title('true field', fontsize=24)
+                plt.xticks(fontsize=12)
+                plt.yticks(fontsize=12)
+                plt.xlim([0, 2])
+                plt.ylim([0, 1.35])
+                plt.subplot(2, 2, 2)
+                in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
+                field = model.NNR_f(in_features)**2
+                plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(field.squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
+                plt.title('NNR field', fontsize=24)
+                plt.xticks(fontsize=12)
+                plt.yticks(fontsize=12)
+                plt.xlim([0, 2])
+                plt.ylim([0, 1.35])
+                plt.subplot(2, 2, 4)
+                for k in range(500):
+                    x_ = x.clone().detach()
+                    x_ = x_ + torch.randn(x_.shape, device=device) * 0.1
+                    in_features = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
+                    field = model.NNR_f(in_features)**2
+                    plt.scatter(to_numpy(x_[:, 1]), to_numpy(x_[:, 2]), c=to_numpy(field.squeeze()), s=0.15, alpha=0.5, edgecolors='None', cmap='plasma', vmin=vmin, vmax=vmax)
+                plt.xticks(fontsize=12)
+                plt.yticks(fontsize=12)
+                plt.xlim([0, 2])
+                plt.ylim([0, 1.35])
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", dpi=150)
+
+            loss.backward()
+            optimizer.step()
+
+
+                                                    
+                                            
+
+
+
+
+
+
 
 
 def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15,
