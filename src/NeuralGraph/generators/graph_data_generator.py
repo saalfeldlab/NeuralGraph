@@ -65,7 +65,7 @@ def data_generate(
         # return
 
     if config.data_folder_name != "none":
-        generate_from_data(config=config, device=device, visualize=visualize)
+        generate_from_data(config=config, device=device, visualize=visualize, style=style)
     elif has_fly:
         data_generate_fly_voltage(
             config,
@@ -92,7 +92,7 @@ def data_generate(
     plt.style.use("default")
 
 
-def generate_from_data(config, device, visualize=True, step=None, cmap=None):
+def generate_from_data(config, device, visualize=True, step=None, cmap=None, style=None):
     data_folder_name = config.data_folder_name
 
     if "wormvae" in data_folder_name:
@@ -100,7 +100,7 @@ def generate_from_data(config, device, visualize=True, step=None, cmap=None):
     elif "NeuroPAL" in data_folder_name:
         load_neuropal_data(config, device, visualize, step)
     elif 'Zapbench' in data_folder_name:
-        load_zebrafish_data(config, device, visualize, step)
+        load_zebrafish_data(config, device, visualize, step, cmap, style)
     else:
         raise ValueError(f"Unknown data folder name {data_folder_name}")
 

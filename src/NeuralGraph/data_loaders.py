@@ -721,16 +721,33 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
         plt.close()
 
 
-def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=None):
+def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=None, style=None):
     data_folder_name = config.data_folder_name
     dataset_name = config.dataset
 
     simulation_config = config.simulation
     train_config = config.training
 
+    n_frames = simulation_config.n_frames
+    n_neurons = simulation_config.n_neurons
+
 
     delta_t = simulation_config.delta_t
     cmap = CustomColorMap(config=config)
+
+
+    condition_names = {
+        0: "gain",
+        1: "dots",
+        2: "flash",
+        3: "taxis",
+        4: "turning",
+        5: "position",
+        6: "open loop",
+        7: "rotation",
+        8: "dark",
+        -1: "none"  # no condition / padding
+    }
 
 
     print(f"loading zebrafish data from {data_folder_name} for dataset {dataset_name}...")
@@ -738,12 +755,17 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     conditions = np.load(data_folder_name+'/conditions.npy', allow_pickle=True)
     print(f"conditions shape: {conditions.shape}, sample: {conditions[0]}")
     traces = np.load(data_folder_name+'/traces.npy', allow_pickle=True)
-    print(f"traces shape: {traces.shape}, sample: {traces[0][:5]}")
+    print(f"traces shape: {traces.shape}, sample: {traces[0][:5]} \n\n")
     positions = np.load(data_folder_name+'/mapped_positions.npy', allow_pickle=True)
     print(f"positions shape: {positions.shape}, sample: {positions[0]}")
-    
-    n_frames = traces.shape[0]
-    n_neurons = traces.shape[1]
+
+    positions = positions / 1000
+    positions[:,2] *= 10
+    positions_swapped = positions[:, [1, 0, 2]]
+    positions_swapped[:, 0] *= -1 
+
+    print(f"min position: {np.min(positions, axis=0)}  max position: {np.max(positions, axis=0)}, ")
+
     print(f"number of frames: {n_frames}, number of neurons: {n_neurons}")
 
     folder = f'./graphs_data/{dataset_name}/'
@@ -751,122 +773,146 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     os.makedirs(f'./graphs_data/{dataset_name}/Fig/', exist_ok=True)
 
 
+    x = np.zeros((n_neurons, 12))
+    x[:, 0] = np.arange(n_neurons)
+    x[:, 1:4] = positions[:, 0:3]
+    x[:, 5:6] = 0
+    x[:, 6] = traces[0]
+    x[:, 7] = conditions[0]
+    x[:, 8:11] = 0
+
+    x_list = []
+    y_list = []
+
+    slice_tick = 0.05
+    slice_center = 0.3
+    slice_id = np.argwhere((x[:, 3]> slice_center - slice_tick/2) & (x[:, 3]< slice_center + slice_tick/2)).squeeze()
+    print(f"number of neurons in slice {slice_id.shape[0]}")
+
+    if 'black' in style:
+        plt.style.use('dark_background')
+    else:
+        plt.style.use('default')
+
+    for n in trange(n_frames):
+        x = np.zeros((n_neurons, 12))
+        x[:, 0] = np.arange(n_neurons)
+        x[:, 1:4] = positions[n]
+        x[:, 5:6] = 0
+        x[:, 6] = traces[n]
+        x[:, 7] = conditions[n]
+        x[:, 8:11] = 0
+        x_list.append(x)
+
+        if n == 0: 
+            vmin, vmax = np.percentile(traces[n], [2, 98])
+
+        if n < n_frames - 1:
+            y = (traces[n+1]- traces[n]) / delta_t
+            y_list.append(y)
+
+        if visualize:
+            fig  = plt.figure(figsize=(20, 10))
+            plt.axis('off')
+            plt.scatter(x[slice_id,1], x[slice_id,2], s=10, c=x[slice_id,6], vmin=vmin, vmax=vmax, cmap='plasma')
+            label = f"frame: {n} \n{condition_names[int(conditions[n])]}  "
+            plt.text(0.05, 1.15, label, fontsize=24, color='white')
+            plt.xlim([0.,2])
+            plt.ylim([0,1.25])
+            plt.tight_layout()
+            plt.savefig(f"graphs_data/{dataset_name}/Fig/xy_{n:06d}.png", dpi=80)
+            plt.close()
 
 
 
-    # sanity checks
-    positions = np.asarray(positions, dtype=float)
-    traces = np.asarray(traces, dtype=float)
-    if positions.ndim != 2 or positions.shape[1] != 3:
-        raise ValueError("positions must have shape (N, 3)")
-    if traces.shape[1] != positions.shape[0]:
-        raise ValueError(f"trace0 length ({trace.shape[0]}) must match positions.shape[0] ({positions.shape[0]})")
-
-    def rescale_positions(positions: np.ndarray, make_cube=True):
-        positions = np.asarray(positions, float)
-        mins = positions.min(axis=0)
-        maxs = positions.max(axis=0)
-        size = maxs - mins
-
-        if make_cube:
-            # use the largest side length
-            max_size = size.max()
-            size[size < max_size] = max_size  # enforce equal lengths
-
-        # shift to origin and scale
-        normed = (positions - mins) / size[0]
-        return normed, mins, maxs, size
-    
-    positions, mins, maxs, size = rescale_positions(positions, make_cube=True)
-
-    positions[:,2] *= 10
-
-    positions_swapped = positions[:, [1, 0, 2]]
-    positions_swapped[:, 0] *= -1 
-    condition_names = {
-            0: "gain",
-            1: "dots",
-            2: "flash",
-            3: "taxis",
-            4: "turning",
-            5: "position",
-            6: "open loop",
-            7: "rotation",
-            8: "dark",
-            -1: "none"  # no condition / padding
-        }
+    print('saving data...')
+    x_list = np.array(x_list)
+    y_list = np.array(y_list)
+    np.save(f'graphs_data/{dataset_name}/x_list.npy', x_list)
+    np.save(f'graphs_data/{dataset_name}/y_list.npy', y_list)
+    print(f"x_list shape: {x_list.shape}")
+    print(f"y_list shape: {y_list.shape}")
+    print('data saved.')
 
 
-    for id_fig in tqdm(range(0,n_frames)):
 
-        activity = np.asarray(traces[id_fig], float)
-        finite = np.isfinite(activity)
-        if not finite.all():
-            med = np.nanmedian(activity[finite])
-            activity = np.where(finite, activity, med)
 
-        # robust color limits (ignore extremes)
-        if id_fig == 0: 
-            vmin, vmax = np.percentile(activity, [2, 98])
-            if vmin == vmax:  # degenerate case
-                vmin, vmax = activity.min(), activity.max()
+    if visualize == -1:
+        # sanity checks
 
-        cloud = pv.PolyData(positions_swapped)
-        cloud["activity"] = activity
-        plotter = pv.Plotter(off_screen=True, window_size=(800, 500))
-        plotter.set_background('black')
-        plotter.add_points(
-            cloud,
-            scalars="activity",
-            cmap="plasma",          # plasma LUT
-            clim=(vmin, vmax),      # << fix: stop auto-rescaling
-            render_points_as_spheres=True,
-            point_size=5,           # << fix: make points visible (try 2–5)
-            opacity=0.75,            # << fix: no transparency on black bg
-            lighting=False,         # << fix: avoid dark shading on tiny spheres
-            show_scalar_bar=False,   # helpful to verify range
-        )
-        condition_id = conditions[id_fig]
-        label = f"frame: {id_fig} \n{condition_names[int(condition_id)]}  "
-        plotter.add_text(   
-            label,
-            position="upper_left",   # or "upper_right", "lower_left", "lower_right"
-            font_size=12,
-            color="white",
-        )
-        plotter.view_vector((0, 0, 1))
-        try:
-            plotter.enable_anti_aliasing()
-        except Exception:
-            pass
-        plotter.camera.zoom(1.6)
-        num = f"{id_fig:06}"
-        plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xy_{num}.png')
-        plotter.close()
-    
-        plotter = pv.Plotter(off_screen=True, window_size=(800, 500))
-        plotter.set_background('black')
-        plotter.add_points(
-            cloud,
-            scalars="activity",
-            cmap="plasma",          # plasma LUT
-            clim=(vmin, vmax),      # << fix: stop auto-rescaling
-            render_points_as_spheres=True,
-            point_size=5,           # << fix: make points visible (try 2–5)
-            opacity=0.75,            # << fix: no transparency on black bg
-            lighting=False,         # << fix: avoid dark shading on tiny spheres
-            show_scalar_bar=False,   # helpful to verify range
-        )
-        plotter.view_vector((1, 0, 0))
-        try:
-            plotter.enable_anti_aliasing()
-        except Exception:
-            pass
-        plotter.camera.zoom(1.6)
+        if positions.ndim != 2 or positions.shape[1] != 3:
+            raise ValueError("positions must have shape (N, 3)")
+        if traces.shape[1] != positions.shape[0]:
+            raise ValueError(f"trace0 length ({trace.shape[0]}) must match positions.shape[0] ({positions.shape[0]})")
 
-        num = f"{id_fig:06}"
-        plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xz_{num}.png')
-        plotter.close()
+        for id_fig in tqdm(range(0,n_frames)):
+
+            activity = np.asarray(traces[id_fig], float)
+            finite = np.isfinite(activity)
+            if not finite.all():
+                med = np.nanmedian(activity[finite])
+                activity = np.where(finite, activity, med)
+
+            # robust color limits (ignore extremes)
+            if id_fig == 0: 
+                vmin, vmax = np.percentile(activity, [2, 98])
+
+            cloud = pv.PolyData(positions_swapped)
+            cloud["activity"] = activity
+            plotter = pv.Plotter(off_screen=True, window_size=(800, 500))
+            plotter.set_background('black')
+            plotter.add_points(
+                cloud,
+                scalars="activity",
+                cmap="plasma",          # plasma LUT
+                clim=(vmin, vmax),      # << fix: stop auto-rescaling
+                render_points_as_spheres=True,
+                point_size=5,           # << fix: make points visible (try 2–5)
+                opacity=0.75,            # << fix: no transparency on black bg
+                lighting=False,         # << fix: avoid dark shading on tiny spheres
+                show_scalar_bar=False,   # helpful to verify range
+            )
+            condition_id = conditions[id_fig]
+            label = f"frame: {id_fig} \n{condition_names[int(condition_id)]}  "
+            plotter.add_text(   
+                label,
+                position="upper_left",   # or "upper_right", "lower_left", "lower_right"
+                font_size=12,
+                color="white",
+            )
+            plotter.view_vector((0, 0, 1))
+            try:
+                plotter.enable_anti_aliasing()
+            except Exception:
+                pass
+            plotter.camera.zoom(1.6)
+            num = f"{id_fig:06}"
+            plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xy_{num}.png')
+            plotter.close()
+        
+            plotter = pv.Plotter(off_screen=True, window_size=(800, 500))
+            plotter.set_background('black')
+            plotter.add_points(
+                cloud,
+                scalars="activity",
+                cmap="plasma",          # plasma LUT
+                clim=(vmin, vmax),      # << fix: stop auto-rescaling
+                render_points_as_spheres=True,
+                point_size=5,           # << fix: make points visible (try 2–5)
+                opacity=0.75,            # << fix: no transparency on black bg
+                lighting=False,         # << fix: avoid dark shading on tiny spheres
+                show_scalar_bar=False,   # helpful to verify range
+            )
+            plotter.view_vector((1, 0, 0))
+            try:
+                plotter.enable_anti_aliasing()
+            except Exception:
+                pass
+            plotter.camera.zoom(1.6)
+
+            num = f"{id_fig:06}"
+            plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xz_{num}.png')
+            plotter.close()
 
 
 

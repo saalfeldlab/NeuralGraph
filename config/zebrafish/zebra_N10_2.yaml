@@ -1,5 +1,5 @@
-description: 'raw data'
-dataset: 'zebra_N10_1'
+description: 'n_frames: 700'
+dataset: 'zebra_N10_2'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
 
 simulation:
@@ -11,7 +11,7 @@ simulation:
     n_neurons: 71721
     n_input_neurons: 1736
     n_neuron_types: 65
-    n_frames: 7879
+    n_frames: 700
     delta_t: 1
     baseline_value: 0
 
