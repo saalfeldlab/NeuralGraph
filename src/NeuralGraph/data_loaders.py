@@ -784,25 +784,37 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     x_list = []
     y_list = []
 
-    slice_tick = 0.05
-    slice_center = 0.3
-    slice_id = np.argwhere((x[:, 3]> slice_center - slice_tick/2) & (x[:, 3]< slice_center + slice_tick/2)).squeeze()
-    print(f"number of neurons in slice {slice_id.shape[0]}")
+
 
     if 'black' in style:
         plt.style.use('dark_background')
     else:
         plt.style.use('default')
 
+    slice_selection = config.slice_selection
+
+    if slice_selection:
+
+        slice_tick = 0.05
+        slice_center = 0.3
+        slice_id = np.argwhere((x[:, 3]> slice_center - slice_tick/2) & (x[:, 3]< slice_center + slice_tick/2)).squeeze()
+        print(f"number of neurons in slice {slice_id.shape[0]}")
+
+        x = x[slice_id]
+        n_neurons = slice_id.shape[0]
+
+
     for n in trange(n_frames):
-        x = np.zeros((n_neurons, 12))
         x[:, 0] = np.arange(n_neurons)
-        x[:, 1:4] = positions[n]
-        x[:, 5:6] = 0
-        x[:, 6] = traces[n]
-        x[:, 7] = conditions[n]
-        x[:, 8:11] = 0
-        x_list.append(x)
+        if slice_selection:
+            x[:, 1:4] = positions[slice_id, 0:3]
+            x[:, 6] = traces[n][slice_id]
+            x[:, 7] = conditions[n]
+        else:
+            x[:, 1:4] = positions[:, 0:3]
+            x[:, 6] = traces[n]
+            x[:, 7] = conditions[n]
+        x_list.append(x.copy())
 
         if n == 0: 
             vmin, vmax = np.percentile(traces[n], [2, 98])
@@ -814,7 +826,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
         if visualize:
             fig  = plt.figure(figsize=(20, 10))
             plt.axis('off')
-            plt.scatter(x[slice_id,1], x[slice_id,2], s=10, c=x[slice_id,6], vmin=vmin, vmax=vmax, cmap='plasma')
+            plt.scatter(x[:,1], x[:,2], s=5, c=x[:,6], vmin=vmin, vmax=vmax, cmap='plasma')
             label = f"frame: {n} \n{condition_names[int(conditions[n])]}  "
             plt.text(0.05, 1.15, label, fontsize=24, color='white')
             plt.xlim([0.,2])
@@ -828,8 +840,9 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     print('saving data...')
     x_list = np.array(x_list)
     y_list = np.array(y_list)
-    np.save(f'graphs_data/{dataset_name}/x_list.npy', x_list)
-    np.save(f'graphs_data/{dataset_name}/y_list.npy', y_list)
+    run = 0
+    np.save(f'graphs_data/{dataset_name}/x_list_{run}.npy', x_list)
+    np.save(f'graphs_data/{dataset_name}/y_list_{run}.npy', y_list)
     print(f"x_list shape: {x_list.shape}")
     print(f"y_list shape: {y_list.shape}")
     print('data saved.')

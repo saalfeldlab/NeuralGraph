@@ -1,6 +1,7 @@
-description: 'raw data'
-dataset: 'zebra_N10_1'
+description: 'n_frames: 7879 slice_selection'
+dataset: 'zebra_N10_3'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
+slice_selection: True
 
 simulation:
     connectivity_file: 'to be specified'
