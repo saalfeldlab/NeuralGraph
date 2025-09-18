@@ -17,9 +17,10 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step):
     x = torch.tensor(x, dtype=torch.float32, device=ones.device)
     in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
     field = model.NNR_f(in_features)**2
-    vmin, vmax = np.percentile(x[:,6].cpu().numpy(), [2, 98])
-    loss = (field - x[:, 6:7]).norm(2)
-    print("loss: {:.6f}".format(loss.item()))
+    vmin = 0.048
+    vmax = 0.451
+    # loss = (field - x[:, 6:7]).norm(2)
+    # print("loss: {:.6f}".format(loss.item()))
 
     fig = plt.figure(figsize=(17, 10))
     plt.subplot(2, 2, 1)

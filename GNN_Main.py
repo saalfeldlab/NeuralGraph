@@ -57,7 +57,7 @@ if __name__ == "__main__":
         else:
             best_model = None
     else:
-        best_model ='best' 
+        best_model =None 
         # best_model = '3_960000'
         task = 'test'  # 'generate', 'train', 'test'
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_44_26'] #, 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
 
         # config_list = ['signal_N4_1']
-        config_list = ['zebra_N10_2'] 
+        config_list = ['zebra_N10_8'] 
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
@@ -112,7 +112,7 @@ if __name__ == "__main__":
                 visualize=True,
                 style="black color name",
                 verbose=False,
-                best_model=best_model,
+                best_model='best',
                 run=0,
                 test_mode="test_ablation_0",
                 sample_embedding=False,
