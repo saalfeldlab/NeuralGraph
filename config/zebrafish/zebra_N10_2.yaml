@@ -9,7 +9,7 @@ simulation:
 
     params: [[1.0,1.0,1.0,1.0]]
 
-    n_neurons: 71721
+    n_neurons: 7252
     n_input_neurons: 1736
     n_neuron_types: 65
     n_frames: 700
@@ -53,7 +53,7 @@ plotting:
     ylim: [ -100,100 ]
 
 training:
-    n_epochs: 10
+    n_epochs: 1
     n_runs: 1
     device: 'auto'
 
@@ -63,11 +63,12 @@ training:
 
     sparsity: 'none'
     rotation_augmentation: False
-    data_augmentation_loop: 25
+    data_augmentation_loop: 1
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 5.0E-3
+    learning_rate_NNR: 1.0E-4
 
     measurement_noise_level: 0
     noise_model_level: 0
