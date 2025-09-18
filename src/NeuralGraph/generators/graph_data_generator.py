@@ -94,12 +94,13 @@ def data_generate(
 
 def generate_from_data(config, device, visualize=True, step=None, cmap=None):
     data_folder_name = config.data_folder_name
-    image_data = config.image_data
 
     if "wormvae" in data_folder_name:
         load_wormvae_data(config, device, visualize, step)
     elif "NeuroPAL" in data_folder_name:
         load_neuropal_data(config, device, visualize, step)
+    elif 'Zapbench' in data_folder_name:
+        load_zebrafish_data(config, device, visualize, step)
     else:
         raise ValueError(f"Unknown data folder name {data_folder_name}")
 

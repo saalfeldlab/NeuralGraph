@@ -4787,10 +4787,10 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
-        # plt.subplot(2, 2, 1)
-        # ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
-        # plt.xticks([])
-        # plt.yticks([])
+        plt.subplot(2, 2, 1)
+        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
+        plt.xticks([])
+        plt.yticks([])
         plt.tight_layout()
         plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
         plt.close()
@@ -6827,7 +6827,28 @@ def get_figures(index):
                 step=100,
                 device=device,
                 particle_of_interest=0,
-                new_params = [50, 10, 20, 30, 60],
+                new_params = [0.25, 10, 20, 30, 60],
+            )
+
+        case 'new_network_2':
+            config_file_ = 'signal_N2_3'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            data_test(
+                config,
+                visualize=True,
+                style="white latex color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_0",
+                sample_embedding=False,
+                step=100,
+                device=device,
+                particle_of_interest=0,
+                new_params = [0.5, 60, 40, 0, 0],
             )
 
         case 'ablation_weights':
@@ -7405,4 +7426,4 @@ if __name__ == '__main__':
     # get_figures('ablation_weights')
     # get_figures('ablation_cells')
     # get_figures('permutation_types')
-    get_figures('new_network_1')
+    get_figures('new_network_2')

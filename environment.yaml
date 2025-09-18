@@ -24,6 +24,7 @@ dependencies:
   - shapely
   - seaborn
   - dask
+  - pyvista
   - pip:
     # Install PyTorch with CUDA support via pip
     - torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
