@@ -1,4 +1,4 @@
-description: 'n_frames: 700 slice_selection'
+description: 'n_frames: 700 slice_selection omega 50'
 dataset: 'zebra_N10_2'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
 slice_selection: True
@@ -36,7 +36,7 @@ graph_model:
     input_size_nnr: 4
     hidden_dim_nnr: 128
     n_layers_nnr: 3
-    omega: 30
+    omega: 50
     outermost_linear_nnr: True
     output_size_nnr: 1
     aggr_type: 'add'

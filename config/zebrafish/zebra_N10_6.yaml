@@ -1,4 +1,4 @@
-description: 'n_frames: 700 slice_selection'
+description: 'n_frames: 700 slice_selection  LR 10-5'
 dataset: 'zebra_N10_2'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
 slice_selection: True
@@ -68,7 +68,7 @@ training:
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 5.0E-3
-    learning_rate_NNR: 1.0E-4
+    learning_rate_NNR: 1.0E-5
 
     measurement_noise_level: 0
     noise_model_level: 0

@@ -772,7 +772,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     os.makedirs(folder, exist_ok=True)
     os.makedirs(f'./graphs_data/{dataset_name}/Fig/', exist_ok=True)
 
-
+    n_neurons = positions.shape[0]
     x = np.zeros((n_neurons, 12))
     x[:, 0] = np.arange(n_neurons)
     x[:, 1:4] = positions[:, 0:3]

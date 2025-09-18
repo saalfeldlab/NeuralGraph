@@ -1468,76 +1468,104 @@ def data_train_zebra(config, erase, best_model, device):
 
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
 
-    Niter = 20000
+    Niter = int(n_frames * data_augmentation_loop // batch_size)
+    plot_frequency = int(Niter // 5)
+    print(f'{Niter} iterations per epoch')
+    logger.info(f'{Niter} iterations per epoch')
+    print(f'plot every {plot_frequency} iterations')
+
+
+    print("start training ...")
+
+    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
+    # torch.autograd.set_detect_anomaly(True)
+
+    time.sleep(0.2)
+
+    list_loss = []
 
     for epoch in range(start_epoch, n_epochs + 1):
 
-        for N in trange(Niter):
+        total_loss = 0
 
-            k = np.random.randint(n_frames - data_augmentation_loop - 1)
+        for N in trange(Niter):
 
             optimizer.zero_grad()
 
             loss = 0
 
-            for k_ in range(k, k + data_augmentation_loop):
+            for batch in range(batch_size):
 
-                x = torch.tensor(x_list[run][k_], dtype=torch.float32, device=device)
-                in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
-                field = model.NNR_f(in_features)**2
+                k = np.random.randint(n_frames - 1)
 
-                loss = loss + (field - x[:, 6:7].clone().detach()).norm(2)
+                if batch == 0:
+
+                    x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
+                    in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
+                    y = x[:, 6:7].clone().detach()
+                else:
+                    x_ = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
+                    in_features_ = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
+                    y_ = x_[:, 6:7].clone().detach()
+
+                    x = torch.cat((x, x_), dim=0)
+                    in_features = torch.cat((in_features, in_features_), dim=0)
+                    y = torch.cat((y, y_), dim=0)
+
+
+            field = model.NNR_f(in_features)**2
+
+            loss = loss + (field - y).norm(2)
 
             loss.backward()
             optimizer.step()
 
+            total_loss += loss.item()
 
-            if N % 1000 == 0:
-
-                k = 20
-                x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+            if N % plot_frequency == 0:
+                x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
                 with torch.no_grad():
                     plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 500)
-                
-                # x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
-                # in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
-                # field = model.NNR_f(in_features)**2
-                # vmin, vmax = np.percentile(to_numpy(x[:,6]), [2, 98])
-                # loss = (field - x[:, 6:7]).norm(2)
-                # print("loss: {:.6f}".format(loss.item()))
-
-                # fig = plt.figure(figsize=(17, 10))
-                # plt.subplot(2, 2, 1)
-                # plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(x[:, 6].squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
-                # plt.title('true field', fontsize=24)
-                # plt.xticks(fontsize=12)
-                # plt.yticks(fontsize=12)
-                # plt.xlim([0, 2])
-                # plt.ylim([0, 1.35])
-                # plt.subplot(2, 2, 2)
-                # in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
-                # field = model.NNR_f(in_features)**2
-                # plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), c=to_numpy(field.squeeze()), s=0.5, cmap='plasma', vmin=vmin, vmax=vmax)
-                # plt.title('NNR field', fontsize=24)
-                # plt.xticks(fontsize=12)
-                # plt.yticks(fontsize=12)
-                # plt.xlim([0, 2])
-                # plt.ylim([0, 1.35])
-                # plt.subplot(2, 2, 4)
-                # for loop in range(500):
-                #     x_ = x.clone().detach()
-                #     x_ = x_ + torch.randn(x_.shape, device=device) * 0.1
-                #     in_features = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
-                #     field = model.NNR_f(in_features)**2
-                #     plt.scatter(to_numpy(x_[:, 1]), to_numpy(x_[:, 2]), c=to_numpy(field.squeeze()), s=0.15, alpha=0.5, edgecolors='None', cmap='plasma', vmin=vmin, vmax=vmax)
-                # plt.xticks(fontsize=12)
-                # plt.yticks(fontsize=12)
-                # plt.xlim([0, 2])
-                # plt.ylim([0, 1.35])
-                # plt.tight_layout()
-                # plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", dpi=150)
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
+
+
+        print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
+        logger.info("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
+        torch.save({'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict()},
+                os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
+
+        list_loss.append(total_loss / n_neurons)
+        torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
+
+        fig = plt.figure(figsize=(20, 10))
+        ax = fig.add_subplot(1, 2, 1)
+        plt.plot(list_loss, color='k', linewidth=1)
+        plt.xlim([0, n_epochs])
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.ylabel('loss', fontsize=12)
+        plt.xlabel('epochs', fontsize=12)
+        ax = fig.add_subplot(1, 2, 2)
+        field_files = glob.glob(f"./{log_dir}/tmp_training/field/*.png")
+        last_file = max(field_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
+        filename = os.path.basename(last_file)
+        filename = filename.replace('.png', '')
+        parts = filename.split('_')
+        if len(parts) >= 3:
+            last_epoch = parts[1]
+            last_N = parts[2]
+        else:
+            last_epoch, last_N = parts[-2], parts[-1]
+        img = imageio.imread(f"./{log_dir}/tmp_training/field/field_{last_epoch}_{last_N}.png")
+        plt.imshow(img)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
+        plt.close()
+
+
 
 
 
@@ -3324,7 +3352,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     model.eval()
 
     print('recons...')
-    for it in trange(0, n_frames):
+    for it in trange(0, n_frames, 5):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
             plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/tmp_recons/field_{it:06d}.png", 200)
