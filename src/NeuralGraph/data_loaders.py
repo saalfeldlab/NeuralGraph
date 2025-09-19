@@ -795,7 +795,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
 
     if slice_selection:
 
-        slice_tick = 0.05
+        slice_tick = 0.15
         slice_center = 0.3
         slice_id = np.argwhere((x[:, 3]> slice_center - slice_tick/2) & (x[:, 3]< slice_center + slice_tick/2)).squeeze()
         print(f"number of neurons in slice {slice_id.shape[0]}")
@@ -823,7 +823,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
             y = (traces[n+1]- traces[n]) / delta_t
             y_list.append(y)
 
-        if visualize:
+        if (visualize) & (n % 5 == 0):
             fig  = plt.figure(figsize=(20, 10))
             plt.axis('off')
             plt.scatter(x[:,1], x[:,2], s=5, c=x[:,6], vmin=vmin, vmax=vmax, cmap='plasma')
