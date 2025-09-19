@@ -52,7 +52,6 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     # torch.autograd.set_detect_anomaly(True)
 
     dataset_name = config.dataset
-    print('')
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
     if 'fly' in config.dataset:
@@ -1577,7 +1576,6 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
               ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
 
     dataset_name = config.dataset
-    print('')
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
 
     if 'fly' in config.dataset:
@@ -3350,16 +3348,87 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     model.eval()
 
     print('recons...')
-    for it in trange(0, min(n_frames,2000), 5):
+
+    generated_x_list = []
+    for it in trange(0, min(n_frames,2000), 1):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
-            plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/tmp_recons/field_{it:06d}.png", 200)
-                
+            neural_field = plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/tmp_recons/field_{it:06d}.png", 50)
+            generated_x_list.append(to_numpy(neural_field.clone().detach()))
+
+    generated_x_list = np.array(generated_x_list)
+    print(f"generated {len(generated_x_list)} frames total")
+    print(f"saving ./{log_dir}/results/recons_field.npy")
+    np.save(f"./{log_dir}/results/recons_field.npy", generated_x_list)
 
 
+    reconstructed = generated_x_list
+    true = to_numpy(x_list[0][:,:,6:7])
 
+    # comparison between x_list and generated_x_list
 
+    condition_names = {
+        0: "gain",
+        1: "dots",
+        2: "flash",
+        3: "taxis",
+        4: "turning",
+        5: "position",
+        6: "open loop",
+        7: "rotation",
+        8: "dark",
+        -1: "none"
+    }
 
+    # per-frame MAE across neurons
+    mae_per_frame = np.mean(np.abs(reconstructed - true), axis=1)  # [700]
+    conditions = to_numpy(x_list[0][:,0,7:8]).squeeze()
+
+    mean_mae, sem_mae, labels, counts = [], [], [], []
+    for cond_id, cond_name in condition_names.items():
+        if cond_id == -1:
+            continue
+        mask = conditions == cond_id
+        if mask.sum() == 0:
+            continue
+        vals = mae_per_frame[mask]
+        mean_mae.append(vals.mean())
+        sem_mae.append(vals.std() / np.sqrt(len(vals)))
+        labels.append(cond_name)
+        counts.append(mask.sum())
+
+    # grand average
+    valid_mask = conditions != -1
+    vals_all = mae_per_frame[valid_mask]
+    mean_mae.append(vals_all.mean())
+    sem_mae.append(vals_all.std() / np.sqrt(len(vals_all)))
+    labels.append("grand average")
+    counts.append(valid_mask.sum())
+
+    # plot
+    plt.figure(figsize=(10,5))
+    bars = plt.bar(
+        labels, mean_mae, yerr=sem_mae, capsize=5, color="skyblue",
+        error_kw=dict(ecolor="white", elinewidth=2, capsize=5, capthick=2)
+    )
+
+    # add frame counts above bars
+    for bar, count in zip(bars, counts):
+        height = bar.get_height()
+        plt.text(
+            bar.get_x() + bar.get_width()/2, height + 0.001,
+            f"{count}", ha="center", va="bottom", fontsize=12, color="white"
+        )
+
+    plt.ylabel("MAE", fontsize=16)
+    plt.title("reconstruction Error per Condition (±SEM)", fontsize=16)
+    plt.xticks(rotation=45, ha="right", fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/recons_error_per_condition.png", dpi=150)
+    plt.close()
+
+    print(f"Grand average MAE: {mean_mae[-1]:.4f} ± {sem_mae[-1]:.4f} (N={counts[-1]})")
 
 
 
