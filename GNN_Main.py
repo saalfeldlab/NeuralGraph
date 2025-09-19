@@ -59,7 +59,7 @@ if __name__ == "__main__":
     else:
         best_model =None 
         # best_model = '3_960000'
-        task = 'generate'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_44_26'] #, 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
 
         # config_list = ['signal_N4_1']
-        config_list = ['zebra_N10_19', 'zebra_N10_20'] 
+        config_list = ['zebra_N10_15', 'zebra_N10_16', 'zebra_N10_17'] 
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
@@ -83,7 +83,7 @@ if __name__ == "__main__":
         config.config_file = pre_folder + config_file_
         device = set_device(config.training.device)
 
-        print(f"config_file  {config.config_file}")
+        print(f"\033[92mconfig_file  {config.config_file}\033[0m")
         print(f"\033[92mdevice  {device}\033[0m")
 
         if "generate" in task:
