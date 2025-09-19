@@ -1465,15 +1465,13 @@ def data_train_zebra(config, erase, best_model, device):
     list_loss_regul = []
     time.sleep(0.2)
 
-
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
 
     Niter = int(n_frames * data_augmentation_loop // batch_size)
-    plot_frequency = int(Niter // 5)
+    plot_frequency = int(Niter // 2)
     print(f'{Niter} iterations per epoch')
     logger.info(f'{Niter} iterations per epoch')
     print(f'plot every {plot_frequency} iterations')
-
 
     print("start training ...")
 
@@ -1522,10 +1520,10 @@ def data_train_zebra(config, erase, best_model, device):
 
             total_loss += loss.item()
 
-            if N % plot_frequency == 0:
+            if (N >0) & (N % plot_frequency == 0):
                 x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
                 with torch.no_grad():
-                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 500)
+                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100)
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
@@ -1541,7 +1539,7 @@ def data_train_zebra(config, erase, best_model, device):
 
         fig = plt.figure(figsize=(20, 10))
         ax = fig.add_subplot(1, 2, 1)
-        plt.plot(list_loss, color='k', linewidth=1)
+        plt.plot(list_loss, color='w', linewidth=1)
         plt.xlim([0, n_epochs])
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
@@ -3352,7 +3350,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     model.eval()
 
     print('recons...')
-    for it in trange(0, n_frames, 5):
+    for it in trange(0, min(n_frames,2000), 5):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
             plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/tmp_recons/field_{it:06d}.png", 200)
