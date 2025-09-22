@@ -36,6 +36,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         self.model = model_config.signal_model_name
         self.embedding_dim = model_config.embedding_dim
         self.n_neurons = simulation_config.n_neurons
+        self.n_frames = simulation_config.n_frames
         self.n_dataset = config.training.n_runs
         self.n_frames = simulation_config.n_frames
         self.field_type = model_config.field_type
@@ -101,34 +102,34 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         self.NNR_f.to(self.device)
 
 
-    def forward(self, data=[], data_id=[], mask=[], return_all=False):
+    def forward(self, data=[], data_id=[], k = [], mask=[], return_all=False):
         self.return_all = return_all
         x, edge_index = data.x, data.edge_index
 
         self.data_id = data_id.squeeze().long().clone().detach()
-        self.mask = mask.squeeze().long().clone().detach()
+        # self.mask = mask.squeeze().long().clone().detach()
 
         if self.calcium_type!="none":
             v = data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
         else:
-            v = data.x[:, 3:4]
-
-        excitation = data.x[:, 4:5]
+            v = data.x[:, 6:7]
 
         particle_id = x[:, 0].long()
         embedding = self.a[particle_id].squeeze()
 
-        msg = self.propagate(
-            edge_index, v=v, embedding=embedding, data_id=self.data_id[:, None]
-        )
+        # msg = self.propagate(
+        #     edge_index, v=v, embedding=embedding, data_id=self.data_id[:, None]
+        # )
 
-        in_features = torch.cat([v, embedding, msg, excitation], dim=1)
-        pred = self.lin_phi(in_features)
+        # in_features = torch.cat([v, embedding, msg, excitation], dim=1)
+        # pred = self.lin_phi(in_features)
+
+        in_features = torch.cat((x[:,1:4], k/self.n_frames), 1)
+        self.f = self.NNR_f(in_features)**2
         
-        if return_all:
-            return pred, in_features, msg
-        else:
-            return pred
+        pred = None
+
+        return pred, self.f
 
     def message(self, edge_index_i, edge_index_j, v_i, v_j, embedding_i, embedding_j, data_id_i):
         if (self.model=='PDE_N9_B'):
