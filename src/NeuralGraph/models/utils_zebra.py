@@ -1,4 +1,4 @@
-def plot_field_comparison(x, model, k, n_frames, ones, output_path, step):
+def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, batch_size=700):
     """
     Original viz + YZ (continuous) in a new rightmost column.
 
@@ -30,10 +30,16 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step):
     # ---------- tensors & fields ----------
     x = torch.tensor(x, dtype=torch.float32, device=ones.device)
 
-    # discrete
+    # discrete (batched inference)
     in_features = torch.cat((x[:, 1:4], (k / n_frames) * ones), 1)
+
+    field_discrete_list = []
     with torch.no_grad():
-        field_discrete = model.NNR_f(in_features)**2
+        for start in range(0, in_features.shape[0], batch_size):
+            end = min(start + batch_size, in_features.shape[0])
+            batch = in_features[start:end]
+            field_discrete_list.append(model.NNR_f(batch)**2)
+    field_discrete = torch.cat(field_discrete_list, dim=0)
 
     # continuous via fresh per-step, per-neuron jitter (matches original look)
     base  = x.unsqueeze(0).repeat(step, 1, 1)          # [step, N, F]
@@ -41,8 +47,14 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step):
     x_pert = base + noise
     x_flat = x_pert.reshape(-1, x.shape[1])
     in_feat_cont = torch.cat((x_flat[:, 1:4], (k / n_frames) * ones.repeat(step, 1)), 1)
+
+    field_cont_list = []
     with torch.no_grad():
-        field_cont = model.NNR_f(in_feat_cont)**2
+        for start in range(0, in_feat_cont.shape[0], batch_size):
+            end = min(start + batch_size, in_feat_cont.shape[0])
+            batch = in_feat_cont[start:end]
+            field_cont_list.append(model.NNR_f(batch)**2)
+    field_cont = torch.cat(field_cont_list, dim=0)
     field_cont = field_cont.reshape(step, -1)
 
     # to CPU
