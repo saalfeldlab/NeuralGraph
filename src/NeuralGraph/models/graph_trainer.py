@@ -37,6 +37,7 @@ from matplotlib.colors import LinearSegmentedColormap
 from scipy.spatial import cKDTree
 from NeuralGraph.generators.utils import *
 from scipy.special import logsumexp
+from NeuralGraph.generators.utils import generate_compressed_video_mp4
 
 def data_train(config=None, erase=False, best_model=None, device=None):
     # plt.rcParams['text.usetex'] = True
@@ -52,7 +53,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     # torch.autograd.set_detect_anomaly(True)
 
     dataset_name = config.dataset
-    print(f"\033[94mdataset_name: {dataset_name}\033[0m")
+    print(f"\033[92mdataset_name: {dataset_name}\033[0m")
 
     if 'fly' in config.dataset:
         data_train_flyvis(config, erase, best_model, device)
@@ -1425,7 +1426,7 @@ def data_train_zebra(config, erase, best_model, device):
         lr_update = train_config.learning_rate_update_start
     lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
-    learning_rate_NNR = train_config.learning_rate_NNR
+    learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
     print(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
@@ -1433,7 +1434,7 @@ def data_train_zebra(config, erase, best_model, device):
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
 
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR)
+                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f)
     model.train()
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
@@ -1576,7 +1577,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
               ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
 
     dataset_name = config.dataset
-    print(f"\033[94mdataset_name: {dataset_name}\033[0m")
+    print(f"\033[92mdataset_name: {dataset_name}\033[0m")
 
     if 'fly' in config.dataset:
         data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, new_params, device)
@@ -3349,21 +3350,43 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     print('recons...')
 
+    os.makedirs(f"./{log_dir}/results/Fig/", exist_ok=True)
     generated_x_list = []
-    for it in trange(0, min(n_frames,2000), 1):
+    for it in trange(0, min(n_frames,7800), 1):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
-            neural_field = plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/tmp_recons/field_{it:06d}.png", 50)
+            in_features = torch.cat((x[:,1:4], it/n_frames * ones), 1)
+            neural_field = model.NNR_f(in_features)**2
             generated_x_list.append(to_numpy(neural_field.clone().detach()))
+            neural_field = plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it:06d}.png", 50)
 
-    generated_x_list = np.array(generated_x_list)
+    generated_x_list = np.array(generated_x_list)    
     print(f"generated {len(generated_x_list)} frames total")
     print(f"saving ./{log_dir}/results/recons_field.npy")
     np.save(f"./{log_dir}/results/recons_field.npy", generated_x_list)
 
+    print('save video...')
+    src = f"./{log_dir}/results/Fig/Fig_0_000000.png"
+    dst = f"./{log_dir}/results/input_zebra.png"
+    with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
+        fdst.write(fsrc.read())
+    generate_compressed_video_mp4(
+        output_dir=f"./{log_dir}/results", 
+        run=0, 
+        config_indices="zebra",
+        framerate=40
+    )
+    print(f"video saved to {log_dir}/results/")
+    files = glob.glob(f'./{log_dir}/results/Fig/*')
+    for f in files:
+        os.remove(f)
+    
+    
+
+    # generated_x_list = np.load(f"./{log_dir}/results/recons_field.npy")
 
     reconstructed = generated_x_list
-    true = to_numpy(x_list[0][:,:,6:7])
+    true = to_numpy(x_list[0][0:min(n_frames,7800),:,6:7])
 
     # comparison between x_list and generated_x_list
 
