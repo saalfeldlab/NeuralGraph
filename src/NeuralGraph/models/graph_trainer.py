@@ -506,7 +506,7 @@ def data_train_signal(config, erase, best_model, device):
 
                     if batch_ratio < 1:
                         ids_ = np.random.permutation(ids.shape[0])[:int(ids.shape[0] * batch_ratio)]
-                        ids = np.sort(ids)
+                        ids = np.sort(ids_)
                         edges = edges_all.clone().detach()
                         mask = torch.isin(edges[1, :], torch.tensor(ids, device=device))
                         edges = edges[:, mask]
@@ -1492,28 +1492,65 @@ def data_train_zebra(config, erase, best_model, device):
 
             loss = 0
 
+            dataset_batch = []
+            ids_batch = []
+            ids_index = 0
+            edges = []
+
             for batch in range(batch_size):
 
                 k = np.random.randint(n_frames - 1)
+                ids = np.arange(n_neurons)
+
+                if batch_ratio < 1:
+                    ids_ = np.random.permutation(ids.shape[0])[:int(ids.shape[0] * batch_ratio)]
+                    ids = np.sort(ids_)
+                    # edges = edges_all.clone().detach()
+                    # mask = torch.isin(edges[1, :], torch.tensor(ids, device=device))
+                    # edges = edges[:, mask]
+
+
+                x = torch.tensor(x_list[run][k, :, 0:7], dtype=torch.float32, device=device).clone().detach()
+                y = torch.tensor(x_list[run][k, :, 6:7], device=device).clone().detach()
+
+                dataset = data.Data(x=x, edge_index=edges)
+                dataset_batch.append(dataset)
 
                 if batch == 0:
+                    # x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
+                    # in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
+                    # y = x[:, 6:7].clone().detach()
 
-                    x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
-                    in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
-                    y = x[:, 6:7].clone().detach()
+                    data_id = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run
+                    y_batch = y
+                    k_batch = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k
+                    ids_batch = ids
+
                 else:
-                    x_ = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
-                    in_features_ = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
-                    y_ = x_[:, 6:7].clone().detach()
+                    # x_ = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
+                    # in_features_ = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
+                    # y_ = x_[:, 6:7].clone().detach()
 
-                    x = torch.cat((x, x_), dim=0)
-                    in_features = torch.cat((in_features, in_features_), dim=0)
-                    y = torch.cat((y, y_), dim=0)
+                    # x = torch.cat((x, x_), dim=0)
+                    # in_features = torch.cat((in_features, in_features_), dim=0)
+                    # y = torch.cat((y, y_), dim=0)
+
+                    data_id = torch.cat((data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
+                    y_batch = torch.cat((y_batch, y), dim=0)
+                    k_batch = torch.cat((k_batch, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k), dim=0)
+                    ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
+
+                ids_index += x.shape[0]
 
 
-            field = model.NNR_f(in_features)**2
+            # field = model.NNR_f(in_features)**2
 
-            loss = loss + (field - y).norm(2)
+            batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+
+            for batch in batch_loader:
+                pred, field_f = model(batch, data_id=data_id, k=k_batch)
+
+            loss = loss + (field_f - y_batch).norm(2)
 
             loss.backward()
             optimizer.step()
