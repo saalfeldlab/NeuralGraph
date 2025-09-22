@@ -1468,7 +1468,7 @@ def data_train_zebra(config, erase, best_model, device):
 
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
 
-    Niter = int(n_frames * data_augmentation_loop // batch_size)
+    Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio)
     plot_frequency = int(Niter // 5)
     print(f'{Niter} iterations per epoch')
     logger.info(f'{Niter} iterations per epoch')
@@ -1536,12 +1536,13 @@ def data_train_zebra(config, erase, best_model, device):
 
             # field = model.NNR_f(in_features)**2
 
+            ids_batch_t = torch.as_tensor(ids_batch, device=device, dtype=torch.long)
             batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
 
             for batch in batch_loader:
-                pred, field_f = model(batch, data_id=data_id, k=k_batch, ids=ids_batch)
+                pred, field_f, field_f_laplacians = model(batch, data_id=data_id, k=k_batch, ids=ids_batch_t)
 
-            loss = loss + (field_f - y_batch[ids_batch]).norm(2)
+            loss = loss + (field_f - y_batch[ids_batch]).norm(2) # + (field_f_laplacians).norm(2)
 
             loss.backward()
             optimizer.step()
