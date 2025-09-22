@@ -7,6 +7,32 @@ import numpy as np
 from NeuralGraph.models.Siren_Network import *
 
 class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
+    def compute_laplacian(self, x, k, ids=None):
+        """
+        Compute Laplacian of the neural field with respect to 3D positions in x[:,1:4].
+        Args:
+            x: torch.Tensor, shape [N, F], input features
+            k: scalar or tensor, frame/time index
+            ids: indices to select from x (default: all)
+        Returns:
+            laplacians: torch.Tensor, shape [len(ids)]
+        """
+        if ids is None:
+            ids = torch.arange(x.shape[0], device=x.device)
+        in_features = torch.cat((x[:,1:4], k/self.n_frames), 1)
+        in_features = in_features.clone().detach().requires_grad_(True)
+        f = self.NNR_f(in_features[ids])**2
+        laplacians = []
+        for i in range(f.shape[0]):
+            grad = torch.autograd.grad(f[i], in_features, create_graph=True, retain_graph=True)[0][ids[i], :3]
+            hess = []
+            for j in range(3):
+                hess_j = torch.autograd.grad(grad[j], in_features, create_graph=True, retain_graph=True)[0][ids[i], j]
+                hess.append(hess_j)
+            laplacian = sum(hess)
+            laplacians.append(laplacian)
+        laplacians = torch.stack(laplacians)
+        return laplacians
     """Interaction Network as proposed in this paper:
     https://proceedings.neurips.cc/paper/2016/hash/3147da8ab4a0437c15ef51a5cc7f2dc4-Abstract.html"""
 
@@ -124,12 +150,11 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         # in_features = torch.cat([v, embedding, msg, excitation], dim=1)
         # pred = self.lin_phi(in_features)
 
-        in_features = torch.cat((x[:,1:4], k/self.n_frames), 1)
-        self.f = self.NNR_f(in_features[ids])**2
-        
+        f_sq, lap = self.compute_laplacian(x, k, ids)
         pred = None
+        return pred, f_sq, lap
 
-        return pred, self.f
+        return pred, self.f, self_f_laplacians
 
     def message(self, edge_index_i, edge_index_j, v_i, v_j, embedding_i, embedding_j, data_id_i):
         if (self.model=='PDE_N9_B'):
@@ -145,3 +170,55 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
 
     def update(self, aggr_out):
         return aggr_out
+    
+    def compute_laplacian(self, x, k, ids):
+        """
+        Vectorized, on-graph Laplacian of f(x,t)^2 wrt spatial coords x[:,1:4].
+        Processes all ids at once (no chunking). Keeps the graph so f_sq and lap can be used in the loss.
+        """
+
+        if not torch.is_tensor(ids):
+            ids = torch.as_tensor(ids, device=x.device, dtype=torch.long)
+        else:
+            ids = ids.to(device=x.device, dtype=torch.long)
+
+        # Select inputs
+        pos = x[ids, 1:4]  # (M, 3)
+
+        if torch.is_tensor(k):
+            kk = k[ids].reshape(-1, 1).to(device=x.device, dtype=pos.dtype)
+        else:
+            kk = torch.full((pos.size(0), 1), float(k), device=x.device, dtype=pos.dtype)
+
+        t = kk / float(self.n_frames)
+        in_features = torch.cat([pos, t], dim=1)   # (M, 4)
+        in_features.requires_grad_(True)
+
+        # Forward through siren
+        f = self.NNR_f(in_features).squeeze(-1)    # (M,)
+        f_sq = f * f                               # (M,)
+
+        # First gradient wrt inputs
+        g = torch.autograd.grad(
+            f_sq.sum(),
+            in_features,
+            create_graph=True,
+            retain_graph=True
+        )[0]                                       # (M, 4)
+
+        # Laplacian = sum of second partials over spatial dims
+        lap = 0.0
+        for d in range(3):
+            hv = torch.autograd.grad(
+                g[:, d].sum(),
+                in_features,
+                create_graph=True,
+                retain_graph=True
+            )[0][:, d]                             # (M,)
+            lap = lap + hv
+
+        return f_sq, lap
+
+
+
+    

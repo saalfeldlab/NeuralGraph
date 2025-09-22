@@ -1,5 +1,5 @@
-description: 'n_frames: 700 slice_selection  hidden 512 omega_f 10'
-dataset: 'zebra_N10_15'
+description: 'n_frames: 1500 slice_selection  hidden 512  layers 5'
+dataset: 'zebra_N10_17'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
 slice_selection: False
 
@@ -12,7 +12,7 @@ simulation:
     n_neurons: 71721
     n_input_neurons: 1736
     n_neuron_types: 65
-    n_frames: 700
+    n_frames: 1500
     delta_t: 1
     baseline_value: 0
 
@@ -35,7 +35,7 @@ graph_model:
 
     input_size_nnr_f: 4
     hidden_dim_nnr_f: 512
-    n_layers_nnr_f: 3
+    n_layers_nnr_f: 5
     omega_f: 10
     outermost_linear_nnr_f: True
     output_size_nnr_f: 1
@@ -58,8 +58,8 @@ training:
     device: 'auto'
 
     recursive_loop: 1
-    batch_size: 2
-    batch_ratio: 1
+    batch_size: 1
+    batch_ratio: 0.15
 
     sparsity: 'none'
     rotation_augmentation: False
