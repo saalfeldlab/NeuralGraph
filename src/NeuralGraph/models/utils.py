@@ -973,6 +973,9 @@ def set_trainable_parameters(model=[], lr_embedding=[], lr=[],  lr_update=[], lr
                 # print(f'lr_W: {name} {lr_W}')
             elif 'W' in name:
                 optimizer.add_param_group({'params': parameter, 'lr': lr_W})
+            elif 'NNR_f' in name:
+                optimizer.add_param_group({'params': parameter, 'lr': learning_rate_NNR_f})
+                # print(f'lr_W: {name} {lr_W}')
             elif 'NNR' in name:
                 optimizer.add_param_group({'params': parameter, 'lr': learning_rate_NNR})
                 # print(f'lr_W: {name} {lr_W}')

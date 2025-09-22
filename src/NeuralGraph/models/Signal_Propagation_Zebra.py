@@ -93,11 +93,11 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
             )[:, None]
         )
 
-        self.NNR_f = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
-                hidden_features=model_config.hidden_dim_nnr,
-                hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
-                hidden_omega_0=model_config.omega,
-                outermost_linear=model_config.outermost_linear_nnr)
+        self.NNR_f = Siren(in_features=model_config.input_size_nnr_f, out_features=model_config.output_size_nnr_f,
+                hidden_features=model_config.hidden_dim_nnr_f,
+                hidden_layers=model_config.n_layers_nnr_f, first_omega_0=model_config.omega_f,
+                hidden_omega_0=model_config.omega_f,
+                outermost_linear=model_config.outermost_linear_nnr_f)
         self.NNR_f.to(self.device)
 
 
