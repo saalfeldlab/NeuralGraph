@@ -1468,7 +1468,7 @@ def data_train_zebra(config, erase, best_model, device):
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
 
     Niter = int(n_frames * data_augmentation_loop // batch_size)
-    plot_frequency = int(Niter // 2)
+    plot_frequency = int(Niter // 5)
     print(f'{Niter} iterations per epoch')
     logger.info(f'{Niter} iterations per epoch')
     print(f'plot every {plot_frequency} iterations')
@@ -1548,16 +1548,16 @@ def data_train_zebra(config, erase, best_model, device):
             batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
 
             for batch in batch_loader:
-                pred, field_f = model(batch, data_id=data_id, k=k_batch)
+                pred, field_f = model(batch, data_id=data_id, k=k_batch, ids=ids_batch)
 
-            loss = loss + (field_f - y_batch).norm(2)
+            loss = loss + (field_f - y_batch[ids_batch]).norm(2)
 
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item()
 
-            if (N >0) & (N % plot_frequency == 0):
+            if (N % plot_frequency == 0):
                 x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
                 with torch.no_grad():
                     plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100)
