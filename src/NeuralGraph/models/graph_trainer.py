@@ -1325,6 +1325,7 @@ def data_train_zebra(config, erase, best_model, device):
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
     time_window = train_config.time_window
+    plot_batch_size = config.plotting.plot_batch_size
 
     field_type = model_config.field_type
     time_step = train_config.time_step
@@ -1517,9 +1518,6 @@ def data_train_zebra(config, erase, best_model, device):
                 dataset_batch.append(dataset)
 
                 if batch == 0:
-                    # x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
-                    # in_features = torch.cat((x[:,1:4], k/n_frames * ones), 1)
-                    # y = x[:, 6:7].clone().detach()
 
                     data_id = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run
                     y_batch = y
@@ -1527,13 +1525,6 @@ def data_train_zebra(config, erase, best_model, device):
                     ids_batch = ids
 
                 else:
-                    # x_ = torch.tensor(x_list[run][k], dtype=torch.float32, device=device).clone().detach()
-                    # in_features_ = torch.cat((x_[:,1:4], k/n_frames * ones), 1)
-                    # y_ = x_[:, 6:7].clone().detach()
-
-                    # x = torch.cat((x, x_), dim=0)
-                    # in_features = torch.cat((in_features, in_features_), dim=0)
-                    # y = torch.cat((y, y_), dim=0)
 
                     data_id = torch.cat((data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
                     y_batch = torch.cat((y_batch, y), dim=0)
@@ -1560,7 +1551,7 @@ def data_train_zebra(config, erase, best_model, device):
             if (N % plot_frequency == 0):
                 x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
                 with torch.no_grad():
-                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100)
+                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100, plot_batch_size)
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
@@ -3296,6 +3287,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     delta_t = simulation_config.delta_t
     time_window = training_config.time_window
     time_step = training_config.time_step
+    plot_batch_size = config.plotting.plot_batch_size
 
     cmap = CustomColorMap(config=config)
     dimension = simulation_config.dimension
@@ -3393,9 +3385,15 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
             in_features = torch.cat((x[:,1:4], it/n_frames * ones), 1)
-            neural_field = model.NNR_f(in_features)**2
+
+            neural_field_list = []
+            for start in range(0, in_features.shape[0], plot_batch_size):
+                end = min(start + plot_batch_size, in_features.shape[0])
+                batch = in_features[start:end]
+                neural_field_list.append(model.NNR_f(batch)**2)
+            neural_field = torch.cat(neural_field_list, dim=0)
             generated_x_list.append(to_numpy(neural_field.clone().detach()))
-            neural_field = plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it:06d}.png", 50)
+            neural_field = plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it:06d}.png", 50, plot_batch_size)
 
     generated_x_list = np.array(generated_x_list)    
     print(f"generated {len(generated_x_list)} frames total")

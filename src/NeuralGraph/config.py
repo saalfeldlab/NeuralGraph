@@ -186,6 +186,7 @@ class PlottingConfig(BaseModel):
     pic_format: str = "jpg"
     pic_size: list[int] = [1000, 1100]
     data_embedding: int = 1
+    plot_batch_size: int = 1000
 
 
 class TrainingConfig(BaseModel):
