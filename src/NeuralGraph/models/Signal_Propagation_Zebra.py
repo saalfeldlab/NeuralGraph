@@ -102,7 +102,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         self.NNR_f.to(self.device)
 
 
-    def forward(self, data=[], data_id=[], k = [], mask=[], return_all=False):
+    def forward(self, data=[], data_id=[], k = [], ids=[], return_all=False):
         self.return_all = return_all
         x, edge_index = data.x, data.edge_index
 
@@ -125,7 +125,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         # pred = self.lin_phi(in_features)
 
         in_features = torch.cat((x[:,1:4], k/self.n_frames), 1)
-        self.f = self.NNR_f(in_features)**2
+        self.f = self.NNR_f(in_features[ids])**2
         
         pred = None
 
