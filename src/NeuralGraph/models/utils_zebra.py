@@ -1,4 +1,4 @@
-def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, batch_size=700):
+def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_batch_size=700):
     """
     Original viz + YZ (continuous) in a new rightmost column.
 
@@ -35,8 +35,8 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, batch_
 
     field_discrete_list = []
     with torch.no_grad():
-        for start in range(0, in_features.shape[0], batch_size):
-            end = min(start + batch_size, in_features.shape[0])
+        for start in range(0, in_features.shape[0], plot_batch_size):
+            end = min(start + plot_batch_size, in_features.shape[0])
             batch = in_features[start:end]
             field_discrete_list.append(model.NNR_f(batch)**2)
     field_discrete = torch.cat(field_discrete_list, dim=0)
@@ -50,8 +50,8 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, batch_
 
     field_cont_list = []
     with torch.no_grad():
-        for start in range(0, in_feat_cont.shape[0], batch_size):
-            end = min(start + batch_size, in_feat_cont.shape[0])
+        for start in range(0, in_feat_cont.shape[0], plot_batch_size):
+            end = min(start + plot_batch_size, in_feat_cont.shape[0])
             batch = in_feat_cont[start:end]
             field_cont_list.append(model.NNR_f(batch)**2)
     field_cont = torch.cat(field_cont_list, dim=0)
