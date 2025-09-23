@@ -1,4 +1,4 @@
-description: 'synaptic network 100.000 points  1000 000 iterations per epoch batchsize 1 learning_rate_embedding_start: 5.0E-16  coeff_W_L1: 1.0E-5'
+description: 'synaptic network 100.000 points  1000 000 iterations per epoch batchsize 1  coeff_W_L1: 1.0E-5     learning_rate_start: 5.0E-3'
 dataset: 'signal_N2_1'
 
 simulation:
@@ -59,13 +59,13 @@ training:
     rotation_augmentation: False
     data_augmentation_loop: 25
 
-    sparsity: 'none'
+    sparsity: 'replace_embedding_function'
     sparsity_freq: 4
     cluster_method: 'distance_plot'
     fix_cluster_embedding: True
 
     learning_rate_W_start: 1.0E-3
-    learning_rate_start: 5.0E-4
-    learning_rate_embedding_start: 5.0E-16
+    learning_rate_start: 5.0E-3
+    learning_rate_embedding_start: 5.0E-3
     coeff_W_L1: 1.0E-5
 

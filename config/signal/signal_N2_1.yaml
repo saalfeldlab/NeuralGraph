@@ -51,13 +51,13 @@ training:
     device: 'auto'
 
     recursive_loop: 1
-    batch_size: 16
+    batch_size: 8
     small_init_batch_size: False
 
     seed: 24
 
     rotation_augmentation: False
-    data_augmentation_loop: 15
+    data_augmentation_loop: 25
 
     sparsity: 'replace_embedding_function'
     sparsity_freq: 4
