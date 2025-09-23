@@ -289,6 +289,10 @@ class TrainingConfig(BaseModel):
     coeff_update_msg_diff: float = 0
     coeff_update_msg_sign: float = 0
     coeff_update_u_diff: float = 0
+    coeff_NNR_f: float = 0
+
+    XY_T_ratio_NNR_f: float = 1.0
+
 
     coeff_permutation: float = 100
 

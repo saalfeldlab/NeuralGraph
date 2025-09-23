@@ -1337,6 +1337,7 @@ def data_train_zebra(config, erase, best_model, device):
     coeff_update_msg_sign = train_config.coeff_update_msg_sign
     coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
     coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
+    coeff_NNR_f = train_config.coeff_NNR_f
 
     pre_trained_W = train_config.pre_trained_W
 
@@ -1542,7 +1543,9 @@ def data_train_zebra(config, erase, best_model, device):
             for batch in batch_loader:
                 pred, field_f, field_f_laplacians = model(batch, data_id=data_id, k=k_batch, ids=ids_batch_t)
 
-            loss = loss + (field_f - y_batch[ids_batch]).norm(2) # + (field_f_laplacians).norm(2)
+            loss = loss + (field_f - y_batch[ids_batch]).norm(2) 
+            if coeff_NNR_f > 0:
+                loss = loss + (field_f_laplacians).norm(2)
 
             loss.backward()
             optimizer.step()
@@ -3306,17 +3309,6 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     if 'latex' in style:
         print('latex style...')
-        # plt.rcParams['text.usetex'] = True
-        # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-        # mpl.rcParams.update({
-        #     "text.usetex": True,                    # use LaTeX for all text
-        #     "font.family": "serif",                 # tell mpl to prefer serifs
-        #     "text.latex.preamble": r"""
-        #         \usepackage[T1]{fontenc}
-        #         \usepackage[sc]{mathpazo} % Palatino text + math
-        #         \linespread{1.05}         % optional: Palatino needs a bit more leading
-        #     """,
-        # })
         plt.rcParams['text.usetex'] = True
         rc('font', **{'family': 'serif', 'serif': ['Palatino']})
     if 'black' in style:
@@ -3382,11 +3374,11 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     os.makedirs(f"./{log_dir}/results/Fig/", exist_ok=True)
     generated_x_list = []
+    it_idx = 0
     for it in trange(0, min(n_frames,7800), 1):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
             in_features = torch.cat((x[:,1:4], it/n_frames * ones), 1)
-
             neural_field_list = []
             for start in range(0, in_features.shape[0], plot_batch_size):
                 end = min(start + plot_batch_size, in_features.shape[0])
@@ -3394,7 +3386,10 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
                 neural_field_list.append(model.NNR_f(batch)**2)
             neural_field = torch.cat(neural_field_list, dim=0)
             generated_x_list.append(to_numpy(neural_field.clone().detach()))
-            neural_field = plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it:06d}.png", 50, plot_batch_size)
+            if it % step == 0:
+                # plot field comparison
+                plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png", 50, plot_batch_size)
+                it_idx += 1
 
     generated_x_list = np.array(generated_x_list)    
     print(f"generated {len(generated_x_list)} frames total")
@@ -3414,11 +3409,9 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     )
     print(f"video saved to {log_dir}/results/")
     files = glob.glob(f'./{log_dir}/results/Fig/*')
-    for f in files:
-        os.remove(f)
+    # for f in files:
+    #     os.remove(f)
     
-    
-
     # generated_x_list = np.load(f"./{log_dir}/results/recons_field.npy")
 
     reconstructed = generated_x_list
