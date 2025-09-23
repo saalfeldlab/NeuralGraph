@@ -1543,7 +1543,7 @@ def data_train_zebra(config, erase, best_model, device):
             for batch in batch_loader:
                 pred, field_f, field_f_laplacians = model(batch, data_id=data_id, k=k_batch, ids=ids_batch_t)
 
-            loss = loss + (field_f - y_batch[ids_batch]).norm(2) 
+            loss = loss + (field_f[:,None] - y_batch[ids_batch]).norm(2) 
             if coeff_NNR_f > 0:
                 loss = loss + (field_f_laplacians).norm(2)
 
