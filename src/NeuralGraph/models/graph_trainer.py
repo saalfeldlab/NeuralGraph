@@ -393,7 +393,7 @@ def data_train_signal(config, erase, best_model, device):
             ids_index = 0
 
             loss = 0
-            run = np.random.randint(n_runs)
+            run = np.random.randint(n_runs-1)
 
             for batch in range(batch_size):
 
