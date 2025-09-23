@@ -175,7 +175,8 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         f = self.NNR_f(in_features).squeeze(-1)    # (M,)
         f_sq = f * f                               # (M,)
 
-        if self.coeff_NNR_f == 0:
+        lap = 0.0
+        if self.coeff_NNR_f > 0:
             # First gradient wrt inputs
             g = torch.autograd.grad(
                 f_sq.sum(),
@@ -183,9 +184,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
                 create_graph=True,
                 retain_graph=True
             )[0]                                       # (M, 4)
-
             # Laplacian = sum of second partials over spatial dims
-            lap = 0.0
             for d in range(3):
                 hv = torch.autograd.grad(
                     g[:, d].sum(),

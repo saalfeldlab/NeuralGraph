@@ -57,7 +57,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model =None 
-        task = 'test'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -65,8 +65,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_44_26'] #, 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
 
         # config_list = ['signal_N4_1']
-        config_list = ['zebra_N10_31_4', 'zebra_N10_31_5', 'zebra_N10_31_6', 'zebra_N10_31_7', 'zebra_N10_31_8', 
-                       'zebra_N10_32_1', 'zebra_N10_32_2', 'zebra_N10_32_3']  
+        config_list = ['zebra_N10_32_1']
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
