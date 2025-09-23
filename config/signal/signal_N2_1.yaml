@@ -1,4 +1,4 @@
-description: 'synaptic network 100.000 points  1000 000 iterations per epoch batchsize 1'
+description: 'synaptic network 100.000 points  1000 000 iterations per epoch batchsize 1  coeff_W_L1: 1.0E-5'
 dataset: 'signal_N2_1'
 
 simulation:
@@ -51,13 +51,13 @@ training:
     device: 'auto'
 
     recursive_loop: 1
-    batch_size: 1
+    batch_size: 16
     small_init_batch_size: False
 
     seed: 24
 
     rotation_augmentation: False
-    data_augmentation_loop: 50
+    data_augmentation_loop: 15
 
     sparsity: 'replace_embedding_function'
     sparsity_freq: 4
@@ -67,4 +67,5 @@ training:
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 5.0E-3
+    coeff_W_L1: 1.0E-5
 
