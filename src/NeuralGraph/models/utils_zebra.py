@@ -18,7 +18,7 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_b
     import datashader.transfer_functions as tf
 
     # ---------- fixed LUT ----------
-    vmin, vmax = 0.048, 0.451
+    vmin, vmax = 0.048, 0.251
 
     # ---------- fonts & spacing ----------
     TITLE_FZ  = 16

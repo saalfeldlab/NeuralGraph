@@ -7,32 +7,6 @@ import numpy as np
 from NeuralGraph.models.Siren_Network import *
 
 class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
-    def compute_laplacian(self, x, k, ids=None):
-        """
-        Compute Laplacian of the neural field with respect to 3D positions in x[:,1:4].
-        Args:
-            x: torch.Tensor, shape [N, F], input features
-            k: scalar or tensor, frame/time index
-            ids: indices to select from x (default: all)
-        Returns:
-            laplacians: torch.Tensor, shape [len(ids)]
-        """
-        if ids is None:
-            ids = torch.arange(x.shape[0], device=x.device)
-        in_features = torch.cat((x[:,1:4], k/self.n_frames), 1)
-        in_features = in_features.clone().detach().requires_grad_(True)
-        f = self.NNR_f(in_features[ids])**2
-        laplacians = []
-        for i in range(f.shape[0]):
-            grad = torch.autograd.grad(f[i], in_features, create_graph=True, retain_graph=True)[0][ids[i], :3]
-            hess = []
-            for j in range(3):
-                hess_j = torch.autograd.grad(grad[j], in_features, create_graph=True, retain_graph=True)[0][ids[i], j]
-                hess.append(hess_j)
-            laplacian = sum(hess)
-            laplacians.append(laplacian)
-        laplacians = torch.stack(laplacians)
-        return laplacians
     """Interaction Network as proposed in this paper:
     https://proceedings.neurips.cc/paper/2016/hash/3147da8ab4a0437c15ef51a5cc7f2dc4-Abstract.html"""
 
@@ -70,6 +44,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         self.multi_connectivity = config.training.multi_connectivity
         self.calcium_type = simulation_config.calcium_type
 
+        self.coeff_NNR_f = config.training.coeff_NNR_f
         self.training_time_window = config.training.time_window
 
         self.input_size = model_config.input_size
@@ -127,6 +102,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
                 outermost_linear=model_config.outermost_linear_nnr_f)
         self.NNR_f.to(self.device)
 
+        self.XY_T_ratio_NNR_f = config.training.XY_T_ratio_NNR_f
 
     def forward(self, data=[], data_id=[], k = [], ids=[], return_all=False):
         self.return_all = return_all
@@ -190,32 +166,34 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         else:
             kk = torch.full((pos.size(0), 1), float(k), device=x.device, dtype=pos.dtype)
 
-        t = kk / float(self.n_frames)
-        in_features = torch.cat([pos, t], dim=1)   # (M, 4)
-        in_features.requires_grad_(True)
+        t = kk / float(self.n_frames) * self.XY_T_ratio_NNR_f
+        in_features = torch.cat([pos, t], dim=1)
+        if self.coeff_NNR_f == 0:   # (M, 4)
+            in_features.requires_grad_(True)
 
         # Forward through siren
         f = self.NNR_f(in_features).squeeze(-1)    # (M,)
         f_sq = f * f                               # (M,)
 
-        # First gradient wrt inputs
-        g = torch.autograd.grad(
-            f_sq.sum(),
-            in_features,
-            create_graph=True,
-            retain_graph=True
-        )[0]                                       # (M, 4)
-
-        # Laplacian = sum of second partials over spatial dims
-        lap = 0.0
-        for d in range(3):
-            hv = torch.autograd.grad(
-                g[:, d].sum(),
+        if self.coeff_NNR_f == 0:
+            # First gradient wrt inputs
+            g = torch.autograd.grad(
+                f_sq.sum(),
                 in_features,
                 create_graph=True,
                 retain_graph=True
-            )[0][:, d]                             # (M,)
-            lap = lap + hv
+            )[0]                                       # (M, 4)
+
+            # Laplacian = sum of second partials over spatial dims
+            lap = 0.0
+            for d in range(3):
+                hv = torch.autograd.grad(
+                    g[:, d].sum(),
+                    in_features,
+                    create_graph=True,
+                    retain_graph=True
+                )[0][:, d]                             # (M,)
+                lap = lap + hv
 
         return f_sq, lap
 

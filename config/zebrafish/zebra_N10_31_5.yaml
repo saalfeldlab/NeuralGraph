@@ -1,4 +1,4 @@
-description: 'n_frames: 1500 slice_selection  hidden 512  layers 5'
+description: 'n_frames: 1500 slice_selection  hidden 256  layers 5   omega_f 10'
 dataset: 'zebra_N10_17'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
 slice_selection: False
@@ -34,9 +34,9 @@ graph_model:
     embedding_dim: 2
 
     input_size_nnr_f: 4
-    hidden_dim_nnr_f: 512
+    hidden_dim_nnr_f: 256
     n_layers_nnr_f: 5
-    omega_f: 10
+    omega_f: 1030
     outermost_linear_nnr_f: True
     output_size_nnr_f: 1
     aggr_type: 'add'

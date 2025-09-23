@@ -1,4 +1,4 @@
-description: 'n_frames: 1500 slice_selection  hidden 1024'
+description: 'n_frames: 1500 slice_selection  hidden 1024 learning_rate_NNR_f 1.0E-5'
 dataset: 'zebra_N10_17'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
 slice_selection: False
@@ -68,7 +68,7 @@ training:
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 5.0E-3
-    learning_rate_NNR_f: 1.0E-4
+    learning_rate_NNR_f: 1.0E-5
 
     measurement_noise_level: 0
     noise_model_level: 0
@@ -76,3 +76,5 @@ training:
     coeff_update_u_diff: 0
     coeff_update_msg_diff: 0
     coeff_edge_norm: 1000.0
+
+    coeff_NNR_f: 0.0
