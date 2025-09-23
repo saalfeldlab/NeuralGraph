@@ -57,15 +57,15 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model =None 
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
         # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
         # config_list = ['fly_N9_44_26'] #, 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
 
-        config_list = ['signal_N2_1']
-        # config_list = ['zebra_N10_32_1']
+        # config_list = ['signal_N2_1']
+        config_list = ['zebra_N10_32_1']
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
@@ -108,13 +108,13 @@ if __name__ == "__main__":
             data_test(
                 config=config,
                 visualize=True,
-                style="white color name",
+                style="black color name",
                 verbose=False,
                 best_model='best',
                 run=0,
                 test_mode="test_ablation_0",
                 sample_embedding=False,
-                step=200,
+                step=5,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
