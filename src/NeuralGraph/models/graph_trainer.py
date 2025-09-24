@@ -730,7 +730,7 @@ def data_train_signal(config, erase, best_model, device):
                 model_MLP = model.lin_phi
                 update_type = model.update_type
 
-                func_list, proj_interaction_ = analyze_edge_function(rr=torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device),
+                func_list, proj_interaction = analyze_edge_function(rr=torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device),
                                                                      vizualize=True, config=config,
                                                                      model_MLP=model_MLP, model=model,
                                                                      n_nodes=0,
@@ -738,7 +738,16 @@ def data_train_signal(config, erase, best_model, device):
                                                                      type_list=to_numpy(x[:, 1 + 2 * dimension]),
                                                                      cmap=cmap, update_type=update_type, device=device)
 
+                labels, n_clusters, new_labels = sparsify_cluster(train_config.cluster_method, proj_interaction, embedding, train_config.cluster_distance_threshold, type_list, n_neuron_types, embedding_cluster)
 
+                model_a_ = model.a.clone().detach()
+                for n in range(n_clusters):
+                    pos = np.argwhere(labels == n).squeeze().astype(int)
+                    pos = np.array(pos)
+                    if pos.size > 0:
+                        median_center = model_a_[pos, :]
+                        median_center = torch.median(median_center, dim=0).values
+                        model_a_[pos, :] = median_center
 
                 # Constrain embedding domain
                 with torch.no_grad():
@@ -3062,7 +3071,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     #                                 config_indices=config_indices,framerate=20)
     # generate_compressed_video_mp4(output_dir=f"./{log_dir}/results", run=run,
     #                                 config_indices=config_indices,framerate=20)
-
     # files = glob.glob(f'./{log_dir}/tmp_recons/*')
     # for f in files:
     #     os.remove(f)
@@ -3215,7 +3223,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.plot(true_data, linewidth=4, color='green', alpha=0.9)
             
             # Plot predicted (colored line)
-            ax.plot(pred_data, linewidth=1, color=mc, alpha=1.0)
+            if 'true_only' not in style:
+                ax.plot(pred_data, linewidth=1, color=mc, alpha=1.0)
             
             # Calculate RMSE
             rmse = np.sqrt(np.mean((true_data - pred_data)**2))
@@ -3223,11 +3232,11 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             # Add type name in top left corner
             type_name = index_to_name.get(type_idx, f'Type_{type_idx}')
             ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
-                    ha='left', va='top', fontsize=14, color=mc)
+                    ha='left', va='top', fontsize=24, color=mc)
             
             # Add RMSE below type name
-            ax.text(0.05, 0.85, f'RMSE: {rmse:.3f}', transform=ax.transAxes, 
-                    ha='left', va='top', fontsize=12, color=mc)
+            # ax.text(0.05, 0.85, f'RMSE: {rmse:.3f}', transform=ax.transAxes, 
+            #         ha='left', va='top', fontsize=12, color=mc)
             
             # Set axis limits with dynamic range
             ax.set_xlim([0, min(target_frames, activity_pred.shape[1])])

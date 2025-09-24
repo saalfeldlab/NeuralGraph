@@ -6808,6 +6808,94 @@ def get_figures(index):
 
     match index:
 
+        case 'N9_22_10':
+            config_file_ = 'fly_N9_22_10'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            logdir = 'log/fly/fly_N9_22_10'
+            data_test(
+                config,
+                visualize=True,
+                style="black color name true_only",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal.png')
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred.png')
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_50",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_abalation_50.png')
+            
+            config.simulation.visual_input_type = "DAVIS"
+            data_test(
+                config,
+                visualize=True,
+                style="black color name true_only",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_DAVIS.png')
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_DAVIS.png')
+
+
+
+
 
         case 'new_network_1':
             config_file_ = 'signal_N2_3'
@@ -7406,7 +7494,8 @@ if __name__ == '__main__':
     # compare_experiments(config_list, None)
 
     # config_list = ['signal_N2_1', 'signal_N2_1', 'signal_N2_3', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
-    
+
+
     # for config_file_ in config_list:
     #     print(' ')
     #     config_file, pre_folder = add_pre_folder(config_file_)
@@ -7426,4 +7515,6 @@ if __name__ == '__main__':
     # get_figures('ablation_weights')
     # get_figures('ablation_cells')
     # get_figures('permutation_types')
-    get_figures('new_network_2')
+    # get_figures('new_network_2')
+
+    get_figures('N9_22_10')
