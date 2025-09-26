@@ -24,6 +24,8 @@ from NeuralGraph.fitting_models import linear_model
 import json
 from matplotlib.animation import FFMpegWriter
 from scipy.signal import find_peaks
+from pathlib import Path
+from joblib import load
 
 def linear_model(x, a, b):
     return a * x + b
@@ -1076,7 +1078,6 @@ def sample_synaptic_data_and_predict(model, x_list, edges, n_runs, n_frames, tim
         'k': k
     }
 
-
 def analyze_odor_responses_by_neuron(model, x_list, edges, n_runs, n_frames, time_step, device,
                                      all_neuron_list, has_missing_activity=False, model_missing_activity=None,
                                      has_neural_field=False, model_f=None, n_samples=50, run=0):
@@ -1154,7 +1155,6 @@ def analyze_odor_responses_by_neuron(model, x_list, edges, n_runs, n_frames, tim
 
     return odor_responses  # Return only odor_responses to match original function signature
 
-
 def plot_odor_heatmaps(odor_responses):
     """
     Plot 3 separate heatmaps showing mean response per neuron for each odor
@@ -1182,10 +1182,96 @@ def plot_odor_heatmaps(odor_responses):
     return fig
 
 
+def overlay_umap_refit_with_w(
+    w,
+    out_prefix='/groups/saalfeld/home/allierc/Py/NeuralGraph',                                # folder containing flyvis_connectomes_W.npz
+    figure_path=None,                          # e.g. ".../overlay_refit.png"
+    show=True,
+    # UMAP params
+    neighbors=15,
+    min_dist=0.1,
+    metric="cosine",
+    seed=0,
+    # labeling
+    label_bg=True,
+    label_gnn_text="NEW",
+    label_fontsize=7,
+    label_y_offset_frac=0.015,
+    verbose=True,
+):
+    """
+    Load saved training W, append new vector(s) w, refit UMAP on [W; w], and plot.
+    Assumes w has the SAME feature order/size as W (no edge handling here).
 
+    Returns:
+        dict with keys: emb_bg, emb_new, ids_bg, reducer
+    """
+    out = Path(out_prefix)
+    W_file = out / "flyvis_connectomes_W.npz"
+    if not W_file.exists():
+        raise FileNotFoundError(
+            f"Missing training matrix: {W_file}\n"
+            "Save it once in the collector, e.g.: "
+            "np.savez_compressed(f'{out}_W.npz', W=W.astype(np.float32), model_ids=np.array(ok_ids,'<U3'))"
+        )
 
+    # --- load saved training matrix (and ids if present) ---
+    W_npz = np.load(W_file, allow_pickle=False)
+    if "W" in W_npz:
+        W_ref = np.asarray(W_npz["W"], dtype=np.float32)
+    elif "w" in W_npz:  # fallback key
+        W_ref = np.asarray(W_npz["w"], dtype=np.float32)
+    else:
+        raise KeyError(f"{W_file} must contain array 'W' (or 'w').")
 
+    ids_bg = W_npz.get("model_ids", np.array([f"{i:03d}" for i in range(W_ref.shape[0])], dtype="<U8"))
 
+    # --- normalize incoming w to 2D (n_new, E) ---
+    w = np.asarray(w, dtype=np.float32)
+    if w.ndim == 1:
+        w = w.reshape(1, -1)
+    if w.shape[1] != W_ref.shape[1]:
+        raise ValueError(f"Incoming w has {w.shape[1]} features; saved W has {W_ref.shape[1]}.")
 
+    # --- concatenate and fit UMAP fresh on [W_ref; w] ---
+    W_all = np.vstack([W_ref, w])
+    reducer = umap.UMAP(
+        n_neighbors=neighbors,
+        min_dist=min_dist,
+        n_components=2,
+        metric=metric,
+        random_state=seed,
+        init="spectral",
+        verbose=verbose
+    ).fit(W_all)
 
+    emb_all = reducer.embedding_.astype(np.float32, copy=False)
+    n_train = W_ref.shape[0]
+    emb_bg  = emb_all[:n_train]
+    emb_new = emb_all[n_train:]
 
+    # --- plot ---
+    fig, ax = plt.subplots(figsize=(6, 5))
+    ax.scatter(emb_bg[:, 0], emb_bg[:, 1], s=28, alpha=0.65, label="FlyVis (refit)")
+    ax.scatter(emb_new[:, 0], emb_new[:, 1], s=140, marker="*",
+               edgecolors="k", linewidths=1.2, label=label_gnn_text)
+
+    if label_bg:
+        y_range = float(np.ptp(emb_all[:, 1])) if emb_all.size else 0.0
+        dy = (label_y_offset_frac * y_range) if y_range > 0 else 0.02
+        for i in range(n_train):
+            ax.text(emb_bg[i, 0], emb_bg[i, 1] + dy, str(ids_bg[i]),
+                    fontsize=label_fontsize, ha="center", va="bottom")
+
+    ax.set_title("UMAP (refit) — FlyVis + new vector(s)")
+    ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2")
+    ax.legend(loc="best", frameon=True)
+    fig.tight_layout()
+    if figure_path:
+        fig.savefig(figure_path, dpi=220)
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return {"emb_bg": emb_bg, "emb_new": emb_new, "ids_bg": ids_bg, "reducer": reducer}

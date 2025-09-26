@@ -56,22 +56,23 @@ if __name__ == "__main__":
         else:
             best_model = None
     else:
-        best_model = '3_0' # None 
-        task = 'train'  # 'generate', 'train', 'test'
+        best_model = None 
+        task = 'generate'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
         # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
         # config_list = ['fly_N9_44_26'] #, 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
-        # config_list = ['fly_N9_22_10']
+        config_list = ['fly_N9_22_1']
 
-        config_list = ['signal_N2_1']
-        # config_list = ['zebra_N10_31_9']
+        # config_list = ['signal_N2_1']
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
         # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
+
+        # config_list = ['zebra_N10_31_1_bis', 'zebra_N10_33_1']
 
     for config_file_ in config_list:
         print(" ")
@@ -95,7 +96,7 @@ if __name__ == "__main__":
                 alpha=1,
                 erase=False,
                 bSave=True,
-                step=1000
+                step=1
             )  # config.simulation.n_frames // 100)
             
         if "train" in task:
@@ -113,7 +114,7 @@ if __name__ == "__main__":
                 verbose=False,
                 best_model='best',
                 run=0,
-                test_mode="test_ablation_0",
+                test_mode="",
                 sample_embedding=False,
                 step=4,
                 device=device,

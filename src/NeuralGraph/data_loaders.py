@@ -731,6 +731,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     n_frames = simulation_config.n_frames
     n_neurons = simulation_config.n_neurons
 
+    visual_input_type = simulation_config.visual_input_type
 
     delta_t = simulation_config.delta_t
     cmap = CustomColorMap(config=config)
@@ -748,6 +749,11 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
         8: "dark",
         -1: "none"  # no condition / padding
     }
+
+    if visual_input_type=='':
+        print("using all visual input types")
+    else:
+        print(f"using visual input type: {visual_input_type}")
 
 
     print(f"loading zebrafish data from {data_folder_name} for dataset {dataset_name}...")
@@ -784,8 +790,6 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     x_list = []
     y_list = []
 
-
-
     if 'black' in style:
         plt.style.use('dark_background')
     else:
@@ -814,26 +818,31 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
             x[:, 1:4] = positions[:, 0:3]
             x[:, 6] = traces[n]
             x[:, 7] = conditions[n]
-        x_list.append(x.copy())
 
+
+        if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
+            x_list.append(x.copy())
+            
         if n == 0: 
             vmin, vmax = np.percentile(traces[n], [2, 98])
 
         if n < n_frames - 1:
             y = (traces[n+1]- traces[n]) / delta_t
-            y_list.append(y)
+            if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
+                y_list.append(y)
 
-        if (visualize) & (n % 5 == 0):
-            fig  = plt.figure(figsize=(20, 10))
-            plt.axis('off')
-            plt.scatter(x[:,1], x[:,2], s=5, c=x[:,6], vmin=vmin, vmax=vmax, cmap='plasma')
-            label = f"frame: {n} \n{condition_names[int(conditions[n])]}  "
-            plt.text(0.05, 1.15, label, fontsize=24, color='white')
-            plt.xlim([0.,2])
-            plt.ylim([0,1.25])
-            plt.tight_layout()
-            plt.savefig(f"graphs_data/{dataset_name}/Fig/xy_{n:06d}.png", dpi=80)
-            plt.close()
+        if (visualize) & (n % step == 0):
+            if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
+                fig  = plt.figure(figsize=(17, 10))
+                plt.axis('off')
+                plt.scatter(x[:,1], x[:,2], s=5, c=x[:,6], vmin=vmin, vmax=vmax, cmap='plasma')
+                label = f"frame: {n} \n{condition_names[int(conditions[n])]}  "
+                plt.text(0.05, 1.15, label, fontsize=24, color='white')
+                plt.xlim([0.,2])
+                plt.ylim([0,1.25])
+                plt.tight_layout()
+                plt.savefig(f"graphs_data/{dataset_name}/Fig/xy_{n:06d}.png", dpi=40)
+                plt.close()
 
 
 
@@ -847,8 +856,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     print(f"y_list shape: {y_list.shape}")
     print('data saved.')
 
-
-
+    print(f'length of the dataset: {len(x_list)}')
 
     if visualize == -1:
         # sanity checks
@@ -872,7 +880,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
 
             cloud = pv.PolyData(positions_swapped)
             cloud["activity"] = activity
-            plotter = pv.Plotter(off_screen=True, window_size=(800, 500))
+            plotter = pv.Plotter(off_screen=True, window_size=(500, 300))
             plotter.set_background('black')
             plotter.add_points(
                 cloud,

@@ -65,7 +65,7 @@ def data_generate(
         # return
 
     if config.data_folder_name != "none":
-        generate_from_data(config=config, device=device, visualize=visualize, style=style)
+        generate_from_data(config=config, device=device, visualize=visualize, style=style, step=step)
     elif has_fly:
         data_generate_fly_voltage(
             config,
