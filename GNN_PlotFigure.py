@@ -3155,6 +3155,8 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
 
         logger.info(f'Creating {movie_name} movie...')
 
+        idx = 0
+
         with writer.saving(fig, mp4_path, dpi=80):
             for file_id_ in tqdm(file_id_list, desc=f'creating {movie_name}'):
                 plt.clf()  # Clear the figure
@@ -3186,8 +3188,9 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
                 plt.tight_layout()
                 writer.grab_frame()
 
-                if i == 0:
+                if idx == 0:
                     plt.savefig(png_path, dpi=300, bbox_inches='tight')
+                idx += 1
 
         logger.info(f'{movie_name} saved as: {mp4_path}')
 
@@ -3307,7 +3310,7 @@ def create_weight_subplot(fig, model, gt_weights, mc, rows, cols, pos):
     ax.set_xlabel('true $W_{ij}$', fontsize=32)
     ax.set_ylabel('learned $W_{ij}$', fontsize=32)
     ax.set_xlim([-2, 4.5])
-    ax.set_ylim([-2, 4.5])
+    ax.set_ylim([-20, 45])
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
@@ -6808,6 +6811,238 @@ def get_figures(index):
 
     match index:
 
+
+        case 'N9_44_6':
+            config_file_ = 'fly_N9_44_6'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            logdir = 'log/fly/fly_N9_44_6'
+            data_test(
+                config,
+                visualize=True,
+                style="black color name true_only",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_true_signal.png')
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred.png')
+
+            config.training.noise_model_level = 0.0
+
+            data_test(
+                config,
+                visualize=True,
+                style="black color name true_only",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_true_wo_noise.png')
+
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_wo_noise.png')
+            
+            config.simulation.visual_input_type = "DAVIS"
+
+            data_test(
+                config,
+                visualize=True,
+                style="black color name true_only",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_DAVIS_true_wo_noise.png')
+
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_DAVIS_pred_wo_noise.png')
+
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_50",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_DAVIS_pred_abalation_50_wo_noise.png')
+
+
+            os.remove(f'./{logdir}/results/activity_8x8_panel_comparison.png')
+        
+        case 'N9_51_2':
+            config_file_ = 'fly_N9_51_2'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            logdir = 'log/fly/fly_N9_51_2'
+
+            for noise_W in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06]:
+                data_test(
+                    config,
+                    visualize=True,
+                    style="black color name true_only",
+                    verbose=False,
+                    best_model='best',
+                    run=0,
+                    test_mode=f"test_modified_{noise_W}",
+                    sample_embedding=False,
+                    step=50,
+                    device=device,
+                    particle_of_interest=0,
+                )
+                copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                            f'./{logdir}/results/activity_8x8_panel_comparison_signal_modified_{noise_W}.png')
+
+
+            data_test(
+                config,
+                visualize=True,
+                style="black color name true_only",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal.png')
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred.png')
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="test_ablation_50",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_abalation_50.png')
+            
+            config.simulation.visual_input_type = ""
+            data_test(
+                config,
+                visualize=True,
+                style="black color name true_only",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_optical_flow.png')
+            data_test(
+                config,
+                visualize=True,
+                style="black color name",
+                verbose=False,
+                best_model='best',
+                run=0,
+                test_mode="",
+                sample_embedding=False,
+                step=50,
+                device=device,
+                particle_of_interest=0,
+            )
+            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_optical_flow.png')
+
+            os.remove(f'./{logdir}/results/activity_8x8_panel_comparison.png')
+        
         case 'N9_22_10':
             config_file_ = 'fly_N9_22_10'
             config_file, pre_folder = add_pre_folder(config_file_)
@@ -6893,8 +7128,7 @@ def get_figures(index):
             copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
                      f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_DAVIS.png')
 
-
-
+            os.remove(f'./{logdir}/results/activity_8x8_panel_comparison.png')
 
 
         case 'new_network_1':
@@ -7096,7 +7330,7 @@ def get_figures(index):
             config.config_file = pre_folder + config_file_
             print('figure correction_weight...')
 
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)
 
             log_dir = 'log/fly/fly_N9_22_10'
             config_indices = '18_4_0'
@@ -7191,7 +7425,7 @@ def get_figures(index):
             config.config_file = pre_folder + config_file_
             print('figure correction_weight...')
 
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)
 
             log_dir = 'log/fly/fly_N9_44_6'
             config_indices = '44_6'
@@ -7349,6 +7583,9 @@ def plot_ising_comparison_from_saved(config_list, labels=None, output_path='fig/
 
 
 
+
+
+
 if __name__ == '__main__':
 
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -7364,138 +7601,18 @@ if __name__ == '__main__':
     # except:
     #     pass
 
-    #config_list = ['signal_N5_v6','signal_N5_v6_0','signal_N5_v6_1','signal_N5_v6_2', 'signal_N5_v6_3', 'signal_N5_v7_1','signal_N5_v7_2','signal_N5_v7_3', 'signal_N5_v8','signal_N5_v9','signal_N5_v10',
-    #                'signal_N5_v11','signal_N5_v12','signal_N5_v13','signal_N5_v14','signal_N5_v15']
-    # config_list = ['signal_N4_a3','signal_N4_a4']
 
-    # config_list = ['signal_N4_CElegans_a6', 'signal_N4_CElegans_a7', 'signal_N4_CElegans_a8', 'signal_N4_CElegans_a9',
-    # config_list = ['signal_N4_CElegans_a7_1', 'signal_N4_CElegans_a7_2', 'signal_N4_CElegans_a7_3', 'signal_N4_CElegans_a7_4', 'signal_N4_CElegans_a7_5', 'signal_N4_CElegans_a7_6', 'signal_N4_CElegans_a7_7', 'signal_N4_CElegans_a9_1', 'signal_N4_CElegans_a9_2', 'signal_N4_CElegans_a9_3', 'signal_N4_CElegans_a9_4', 'signal_N4_CElegans_a9_5']
-    # config_list = ['signal_N2_a43_2_1_t16']
-
-    # config_list = [ 'signal_CElegans_c14_4a', 'signal_CElegans_c14_4b', 'signal_CElegans_c14_4c',  'signal_CElegans_d1', 'signal_CElegans_d2', 'signal_CElegans_d3', ]
-    # config_list = config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
-
-    # config_list = ['fly_N9_18_4_1', 'fly_N9_18_4_0', 'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_23_1', 'fly_N9_23_2', 'fly_N9_23_3', 'fly_N9_23_4', 'fly_N9_23_5', 'fly_N9_18_4_2', 'fly_N9_18_4_3', 'fly_N9_18_4_4', 'fly_N9_18_4_5', 'fly_N9_18_4_6']
-
-
-    # # plot noise on video input
-    # config_list = ['fly_N9_18_4_0_bis', 'fly_N9_18_4_0',  'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_23_1', 'fly_N9_23_2', 'fly_N9_23_3', 'fly_N9_23_4', 'fly_N9_23_5']
-    # data_flyvis_compare(config_list, 'simulation.noise_visual_input')
-
-
-    # plot noise on video input 50/50
-    # config_list = ['fly_N9_18_4_0_bis', 'fly_N9_18_4_0',  'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4',
-    #                'fly_N9_33_1', 'fly_N9_33_1_1', 'fly_N9_33_1_2', 'fly_N9_33_1_3', 'fly_N9_33_3', 'fly_N9_33_4', 'fly_N9_33_5', 'fly_N9_33_5_1']
-    # data_flyvis_compare(config_list, 'training.noise_model_level')
-
-    # plot noise on video input 50/50
-    # config_list = ['fly_N9_18_4_0_bis', 'fly_N9_18_4_0',  'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4',
-    #                'fly_N9_31_1', 'fly_N9_31_2', 'fly_N9_31_3', 'fly_N9_31_4', 'fly_N9_31_5','fly_N9_31_6', 'fly_N9_31_7']
-    # data_flyvis_compare(config_list, 'simulation.only_noise_visual_input')
-
-    # config_list = ['fly_N9_18_4_0_bis', 'fly_N9_18_4_0',  'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4',
-    #                'fly_N9_34_1', 'fly_N9_34_2', 'fly_N9_34_3'] #, 'fly_N9_35_1', 'fly_N9_35_2']
-    # data_flyvis_compare(config_list, 'simulation.n_extra_null_edges')
-
-    # config_list = ['fly_N9_18_4_0_bis', 'fly_N9_18_4_0',  'fly_N9_20_0', 'fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4',  'fly_N9_35_1', 'fly_N9_35_2']
-    # data_flyvis_compare(config_list, 'simulation.visual_input_type')
-
-    # config_list = ['fly_N9_31_1', 'fly_N9_36_2', 'fly_N9_36_3', 'fly_N9_36_4', 'fly_N9_36_5', 'fly_N9_31_6', 'fly_N9_36_7']
-    # data_flyvis_compare(config_list, 'training.recursive_loop')
-
-    # config_list = ['fly_N9_18_4_10', 'fly_N9_18_4_11', 'fly_N9_18_4_12', 'fly_N9_18_4_13', 'fly_N9_18_4_14']
-
-    # config_list = ['fly_N9_30_10', 'fly_N9_30_11', 'fly_N9_30_12', 'fly_N9_30_13', 'fly_N9_30_14', 'fly_N9_30_15']
-
-    # config_list = ['fly_N9_31_5', 'fly_N9_36_1', 'fly_N9_36_2', 'fly_N9_36_3', 'fly_N9_36_4', 'fly_N9_36_5', 'fly_N9_31_6', 'fly_N9_36_7']
-    # data_flyvis_compare(config_list, 'training.recursive_loop')
-
-    # config_list = ['fly_N9_18_4_15', 'fly_N9_18_4_16', 'fly_N9_18_4_17', 'fly_N9_18_4_18', 'fly_N9_38_1', 'fly_N9_38_2', 'fly_N9_38_3', 'fly_N9_38_4', 'fly_N9_39_0', 'fly_N9_39_1', 'fly_N9_39_2', 'fly_N9_39_3']
-    # data_flyvis_compare(config_list, None)
-
-    # config_list = ['fly_N9_40_1', 'fly_N9_40_2', 'fly_N9_40_3', 'fly_N9_40_5', 'fly_N9_40_6', 'fly_N9_40_7', 'fly_N9_40_8', 'fly_N9_40_9','fly_N9_40_10','fly_N9_40_10', 'fly_N9_40_12'] #, 'fly_N9_41_1', 'fly_N9_41_2']
-    # data_flyvis_compare(config_list, None)
-
-    # config_list = ['fly_N9_37_2', 'fly_N9_37_2_1', 'fly_N9_37_2_2', 'fly_N9_37_2_3', 'fly_N9_37_2_4', 'fly_N9_37_2_5']
-    # data_flyvis_compare(config_list, 'training.learning_rate_embedding_start')
-
-    # config_list = ['fly_N9_43_1', 'fly_N9_43_2', 'fly_N9_43_3', 'fly_N9_43_4', 'fly_N9_43_5']
-    # data_flyvis_compare(config_list, 'training.loss_noise_level')
-
-    # config_list = ['fly_N9_45_1', 'fly_N9_45_2']
-
-    # config_list = ['fly_N9_46_1', 'fly_N9_46_2', 'fly_N9_46_3', 'fly_N9_46_4', 'fly_N9_46_5', 'fly_N9_46_6']
-    # data_flyvis_compare(config_list, None)
-
-    # config_list = ['fly_N9_47_1', 'fly_N9_47_2', 'fly_N9_47_3', 'fly_N9_47_4', 'fly_N9_47_5','fly_N9_47_6']
-    # data_flyvis_compare(config_list, None)
-    #
-    # config_list = ['fly_N9_49_1', 'fly_N9_49_2', 'fly_N9_49_3', 'fly_N9_49_4', 'fly_N9_49_5','fly_N9_49_6', 'fly_N9_49_7', 'fly_N9_49_8', 'fly_N9_49_9', 'fly_N9_49_10', 'fly_N9_49_11', 'fly_N9_49_12', 'fly_N9_49_13', 'fly_N9_49_14']
-    # data_flyvis_compare(config_list, 'training.coeff_edge_weight_L1')
-
-    # config_list = ['fly_N9_48_1', 'fly_N9_48_2', 'fly_N9_48_3', 'fly_N9_48_4', 'fly_N9_48_5', 'fly_N9_48_6']
-    # data_flyvis_compare(config_list, 'training.coeff_edge_weight_L2')
-
-    # config_list = ['fly_N9_50_1', 'fly_N9_50_2', 'fly_N9_50_3', 'fly_N9_50_4', 'fly_N9_50_5', 'fly_N9_50_6', 'fly_N9_50_7']
-    # data_flyvis_compare(config_list, 'training.Ising_filter')
-
-    # config_list = ['fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
-    # data_flyvis_compare(config_list, 'simulation.n_extra_null_edges')
-
-    # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5', 'fly_N9_52_2_6', 'fly_N9_52_2_7',
-    # 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4', 'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
-    # data_flyvis_compare(config_list, 'none')
-
-    # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
-    #                'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-    #                'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
-    #                'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
-
-    # data_flyvis_compare(config_list,  None) #'simulation.visual_input_type')
-
-    #
-    # config_list = ['fly_N9_52_2', 'fly_N9_52_2_1', 'fly_N9_52_2_2', 'fly_N9_52_2_3', 'fly_N9_52_2_4', 'fly_N9_52_2_5',
-    #                'fly_N9_52_2_6', 'fly_N9_52_2_7', 'fly_N9_52_9_1', 'fly_N9_52_9_2', 'fly_N9_52_9_3', 'fly_N9_52_9_4',
-    #                'fly_N9_52_9_5', 'fly_N9_52_9_6', 'fly_N9_52_9_7']
-                   # 'fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3',
-                   # 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
-                   # 'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-                   # 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20','fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
-                   # 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
-
-    # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8',
-    #                 'fly_N9_53_9', 'fly_N9_53_10', 'fly_N9_53_11', 'fly_N9_53_12', 'fly_N9_53_13', 'fly_N9_53_14', 'fly_N9_53_15', 'fly_N9_53_16',
-    #                 'fly_N9_53_17', 'fly_N9_53_18', 'fly_N9_53_19', 'fly_N9_53_20', 'fly_N9_53_21', 'fly_N9_53_22', 'fly_N9_53_23', 'fly_N9_53_24',
-    #                 'fly_N9_53_25', 'fly_N9_53_26', 'fly_N9_53_27', 'fly_N9_53_28']
-    # compare_experiments(config_list,'simulation.visual_input_type')
-    
-    # data_flyvis_compare(config_list, 'training.noise_model_level')Connected subgraph
-
-    # plot no noise at all
-    # config_list = ['fly_N9_22_1', 'fly_N9_22_2', 'fly_N9_22_3', 'fly_N9_22_4', 'fly_N9_22_5', 'fly_N9_22_6', 'fly_N9_22_7', 'fly_N9_22_8']
-    # data_flyvis_compare(config_list, None)
-
-    # results = compare_experiments(config_list, 'dataset.noise_model_level')
-
-    # config_list = ['fly_N9_22_9'] #, 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14']
-
-    # config_list = ['fly_N9_22_9', 'fly_N9_22_10', 'fly_N9_44_13', 'fly_N9_44_14', ]
-
-    # config_list = ['fly_N9_22_10']
-
-    # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
-    # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
-    # compare_experiments(config_list,'training.noise_model_level')
-    
-    # config_list = ['fly_N9_44_15', 'fly_N9_44_23', 'fly_N9_44_26']
-    # plot_ising_comparison_from_saved(config_list)
+    # config_list = ['signal_N2_1', 'signal_N2_2'] #, 'signal_N2_3', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
 
     # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
     # compare_experiments(config_list, None)
 
-    # config_list = ['signal_N2_1', 'signal_N2_1', 'signal_N2_3', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
+    # config_list = ['fly_N9_44_24'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
+    # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
+    # compare_experiments(config_list,'training.noise_model_level')
 
-
+    # config_list = ['fly_N9_51_1', 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
+    
     # for config_file_ in config_list:
     #     print(' ')
     #     config_file, pre_folder = add_pre_folder(config_file_)
@@ -7505,16 +7622,25 @@ if __name__ == '__main__':
     #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
     #     folder_name = './log/' + pre_folder + '/tmp_results/'
     #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device)
+
+    # compare_experiments(config_list, None)
+
+
+
 
 
     # get_figures('weight_vs_noise')
     # get_figures('correction_weight')
-    # get_figures('correction_weight_44_6')
+    # get_figures('correction_weight_noise')
 
     # get_figures('ablation_weights')
     # get_figures('ablation_cells')
     # get_figures('permutation_types')
+    # get_figures('new_network_1')
     # get_figures('new_network_2')
 
-    get_figures('N9_22_10')
+    # get_figures('N9_22_10')
+    # get_figures('N9_44_6')
+    get_figures('N9_51_2')
+

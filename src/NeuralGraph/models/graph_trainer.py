@@ -7,6 +7,7 @@ import matplotlib as mpl
 import torch
 import torch.nn.functional as F
 import random
+import copy
 
 from GNN_Main import *
 from NeuralGraph.models.utils import *
@@ -1374,6 +1375,9 @@ def data_train_zebra(config, erase, best_model, device):
         x_list.append(x)
         y_list.append(y)
     print(f'dataset: {len(x_list)} run, {len(x_list[0])} frames')
+    n_frames = x_list[0].shape[0]
+    config.simulation.n_frames = n_frames
+
     x = x_list[0][n_frames - 10]
 
     activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
@@ -1614,6 +1618,9 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     dataset_name = config.dataset
     print(f"\033[92mdataset_name: {dataset_name}\033[0m")
 
+    if test_mode == "":
+        test_mode = "test_ablation_0"
+
     if 'fly' in config.dataset:
         data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, new_params, device)
     elif 'zebra' in config.dataset:
@@ -1848,7 +1855,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     if 'test_ablation' in test_mode:
         #  test_mode="test_ablation_100"
         ablation_ratio = int(test_mode.split('_')[-1]) / 100
-        print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
+        if ablation_ratio > 0:
+            print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
         n_ablation = int(n_neurons * ablation_ratio)
         index_ablation = np.random.choice(np.arange(n_neurons), n_ablation, replace=False)
         with torch.no_grad():
@@ -1860,7 +1868,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     if 'test_inactivity' in test_mode:
         #  test_mode="test_inactivity_100"
         inactivity_ratio = int(test_mode.split('_')[-1]) / 100
-        print(f'\033[93mtest inactivity ratio {inactivity_ratio} \033[0m')
+        if inactivity_ratio > 0:
+            print(f'\033[93mtest inactivity ratio {inactivity_ratio} \033[0m')
         n_inactivity = int(n_neurons * inactivity_ratio)
         index_inactivity = np.random.choice(np.arange(n_neurons), n_inactivity, replace=False)
 
@@ -1877,8 +1886,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     if 'test_permutation' in test_mode:
         permutation_ratio = int(test_mode.split('_')[-1]) / 100
-        print(f'\033[93mtest permutation ratio {permutation_ratio} \033[0m')
-
+        if permutation_ratio > 0:
+            print(f'\033[93mtest permutation ratio {permutation_ratio} \033[0m')
         n_permutation = int(n_neurons * permutation_ratio)
         index_permutation = np.random.choice(np.arange(n_neurons), n_permutation, replace=False)
         rnd_perm = torch.randperm(n_permutation)
@@ -2016,10 +2025,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.tight_layout()
         plt.savefig(f'./{log_dir}/results/new_neuron_type_histogram.png', dpi=300)
         plt.close()  
-
-
-
-
 
     n_neurons = x.shape[0]
     neuron_gt_list = []
@@ -2536,9 +2541,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             p["w"] = torch.cat([p["w"], torch.zeros(len(extra_edges), device=device)])
 
     pde = PDE_N9(p=p, f=torch.nn.functional.relu, params=simulation_config.params, model_type=model_config.signal_model_name, n_neuron_types=n_neuron_types, device=device)
-    
+    pde_modified = PDE_N9(p=copy.deepcopy(p), f=torch.nn.functional.relu, params=simulation_config.params, model_type=model_config.signal_model_name, n_neuron_types=n_neuron_types, device=device)
     model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
-    
+
     
     if best_model == 'best':
         files = glob.glob(f"{log_dir}/models/*")
@@ -2622,9 +2627,11 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     y_list = []
     x_list = []
     x_generated_list = []
+    x_generated_modified_list = []
     rmserr_list = []
 
     x_generated = x.clone()
+    x_generated_modified = x.clone()
 
     it = simulation_config.start_frame
     id_fig = 0
@@ -2643,14 +2650,55 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     if 'test_ablation' in test_mode:
         #  test_mode="test_ablation_100"
         ablation_ratio = int(test_mode.split('_')[-1]) / 100
-        print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
+        if ablation_ratio > 0:
+            print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
         n_ablation = int(edges.shape[1] * ablation_ratio)
         index_ablation = np.random.choice(np.arange(edges.shape[1]), n_ablation, replace=False)
 
         with torch.no_grad():
             pde.p['w'][index_ablation] = 0
+            pde_modified.p['w'][index_ablation] = 0
             model.W[index_ablation] = 0
 
+    def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', ylabel='modified $W$', color='white'):
+        w_true_np = w_true.detach().cpu().numpy().flatten()
+        w_modified_np = w_modified.detach().cpu().numpy().flatten()
+        plt.figure(figsize=(8, 8))
+        plt.scatter(w_true_np, w_modified_np, s=8, alpha=0.5, color=color, edgecolors='none')
+        # Fit linear model
+        lin_fit, _ = curve_fit(linear_model, w_true_np, w_modified_np)
+        slope = lin_fit[0]
+        offset = lin_fit[1]
+        # R2 calculation
+        residuals = w_modified_np - linear_model(w_true_np, *lin_fit)
+        ss_res = np.sum(residuals ** 2)
+        ss_tot = np.sum((w_modified_np - np.mean(w_modified_np)) ** 2)
+        r_squared = 1 - (ss_res / ss_tot)
+        # Plot identity line
+        plt.plot([w_true_np.min(), w_true_np.max()], [w_true_np.min(), w_true_np.max()], 'r--', linewidth=2, label='identity')
+        # Add text
+        plt.text(w_true_np.min(), w_true_np.max(), f'$R^2$: {r_squared:.3f}\nslope: {slope:.2f}', fontsize=18, va='top', ha='left')
+        plt.xlabel(xlabel, fontsize=24)
+        plt.ylabel(ylabel, fontsize=24)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        plt.tight_layout()
+        plt.savefig(output_path, dpi=150)
+        plt.close()
+        return slope, r_squared
+
+    if 'test_modified' in test_mode:
+        noise_W = float(test_mode.split('_')[-1]) 
+        if noise_W > 0:
+            print(f'\033[93mtest modified W with noise level {noise_W} \033[0m')
+            noise_p_W = torch.randn_like(pde.p['w']) * noise_W # + torch.ones_like(pde.p['w']) 
+            pde_modified.p['w'] = pde.p['w'].clone() + noise_p_W
+
+        plot_weight_comparison(pde.p['w'], pde_modified.p['w'], f"./{log_dir}/results/weight_comparison_{noise_W}.png")
+
+    res = overlay_umap_refit_with_w( w=to_numpy(pde.p['w']), figure_path="overlay_W_000.png", show=True, label_bg=True, label_gnn_text="W_000")
+    res = overlay_umap_refit_with_w( w=to_numpy(pde_modified.p['w']), figure_path="overlay_modified_W.png", show=True, label_bg=True, label_gnn_text="W + noise")
+    res = overlay_umap_refit_with_w( w=to_numpy(model.W.squeeze()), figure_path="overlay_GNN.png", show=True, label_bg=True, label_gnn_text="GNN W")
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
@@ -2667,7 +2715,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                     ]
 
                     flash_intensity = torch.abs(torch.rand(n_input_neurons, device=device) * 0.5 + 0.5)
-
                 if "mixed" in visual_input_type:
                     if mixed_frame_count >= current_cycle_length:
                         mixed_current_type = (mixed_current_type + 1) % 4
@@ -2699,7 +2746,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         start_frame = davis_frame_idx
                     else:
                         start_frame = 0
-
                 # Determine sequence length based on stimulus type
                 if "flash" in visual_input_type:
                     sequence_length = 60  # Fixed 60 frames for flash sequences
@@ -2835,9 +2881,12 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                                                                                   device=device) * noise_visual_input
                                 
                     x_generated[:,4] = x[:,4]
-                    
                     dataset = pyg.data.Data(x=x_generated, pos=x_generated[:, 1:3], edge_index=edge_index)
                     y_generated = pde(dataset, has_field=False)
+
+                    x_generated_modified[:,4] = x[:,4]
+                    dataset_modified = pyg.data.Data(x=x_generated_modified, pos=x_generated_modified[:, 1:3], edge_index=edge_index)
+                    y_generated_modified = pde_modified(dataset_modified, has_field=False)
 
 
                     dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
@@ -2845,10 +2894,17 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                     y = model(dataset, data_id, mask, False)
 
                     x_generated_list.append(to_numpy(x_generated.clone().detach()))
+                    x_generated_modified_list.append(to_numpy(x_generated_modified.clone().detach()))
                     x_list.append(to_numpy(x.clone().detach()))
 
-                    x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated
-                    x[:, 3:4] = x[:, 3:4] + delta_t * y
+                    if noise_model_level > 0:
+                        x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
+                        x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level  
+                        x[:, 3:4] = x[:, 3:4] + delta_t * y 
+                    else:
+                        x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated
+                        x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified
+                        x[:, 3:4] = x[:, 3:4] + delta_t * y
 
                     if calcium_type == "leaky":
                         # Voltage-driven activation
@@ -3071,12 +3127,14 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     #                                 config_indices=config_indices,framerate=20)
     # generate_compressed_video_mp4(output_dir=f"./{log_dir}/results", run=run,
     #                                 config_indices=config_indices,framerate=20)
+
     # files = glob.glob(f'./{log_dir}/tmp_recons/*')
     # for f in files:
     #     os.remove(f)
 
     x_list = np.array(x_list)
     x_generated_list = np.array(x_generated_list)
+    x_generated_modified_list = np.array(x_generated_modified_list)
     y_list = np.array(y_list)
 
     print('plot activity ...')
@@ -3163,7 +3221,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     # 8x8 panel plot for each neuron type - comparing ground truth vs predicted
     print('plot 8x8 panel for neuron types (ground truth vs predicted)...')
 
-    fig, axes = plt.subplots(8, 8, figsize=(36, 24))
+    fig, axes = plt.subplots(8, 8, figsize=(40, 24))
     axes_flat = axes.flatten()
 
     panel_order = [23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
@@ -3171,9 +3229,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                 55, 61, 62, 63, 56, 57, 58, 59, 60, 64, 1, 2, 4, 3, 31, 32, 33, 34, 35, 36,
                 37, 38, 39, 40, 41, 42, 0]
 
-    # Convert lists to numpy arrays for easier indexing
-    x_generated_np = np.array(x_generated_list)  # Ground truth
-    x_list_np = np.array(x_list)  # Predicted
 
     # Get neuron types from data
     neuron_types = x_list[-1, :, 6].astype(int)
@@ -3187,7 +3242,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         y_lim = [0, 3]
     else:
         # Use voltage (index 3)
-        activity_true = x_generated_list[:, :, 3].squeeze().T  # (n_neurons, n_frames)
+        activity_true = x_generated_list[:, :, 3].squeeze().T
+        activity_true_modified = x_generated_modified_list[:, :, 3].squeeze().T   
         activity_pred = x_list[:, :, 3].squeeze().T
         activity_label = "Voltage"
         y_lim = [-3, 3]
@@ -3212,19 +3268,22 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             # Get data for this neuron
             true_data = activity_true[selected_neuron, :]
             pred_data = activity_pred[selected_neuron, :]
+            true_data_modified = activity_true_modified[selected_neuron, :]
             
             # Calculate dynamic y-limits with padding
             y_min = min(np.min(true_data), np.min(pred_data))
             y_max = max(np.max(true_data), np.max(pred_data))
             y_range = y_max - y_min
             y_padding = y_range * 0.1  # 10% padding
-            
-            # Plot ground truth (green line, thicker)
+       
+           
             ax.plot(true_data, linewidth=4, color='green', alpha=0.9)
-            
-            # Plot predicted (colored line)
-            if 'true_only' not in style:
-                ax.plot(pred_data, linewidth=1, color=mc, alpha=1.0)
+
+            if 'true_only' not in test_mode:
+                if 'test_modified' in test_mode:
+                    ax.plot(true_data_modified, linewidth=2, color='red', alpha=1.0)
+                else:
+                    ax.plot(pred_data, linewidth=2, color=mc, alpha=1.0)
             
             # Calculate RMSE
             rmse = np.sqrt(np.mean((true_data - pred_data)**2))
@@ -3232,11 +3291,11 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             # Add type name in top left corner
             type_name = index_to_name.get(type_idx, f'Type_{type_idx}')
             ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
-                    ha='left', va='top', fontsize=24, color=mc)
+                    ha='left', va='top', fontsize=14, color=mc)
             
             # Add RMSE below type name
-            # ax.text(0.05, 0.85, f'RMSE: {rmse:.3f}', transform=ax.transAxes, 
-            #         ha='left', va='top', fontsize=12, color=mc)
+            ax.text(0.05, 0.85, f'RMSE: {rmse:.3f}', transform=ax.transAxes, 
+                    ha='left', va='top', fontsize=12, color=mc)
             
             # Set axis limits with dynamic range
             ax.set_xlim([0, min(target_frames, activity_pred.shape[1])])
