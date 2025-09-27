@@ -152,12 +152,17 @@ class GraphModelConfig(BaseModel):
     outermost_linear_nnr: bool = True
     omega: float = 80.0
 
+
+
     input_size_nnr_f: int = 3
     n_layers_nnr_f: int = 5
     hidden_dim_nnr_f: int = 128
     output_size_nnr_f: int = 1
     outermost_linear_nnr_f: bool = True
     omega_f: float = 80.0
+
+    nnr_f_xy_period: float = 1.0
+    nnr_f_T_period: float = 1.0
 
 
     input_size_modulation: int = 2
@@ -290,9 +295,6 @@ class TrainingConfig(BaseModel):
     coeff_update_msg_sign: float = 0
     coeff_update_u_diff: float = 0
     coeff_NNR_f: float = 0
-
-    XY_T_ratio_NNR_f: float = 1.0
-
 
     coeff_permutation: float = 100
 

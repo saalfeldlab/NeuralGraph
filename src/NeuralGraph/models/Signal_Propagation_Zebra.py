@@ -102,7 +102,8 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
                 outermost_linear=model_config.outermost_linear_nnr_f)
         self.NNR_f.to(self.device)
 
-        self.XY_T_ratio_NNR_f = config.training.XY_T_ratio_NNR_f
+        self.NNR_f_xy_period = model_config.nnr_f_xy_period
+        self.NNR_f_T_period = model_config.nnr_f_T_period
 
     def forward(self, data=[], data_id=[], k = [], ids=[], return_all=False):
         self.return_all = return_all
@@ -126,7 +127,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         # in_features = torch.cat([v, embedding, msg, excitation], dim=1)
         # pred = self.lin_phi(in_features)
 
-        f_sq, lap = self.compute_laplacian(x, k, ids)
+        f_sq, lap = self.compute_laplacian(x/self.NNR_f_xy_period, k/self.NNR_f_T_period, ids)
         pred = None
         return pred, f_sq, lap
 
@@ -166,7 +167,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         else:
             kk = torch.full((pos.size(0), 1), float(k), device=x.device, dtype=pos.dtype)
 
-        t = kk / float(self.n_frames) * self.XY_T_ratio_NNR_f
+        t = kk
         in_features = torch.cat([pos, t], dim=1)
         if self.coeff_NNR_f == 0:   # (M, 4)
             in_features.requires_grad_(True)

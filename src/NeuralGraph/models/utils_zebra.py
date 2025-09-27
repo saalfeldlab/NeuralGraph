@@ -31,7 +31,7 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_b
     x = torch.tensor(x, dtype=torch.float32, device=ones.device)
 
     # discrete (batched inference)
-    in_features = torch.cat((x[:, 1:4], (k / n_frames) * ones), 1)
+    in_features = torch.cat((x[:, 1:4]/model.NNR_f_xy_period, k / model.NNR_f_T_period * ones), 1)
 
     field_discrete_list = []
     with torch.no_grad():

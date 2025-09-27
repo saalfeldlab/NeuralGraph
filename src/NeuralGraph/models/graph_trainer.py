@@ -2696,9 +2696,28 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
         plot_weight_comparison(pde.p['w'], pde_modified.p['w'], f"./{log_dir}/results/weight_comparison_{noise_W}.png")
 
-    res = overlay_umap_refit_with_w( w=to_numpy(pde.p['w']), figure_path="overlay_W_000.png", show=True, label_bg=True, label_gnn_text="W_000")
-    res = overlay_umap_refit_with_w( w=to_numpy(pde_modified.p['w']), figure_path="overlay_modified_W.png", show=True, label_bg=True, label_gnn_text="W + noise")
-    res = overlay_umap_refit_with_w( w=to_numpy(model.W.squeeze()), figure_path="overlay_GNN.png", show=True, label_bg=True, label_gnn_text="GNN W")
+    # res = overlay_umap_refit_with_W_list(
+    #     w_list=[
+    #         to_numpy(pde.p["w"]),
+    #         to_numpy(pde_modified.p["w"]),
+    #         to_numpy(model.W.squeeze()),
+    #     ],
+    #     labels=["W_000", "W + noise", "GNN W"],
+    #     figure_path="overlay_all_W.png",
+    #     show=True,
+    #     label_bg=True
+    # )
+    res = overlay_barycentric_into_umap(
+    w_list=[
+        to_numpy(pde.p["w"]),
+        to_numpy(pde_modified.p["w"]),
+        to_numpy(model.W.squeeze()),
+    ],
+    labels=["W_000", "W + noise", "GNN W"],
+    out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph/flyvis_connectomes",
+    figure_path="overlay_all_bary.png",
+    show=True,
+)
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
@@ -3440,7 +3459,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     for it in trange(0, min(n_frames,7800), 1):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
-            in_features = torch.cat((x[:,1:4], it/n_frames * ones), 1)
+            in_features = torch.cat((x[:,1:4]/model.NNR_f_xy_period, it/model.NNR_f_T_period * ones), 1)
             neural_field_list = []
             for start in range(0, in_features.shape[0], plot_batch_size):
                 end = min(start + plot_batch_size, in_features.shape[0])
