@@ -1181,11 +1181,10 @@ def plot_odor_heatmaps(odor_responses):
     plt.tight_layout()
     return fig
 
-
-def overlay_umap_refit_with_w(
-    w,
-    out_prefix='/groups/saalfeld/home/allierc/Py/NeuralGraph',                                # folder containing flyvis_connectomes_W.npz
-    figure_path=None,                          # e.g. ".../overlay_refit.png"
+def overlay_umap_refit_with_W_list(
+    w_list,
+    out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph",   # folder containing flyvis_connectomes_W.npz
+    figure_path=None,                                            # e.g. ".../overlay_all.png"
     show=True,
     # UMAP params
     neighbors=15,
@@ -1194,17 +1193,38 @@ def overlay_umap_refit_with_w(
     seed=0,
     # labeling
     label_bg=True,
-    label_gnn_text="NEW",
+    labels=None,                 # list of text labels (same length as number of new vectors)
     label_fontsize=7,
     label_y_offset_frac=0.015,
+    # styling for new points
+    markers=None,                # list like ["*", "D", "o", ...]
+    sizes=None,                  # list like [140, 120, 120, ...]
+    edgecolors="k",
+    linewidths=1.2,
+    colors=None,                 # list of facecolors
     verbose=True,
 ):
     """
-    Load saved training W, append new vector(s) w, refit UMAP on [W; w], and plot.
-    Assumes w has the SAME feature order/size as W (no edge handling here).
+    Load saved training W, append multiple new vector(s), refit UMAP on [W_ref; w_new...], and plot.
 
-    Returns:
-        dict with keys: emb_bg, emb_new, ids_bg, reducer
+    Parameters
+    ----------
+    w_list : array-like
+        One of:
+          - list/tuple of 1D arrays, each shaped [E]
+          - 2D array shaped [n_new, E]
+          - single 1D array [E] (treated as one vector)
+    labels : list of str (optional)
+        Text labels for new points. Defaults to ["NEW_0", "NEW_1", ...].
+    markers/sizes/colors : per-point style lists (optional)
+
+    Returns
+    -------
+    dict with keys:
+        emb_bg  : (n_train, 2) UMAP coords of saved training points
+        emb_new : (n_new, 2)   UMAP coords of the new points
+        ids_bg  : (n_train,)    ids for background (if present in npz)
+        reducer : fitted UMAP object
     """
     out = Path(out_prefix)
     W_file = out / "flyvis_connectomes_W.npz"
@@ -1223,18 +1243,39 @@ def overlay_umap_refit_with_w(
         W_ref = np.asarray(W_npz["w"], dtype=np.float32)
     else:
         raise KeyError(f"{W_file} must contain array 'W' (or 'w').")
-
     ids_bg = W_npz.get("model_ids", np.array([f"{i:03d}" for i in range(W_ref.shape[0])], dtype="<U8"))
 
-    # --- normalize incoming w to 2D (n_new, E) ---
-    w = np.asarray(w, dtype=np.float32)
-    if w.ndim == 1:
-        w = w.reshape(1, -1)
-    if w.shape[1] != W_ref.shape[1]:
-        raise ValueError(f"Incoming w has {w.shape[1]} features; saved W has {W_ref.shape[1]}.")
+    # --- normalize incoming w_list to a 2D array (n_new, E) ---
+    if isinstance(w_list, (list, tuple)):
+        new_vecs = [np.asarray(w, dtype=np.float32).reshape(1, -1) for w in w_list]
+        w_new = np.vstack(new_vecs) if len(new_vecs) > 0 else np.zeros((0, W_ref.shape[1]), np.float32)
+    else:
+        w_arr = np.asarray(w_list, dtype=np.float32)
+        if w_arr.ndim == 1:
+            w_new = w_arr.reshape(1, -1)
+        elif w_arr.ndim == 2:
+            w_new = w_arr
+        else:
+            raise ValueError("w_list must be (list/tuple of 1D), a 1D array, or a 2D array.")
+    if w_new.shape[1] != W_ref.shape[1]:
+        raise ValueError(f"Feature mismatch: new has {w_new.shape[1]} features; saved W has {W_ref.shape[1]}.")
 
-    # --- concatenate and fit UMAP fresh on [W_ref; w] ---
-    W_all = np.vstack([W_ref, w])
+    n_new = w_new.shape[0]
+    if labels is None:
+        labels = [f"NEW_{i}" for i in range(n_new)]
+    # default styles
+    if markers is None:
+        # cycle a few nice markers
+        base = ["*", "D", "o", "s", "^", "P", "X", "v"]
+        markers = [base[i % len(base)] for i in range(n_new)]
+    if sizes is None:
+        sizes = [140] * n_new
+    if colors is None:
+        # None -> matplotlib cycles; we’ll pass no color and let scatter choose per call
+        colors = [None] * n_new
+
+    # --- concatenate and fit UMAP fresh on [W_ref; w_new] ---
+    W_all = np.vstack([W_ref, w_new])
     reducer = umap.UMAP(
         n_neighbors=neighbors,
         min_dist=min_dist,
@@ -1251,11 +1292,8 @@ def overlay_umap_refit_with_w(
     emb_new = emb_all[n_train:]
 
     # --- plot ---
-    fig, ax = plt.subplots(figsize=(6, 5))
+    fig, ax = plt.subplots(figsize=(6.5, 5.5))
     ax.scatter(emb_bg[:, 0], emb_bg[:, 1], s=28, alpha=0.65, label="FlyVis (refit)")
-    ax.scatter(emb_new[:, 0], emb_new[:, 1], s=140, marker="*",
-               edgecolors="k", linewidths=1.2, label=label_gnn_text)
-
     if label_bg:
         y_range = float(np.ptp(emb_all[:, 1])) if emb_all.size else 0.0
         dy = (label_y_offset_frac * y_range) if y_range > 0 else 0.02
@@ -1263,9 +1301,20 @@ def overlay_umap_refit_with_w(
             ax.text(emb_bg[i, 0], emb_bg[i, 1] + dy, str(ids_bg[i]),
                     fontsize=label_fontsize, ha="center", va="bottom")
 
+    # plot each new point with its own style + label
+    for i in range(n_new):
+        ax.scatter(
+            emb_new[i:i+1, 0], emb_new[i:i+1, 1],
+            s=sizes[i], marker=markers[i],
+            edgecolors=edgecolors, linewidths=linewidths,
+            label=labels[i],
+            c=None if colors[i] is None else [colors[i]],
+            zorder=3
+        )
+
     ax.set_title("UMAP (refit) — FlyVis + new vector(s)")
     ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2")
-    ax.legend(loc="best", frameon=True)
+    ax.legend(loc="best", frameon=True, fontsize=8)
     fig.tight_layout()
     if figure_path:
         fig.savefig(figure_path, dpi=220)
@@ -1275,3 +1324,102 @@ def overlay_umap_refit_with_w(
         plt.close(fig)
 
     return {"emb_bg": emb_bg, "emb_new": emb_new, "ids_bg": ids_bg, "reducer": reducer}
+
+from pathlib import Path
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.neighbors import NearestNeighbors
+import joblib
+
+def overlay_barycentric_into_umap(
+    w_list,
+    out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph/flyvis_connectomes",
+    figure_path=None,
+    show=True,
+    metric="cosine",
+    k=15,
+    label_bg=True,
+    labels=None,
+    label_fontsize=7,
+    label_y_offset_frac=0.015,
+    eps_self=1e-12,   # for exact match snapping
+):
+    """
+    Project new vectors into an existing UMAP background using K-NN barycentric weights.
+    Requires the same W_ref the reducer was trained on (order must match).
+
+    Files expected (from your collector):
+      - {out_prefix}_W.npz               with arrays: W (or w), model_ids
+      - {out_prefix}_umap_model.joblib   reducer fitted on W_ref
+    """
+    out = Path(out_prefix)
+    W_file = out.with_name(out.name + "_W.npz")
+    model_file = out.with_name(out.name + "_umap_model.joblib")
+
+    # load training matrix + ids
+    W_npz = np.load(W_file, allow_pickle=False)
+    W_ref = np.asarray(W_npz["W"] if "W" in W_npz else W_npz["w"], dtype=np.float32)
+    ids_bg = W_npz.get("model_ids", np.array([f"{i:03d}" for i in range(W_ref.shape[0])], dtype="<U8"))
+
+    # load reducer to get the background embedding
+    reducer = joblib.load(model_file)
+    emb_bg = reducer.embedding_.astype(np.float32, copy=False)
+
+    # prepare new vectors
+    if isinstance(w_list, (list, tuple)):
+        w_new = np.vstack([np.asarray(w, np.float32).reshape(1, -1) for w in w_list])
+    else:
+        arr = np.asarray(w_list, np.float32)
+        w_new = arr.reshape(1, -1) if arr.ndim == 1 else arr
+    if w_new.shape[1] != W_ref.shape[1]:
+        raise ValueError(f"Feature mismatch: new has {w_new.shape[1]}, saved W has {W_ref.shape[1]}.")
+
+    # KNN on the original high-dim space
+    nbrs = NearestNeighbors(n_neighbors=min(k, W_ref.shape[0]), metric=metric)
+    nbrs.fit(W_ref)
+
+    emb_new = np.zeros((w_new.shape[0], 2), dtype=np.float32)
+    for i, v in enumerate(w_new):
+        # exact/self match snapping
+        dists, idxs = nbrs.kneighbors(v[None, :], return_distance=True)
+        dists = dists.ravel(); idxs = idxs.ravel()
+
+        # if the closest neighbor is *itself* (zero distance), snap
+        if dists[0] <= eps_self:
+            emb_new[i] = emb_bg[idxs[0]]
+            continue
+
+        # inverse-distance weights (add tiny epsilon to avoid div by 0)
+        wts = 1.0 / (dists + 1e-12)
+        wts = wts / (wts.sum() + 1e-12)
+
+        # barycentric combination of neighbor coordinates
+        emb_new[i] = (wts[:, None] * emb_bg[idxs]).sum(axis=0)
+
+    # plot
+    fig, ax = plt.subplots(figsize=(6.5, 5.5))
+    ax.scatter(emb_bg[:, 0], emb_bg[:, 1], s=28, alpha=0.65, label="FlyVis (fixed)")
+    if label_bg:
+        y_range = float(np.ptp(emb_bg[:, 1])) if emb_bg.size else 0.0
+        dy = (label_y_offset_frac * y_range) if y_range > 0 else 0.02
+        for i in range(emb_bg.shape[0]):
+            ax.text(emb_bg[i, 0], emb_bg[i, 1] + dy, str(ids_bg[i]),
+                    fontsize=label_fontsize, ha="center", va="bottom")
+
+    if labels is None:
+        labels = [f"NEW_{i}" for i in range(w_new.shape[0])]
+    for i in range(w_new.shape[0]):
+        ax.scatter(emb_new[i, 0], emb_new[i, 1], s=160, marker="*",
+                   edgecolors="k", linewidths=1.2, label=labels[i])
+
+    ax.set_title("UMAP (fixed) + KNN barycentric projection")
+    ax.set_xlabel("UMAP-1"); ax.set_ylabel("UMAP-2")
+    ax.legend(loc="best", frameon=True, fontsize=8)
+    fig.tight_layout()
+    if figure_path: fig.savefig(figure_path, dpi=220)
+    if show: plt.show()
+    else: plt.close(fig)
+
+    return {"emb_bg": emb_bg, "emb_new": emb_new, "ids_bg": ids_bg}
+
+
