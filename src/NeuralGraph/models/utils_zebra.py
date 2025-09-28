@@ -43,7 +43,7 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_b
 
     # continuous via fresh per-step, per-neuron jitter (matches original look)
     base  = x.unsqueeze(0).repeat(step, 1, 1)          # [step, N, F]
-    noise = torch.randn_like(base) * 0.005             # fresh noise everywhere
+    noise = torch.randn_like(base) * 0.002             # fresh noise everywhere
     x_pert = base + noise
     x_flat = x_pert.reshape(-1, x.shape[1])
     in_feat_cont = torch.cat((x_flat[:, 1:4]/model.NNR_f_xy_period, k / model.NNR_f_T_period * ones.repeat(step, 1)), 1)

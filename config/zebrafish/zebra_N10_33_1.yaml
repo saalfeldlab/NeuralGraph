@@ -60,7 +60,7 @@ training:
     device: 'auto'
 
     recursive_loop: 1
-    batch_size: 4
+    batch_size: 1
     batch_ratio: 0.15
 
     sparsity: 'none'
