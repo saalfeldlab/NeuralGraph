@@ -39,6 +39,10 @@ graph_model:
     omega_f: 10
     outermost_linear_nnr_f: True
     output_size_nnr_f: 1
+    nnr_f_xy_period: 1
+    nnr_f_T_period: 1500
+
+
     aggr_type: 'add'
     embedding_dim: 2
 
