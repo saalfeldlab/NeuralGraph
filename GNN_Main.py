@@ -72,7 +72,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
-        config_list = ['zebra_N10_33_2', 'zebra_N10_33_3', 'zebra_N10_33_4']  # , 'zebra_N10_33_2', 'zebra_N10_33_3', 'zebra_N10_33_4', 'zebra_N10_33_5']
+        config_list = ['zebra_N10_33_1']  # , 'zebra_N10_33_2', 'zebra_N10_33_3', 'zebra_N10_33_4', 'zebra_N10_33_5']
 
     for config_file_ in config_list:
         print(" ")
@@ -96,7 +96,7 @@ if __name__ == "__main__":
                 alpha=1,
                 erase=False,
                 bSave=True,
-                step=1
+                step=25
             )  # config.simulation.n_frames // 100)
             
         if "train" in task:
@@ -116,7 +116,7 @@ if __name__ == "__main__":
                 run=0,
                 test_mode="",
                 sample_embedding=False,
-                step=50,
+                step=25,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
