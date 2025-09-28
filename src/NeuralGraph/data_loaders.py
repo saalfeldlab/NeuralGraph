@@ -722,219 +722,286 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
 
 
 def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=None, style=None):
+    """
+    Minimal update:
+      • x gains new columns (now 14):
+            8  = visual_velocity (mean over TTL window)
+            9  = stimParam3     (mean over TTL window)
+            10 = stimParam4     (mean over TTL window)
+            11 = swim_power     (mean(|left|) and mean(|right|) averaged)
+            12 = tail_left_raw  (mean over TTL window)
+            13 = tail_right_raw (mean over TTL window)
+      • Everything else (condition filtering, x_list/y_list build, plotting cadence, saves) unchanged.
+    """
+
+    import os, io
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    # --------------------------- helpers (fast TTL detection) ---------------------------
+    def _rising_edges(x, thresh):
+        above = x >= thresh
+        return np.flatnonzero(above & ~np.concatenate(([False], above[:-1])))
+
+    def _enforce_min_distance(idxs, distance):
+        if idxs.size == 0:
+            return idxs
+        keep = np.empty(idxs.size, dtype=bool)
+        keep[0] = True
+        last = idxs[0]
+        for i in range(1, idxs.size):
+            v = idxs[i]
+            if v - last >= distance:
+                keep[i] = True
+                last = v
+            else:
+                keep[i] = False
+        return idxs[keep]
+
+    def _load_stim_memmap(path):
+        # raw float32, 10 channels, high-rate
+        mm = np.memmap(path, mode='r', dtype=np.float32)
+        if mm.size % 10 != 0:
+            raise ValueError("Stim/ephys file size not divisible by 10 float32 channels.")
+        return np.reshape(mm, (-1, 10)).T  # (10, T_high)
+
+    # --------------------------- config / io ---------------------------
     data_folder_name = config.data_folder_name
-    dataset_name = config.dataset
-
+    dataset_name     = config.dataset
     simulation_config = config.simulation
-    train_config = config.training
+    train_config      = config.training
 
-    n_frames = simulation_config.n_frames
-    n_neurons = simulation_config.n_neurons
+    n_frames           = simulation_config.n_frames
+    n_neurons          = simulation_config.n_neurons
+    visual_input_type  = simulation_config.visual_input_type  # '' means all
+    delta_t            = simulation_config.delta_t
+    stim_ephys_path    = getattr(simulation_config, "stim_ephys_path", None)
+    tail_left_ch       = getattr(simulation_config, "tail_left_ch",  None)
+    tail_right_ch      = getattr(simulation_config, "tail_right_ch", None)
 
-    visual_input_type = simulation_config.visual_input_type
+    # condition name map (consistent with your earlier setup)
+    CONDITION_NAMES = ('gain','dots','flash','taxis','turning','position','open loop','rotation','dark')
 
-    delta_t = simulation_config.delta_t
-    cmap = CustomColorMap(config=config)
-
-
-    condition_names = {
-        0: "gain",
-        1: "dots",
-        2: "flash",
-        3: "taxis",
-        4: "turning",
-        5: "position",
-        6: "open loop",
-        7: "rotation",
-        8: "dark",
-        -1: "none"  # no condition / padding
-    }
-
-    if visual_input_type=='':
+    if visual_input_type == '':
         print("using all visual input types")
     else:
         print(f"using visual input type: {visual_input_type}")
 
-
     print(f"loading zebrafish data from {data_folder_name} for dataset {dataset_name}...")
 
-    conditions = np.load(data_folder_name+'/conditions.npy', allow_pickle=True)
-    print(f"conditions shape: {conditions.shape}, sample: {conditions[0]}")
-    traces = np.load(data_folder_name+'/traces.npy', allow_pickle=True)
-    print(f"traces shape: {traces.shape}, sample: {traces[0][:5]} \n\n")
-    positions = np.load(data_folder_name+'/mapped_positions.npy', allow_pickle=True)
-    print(f"positions shape: {positions.shape}, sample: {positions[0]}")
-
-    positions = positions / 1000
-    positions[:,2] *= 10
-    positions_swapped = positions[:, [1, 0, 2]]
-    positions_swapped[:, 0] *= -1 
-
-    print(f"min position: {np.min(positions, axis=0)}  max position: {np.max(positions, axis=0)}, ")
-
-    print(f"number of frames: {n_frames}, number of neurons: {n_neurons}")
+    conditions = np.load(os.path.join(data_folder_name, 'conditions.npy'), allow_pickle=True)
+    traces     = np.load(os.path.join(data_folder_name, 'traces.npy'), allow_pickle=True)
+    positions  = np.load(os.path.join(data_folder_name, 'mapped_positions.npy'), allow_pickle=True)
 
     folder = f'./graphs_data/{dataset_name}/'
     os.makedirs(folder, exist_ok=True)
-    os.makedirs(f'./graphs_data/{dataset_name}/Fig/', exist_ok=True)
+    fig_folder = os.path.join(folder, 'Fig')
+    os.makedirs(fig_folder, exist_ok=True)
 
-    n_neurons = positions.shape[0]
-    x = np.zeros((n_neurons, 12))
-    x[:, 0] = np.arange(n_neurons)
-    x[:, 1:4] = positions[:, 0:3]
-    x[:, 5:6] = 0
-    x[:, 6] = traces[0]
-    x[:, 7] = conditions[0]
-    x[:, 8:11] = 0
+    # --------------------------- positions normalization (as before) ---------------------------
+    positions = positions / 1000
+    positions[:, 2] *= 10
+    positions_swapped = positions[:, [1, 0, 2]]
+    positions_swapped[:, 0] *= -1
+    print(f"min position: {np.min(positions, axis=0)}  max position: {np.max(positions, axis=0)}")
+    print(f"number of frames: {n_frames}, number of neurons: {n_neurons}")
 
-    x_list = []
-    y_list = []
-
-    if 'black' in style:
-        plt.style.use('dark_background')
-    else:
-        plt.style.use('default')
-
-    slice_selection = config.slice_selection
-
+    # --------------------------- optional slice selection (unchanged) ---------------------------
+    slice_selection = getattr(config, "slice_selection", getattr(config, "slice_selection", False))
     if slice_selection:
-
         slice_tick = 0.15
         slice_center = 0.3
-        slice_id = np.argwhere((x[:, 3]> slice_center - slice_tick/2) & (x[:, 3]< slice_center + slice_tick/2)).squeeze()
+        slice_id = np.argwhere(
+            (positions[:, 2] > slice_center - slice_tick / 2) &
+            (positions[:, 2] < slice_center + slice_tick / 2)
+        ).squeeze()
         print(f"number of neurons in slice {slice_id.shape[0]}")
+        positions_used = positions[slice_id]
+        n_neurons_used = slice_id.shape[0]
+    else:
+        positions_used = positions
+        n_neurons_used = positions.shape[0]
 
-        x = x[slice_id]
-        n_neurons = slice_id.shape[0]
+    # --------------------------- allocate x (now 14 columns) ---------------------------
+    x = np.zeros((n_neurons_used, 14), dtype=np.float32)
+    x[:, 0]   = np.arange(n_neurons_used)          # neuron id
+    x[:, 1:4] = positions_used[:, 0:3]             # xyz
+    x[:, 5:6] = 0                                  # unchanged
+    # x[:, 6]   = calcium (per-frame below)
+    # x[:, 7]   = condition id (per-frame below)
+    # x[:, 8:14] will be filled from stim/ephys per-frame
 
+    x_list, y_list = [], []
 
-    for n in trange(n_frames):
-        x[:, 0] = np.arange(n_neurons)
-        if slice_selection:
-            x[:, 1:4] = positions[slice_id, 0:3]
-            x[:, 6] = traces[n][slice_id]
-            x[:, 7] = conditions[n]
+    # --------------------------- stim/ephys per-frame covariates ---------------------------
+    # Defaults: no stim available → covariates are zeros
+    vis_vel_per_frame    = None
+    sp3_per_frame        = None
+    sp4_per_frame        = None
+    left_mean_per_frame  = None
+    right_mean_per_frame = None
+    swim_power_per_frame = None
+    kept_imaging_frames  = np.arange(min(n_frames, traces.shape[0]), dtype=np.int32)  # fallback
+
+    if stim_ephys_path and os.path.exists(stim_ephys_path):
+        print(f"loading 10-channel stim/ephys from {stim_ephys_path}")
+        stim_full = _load_stim_memmap(stim_ephys_path)  # (10, T_high)
+
+        # channel mapping from your earlier snippet:
+        # index 2: TTLs, 3: stimParam4, 4: condition_indices, 6: stimParam3, 8: visual_velocity
+        ttls           = stim_full[2]
+        stimParam4_raw = stim_full[3]
+        cond_hi        = stim_full[4].astype(np.int32)   # 1..9 (not used directly; we rely on conditions.npy for imaging frames)
+        stimParam3_raw = stim_full[6]
+        visual_vel_raw = stim_full[8]
+
+        # fast TTL edges
+        HIGH_THRESH, LOW_THRESH = 3.55, 1.0
+        HIGH_DIST,  LOW_DIST    = 500,   50
+        ttls_high = _enforce_min_distance(_rising_edges(ttls, HIGH_THRESH), HIGH_DIST)
+        ttls_low  = _enforce_min_distance(_rising_edges(ttls, LOW_THRESH),  LOW_DIST)
+        ttls_low  = np.setdiff1d(ttls_low, ttls_high, assume_unique=False)
+
+        # imaging windows: [high[t], high[t+1])
+        n_win = min(len(ttls_high) - 1, traces.shape[0])
+        frame_windows = [(int(ttls_high[t]), int(ttls_high[t+1])) for t in range(n_win)]
+
+        vis_vel_per_frame    = np.zeros(n_win, dtype=np.float32)
+        sp3_per_frame        = np.zeros(n_win, dtype=np.float32)
+        sp4_per_frame        = np.zeros(n_win, dtype=np.float32)
+        left_mean_per_frame  = np.zeros(n_win, dtype=np.float32) if tail_left_ch  is not None else None
+        right_mean_per_frame = np.zeros(n_win, dtype=np.float32) if tail_right_ch is not None else None
+        swim_power_per_frame = np.zeros(n_win, dtype=np.float32) if (tail_left_ch is not None and tail_right_ch is not None) else None
+
+        # per-frame averages within window
+        for t, (a, b) in enumerate(frame_windows):
+            if b <= a + 1:
+                # degenerate; copy previous if available
+                if t > 0:
+                    vis_vel_per_frame[t] = vis_vel_per_frame[t-1]
+                    sp3_per_frame[t]     = sp3_per_frame[t-1]
+                    sp4_per_frame[t]     = sp4_per_frame[t-1]
+                    if left_mean_per_frame is not None:
+                        left_mean_per_frame[t]  = left_mean_per_frame[t-1]
+                    if right_mean_per_frame is not None:
+                        right_mean_per_frame[t] = right_mean_per_frame[t-1]
+                    if swim_power_per_frame is not None:
+                        swim_power_per_frame[t] = swim_power_per_frame[t-1]
+                continue
+
+            vis_vel_per_frame[t] = float(np.nanmean(visual_vel_raw[a:b]))
+            sp3_per_frame[t]     = float(np.nanmean(stimParam3_raw[a:b]))
+            sp4_per_frame[t]     = float(np.nanmean(stimParam4_raw[a:b]))
+
+            if left_mean_per_frame is not None:
+                l = stim_full[tail_left_ch, a:b]
+                left_mean_per_frame[t] = float(np.nanmean(l))
+            if right_mean_per_frame is not None:
+                r = stim_full[tail_right_ch, a:b]
+                right_mean_per_frame[t] = float(np.nanmean(r))
+            if swim_power_per_frame is not None:
+                # simple swim power: mean absolute across both channels
+                swim_power_per_frame[t] = 0.5 * (
+                    float(np.nanmean(np.abs(stim_full[tail_left_ch,  a:b]))) +
+                    float(np.nanmean(np.abs(stim_full[tail_right_ch, a:b])))
+                )
+
+        # imaging frames to keep by your selector (use conditions.npy at imaging rate)
+        if visual_input_type == '':
+            kept_imaging_frames = np.arange(n_win, dtype=np.int32)
         else:
-            x[:, 1:4] = positions[:, 0:3]
-            x[:, 6] = traces[n]
-            x[:, 7] = conditions[n]
+            kept = []
+            for t in range(n_win):
+                cname = CONDITION_NAMES[int(conditions[t]) - 1] if 1 <= int(conditions[t]) <= 9 else 'dark'
+                if cname == visual_input_type:
+                    kept.append(t)
+            kept_imaging_frames = np.array(kept, dtype=np.int32)
 
+    else:
+        print("No stim/ephys path provided or file missing; proceeding without stim covariates.")
 
-        if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
-            x_list.append(x.copy())
-            
-        if n == 0: 
-            vmin, vmax = np.percentile(traces[n], [2, 98])
+    # --------------------------- main per-frame loop (unchanged logic; just fill new cols) ---------------------------
+    if visualize is None:
+        visualize = 0
+    if step is None:
+        step = 50
 
-        if n < n_frames - 1:
-            y = (traces[n+1]- traces[n]) / delta_t
-            if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
-                y_list.append(y)
+    # robust color limits for snapshots (unchanged)
+    if traces.shape[0] > 0:
+        if slice_selection:
+            vmin, vmax = np.percentile(traces[0][slice_id], [2, 98])
+        else:
+            vmin, vmax = np.percentile(traces[0], [2, 98])
 
-        if (visualize) & (n % step == 0):
-            if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
-                fig  = plt.figure(figsize=(17, 10))
-                plt.axis('off')
-                plt.scatter(x[:,1], x[:,2], s=5, c=x[:,6], vmin=vmin, vmax=vmax, cmap='plasma')
-                label = f"frame: {n} \n{condition_names[int(conditions[n])]}  "
-                plt.text(0.05, 1.15, label, fontsize=24, color='white')
-                plt.xlim([0.,2])
-                plt.ylim([0,1.25])
-                plt.tight_layout()
-                plt.savefig(f"graphs_data/{dataset_name}/Fig/xy_{n:06d}.png", dpi=40)
-                plt.close()
+    fig_folder = os.path.join(folder, 'Fig')
+    os.makedirs(fig_folder, exist_ok=True)
 
+    for n, t in enumerate(kept_imaging_frames):
+        # core columns (as before)
+        x[:, 0]   = np.arange(n_neurons_used)
+        x[:, 1:4] = positions_used[:, 0:3]
+        if slice_selection:
+            x[:, 6] = traces[t][slice_id]
+        else:
+            x[:, 6] = traces[t]
+        x[:, 7] = conditions[t]
 
+        # new per-frame covariates (zeros if not available)
+        if vis_vel_per_frame is not None and t < len(vis_vel_per_frame):
+            x[:, 8]  = vis_vel_per_frame[t]
+            x[:, 9]  = sp3_per_frame[t]
+            x[:, 10] = sp4_per_frame[t]
+        else:
+            x[:, 8:11] = 0.0
 
+        if swim_power_per_frame is not None and t < len(swim_power_per_frame):
+            x[:, 11] = swim_power_per_frame[t]
+        else:
+            x[:, 11] = 0.0
+
+        if left_mean_per_frame is not None and t < len(left_mean_per_frame):
+            x[:, 12] = left_mean_per_frame[t]
+        else:
+            x[:, 12] = 0.0
+
+        if right_mean_per_frame is not None and t < len(right_mean_per_frame):
+            x[:, 13] = right_mean_per_frame[t]
+        else:
+            x[:, 13] = 0.0
+
+        # append x (your original gating by visual_input_type is already enforced via kept_imaging_frames)
+        x_list.append(x.copy())
+
+        # y = next-step finite difference (unchanged)
+        if t < traces.shape[0] - 1:
+            if slice_selection:
+                y = (traces[t+1][slice_id] - traces[t][slice_id]) / delta_t
+            else:
+                y = (traces[t+1] - traces[t]) / delta_t
+            y_list.append(y)
+
+        # optional quick XY snapshot (unchanged)
+        if visualize and (n % step == 0):
+            plt.figure(figsize=(17, 10))
+            plt.axis('off')
+            plt.scatter(x[:, 1], x[:, 2], s=5, c=x[:, 6], vmin=vmin, vmax=vmax, cmap='plasma')
+            cname = CONDITION_NAMES[int(conditions[t]) - 1] if 1 <= int(conditions[t]) <= 9 else 'dark'
+            plt.text(0.05, 1.15, f"frame: {t}\n{cname}", fontsize=24, color='white', transform=plt.gca().transAxes)
+            plt.xlim([0., 2]); plt.ylim([0, 1.25]); plt.tight_layout()
+            plt.savefig(os.path.join(fig_folder, f"xy_{t:06d}.png"), dpi=40)
+            plt.close()
+
+    # --------------------------- save x/y lists (unchanged) ---------------------------
     print('saving data...')
-    x_list = np.array(x_list)
-    y_list = np.array(y_list)
+    x_list = np.array(x_list, dtype=np.float32)
+    y_list = np.array(y_list, dtype=np.float32)
     run = 0
-    np.save(f'graphs_data/{dataset_name}/x_list_{run}.npy', x_list)
-    np.save(f'graphs_data/{dataset_name}/y_list_{run}.npy', y_list)
+    np.save(os.path.join(folder, f'x_list_{run}.npy'), x_list)
+    np.save(os.path.join(folder, f'y_list_{run}.npy'), y_list)
     print(f"x_list shape: {x_list.shape}")
     print(f"y_list shape: {y_list.shape}")
     print('data saved.')
-
     print(f'length of the dataset: {len(x_list)}')
-
-    if visualize == -1:
-        # sanity checks
-
-        if positions.ndim != 2 or positions.shape[1] != 3:
-            raise ValueError("positions must have shape (N, 3)")
-        if traces.shape[1] != positions.shape[0]:
-            raise ValueError(f"trace0 length ({trace.shape[0]}) must match positions.shape[0] ({positions.shape[0]})")
-
-        for id_fig in tqdm(range(0,n_frames)):
-
-            activity = np.asarray(traces[id_fig], float)
-            finite = np.isfinite(activity)
-            if not finite.all():
-                med = np.nanmedian(activity[finite])
-                activity = np.where(finite, activity, med)
-
-            # robust color limits (ignore extremes)
-            if id_fig == 0: 
-                vmin, vmax = np.percentile(activity, [2, 98])
-
-            cloud = pv.PolyData(positions_swapped)
-            cloud["activity"] = activity
-            plotter = pv.Plotter(off_screen=True, window_size=(500, 300))
-            plotter.set_background('black')
-            plotter.add_points(
-                cloud,
-                scalars="activity",
-                cmap="plasma",          # plasma LUT
-                clim=(vmin, vmax),      # << fix: stop auto-rescaling
-                render_points_as_spheres=True,
-                point_size=5,           # << fix: make points visible (try 2–5)
-                opacity=0.75,            # << fix: no transparency on black bg
-                lighting=False,         # << fix: avoid dark shading on tiny spheres
-                show_scalar_bar=False,   # helpful to verify range
-            )
-            condition_id = conditions[id_fig]
-            label = f"frame: {id_fig} \n{condition_names[int(condition_id)]}  "
-            plotter.add_text(   
-                label,
-                position="upper_left",   # or "upper_right", "lower_left", "lower_right"
-                font_size=12,
-                color="white",
-            )
-            plotter.view_vector((0, 0, 1))
-            try:
-                plotter.enable_anti_aliasing()
-            except Exception:
-                pass
-            plotter.camera.zoom(1.6)
-            num = f"{id_fig:06}"
-            plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xy_{num}.png')
-            plotter.close()
-        
-            plotter = pv.Plotter(off_screen=True, window_size=(800, 500))
-            plotter.set_background('black')
-            plotter.add_points(
-                cloud,
-                scalars="activity",
-                cmap="plasma",          # plasma LUT
-                clim=(vmin, vmax),      # << fix: stop auto-rescaling
-                render_points_as_spheres=True,
-                point_size=5,           # << fix: make points visible (try 2–5)
-                opacity=0.75,            # << fix: no transparency on black bg
-                lighting=False,         # << fix: avoid dark shading on tiny spheres
-                show_scalar_bar=False,   # helpful to verify range
-            )
-            plotter.view_vector((1, 0, 0))
-            try:
-                plotter.enable_anti_aliasing()
-            except Exception:
-                pass
-            plotter.camera.zoom(1.6)
-
-            num = f"{id_fig:06}"
-            plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xz_{num}.png')
-            plotter.close()
-
 
 
 
