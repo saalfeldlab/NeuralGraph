@@ -1,4 +1,4 @@
-def plot_field_comparison(x, x_list, model, k, n_frames, ones, output_path, step, plot_batch_size=700):
+def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_batch_size=700):
     """
     Original viz + YZ (continuous) in a new rightmost column.
 
@@ -31,7 +31,7 @@ def plot_field_comparison(x, x_list, model, k, n_frames, ones, output_path, step
     x = torch.tensor(x, dtype=torch.float32, device=ones.device)
 
     # discrete (batched inference)
-    in_features = torch.cat((x[:, 1:4]/model.NNR_f_xy_period, k /model.NNR_f_T_period * ones), 1)
+    in_features = torch.cat((x[:, 1:4]/model.NNR_f_xy_period, k / model.NNR_f_T_period * ones), 1)
 
     field_discrete_list = []
     with torch.no_grad():
@@ -144,25 +144,7 @@ def plot_field_comparison(x, x_list, model, k, n_frames, ones, output_path, step
     ax3.tick_params(labelsize=TICK_FZ)
 
     # 4) top-right blank
-    # ax_blank = fig.add_subplot(gs[0, 3]); ax_blank.axis('off')
-
-    ax4 = fig.add_subplot(gs[0, 3])
-  # (n_frames, n_neurons, 14)
-    
-    print(f"x_list_np shape: {x_list.shape}")
-    swim_series  = x_list[:k+1, 0]
-    left_series  = x_list[:k+1, 1]
-    right_series = x_list[:k+1, 2]
-    # t_axis = np.arange(0, k+1)
-    ax4.plot(swim_series,  label='swim',  lw=1.5, color='white')
-    ax4.plot(left_series,  label='left',  lw=1.0, color='cyan')
-    ax4.plot(right_series, label='right', lw=1.0, color='magenta')
-    ax4.set_xlim(0, n_frames)
-    ax4.set_title('Tail ephys', fontsize=TITLE_FZ, pad=TITLE_PAD)
-    ax4.set_xlabel('frame', fontsize=LABEL_FZ, labelpad=LABEL_PAD)
-    ax4.set_ylabel('a.u.',   fontsize=LABEL_FZ, labelpad=LABEL_PAD)
-    ax4.tick_params(labelsize=TICK_FZ)
-    ax4.legend(fontsize=8, loc='upper right')
+    ax_blank = fig.add_subplot(gs[0, 3]); ax_blank.axis('off')
 
     # ---------------- BOTTOM ROW (no titles) ----------------
     # 5) data XZ
@@ -211,3 +193,22 @@ def plot_field_comparison(x, x_list, model, k, n_frames, ones, output_path, step
     plt.close(fig)
 
     return field_discrete
+
+
+#     ax4 = fig.add_subplot(gs[0, 3])
+#   # (n_frames, n_neurons, 14)
+    
+#     print(f"x_list_np shape: {x_list.shape}")
+#     swim_series  = x_list[:k+1, 0]
+#     left_series  = x_list[:k+1, 1]
+#     right_series = x_list[:k+1, 2]
+#     # t_axis = np.arange(0, k+1)
+#     ax4.plot(swim_series,  label='swim',  lw=1.5, color='white')
+#     ax4.plot(left_series,  label='left',  lw=1.0, color='cyan')
+#     ax4.plot(right_series, label='right', lw=1.0, color='magenta')
+#     ax4.set_xlim(0, n_frames)
+#     ax4.set_title('Tail ephys', fontsize=TITLE_FZ, pad=TITLE_PAD)
+#     ax4.set_xlabel('frame', fontsize=LABEL_FZ, labelpad=LABEL_PAD)
+#     ax4.set_ylabel('a.u.',   fontsize=LABEL_FZ, labelpad=LABEL_PAD)
+#     ax4.tick_params(labelsize=TICK_FZ)
+#     ax4.legend(fontsize=8, loc='upper right')

@@ -3477,9 +3477,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
             if it % step == 0:
                 # plot field comparison
                 output_path = f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png"
-                # plot_field_comparison(x, x_list, model, it, n_frames, ones, output_path, 50, plot_batch_size)
-
-                plot_field_comparison(x, tail_list, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png", 50, plot_batch_size)
+                plot_field_comparison(x, model, it, n_frames, ones, output_path, 50, plot_batch_size)
                 it_idx += 1
 
     generated_x_list = np.array(generated_x_list)    
