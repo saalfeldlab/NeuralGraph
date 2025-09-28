@@ -1497,11 +1497,12 @@ def data_train_zebra(config, erase, best_model, device):
 
     list_loss = []
 
-    z_thickness = x_list[0][0,:,3:4].max() / 72
+    z_max = x_list[0][0,:,3:4].max()
+    z_thickness = z_max / 72
     z_thickness = torch.tensor(z_thickness, dtype=torch.float32, device=device)
     delta_t_step = torch.tensor(delta_t/73, dtype=torch.float32, device=device) 
 
-    print(f'thickness: {to_numpy(z_thickness)}   delta_t_step: {to_numpy(delta_t_step) }')
+    print(f'slice_thickness: {to_numpy(z_thickness):0.5f} / {z_max:0.5f}   delta_t_step: {to_numpy(delta_t_step):0.5f} / {delta_t}')
 
 
     for epoch in range(start_epoch, n_epochs + 1):
