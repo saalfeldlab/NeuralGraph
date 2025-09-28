@@ -96,7 +96,7 @@ if __name__ == "__main__":
                 alpha=1,
                 erase=False,
                 bSave=True,
-                step=1
+                step=25
             )  # config.simulation.n_frames // 100)
             
         if "train" in task:
@@ -116,7 +116,7 @@ if __name__ == "__main__":
                 run=0,
                 test_mode="",
                 sample_embedding=False,
-                step=1,
+                step=50,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
