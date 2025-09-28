@@ -1,7 +1,6 @@
 description: 'n_frames: 1500 slice_selection  hidden 512 learning_rate_NNR_f 1.0E-5'
 dataset: 'zebra_N10_17'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
-slice_selection: False
 
 simulation:
     connectivity_file: 'to be specified'

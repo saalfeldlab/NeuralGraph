@@ -359,7 +359,6 @@ class NeuralGraphConfig(BaseModel):
     data_folder_name: str = "none"
     connectome_folder_name: str = "none"
     data_folder_mesh_name: str = "none"
-    slice_selection: bool = False
     config_file: str = "none"
     simulation: SimulationConfig
     graph_model: GraphModelConfig

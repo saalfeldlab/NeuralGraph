@@ -734,8 +734,16 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     visual_input_type = simulation_config.visual_input_type
 
     delta_t = simulation_config.delta_t
+    delta_x = 0.406 # in microns
+    delta_z = 4 # in microns
+
     cmap = CustomColorMap(config=config)
 
+
+    if 'black' in style:
+        plt.style.use('dark_background')
+    else:
+        plt.style.use('default')
 
     condition_names = {
         0: "gain",
@@ -766,9 +774,11 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     print(f"positions shape: {positions.shape}, sample: {positions[0]}")
 
     positions = positions / 1000
-    positions[:,2] *= 10
     positions_swapped = positions[:, [1, 0, 2]]
-    positions_swapped[:, 0] *= -1 
+    positions_swapped[:, 0] *= -1
+    positions[:,0] *= delta_x
+    positions[:,1] *= delta_x
+    positions[:,2] *= delta_z  
 
     print(f"min position: {np.min(positions, axis=0)}  max position: {np.max(positions, axis=0)}, ")
 
@@ -790,35 +800,11 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     x_list = []
     y_list = []
 
-    if 'black' in style:
-        plt.style.use('dark_background')
-    else:
-        plt.style.use('default')
-
-    slice_selection = config.slice_selection
-
-    if slice_selection:
-
-        slice_tick = 0.15
-        slice_center = 0.3
-        slice_id = np.argwhere((x[:, 3]> slice_center - slice_tick/2) & (x[:, 3]< slice_center + slice_tick/2)).squeeze()
-        print(f"number of neurons in slice {slice_id.shape[0]}")
-
-        x = x[slice_id]
-        n_neurons = slice_id.shape[0]
-
-
     for n in trange(n_frames):
         x[:, 0] = np.arange(n_neurons)
-        if slice_selection:
-            x[:, 1:4] = positions[slice_id, 0:3]
-            x[:, 6] = traces[n][slice_id]
-            x[:, 7] = conditions[n]
-        else:
-            x[:, 1:4] = positions[:, 0:3]
-            x[:, 6] = traces[n]
-            x[:, 7] = conditions[n]
-
+        x[:, 1:4] = positions[:, 0:3]
+        x[:, 6] = traces[n]
+        x[:, 7] = conditions[n]
 
         if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
             x_list.append(x.copy())
@@ -837,9 +823,9 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
                 plt.axis('off')
                 plt.scatter(x[:,1], x[:,2], s=5, c=x[:,6], vmin=vmin, vmax=vmax, cmap='plasma')
                 label = f"frame: {n} \n{condition_names[int(conditions[n])]}  "
-                plt.text(0.05, 1.15, label, fontsize=24, color='white')
-                plt.xlim([0.,2])
-                plt.ylim([0,1.25])
+                plt.text(0.05, 0.45, label, fontsize=24, color='white')
+                plt.xlim([0., 0.8])
+                plt.ylim([0, 0.51])
                 plt.tight_layout()
                 plt.savefig(f"graphs_data/{dataset_name}/Fig/xy_{n:06d}.png", dpi=40)
                 plt.close()
@@ -934,12 +920,6 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
             num = f"{id_fig:06}"
             plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xz_{num}.png')
             plotter.close()
-
-
-
-
-
-
 
 
 def ensure_local_path_exists(path):

@@ -68,9 +68,9 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_b
     field_cont_flat = field_cont_cpu.flatten()
 
     # ---------- extents ----------
-    X_MIN, X_MAX = 0.0, 2.0
-    Y_MIN, Y_MAX = 0.0, 1.35
-    Z_MIN, Z_MAX = 0.0, 0.7
+    X_MIN, X_MAX = 0.0, 0.8
+    Y_MIN, Y_MAX = 0.0, 0.51
+    Z_MIN, Z_MAX = 0.0, 0.285
     spanX, spanY, spanZ = X_MAX - X_MIN, Y_MAX - Y_MIN, Z_MAX - Z_MIN
 
     # proportional layout
@@ -193,22 +193,3 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_b
     plt.close(fig)
 
     return field_discrete
-
-
-#     ax4 = fig.add_subplot(gs[0, 3])
-#   # (n_frames, n_neurons, 14)
-    
-#     print(f"x_list_np shape: {x_list.shape}")
-#     swim_series  = x_list[:k+1, 0]
-#     left_series  = x_list[:k+1, 1]
-#     right_series = x_list[:k+1, 2]
-#     # t_axis = np.arange(0, k+1)
-#     ax4.plot(swim_series,  label='swim',  lw=1.5, color='white')
-#     ax4.plot(left_series,  label='left',  lw=1.0, color='cyan')
-#     ax4.plot(right_series, label='right', lw=1.0, color='magenta')
-#     ax4.set_xlim(0, n_frames)
-#     ax4.set_title('Tail ephys', fontsize=TITLE_FZ, pad=TITLE_PAD)
-#     ax4.set_xlabel('frame', fontsize=LABEL_FZ, labelpad=LABEL_PAD)
-#     ax4.set_ylabel('a.u.',   fontsize=LABEL_FZ, labelpad=LABEL_PAD)
-#     ax4.tick_params(labelsize=TICK_FZ)
-#     ax4.legend(fontsize=8, loc='upper right')
