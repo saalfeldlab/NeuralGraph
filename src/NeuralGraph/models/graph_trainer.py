@@ -2624,6 +2624,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     total_frames_per_pass = dataset_length * frames_per_sequence
     num_passes_needed = (target_frames // total_frames_per_pass) + 1
 
+
+
+
     y_list = []
     x_list = []
     x_generated_list = []
@@ -3454,6 +3457,11 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     os.makedirs(f"./{log_dir}/results/Fig/", exist_ok=True)
     generated_x_list = []
+
+
+    tail_list = np.array(to_numpy(x_list[0][:,0,11:14]))
+    print (tail_list.shape)
+
     it_idx = 0
     for it in trange(0, min(n_frames,7800), 1):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
@@ -3468,7 +3476,10 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
             generated_x_list.append(to_numpy(neural_field.clone().detach()))
             if it % step == 0:
                 # plot field comparison
-                plot_field_comparison(x, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png", 50, plot_batch_size)
+                output_path = f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png"
+                # plot_field_comparison(x, x_list, model, it, n_frames, ones, output_path, 50, plot_batch_size)
+
+                plot_field_comparison(x, tail_list, model, it, n_frames, ones, f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png", 50, plot_batch_size)
                 it_idx += 1
 
     generated_x_list = np.array(generated_x_list)    

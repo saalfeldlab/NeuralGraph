@@ -843,7 +843,9 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     swim_power_per_frame = None
     kept_imaging_frames  = np.arange(min(n_frames, traces.shape[0]), dtype=np.int32)  # fallback
 
-    if stim_ephys_path and os.path.exists(stim_ephys_path):
+    stim_ephys_path = '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy/stimuli_and_ephys.10chFlt'
+
+    if os.path.exists(stim_ephys_path):
         print(f"loading 10-channel stim/ephys from {stim_ephys_path}")
         stim_full = _load_stim_memmap(stim_ephys_path)  # (10, T_high)
 
@@ -861,6 +863,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
         ttls_high = _enforce_min_distance(_rising_edges(ttls, HIGH_THRESH), HIGH_DIST)
         ttls_low  = _enforce_min_distance(_rising_edges(ttls, LOW_THRESH),  LOW_DIST)
         ttls_low  = np.setdiff1d(ttls_low, ttls_high, assume_unique=False)
+        print(f"found {len(ttls_high)} TTL rising edges, {len(ttls_low)} falling edges")
 
         # imaging windows: [high[t], high[t+1])
         n_win = min(len(ttls_high) - 1, traces.shape[0])
@@ -872,6 +875,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
         left_mean_per_frame  = np.zeros(n_win, dtype=np.float32) if tail_left_ch  is not None else None
         right_mean_per_frame = np.zeros(n_win, dtype=np.float32) if tail_right_ch is not None else None
         swim_power_per_frame = np.zeros(n_win, dtype=np.float32) if (tail_left_ch is not None and tail_right_ch is not None) else None
+        print(f"computing per-frame covariates for {n_win} imaging frames...")
 
         # per-frame averages within window
         for t, (a, b) in enumerate(frame_windows):
@@ -905,6 +909,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
                     float(np.nanmean(np.abs(stim_full[tail_left_ch,  a:b]))) +
                     float(np.nanmean(np.abs(stim_full[tail_right_ch, a:b])))
                 )
+        print("per-frame covariates done.")
 
         # imaging frames to keep by your selector (use conditions.npy at imaging rate)
         if visual_input_type == '':
@@ -919,6 +924,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
 
     else:
         print("No stim/ephys path provided or file missing; proceeding without stim covariates.")
+    print(f"keeping {len(kept_imaging_frames)} imaging frames out of {n_frames} total")
 
     # --------------------------- main per-frame loop (unchanged logic; just fill new cols) ---------------------------
     if visualize is None:
@@ -932,11 +938,12 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
             vmin, vmax = np.percentile(traces[0][slice_id], [2, 98])
         else:
             vmin, vmax = np.percentile(traces[0], [2, 98])
+    print(f"snapshot color limits: vmin={vmin:0.3f} vmax={vmax:0.3f}")
 
     fig_folder = os.path.join(folder, 'Fig')
     os.makedirs(fig_folder, exist_ok=True)
 
-    for n, t in enumerate(kept_imaging_frames):
+    for n, t in enumerate(tqdm(kept_imaging_frames, desc="Processing frames")):
         # core columns (as before)
         x[:, 0]   = np.arange(n_neurons_used)
         x[:, 1:4] = positions_used[:, 0:3]
@@ -990,6 +997,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
             plt.xlim([0., 2]); plt.ylim([0, 1.25]); plt.tight_layout()
             plt.savefig(os.path.join(fig_folder, f"xy_{t:06d}.png"), dpi=40)
             plt.close()
+    print(f"built dataset with {len(x_list)} kept frames.")
 
     # --------------------------- save x/y lists (unchanged) ---------------------------
     print('saving data...')
