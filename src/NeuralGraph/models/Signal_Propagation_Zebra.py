@@ -34,6 +34,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
 
         self.device = device
         self.model = model_config.signal_model_name
+        self.delta_t = simulation_config.delta_t
         self.embedding_dim = model_config.embedding_dim
         self.n_neurons = simulation_config.n_neurons
         self.n_frames = simulation_config.n_frames

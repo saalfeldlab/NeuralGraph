@@ -1497,6 +1497,13 @@ def data_train_zebra(config, erase, best_model, device):
 
     list_loss = []
 
+    z_thickness = x_list[0][0,:,3:4].max() / 72
+    z_thickness = torch.tensor(z_thickness, dtype=torch.float32, device=device)
+    delta_t_step = torch.tensor(delta_t/73, dtype=torch.float32, device=device) 
+
+    print(f'thickness: {to_numpy(z_thickness)}   delta_t_step: {to_numpy(delta_t_step) }')
+
+
     for epoch in range(start_epoch, n_epochs + 1):
 
         total_loss = 0
@@ -1531,18 +1538,21 @@ def data_train_zebra(config, erase, best_model, device):
                 dataset = data.Data(x=x, edge_index=edges)
                 dataset_batch.append(dataset)
 
+                k_t = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k * delta_t
+                k_t = k_t + torch.floor(x[:,3:4] / z_thickness) * delta_t_step # correction for light sheet acquisition
+
                 if batch == 0:
 
                     data_id = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run
                     y_batch = y
-                    k_batch = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k
+                    k_batch = k_t
                     ids_batch = ids
 
                 else:
 
                     data_id = torch.cat((data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
                     y_batch = torch.cat((y_batch, y), dim=0)
-                    k_batch = torch.cat((k_batch, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k), dim=0)
+                    k_batch = torch.cat((k_batch, k_t), dim=0)
                     ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
 
                 ids_index += x.shape[0]
