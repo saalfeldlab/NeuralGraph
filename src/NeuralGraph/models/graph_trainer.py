@@ -2696,35 +2696,35 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
         plot_weight_comparison(pde.p['w'], pde_modified.p['w'], f"./{log_dir}/results/weight_comparison_{noise_W}.png")
 
-    # res = overlay_umap_refit_with_W_list(
-    #     w_list=[
-    #         to_numpy(pde.p["w"]),
-    #         to_numpy(pde_modified.p["w"]),
-    #         to_numpy(model.W.squeeze()),
-    #     ],
-    #     labels=["W_000", "W + noise", "GNN W"],
-    #     figure_path="overlay_all_W.png",
-    #     show=True,
-    #     label_bg=True
+    res = overlay_umap_refit_with_W_list(
+        w_list=[
+            to_numpy(pde.p["w"]),
+            to_numpy(pde_modified.p["w"]),
+            to_numpy(model.W.squeeze()),
+        ],
+        labels=["W_000", "W + noise", "GNN W"],
+        figure_path="overlay_all_W.png",
+        show=True,
+        label_bg=True
+    )
+
+    # res = overlay_barycentric_into_umap(
+    # w_list=[
+    #     to_numpy(pde.p["w"]),
+    #     to_numpy(pde_modified.p["w"]),
+    #     to_numpy(model.W.squeeze()),
+    # ],
+    # labels=["W_000", "W + noise", "GNN W"],
+    # out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph/flyvis_connectomes",
+    # figure_path="overlay_all_bary.png",
+    # show=True,
     # )
-    res = overlay_barycentric_into_umap(
-    w_list=[
-        to_numpy(pde.p["w"]),
-        to_numpy(pde_modified.p["w"]),
-        to_numpy(model.W.squeeze()),
-    ],
-    labels=["W_000", "W + noise", "GNN W"],
-    out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph/flyvis_connectomes",
-    figure_path="overlay_all_bary.png",
-    show=True,
-)
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
             for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="processing stimulus data")):
 
                 sequences = data["lum"]
-
                 # Sample flash parameters for each subsequence if flash stimulus is requested
                 if "flash" in visual_input_type:
                     # Sample flash duration from specific values: 1, 2, 5, 10, 20 frames
@@ -3132,7 +3132,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                 break
     print(f"generated {len(x_list)} frames total")
 
-
     print('generating lossless video ...')
 
     config_indices = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
@@ -3298,7 +3297,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
            
             ax.plot(true_data, linewidth=4, color='green', alpha=0.9)
 
-            if 'true_only' not in test_mode:
+            if 'true_only' not in style:
                 if 'test_modified' in test_mode:
                     ax.plot(true_data_modified, linewidth=2, color='red', alpha=1.0)
                 else:

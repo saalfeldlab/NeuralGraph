@@ -6945,22 +6945,22 @@ def get_figures(index):
             config.config_file = pre_folder + config_file_
             logdir = 'log/fly/fly_N9_51_2'
 
-            for noise_W in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06]:
-                data_test(
-                    config,
-                    visualize=True,
-                    style="black color name true_only",
-                    verbose=False,
-                    best_model='best',
-                    run=0,
-                    test_mode=f"test_modified_{noise_W}",
-                    sample_embedding=False,
-                    step=50,
-                    device=device,
-                    particle_of_interest=0,
-                )
-                copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-                            f'./{logdir}/results/activity_8x8_panel_comparison_signal_modified_{noise_W}.png')
+            # for noise_W in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06]:
+            #     data_test(
+            #         config,
+            #         visualize=True,
+            #         style="black color name true_only",
+            #         verbose=False,
+            #         best_model='best',
+            #         run=0,
+            #         test_mode=f"test_modified_{noise_W}",
+            #         sample_embedding=False,
+            #         step=50,
+            #         device=device,
+            #         particle_of_interest=0,
+            #     )
+            #     copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+            #                 f'./{logdir}/results/activity_8x8_panel_comparison_signal_modified_{noise_W}.png')
 
 
             data_test(
@@ -6977,7 +6977,7 @@ def get_figures(index):
                 particle_of_interest=0,
             )
             copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-                     f'./{logdir}/results/activity_8x8_panel_comparison_signal.png')
+                     f'./{logdir}/results/activity_8x8_panel_comparison_true_signal.png')
             data_test(
                 config,
                 visualize=True,
@@ -7008,6 +7008,8 @@ def get_figures(index):
             )
             copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
                      f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_abalation_50.png')
+            copyfile('overlay_all_W.png', f'./{logdir}/results/overlay_all_W.png')
+            os.remove('overlay_all_W.png')
             
             config.simulation.visual_input_type = ""
             data_test(
@@ -7040,7 +7042,6 @@ def get_figures(index):
             )
             copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
                      f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_optical_flow.png')
-
             os.remove(f'./{logdir}/results/activity_8x8_panel_comparison.png')
         
         case 'N9_22_10':

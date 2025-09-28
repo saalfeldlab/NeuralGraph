@@ -1183,7 +1183,7 @@ def plot_odor_heatmaps(odor_responses):
 
 def overlay_umap_refit_with_W_list(
     w_list,
-    out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph",   # folder containing flyvis_connectomes_W.npz
+    out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph/graphs_data/fly/",   # folder containing flyvis_connectomes_W.npz
     figure_path=None,                                            # e.g. ".../overlay_all.png"
     show=True,
     # UMAP params
