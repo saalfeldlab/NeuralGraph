@@ -106,6 +106,8 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         self.NNR_f_xy_period = model_config.nnr_f_xy_period
         self.NNR_f_T_period = model_config.nnr_f_T_period
 
+        self.to(device)
+
     def forward(self, data=[], data_id=[], k = [], ids=[], return_all=False):
         self.return_all = return_all
         x, edge_index = data.x, data.edge_index

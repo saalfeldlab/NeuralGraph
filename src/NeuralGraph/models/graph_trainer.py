@@ -1509,7 +1509,7 @@ def data_train_zebra(config, erase, best_model, device):
 
     for epoch in range(start_epoch, n_epochs + 1):
 
-        total_loss = 0
+        total_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
 
         for N in trange(Niter):
 
@@ -1536,12 +1536,12 @@ def data_train_zebra(config, erase, best_model, device):
 
 
                 x = torch.tensor(x_list[run][k, :, 0:7], dtype=torch.float32, device=device).clone().detach()
-                y = torch.tensor(x_list[run][k, :, 6:7], device=device).clone().detach()
+                y = torch.tensor(x_list[run][k, :, 6:7], dtype=torch.float32, device=device).clone().detach()
 
                 dataset = data.Data(x=x, edge_index=edges)
                 dataset_batch.append(dataset)
 
-                k_t = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k * delta_t
+                k_t = torch.ones((x.shape[0], 1), dtype=torch.float32, device=device) * k * delta_t
                 k_t = k_t + torch.floor(x[:,3:4] / z_thickness) * delta_t_step # correction for light sheet acquisition
 
                 if batch == 0:
@@ -1592,8 +1592,8 @@ def data_train_zebra(config, erase, best_model, device):
                     'optimizer_state_dict': optimizer.state_dict()},
                 os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
 
-        list_loss.append(total_loss / n_neurons)
-        torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
+        list_loss.append(to_numpy(total_loss) / n_neurons)
+        # torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
 
         fig = plt.figure(figsize=(20, 10))
         ax = fig.add_subplot(1, 2, 1)
@@ -3272,14 +3272,14 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         # Use calcium (index 7)
         activity_true = x_generated_list[:, :, 7].squeeze().T  # (n_neurons, n_frames)
         activity_pred = x_list[:, :, 7].squeeze().T
-        activity_label = "Calcium"
+        activity_label = "calcium"
         y_lim = [0, 3]
     else:
         # Use voltage (index 3)
         activity_true = x_generated_list[:, :, 3].squeeze().T
         activity_true_modified = x_generated_modified_list[:, :, 3].squeeze().T   
         activity_pred = x_list[:, :, 3].squeeze().T
-        activity_label = "Voltage"
+        activity_label = "voltage"
         y_lim = [-3, 3]
 
     # Set random seed for reproducible neuron selection
@@ -3313,23 +3313,24 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
            
             ax.plot(true_data, linewidth=4, color='green', alpha=0.9)
 
+
             if 'true_only' not in style:
                 if 'test_modified' in test_mode:
                     ax.plot(true_data_modified, linewidth=2, color='red', alpha=1.0)
                 else:
                     ax.plot(pred_data, linewidth=2, color=mc, alpha=1.0)
+                rmse = np.sqrt(np.mean((true_data - pred_data)**2))
+                ax.text(0.05, 0.75, f'RMSE: {rmse:.3f}', transform=ax.transAxes, ha='left', va='top', fontsize=12, color=mc)
             
-            # Calculate RMSE
-            rmse = np.sqrt(np.mean((true_data - pred_data)**2))
+
             
             # Add type name in top left corner
             type_name = index_to_name.get(type_idx, f'Type_{type_idx}')
             ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
-                    ha='left', va='top', fontsize=14, color=mc)
+                    ha='left', va='top', fontsize=24, color=mc)
             
             # Add RMSE below type name
-            ax.text(0.05, 0.85, f'RMSE: {rmse:.3f}', transform=ax.transAxes, 
-                    ha='left', va='top', fontsize=12, color=mc)
+
             
             # Set axis limits with dynamic range
             ax.set_xlim([0, min(target_frames, activity_pred.shape[1])])
@@ -3351,8 +3352,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         ax.set_xticks([])
         
         if idx == 56:  # Bottom left corner - add axis labels with much larger font
-            ax.set_xlabel('Time (frames)', fontsize=16)
-            ax.set_ylabel(f'{activity_label}', fontsize=16)
+            ax.set_xlabel('time (frames)', fontsize=22)
+            ax.set_ylabel(f'{activity_label}', fontsize=22)
             n_ticks = min(target_frames, activity_pred.shape[1])
             ax.set_xticks([0, n_ticks//2, n_ticks])
             ax.set_xticklabels(['0', f'{n_ticks//2}', f'{n_ticks}'], fontsize=14)

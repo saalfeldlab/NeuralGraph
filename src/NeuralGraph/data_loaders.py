@@ -43,7 +43,7 @@ import pywt
 import torch.nn.functional as F
 from scipy.optimize import curve_fit
 
-import pyvista as pv
+# import pyvista as pv
 
 
 def linear_model(x, a, b):
@@ -735,6 +735,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
 
     delta_t = simulation_config.delta_t
     delta_x = 0.406 # in microns
+    delta_y = 0.406 # in microns
     delta_z = 4 # in microns
 
     cmap = CustomColorMap(config=config)
@@ -777,12 +778,39 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     positions_swapped = positions[:, [1, 0, 2]]
     positions_swapped[:, 0] *= -1
     positions[:,0] *= delta_x
-    positions[:,1] *= delta_x
+    positions[:,1] *= delta_y
     positions[:,2] *= delta_z  
 
     print(f"min position: {np.min(positions, axis=0)}  max position: {np.max(positions, axis=0)}, ")
-
     print(f"number of frames: {n_frames}, number of neurons: {n_neurons}")
+
+
+    path = "/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy/stimuli_and_ephys.10chFlt"
+
+
+
+    # memory-map the file (fast, no copy)
+    mm = np.memmap(path, dtype=np.float32, mode='r')
+    # reshape to (10, T) with T = number of time samples
+    if mm.size % 10 != 0:
+        raise ValueError("File size not divisible by 10 channels!")
+    stim_ephys = mm.reshape(-1, 10).T   # shape: (10, T)
+
+    print("shape:", stim_ephys.shape)   # (10, T_highres)
+    print("dtype:", stim_ephys.dtype)
+
+    # downsample to match imaging rate
+
+    down_sampling = stim_ephys.shape[1] // n_frames
+
+    stim_ephys = stim_ephys[:, ::down_sampling]  # shape: (10, T_highres/20)
+    print("downsampled shape:", stim_ephys.shape)
+    print("downsampled dtype:", stim_ephys.dtype)
+
+    np.save(f'/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy/stim_ephys.npy', stim_ephys)
+
+
+
 
     folder = f'./graphs_data/{dataset_name}/'
     os.makedirs(folder, exist_ok=True)
@@ -829,8 +857,6 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
                 plt.tight_layout()
                 plt.savefig(f"graphs_data/{dataset_name}/Fig/xy_{n:06d}.png", dpi=40)
                 plt.close()
-
-
 
     print('saving data...')
     x_list = np.array(x_list)
