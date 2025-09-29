@@ -3416,7 +3416,8 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
 
     log_dir = 'log/' + config.config_file
-    files = glob.glob(f"./{log_dir}/tmp_recons/*")
+    os.makedirs(f"./{log_dir}/results/Fig/", exist_ok=True)
+    files = glob.glob(f"./{log_dir}/results/Fig/*")
     for f in files:
         os.remove(f)
 
@@ -3468,12 +3469,11 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     print('recons...')
 
-    os.makedirs(f"./{log_dir}/results/Fig/", exist_ok=True)
     generated_x_list = []
 
 
-    tail_list = np.array(to_numpy(x_list[0][:,0,11:14]))
-    print (tail_list.shape)
+    # tail_list = np.array(to_numpy(x_list[0][:,0,11:14]))
+    # print (tail_list.shape)
 
     it_idx = 0
     for it in trange(0, min(n_frames,7800), 1):
