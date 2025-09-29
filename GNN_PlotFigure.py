@@ -7642,6 +7642,6 @@ if __name__ == '__main__':
     # get_figures('new_network_2')
 
     # get_figures('N9_22_10')
-    # get_figures('N9_44_6')
-    get_figures('N9_51_2')
+    get_figures('N9_44_6')
+    # get_figures('N9_51_2')
 
