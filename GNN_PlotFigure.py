@@ -7058,7 +7058,7 @@ def get_figures(index):
                 verbose=False,
                 best_model='best',
                 run=0,
-                test_mode="",
+                test_mode="full",
                 sample_embedding=False,
                 step=50,
                 device=device,
@@ -7641,7 +7641,7 @@ if __name__ == '__main__':
     # get_figures('new_network_1')
     # get_figures('new_network_2')
 
-    # get_figures('N9_22_10')
-    get_figures('N9_44_6')
+    get_figures('N9_22_10')
+    # get_figures('N9_44_6')
     # get_figures('N9_51_2')
 
