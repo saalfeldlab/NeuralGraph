@@ -1,15 +1,32 @@
 import argparse
+import importlib
 import os
+import sys
 import warnings
 
 import matplotlib
 matplotlib.use("Agg")
 
-from NeuralGraph.config import NeuralGraphConfig
-from NeuralGraph.generators.graph_data_generator import *
-from NeuralGraph.models.graph_trainer import *
-from NeuralGraph.models.Siren_Network import *
-from NeuralGraph.models.utils import *
+# Ensure local 'src' is importable when running as a script
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+SRC_DIR = os.path.join(PROJECT_ROOT, "src")
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+
+# Dynamic imports to remain robust to execution environments
+_cfg_mod = importlib.import_module("NeuralGraph.config")
+NeuralGraphConfig = getattr(_cfg_mod, "NeuralGraphConfig")
+
+_gen_mod = importlib.import_module("NeuralGraph.generators.graph_data_generator")
+data_generate = getattr(_gen_mod, "data_generate")
+
+_train_mod = importlib.import_module("NeuralGraph.models.graph_trainer")
+data_train = getattr(_train_mod, "data_train")
+data_test = getattr(_train_mod, "data_test")
+
+_utils_mod = importlib.import_module("NeuralGraph.utils")
+add_pre_folder = getattr(_utils_mod, "add_pre_folder")
+set_device = getattr(_utils_mod, "set_device")
 
 
 def _parse_args():
@@ -112,8 +129,7 @@ if __name__ == "__main__":
                 )
 
             if "train" in task:
-                train_best = None if args.best_model == "best" else args.best_model
-                data_train(config=cfg, erase=False, best_model=train_best, device=device)
+                data_train(config=cfg, erase=False, best_model=args.best_model, device=device)
 
             if "test" in task:
                 data_test(
