@@ -7688,24 +7688,24 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
     # compare_experiments(config_list, None)
 
-    config_list = ['fly_N9_44_20', 'fly_N9_44_24'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
+    # config_list = ['fly_N9_44_20', 'fly_N9_44_24'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
     # config_list = ['fly_N9_51_2'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     
-    for config_file_ in config_list:
-        print(' ')
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)
+    # for config_file_ in config_list:
+    #     print(' ')
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)
 
-    # compare_experiments(config_list, None)
+    # # compare_experiments(config_list, None)
 
 
 
@@ -7721,7 +7721,7 @@ if __name__ == '__main__':
     # get_figures('new_network_1')
     # get_figures('new_network_2')
 
-    # get_figures('N9_22_10')
+    get_figures('N9_22_10')
     # get_figures('results_22_10')
     # get_figures('N9_44_6')
     # get_figures('N9_51_2')
