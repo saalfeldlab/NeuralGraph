@@ -39,6 +39,7 @@ from scipy.spatial import cKDTree
 from NeuralGraph.generators.utils import *
 from scipy.special import logsumexp
 from NeuralGraph.generators.utils import generate_compressed_video_mp4
+from scipy.stats import pearsonr
 
 def data_train(config=None, erase=False, best_model=None, device=None):
     # plt.rcParams['text.usetex'] = True
@@ -3297,6 +3298,20 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     print(f"RMSE per neuron - Mean: {mean_rmse:.6f}, Std: {std_rmse:.6f}")
     print(f"RMSE range: [{np.min(rmse_per_neuron):.6f}, {np.max(rmse_per_neuron):.6f}]")
 
+    print('computing Pearson correlation per neuron...')
+    pearson_per_neuron = []
+    for i in range(activity_true.shape[0]):
+        if np.std(activity_true[i]) > 1e-8 and np.std(activity_pred[i]) > 1e-8:
+            r, _ = pearsonr(activity_true[i], activity_pred[i])
+            pearson_per_neuron.append(r)
+        else:
+            pearson_per_neuron.append(np.nan)
+    pearson_per_neuron = np.array(pearson_per_neuron)
+    mean_pearson = np.nanmean(pearson_per_neuron)
+    std_pearson = np.nanstd(pearson_per_neuron)
+    print(f"Pearson r per neuron - Mean: {mean_pearson:.6f}, Std: {std_pearson:.6f}")
+    print(f"Pearson r range: [{np.nanmin(pearson_per_neuron):.6f}, {np.nanmax(pearson_per_neuron):.6f}]")
+
     if 'full' in test_mode:
 
         print('computing overall activity range statistics...')
@@ -3316,6 +3331,13 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         print(f"  max: {activity_max:.6f}")
         print(f"  global range: {activity_max - activity_min:.6f}")
         print(f"  per-neuron range - mean: {activity_range_mean:.6f}, std: {activity_range_std:.6f}")
+
+
+
+
+
+
+
 
 
 
