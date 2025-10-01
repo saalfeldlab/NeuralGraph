@@ -859,6 +859,8 @@ def data_train_flyvis(config, erase, best_model, device):
         torch.random.fork_rng(devices=device)
         torch.random.manual_seed(config.training.seed)
 
+    torch.set_grad_enabled(True)
+
     cmap = CustomColorMap(config=config)
 
     if 'visual' in field_type:
