@@ -376,15 +376,17 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     frame = sequences[0][None, None]
     net.stimulus.add_input(frame)
 
+    # init vector x
+
     x = torch.zeros(n_neurons, 9, dtype=torch.float32, device=device)
     x[:, 1:3] = X1
     x[:, 0] = torch.arange(n_neurons, dtype=torch.float32)
-    x[:, 3] = initial_state
-    x[:, 4] = net.stimulus().squeeze()
-    x[:, 5] = torch.tensor(grouped_types, dtype=torch.float32, device=device)
-    x[:, 6] = torch.tensor(node_types_int, dtype=torch.float32, device=device)
-    x[:, 7] = torch.rand(n_neurons, dtype=torch.float32, device=device)
-    x[:, 8] = calcium_alpha * x[:, 7] + calcium_beta
+    x[:, 3] = initial_state                                                                         # voltage
+    x[:, 4] = net.stimulus().squeeze()                                                              # visual input                       
+    x[:, 5] = torch.tensor(grouped_types, dtype=torch.float32, device=device)                       # neuron type (grouped)
+    x[:, 6] = torch.tensor(node_types_int, dtype=torch.float32, device=device)                      # neuron type (integer)
+    x[:, 7] = torch.rand(n_neurons, dtype=torch.float32, device=device)                             # calcium concentration
+    x[:, 8] = calcium_alpha * x[:, 7] + calcium_beta                                                # fluorescence activity
 
     # Mixed sequence setup
     if "mixed" in visual_input_type:
@@ -643,7 +645,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         elif calcium_activation == "identity":
                             u = x[:, 3:4].clone()
 
-                        x[:, 7:8] = x[:, 7:8] + (delta_t / calcium_tau) * (-x[:, 7:8] + u)
+                        x[:, 7:8] = x[:, 7:8] + (delta_t / calcium_tau) * (-x[:, 7:8] + u)              # calcium ODE to be checked
                         x[:, 7:8] = torch.clamp(x[:, 7:8], min=0.0)
                         x[:, 8:9] = calcium_alpha * x[:, 7:8] + calcium_beta
 

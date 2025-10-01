@@ -3459,13 +3459,14 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             true_data_modified = activity_true_modified[selected_neuron, :]
             
             # Calculate dynamic y-limits with padding
+
             y_min = min(np.min(true_data[85000:85500]), np.min(pred_data[85000:85500]))
             y_max = max(np.max(true_data[85000:85500]), np.max(pred_data[85000:85500]))
             y_range = y_max - y_min
             y_padding = y_range * 0.25  # 10% padding
        
            
-            ax.plot(true_data, linewidth=8, color='green', alpha=0.75)
+            ax.plot(true_data, linewidth=8, color='green', alpha=0.4)
 
             if 'true_only' not in style:
                 if 'test_modified' in test_mode:
