@@ -3370,6 +3370,15 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             pred_data = activity_pred[selected_neuron, :]
             true_data_modified = activity_true_modified[selected_neuron, :]
             
+            start_frame = 85000
+            end_frame = end_frame
+            n_frames = true_data.shape[0]
+            if n_frames < end_frame:
+                print(f"warning: not enough frames ({n_frames}), using available range for panel {idx}")
+                start_frame = 25000
+                end_frame = 25500
+
+
             # Calculate dynamic y-limits with padding
             y_min = min(np.min(true_data), np.min(pred_data))
             y_max = max(np.max(true_data), np.max(pred_data))
@@ -3391,7 +3400,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
                     ha='left', va='top', fontsize=20, color=mc)
             
-            ax.set_xlim([85000, 85500])
+            ax.set_xlim([start_frame, end_frame])
             ax.set_ylim([y_min - y_padding, y_max + 1.2 *y_padding])
             
             # Add y-axis ticks for all panels
@@ -3413,8 +3422,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_xlabel('frame', fontsize=22)
             ax.set_ylabel(f'{activity_label}', fontsize=22)
             n_ticks = 500
-            ax.set_xticks([85000, 85500])
-            ax.set_xticklabels(['85000', '85500'], fontsize=14)
+            ax.set_xticks([start_frame, end_frame])
+            ax.set_xticklabels(['start_frame', 'end_frame'], fontsize=14)
             # Use dynamic y-range for this panel too
             true_data_panel = activity_true[selected_neuron, :]
             pred_data_panel = activity_pred[selected_neuron, :]
@@ -3484,8 +3493,16 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             
             # Calculate dynamic y-limits with padding
 
-            y_min = min(np.min(true_data[85000:85500]), np.min(pred_data[85000:85500]))
-            y_max = max(np.max(true_data[85000:85500]), np.max(pred_data[85000:85500]))
+            start_frame = 85000
+            end_frame = end_frame
+            n_frames = true_data.shape[0]
+            if n_frames < end_frame:
+                print(f"warning: not enough frames ({n_frames}), using available range for panel {idx}")
+                start_frame = 25000
+                end_frame = 25500
+
+            y_min = min(np.min(true_data[start_frame:end_frame]), np.min(pred_data[start_frame:end_frame]))
+            y_max = max(np.max(true_data[start_frame:end_frame]), np.max(pred_data[start_frame:end_frame]))
             y_range = y_max - y_min
             y_padding = y_range * 0.25  # 10% padding
        
@@ -3504,7 +3521,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
                     ha='left', va='top', fontsize=20, color=mc)
             
-            ax.set_xlim([85000, 85500])
+            ax.set_xlim([start_frame, end_frame])
             ax.set_ylim([y_min - y_padding, y_max + y_padding])
             
             # Add y-axis ticks for all panels
@@ -3526,8 +3543,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_xlabel('frame', fontsize=22)
             ax.set_ylabel(f'{activity_label}', fontsize=22)
             n_ticks = 500
-            ax.set_xticks([85000, 85500])
-            ax.set_xticklabels(['85000', '85500'], fontsize=14)
+            ax.set_xticks([start_frame, end_frame])
+            ax.set_xticklabels(['start_frame', 'end_frame'], fontsize=14)
             # Use dynamic y-range for this panel too
             true_data_panel = activity_true[selected_neuron, :]
             pred_data_panel = activity_pred[selected_neuron, :]

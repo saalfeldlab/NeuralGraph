@@ -6817,11 +6817,137 @@ def data_plot(config, config_file, epoch_list, style, extended, device):
 
 
 def get_figures(index):
+        
+        
 
     plt.style.use('default')
 
     match index:
 
+
+        case 'results_44_24':
+            config_file_ = 'fly_N9_44_24'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            print('figure results 44_24...')
+
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+
+            log_dir = 'log/fly/fly_N9_44_24'
+            config_indices = '44_6'
+            
+            fig = plt.figure(figsize=(18, 12))
+
+            ax1 = fig.add_subplot(2, 3, 1)
+            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax2 = fig.add_subplot(2, 3, 2)
+            panel_pic_path =f"./{log_dir}/results/embedding_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax3 = fig.add_subplot(2, 3, 3)
+            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax4 = fig.add_subplot(2, 3, 4)
+            panel_pic_path =f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax5 = fig.add_subplot(2, 3, 5)
+            panel_pic_path = f"./{log_dir}/results/tau_comparison_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax6 = fig.add_subplot(2, 3, 6)
+            panel_pic_path = f"./{log_dir}/results/V_rest_comparison_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=24, va='bottom', ha='right')
+            
+            
+            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
+            plt.savefig(f"./fig_paper/results_44_24.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        case 'results_51_2':
+            config_file_ = 'fly_N9_51_2'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            print('figure results 51_2...')
+
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+
+            log_dir = 'log/fly/fly_N9_51_2'
+            config_indices = '37_2'
+            
+            fig = plt.figure(figsize=(18, 12))
+
+            ax1 = fig.add_subplot(2, 3, 1)
+            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax2 = fig.add_subplot(2, 3, 2)
+            panel_pic_path =f"./{log_dir}/results/embedding_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax3 = fig.add_subplot(2, 3, 3)
+            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax4 = fig.add_subplot(2, 3, 4)
+            panel_pic_path =f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax5 = fig.add_subplot(2, 3, 5)
+            panel_pic_path = f"./{log_dir}/results/tau_comparison_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax6 = fig.add_subplot(2, 3, 6)
+            panel_pic_path = f"./{log_dir}/results/V_rest_comparison_{config_indices}.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=24, va='bottom', ha='right')
+            
+            
+            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
+            plt.savefig(f"./fig_paper/results_51_2.png", dpi=300, bbox_inches='tight')
+            plt.close()
 
         case 'N9_44_6':
             config_file_ = 'fly_N9_44_6'
@@ -6830,63 +6956,69 @@ def get_figures(index):
             config.dataset = pre_folder + config.dataset
             config.config_file = pre_folder + config_file_
             logdir = 'log/fly/fly_N9_44_6'
-            data_test(
-                config,
-                visualize=True,
-                style="black color name true_only",
-                verbose=False,
-                best_model='best',
-                run=0,
-                test_mode="",
-                sample_embedding=False,
-                step=50,
-                device=device,
-                particle_of_interest=0,
-            )
-            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-                     f'./{logdir}/results/activity_8x8_panel_comparison_true_signal.png')
-            data_test(
-                config,
-                visualize=True,
-                style="black color name",
-                verbose=False,
-                best_model='best',
-                run=0,
-                test_mode="",
-                sample_embedding=False,
-                step=50,
-                device=device,
-                particle_of_interest=0,
-            )
-            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred.png')
 
-            config.training.noise_model_level = 0.0
+            # data_test(
+            #     config,
+            #     visualize=True,
+            #     style="black color name true_only",
+            #     verbose=False,
+            #     best_model='best',
+            #     run=0,
+            #     test_mode="",
+            #     sample_embedding=False,
+            #     step=50,
+            #     device=device,
+            #     particle_of_interest=0,
+            # )
+            # copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+            #          f'./{logdir}/results/activity_8x8_panel_comparison_true_signal.png')
+            # data_test(
+            #     config,
+            #     visualize=True,
+            #     style="black color name",
+            #     verbose=False,
+            #     best_model='best',
+            #     run=0,
+            #     test_mode="",
+            #     sample_embedding=False,
+            #     step=50,
+            #     device=device,
+            #     particle_of_interest=0,
+            # )
+            # copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+            #          f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred.png')
 
+
+
+            # data_test(
+            #     config,
+            #     visualize=True,
+            #     style="black color name true_only",
+            #     verbose=False,
+            #     best_model='best',
+            #     run=0,
+            #     test_mode="",
+            #     sample_embedding=False,
+            #     step=50,
+            #     device=device,
+            #     particle_of_interest=0,
+            # )
+            # copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
+            #          f'./{logdir}/results/activity_8x8_panel_comparison_signal_true_wo_noise.png')
+
+            
+
+            # config.training.noise_model_level = 0.0
+            config.simulation.visual_input_type = "DAVIS"
+            
             data_test(
                 config,
                 visualize=True,
-                style="black color name true_only",
+                style="white color name",
                 verbose=False,
                 best_model='best',
                 run=0,
-                test_mode="",
-                sample_embedding=False,
-                step=50,
-                device=device,
-                particle_of_interest=0,
-            )
-            copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-                     f'./{logdir}/results/activity_8x8_panel_comparison_signal_true_wo_noise.png')
-
-            data_test(
-                config,
-                visualize=True,
-                style="black color name",
-                verbose=False,
-                best_model='best',
-                run=0,
-                test_mode="",
+                test_mode="full",
                 sample_embedding=False,
                 step=50,
                 device=device,
@@ -6895,7 +7027,7 @@ def get_figures(index):
             copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
                      f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_wo_noise.png')
             
-            config.simulation.visual_input_type = "DAVIS"
+            
 
             data_test(
                 config,
@@ -7688,7 +7820,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
     # compare_experiments(config_list, None)
 
-    # config_list = ['fly_N9_44_20', 'fly_N9_44_24'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
+    # 
+    #  #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
@@ -7721,8 +7854,10 @@ if __name__ == '__main__':
     # get_figures('new_network_1')
     # get_figures('new_network_2')
 
-    get_figures('N9_22_10')
+    # get_figures('N9_22_10')
     # get_figures('results_22_10')
-    # get_figures('N9_44_6')
+    # get_figures('results_44_24')
+    # get_figures('results_51_2')
+    get_figures('N9_44_6')
     # get_figures('N9_51_2')
 
