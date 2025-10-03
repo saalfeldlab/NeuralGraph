@@ -629,8 +629,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                     x_list.append(to_numpy(x.clone().detach()))
 
                     if noise_model_level > 0:
-                    x[:, 3:4] = x[:, 3:4] + delta_t * y + torch.randn((n_neurons, 1), dtype=torch.float32,
-                                                                        device=device) * noise_model_level
+                        x[:, 3:4] = x[:, 3:4] + delta_t * y + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
                     else:
                         x[:, 3:4] = x[:, 3:4] + delta_t * y
 

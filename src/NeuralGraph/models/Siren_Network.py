@@ -12,6 +12,7 @@ import matplotlib
 from matplotlib import pyplot as plt
 from tifffile import imread, imwrite as imsave
 from tqdm import trange
+from tqdm import tqdm
 # from torch.utils.data import DataLoader, Dataset
 # from PIL import Image
 # import skimage
@@ -175,7 +176,7 @@ def get_mgrid(sidelen, dim=2):
     '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
     sidelen: int
     dim: int'''
-    tensors = tuple(dim * [torch.linspace(-1, 1, steps=sidelen)])
+    tensors = tuple(dim * [torch.linspace(0, 1, steps=sidelen)])
     mgrid = torch.stack(torch.meshgrid(*tensors), dim=-1)
     mgrid = mgrid.reshape(-1, dim)
     return mgrid
@@ -200,19 +201,29 @@ def gradient(y, x, grad_outputs=None):
     return grad
 
 
-def get_cameraman_tensor(sidelength):
-    img = Image.fromarray(skimage.data.camera())
-    transform = Compose([
-        Resize(sidelength),
-        ToTensor(),
-        Normalize(torch.Tensor([0.5]), torch.Tensor([0.5]))
-    ])
-    img = transform(img)
-    return img
+from torch.utils.data import Dataset
+class ImageFitting(Dataset):
+    def __init__(self, sidelength):
+        import skimage
+        from PIL import Image
+        from torchvision.transforms import Resize, Compose, ToTensor, Normalize
+        img = Image.fromarray(skimage.data.camera())
+        transform = Compose([
+            Resize(sidelength),
+            ToTensor(),
+            Normalize(torch.Tensor([0.5]), torch.Tensor([0.5]))
+        ])
+        self.img = transform(img)
+        coords = get_mgrid(sidelength, dim=2)
+        self.coords = coords
 
+    def __len__(self):
+        return 1
 
+    def __getitem__(self, idx):
+        return self.coords, self.img.view(-1, 1)
+    
 if __name__ == '__main__':
-
 
 
     device = 'cuda:0'
@@ -220,162 +231,73 @@ if __name__ == '__main__':
         matplotlib.use("Qt5Agg")
     except:
         pass
-
-    model = Siren(in_features = 1, hidden_features = 256 , hidden_layers = 3, out_features = 300, outermost_linear=True, first_omega_0=30., hidden_omega_0=30.)
-    model = model.to(device=device)
-    optimizer = torch.optim.Adam(lr=1e-4, params=model.parameters())
-
-    x_list = np.load('/groups/saalfeld/home/allierc/Py/NeuralGraph/graphs_data/CElegans/CElegans_c1/x_list_0.npy')
-    x_list = np.nan_to_num(x_list, nan=0.0)
-
-    activity = torch.tensor(x_list,device=device)
-    activity = activity[:, :, 6:7].squeeze()
-    activity = activity.t()
-    activity = torch.nan_to_num(activity, nan=0.0)
-    y = activity
-
-    # plt.imshow(activity.detach().cpu().numpy(), cmap='grey')
-    # plt.show()
-
-    n_frames = 958
-    batchsize = 100
-
-    for epoch in trange(1000000//batchsize):
-        optimizer.zero_grad()
-
-        loss = 0
-        for batch in range(batchsize):
-
-            k = np.random.randint(n_frames - 1)
-            x = torch.tensor(x_list[k], dtype=torch.float32, device=device)
-
-            t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
-            missing_activity = model(t) ** 2
-
-            loss = loss + (missing_activity - x[:, 6].clone().detach()).norm(2)
-
-        loss.backward()
-        optimizer.step()
-
-        if epoch % (10000//batchsize) == 0:
-            print(f"Epoch {epoch}, Loss {loss.item()}")
-            with torch.no_grad():
-                t = torch.linspace(0, 1, n_frames, dtype=torch.float32, device=device).unsqueeze(1)
-                pred = model(t) ** 2
-                pred = pred.t()
-            fig = plt.figure(figsize=(16, 8))
-            plt.imshow(pred.detach().cpu().numpy(), cmap='grey')
-            plt.show()
-
-    #####################################
-
-    model_siren = Siren(in_features = 1, hidden_features = 256 , hidden_layers = 3, out_features = 287400, outermost_linear=True, first_omega_0=30., hidden_omega_0=30.)
-    model_siren = model_siren.to(device=device)
-    optimizer = torch.optim.Adam(lr=1e-4, params=model_siren.parameters())
-
-    x_list = np.load('/groups/saalfeld/home/allierc/Py/NeuralGraph/graphs_data/CElegans/CElegans_c1/x_list_0.npy')
-    activity = torch.tensor(x_list,device=device)
-    activity = activity[:, :, 6:7].squeeze()
-    activity = activity.t()
-    activity = torch.nan_to_num(activity, nan=0.0)
-    y = activity.flatten()
-
-
-    for epoch in trange(10000):
-        optimizer.zero_grad()
-
-        t = torch.tensor([1],dtype=torch.float32, device=device)
-        x = model_siren(t) ** 2
-
-        loss = (x - y).norm(2)
-
-        loss.backward()
-        optimizer.step()
-
-        if epoch % 500 == 0:
-            print(f"Epoch {epoch}, Loss {loss.item()}")
-            pred = model_siren(t) ** 2
-            # pred = torch.reshape(pred, (256, 256))
-            pred = torch.reshape(pred, (300, 958))
-            fig = plt.figure(figsize=(16, 8))
-            plt.imshow(pred.detach().cpu().numpy(), cmap='grey')
-            plt.show()
-
-    #####################################
-
-    model_siren = Siren_Network(image_width=256, in_features=2, out_features=1, hidden_features=256, hidden_layers=3, outermost_linear=True)
-    model_siren = model_siren.to(device=device)
-    optimizer = torch.optim.Adam(lr=1e-4, params=model_siren.parameters())
-
-    i0 = imread('data/pics_boat.tif')
-
-    y = torch.tensor(i0, dtype=torch.float32, device=device)
-    y = y.flatten()
-    y = y[:,None]
-
-    coords = get_mgrid(256, dim=2)
-    coords = coords.to('cuda:0')
-
-    print(coords.device, y.device)
-
-
-    for epoch in trange(10000):
-        optimizer.zero_grad()
-
-        x = model_siren()**2
-
-        loss = (x - y).norm(2)
-
-        loss.backward()
-        optimizer.step()
-
-        if epoch % 500 == 0:
-            print(f"Epoch {epoch}, Loss {loss.item()}")
-            pred = model_siren()**2
-            pred = torch.reshape(pred, (256, 256))
-            fig = plt.figure(figsize=(8, 8))
-            plt.imshow(pred.detach().cpu().numpy(), cmap='grey')
-            plt.show()
-
-            # plt.scatter(y.detach().cpu().numpy(),x.detach().cpu().numpy(),c='k',s=1)
-            # plt.savefig(f"tmp/output_{epoch}.png")
-
-
-    #####################################
-
+    
+    from torch.utils.data import DataLoader
 
     cameraman = ImageFitting(256)
     dataloader = DataLoader(cameraman, batch_size=1, pin_memory=True, num_workers=0)
 
     img_siren = Siren(in_features=2, out_features=1, hidden_features=256,
-                      hidden_layers=3, outermost_linear=True)
+                      hidden_layers=3, outermost_linear=True, first_omega_0=1024., hidden_omega_0=128.)
     img_siren.cuda()
 
-    total_steps = 500  # Since the whole image is our dataset, this just means 500 gradient descent steps.
-    steps_til_summary = 10
+    total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
+    steps_til_summary = 1000
 
-    optim = torch.optim.Adam(lr=1e-4, params=img_siren.parameters())
+    optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
 
-    model_input, ground_truth = next(iter(dataloader))
-    model_input, ground_truth = model_input.cuda(), ground_truth.cuda()
-
-    for step in range(total_steps):
+    loss_list = []
+    for step in trange(total_steps):
+        model_input, ground_truth = next(iter(dataloader))
+        model_input, ground_truth = model_input.cuda(), ground_truth.cuda()
+        model_input.requires_grad_(True)
         model_output = img_siren(model_input)
         loss = ((model_output - ground_truth) ** 2).mean()
 
-        if not step % steps_til_summary:
-            print("Step %d, Total loss %0.6f" % (step, loss))
-            # img_grad = gradient(model_output, coords)
-            # img_laplacian = laplace(model_output, coords)
-
-            fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-            axes[0].imshow(model_output.cpu().view(256, 256).detach().numpy())
-            # axes[1].imshow(img_grad.norm(dim=-1).cpu().view(256, 256).detach().numpy())
-            # axes[2].imshow(img_laplacian.cpu().view(256, 256).detach().numpy())
-            plt.show()
-            plt.savefig(f"tmp/output_{step}.png")
-            plt.close()
+        # TV loss
+        # grad = gradient(model_output, model_input)
+        # grad_norm = torch.sqrt(torch.sum(grad ** 2, dim=-1, keepdim=True) + 1e-10)
+        # tv_loss = grad_norm.mean()
+        # loss += 1e-5 * tv_loss
 
         optim.zero_grad()
         loss.backward()
         optim.step()
+
+        loss_list.append(loss.item())
+
+    print("Step %d, Total loss %0.6f" % (step, loss))
+    # img_grad = gradient(model_output, coords)
+    # img_laplacian = laplace(model_output, coords)
+
+    factor = 80
+
+    x_upsampled = np.linspace(0, 1, 256*factor)
+    y_upsampled = np.ones(256*factor)*(100/256)  
+    coords_upsampled = np.stack([x_upsampled, y_upsampled], axis=1)  # shape (2560, 2)
+    coords_upsampled_torch = torch.tensor(coords_upsampled, dtype=torch.float32, device=device)
+    pred_upsampled = img_siren(coords_upsampled_torch).cpu().detach().numpy().squeeze()
+    x_upsampled = np.linspace(0, 256, 256*factor)
+
+
+    gt_img = ground_truth.cpu().detach().numpy().reshape(256, 256)
+    pred_img = model_output.cpu().detach().numpy().reshape(256, 256)
+
+
+    fig, axes = plt.subplots(1, 4, figsize=(20, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
+    axes[0].plot(loss_list, color='k')
+    axes[0].set_xlabel('step')
+    axes[0].set_ylabel('MSE Loss')
+    axes[1].imshow(pred_img, cmap='gray')
+    error = np.linalg.norm(gt_img - pred_img, ord=2)
+    axes[1].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9)
+    axes[2].plot(gt_img[:,100], color='green', label='true')
+    axes[2].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
+    axes[3].plot(gt_img[:,100], color='green', label='true')
+    axes[3].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
+    axes[3].set_xlim(200, 220)
+    axes[3].set_ylim(0, 0.4)
+    plt.tight_layout(pad=1.0)
+    plt.show()
+    plt.close()
+
