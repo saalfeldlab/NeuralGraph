@@ -57,7 +57,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None 
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
             data_test(
                 config=config,
-                visualize=True,
+                visualize=False,
                 style="black color name",
                 verbose=False,
                 best_model='best',

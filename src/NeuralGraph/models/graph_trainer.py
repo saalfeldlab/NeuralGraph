@@ -1563,9 +1563,6 @@ def data_train_zebra(config, erase, best_model, device):
 
                 ids_index += x.shape[0]
 
-
-            # field = model.NNR_f(in_features)**2
-
             ids_batch_t = torch.as_tensor(ids_batch, device=device, dtype=torch.long)
             batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
 
@@ -1623,9 +1620,6 @@ def data_train_zebra(config, erase, best_model, device):
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
         plt.close()
-
-
-
 
 
 def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15,
@@ -3335,14 +3329,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         print(f"  per-neuron range - mean: {activity_range_mean:.6f}, std: {activity_range_std:.6f}")
 
 
-
-
-
-
-
-
-
-
     # Save RMSE results
     np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_per_neuron)
 
@@ -3473,7 +3459,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     np.random.seed(42)
 
     for idx, type_idx in enumerate(panel_order):
-        if idx >= 64:  # Only 64 panels in 8x8
+        if idx >= 20:  
             break
         
         ax = axes_flat[idx]
@@ -3553,9 +3539,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_yticks([y_min_panel, (y_min_panel+y_max_panel)/2, y_max_panel])
             ax.set_yticklabels([f'{y_min_panel:.2f}', f'{(y_min_panel+y_max_panel)/2:.2f}', f'{y_max_panel:.2f}'], fontsize=14)
 
-    # Hide remaining panels if any
-    for idx in range(64, len(axes_flat)):
-        axes_flat[idx].set_visible(False)
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/activity_5x4_panel_comparison.png", dpi=150)
     plt.close()
@@ -3676,7 +3659,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
                 neural_field_list.append(model.NNR_f(batch)**2)
             neural_field = torch.cat(neural_field_list, dim=0)
             generated_x_list.append(to_numpy(neural_field.clone().detach()))
-            if it % step == 0:
+            if (it % step == 0) & (visualize == True):
                 # plot field comparison
                 output_path = f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png"
                 plot_field_comparison(x, model, it, n_frames, ones, output_path, 50, plot_batch_size)
@@ -3687,21 +3670,22 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     print(f"saving ./{log_dir}/results/recons_field.npy")
     np.save(f"./{log_dir}/results/recons_field.npy", generated_x_list)
 
-    print('save video...')
-    src = f"./{log_dir}/results/Fig/Fig_0_000000.png"
-    dst = f"./{log_dir}/results/input_zebra.png"
-    with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
-        fdst.write(fsrc.read())
-    generate_compressed_video_mp4(
-        output_dir=f"./{log_dir}/results", 
-        run=0, 
-        config_indices="zebra",
-        framerate=40
-    )
-    print(f"video saved to {log_dir}/results/")
-    files = glob.glob(f'./{log_dir}/results/Fig/*')
-    # for f in files:
-    #     os.remove(f)
+    if (visualize == True):
+        print('save video...')
+        src = f"./{log_dir}/results/Fig/Fig_0_000000.png"
+        dst = f"./{log_dir}/results/input_zebra.png"
+        with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
+            fdst.write(fsrc.read())
+        generate_compressed_video_mp4(
+            output_dir=f"./{log_dir}/results", 
+            run=0, 
+            config_indices="zebra",
+            framerate=40
+        )
+        print(f"video saved to {log_dir}/results/")
+        files = glob.glob(f'./{log_dir}/results/Fig/*')
+        # for f in files:
+        #     os.remove(f)
     
     # generated_x_list = np.load(f"./{log_dir}/results/recons_field.npy")
 
@@ -3771,7 +3755,11 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     plt.savefig(f"./{log_dir}/results/recons_error_per_condition.png", dpi=150)
     plt.close()
 
-    print(f"Grand average MAE: {mean_mae[-1]:.4f} ± {sem_mae[-1]:.4f} (N={counts[-1]})")
+    print(f"grand average MAE: {mean_mae[-1]:.4f} ± {sem_mae[-1]:.4f} (N={counts[-1]})")
+
+
+    reconstructed = reconstructed.squeeze()
+    true = true.squeeze()
 
 
 
