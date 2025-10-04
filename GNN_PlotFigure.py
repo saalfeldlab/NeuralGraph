@@ -4631,6 +4631,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
     n_input_neurons = config.simulation.n_input_neurons
     field_type = model_config.field_type
     delta_t = config.simulation.delta_t
+    n_edges = config.simulation.n_edges
 
     colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
     colors_65 = colors_65[:65]
@@ -4808,7 +4809,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "f"accuracy={results['accuracy']:.3f}")
                 time.sleep(1)
 
-            plt.text(0.05, 0.95, f"accuracy: {results['accuracy']:.3f}",
+            plt.text(0.05, 0.95, f"N: {n_neurons}\naccuracy: {results['accuracy']:.2f}",
                     transform=plt.gca().transAxes, fontsize=32,
                     verticalalignment='top', color=mc)
 
@@ -4816,32 +4817,34 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.savefig(f'{log_dir}/results/embedding_{config_indices}.png', dpi=300)
             plt.close()
 
-            if 'plots' in extended:
-                # Plot 3: Edge function visualization
-                fig = plt.figure(figsize=(10, 9))
-                for n in trange(n_neurons):
-                    rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
-                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                    if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
-                        in_features = torch.cat((rr[:, None], embedding_,), dim=1)
-                    elif ('PDE_N9_B' in config.graph_model.signal_model_name):
-                        in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
-                    with torch.no_grad():
-                        func = model.lin_edge(in_features.float())
-                        if config.graph_model.lin_edge_positive:
-                            func = func ** 2
-                    plt.plot(to_numpy(rr), to_numpy(func), 2,
-                                color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                                linewidth=1, alpha=0.1)
-                plt.xlabel('$v_j$', fontsize=48)
-                plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
-                plt.xticks(fontsize=24)
-                plt.yticks(fontsize=24)
-                plt.xlim(config.plotting.xlim)
-                plt.ylim([-config.plotting.xlim[1]/10, config.plotting.xlim[1]*2])
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}_all.png", dpi=300)
-                plt.close()
+            # Plot 3: Edge function visualization
+            fig = plt.figure(figsize=(10, 9))
+            for n in trange(n_neurons):
+                rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+                embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
+                    in_features = torch.cat((rr[:, None], embedding_,), dim=1)
+                elif ('PDE_N9_B' in config.graph_model.signal_model_name):
+                    in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, embedding_), dim=1)
+                with torch.no_grad():
+                    func = model.lin_edge(in_features.float())
+                    if config.graph_model.lin_edge_positive:
+                        func = func ** 2
+                plt.plot(to_numpy(rr), to_numpy(func), 2,
+                            color=cmap.color(to_numpy(type_list)[n].astype(int)),
+                            linewidth=1, alpha=0.1)
+            plt.xlabel('$v_j$', fontsize=48)
+            plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
+            plt.xlim([-1,2.5])
+            plt.ylim([-config.plotting.xlim[1]/10, 2.5])
+            plt.text(0.05, 0.95, f"N: {n_neurons}",
+                    transform=plt.gca().transAxes, fontsize=32,
+                    verticalalignment='top', color=mc)
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}_all.png", dpi=300)
+            plt.close()
 
 
             slopes_lin_edge_list = []
@@ -4954,6 +4957,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.ylabel('$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
+            plt.text(0.05, 0.95, f"N: {n_neurons}",
+                transform=plt.gca().transAxes, fontsize=32,
+                verticalalignment='top', color=mc)
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_domain.png", dpi=300)
             plt.close()
@@ -4972,7 +4978,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_tau - np.mean(learned_tau)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
+            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $\tau$', fontsize=48)
             plt.ylabel(r'learned $\widehat{\tau}$', fontsize=48)
@@ -4999,7 +5005,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_V_rest - np.mean(learned_V_rest)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}',
+            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $V_{rest}$', fontsize=48)
             plt.ylabel(r'learned $\widehat{V}_{rest}$', fontsize=48)
@@ -5289,14 +5295,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
             fig = plt.figure(figsize=(10, 9))
-            plt.scatter(true_in, learned_in, c=mc, s=1, alpha=0.3)
+            plt.scatter(true_in, learned_in, c=mc, s=0.5, alpha=0.1)
             lin_fit, _ = curve_fit(linear_model, true_in, learned_in)
             residuals_ = learned_in - linear_model(true_in, *lin_fit)
             ss_res = np.sum(residuals_ ** 2)
             ss_tot = np.sum((learned_in - np.mean(learned_in)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95,
-                     f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
+                     f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel('true $\mathbf{W}_{ij}$', fontsize=48)
             # plt.ylabel(r'learned -$\widehat{\mathbf{W}}_{ij} \, g_i r_j \, \widehat{\tau}_i$', fontsize=48)
@@ -5633,7 +5639,8 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
             rmse = np.sqrt(np.mean((true_data - pred_data)**2))
             ax.text(0.525, 0.95, f'RMSE: {rmse:.3f}', transform=ax.transAxes, ha='left', va='top', fontsize=12, color=mc)
             ax.set_xlim([start_frame, end_frame])
-            ax.set_ylim([y_min - y_padding, y_max + y_padding])
+            # ax.set_ylim([y_min - y_padding, y_max + y_padding])
+            ax.set_ylim([y_min - y_padding, y_min - y_padding + 1.0])
             ax.set_yticks([y_min, (y_min+y_max)/2, y_max])
             ax.set_yticklabels([f'{y_min:.2f}', f'{(y_min+y_max)/2:.2f}', f'{y_max:.2f}'], fontsize=14)
 
@@ -5651,6 +5658,7 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
             ax.set_yticklabels([f'{y_min - y_padding:.2f}', f'{(y_min + y_max) / 2:.2f}', f'{y_max + y_padding:.2f}'], fontsize=14)
 
     plt.tight_layout()
+    plt.show()
     plt.savefig(f"./{log_dir}/results/activity_5x4_panel_comparison.png", dpi=150)
     plt.close()
 
@@ -7169,7 +7177,7 @@ def get_figures(index):
             ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
 
             ax3 = fig.add_subplot(2, 3, 3)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
+            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_all.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
@@ -8077,10 +8085,11 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    # config_list = ['fly_N9_51_2'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
+    config_list = ['fly_N9_51_8'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     
 
-    config_list = ['zebra_N10_33_5'] #, 'zebra_N10_33_5_1', 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5']
+    # config_list = ['zebra_N10_33_5_1', 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
+
 
     for config_file_ in config_list:
         print(' ')
@@ -8113,7 +8122,7 @@ if __name__ == '__main__':
     # get_figures('results_22_10')
     # get_figures('results_44_24')
     # get_figures('results_51_2')
-    get_figures('N9_44_6')
+    # get_figures('N9_44_6')
     # get_figures('N9_51_2')
 
 

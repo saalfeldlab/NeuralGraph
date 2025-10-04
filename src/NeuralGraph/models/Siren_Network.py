@@ -237,14 +237,14 @@ if __name__ == '__main__':
     cameraman = ImageFitting(256)
     dataloader = DataLoader(cameraman, batch_size=1, pin_memory=True, num_workers=0)
 
-    img_siren = Siren(in_features=2, out_features=1, hidden_features=256,
-                      hidden_layers=3, outermost_linear=True, first_omega_0=1024., hidden_omega_0=128.)
+    img_siren = Siren(in_features=2, out_features=1, hidden_features=512,
+                      hidden_layers=3, outermost_linear=True, first_omega_0=8192., hidden_omega_0=8192.)
     img_siren.cuda()
 
     total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
     steps_til_summary = 1000
 
-    optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
+    optim = torch.optim.Adam(lr=1e-6, params=img_siren.parameters())
 
     loss_list = []
     for step in trange(total_steps):
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     # img_grad = gradient(model_output, coords)
     # img_laplacian = laplace(model_output, coords)
 
-    factor = 80
+    factor = 160
 
     x_upsampled = np.linspace(0, 1, 256*factor)
     y_upsampled = np.ones(256*factor)*(100/256)  
@@ -284,7 +284,7 @@ if __name__ == '__main__':
     pred_img = model_output.cpu().detach().numpy().reshape(256, 256)
 
 
-    fig, axes = plt.subplots(1, 4, figsize=(20, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
+    fig, axes = plt.subplots(1, 4, figsize=(18, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
     axes[0].plot(loss_list, color='k')
     axes[0].set_xlabel('step')
     axes[0].set_ylabel('MSE Loss')

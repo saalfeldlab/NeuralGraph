@@ -220,14 +220,14 @@ if __name__ == '__main__':
     device = set_device('auto')
     print(f'device  {device}')
 
-    config_root = "./config"
+    config_root = "/groups/saalfeld/home/allierc/Py/NeuralGraph/src/NeuralGraph/ODEs/config/"
     config_file = "default"
 
     # config_file_list = ['noise_1', 'noise_2', 'noise_3', 'noise_4', 'noise_5']
     # config_file_list = ['lambda_2', 'lambda_3', 'lambda_4']
     # config_file_list = ['recur_6_sin_J','recur_7_sin_J','recur_8_sin_J','recur_9_sin_J','recur_10_sin_J','recur_11_sin_J','recur_12_sin_J']
 
-    config_file_list = ['recur_7']
+    config_file_list = ['recur_7_1']
     for config_file in config_file_list:
 
         config = FitzhughNagumoConfig.from_yaml(f"{config_root}/{config_file}.yaml")
@@ -325,7 +325,7 @@ if __name__ == '__main__':
             v[i + 1] = v[i] + dt * dv + noise_level * np.random.randn()
             w[i + 1] = w[i] + dt * dw + noise_level * np.random.randn()
 
-        plt.style.use('dark_background')
+        plt.style.use('default')
 
         v_true = torch.tensor(v, dtype=torch.float32, device=device)
         w_true = torch.tensor(w, dtype=torch.float32, device=device)
@@ -385,7 +385,7 @@ if __name__ == '__main__':
             lambda_jac_max = 1.0  # max weight for Jacobian penalty
             warmup_iters = int(0.15 * n_iter)  # 15% of total iterations for warm-up
 
-            for iter in range(n_iter):
+            for iter in trange(n_iter):
                 idx = torch.randint(1, n_steps - 8, (batch_size,))
                 idx = torch.unique(idx)
                 t_batch = t_full[idx]
@@ -704,7 +704,7 @@ if __name__ == '__main__':
                 f'nagumo_trajectory_analysis_{run}.png'
             )
             plt.tight_layout()
-            plt.savefig(training_plot_path, dpi=200, bbox_inches='tight', facecolor='black')
+            plt.savefig(training_plot_path, dpi=200, bbox_inches='tight', facecolor='white')
             plt.close(fig)
 
         print(f"\nCONVERGENCE SUMMARY")
