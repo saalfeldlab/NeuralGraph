@@ -72,7 +72,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
-        config_list = ['zebra_N10_33_5_1']
+        config_list = ['zebra_N10_33_5_1', 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
 
     for config_file_ in config_list:
         print(" ")
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
             data_test(
                 config=config,
-                visualize=False,
+                visualize=True,
                 style="black color name",
                 verbose=False,
                 best_model='best',
