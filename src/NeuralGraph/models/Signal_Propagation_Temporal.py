@@ -82,7 +82,7 @@ class Signal_Propagation_Temporal(pyg.nn.MessagePassing):
             torch.tensor(
                 np.ones((int(self.n_neurons), self.embedding_dim)),
                          device=self.device,
-                         requires_grad=False, dtype=torch.float32))
+                         requires_grad=True, dtype=torch.float32))
 
         self.W = nn.Parameter(
             torch.zeros(

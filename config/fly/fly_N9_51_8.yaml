@@ -64,12 +64,14 @@ training:
     coeff_edge_diff: 0
     coeff_update_u_diff: 0
     coeff_update_msg_diff: 0
-    coeff_edge_norm: 0
+    coeff_edge_norm: 1000.0
 
     coeff_edge_weight_L1: 1
     coeff_phi_weight_L1: 1
     coeff_phi_weight_L1_rate: 0.5
+
     coeff_edge_weight_L2: 0
     coeff_phi_weight_L2: 0.001
+
     coeff_W_L1: 5.0E-5
     coeff_W_L1_rate: 0.5
