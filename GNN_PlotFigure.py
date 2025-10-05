@@ -4699,15 +4699,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
         x_list.append(x)
         y_list.append(y)
 
-    vnorm = torch.load(os.path.join(log_dir, 'vnorm.pt'), map_location=device)
     ynorm = torch.load(os.path.join(log_dir, 'ynorm.pt'), map_location=device)
     if os.path.exists(os.path.join(log_dir, 'xnorm.pt')):
         xnorm = torch.load(os.path.join(log_dir, 'xnorm.pt'))
     else:
         xnorm = torch.tensor([5], device=device)
 
-    print(f'xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
-    logger.info(f'xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
+    print(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
+    logger.info(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
 
     # Load data with new format
     # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
@@ -4808,7 +4807,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             if True:
                 print('embedding clustering...')
-                for eps in [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
+                for eps in [0.02]: #[0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
                     results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
                     print(f"eps={eps}: {results['n_clusters_found']} clusters, "
                           f"accuracy=\033[32m{results['accuracy']:.3f}\033[0m")
@@ -5621,7 +5620,7 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
 
     neuron_ids = np.linspace(0, n_neurons-1, 20, dtype=int).tolist()
     start_frame = 0
-    end_frame = 500
+    end_frame = 1000
 
     N_slices = 72
     z_min = x_list[0][0,:,3:4].min()
@@ -5645,19 +5644,15 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
        
         ax.plot(true_data, linewidth=2, color='green', alpha=0.4)
         ax.text(0.025, 0.95, f'neuron id: {neuron_id}\nz: {to_numpy(x_list[0][0, neuron_id, 3]):0.3f}', transform=ax.transAxes, ha='left', va='top', fontsize=12, color='green')
-
         if 'true_only' not in style:
             ax.plot(pred_data, linewidth=1, color=mc, alpha=1.0)
             rmse = np.sqrt(np.mean((true_data - pred_data)**2))
             ax.text(0.525, 0.95, f'RMSE: {rmse:.3f}', transform=ax.transAxes, ha='left', va='top', fontsize=12, color=mc)
             ax.set_xlim([start_frame, end_frame])
             # ax.set_ylim([y_min - y_padding, y_max + y_padding])
-            ax.set_ylim([y_min - y_padding, y_min - y_padding + 1.0])
-            ax.set_yticks([y_min, (y_min+y_max)/2, y_max])
-            ax.set_yticklabels([f'{y_min:.2f}', f'{(y_min+y_max)/2:.2f}', f'{y_max:.2f}'], fontsize=14)
-
+            ax.set_ylim([0,1.0])
         ax.set_xticks([])
-        
+        ax.set_yticks([])
         if idx == 16:  # Bottom left corner - add axis labels with much larger font
             ax.set_xlabel('frame', fontsize=22)
             ax.set_ylabel(f'calcium', fontsize=22)
@@ -8097,22 +8092,22 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    # config_list = ['fly_N9_51_8'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
+    config_list = ['fly_N9_51_8'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     
 
-    # config_list = ['zebra_N10_33_5_1', 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
+    # config_list = ['zebra_N10_33_5', 'zebra_N10_33_5_8', 'zebra_N10_33_5_9'] #, 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
 
 
-    # for config_file_ in config_list:
-    #     print(' ')
-    #     config_file, pre_folder = add_pre_folder(config_file_)
-    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-    #     config.dataset = pre_folder + config.dataset
-    #     config.config_file = pre_folder + config_file_
-    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-    #     folder_name = './log/' + pre_folder + '/tmp_results/'
-    #     os.makedirs(folder_name, exist_ok=True)
-    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+    for config_file_ in config_list:
+        print(' ')
+        config_file, pre_folder = add_pre_folder(config_file_)
+        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+        config.dataset = pre_folder + config.dataset
+        config.config_file = pre_folder + config_file_
+        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+        folder_name = './log/' + pre_folder + '/tmp_results/'
+        os.makedirs(folder_name, exist_ok=True)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
     # # compare_experiments(config_list, None)
 
@@ -8133,7 +8128,7 @@ if __name__ == '__main__':
     # get_figures('N9_22_10')
     # get_figures('results_22_10')
     # get_figures('results_44_24')
-    get_figures('results_51_2')
+    # get_figures('results_51_2')
     # get_figures('N9_44_6')
     # get_figures('N9_51_2')
 
