@@ -4778,6 +4778,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             # Plot 1: Loss curve
             if os.path.exists(os.path.join(log_dir, 'loss.pt')):
                 fig = plt.figure(figsize=(8, 6))
+                ax = plt.gca()
+                for spine in ax.spines.values():
+                    spine.set_alpha(0.75)
                 list_loss = torch.load(os.path.join(log_dir, 'loss.pt'))
                 plt.plot(list_loss, color=mc, linewidth=2)
                 plt.xlim([0, len(list_loss)])
@@ -4790,6 +4793,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             # Plot 2: Embedding using model.a
             fig = plt.figure(figsize=(10, 9))
+            ax = plt.gca()
+            for spine in ax.spines.values():
+                spine.set_alpha(0.75)
             for n in range(n_types):
                 pos = torch.argwhere(type_list == n)
                 plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=24, color=colors_65[n], alpha=0.8,
@@ -4802,7 +4808,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             if True:
                 print('embedding clustering...')
-                for eps in [0.02]: #[0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
+                for eps in [0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
                     results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
                     print(f"eps={eps}: {results['n_clusters_found']} clusters, "
                           f"accuracy=\033[32m{results['accuracy']:.3f}\033[0m")
@@ -4819,6 +4825,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             # Plot 3: Edge function visualization
             fig = plt.figure(figsize=(10, 9))
+            ax = plt.gca()
+            for spine in ax.spines.values():
+                spine.set_alpha(0.75)
             for n in trange(n_neurons):
                 rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
@@ -4891,12 +4900,15 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
             fig = plt.figure(figsize=(10, 9))
+            ax = plt.gca()
+            for spine in ax.spines.values():
+                spine.set_alpha(0.75)
             slopes_lin_edge_array = np.array(slopes_lin_edge_list)
             plt.scatter(np.arange(n_neurons), slopes_lin_edge_array,
                         c=cmap.color(to_numpy(type_list).astype(int)), s=2, alpha=0.5)
             plt.xlabel('neuron index', fontsize=48)
             plt.ylabel(r'$r_j$', fontsize=48)
-            plt.gca().xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
 
             plt.xticks(fontsize=18) 
             plt.yticks(fontsize=24)
@@ -8085,22 +8097,22 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    config_list = ['fly_N9_51_8'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
+    # config_list = ['fly_N9_51_8'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
     
 
     # config_list = ['zebra_N10_33_5_1', 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
 
 
-    for config_file_ in config_list:
-        print(' ')
-        config_file, pre_folder = add_pre_folder(config_file_)
-        config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
-        print(f'\033[94mconfig_file  {config.config_file}\033[0m')
-        folder_name = './log/' + pre_folder + '/tmp_results/'
-        os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+    # for config_file_ in config_list:
+    #     print(' ')
+    #     config_file, pre_folder = add_pre_folder(config_file_)
+    #     config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    #     config.dataset = pre_folder + config.dataset
+    #     config.config_file = pre_folder + config_file_
+    #     print(f'\033[94mconfig_file  {config.config_file}\033[0m')
+    #     folder_name = './log/' + pre_folder + '/tmp_results/'
+    #     os.makedirs(folder_name, exist_ok=True)
+    #     data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
     # # compare_experiments(config_list, None)
 
@@ -8121,7 +8133,7 @@ if __name__ == '__main__':
     # get_figures('N9_22_10')
     # get_figures('results_22_10')
     # get_figures('results_44_24')
-    # get_figures('results_51_2')
+    get_figures('results_51_2')
     # get_figures('N9_44_6')
     # get_figures('N9_51_2')
 

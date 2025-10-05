@@ -847,6 +847,8 @@ def data_train_flyvis(config, erase, best_model, device):
     coeff_update_msg_sign = train_config.coeff_update_msg_sign
     coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
     coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
+    coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
+
 
     pre_trained_W = train_config.pre_trained_W
 
@@ -870,11 +872,7 @@ def data_train_flyvis(config, erase, best_model, device):
     else:
         has_visual_field = False
 
-    coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
-
     log_dir, logger = create_log_dir(config, erase)
-    print(f'loading graph files N: {n_runs} ...')
-    logger.info(f'Graph files N: {n_runs}')
 
     x_list = []
     y_list = []
@@ -904,13 +902,11 @@ def data_train_flyvis(config, erase, best_model, device):
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons =n_neurons
     type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
-    vnorm = torch.tensor(1.0, device=device)
     ynorm = torch.tensor(1.0, device=device)
-    torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
     torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
     time.sleep(0.5)
-    print(f'vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
-    logger.info(f'vnorm ynorm: {to_numpy(vnorm)} {to_numpy(ynorm)}')
+    print(f'ynorm: {to_numpy(ynorm)}')
+    logger.info(f'ynorm: {to_numpy(ynorm)}')
 
     print('create models ...')
     if time_window >0:
@@ -935,7 +931,6 @@ def data_train_flyvis(config, erase, best_model, device):
         state_dict = torch.load(net, map_location=device)
         model.load_state_dict(state_dict['model_state_dict'])
         logger.info(f'pretrained: {net}')
-
     if pre_trained_W != '':
         print(f'load pre-trained W: {pre_trained_W}')
         logger.info(f'load pre-trained W: {pre_trained_W}')

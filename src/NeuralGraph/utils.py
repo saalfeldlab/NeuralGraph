@@ -642,6 +642,10 @@ def fig_init(fontsize=48, formatx='%.2f', formaty='%.2f'):
     ax.yaxis.set_major_formatter(FormatStrFormatter(formaty))
     plt.xticks(fontsize=fontsize)
     plt.yticks(fontsize=fontsize)
+    
+    # Set axis line alpha to 0.75
+    for spine in ax.spines.values():
+        spine.set_alpha(0.75)
 
     return fig, ax
 
