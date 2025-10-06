@@ -84,6 +84,7 @@ class SimulationConfig(BaseModel):
     calcium_noise_level: float = 0.0  # optional Gaussian noise added to [Ca] updates
     calcium_saturation_kd: float = 1.0  # for nonlinear saturation models
     calcium_num_compartments: int = 1
+    calcium_dow_sample: int = 1  # down-sample [Ca] time series by this factor
 
     pos_init: str = "uniform"
     dpos_init: float = 0
@@ -153,7 +154,6 @@ class GraphModelConfig(BaseModel):
     omega: float = 80.0
 
 
-
     input_size_nnr_f: int = 3
     n_layers_nnr_f: int = 5
     hidden_dim_nnr_f: int = 128
@@ -175,6 +175,23 @@ class GraphModelConfig(BaseModel):
     hidden_dim_excitation: int = 128
 
     excitation_dim: int = 1
+
+    latent_dim: int = 64
+    latent_update_steps: int = 50
+    stochastic_latent: bool = True
+    latent_init_std: float = 1.0  # only used if you later add 'init from noise' modes
+
+    # encoder sizes (x -> [mu, logvar])
+    input_size_encoder: int = 1      # set to n_neurons in your YAML
+    n_layers_encoder: int = 3
+    hidden_dim_encoder: int = 256
+    latent_n_layers_update: int = 2
+    latent_hidden_dim_update: int = 64
+    output_size_decoder: int = 1      # set to n_neurons in your YAML
+    n_layers_decoder: int = 3
+    hidden_dim_decoder:  int = 256
+
+
 
 
 class PlottingConfig(BaseModel):

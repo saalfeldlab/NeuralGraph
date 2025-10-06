@@ -1,5 +1,5 @@
-description: 'small MLP, 800000 extra null edges, noise_model_level: 0 DAVIS weight_L1: 1.0  L2:1E-3   coeff_W_L1: 5E-5'
-dataset: 'fly_N9_51_12'
+description: 'small MLP, 400000 extra null edges, noise_model_level: 0 DAVIS weight_L1: 1.0  L2:1E-3   coeff_W_L1: 5E-5'
+dataset: 'fly_N9_51_11'
 
 simulation:
     connectivity_file: 'to be specified'
@@ -14,7 +14,7 @@ simulation:
     n_frames: 90720
     delta_t: 0.02
     baseline_value: 0
-    n_extra_null_edges: 800000
+    n_extra_null_edges: 400000
 
     visual_input_type: "DAVIS"
 

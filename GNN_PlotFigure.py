@@ -7295,202 +7295,68 @@ def data_plot(config, config_file, epoch_list, style, extended, device):
         logger.removeHandler(handler)
 
 
+def plot_results_figure(config_file_, config_indices, panel_suffix='domain'):
+    """
+    Generate a 2x3 figure panel for a given configuration.
+    
+    Args:
+        config_file_: Config file name (e.g., 'fly_N9_44_24')
+        config_indices: Index string for specific plots (e.g., '44_6')
+        panel_suffix: Suffix for edge_functions panel ('domain' or 'all')
+    """
+    # Setup config
+    config_file, pre_folder = add_pre_folder(config_file_)
+    config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+    config.dataset = pre_folder + config.dataset
+    config.config_file = pre_folder + config_file_
+    print(f'figure results {config_file_}...')
+    
+    # Generate plots
+    data_plot(config=config, config_file=config_file, epoch_list=['best'], 
+              style='white color', extended='plots', device=device)
+    
+    # Setup paths
+    log_dir = f'log/fly/{config_file_}'
+    panels = {
+        'a': f"{log_dir}/results/corrected_comparison.png",
+        'b': f"{log_dir}/results/embedding_{config_indices}.png",
+        'c': f"{log_dir}/results/edge_functions_{config_indices}_{panel_suffix}.png",
+        'd': f"{log_dir}/results/phi_functions_{config_indices}_domain.png",
+        'e': f"{log_dir}/results/tau_comparison_{config_indices}.png",
+        'f': f"{log_dir}/results/V_rest_comparison_{config_indices}.png"
+    }
+    
+    # Create figure
+    fig = plt.figure(figsize=(18, 12))
+    
+    for idx, (label, path) in enumerate(panels.items()):
+        ax = fig.add_subplot(2, 3, idx+1)
+        img = imageio.imread(path)
+        plt.imshow(img)
+        plt.axis('off')
+        ax.text(0.1, 1.01, f'{label})', transform=ax.transAxes, 
+                fontsize=24, va='bottom', ha='right')
+    
+    plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, 
+                        wspace=0.02, hspace=0.04)
+    plt.savefig(f"./fig_paper/results_{config_file_.split('_')[-2]}_{config_file_.split('_')[-1]}.png", 
+                dpi=300, bbox_inches='tight')
+    plt.close()
+
+
+
 def get_figures(index):
         
-        
-
     plt.style.use('default')
 
     match index:
 
-
-        case 'results_44_24':
-            config_file_ = 'fly_N9_44_24'
-            config_file, pre_folder = add_pre_folder(config_file_)
-            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-            config.dataset = pre_folder + config.dataset
-            config.config_file = pre_folder + config_file_
-            print('figure results 44_24...')
-
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
-
-            log_dir = 'log/fly/fly_N9_44_24'
-            config_indices = '44_6'
-            
-            fig = plt.figure(figsize=(18, 12))
-
-            ax1 = fig.add_subplot(2, 3, 1)
-            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax2 = fig.add_subplot(2, 3, 2)
-            panel_pic_path =f"./{log_dir}/results/embedding_{config_indices}.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax3 = fig.add_subplot(2, 3, 3)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax4 = fig.add_subplot(2, 3, 4)
-            panel_pic_path =f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax5 = fig.add_subplot(2, 3, 5)
-            panel_pic_path = f"./{log_dir}/results/tau_comparison_{config_indices}.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax6 = fig.add_subplot(2, 3, 6)
-            panel_pic_path = f"./{log_dir}/results/V_rest_comparison_{config_indices}.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=24, va='bottom', ha='right')
-            
-            
-            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
-            plt.savefig(f"./fig_paper/results_44_24.png", dpi=300, bbox_inches='tight')
-            plt.close()
-
-        case 'results_51_2':
-            config_file_ = 'fly_N9_51_2'
-            config_file, pre_folder = add_pre_folder(config_file_)
-            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-            config.dataset = pre_folder + config.dataset
-            config.config_file = pre_folder + config_file_
-            print('figure results 51_2...')
-
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
-
-            log_dir = 'log/fly/fly_N9_51_2'
-            config_indices = '37_2'
-            
-            fig = plt.figure(figsize=(18, 12))
-
-            ax1 = fig.add_subplot(2, 3, 1)
-            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax2 = fig.add_subplot(2, 3, 2)
-            panel_pic_path =f"./{log_dir}/results/embedding_{config_indices}.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax3 = fig.add_subplot(2, 3, 3)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_all.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax4 = fig.add_subplot(2, 3, 4)
-            panel_pic_path =f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax5 = fig.add_subplot(2, 3, 5)
-            panel_pic_path = f"./{log_dir}/results/tau_comparison_{config_indices}.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax6 = fig.add_subplot(2, 3, 6)
-            panel_pic_path = f"./{log_dir}/results/V_rest_comparison_{config_indices}.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=24, va='bottom', ha='right')
-            
-            
-            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
-            plt.savefig(f"./fig_paper/results_51_2.png", dpi=300, bbox_inches='tight')
-            plt.close()
-
         case 'results_22_10':
-
-            config_file_ = 'fly_N9_22_10'
-            config_file, pre_folder = add_pre_folder(config_file_)
-            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-            config.dataset = pre_folder + config.dataset
-            config.config_file = pre_folder + config_file_
-            print('figure results 22_10...')
-
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
-
-            log_dir = 'log/fly/fly_N9_22_10'
-            config_indices = '18_4_0'
-            
-            fig = plt.figure(figsize=(18, 12))
-
-            ax1 = fig.add_subplot(2, 3, 1)
-            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax2 = fig.add_subplot(2, 3, 2)
-            panel_pic_path =f"./{log_dir}/results/embedding_18_4_0.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax3 = fig.add_subplot(2, 3, 3)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_18_4_0_domain.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax4 = fig.add_subplot(2, 3, 4)
-            panel_pic_path =f"./{log_dir}/results/phi_functions_18_4_0_domain.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax5 = fig.add_subplot(2, 3, 5)
-            panel_pic_path = f"./{log_dir}/results/tau_comparison_18_4_0.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax6 = fig.add_subplot(2, 3, 6)
-            panel_pic_path = f"./{log_dir}/results/V_rest_comparison_18_4_0.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=24, va='bottom', ha='right')
-            
-            
-            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
-            plt.savefig(f"./fig_paper/results_22_10.png", dpi=300, bbox_inches='tight')
-            plt.close()
-
+             plot_results_figure('fly_N9_44_24', '44_6', 'domain')
+        case 'results_44_6':
+             plot_results_figure('fly_N9_51_2', '37_2', 'domain')
+        case 'results_51_2':
+             plot_results_figure('fly_N9_22_10', '18_4_0', 'domain')
 
 
         case 'N9_44_6':
@@ -7579,24 +7445,6 @@ def get_figures(index):
             config.dataset = pre_folder + config.dataset
             config.config_file = pre_folder + config_file_
             logdir = 'log/fly/fly_N9_51_2'
-
-            # for noise_W in [0.01, 0.02, 0.03, 0.04, 0.05, 0.06]:
-            #     data_test(
-            #         config,
-            #         visualize=True,
-            #         style="black color name true_only",
-            #         verbose=False,
-            #         best_model='best',
-            #         run=0,
-            #         test_mode=f"test_modified_{noise_W}",
-            #         sample_embedding=False,
-            #         step=50,
-            #         device=device,
-            #         particle_of_interest=0,
-            #     )
-            #     copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-            #                 f'./{logdir}/results/activity_8x8_panel_comparison_signal_modified_{noise_W}.png')
-
 
             data_test(
                 config,
@@ -8189,7 +8037,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_51_2'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
 
-    config_list = ['zebra_N10_33_5_11'] 
+    config_list = ['zebra_N10_33_5_12'] 
 
     for config_file_ in config_list:
         print(' ')
