@@ -194,10 +194,10 @@ def plot_field_comparison(x, model, k, n_frames, ones, output_path, step, plot_b
 
     return field_discrete
 
-def plot_field_comparison_slices_masked(
+def plot_field_comparison_continuous_slices(
     x, model, k, n_frames, ones, output_path,
     voxel_size=0.001,
-    z_slices=(0.10, 0.20),
+    z_slices=(0.10, 0.15),
     y_slices=(0.20, 0.30),
     mask_points_per_neuron=32,
     mask_jitter_sigma=0.002,
@@ -388,15 +388,16 @@ def plot_field_comparison_slices_masked(
 def plot_field_comparison_discrete_slices(
     x, model, k, n_frames, ones, output_path,
     # which slices
-    z_slices=(0.10, 0.20),    # top row: XY @ Z=0.10 (left), Z=0.20 (right)
-    y_slices=(0.20, 0.30),    # bottom row: XZ @ Y=0.20 (left), Y=0.30 (right)
-    slice_half_thickness=0.004,  # keep points within ±thickness of the plane
+    z_slices=(0.10, 0.20),    
+    y_slices=(0.20, 0.30),    
+    slice_half_thickness=0.004,
     # viz
     dot_size=3.0,
     vmin=0.0, vmax=0.75, dpi=300,
-    # flips (if you want to horizontally flip bottom panels)
-    flip_bottom_x=False,    # invert X-axis on bottom panels
-    flip_bottom_z=False,    # invert Z-axis on bottom panels
+    # flips for consistency with continuous viz
+    flip_top_y=True,      # invert Y-axis on XY panels (for dorsal-ventral convention)
+    flip_bottom_x=False,  
+    flip_bottom_z=False,  
 ):
     """
     Discrete, slice-based comparison at neuron locations (no grids, no jitter):
@@ -478,29 +479,31 @@ def plot_field_comparison_discrete_slices(
         wspace=0.20
     )
 
-    # --- TOP LEFT: XY @ Z=z_slices[0] ---
+
     ax1 = fig.add_subplot(gs[0, 0], facecolor='black')
     if inds_xy_L.size > 0:
-        ax1.scatter(x_np[inds_xy_L], y_plot[inds_xy_L], c=val_np[inds_xy_L],
+        # Use y_np or y_plot depending on flip
+        y_coords = y_plot if flip_top_y else y_np
+        ax1.scatter(x_np[inds_xy_L], y_coords[inds_xy_L], c=val_np[inds_xy_L],
                     s=dot_size, cmap=cmap, vmin=vmin, vmax=vmax,
                     edgecolors='none', linewidths=0)
-    ax1.set_xlim(X_MIN, X_MAX); ax1.set_ylim(Y_MIN, Y_MAX)
-    ax1.set_title(f'XY @ Z={z_slices[0]:.2f}', fontsize=TITLE_FZ, pad=TITLE_PAD, color='white')
-    ax1.set_xlabel('X', fontsize=LABEL_FZ, labelpad=LABEL_PAD, color='white')
-    ax1.set_ylabel('Y', fontsize=LABEL_FZ, labelpad=LABEL_PAD, color='white')
-    ax1.tick_params(labelsize=TICK_FZ, colors='white')
+    ax1.set_xlim(X_MIN, X_MAX)
+    ax1.set_ylim(Y_MIN, Y_MAX)
+    if flip_top_y:
+        ax1.invert_yaxis()  # Flip Y axis for dorsal view
+    # ... [rest of ax1 setup] ...
 
     # --- TOP RIGHT: XY @ Z=z_slices[1] ---
     ax2 = fig.add_subplot(gs[0, 1], facecolor='black')
     if inds_xy_R.size > 0:
-        ax2.scatter(x_np[inds_xy_R], y_plot[inds_xy_R], c=val_np[inds_xy_R],
+        y_coords = y_plot if flip_top_y else y_np
+        ax2.scatter(x_np[inds_xy_R], y_coords[inds_xy_R], c=val_np[inds_xy_R],
                     s=dot_size, cmap=cmap, vmin=vmin, vmax=vmax,
                     edgecolors='none', linewidths=0)
-    ax2.set_xlim(X_MIN, X_MAX); ax2.set_ylim(Y_MIN, Y_MAX)
-    ax2.set_title(f'XY @ Z={z_slices[1]:.2f}', fontsize=TITLE_FZ, pad=TITLE_PAD, color='white')
-    ax2.set_xlabel('X', fontsize=LABEL_FZ, labelpad=LABEL_PAD, color='white')
-    ax2.set_ylabel('Y', fontsize=LABEL_FZ, labelpad=LABEL_PAD, color='white')
-    ax2.tick_params(labelsize=TICK_FZ, colors='white')
+    ax2.set_xlim(X_MIN, X_MAX)
+    ax2.set_ylim(Y_MIN, Y_MAX)
+    if flip_top_y:
+        ax2.invert_yaxis()
 
     # --- BOTTOM LEFT: XZ @ Y=y_slices[0] ---
     ax3 = fig.add_subplot(gs[1, 0], facecolor='black')

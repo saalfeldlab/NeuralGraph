@@ -3659,7 +3659,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
                 output_path = f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png"
 
                 if 'continuous_slice' in style:
-                    plot_field_comparison_slices_masked(
+                    plot_field_comparison_continuous_slices(
                         x, model, it, n_frames, ones,
                         f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png",
                         voxel_size=0.001,          # your setting
@@ -3675,13 +3675,14 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
                 elif 'discrete_slice' in style:
                     plot_field_comparison_discrete_slices(
                         x, model, it, n_frames, ones,
-                        f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}_discrete_slices.png",
+                        f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png",
                         z_slices=(0.10, 0.15),
                         y_slices=(0.20, 0.30),
                         slice_half_thickness=0.004,  # adjust band thickness
                         dot_size=2.0,                # your dot size here
                         vmin=0.0, vmax=0.75,
                         dpi=300,
+                        flip_top_y=True,
                         flip_bottom_x=False,         # set True if you want to mirror X on bottom
                         flip_bottom_z=True          # set True to mirror Z (vertical) on bottom
                     )
@@ -3701,7 +3702,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
                     plot_field_comparison(x, model, it, n_frames, ones, output_path, 50, plot_batch_size)   
 
 
-            it_idx += 1
+                it_idx += 1
 
     generated_x_list = np.array(generated_x_list)    
     print(f"generated {len(generated_x_list)} frames total")
@@ -3710,7 +3711,8 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     if (visualize == True):
         print('save video...')
-        src = f"./{log_dir}/results/Fig/Fig_0_000000.png"
+        files = glob.glob(f'./{log_dir}/results/Fig/*')
+        src = files[0]
         dst = f"./{log_dir}/results/input_zebra.png"
         with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
             fdst.write(fsrc.read())
@@ -3721,7 +3723,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
             framerate=40
         )
         print(f"video saved to {log_dir}/results/")
-        files = glob.glob(f'./{log_dir}/results/Fig/*')
+
         # for f in files:
         #     os.remove(f)
     
