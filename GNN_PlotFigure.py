@@ -5620,7 +5620,7 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
 
     neuron_ids = np.linspace(0, n_neurons-1, 20, dtype=int).tolist()
     start_frame = 0
-    end_frame = 1000
+    end_frame = 500
 
     N_slices = 72
     z_min = x_list[0][0,:,3:4].min()
@@ -5668,6 +5668,155 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
     plt.show()
     plt.savefig(f"./{log_dir}/results/activity_5x4_panel_comparison.png", dpi=150)
     plt.close()
+
+
+
+    neuron_id = 60395
+    up_sampled_factor = 10
+    up_sampled_time_points = torch.linspace(0,end_frame,end_frame*up_sampled_factor, device=device).unsqueeze(1)
+    ones = torch.ones((up_sampled_time_points.shape[0],1), dtype=torch.float32, device=device)
+    x_ = x[neuron_id, 1:4] * ones
+    in_features = torch.cat((x_/model.NNR_f_xy_period, up_sampled_time_points/model.NNR_f_T_period), 1)
+    reconstructed_up_sampled = model.NNR_f(in_features)**2
+
+
+    fig = plt.figure(figsize=(15, 8))
+    gs = fig.add_gridspec(2, 3, height_ratios=[2, 1], hspace=0.3)
+
+    # Top row - main plot spanning all columns
+    ax_top = fig.add_subplot(gs[0, :])
+    true_data = true[:, neuron_id]
+    pred_data = reconstructed[:, neuron_id]
+    time_points = np.arange(len(true_data)) * delta_t
+    residuals = true_data - pred_data
+    rmse = np.sqrt(np.mean(residuals**2))
+
+    ax_top.plot(time_points, true_data, linewidth=1, color='green', alpha=0.4)
+    ax_top.scatter(time_points, true_data, s=2, color='green', alpha=0.4, label='ground truth')
+    ax_top.scatter(time_points, pred_data, s=2, color=mc, alpha=1.0, label='reconstructed')
+    ax_top.scatter(to_numpy(up_sampled_time_points), to_numpy(reconstructed_up_sampled), s=1, color=mc, alpha=0.5)
+    ax_top.text(0.025, 0.95, f'neuron id: {neuron_id}\nz: {to_numpy(x_list[0][0, neuron_id, 3]):0.3f}\nrmse: {rmse:.3f}', 
+            transform=ax_top.transAxes, ha='left', va='top', fontsize=12, 
+            color='black' if mc=='w' else 'white')
+    ax_top.set_xlabel('frame', fontsize=12)
+    ax_top.set_ylabel('calcium', fontsize=12)
+    ax_top.set_xlim([start_frame, end_frame])
+    ax_top.set_ylim([0, 1.0])
+    ax_top.legend()
+
+    # Bottom left - histogram
+    ax1 = fig.add_subplot(gs[1, 0])
+    ax1.hist(residuals, bins=30, edgecolor='black', alpha=0.7)
+    ax1.axvline(0, color='red', linestyle='--', alpha=0.5)
+    ax1.set_xlabel('residual', fontsize=12)
+    ax1.set_ylabel('count', fontsize=12)
+    shapiro_p = stats.shapiro(residuals)[1]
+    ax1.set_title(f'μ={np.mean(residuals):.3f}, σ={np.std(residuals):.3f}, p={shapiro_p:.3f}', fontsize=10)
+
+    # Bottom middle - Q-Q plot
+    ax2 = fig.add_subplot(gs[1, 1])
+    stats.probplot(residuals, dist="norm", plot=ax2)
+    ax2.set_title('q-q plot', fontsize=10)
+    ax2.set_xlabel('theoretical quantiles', fontsize=12)
+    ax2.set_ylabel('sample quantiles', fontsize=12)
+
+    # Bottom right - autocorrelation
+    ax3 = fig.add_subplot(gs[1, 2])
+    from statsmodels.tsa.stattools import acf
+    lags = min(40, len(residuals)//4)
+    autocorr = acf(residuals, nlags=lags)
+    ax3.stem(range(len(autocorr)), autocorr, linefmt='b-', markerfmt='bo', basefmt=' ')
+    ax3.axhline(0, color='k', linestyle='-', linewidth=0.5)
+    ci = 1.96/np.sqrt(len(residuals))
+    ax3.axhline(ci, color='r', linestyle='--', alpha=0.5)
+    ax3.axhline(-ci, color='r', linestyle='--', alpha=0.5)
+    ax3.set_xlabel('lag', fontsize=12)
+    ax3.set_ylabel('acf', fontsize=12)
+    ax3.set_title('autocorrelation', fontsize=10)
+    ax3.set_ylim([-0.3, 1.0])
+
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/activity_single_neuron_comparison.png", dpi=150)
+    plt.close()
+
+
+    # Comprehensive residual analysis for all neurons - 5x4 grid
+    fig = plt.figure(figsize=(24, 16))
+    outer_grid = fig.add_gridspec(5, 4, hspace=0.4, wspace=0.3)
+
+    neuron_ids = np.linspace(0, n_neurons-1, 20, dtype=int).tolist()
+    start_frame = 0
+    end_frame = 500
+
+    for idx, neuron_id in enumerate(neuron_ids):
+        if idx >= 20:
+            break
+        
+        # Create inner grid for each neuron (2x3 layout)
+        inner_grid = outer_grid[idx].subgridspec(2, 3, height_ratios=[2, 1], hspace=0.3)
+        
+        true_data = true[start_frame:end_frame, neuron_id]
+        pred_data = reconstructed[start_frame:end_frame, neuron_id]
+        time_points = np.arange(len(true_data)) * delta_t
+        residuals = true_data - pred_data
+        rmse = np.sqrt(np.mean(residuals**2))
+        
+        # Top row - time series spanning all columns
+        ax_top = fig.add_subplot(inner_grid[0, :])
+        ax_top.plot(time_points, true_data, linewidth=1, color='green', alpha=0.4, label='truth')
+        ax_top.scatter(time_points, pred_data, s=1, color='black', alpha=0.8, label='pred')
+        ax_top.text(0.02, 0.95, f'n={neuron_id}, z={to_numpy(x_list[0][0, neuron_id, 3]):0.2f}, rmse={rmse:.3f}', 
+                transform=ax_top.transAxes, ha='left', va='top', fontsize=7)
+        ax_top.set_ylim([0, 1.0])
+        ax_top.set_xticks([])
+        ax_top.set_yticks([])
+        
+        # Bottom left - histogram
+        ax_hist = fig.add_subplot(inner_grid[1, 0])
+        ax_hist.hist(residuals, bins=20, edgecolor='black', alpha=0.7, density=True, color='skyblue')
+        mu, sigma = np.mean(residuals), np.std(residuals)
+        x_norm = np.linspace(residuals.min(), residuals.max(), 50)
+        ax_hist.plot(x_norm, stats.norm.pdf(x_norm, mu, sigma), 'r-', lw=1)
+        ax_hist.axvline(0, color='k', linestyle='--', alpha=0.5, lw=0.5)
+        ax_hist.set_xticks([])
+        ax_hist.set_yticks([])
+        shapiro_p = stats.shapiro(residuals)[1] if len(residuals) > 3 else 0
+        ax_hist.text(0.5, 0.95, f'σ={np.std(residuals):.3f},  p={shapiro_p:.2f}', transform=ax_hist.transAxes, 
+                    ha='center', va='top', fontsize=6)
+        
+        # Bottom middle - Q-Q plot
+        ax_qq = fig.add_subplot(inner_grid[1, 1])
+        stats.probplot(residuals, dist="norm", plot=ax_qq)
+        ax_qq.get_lines()[0].set_markersize(2)
+        ax_qq.get_lines()[0].set_markerfacecolor('blue')
+        ax_qq.get_lines()[0].set_alpha(0.5)
+        ax_qq.set_xticks([])
+        ax_qq.set_yticks([])
+        ax_qq.set_xlabel('')
+        ax_qq.set_ylabel('')
+        ax_qq.set_title('')
+        
+        # Bottom right - ACF
+        ax_acf = fig.add_subplot(inner_grid[1, 2])
+        from statsmodels.tsa.stattools import acf
+        lags = min(30, len(residuals)//4)
+        autocorr = acf(residuals, nlags=lags)
+        markerline, stemlines, baseline = ax_acf.stem(range(len(autocorr)), autocorr, 
+                                                    linefmt='b-', markerfmt='bo', basefmt=' ')
+        markerline.set_markersize(2)
+        stemlines.set_linewidth(0.5)
+        ax_acf.axhline(0, color='k', linestyle='-', linewidth=0.5)
+        ci = 1.96/np.sqrt(len(residuals))
+        ax_acf.axhline(ci, color='r', linestyle='--', alpha=0.3, lw=0.5)
+        ax_acf.axhline(-ci, color='r', linestyle='--', alpha=0.3, lw=0.5)
+        ax_acf.set_ylim([-0.3, 1.0])
+        ax_acf.set_xticks([])
+        ax_acf.set_yticks([])
+
+    plt.savefig(f"./{log_dir}/results/residual_analysis_comprehensive.png", dpi=200, bbox_inches='tight')
+    plt.show()
+    plt.close()
+
 
 
 
@@ -5835,7 +5984,6 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     }
 
 
-
 def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_taus, gt_V_Rest,
                                    type_list, index_to_name, log_dir, alpha_individual=0.0):
    """
@@ -5950,8 +6098,6 @@ def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_ta
    plt.savefig(f'{log_dir}/results/reconstruction_correlations.png',
                dpi=300, bbox_inches='tight')
    plt.close()
-
-
 
 
 def movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges, gt_weights, gt_taus, gt_V_Rest,
@@ -6306,6 +6452,72 @@ def create_vrest_subplot(fig, slopes_lin_phi_list, offsets_list, gt_V_Rest, n_ne
     ax.set_xlim([-0.05, 0.9])
     ax.set_ylim([-0.05, 0.9])
     ax.tick_params(axis='both', which='major', labelsize=24)
+
+
+def plot_ising_comparison_from_saved(config_list, labels=None, output_path='fig/ising_noise_comparison.png'):
+    valid_configs = []
+    
+    for config_file_ in config_list:
+        try:
+            config_file, pre_folder = add_pre_folder(config_file_)
+            data_path = f'./log/{config_file}/results/info_ratio_results.npz'
+            if not os.path.exists(data_path):
+                print(f"Warning: {data_path} not found")
+                continue
+            valid_configs.append(config_file)
+        except Exception as e:
+            print(f"Error processing {config_file_}: {e}")
+            continue
+
+    if len(valid_configs) != 3:
+        raise ValueError(f"Need exactly 3 valid configs, got {len(valid_configs)}")
+
+    # Default sigma labels with lowercase noise descriptions
+    if labels is None:
+        labels = [r'$\sigma=10^{-6}$ (low noise)', 
+                 r'$\sigma=0.25$ (moderate noise)', 
+                 r'$\sigma=2.5$ (large noise)']
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    plt.subplots_adjust(wspace=0.4)
+
+    for col, (config_file, label) in enumerate(zip(valid_configs, labels)):
+        data_path = f'./log/{config_file}/results/info_ratio_results.npz'
+        data = np.load(data_path)
+        
+        obs_rates = data['observed_rates'].flatten()
+        pair_rates = data['predicted_rates_pairwise'].flatten()
+        indep_rates = data['predicted_rates_independent'].flatten()
+        
+        # Rate scatter plots
+        ax = axes[col]
+        
+        # Plot data
+        ax.loglog(obs_rates, pair_rates, 'r.', alpha=0.1, markersize=1.5)
+        ax.loglog(obs_rates, indep_rates, 'g.', alpha=0.1, markersize=1.5)
+        ax.plot([1e-4, 1e1], [1e-4, 1e1], 'k--', alpha=0.5, linewidth=1)
+        
+        ax.set_xlabel(r'observed rate (s$^{-1}$)', fontsize=18)
+        ax.set_ylabel(r'predicted rate (s$^{-1}$)' if col == 0 else '', fontsize=18)
+        ax.set_title(f'{label}\n$I_N$={data["I_N_median"]:.2f} bits', fontsize=16)
+        ax.set_xlim(1e-4, 1e1)
+        ax.set_ylim(1e-4, 1e1)
+        ax.tick_params(labelsize=14)
+        
+        # Legend only on the first panel - top left
+        if col == 0:
+            red_patch = plt.Rectangle((0, 0), 1, 1, facecolor='red', alpha=1.0)
+            green_patch = plt.Rectangle((0, 0), 1, 1, facecolor='green', alpha=1.0)
+            ax.legend([red_patch, green_patch], ['pairwise ($P_2$)', 'independent ($P_1$)'], 
+                     loc='upper left', fontsize=14, frameon=False)
+
+    # Add panel labels - moved upwards
+    for i, ax in enumerate(axes):
+        ax.text(-0.15, 1.15, f'{chr(97+i)})', transform=ax.transAxes, fontsize=20, va='top', ha='left')
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=400, bbox_inches='tight')
+    plt.show()
 
 
 
@@ -7216,64 +7428,78 @@ def get_figures(index):
             plt.savefig(f"./fig_paper/results_51_2.png", dpi=300, bbox_inches='tight')
             plt.close()
 
+        case 'results_22_10':
+
+            config_file_ = 'fly_N9_22_10'
+            config_file, pre_folder = add_pre_folder(config_file_)
+            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
+            print('figure results 22_10...')
+
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+
+            log_dir = 'log/fly/fly_N9_22_10'
+            config_indices = '18_4_0'
+            
+            fig = plt.figure(figsize=(18, 12))
+
+            ax1 = fig.add_subplot(2, 3, 1)
+            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax2 = fig.add_subplot(2, 3, 2)
+            panel_pic_path =f"./{log_dir}/results/embedding_18_4_0.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax3 = fig.add_subplot(2, 3, 3)
+            panel_pic_path =f"./{log_dir}/results/edge_functions_18_4_0_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax4 = fig.add_subplot(2, 3, 4)
+            panel_pic_path =f"./{log_dir}/results/phi_functions_18_4_0_domain.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax5 = fig.add_subplot(2, 3, 5)
+            panel_pic_path = f"./{log_dir}/results/tau_comparison_18_4_0.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=24, va='bottom', ha='right')
+
+            ax6 = fig.add_subplot(2, 3, 6)
+            panel_pic_path = f"./{log_dir}/results/V_rest_comparison_18_4_0.png"
+            img = imageio.imread(panel_pic_path)
+            plt.imshow(img)
+            plt.axis('off')
+            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=24, va='bottom', ha='right')
+            
+            
+            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
+            plt.savefig(f"./fig_paper/results_22_10.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+
+
         case 'N9_44_6':
             config_file_ = 'fly_N9_44_6'
             config_file, pre_folder = add_pre_folder(config_file_)
             config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
             config.dataset = pre_folder + config.dataset
             config.config_file = pre_folder + config_file_
-            logdir = 'log/fly/fly_N9_44_6'
-
-            # data_test(
-            #     config,
-            #     visualize=True,
-            #     style="black color name true_only",
-            #     verbose=False,
-            #     best_model='best',
-            #     run=0,
-            #     test_mode="",
-            #     sample_embedding=False,
-            #     step=50,
-            #     device=device,
-            #     particle_of_interest=0,
-            # )
-            # copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-            #          f'./{logdir}/results/activity_8x8_panel_comparison_true_signal.png')
-            # data_test(
-            #     config,
-            #     visualize=True,
-            #     style="black color name",
-            #     verbose=False,
-            #     best_model='best',
-            #     run=0,
-            #     test_mode="",
-            #     sample_embedding=False,
-            #     step=50,
-            #     device=device,
-            #     particle_of_interest=0,
-            # )
-            # copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-            #          f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred.png')
-
-
-
-            # data_test(
-            #     config,
-            #     visualize=True,
-            #     style="black color name true_only",
-            #     verbose=False,
-            #     best_model='best',
-            #     run=0,
-            #     test_mode="",
-            #     sample_embedding=False,
-            #     step=50,
-            #     device=device,
-            #     particle_of_interest=0,
-            # )
-            # copyfile(f'./{logdir}/results/activity_8x8_panel_comparison.png',
-            #          f'./{logdir}/results/activity_8x8_panel_comparison_signal_true_wo_noise.png')
-
-            
+            logdir = 'log/fly/fly_N9_44_6'            
 
             # config.training.noise_model_level = 0.0
             config.simulation.visual_input_type = "DAVIS"
@@ -7295,7 +7521,6 @@ def get_figures(index):
                      f'./{logdir}/results/activity_8x8_panel_comparison_signal_pred_wo_noise.png')
             
             
-
             data_test(
                 config,
                 visualize=True,
@@ -7547,6 +7772,7 @@ def get_figures(index):
             os.remove(f'./{logdir}/results/activity_8x8_panel_comparison.png')
 
 
+
         case 'new_network_1':
             config_file_ = 'signal_N2_3'
             config_file, pre_folder = add_pre_folder(config_file_)
@@ -7727,7 +7953,6 @@ def get_figures(index):
                 particle_of_interest=0,
             )
 
-
         case 'weight_vs_noise':
 
             config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
@@ -7736,70 +7961,6 @@ def get_figures(index):
             # copy file ising_comparison_noise level.png
             shutil.copy('fig/ising_comparison_noise level.png', 'fig_paper/ising_comparison_noise_level.png')
             shutil.copy('fig/gnn_comparison_noise_model_level.png', 'fig_paper/gnn_comparison_noise_model_level.png')
-
-
-        case 'results_22_10':
-
-            config_file_ = 'fly_N9_22_10'
-            config_file, pre_folder = add_pre_folder(config_file_)
-            config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
-            config.dataset = pre_folder + config.dataset
-            config.config_file = pre_folder + config_file_
-            print('figure results 22_10...')
-
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
-
-            log_dir = 'log/fly/fly_N9_22_10'
-            config_indices = '18_4_0'
-            
-            fig = plt.figure(figsize=(18, 12))
-
-            ax1 = fig.add_subplot(2, 3, 1)
-            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax2 = fig.add_subplot(2, 3, 2)
-            panel_pic_path =f"./{log_dir}/results/embedding_18_4_0.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax3 = fig.add_subplot(2, 3, 3)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_18_4_0_domain.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax3.text(0.1, 1.01, 'c)', transform=ax3.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax4 = fig.add_subplot(2, 3, 4)
-            panel_pic_path =f"./{log_dir}/results/phi_functions_18_4_0_domain.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax5 = fig.add_subplot(2, 3, 5)
-            panel_pic_path = f"./{log_dir}/results/tau_comparison_18_4_0.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=24, va='bottom', ha='right')
-
-            ax6 = fig.add_subplot(2, 3, 6)
-            panel_pic_path = f"./{log_dir}/results/V_rest_comparison_18_4_0.png"
-            img = imageio.imread(panel_pic_path)
-            plt.imshow(img)
-            plt.axis('off')
-            ax6.text(0.1, 1.01, 'f)', transform=ax6.transAxes, fontsize=24, va='bottom', ha='right')
-            
-            
-            plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
-            plt.savefig(f"./fig_paper/results_22_10.png", dpi=300, bbox_inches='tight')
-            plt.close()
 
         case 'correction_weight':
 
@@ -7996,72 +8157,6 @@ def get_figures(index):
 
 
 
-def plot_ising_comparison_from_saved(config_list, labels=None, output_path='fig/ising_noise_comparison.png'):
-    valid_configs = []
-    
-    for config_file_ in config_list:
-        try:
-            config_file, pre_folder = add_pre_folder(config_file_)
-            data_path = f'./log/{config_file}/results/info_ratio_results.npz'
-            if not os.path.exists(data_path):
-                print(f"Warning: {data_path} not found")
-                continue
-            valid_configs.append(config_file)
-        except Exception as e:
-            print(f"Error processing {config_file_}: {e}")
-            continue
-
-    if len(valid_configs) != 3:
-        raise ValueError(f"Need exactly 3 valid configs, got {len(valid_configs)}")
-
-    # Default sigma labels with lowercase noise descriptions
-    if labels is None:
-        labels = [r'$\sigma=10^{-6}$ (low noise)', 
-                 r'$\sigma=0.25$ (moderate noise)', 
-                 r'$\sigma=2.5$ (large noise)']
-
-    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
-    plt.subplots_adjust(wspace=0.4)
-
-    for col, (config_file, label) in enumerate(zip(valid_configs, labels)):
-        data_path = f'./log/{config_file}/results/info_ratio_results.npz'
-        data = np.load(data_path)
-        
-        obs_rates = data['observed_rates'].flatten()
-        pair_rates = data['predicted_rates_pairwise'].flatten()
-        indep_rates = data['predicted_rates_independent'].flatten()
-        
-        # Rate scatter plots
-        ax = axes[col]
-        
-        # Plot data
-        ax.loglog(obs_rates, pair_rates, 'r.', alpha=0.1, markersize=1.5)
-        ax.loglog(obs_rates, indep_rates, 'g.', alpha=0.1, markersize=1.5)
-        ax.plot([1e-4, 1e1], [1e-4, 1e1], 'k--', alpha=0.5, linewidth=1)
-        
-        ax.set_xlabel(r'observed rate (s$^{-1}$)', fontsize=18)
-        ax.set_ylabel(r'predicted rate (s$^{-1}$)' if col == 0 else '', fontsize=18)
-        ax.set_title(f'{label}\n$I_N$={data["I_N_median"]:.2f} bits', fontsize=16)
-        ax.set_xlim(1e-4, 1e1)
-        ax.set_ylim(1e-4, 1e1)
-        ax.tick_params(labelsize=14)
-        
-        # Legend only on the first panel - top left
-        if col == 0:
-            red_patch = plt.Rectangle((0, 0), 1, 1, facecolor='red', alpha=1.0)
-            green_patch = plt.Rectangle((0, 0), 1, 1, facecolor='green', alpha=1.0)
-            ax.legend([red_patch, green_patch], ['pairwise ($P_2$)', 'independent ($P_1$)'], 
-                     loc='upper left', fontsize=14, frameon=False)
-
-    # Add panel labels - moved upwards
-    for i, ax in enumerate(axes):
-        ax.text(-0.15, 1.15, f'{chr(97+i)})', transform=ax.transAxes, fontsize=20, va='top', ha='left')
-
-    plt.tight_layout()
-    plt.savefig(output_path, dpi=400, bbox_inches='tight')
-    plt.show()
-
-
 
 
 
@@ -8092,11 +8187,9 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    config_list = ['fly_N9_51_8'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
-    
+    # config_list = ['fly_N9_51_2'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
 
-    # config_list = ['zebra_N10_33_5', 'zebra_N10_33_5_8', 'zebra_N10_33_5_9'] #, 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
-
+    config_list = ['zebra_N10_33_5_11'] 
 
     for config_file_ in config_list:
         print(' ')
@@ -8110,10 +8203,6 @@ if __name__ == '__main__':
         data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
     # # compare_experiments(config_list, None)
-
-
-
-
 
     # get_figures('weight_vs_noise')
     # get_figures('correction_weight')
