@@ -71,7 +71,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
-        config_list = ['zebra_N10_33_5_8'] #, 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
+        config_list = ['zebra_N10_33_5_11'] #, 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
 
     for config_file_ in config_list:
         print(" ")
@@ -105,13 +105,13 @@ if __name__ == "__main__":
             data_test(
                 config=config,
                 visualize=True,
-                style="black color name",
+                style="black color name discrete_slice",
                 verbose=False,
                 best_model='best',
                 run=0,
                 test_mode="",
                 sample_embedding=False,
-                step=1,
+                step=2,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,

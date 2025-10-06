@@ -3657,8 +3657,51 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
             if (it % step == 0) & (visualize == True):
                 # plot field comparison
                 output_path = f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png"
-                plot_field_comparison(x, model, it, n_frames, ones, output_path, 50, plot_batch_size)
-                it_idx += 1
+
+                if 'continuous_slice' in style:
+                    plot_field_comparison_slices_masked(
+                        x, model, it, n_frames, ones,
+                        f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}.png",
+                        voxel_size=0.001,          # your setting
+                        vmin=0.0, vmax=0.75,       # your setting
+                        # optional mask controls
+                        mask_points_per_neuron=32,
+                        mask_jitter_sigma=0.005,
+                        slice_half_thickness=0.008,
+                        mask_min_count=1,
+                        rng_seed=1234,
+                        dpi=300
+                    )
+                elif 'discrete_slice' in style:
+                    plot_field_comparison_discrete_slices(
+                        x, model, it, n_frames, ones,
+                        f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}_discrete_slices.png",
+                        z_slices=(0.10, 0.15),
+                        y_slices=(0.20, 0.30),
+                        slice_half_thickness=0.004,  # adjust band thickness
+                        dot_size=2.0,                # your dot size here
+                        vmin=0.0, vmax=0.75,
+                        dpi=300,
+                        flip_bottom_x=False,         # set True if you want to mirror X on bottom
+                        flip_bottom_z=True          # set True to mirror Z (vertical) on bottom
+                    )
+                elif 'grid' in style:
+                    plot_field_discrete_xy_slices_grid(
+                        x, model, it, n_frames, ones,
+                        f"./{log_dir}/results/Fig/Fig_{run}_{it_idx:06d}_xy_slices_discrete.png",
+                        z_start=0.02,
+                        z_step=0.008,
+                        n_cols=5, n_rows=4,
+                        slice_half_thickness=0.002,  # adjust band thickness as you like
+                        dot_size=1.0,
+                        vmin=0.0, vmax=0.75,
+                        dpi=300
+                    )
+                else:
+                    plot_field_comparison(x, model, it, n_frames, ones, output_path, 50, plot_batch_size)   
+
+
+            it_idx += 1
 
     generated_x_list = np.array(generated_x_list)    
     print(f"generated {len(generated_x_list)} frames total")
