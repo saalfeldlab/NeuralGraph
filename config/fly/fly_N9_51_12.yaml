@@ -1,5 +1,5 @@
-description: 'small MLP, noise_model_level: 0.1 DAVIS weight_L1: 0.005  Calcium'
-dataset: 'fly_N9_54_5'
+description: 'small MLP, 800000 extra null edges, noise_model_level: 0 DAVIS weight_L1: 1.0  L2:1E-3   coeff_W_L1: 5E-5'
+dataset: 'fly_N9_51_12'
 
 simulation:
     connectivity_file: 'to be specified'
@@ -12,16 +12,11 @@ simulation:
     n_neuron_types: 65
     n_edges: 434112
     n_frames: 90720
-    start_frame: -100
-
     delta_t: 0.02
     baseline_value: 0
+    n_extra_null_edges: 800000
 
     visual_input_type: "DAVIS"
-
-    calcium_type: "leaky"
-    calcium_activation: "softplus"
-    calcium_tau: 0.10
 
 graph_model:
     signal_model_name: 'PDE_N9_A'
@@ -45,7 +40,7 @@ graph_model:
 plotting:
     colormap: 'tab20'
     arrow_length: 1
-    xlim: [ -1, 2.5 ]
+    xlim: [ -2.5,2.5 ]
     ylim: [ -100,100 ]
 
 training:
@@ -66,14 +61,18 @@ training:
     learning_rate_embedding_start: 1.0E-3
 
     measurement_noise_level: 0
-    noise_model_level: 0.1
-
+    noise_model_level: 0
     coeff_edge_diff: 500
     coeff_update_u_diff: 0
     coeff_update_msg_diff: 0
     coeff_edge_norm: 1000.0
 
-    coeff_edge_weight_L1: 0.005
-    coeff_phi_weight_L1: 0.005
+    coeff_edge_weight_L1: 1
+    coeff_phi_weight_L1: 1
+    coeff_phi_weight_L1_rate: 0.5
+
     coeff_edge_weight_L2: 0
-    coeff_phi_weight_L2: 0
+    coeff_phi_weight_L2: 0.001
+
+    coeff_W_L1: 5.0E-5
+    coeff_W_L1_rate: 0.5

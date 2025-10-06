@@ -636,16 +636,16 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                     if calcium_type == "leaky":
                         # Voltage-driven activation
                         if calcium_activation == "softplus":
-                            u = torch.nn.functional.softplus(x[:, 3:4])
+                            s = torch.nn.functional.softplus(x[:, 3:4])
                         elif calcium_activation == "relu":
-                            u = torch.nn.functional.relu(x[:, 3:4])
+                            s = torch.nn.functional.relu(x[:, 3:4])
                         elif calcium_activation == "tanh":
-                            u = torch.tanh(x[:, 3:4])
+                            s = 1 + torch.tanh(x[:, 3:4])
                         elif calcium_activation == "identity":
-                            u = x[:, 3:4].clone()
+                            s = x[:, 3:4].clone()
 
-                        x[:, 7:8] = x[:, 7:8] + (delta_t / calcium_tau) * (-x[:, 7:8] + u)              # calcium ODE to be checked
-                        x[:, 7:8] = torch.clamp(x[:, 7:8], min=0.0)
+                        x[:, 7:8] = x[:, 7:8] + (delta_t / calcium_tau) * (-x[:, 7:8] + s)              # calcium ODE to be checked
+                        # x[:, 7:8] = torch.clamp(x[:, 7:8], min=0.0)
                         x[:, 8:9] = calcium_alpha * x[:, 7:8] + calcium_beta
 
                         y = (x[:, 7:8] - torch.tensor(x_list[-1][:, 7:8], dtype=torch.float32,device=device)) / delta_t
@@ -860,7 +860,6 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         for f in files:
             os.remove(f)
 
-    print('Ising analysis ...')
     x_list = np.array(x_list)
     y_list = np.array(y_list)
 
