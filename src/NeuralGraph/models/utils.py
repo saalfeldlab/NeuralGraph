@@ -987,6 +987,33 @@ def set_trainable_parameters(model=[], lr_embedding=[], lr=[],  lr_update=[], lr
 
     return optimizer, n_total_params
 
+def set_trainable_parameters_vae(
+    model=[],                    # global fallback LR (like your original `lr`)
+    lr_encoder=[],
+    lr_latent_update=[],
+    lr_decoder=[],         # optional WD for all groups
+):
+
+    trainable_params = [p for _, p in model.named_parameters() if p.requires_grad]
+    n_total_params = sum(p.numel() for p in trainable_params)
+
+    param_groups = []
+    for name, parameter in model.named_parameters():
+        if (not parameter.requires_grad):
+            continue
+        if "encoder" in name:
+            param_groups.append({"params": [parameter], "lr": lr_encoder})
+        elif "update_latent" in name:
+            param_groups.append({"params": [parameter], "lr": lr_latent_update})
+        elif "decoder" in name:
+            param_groups.append({"params": [parameter], "lr": lr_decoder})
+        else:
+            param_groups.append({"params": [parameter], "lr": lr})
+
+    optimizer = torch.optim.Adam(param_groups)
+    return optimizer, n_total_params
+
+
 def set_trainable_division_parameters(model, lr):
     trainable_params = [param for _, param in model.named_parameters() if param.requires_grad]
     n_total_params = sum(p.numel() for p in trainable_params) + torch.numel(model.t)

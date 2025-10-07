@@ -5429,6 +5429,208 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             print(" ")
 
 
+def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style, extended, device):
+    dataset_name = config.dataset
+    model_config = config.graph_model
+    config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
+
+    n_frames = config.simulation.n_frames
+    n_runs = config.training.n_runs
+    n_neurons = config.simulation.n_neurons
+    n_neuron_types = config.simulation.n_neuron_types
+    n_input_neurons = config.simulation.n_input_neurons
+    field_type = model_config.field_type
+    delta_t = config.simulation.delta_t
+    n_edges = config.simulation.n_edges
+
+    colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
+    colors_65 = colors_65[:65]
+
+    max_radius = config.simulation.max_radius if hasattr(config.simulation, 'max_radius') else 2.5
+    dimension = config.simulation.dimension
+
+    log_file = os.path.join(log_dir, 'results.log')
+    if os.path.exists(log_file):
+        os.remove(log_file)
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    
+    # Create file handler only, no console output
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    logger.handlers.clear()  # Clear any existing handlers
+    
+    file_handler = logging.FileHandler(log_file, mode='w')
+    file_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
+    logger.addHandler(file_handler)
+    
+    # Prevent propagation to root logger (which might have console handlers)
+    logger.propagate = False
+
+    print(f'experiment description: {config.description}')
+    logger.info(f'experiment description: {config.description}')
+
+    # Load neuron group mapping for flyvis
+    group_names = ['R1-R6', 'R7-R8', 'L1-L5', 'Lamina_Inter', 'Mi_Early', 'Mi_Mid', 'Mi_Late',
+                   'Tm_Early', 'Tm5_Family', 'Tm_Mid', 'Tm_Late', 'TmY', 'T4a_Up', 'T4b_Right',
+                   'T4c_Down', 'T4d_Left', 'T5_OFF', 'Tangential', 'Wide_Field', 'Other']
+
+    region_colors = {
+        'Retina': ['R1-R6', 'R7-R8'],
+        'Lamina': ['L1-L5', 'Lamina_Inter'],
+        'Medulla_Mi': ['Mi_Early', 'Mi_Mid', 'Mi_Late'],
+        'Medulla_Tm': ['Tm_Early', 'Tm5_Family', 'Tm_Mid', 'Tm_Late', 'TmY'],
+        'T4_Motion': ['T4a_Up', 'T4b_Right', 'T4c_Down', 'T4d_Left'],
+        'T5_Motion': ['T5_OFF'],
+        'Other': ['Tangential', 'Wide_Field', 'Other']
+    }
+    cmap = CustomColorMap(config=config)
+
+    if 'black' in style:
+        plt.style.use('dark_background')
+        mc = 'w'
+    else:
+        plt.style.use('default')
+        mc = 'k'
+
+    x_list = []
+    y_list = []
+    time.sleep(0.5)
+    print('load simulation data...')
+    for run in range(0, n_runs):
+        if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
+            x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
+            y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
+            x = to_numpy(torch.stack(x))
+            y = to_numpy(torch.stack(y))
+        else:
+            x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
+            y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+        x_list.append(x)
+        y_list.append(y)
+
+    ynorm = torch.load(os.path.join(log_dir, 'ynorm.pt'), map_location=device)
+    if os.path.exists(os.path.join(log_dir, 'xnorm.pt')):
+        xnorm = torch.load(os.path.join(log_dir, 'xnorm.pt'))
+    else:
+        xnorm = torch.tensor([5], device=device)
+
+    print(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
+    logger.info(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
+
+    # Load data with new format
+    # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+    gt_weights = torch.load(f'./graphs_data/{dataset_name}/weights.pt', map_location=device)
+    gt_taus = torch.load(f'./graphs_data/{dataset_name}/taus.pt', map_location=device)
+    gt_V_Rest = torch.load(f'./graphs_data/{dataset_name}/V_i_rest.pt', map_location=device)
+    edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
+    true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
+    true_weights[edges[1], edges[0]] = gt_weights
+
+    x = x_list[0][n_frames - 10]
+    type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
+    n_types = len(np.unique(to_numpy(type_list)))
+    region_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
+    n_region_types = len(np.unique(to_numpy(region_list)))
+    n_neurons = len(type_list)
+
+    # Neuron type index to name mapping
+    index_to_name = {
+        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
+        10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
+        18: 'Mi15', 19: 'Mi2', 20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
+        27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a',
+        36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1',
+        44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28', 48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y',
+        52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14',
+        59: 'TmY15', 60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
+    }
+
+    activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
+    activity = activity.squeeze().t()
+    mu_activity = torch.mean(activity, dim=1)
+    sigma_activity = torch.std(activity, dim=1)
+
+    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30'] 
+    activity_results = plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc)
+
+    print(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
+    logger.info(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
+    os.makedirs(f'{log_dir}/results/', exist_ok=True)
+
+    sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
+    plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
+
+    if ('Ising' in extended) | ('ising' in extended):
+        analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
+
+    if epoch_list[0] == 'all':
+
+        print ('not implemented yet ...')
+
+    else:
+        config_indices = config.dataset.split('fly_N9_')[1]
+        files, file_id_list = get_training_files(log_dir, n_runs)
+
+        for epoch in epoch_list:
+
+            net = f'{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch}.pt'
+            model = Calcium_Latent_Dynamics(config=config, device=device)
+
+            state_dict = torch.load(net, map_location=device)
+            model.load_state_dict(state_dict['model_state_dict'])
+            model.eval()
+            print(f'net: {net}')
+            logger.info(f'net: {net}')
+
+            # Plot 1: Loss curve
+            if os.path.exists(os.path.join(log_dir, 'loss.pt')):
+                fig = plt.figure(figsize=(8, 6))
+                ax = plt.gca()
+                for spine in ax.spines.values():
+                    spine.set_alpha(0.75)
+                list_loss = torch.load(os.path.join(log_dir, 'loss.pt'))
+                plt.plot(list_loss, color=mc, linewidth=2)
+                plt.xlim([0, len(list_loss)])
+                plt.ylabel('Loss')
+                plt.xlabel('Epochs')
+                plt.title('Training Loss')
+                plt.tight_layout()
+                plt.savefig(f'{log_dir}/results/loss.png', dpi=300)
+                plt.close()
+
+
+            recons_loss_list = []
+            baseline_loss_list = []
+
+
+            for it in trange(0, n_frames-1):
+
+                x = torch.tensor(x_list[run][it,:,7:8], dtype=torch.float32, device=device).squeeze()
+                y = torch.tensor(x_list[run][it+1,:,7:8], device=device).squeeze()   # auto-encoder_loss
+
+                with torch.no_grad():
+                    pred, mu, logvar = model(x)
+                recon_loss = (pred-y).norm(2)
+                baseline_loss = (x-y).norm(2)
+
+                recons_loss_list.append(to_numpy(recon_loss))
+                baseline_loss_list.append(to_numpy(baseline_loss))
+        
+            recons_loss_list = np.array(recons_loss_list)
+            baseline_loss_list = np.array(baseline_loss_list)
+            # print mean and std
+            print(f'reconstruction loss: {np.mean(recons_loss_list):.4f} +/- {np.std(recons_loss_list):.4f}')
+            print(f'baseline loss: {np.mean(baseline_loss_list):.4f} +/- {np.std(baseline_loss_list):.4f}')
+
+
+
+
+            
+
+
+
+
 def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
@@ -5816,9 +6018,6 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
     plt.savefig(f"./{log_dir}/results/residual_analysis_comprehensive.png", dpi=200, bbox_inches='tight')
     plt.show()
     plt.close()
-
-
-
 
 
 
@@ -6824,7 +7023,7 @@ def compare_ising_results(config_list, varied_parameter):
             print(f"Error processing {config_file_}: {e}")
     
     if not results:
-        print("No Ising metrics found")
+        # print("No Ising metrics found")
         return None
     
     # Sort by parameter value
@@ -7282,7 +7481,10 @@ def data_plot(config, config_file, epoch_list, style, extended, device):
     if 'CElegans' in config.dataset:
         plot_synaptic_CElegans(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     elif 'fly' in config.dataset:
-        plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
+        if config.simulation.calcium_type != 'none':
+            plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
+        else:
+            plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     elif 'zebra' in config.dataset:
         plot_synaptic_zebra(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     elif ('PDE_N3' in config.graph_model.signal_model_name):
@@ -7344,7 +7546,6 @@ def plot_results_figure(config_file_, config_indices, panel_suffix='domain'):
     plt.close()
 
 
-
 def get_figures(index):
         
     plt.style.use('default')
@@ -7357,6 +7558,29 @@ def get_figures(index):
              plot_results_figure('fly_N9_51_2', '37_2', 'domain')
         case 'results_51_2':
              plot_results_figure('fly_N9_22_10', '18_4_0', 'domain')
+
+        case 'extra_edges':
+            config_list = ['fly_N9_51_9', 'fly_N9_51_10', 'fly_N9_51_11', 'fly_N9_51_12']
+
+            for config_file_ in config_list:
+                config_file, pre_folder = add_pre_folder(config_file_)
+                config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+                config.dataset = pre_folder + config.dataset
+                config.config_file = pre_folder + config_file_
+                logdir = f'log/fly/{config_file_}'
+                data_test(
+                    config,
+                    visualize=True,
+                    style="white color name",
+                    verbose=False,
+                    best_model='best',
+                    run=0,
+                    test_mode="full",
+                    sample_embedding=False,
+                    step=25000,
+                    device=device,
+                    particle_of_interest=0,
+                )
 
 
         case 'N9_44_6':
@@ -8035,9 +8259,10 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    # config_list = ['fly_N9_51_2'] #, 'fly_N9_51_2', 'fly_N9_51_3', 'fly_N9_51_4', 'fly_N9_51_5', 'fly_N9_51_6', 'fly_N9_51_7']
+    # # config_list = ['fly_N9_51_9', 'fly_N9_51_10', 'fly_N9_51_11', 'fly_N9_51_12']
+    # compare_experiments(config_list,'simulation.n_extra_null_edges')
 
-    config_list = ['zebra_N10_33_5_12'] 
+    config_list = ['fly_N9_54_1']
 
     for config_file_ in config_list:
         print(' ')
@@ -8048,7 +8273,7 @@ if __name__ == '__main__':
         print(f'\033[94mconfig_file  {config.config_file}\033[0m')
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+        data_plot(config=config, config_file=config_file, epoch_list=['2_0'], style='white color', extended='plots', device=device)
 
     # # compare_experiments(config_list, None)
 
@@ -8062,6 +8287,7 @@ if __name__ == '__main__':
     # get_figures('new_network_1')
     # get_figures('new_network_2')
 
+    # get_figures('extra_edges')
     # get_figures('N9_22_10')
     # get_figures('results_22_10')
     # get_figures('results_44_24')

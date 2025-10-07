@@ -1,4 +1,4 @@
-description: 'small MLP, noise_model_level: 0 DAVIS Calcium '
+description: 'small MLP, noise_model_level: 0 DAVIS Calcium LR 1E-7'
 dataset: 'fly_N9_54_1'
 
 simulation:
@@ -33,8 +33,8 @@ graph_model:
 
     input_size_update: 5
     n_layers_update: 3
-    hidden_dim_update: 64 
-    aggr_type: 'add' 
+    hidden_dim_update: 64
+    aggr_type: 'add'
     embedding_dim: 2
 
     update_type: 'generic'
@@ -46,14 +46,13 @@ graph_model:
     stochastic_latent: True
     latent_init_std: 1.0 
 
-    input_size_encoder: 13741  
+    input_size_encoder: 13741      # set to n_neurons
     n_layers_encoder: 3
     hidden_dim_encoder: 128
 
-    latent_n_layers_update: 3
-    latent_hidden_dim_update: 128
-    output_size_decoder: 13741   
-
+    latent_n_layers_update: 2
+    latent_hidden_dim_update: 64
+    output_size_decoder: 13741     # set to n_neurons 
     n_layers_decoder: 3
     hidden_dim_decoder: 128
     
@@ -82,9 +81,9 @@ training:
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 1.0E-3
 
-    learning_rate_encoder: 1.0E-6
-    learning_rate_latent_update: 1.0E-6
-    learning_rate_decoder: 1.0E-6
+    learning_rate_encoder: 1.0E-7
+    learning_rate_latent_update: 1.0E-7
+    learning_rate_decoder: 1.0E-7
 
     measurement_noise_level: 0
     noise_model_level: 0

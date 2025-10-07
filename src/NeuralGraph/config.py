@@ -84,7 +84,7 @@ class SimulationConfig(BaseModel):
     calcium_noise_level: float = 0.0  # optional Gaussian noise added to [Ca] updates
     calcium_saturation_kd: float = 1.0  # for nonlinear saturation models
     calcium_num_compartments: int = 1
-    calcium_dow_sample: int = 1  # down-sample [Ca] time series by this factor
+    calcium_down_sample: int = 1  # down-sample [Ca] time series by this factor
 
     pos_init: str = "uniform"
     dpos_init: float = 0
@@ -192,8 +192,6 @@ class GraphModelConfig(BaseModel):
     hidden_dim_decoder:  int = 256
 
 
-
-
 class PlottingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -296,6 +294,10 @@ class TrainingConfig(BaseModel):
     learning_rate_NNR: float = 0.0001
     learning_rate_NNR_f: float = 0.0001
     training_NNR_start_epoch: int = 0
+
+    learning_rate_encoder: float = 0.0001
+    learning_rate_latent_update: float = 0.0001
+    learning_rate_decoder: float = 0.0001
 
     coeff_W_L1: float = 0.0
     coeff_W_L1_rate: float = 0.5

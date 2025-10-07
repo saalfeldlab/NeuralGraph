@@ -1,4 +1,4 @@
-description: 'small MLP, noise_model_level: 0 DAVIS Calcium '
+description: 'small MLP, noise_model_level: 0 DAVIS Calcium latent_update_steps: 50'
 dataset: 'fly_N9_54_1'
 
 simulation:
@@ -42,7 +42,7 @@ graph_model:
 
 
     latent_dim: 64
-    latent_update_steps: 10
+    latent_update_steps: 50
     stochastic_latent: True
     latent_init_std: 1.0 
 

@@ -57,7 +57,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None 
-        task = 'generate'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -67,11 +67,11 @@ if __name__ == "__main__":
         # config_list = ['signal_N2_1']
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
-        config_list = ['fly_N9_54_1']
+        config_list = ['fly_N9_54_2']
         # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
-        # config_list = ['zebra_N10_33_5_11'] #, 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
+        # config_list = ['zebra_N10_33_5_12'] #, 'zebra_N10_33_5_2', 'zebra_N10_33_5_3', 'zebra_N10_33_5_4', 'zebra_N10_33_5_5', 'zebra_N10_33_5_6']
 
     for config_file_ in config_list:
         print(" ")
@@ -89,13 +89,13 @@ if __name__ == "__main__":
             data_generate(
                 config,
                 device=device,
-                visualize=True,
+                visualize=False,
                 run_vizualized=0,
                 style="black color",
                 alpha=1,
                 erase=False,
                 bSave=True,
-                step=1
+                step=50
             ) 
             
         if "train" in task:
@@ -105,7 +105,7 @@ if __name__ == "__main__":
             data_test(
                 config=config,
                 visualize=True,
-                style="black color name discrete_slice",
+                style="black color name continuous_slice",
                 verbose=False,
                 best_model='best',
                 run=0,
