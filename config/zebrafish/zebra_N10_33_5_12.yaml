@@ -1,4 +1,4 @@
-description: 'n_frames: 1500  hidden 2048 learning_rate_NNR_f 1.0E-6 turning only omega_f 1024 batch 16'
+description: 'n_frames: 1500  hidden 2048 learning_rate_NNR_f 1.0E-6 turning only omega_f 1024 batch 8'
 dataset: 'zebra_N10_33_5'
 data_folder_name: '/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy'
 

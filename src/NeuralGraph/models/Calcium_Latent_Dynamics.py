@@ -38,7 +38,7 @@ class Calcium_Latent_Dynamics(nn.Module):
         )
 
         # Update: z (Z) -> z' (Z)
-        self.update_net = MLP(
+        self.update_latent = MLP(
             input_size=self.Z_dim,
             output_size=self.Z_dim,
             nlayers=model_config.latent_n_layers_update,      # NEW field in config
@@ -88,21 +88,23 @@ class Calcium_Latent_Dynamics(nn.Module):
     # ---- forwards -------------------------------------------------------------
     @torch.no_grad()
     def forward_noupdate(self, x):
+
         mu, logvar = self.encode(x)
         z0 = self.reparameterize(mu, logvar)
-        y = self.decode(z0)
-        self.last_mu, self.last_logvar = mu, logvar
-        return y
+        pred = self.decode(z0)
+
+        return pred, mu, logvar
 
     def forward(self, x, do_update: bool = True):
+        
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
 
         if do_update and self.latent_update_steps > 0:
             for _ in range(self.latent_update_steps):
-                dz = self.update_net(z)
+                dz = self.update_latent(z)
                 z = z + dz if self.use_residual_update else dz
 
-        y = self.decode(z)
-        self.last_mu, self.last_logvar = mu, logvar
-        return y
+        pred = self.decode(z)
+
+        return pred, mu, logvar
