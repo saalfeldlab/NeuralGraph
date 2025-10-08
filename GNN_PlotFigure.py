@@ -4741,15 +4741,15 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
     mu_activity = torch.mean(activity, dim=1)
     sigma_activity = torch.std(activity, dim=1)
 
-    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30'] 
-    activity_results = plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc)
-
     print(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
     logger.info(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
     os.makedirs(f'{log_dir}/results/', exist_ok=True)
 
     sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
-    plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
+
+    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30'] 
+    activity_results = plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, f'{log_dir}/results/')
+    plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, f'{log_dir}/results/')
 
     if ('Ising' in extended) | ('ising' in extended):
         analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
@@ -5551,18 +5551,8 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
     mu_activity = torch.mean(activity, dim=1)
     sigma_activity = torch.std(activity, dim=1)
 
-    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30'] 
-    activity_results = plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir, config_indices, logger, mc)
-
-    print(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
-    logger.info(f'neurons: {n_neurons}  edges: {edges.shape[1]}  neuron types: {n_types}  region types: {n_region_types}')
     os.makedirs(f'{log_dir}/results/', exist_ok=True)
 
-    sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
-    plot_ground_truth_distributions(to_numpy(edges), to_numpy(gt_weights), to_numpy(gt_taus), to_numpy(gt_V_Rest), to_numpy(type_list), n_types, sorted_neuron_type_names, log_dir)
-
-    if ('Ising' in extended) | ('ising' in extended):
-        analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
 
     if epoch_list[0] == 'all':
 
@@ -5599,11 +5589,8 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
                 plt.savefig(f'{log_dir}/results/loss.png', dpi=300)
                 plt.close()
 
-
             recons_loss_list = []
             baseline_loss_list = []
-
-
             for it in trange(0, n_frames-1):
 
                 x = torch.tensor(x_list[run][it,:,7:8], dtype=torch.float32, device=device).squeeze()
@@ -5619,6 +5606,7 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
         
             recons_loss_list = np.array(recons_loss_list)
             baseline_loss_list = np.array(baseline_loss_list)
+
             # print mean and std
             print(f'reconstruction loss: {np.mean(recons_loss_list):.4f} +/- {np.std(recons_loss_list):.4f}')
             print(f'baseline loss: {np.mean(baseline_loss_list):.4f} +/- {np.std(baseline_loss_list):.4f}')
@@ -7189,8 +7177,7 @@ def create_combined_summary_plot(gnn_results, ising_results, varied_parameter):
 
 
 
-def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, log_dir,
-                                 config_indices, logger, mc):
+def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, output_path):
    from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum
 
    # Calculate mean and std for each neuron
@@ -7239,7 +7226,7 @@ def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, in
    plt.yticks(fontsize=18)
 
    plt.tight_layout()
-   plt.savefig(f'./{log_dir}/results/activity_{config_indices}_mu_sigma.png', dpi=300, bbox_inches='tight')
+   plt.savefig(f'./{output_path}/activity_mu_sigma.png', dpi=300, bbox_inches='tight')
    plt.close()
 
    # Plot individual traces for target types (keeping original functionality)
@@ -7272,7 +7259,7 @@ def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, in
                if n_neurons_to_plot <= 5:
                    plt.legend(fontsize=24)
                plt.tight_layout()
-               plt.savefig(f'./{log_dir}/results/activity_{target_type_name}.png', dpi=300)
+               plt.savefig(f'./{output_path}/activity_{target_type_name}.png', dpi=300)
                plt.close()
    
    # Return per-neuron statistics (NEW)
@@ -7283,7 +7270,7 @@ def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, in
 
 
 def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, type_list, n_neuron_types,
-                                    sorted_neuron_type_names, log_dir):
+                                    sorted_neuron_type_names, output_path):
     """
     Create a 4-panel vertical figure showing ground truth parameter distributions per neuron type
     with neuron type names as x-axis labels
@@ -7369,7 +7356,7 @@ def plot_ground_truth_distributions(edges, true_weights, gt_taus, gt_V_Rest, typ
     add_type_labels_and_setup_axes(ax4, gt_V_Rest, r'distribution of true $v_{rest}$ by neuron type')
 
     plt.tight_layout()
-    plt.savefig(f'{log_dir}/results/ground_truth_distributions.png', dpi=300, bbox_inches='tight')
+    plt.savefig(f'{output_path}/ground_truth_distributions.png', dpi=300, bbox_inches='tight')
     plt.close()
 
     return fig
@@ -8262,7 +8249,7 @@ if __name__ == '__main__':
     # # config_list = ['fly_N9_51_9', 'fly_N9_51_10', 'fly_N9_51_11', 'fly_N9_51_12']
     # compare_experiments(config_list,'simulation.n_extra_null_edges')
 
-    config_list = ['fly_N9_54_5', 'fly_N9_54_2', 'fly_N9_54_3', 'fly_N9_54_4', 'fly_N9_54_5', 'fly_N9_54_6', 'fly_N9_54_7', 'fly_N9_54_8', 'fly_N9_54_9', 'fly_N9_54_10', 'fly_N9_54_11']
+    config_list = ['zebra_N10_33_5_12_1', 'zebra_N10_33_5_12_2', 'zebra_N10_33_5_13_1', 'zebra_N10_33_5_13_2']
     for config_file_ in config_list:
         print(' ')
         config_file, pre_folder = add_pre_folder(config_file_)

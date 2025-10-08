@@ -1,5 +1,5 @@
 description: 'small MLP, no extra null edges, noise_model_level: 0 DAVIS weight_L1: 1.0  L2:1E-3   coeff_W_L1: 5E-5     model_id: 021'
-dataset: 'fly_N9_59_1'
+dataset: 'fly_N9_59_4'
 
 simulation:
     connectivity_file: 'to be specified'

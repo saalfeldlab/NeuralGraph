@@ -1,5 +1,3 @@
-# from vedo.examples.basic.scalarbars import cmaps
-
 from NeuralGraph.generators.utils import *
 import os
 import re
@@ -43,7 +41,6 @@ import pywt
 import torch.nn.functional as F
 from scipy.optimize import curve_fit
 
-# import pyvista as pv
 
 
 def linear_model(x, a, b):
