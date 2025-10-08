@@ -1643,7 +1643,10 @@ def data_train_zebra(config, erase, best_model, device):
         x_list.append(x)
         y_list.append(y)
     print(f'dataset: {len(x_list)} run, {len(x_list[0])} frames')
-    n_frames = x_list[0].shape[0]
+     
+    if x_list[0].shape[0] < n_frames:
+        n_frames = x_list[0].shape[0]
+    print(f'number of frames: {n_frames}')
     config.simulation.n_frames = n_frames
 
     x = x_list[0][n_frames - 10]

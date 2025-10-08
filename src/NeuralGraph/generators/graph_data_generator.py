@@ -31,6 +31,8 @@ import re
 import imageio
 from NeuralGraph.generators.utils import *
 from NeuralGraph.generators.davis import *
+from GNN_PlotFigure import plot_neuron_activity_analysis, plot_ground_truth_distributions
+
 # import taichi as ti
 import random
 import json
@@ -839,7 +841,51 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             if it >= target_frames:
                 break
 
+
+
     print(f"generated {len(x_list)} frames total")
+    x_list = np.array(x_list)
+    y_list = np.array(y_list)
+    if bSave:
+        print('save data ...')
+
+        if measurement_noise_level > 0:
+            np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)
+            np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
+            for k in range(x_list.shape[0]):
+                x_list[k, :, 3] = x_list[k, :, 3] + np.random.normal(0, measurement_noise_level, x_list.shape[1])
+            for k in range(1, x_list.shape[0] - 1):
+                y_list[k] = (x_list[k + 1, :, 3:4] - x_list[k, :, 3:4]) / delta_t
+            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
+            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
+            print("data + noise saved ...")
+        else:
+            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
+            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
+            print("data saved ...")
+
+        # Neuron type index to name mapping
+    index_to_name = {
+        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
+        10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
+        18: 'Mi15', 19: 'Mi2', 20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
+        27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a',
+        36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1',
+        44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28', 48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y',
+        52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14',
+        59: 'TmY15', 60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
+    }
+    sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
+
+    activity = torch.tensor(x_list[:, :, 3:4], device=device)
+    activity = activity.squeeze().t()
+    mu_activity = torch.mean(activity, dim=1)
+    sigma_activity = torch.std(activity, dim=1)
+
+    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30'] 
+    type_list = torch.tensor(x[:, 6:7], device=device)
+    
+    plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, f'graphs_data/{dataset_name}/')
 
     if visualize & (run == run_vizualized):
         print('generating lossless video ...')
@@ -857,104 +903,8 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         for f in files:
             os.remove(f)
 
-    x_list = np.array(x_list)
-    y_list = np.array(y_list)
 
-    if bSave:
-        print('plot activity ...')
 
-        activity = torch.tensor(x_list[:, :, 3:4], device=device).squeeze().t()  # voltage
-        input_visual = torch.tensor(x_list[:, :, 4:5], device=device).squeeze().t()
-
-        if calcium_type != "none":
-            calcium_activity = torch.tensor(x_list[:, :, 7:8], device=device).squeeze().t()
-
-            plt.figure(figsize=(16, 12))
-
-            # --- Top row: visual input ---
-            plt.subplot(3, 1, 1)
-            plt.title("Input to visual neurons", fontsize=24)
-            input_neurons = [731, 1042, 329, 1110, 1176, 1526, 1350, 90, 813, 1695]
-            for i in input_neurons:
-                plt.plot(to_numpy(input_visual[i, :]), linewidth=1)
-            plt.ylabel("$x_i$", fontsize=20)
-            plt.xlim([0, n_frames // 300])
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-
-            # --- Middle row: voltage ---
-            plt.subplot(3, 1, 2)
-            plt.title("Voltage activity of neurons (x10)", fontsize=24)
-            neurons_to_plot = [2602, 3175, 12915, 10391, 13120, 9939, 12463, 3758, 10341, 4293]
-            for i in neurons_to_plot:
-                plt.plot(to_numpy(activity[i, :]), linewidth=1)
-            plt.ylabel("$V_i$", fontsize=20)
-            plt.xlim([0, n_frames // 300])
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-
-            # --- Bottom row: calcium ---
-            plt.subplot(3, 1, 3)
-            plt.title("Calcium activity of neurons", fontsize=24)
-            for i in neurons_to_plot:
-                plt.plot(to_numpy(calcium_activity[i, :]), linewidth=1)
-            plt.xlabel("time", fontsize=20)
-            plt.ylabel("$[Ca]_i$", fontsize=20)
-            plt.xlim([0, n_frames // 300])
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-
-            plt.tight_layout()
-            plt.savefig(f"graphs_data/{dataset_name}/activity_voltage_calcium.tif", dpi=300)
-            plt.close()
-        else:
-            # Original 2-row figure (input + voltage)
-            plt.figure(figsize=(16, 8))
-
-            # Left subplot: visual input
-            plt.subplot(1, 2, 1)
-            plt.title("Input to visual neurons", fontsize=24)
-            input_neurons = [731, 1042, 329, 1110, 1176, 1526, 1350, 90, 813, 1695]
-            for i in input_neurons:
-                plt.plot(to_numpy(input_visual[i, :]), linewidth=1)
-            plt.xlabel("time", fontsize=24)
-            plt.ylabel("$x_i$", fontsize=24)
-            plt.xlim([0, n_frames // 300])
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-
-            # Right subplot: voltage
-            plt.subplot(1, 2, 2)
-            plt.title("Voltage activity of neurons (x10)", fontsize=24)
-            neurons_to_plot = [2602, 3175, 12915, 10391, 13120, 9939, 12463, 3758, 10341, 4293]
-            for i in neurons_to_plot:
-                plt.plot(to_numpy(activity[i, :]), linewidth=1)
-            plt.xlabel("time", fontsize=24)
-            plt.ylabel("$x_i$", fontsize=24)
-            plt.xlim([0, n_frames // 300])
-            plt.xticks(fontsize=16)
-            plt.yticks(fontsize=16)
-
-            plt.tight_layout()
-            plt.savefig(f"graphs_data/{dataset_name}/activity_voltage.tif", dpi=300)
-            plt.close()
-
-        print('save data ...')
-
-        if measurement_noise_level > 0:
-            np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
-            for k in range(x_list.shape[0]):
-                x_list[k, :, 3] = x_list[k, :, 3] + np.random.normal(0, measurement_noise_level, x_list.shape[1])
-            for k in range(1, x_list.shape[0] - 1):
-                y_list[k] = (x_list[k + 1, :, 3:4] - x_list[k, :, 3:4]) / delta_t
-            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-            print("data + noise saved ...")
-        else:
-            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-            print("data saved ...")
 
 def data_generate_synaptic(
     config,
