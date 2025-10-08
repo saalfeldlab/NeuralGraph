@@ -8262,8 +8262,7 @@ if __name__ == '__main__':
     # # config_list = ['fly_N9_51_9', 'fly_N9_51_10', 'fly_N9_51_11', 'fly_N9_51_12']
     # compare_experiments(config_list,'simulation.n_extra_null_edges')
 
-    config_list = ['fly_N9_54_1']
-
+    config_list = ['fly_N9_54_1', 'fly_N9_54_2', 'fly_N9_54_3', 'fly_N9_54_4', 'fly_N9_54_5', 'fly_N9_54_6', 'fly_N9_54_7', 'fly_N9_54_8', 'fly_N9_54_9', 'fly_N9_54_10', 'fly_N9_54_11']
     for config_file_ in config_list:
         print(' ')
         config_file, pre_folder = add_pre_folder(config_file_)
@@ -8273,7 +8272,7 @@ if __name__ == '__main__':
         print(f'\033[94mconfig_file  {config.config_file}\033[0m')
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['2_0'], style='white color', extended='plots', device=device)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
     # # compare_experiments(config_list, None)
 
