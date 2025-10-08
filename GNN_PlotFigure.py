@@ -8262,7 +8262,7 @@ if __name__ == '__main__':
     # # config_list = ['fly_N9_51_9', 'fly_N9_51_10', 'fly_N9_51_11', 'fly_N9_51_12']
     # compare_experiments(config_list,'simulation.n_extra_null_edges')
 
-    config_list = ['fly_N9_54_1', 'fly_N9_54_2', 'fly_N9_54_3', 'fly_N9_54_4', 'fly_N9_54_5', 'fly_N9_54_6', 'fly_N9_54_7', 'fly_N9_54_8', 'fly_N9_54_9', 'fly_N9_54_10', 'fly_N9_54_11']
+    config_list = ['fly_N9_54_5', 'fly_N9_54_2', 'fly_N9_54_3', 'fly_N9_54_4', 'fly_N9_54_5', 'fly_N9_54_6', 'fly_N9_54_7', 'fly_N9_54_8', 'fly_N9_54_9', 'fly_N9_54_10', 'fly_N9_54_11']
     for config_file_ in config_list:
         print(' ')
         config_file, pre_folder = add_pre_folder(config_file_)
