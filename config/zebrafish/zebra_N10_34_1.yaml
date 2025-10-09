@@ -49,9 +49,9 @@ graph_model:
     outermost_linear_nnr_f: True
     output_size_nnr_f: 1
     
-    nnr_f_xy_period: 1.0
+    nnr_f_xy_period: 1000
     nnr_f_T_period: 1500
-    omega_f: 64
+    omega_f: 128
 
     aggr_type: 'add'
     embedding_dim: 2
@@ -72,7 +72,7 @@ training:
     device: 'auto'
 
     recursive_loop: 1
-    batch_size: 1
+    batch_size: 8
     batch_ratio: 0.15
 
     sparsity: 'none'

@@ -2014,10 +2014,8 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
 
-
     print(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR_f {learning_rate_NNR_f}')
-
 
 
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
@@ -2043,7 +2041,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
 
     Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio)
-    plot_frequency = int(Niter // 5)
+    plot_frequency = int(Niter // 50)
     print(f'{Niter} iterations per epoch')
     print(f'plot every {plot_frequency} iterations')
 
@@ -2056,7 +2054,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
     list_loss = []
 
-    N_samples = 50000
+    N_samples = 100000
     run = 0
     ids = np.arange(N_samples)
 
@@ -2087,21 +2085,22 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
                 k=0
 
-                z_idx = 10
+                z_idx = np.random.randint(nz)    # random plane index
                 plane_flat = vol_yxz[:, :, z_idx].reshape(-1)
 
                 sel = torch.randperm(N_xy, device=device)[:N_samples]  
 
-                y = plane_flat.index_select(0, sel) 
+                y = plane_flat.index_select(0, sel)
+                y = y[:, None]   # (N_samples,1) 
 
                 # positions (microns)
                 xy_um_sel = pos_xy_um_flat.index_select(0, sel)                   # (N_samples,2)
                 z_um_val  = (z_idx + 0.5) * float(dz_um)
                 z_col     = torch.full((sel.numel(), 1), z_um_val, device=xy_um_sel.device, dtype=torch.float32)
 
-                # x tensor with leading empty column (zeros), then x_um, y_um, z_um
+                # x tensor with leading empty column (zeros), then x_mm, y_mm, z_mm
                 empty_col = torch.zeros((sel.numel(), 1), device=xy_um_sel.device, dtype=torch.float32)
-                x = torch.cat([empty_col, xy_um_sel, z_col], dim=1)  
+                x = torch.cat([empty_col, xy_um_sel, z_col], dim=1)
 
                 dataset = data.Data(x=x, edge_index=[])
                 dataset_batch.append(dataset)
@@ -2131,7 +2130,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
             for batch in batch_loader:
                 pred, field_f, field_f_laplacians = model(batch, data_id=data_id, k=k_batch, ids=ids_batch_t)
 
-            loss = loss + (field_f[:,None] - y_batch[ids_batch]).norm(2) 
+            loss = loss + (field_f[:,None] - y_batch[ids_batch]/256).norm(2) 
             if coeff_NNR_f > 0:
                 loss = loss + (field_f_laplacians).norm(2)
 
@@ -2150,8 +2149,17 @@ def data_train_zebra_fluo(config, erase, best_model, device):
                 plt.axis('off')
                 # show the predicted field on that plane
                 ax = fig.add_subplot(1, 2, 2)
-                plt.imshow(img)
-                plt.title(f"predicted field (frame 20)", fontsize=12)
+                plt.axis('off')
+                with torch.no_grad():
+                    x = torch.cat([torch.zeros((N_xy, 1), device=device), pos_xy_um_flat / 1000, torch.full((N_xy, 1), (z_idx + 0.5) * float(dz_um) , device=device)], dim=1)
+                    dataset = data.Data(x=x, edge_index=[])
+                    pred, field_f, field_f_laplacians = model(dataset, data_id=torch.zeros((N_xy, 1), dtype=torch.int, device=device), k=torch.ones((N_xy, 1), dtype=torch.float32, device=device)*k*delta_t, ids=torch.arange(N_xy, device=device))
+                    img = to_numpy(field_f.reshape(ny, nx))
+                plt.imshow(img, cmap='gray', vmin=0., vmax=1.0)
+                plt.title(f"predicted plane z={z_idx} (frame {FRAME})", fontsize=12)
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png")
+                plt.close()
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
