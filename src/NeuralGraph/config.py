@@ -292,6 +292,7 @@ class TrainingConfig(BaseModel):
 
     learning_rate_missing_activity: float = 0.0001
     learning_rate_NNR: float = 0.0001
+    learning_rate_NNR_f_start: float = 0.0
     learning_rate_NNR_f: float = 0.0001
     training_NNR_start_epoch: int = 0
 

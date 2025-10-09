@@ -1713,14 +1713,17 @@ def data_train_zebra(config, erase, best_model, device):
     lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
+    learning_rate_NNR_f_start = train_config.learning_rate_NNR_f_start
 
     print(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR_f {learning_rate_NNR_f}')
     logger.info(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR_f}')
 
+    if learning_rate_NNR_f_start == 0:
+        learning_rate_NNR_f_start = learning_rate_NNR_f
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f)
+                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f_start)
     model.train()
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
@@ -1781,6 +1784,11 @@ def data_train_zebra(config, erase, best_model, device):
     for epoch in range(start_epoch, n_epochs + 1):
 
         total_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
+
+        if epoch == 2:
+            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
+                                                                lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f)
+            model.train()
 
         for N in trange(Niter):
 
@@ -1852,7 +1860,6 @@ def data_train_zebra(config, erase, best_model, device):
                     plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100, plot_batch_size)
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
-
 
         print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
         logger.info("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
