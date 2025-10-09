@@ -172,7 +172,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
 
         t = kk
         in_features = torch.cat([pos, t], dim=1)
-        if self.coeff_NNR_f == 0:   # (M, 4)
+        if self.coeff_NNR_f > 0:   # (M, 4)
             in_features.requires_grad_(True)
 
         # Forward through siren

@@ -27,6 +27,43 @@ from collections import defaultdict
 
 warnings.filterwarnings('ignore')
 
+
+import re
+import tensorstore as ts
+
+def open_gcs_zarr(url: str):
+    # Strip accidental prefixes like:  'str = "gs://.../aligned"'
+    url = url.strip()
+    if url.startswith("str"):
+        # remove leading 'str ='
+        url = re.sub(r'^str\s*=\s*', '', url).strip()
+        # strip surrounding quotes
+        url = url.strip('\'"')
+
+    if not url.startswith("gs://"):
+        raise ValueError(f"Expected gs:// URL, got: {url}")
+
+    # First try zarr3 with a plain kvstore string
+    try:
+        return ts.open({'driver': 'zarr3', 'kvstore': url, 'open': True}).result()
+    except Exception:
+        pass
+
+    # Fall back to explicit GCS kvstore spec (works across TS versions), zarr3 → zarr2
+    bucket_path = url[len("gs://"):]
+    bucket, path = bucket_path.split('/', 1)
+    for drv in ('zarr3', 'zarr'):
+        try:
+            return ts.open({
+                'driver': drv,
+                'kvstore': {'driver': 'gcs', 'bucket': bucket, 'path': path},
+                'open': True
+            }).result()
+        except Exception:
+            continue
+    raise RuntimeError(f"Could not open Zarr at {url} with zarr3 or zarr2")
+
+
 def sort_key(filename):
             # Extract the numeric parts using regular expressions
             if filename.split('_')[-2] == 'graphs':
