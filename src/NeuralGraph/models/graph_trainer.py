@@ -2085,7 +2085,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
                 k=0
 
-                z_idx = np.random.randint(nz)    # random plane index
+                z_idx = 35 # np.random.randint(nz)    # random plane index
                 plane_flat = vol_yxz[:, :, z_idx].reshape(-1)
 
                 sel = torch.randperm(N_xy, device=device)[:N_samples]  
@@ -2130,7 +2130,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
             for batch in batch_loader:
                 pred, field_f, field_f_laplacians = model(batch, data_id=data_id, k=k_batch, ids=ids_batch_t)
 
-            loss = loss + (field_f[:,None] - y_batch[ids_batch]/256).norm(2) 
+            loss = loss + (field_f[:,None] - y_batch[ids_batch]/256).norm(2) + (torch.std(field_f[:,None]) - torch.std(y_batch[ids_batch]/256))*1000
             if coeff_NNR_f > 0:
                 loss = loss + (field_f_laplacians).norm(2)
 
@@ -2140,6 +2140,8 @@ def data_train_zebra_fluo(config, erase, best_model, device):
             total_loss += loss.item()
 
             if (N % plot_frequency == 0):
+
+                print(f'loss: {to_numpy(loss):0.5f}')
 
                 fig = plt.figure(figsize=(20, 10))
                 ax = fig.add_subplot(1, 2, 1)
@@ -2151,7 +2153,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
                 ax = fig.add_subplot(1, 2, 2)
                 plt.axis('off')
                 with torch.no_grad():
-                    x = torch.cat([torch.zeros((N_xy, 1), device=device), pos_xy_um_flat / 1000, torch.full((N_xy, 1), (z_idx + 0.5) * float(dz_um) , device=device)], dim=1)
+                    x = torch.cat([torch.zeros((N_xy, 1), device=device), pos_xy_um_flat, torch.full((N_xy, 1), (z_idx + 0.5) * float(dz_um) , device=device)], dim=1)
                     dataset = data.Data(x=x, edge_index=[])
                     pred, field_f, field_f_laplacians = model(dataset, data_id=torch.zeros((N_xy, 1), dtype=torch.int, device=device), k=torch.ones((N_xy, 1), dtype=torch.float32, device=device)*k*delta_t, ids=torch.arange(N_xy, device=device))
                     img = to_numpy(field_f.reshape(ny, nx))
