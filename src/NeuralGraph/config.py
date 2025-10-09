@@ -192,6 +192,23 @@ class GraphModelConfig(BaseModel):
     hidden_dim_decoder:  int = 256
 
 
+class ZarrConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    store_fluo: str = ""
+    store_seg: str = ""
+
+    axis: int = 0
+    frame: int = 0
+    contrast: str = "1,99.9"
+    rendering: str = "1,99.9"
+    dz_um: float = 4
+    dy_um: float = 0.406
+    dx_um: float = 0.406
+    labels_opacity: float = 0.7
+    show_boundaries: bool = False   
+
+
 class PlottingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -384,6 +401,7 @@ class NeuralGraphConfig(BaseModel):
     graph_model: GraphModelConfig
     plotting: PlottingConfig
     training: TrainingConfig
+    zarr: Optional[ZarrConfig] = None
 
     @staticmethod
     def from_yaml(file_name: str):

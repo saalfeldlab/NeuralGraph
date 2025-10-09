@@ -8246,7 +8246,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    config_list = ['fly_N9_59_1', 'fly_N9_59_2', 'fly_N9_59_3', 'fly_N9_59_4']
+    config_list = ['fly_N9_59_4']
 
 
     # config_list = ['zebra_N10_33_5_13_3', 'zebra_N10_33_5_13_4']

@@ -57,7 +57,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None 
-        task = 'generate'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
-        config_list = ['zebra_N10_33_5']
+        config_list = ['zebra_N10_33_1']
 
     for config_file_ in config_list:
         print(" ")

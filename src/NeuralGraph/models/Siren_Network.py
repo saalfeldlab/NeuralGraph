@@ -299,5 +299,5 @@ if __name__ == '__main__':
     axes[3].set_ylim(0, 0.4)
     plt.tight_layout(pad=1.0)
     plt.show()
-    plt.close()
+    # plt.close()
 
