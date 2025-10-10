@@ -57,7 +57,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None 
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -67,11 +67,11 @@ if __name__ == "__main__":
         # config_list = ['signal_N2_1']
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
-        # config_list = ['fly_N9_54_2']
-        # config_list = ['fly_N9_37_2', 'fly_N9_34_2', 'fly_N9_34_3', 'fly_N9_34_4']
+        # config_list = ['fly_N9_59_1', 'fly_N9_59_2', 'fly_N9_59_3', 'fly_N9_59_4', 'fly_N9_59_5']
+        config_list = ['fly_N9_22_10']
         # config_list = ['signal_N5_l4','signal_N5_l5']
 
-        config_list = ['zebra_N10_34_1']
+        # config_list = ['zebra_N10_34_1']
 
     for config_file_ in config_list:
         print(" ")
@@ -104,12 +104,12 @@ if __name__ == "__main__":
         if "test" in task:
             data_test(
                 config=config,
-                visualize=True,
-                style="black color name continuous_slice",
+                visualize=False,
+                style="white color name continuous_slice",
                 verbose=False,
                 best_model='best',
                 run=0,
-                test_mode="",
+                test_mode="full",
                 sample_embedding=False,
                 step=2,
                 device=device,
