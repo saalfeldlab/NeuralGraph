@@ -239,17 +239,17 @@ if __name__ == '__main__':
                       hidden_layers=3, outermost_linear=True, first_omega_0=512., hidden_omega_0=512.)
     img_siren.cuda()
 
-    total_steps = 1000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
-    steps_til_summary = 50
+    total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
+    steps_til_summary = 250
 
-    optim = torch.optim.Adam(lr=1e-6, params=img_siren.parameters())
+    optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
 
     if False:
         import skimage
         from PIL import Image
         from torchvision.transforms import Resize, Compose, ToTensor, Normalize
 
-        sidelength = 1024
+        sidelength = 128
         img = Image.fromarray(skimage.data.camera())
         transform = Compose([
                 ToTensor(),
@@ -257,7 +257,7 @@ if __name__ == '__main__':
             ])
         ground_truth = transform(img)
         ground_truth = torch.cat((ground_truth, ground_truth.transpose(1, 2)), dim=2) 
-        ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
+        # ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
     else:
         import re
         import tensorstore as ts
@@ -303,16 +303,12 @@ if __name__ == '__main__':
         ground_truth = torch.tensor(vol_xyz, device=device, dtype=torch.float32) / 512
         ground_truth = ground_truth[:,:,20:21]
         ground_truth = ground_truth.permute(2,1,0)  # (1, H, W)
-        ground_truth = ground_truth[:,0:1024,0:2048]
-        ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
+        # ground_truth = ground_truth[:,0:1024,0:2048]
 
-
-
-    fig = plt.figure(figsize=(16, 8))
-    plt.imshow(ground_truth[0].cpu(), cmap='gray', vmin = 0, vmax=1)
-    plt.colorbar()
-    plt.axis('off')
-    plt.show()
+        # down sample
+        factor = 2 
+        ground_truth = torch.nn.functional.interpolate(ground_truth.unsqueeze(0), size=(ground_truth.shape[1]//factor,ground_truth.shape[2]//factor), mode='bilinear', align_corners=False).squeeze(0)
+        # ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
 
 
     _ , nx, ny = ground_truth.shape
@@ -334,7 +330,7 @@ if __name__ == '__main__':
     batch_ratio = 0.25
 
     loss_list = []
-    for step in trange(total_steps):
+    for step in trange(total_steps+1):
 
         sample_ids = np.random.choice(model_input.shape[0], int(model_input.shape[0]*batch_ratio), replace=False)
         model_input_batch = model_input[sample_ids]
@@ -361,14 +357,19 @@ if __name__ == '__main__':
             with torch.no_grad():
                 model_output = img_siren(model_input)
 
-                fig, axes = plt.subplots(1, 2, figsize=(18, 8), gridspec_kw={'wspace': 0.3, 'hspace': 0})
+                fig, axes = plt.subplots(1, 3, figsize=(24, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
                 axes[0].plot(loss_list, color='k')
                 axes[0].set_xlabel('step')
                 axes[0].set_ylabel('MSE Loss')
                 pred_img = model_output.cpu().detach().numpy().reshape(nx, ny)
-                axes[1].imshow(pred_img, cmap='gray')
+                im1 = axes[1].imshow(pred_img, cmap='gray')
+                plt.colorbar(im1, ax=axes[1])
                 error = np.linalg.norm(ground_truth.cpu().detach().numpy().reshape(nx, ny) - pred_img, ord=2)
-                axes[1].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9,color='b')
+
+                ground_truth_img = ground_truth.cpu().detach().numpy().reshape(nx, ny)
+                im2 = axes[2].imshow(ground_truth_img-pred_img, cmap='gray')
+                plt.colorbar(im2, ax=axes[2])
+                axes[2].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9,color='w')
                 plt.tight_layout(pad=1.0)
                 plt.show()     
 
