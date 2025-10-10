@@ -27,6 +27,7 @@ from scipy.optimize import curve_fit
 
 from torch_geometric.utils import dense_to_sparse
 import torch.optim as optim
+import torch.nn.functional as F
 import seaborn as sns
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.manifold import TSNE
@@ -43,6 +44,8 @@ from NeuralGraph.generators.utils import generate_compressed_video_mp4
 from scipy.stats import pearsonr
 import numpy as np
 import tensorstore as ts
+import napari
+
 
 def data_train(config=None, erase=False, best_model=None, device=None):
     # plt.rcParams['text.usetex'] = True
@@ -1943,261 +1946,103 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     dz_um = config.zarr.dz_um  # light sheet step   
 
     STORE = config.zarr.store_fluo
-    FRAME = 3736                                            # 0-based time index
+    FRAME = 3736        
 
     ds = open_gcs_zarr(STORE)
+    vol_xyz = ds[..., FRAME].read().result()    
 
-    # Read ONLY the selected time frame (XYZT → select T)
-    vol_xyz = ds[..., FRAME].read().result()                # shape: (X, Y, Z)
+    ground_truth = torch.tensor(vol_xyz, device=device, dtype=torch.float32) / 512
+    ground_truth = ground_truth.permute(1,0,2)
 
-    print(f"[opened {STORE} shape={ds.domain.shape} dtype={ds.dtype}")
-    print(f"[frame={FRAME} XYZ shape={vol_xyz.shape}")
-    print(f"voxel size: {dx_um} x {dy_um} x {dz_um} um")
+    # down sample
+    factor = 8
+    # ground_truth: [1328, 2048, 72] -> [1, 1, 1328, 2048, 72]
+    gt = ground_truth.unsqueeze(0).unsqueeze(0)
+    # Downsample X and Y, keep Z
+    gt_down = F.interpolate(
+        gt,
+        size=(gt.shape[2] // factor, gt.shape[3] // factor, gt.shape[4]),
+        mode='trilinear',
+        align_corners=False
+    )
+    # Remove batch and channel dims: [new_X, new_Y, 72]
+    ground_truth = gt_down.squeeze(0).squeeze(0)    
+    nx, ny, nz = ground_truth.shape
+    print(f'\nshape: {ground_truth.shape}')
 
-    nx, ny, nz = vol_xyz.shape
-
-    # ---- Precompute XY grids once (pixel indices + micron centers) ----
-    # Pixel index grids (ny, nx)
-    iy, ix = torch.meshgrid(
+    side_length = max(nx, ny)
+    iy, ix, iz = torch.meshgrid(
         torch.arange(ny, device=device),
         torch.arange(nx, device=device),
-        indexing='ij'
+        torch.arange(nz, device=device),
+        indexing='ij'  # valid values: 'ij' or 'xy'
     )
+    model_input = torch.stack([iy.reshape(-1), ix.reshape(-1), iz.reshape(-1)], dim=1).to(dtype=torch.float32)  # [nx*ny*nz, 3]
+    model_input[:,0] = model_input[:,0].float() / (side_length - 1)
+    model_input[:,1] = model_input[:,1].float() / (side_length - 1)
+    model_input[:,2] = model_input[:,2].float() / nz
+    model_input = model_input.cuda()
 
-    # Flattened pixel index pairs (N,2) with N = nx*ny
-    pix_xy_flat = torch.stack([ix.reshape(-1), iy.reshape(-1)], dim=1).to(torch.int32)  # (N,2)
+    ground_truth = ground_truth.reshape([nx*ny*nz, 1]).cuda()
 
-    # Micron-center coordinates for XY (ny, nx) -> flattened (N,2)
-    X_um = (ix.to(torch.float32) + 0.5) * float(dx_um)
-    Y_um = (iy.to(torch.float32) + 0.5) * float(dy_um)
-    pos_xy_um_flat = torch.stack([X_um.reshape(-1), Y_um.reshape(-1)], dim=1)          # (N,2) float32
+    img_siren = Siren(in_features=3, out_features=1, hidden_features=1024, hidden_layers=3, outermost_linear=True, first_omega_0=512., hidden_omega_0=512.)
+    img_siren.cuda()
+    total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
+    steps_til_summary = 1000
+    optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
 
-    pix_xy_flat    = pix_xy_flat.to(device)        # (N,2) int32   [x_pix,y_pix]
-    pos_xy_um_flat = pos_xy_um_flat.to(device)
-    vol_xyz  = torch.from_numpy(vol_xyz).to(device=device, dtype=torch.float32)   # (nx,ny,nz)
-    vol_yxz  = vol_xyz.permute(1, 0, 2).contiguous()    
+    batch_ratio = 0.01
 
-    ny, nx, nz = vol_yxz.shape
-    N_xy = ny * nx
+    loss_list = []
+    for step in trange(total_steps+1):
 
-    print('create models ...')
-    model = Signal_Propagation_Zebra(aggr_type=model_config.aggr_type, config=config, device=device)
+        sample_ids = np.random.choice(model_input.shape[0], int(model_input.shape[0]*batch_ratio), replace=False)
+        model_input_batch = model_input[sample_ids]
+        ground_truth_batch = ground_truth[sample_ids]
+        loss = ((img_siren(model_input_batch) - ground_truth_batch) ** 2).mean()
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
 
-    start_epoch = 0
-    list_loss = []
-    if (best_model != None) & (best_model != ''):
-        net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
-        print(f'load {net} ...')
-        state_dict = torch.load(net, map_location=device)
-        model.load_state_dict(state_dict['model_state_dict'])
-        start_epoch = int(best_model.split('_')[0])
-        print(f'best_model: {best_model}  start_epoch: {start_epoch}')
-        logger.info(f'best_model: {best_model}  start_epoch: {start_epoch}')
-        list_loss = torch.load(f"{log_dir}/loss.pt")
-    elif  train_config.pretrained_model !='':
-        net = train_config.pretrained_model
-        print(f'load pretrained {net} ...')
-        state_dict = torch.load(net, map_location=device)
-        model.load_state_dict(state_dict['model_state_dict'])
-        logger.info(f'pretrained: {net}')
+        loss_list.append(loss.item())
 
+        if (step % steps_til_summary == 0) and (step>0):
+            print("Step %d, Total loss %0.6f" % (step, loss))
 
-    lr = train_config.learning_rate_start
-    if train_config.learning_rate_update_start == 0:
-        lr_update = train_config.learning_rate_start
-    else:
-        lr_update = train_config.learning_rate_update_start
-    learning_rate_NNR_f = train_config.learning_rate_NNR_f
-    learning_rate_NNR_f_start = train_config.learning_rate_NNR_f_start
-    if learning_rate_NNR_f_start == 0:
-        learning_rate_NNR_f_start = learning_rate_NNR_f
-    lr_embedding = train_config.learning_rate_embedding_start
-    lr_W = train_config.learning_rate_W_start
+            z_idx = 20 
 
-    print(
-        f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR_f {learning_rate_NNR_f}')
+            z_vals = torch.unique(model_input[:, 2], sorted=True)
+            z_val  = z_vals[z_idx]
+            plane_mask = torch.isclose(model_input[:, 2], z_val, atol=1e-6, rtol=0.0)
+            plane_in = model_input[plane_mask]   
 
+            with torch.no_grad():
+                model_output = img_siren(plane_in)
 
-    optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f_start)
-    model.train()
+            gt = to_numpy(ground_truth).reshape(nx, ny, nz)   # both expected (nx, ny, nz)
+            gt_xy = gt[:, :, z_idx].astype(np.float32)
+            pd_xy = to_numpy(model_output).reshape(nx, ny)
+            
+            vmin, vmax = np.percentile(gt_xy, [1, 99.9]); 
+            vmin = float(vmin) if np.isfinite(vmin) else float(min(gt_xy.min(), pd_xy.min()))
+            vmax = float(vmax) if np.isfinite(vmax) and vmax>vmin else float(max(gt_xy.max(), pd_xy.max()))
+            rmse = float(np.sqrt(np.mean((pd_xy - gt_xy) ** 2)))
+            fig, ax = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+            im0 = ax[0].imshow(gt_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[0].set_title(f"GT z={z_idx}"); ax[0].axis("off")
+            im1 = ax[1].imshow(pd_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[1].set_title(f"Pred z={z_idx}  RMSE={rmse:.4f}"); ax[1].axis("off")
+            fig.colorbar(im1, ax=ax.ravel().tolist(), fraction=0.046, pad=0.04, label="intensity")
+            plt.show()
 
-    net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
-    print(f'network: {net}')
-    print(f'initial batch_size: {batch_size}')
-
-
-    # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+    viewer = napari.Viewer()
+    viewer.add_image(gt, name='ground_truth', scale=[dy_um*factor, dx_um*factor, dz_um])
+    viewer.add_image(pd, name='pred_img', scale=[dy_um*factor, dx_um*factor, dz_um])
+    viewer.dims.ndisplay = 3
+    napari.run()  
 
 
-    print("start training ...")
-
-    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
-    # torch.autograd.set_detect_anomaly(True)
-
-    list_loss_regul = []
-    time.sleep(0.2)
-
-    ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
-
-    Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio)
-    plot_frequency = int(Niter // 50)
-    print(f'{Niter} iterations per epoch')
-    print(f'plot every {plot_frequency} iterations')
-
-    print("start training ...")
-
-    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
-    # torch.autograd.set_detect_anomaly(True)
-
-    time.sleep(0.2)
-
-    list_loss = []
-
-    N_samples = 100000
-    run = 0
-    ids = np.arange(N_samples)
 
 
-    for epoch in range(start_epoch, n_epochs + 1):
 
-        total_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
-
-        if epoch == 2:
-            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                                lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f)
-            model.train()
-
-        for N in trange(Niter):
-
-            optimizer.zero_grad()
-
-            loss = 0
-
-            dataset_batch = []
-            ids_batch = []
-            ids_index = 0
-            edges = []
-
-            for batch in range(batch_size):
-
-                # k = np.random.randint(n_frames - 1)
-
-                k=0
-
-                z_idx = 35 # np.random.randint(nz)    # random plane index
-                plane_flat = vol_yxz[:, :, z_idx].reshape(-1)
-
-                sel = torch.randperm(N_xy, device=device)[:N_samples]  
-
-                y = plane_flat.index_select(0, sel)
-                y = y[:, None]   # (N_samples,1) 
-
-                # positions (microns)
-                xy_um_sel = pos_xy_um_flat.index_select(0, sel)                   # (N_samples,2)
-                z_um_val  = (z_idx + 0.5) * float(dz_um)
-                z_col     = torch.full((sel.numel(), 1), z_um_val, device=xy_um_sel.device, dtype=torch.float32)
-
-                # x tensor with leading empty column (zeros), then x_mm, y_mm, z_mm
-                empty_col = torch.zeros((sel.numel(), 1), device=xy_um_sel.device, dtype=torch.float32)
-                x = torch.cat([empty_col, xy_um_sel, z_col], dim=1)
-
-                dataset = data.Data(x=x, edge_index=[])
-                dataset_batch.append(dataset)
-
-                k_t = torch.ones((x.shape[0], 1), dtype=torch.float32, device=device) * k * delta_t
-                # k_t = k_t + torch.floor(x[:,3:4] / z_thickness) * delta_t_step # correction for light sheet acquisition
-
-                if batch == 0:
-
-                    data_id = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run
-                    y_batch = y
-                    k_batch = k_t
-                    ids_batch = ids
-
-                else:
-
-                    data_id = torch.cat((data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
-                    y_batch = torch.cat((y_batch, y), dim=0)
-                    k_batch = torch.cat((k_batch, k_t), dim=0)
-                    ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
-
-                ids_index += x.shape[0]
-
-            ids_batch_t = torch.as_tensor(ids_batch, device=device, dtype=torch.long)
-            batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
-
-            for batch in batch_loader:
-                pred, field_f, field_f_laplacians = model(batch, data_id=data_id, k=k_batch, ids=ids_batch_t)
-
-            loss = loss + (field_f[:,None] - y_batch[ids_batch]/256).norm(2) + (torch.std(field_f[:,None]) - torch.std(y_batch[ids_batch]/256))*1000
-            if coeff_NNR_f > 0:
-                loss = loss + (field_f_laplacians).norm(2)
-
-            loss.backward()
-            optimizer.step()
-
-            total_loss += loss.item()
-
-            if (N % plot_frequency == 0):
-
-                print(f'loss: {to_numpy(loss):0.5f}')
-
-                fig = plt.figure(figsize=(20, 10))
-                ax = fig.add_subplot(1, 2, 1)
-                # show the measured plane
-                plt.imshow(to_numpy(plane_flat.reshape(ny, nx)), cmap='gray')
-                plt.title(f"measured plane z={z_idx} (frame {FRAME})", fontsize=12)
-                plt.axis('off')
-                # show the predicted field on that plane
-                ax = fig.add_subplot(1, 2, 2)
-                plt.axis('off')
-                with torch.no_grad():
-                    x = torch.cat([torch.zeros((N_xy, 1), device=device), pos_xy_um_flat, torch.full((N_xy, 1), (z_idx + 0.5) * float(dz_um) , device=device)], dim=1)
-                    dataset = data.Data(x=x, edge_index=[])
-                    pred, field_f, field_f_laplacians = model(dataset, data_id=torch.zeros((N_xy, 1), dtype=torch.int, device=device), k=torch.ones((N_xy, 1), dtype=torch.float32, device=device)*k*delta_t, ids=torch.arange(N_xy, device=device))
-                    img = to_numpy(field_f.reshape(ny, nx))
-                plt.imshow(img, cmap='gray', vmin=0., vmax=1.0)
-                plt.title(f"predicted plane z={z_idx} (frame {FRAME})", fontsize=12)
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png")
-                plt.close()
-
-                torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
-
-        print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
-        torch.save({'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict()},
-                os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
-
-        list_loss.append(to_numpy(total_loss) / n_neurons)
-        # torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
-
-        fig = plt.figure(figsize=(20, 10))
-        ax = fig.add_subplot(1, 2, 1)
-        plt.plot(list_loss, color='w', linewidth=1)
-        plt.xlim([0, n_epochs])
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.ylabel('loss', fontsize=12)
-        plt.xlabel('epochs', fontsize=12)
-        ax = fig.add_subplot(1, 2, 2)
-        field_files = glob.glob(f"./{log_dir}/tmp_training/field/*.png")
-        last_file = max(field_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
-        filename = os.path.basename(last_file)
-        filename = filename.replace('.png', '')
-        parts = filename.split('_')
-        if len(parts) >= 3:
-            last_epoch = parts[1]
-            last_N = parts[2]
-        else:
-            last_epoch, last_N = parts[-2], parts[-1]
-        img = imageio.imread(f"./{log_dir}/tmp_training/field/field_{last_epoch}_{last_N}.png")
-        plt.imshow(img)
-        plt.axis('off')
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
-        plt.close()
 
 
 
