@@ -240,41 +240,175 @@ if __name__ == '__main__':
     img_siren.cuda()
 
     total_steps = 1000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
-    steps_til_summary = 1000
+    steps_til_summary = 50
 
-    optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
+    optim = torch.optim.Adam(lr=1e-6, params=img_siren.parameters())
 
-    import skimage
-    from PIL import Image
-    from torchvision.transforms import Resize, Compose, ToTensor, Normalize
+    if False:
+        import skimage
+        from PIL import Image
+        from torchvision.transforms import Resize, Compose, ToTensor, Normalize
 
-    sidelength = 256
-    img = Image.fromarray(skimage.data.camera())
-    transform = Compose([
-            ToTensor(),
-            Resize(sidelength)
-        ])
-    ground_truth = transform(img)
-    # ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (3, H, W)
-    
-    _, nx, ny= ground_truth.shape
+        sidelength = 1024
+        img = Image.fromarray(skimage.data.camera())
+        transform = Compose([
+                ToTensor(),
+                Resize(sidelength)
+            ])
+        ground_truth = transform(img)
+        ground_truth = torch.cat((ground_truth, ground_truth.transpose(1, 2)), dim=2) 
+        ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
+    else:
+        import re
+        import tensorstore as ts
 
-    print(f'shape {ground_truth.shape}')
+        def open_gcs_zarr(url: str):
+            # Strip accidental prefixes like:  'str = "gs://.../aligned"'
+            url = url.strip()
+            if url.startswith("str"):
+                # remove leading 'str ='
+                url = re.sub(r'^str\s*=\s*', '', url).strip()
+                # strip surrounding quotes
+                url = url.strip('\'"')
 
-    side_legnth = max(nx,ny)
+            if not url.startswith("gs://"):
+                raise ValueError(f"Expected gs:// URL, got: {url}")
+
+            # First try zarr3 with a plain kvstore string
+            try:
+                return ts.open({'driver': 'zarr3', 'kvstore': url, 'open': True}).result()
+            except Exception:
+                pass
+
+            # Fall back to explicit GCS kvstore spec (works across TS versions), zarr3 → zarr2
+            bucket_path = url[len("gs://"):]
+            bucket, path = bucket_path.split('/', 1)
+            for drv in ('zarr3', 'zarr'):
+                try:
+                    return ts.open({
+                        'driver': drv,
+                        'kvstore': {'driver': 'gcs', 'bucket': bucket, 'path': path},
+                        'open': True
+                    }).result()
+                except Exception:
+                    continue
+            raise RuntimeError(f"Could not open Zarr at {url} with zarr3 or zarr2")
+
+        STORE = "gs://zapbench-release/volumes/20240930/aligned"
+        FRAME = 3736
+
+        ds = open_gcs_zarr(STORE)
+        vol_xyz = ds[..., FRAME].read().result()    
+
+        ground_truth = torch.tensor(vol_xyz, device=device, dtype=torch.float32) / 512
+        ground_truth = ground_truth[:,:,20:21]
+        ground_truth = ground_truth.permute(2,1,0)  # (1, H, W)
+        ground_truth = ground_truth[:,0:1024,0:2048]
+        ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
+
+
+
+    fig = plt.figure(figsize=(16, 8))
+    plt.imshow(ground_truth[0].cpu(), cmap='gray', vmin = 0, vmax=1)
+    plt.colorbar()
+    plt.axis('off')
+    plt.show()
+
+
+    _ , nx, ny = ground_truth.shape
+
+    print(f'\nshape: {ground_truth.shape}')
+
+    side_length = max(nx,ny) 
     iy, ix = torch.meshgrid(
         torch.arange(ny, device=device),
         torch.arange(nx, device=device),
         indexing='ij'
     )
-    model_input = torch.stack([iy.reshape(-1), ix.reshape(-1)], dim=1).to(torch.int32) / (side_legnth - 1) # (N,2)
+    model_input = torch.stack([iy.reshape(-1), ix.reshape(-1)], dim=1).to(torch.int32) / (side_length - 1)     # (N,2) / 2
     model_input = model_input.cuda()
 
-    ground_truth = ground_truth.view(-1, 1).cuda()
+    ground_truth = ground_truth.reshape([nx*ny, 1]).cuda()
 
     
+    batch_ratio = 0.25
+
     loss_list = []
     for step in trange(total_steps):
+
+        sample_ids = np.random.choice(model_input.shape[0], int(model_input.shape[0]*batch_ratio), replace=False)
+        model_input_batch = model_input[sample_ids]
+        ground_truth_batch = ground_truth[sample_ids]
+        loss = ((img_siren(model_input_batch) - ground_truth_batch) ** 2).mean()
+
+        # model_output = img_siren(model_input)
+        # loss = ((model_output - ground_truth_batch) ** 2).mean()
+
+        # TV loss
+        # grad = gradient(model_output, model_input)
+        # grad_norm = torch.sqrt(torch.sum(grad ** 2, dim=-1, keepdim=True) + 1e-10)
+        # tv_loss = grad_norm.mean()
+        # loss += 1e-5 * tv_loss
+
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
+
+        loss_list.append(loss.item())
+
+        if step % steps_til_summary == 0:
+
+            with torch.no_grad():
+                model_output = img_siren(model_input)
+
+                fig, axes = plt.subplots(1, 2, figsize=(18, 8), gridspec_kw={'wspace': 0.3, 'hspace': 0})
+                axes[0].plot(loss_list, color='k')
+                axes[0].set_xlabel('step')
+                axes[0].set_ylabel('MSE Loss')
+                pred_img = model_output.cpu().detach().numpy().reshape(nx, ny)
+                axes[1].imshow(pred_img, cmap='gray')
+                error = np.linalg.norm(ground_truth.cpu().detach().numpy().reshape(nx, ny) - pred_img, ord=2)
+                axes[1].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9,color='b')
+                plt.tight_layout(pad=1.0)
+                plt.show()     
+
+    print("Step %d, Total loss %0.6f" % (step, loss))
+    # img_grad = gradient(model_output, coords)
+    # img_laplacian = laplace(model_output, coords)
+
+         
+
+
+
+
+if False: # __name__ == '__main__':
+
+
+    device = 'cuda:0'
+    try:
+        matplotlib.use("Qt5Agg")
+    except:
+        pass
+    
+    from torch.utils.data import DataLoader
+
+    cameraman = ImageFitting(256)
+    dataloader = DataLoader(cameraman, batch_size=1, pin_memory=True, num_workers=0)
+
+    img_siren = Siren(in_features=2, out_features=1, hidden_features=512,
+                      hidden_layers=3, outermost_linear=True, first_omega_0=256., hidden_omega_0=256.)
+    img_siren.cuda()
+
+    total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
+    steps_til_summary = 1000
+
+    optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
+
+    loss_list = []
+    for step in trange(total_steps):
+        model_input, ground_truth = next(iter(dataloader))
+        model_input, ground_truth = model_input.cuda(), ground_truth.cuda()
+        model_input.requires_grad_(True)
         model_output = img_siren(model_input)
         loss = ((model_output - ground_truth) ** 2).mean()
 
@@ -294,46 +428,36 @@ if __name__ == '__main__':
     # img_grad = gradient(model_output, coords)
     # img_laplacian = laplace(model_output, coords)
 
+    factor = 160
 
-    fig, axes = plt.subplots(1, 2, figsize=(18, 8), gridspec_kw={'wspace': 0.3, 'hspace': 0})
+    x_upsampled = np.linspace(0, 1, 256*factor)
+    y_upsampled = np.ones(256*factor)*(100/256)  
+    coords_upsampled = np.stack([x_upsampled, y_upsampled], axis=1)  # shape (2560, 2)
+    coords_upsampled_torch = torch.tensor(coords_upsampled, dtype=torch.float32, device=device)
+    pred_upsampled = img_siren(coords_upsampled_torch).cpu().detach().numpy().squeeze()
+    x_upsampled = np.linspace(0, 256, 256*factor)
+
+
+    gt_img = ground_truth.cpu().detach().numpy().reshape(256, 256)
+    pred_img = model_output.cpu().detach().numpy().reshape(256, 256)
+
+
+    fig, axes = plt.subplots(1, 4, figsize=(18, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
     axes[0].plot(loss_list, color='k')
     axes[0].set_xlabel('step')
     axes[0].set_ylabel('MSE Loss')
-    pred_img = model_output.cpu().detach().numpy().reshape(nx, ny)
     axes[1].imshow(pred_img, cmap='gray')
-    error = np.linalg.norm(ground_truth.cpu().detach().numpy().reshape(nx, ny) - pred_img, ord=2)
+    error = np.linalg.norm(gt_img - pred_img, ord=2)
     axes[1].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9)
+    axes[2].plot(gt_img[:,100], color='green', label='true')
+    axes[2].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
+    axes[3].plot(gt_img[:,100], color='green', label='true')
+    axes[3].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
+    axes[3].set_xlim(200, 220)
+    axes[3].set_ylim(0, 0.4)
     plt.tight_layout(pad=1.0)
-    plt.show()              
-
-
-
-    # factor = 160
-
-    # x_upsampled = np.linspace(0, 1, 256*factor)
-    # y_upsampled = np.ones(256*factor)*(100/256)  
-    # coords_upsampled = np.stack([x_upsampled, y_upsampled], axis=1)  # shape (2560, 2)
-    # coords_upsampled_torch = torch.tensor(coords_upsampled, dtype=torch.float32, device=device)
-    # pred_upsampled = img_siren(coords_upsampled_torch).cpu().detach().numpy().squeeze()
-    # x_upsampled = np.linspace(0, 256, 256*factor)
-
-    # gt_img = ground_truth.cpu().detach().numpy().reshape(nx, ny)
-    # pred_img = model_output.cpu().detach().numpy().reshape(nx, ny)
-
-    # fig, axes = plt.subplots(1, 4, figsize=(18, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
-    # axes[0].plot(loss_list, color='k')
-    # axes[0].set_xlabel('step')
-    # axes[0].set_ylabel('MSE Loss')
-    # axes[1].imshow(pred_img, cmap='gray')
-    # error = np.linalg.norm(gt_img - pred_img, ord=2)
-    # axes[1].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9)
-    # axes[2].plot(gt_img[:,100], color='green', label='true')
-    # axes[2].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
-    # axes[3].plot(gt_img[:,100], color='green', label='true')
-    # axes[3].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
-    # axes[3].set_xlim(200, 220)
-    # axes[3].set_ylim(0, 0.4)
-    # plt.tight_layout(pad=1.0)
-    # plt.show()
+    plt.show()
     # plt.close()
+
+
 

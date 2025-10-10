@@ -3216,7 +3216,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         target_frames = 90000
         step = 25000
     else:
-        target_frames = 200
+        target_frames = 600
         step = 10
 
     dataset_length = len(stimulus_dataset)
@@ -3320,6 +3320,23 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     # figure_path="overlay_all_bary.png",
     # show=True,
     # )
+
+    neuron_types = to_numpy(x[:, 6]).astype(int)
+    index_to_name = {0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2',
+                        7: 'L3', 8: 'L4', 9: 'L5', 10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10',
+                        14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14', 18: 'Mi15', 19: 'Mi2',
+                        20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
+                        27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a',
+                        34: 'T3', 35: 'T4a', 36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b',
+                        41: 'T5c', 42: 'T5d', 43: 'Tm1', 44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28',
+                        48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y', 52: 'Tm5a', 53: 'Tm5b',
+                        54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14', 59: 'TmY15',
+                        60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'}
+
+    anatomical_order = [None, 23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
+                        22, 13, 14, 15, 16, 17, 18, 43, 45, 48, 50, 44, 46, 47, 49, 51, 52, 53, 54,
+                        55, 61, 62, 63, 56, 57, 58, 59, 60, 64, 1, 2, 4, 3, 31, 32, 33, 34, 35, 36,
+                        37, 38, 39, 40, 41, 42, 0]
 
 
     # MAIN LOOP #####################################
@@ -3548,7 +3565,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
                     y_list.append(to_numpy(y.clone().detach()))
 
-                    if (it>0) & (it % step == 0):
+                    if (it>0) & (it % step == 0) & visualize:
                         if "latex" in style:
                             plt.rcParams["text.usetex"] = True
                             rc("font", **{"family": "serif", "serif": ["Palatino"]})
@@ -3556,23 +3573,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         matplotlib.rcParams["savefig.pad_inches"] = 0
                         num = f"{id_fig:06}"
                         id_fig += 1
-
-                        neuron_types = to_numpy(x[:, 6]).astype(int)
-                        index_to_name = {0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2',
-                                         7: 'L3', 8: 'L4', 9: 'L5', 10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10',
-                                         14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14', 18: 'Mi15', 19: 'Mi2',
-                                         20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
-                                         27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a',
-                                         34: 'T3', 35: 'T4a', 36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b',
-                                         41: 'T5c', 42: 'T5d', 43: 'Tm1', 44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28',
-                                         48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y', 52: 'Tm5a', 53: 'Tm5b',
-                                         54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14', 59: 'TmY15',
-                                         60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'}
-
-                        anatomical_order = [None, 23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
-                                            22, 13, 14, 15, 16, 17, 18, 43, 45, 48, 50, 44, 46, 47, 49, 51, 52, 53, 54,
-                                            55, 61, 62, 63, 56, 57, 58, 59, 60, 64, 1, 2, 4, 3, 31, 32, 33, 34, 35, 36,
-                                            37, 38, 39, 40, 41, 42, 0]
 
                         if calcium_type != "none":
 
@@ -3736,19 +3736,20 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                 break
     print(f"generated {len(x_list)} frames total")
 
-    print('generating lossless video ...')
+    if (visualize):
+        print('generating lossless video ...')
 
-    config_indices = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
-    src = f"./{log_dir}/tmp_recons/Fig_0_000000.png"
-    dst = f"./{log_dir}/results/input_{config_indices}.png"
-    with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
-        fdst.write(fsrc.read())
+        config_indices = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
+        src = f"./{log_dir}/tmp_recons/Fig_0_000000.png"
+        dst = f"./{log_dir}/results/input_{config_indices}.png"
+        with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
+            fdst.write(fsrc.read())
 
-    # generate_lossless_video_ffv1(output_dir=f"./{log_dir}/results", run=run, config_indices=config_indices,framerate=20)
-    # generate_lossless_video_libx264(output_dir=f"./{log_dir}/results", run=run,
-    #                                 config_indices=config_indices,framerate=20)
-    # generate_compressed_video_mp4(output_dir=f"./{log_dir}/results", run=run,
-    #                                 config_indices=config_indices,framerate=20)
+        # generate_lossless_video_ffv1(output_dir=f"./{log_dir}/results", run=run, config_indices=config_indices,framerate=20)
+        # generate_lossless_video_libx264(output_dir=f"./{log_dir}/results", run=run,
+        #                                 config_indices=config_indices,framerate=20)
+        generate_compressed_video_mp4(output_dir=f"./{log_dir}/results", run=run,
+                                        config_indices=config_indices,framerate=20)
 
     # files = glob.glob(f'./{log_dir}/tmp_recons/*')
     # for f in files:
@@ -3760,10 +3761,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     y_list = np.array(y_list)
 
     print('plot activity ...')
-
     activity = torch.tensor(x_list[:, :, 3:4], device=device).squeeze().t()  # voltage
     input_visual = torch.tensor(x_list[:, :, 4:5], device=device).squeeze().t()
-
     if calcium_type != "none":
         calcium_activity = torch.tensor(x_list[:, :, 7:8], device=device).squeeze().t()
 
@@ -3838,22 +3837,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         plt.savefig(f"./{log_dir}/results/activity_voltage.tif", dpi=300)
         plt.close()
 
-
-
-
-    fig, axes = plt.subplots(8, 8, figsize=(34, 24))
-    axes_flat = axes.flatten()
-
-    panel_order = [23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
-                22, 13, 14, 15, 16, 17, 18, 43, 45, 48, 50, 44, 46, 47, 49, 51, 52, 53, 54,
-                55, 61, 62, 63, 56, 57, 58, 59, 60, 64, 1, 2, 4, 3, 31, 32, 33, 34, 35, 36,
-                37, 38, 39, 40, 41, 42, 0]
-
-
-    # Get neuron types from data
-    neuron_types = x_list[-1, :, 6].astype(int)
-
-    # Extract activity data
+    print('compute statistics ...')
     if calcium_type != "none":
         # Use calcium (index 7)
         activity_true = x_generated_list[:, :, 7].squeeze().T  # (n_neurons, n_frames)
@@ -3867,16 +3851,14 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         activity_pred = x_list[:, :, 3].squeeze().T
         activity_label = "voltage"
         y_lim = [-3, 3]
-
-
     print('computing RMSE per neuron...')
     rmse_per_neuron = np.sqrt(np.mean((activity_true - activity_pred)**2, axis=1))  # (n_neurons,)
-    
-    # Print mean and std RMSE results
     mean_rmse = np.mean(rmse_per_neuron)
     std_rmse = np.std(rmse_per_neuron)
     print(f"RMSE per neuron - Mean: {mean_rmse:.6f}, Std: {std_rmse:.6f}")
     print(f"RMSE range: [{np.min(rmse_per_neuron):.6f}, {np.max(rmse_per_neuron):.6f}]")
+    np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_per_neuron)
+    
 
     print('computing Pearson correlation per neuron...')
     pearson_per_neuron = []
@@ -3913,14 +3895,17 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         print(f"  per-neuron range - mean: {activity_range_mean:.6f}, std: {activity_range_std:.6f}")
 
 
-    # Save RMSE results
-    np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_per_neuron)
+
 
     print('plot 8x8 panel for neuron types (ground truth vs predicted)...')
-
-    # Set random seed for reproducible neuron selection
     np.random.seed(42)
-
+    fig, axes = plt.subplots(8, 8, figsize=(34, 24))
+    axes_flat = axes.flatten()
+    panel_order = [23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
+                22, 13, 14, 15, 16, 17, 18, 43, 45, 48, 50, 44, 46, 47, 49, 51, 52, 53, 54,
+                55, 61, 62, 63, 56, 57, 58, 59, 60, 64, 1, 2, 4, 3, 31, 32, 33, 34, 35, 36,
+                37, 38, 39, 40, 41, 42, 0]
+    neuron_types = x_list[-1, :, 6].astype(int)
     for idx, type_idx in enumerate(panel_order):
         if idx >= 64:  # Only 64 panels in 8x8
             break
@@ -3943,10 +3928,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             start_frame = 85000
             end_frame = 85500
             n_frames = true_data.shape[0]
-            if n_frames < end_frame:
-                print(f"warning: not enough frames ({n_frames}), using available range for panel {idx}")
-                start_frame = 25000
-                end_frame = 25500
+            if target_frames < end_frame:
+                # print(f"warning: not enough frames ({n_frames}), using available range for panel {idx}")
+                start_frame = 0
+                end_frame = 500
 
 
             # Calculate dynamic y-limits with padding
@@ -4001,53 +3986,20 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             y_max_panel = max(np.max(true_data_panel), np.max(pred_data_panel))
             ax.set_yticks([y_min_panel, (y_min_panel+y_max_panel)/2, y_max_panel])
             ax.set_yticklabels([f'{y_min_panel:.2f}', f'{(y_min_panel+y_max_panel)/2:.2f}', f'{y_max_panel:.2f}'], fontsize=14)
-
-    # Hide remaining panels if any
-    for idx in range(64, len(axes_flat)):
-        axes_flat[idx].set_visible(False)
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison.png", dpi=150)
     plt.close()
 
 
     
-    # 5x4 panel plot for each neuron type - comparing ground truth vs predicted
     print('plot 5x4 panel for neuron types (ground truth vs predicted)...')
-
     fig, axes = plt.subplots(5, 4, figsize=(18, 12))
     axes_flat = axes.flatten()
-
-
     panel_order = [23, 24, 5, 6, 11, 12, 13, 15, 16, 44, 46, 47, 50, 52, 53, 1, 2, 31, 32, 41]
-
-
-    # Get neuron types from data
-    neuron_types = x_list[-1, :, 6].astype(int)
-
-    # Extract activity data
-    if calcium_type != "none":
-        # Use calcium (index 7)
-        activity_true = x_generated_list[:, :, 7].squeeze().T  # (n_neurons, n_frames)
-        activity_pred = x_list[:, :, 7].squeeze().T
-        activity_label = "calcium"
-        y_lim = [0, 3]
-    else:
-        # Use voltage (index 3)
-        activity_true = x_generated_list[:, :, 3].squeeze().T
-        activity_true_modified = x_generated_modified_list[:, :, 3].squeeze().T   
-        activity_pred = x_list[:, :, 3].squeeze().T
-        activity_label = "voltage"
-        y_lim = [-3, 3]
-
-    # Set random seed for reproducible neuron selection
-    np.random.seed(42)
-
     for idx, type_idx in enumerate(panel_order):
         if idx >= 20:  
             break
-        
         ax = axes_flat[idx]
-        
         # Find all neurons of this type
         type_mask = neuron_types == type_idx
         neuron_indices = np.where(type_mask)[0]
@@ -4061,22 +4013,18 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             pred_data = activity_pred[selected_neuron, :]
             true_data_modified = activity_true_modified[selected_neuron, :]
             
-            # Calculate dynamic y-limits with padding
-
             start_frame = 85000
-            end_frame = end_frame
+            end_frame = 85500
             n_frames = true_data.shape[0]
-            if n_frames < end_frame:
-                print(f"warning: not enough frames ({n_frames}), using available range for panel {idx}")
-                start_frame = 25000
-                end_frame = 25500
+            if target_frames < end_frame:
+                start_frame = 0
+                end_frame = 500
 
             y_min = min(np.min(true_data[start_frame:end_frame]), np.min(pred_data[start_frame:end_frame]))
             y_max = max(np.max(true_data[start_frame:end_frame]), np.max(pred_data[start_frame:end_frame]))
             y_range = y_max - y_min
             y_padding = y_range * 0.25  # 10% padding
        
-           
             ax.plot(true_data, linewidth=8, color='green', alpha=0.4)
 
             if 'true_only' not in style:
@@ -4086,7 +4034,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                     ax.plot(pred_data, linewidth=1, color=mc, alpha=1.0)
                 rmse = np.sqrt(np.mean((true_data - pred_data)**2))
                 ax.text(0.525, 0.95, f'RMSE: {rmse:.3f}', transform=ax.transAxes, ha='left', va='top', fontsize=16, color=mc)
-            # Add type name in top left corner
             type_name = index_to_name.get(type_idx, f'Type_{type_idx}')
             ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
                     ha='left', va='top', fontsize=20, color=mc)
@@ -4094,7 +4041,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_xlim([start_frame, end_frame])
             ax.set_ylim([y_min - y_padding, y_max + y_padding])
             
-            # Add y-axis ticks for all panels
             ax.set_yticks([y_min, (y_min+y_max)/2, y_max])
             ax.set_yticklabels([f'{y_min:.2f}', f'{(y_min+y_max)/2:.2f}', f'{y_max:.2f}'], fontsize=14)
             
@@ -4122,7 +4068,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             y_max_panel = max(np.max(true_data_panel), np.max(pred_data_panel))
             ax.set_yticks([y_min_panel, (y_min_panel+y_max_panel)/2, y_max_panel])
             ax.set_yticklabels([f'{y_min_panel:.2f}', f'{(y_min_panel+y_max_panel)/2:.2f}', f'{y_max_panel:.2f}'], fontsize=14)
-
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/activity_5x4_panel_comparison.png", dpi=150)
     plt.close()
