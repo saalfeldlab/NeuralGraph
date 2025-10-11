@@ -50,6 +50,9 @@ def choose_model(config=[], W=[], device=[]):
             model = PDE_N6(aggr_type=aggr_type, p=p, W=W, phi=phi, short_term_plasticity_mode = short_term_plasticity_mode)
         case 'PDE_N7':
             model = PDE_N7(aggr_type=aggr_type, p=p, W=W, phi=phi, short_term_plasticity_mode = short_term_plasticity_mode)
+        case 'PDE_N11':
+            model = PDE_N11(aggr_type=aggr_type, p=p, W=W, phi=phi)
+
 
 
     return model, bc_pos, bc_dpos
@@ -360,36 +363,32 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
         connectivity = constructRandomMatrices(n_neurons=n_neurons, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
         n_neurons = connectivity.shape[0]
         config.simulation.n_neurons = n_neurons
-    elif 'values' in connectivity_file:
-        parts = connectivity_file.split('_')
-        w01 = float(parts[-2])
-        w10 = float(parts[-1])
-        connectivity =[[0, w01], [w10, 0]]
-        connectivity = np.array(connectivity)
+
+    elif connectivity_type != 'none':
+        if 'chaotic' in connectivity_type:
+            # Chaotic network 
+            connectivity = np.random.randn(n_neurons,n_neurons) * np.sqrt(1/n_neurons)
+        elif 'ring attractor' in connectivity_type:
+            # Ring attractor network 
+            th = np.linspace(0, 2 * np.pi, n_neurons, endpoint=False)   # Preferred firing location (angle)
+            J1 = 1.0
+            J0 = 0.5
+            connectivity = (J1 * np.cos(th[:, None] - th[None, :]) + J0) / n_neurons   # Synaptic weight matrix
+        elif 'rank 1' in connectivity_type:
+            # Rank 1 network 
+            u1 = np.random.rand(n_neurons)
+            u2 = np.random.rand(n_neurons)
+            connectivity = np.outer(u1,u2)
+        elif 'successor' in connectivity_type:
+            # Successor Representation
+            T = np.eye(n_neurons, k=1)
+            gamma = 0.98
+            connectivity = np.linalg.inv(np.eye(n_neurons) - gamma*T)
+        
         connectivity = torch.tensor(connectivity, dtype=torch.float32, device=device)
-    elif connectivity_type != '':
-
-        # Chaotic network 
-        W_chaos = np.random.randn(N,N) * np.sqrt(1/N)
-
-        # Ring attractor network 
-        th = np.linspace(0, 2 * np.pi, N, endpoint=False)   # Preferred firing location (angle)
-        J1 = 1.0
-        J0 = 0.5
-        W_ring = (J1 * np.cos(th[:, None] - th[None, :]) + J0) / N   # Synaptic weight matrix
-
-
-        # Rank 1 network 
-        u1 = np.random.rand(N)
-        u2 = np.random.rand(N)
-
-        W_rank1 = np.outer(u1,u2)
-
-
-        # Successor Representation
-        T = np.eye(N, k=1)
-        gamma = 0.98
-        W_sr = np.linalg.inv(np.eye(N) - gamma*T)
+        # make sure diagonal is zeros
+        i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
+        connectivity[i, i] = 0
 
     else:
         if 'Gaussian' in connectivity_distribution:

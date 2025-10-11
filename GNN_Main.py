@@ -32,9 +32,9 @@ import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
 
 import os
-os.environ["MPLBACKEND"] = "Agg"
-os.environ["QT_API"] = "pyside6"        
-os.environ["VISPY_BACKEND"] = "pyside6" 
+# os.environ["MPLBACKEND"] = "Agg"
+# os.environ["QT_API"] = "pyside6"        
+# os.environ["VISPY_BACKEND"] = "pyside6" 
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -56,7 +56,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None 
-        task = 'generate'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -69,7 +69,7 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_59_1', 'fly_N9_59_2', 'fly_N9_59_3', 'fly_N9_59_4', 'fly_N9_59_5']
         # config_list = ['fly_N9_22_10']
 
-        config_list = ['signal_N2_5']
+        config_list = ['signal_N11_1']   # , 'signal_N11_2', 'signal_N11_3', 'signal_N11_4']
 
         # config_list = ['zebra_N10_34_1']
 
@@ -95,7 +95,7 @@ if __name__ == "__main__":
                 alpha=1,
                 erase=False,
                 bSave=True,
-                step=1
+                step=20
             ) 
 
         if "train" in task:
