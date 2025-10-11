@@ -101,7 +101,6 @@ class GraphModelConfig(BaseModel):
 
     aggr_type: str
     embedding_dim: int = 2
-    embedding_init: str = ""
 
     field_type: str = ""
     field_grid: Optional[str] = ""

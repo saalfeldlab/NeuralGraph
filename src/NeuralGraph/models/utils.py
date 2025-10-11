@@ -845,7 +845,7 @@ def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], mod
 
     return func_list, proj_interaction
 
-def choose_training_model(model_config=None, device=None, projections=None):
+def choose_training_model(model_config=None, device=None):
 
     dataset_name = model_config.dataset
     aggr_type = model_config.graph_model.aggr_type
