@@ -338,15 +338,13 @@ def init_synapse_map(config, x, edge_attr_adjacency, device):
     #     X1[k,:] = torch.tensor([p[0],p[1]], device=device)
     
     
-def init_connectivity(connectivity_file, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device):
+def init_connectivity(connectivity_file, connectivity_type, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device):
 
     if 'adjacency.pt' in connectivity_file:
-        adjacency = torch.load(connectivity_file, map_location=device)
-
+        connectivity = torch.load(connectivity_file, map_location=device)
     elif 'mat' in connectivity_file:
         mat = scipy.io.loadmat(connectivity_file)
-        adjacency = torch.tensor(mat['A'], device=device)
-
+        connectivity = torch.tensor(mat['A'], device=device)
     elif 'zarr' in connectivity_file:
         print('loading zarr ...')
         dataset = xr.open_zarr(connectivity_file)
@@ -356,34 +354,51 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         values = trained_weights[0:n_neurons,0:n_neurons]
         values = np.array(values)
         values = values / np.max(values)
-        adjacency = torch.tensor(values, dtype=torch.float32, device=device)
+        connectivity = torch.tensor(values, dtype=torch.float32, device=device)
         values=[]
-
     elif 'tif' in connectivity_file:
-        adjacency = constructRandomMatrices(n_neurons=n_neurons, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
-        n_neurons = adjacency.shape[0]
+        connectivity = constructRandomMatrices(n_neurons=n_neurons, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
+        n_neurons = connectivity.shape[0]
         config.simulation.n_neurons = n_neurons
-
     elif 'values' in connectivity_file:
         parts = connectivity_file.split('_')
         w01 = float(parts[-2])
         w10 = float(parts[-1])
-        adjacency =[[0, w01], [w10, 0]]
-        adjacency = np.array(adjacency)
-        adjacency = torch.tensor(adjacency, dtype=torch.float32, device=device)
+        connectivity =[[0, w01], [w10, 0]]
+        connectivity = np.array(connectivity)
+        connectivity = torch.tensor(connectivity, dtype=torch.float32, device=device)
+    elif connectivity_type != '':
+
+        # Chaotic network 
+        W_chaos = np.random.randn(N,N) * np.sqrt(1/N)
+
+        # Ring attractor network 
+        th = np.linspace(0, 2 * np.pi, N, endpoint=False)   # Preferred firing location (angle)
+        J1 = 1.0
+        J0 = 0.5
+        W_ring = (J1 * np.cos(th[:, None] - th[None, :]) + J0) / N   # Synaptic weight matrix
+
+
+        # Rank 1 network 
+        u1 = np.random.rand(N)
+        u2 = np.random.rand(N)
+
+        W_rank1 = np.outer(u1,u2)
+
+
+        # Successor Representation
+        T = np.eye(N, k=1)
+        gamma = 0.98
+        W_sr = np.linalg.inv(np.eye(N) - gamma*T)
 
     else:
-
         if 'Gaussian' in connectivity_distribution:
-            adjacency = torch.randn((n_neurons, n_neurons), dtype=torch.float32, device=device)
-            adjacency = adjacency / np.sqrt(n_neurons)
-            print(f"Gaussian   1/sqrt(N)  {1/np.sqrt(n_neurons)}    std {torch.std(adjacency.flatten())}")
-
+            connectivity = torch.randn((n_neurons, n_neurons), dtype=torch.float32, device=device)
+            connectivity = connectivity / np.sqrt(n_neurons)
+            print(f"Gaussian   1/sqrt(N)  {1/np.sqrt(n_neurons)}    std {torch.std(connectivity.flatten())}")
         elif 'Lorentz' in connectivity_distribution:
-
             s = np.random.standard_cauchy(n_neurons**2)
             s[(s < -25) | (s > 25)] = 0
-
             if n_neurons < 2000:
                 s = s / n_neurons**0.7
             elif n_neurons <4000:
@@ -396,23 +411,21 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
                 s = s / n_neurons**0.5
             print(f"Lorentz   1/sqrt(N)  {1/np.sqrt(n_neurons):0.3f}    std {np.std(s):0.3f}")
 
-            adjacency = torch.tensor(s, dtype=torch.float32, device=device)
-            adjacency = torch.reshape(adjacency, (n_neurons, n_neurons))
-
+            connectivity = torch.tensor(s, dtype=torch.float32, device=device)
+            connectivity = torch.reshape(connectivity, (n_neurons, n_neurons))
         elif 'uniform' in connectivity_distribution:
-            adjacency = torch.rand((n_neurons, n_neurons), dtype=torch.float32, device=device)
-            adjacency = adjacency - 0.5
-
+            connectivity = torch.rand((n_neurons, n_neurons), dtype=torch.float32, device=device)
+            connectivity = connectivity - 0.5
         i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
-        adjacency[i, i] = 0
+        connectivity[i, i] = 0
 
     if connectivity_filling_factor != 1:
-        mask = torch.rand(adjacency.shape) > connectivity_filling_factor
-        adjacency[mask] = 0
-        mask = (adjacency != 0).float()
+        mask = torch.rand(connectivity.shape) > connectivity_filling_factor
+        connectivity[mask] = 0
+        mask = (connectivity != 0).float()
 
         # Calculate effective filling factor
-        total_possible = adjacency.shape[0] * adjacency.shape[1]
+        total_possible = connectivity.shape[0] * connectivity.shape[1]
         actual_connections = mask.sum().item()
         effective_filling_factor = actual_connections / total_possible
 
@@ -441,7 +454,7 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         matrix_sign = matrix_sign.reshape(n_neuron_types, n_neuron_types)
 
         plt.figure(figsize=(10, 10))
-        ax = sns.heatmap(to_numpy(adjacency), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
+        ax = sns.heatmap(to_numpy(connectivity), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
                          vmin=-0.1, vmax=0.1)
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
@@ -449,7 +462,7 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
-        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
+        ax = sns.heatmap(to_numpy(connectivity[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
                          vmax=0.1)
         plt.xticks([])
         plt.yticks([])
@@ -459,18 +472,18 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
 
         T1_ = to_numpy(T1.squeeze())
         xy_grid = np.stack(np.meshgrid(T1_, T1_), -1)
-        adjacency = torch.abs(adjacency)
+        connectivity = torch.abs(connectivity)
         T1_ = to_numpy(T1.squeeze())
         xy_grid = np.stack(np.meshgrid(T1_, T1_), -1)
         sign_matrix = matrix_sign[xy_grid[..., 0], xy_grid[..., 1]]
-        adjacency *= sign_matrix
+        connectivity *= sign_matrix
 
         plt.imshow(to_numpy(sign_matrix))
         plt.savefig(f"graphs_data/{dataset_name}/large_connectivity_sign.tif", dpi=130)
         plt.close()
 
         plt.figure(figsize=(10, 10))
-        ax = sns.heatmap(to_numpy(adjacency), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
+        ax = sns.heatmap(to_numpy(connectivity), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
                          vmin=-0.1, vmax=0.1)
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
@@ -478,7 +491,7 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
-        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
+        ax = sns.heatmap(to_numpy(connectivity[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
                          vmax=0.1)
         plt.xticks([])
         plt.yticks([])
@@ -494,10 +507,10 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         flat_sign_matrix[indices] = 1
         sign_matrix = flat_sign_matrix.reshape(sign_matrix.shape)
 
-        adjacency *= sign_matrix
+        connectivity *= sign_matrix
 
         plt.figure(figsize=(10, 10))
-        ax = sns.heatmap(to_numpy(adjacency), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
+        ax = sns.heatmap(to_numpy(connectivity), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
                          vmin=-0.1, vmax=0.1)
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
@@ -505,7 +518,7 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
-        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
+        ax = sns.heatmap(to_numpy(connectivity[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1,
                          vmax=0.1)
         plt.xticks([])
         plt.yticks([])
@@ -513,8 +526,8 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
         plt.savefig(f'graphs_data/{dataset_name}/adjacency_2.png', dpi=300)
         plt.close()
 
-        total_possible = adjacency.shape[0] * adjacency.shape[1]
-        actual_connections = (adjacency != 0).sum().item()
+        total_possible = connectivity.shape[0] * connectivity.shape[1]
+        actual_connections = (connectivity != 0).sum().item()
         effective_filling_factor = actual_connections / total_possible
 
         print(f"target filling factor: {float_value2}")
@@ -523,7 +536,7 @@ def init_connectivity(connectivity_file, connectivity_distribution, connectivity
 
     edge_index = edge_index.to(device=device)
 
-    return edge_index, adjacency, mask
+    return edge_index, connectivity, mask
 
 
 def generate_lossless_video_ffv1(output_dir, run=0, framerate=10, output_name="_ffv1.mkv", config_indices=None):
