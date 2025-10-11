@@ -236,7 +236,7 @@ if __name__ == '__main__':
 
 
     img_siren = Siren(in_features=2, out_features=1, hidden_features=512,
-                      hidden_layers=3, outermost_linear=True, first_omega_0=512., hidden_omega_0=512.)
+                      hidden_layers=3, outermost_linear=True, first_omega_0=220., hidden_omega_0=220.)
     img_siren.cuda()
 
     total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
@@ -244,7 +244,7 @@ if __name__ == '__main__':
 
     optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
 
-    if False:
+    if True:
         import skimage
         from PIL import Image
         from torchvision.transforms import Resize, Compose, ToTensor, Normalize
@@ -357,7 +357,7 @@ if __name__ == '__main__':
             with torch.no_grad():
                 model_output = img_siren(model_input)
 
-                fig, axes = plt.subplots(1, 3, figsize=(24, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
+                fig, axes = plt.subplots(1, 2, figsize=(16, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
                 axes[0].plot(loss_list, color='k')
                 axes[0].set_xlabel('step')
                 axes[0].set_ylabel('MSE Loss')
@@ -365,12 +365,11 @@ if __name__ == '__main__':
                 im1 = axes[1].imshow(pred_img, cmap='gray')
                 plt.colorbar(im1, ax=axes[1])
                 error = np.linalg.norm(ground_truth.cpu().detach().numpy().reshape(nx, ny) - pred_img, ord=2)
-
-                ground_truth_img = ground_truth.cpu().detach().numpy().reshape(nx, ny)
-                im2 = axes[2].imshow(ground_truth_img-pred_img, cmap='gray')
-                plt.colorbar(im2, ax=axes[2])
-                axes[2].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9,color='w')
-                plt.tight_layout(pad=1.0)
+                # ground_truth_img = ground_truth.cpu().detach().numpy().reshape(nx, ny)
+                # im2 = axes[2].imshow(ground_truth_img-pred_img, cmap='gray')
+                # plt.colorbar(im2, ax=axes[2])
+                # axes[2].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9,color='w')
+                # plt.tight_layout(pad=1.0)
                 plt.show()     
 
     print("Step %d, Total loss %0.6f" % (step, loss))

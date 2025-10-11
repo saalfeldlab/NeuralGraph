@@ -16,7 +16,6 @@ from scipy.optimize import curve_fit
 from scipy.spatial import Delaunay
 from torchvision.transforms import GaussianBlur
 import matplotlib
-# matplotlib.use("Agg")  # Non-interactive backend
 import matplotlib.pyplot as plt
 
 from matplotlib import rc
@@ -33,18 +32,9 @@ import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
 
 import os
-
-# 1) Keep matplotlib out of Qt entirely (no GUI needed for training/plots -> use Agg)
 os.environ["MPLBACKEND"] = "Agg"
-
-# 2) Choose ONE Qt binding for napari/vispy and stick to it for the whole process.
-# If your env already has PySide6, try this first:
-os.environ["QT_API"] = "pyside6"        # alternatives: "pyqt5", "pyqt6", "pyside2"
-os.environ["VISPY_BACKEND"] = "pyside6" # make vispy match napari
-
-# If you prefer PyQt5 (and have it installed), use:
-# os.environ["QT_API"] = "pyqt5"
-# os.environ["VISPY_BACKEND"] = "pyqt5"
+os.environ["QT_API"] = "pyside6"        
+os.environ["VISPY_BACKEND"] = "pyside6" 
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -66,21 +56,22 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None 
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'generate'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
         # config_list = ['fly_N9_53_1', 'fly_N9_53_2', 'fly_N9_53_3', 'fly_N9_53_4', 'fly_N9_53_5', 'fly_N9_53_6', 'fly_N9_53_7', 'fly_N9_53_8']
         # config_list = ['fly_N9_44_26'] #, 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22',  'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
         # config_list = ['fly_N9_22_1']
-        # config_list = ['signal_N2_1']
+
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_59_1', 'fly_N9_59_2', 'fly_N9_59_3', 'fly_N9_59_4', 'fly_N9_59_5']
         # config_list = ['fly_N9_22_10']
-        # config_list = ['signal_N5_l4','signal_N5_l5']
 
-        config_list = ['zebra_N10_34_1']
+        config_list = ['signal_N2_5']
+
+        # config_list = ['zebra_N10_34_1']
 
     for config_file_ in config_list:
         print(" ")

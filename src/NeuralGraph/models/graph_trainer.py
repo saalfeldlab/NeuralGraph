@@ -1955,17 +1955,14 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     ground_truth = ground_truth.permute(1,0,2)
 
     # down sample
-    factor = 8
-    # ground_truth: [1328, 2048, 72] -> [1, 1, 1328, 2048, 72]
+    factor = 4
     gt = ground_truth.unsqueeze(0).unsqueeze(0)
-    # Downsample X and Y, keep Z
     gt_down = F.interpolate(
         gt,
         size=(gt.shape[2] // factor, gt.shape[3] // factor, gt.shape[4]),
         mode='trilinear',
         align_corners=False
     )
-    # Remove batch and channel dims: [new_X, new_Y, 72]
     ground_truth = gt_down.squeeze(0).squeeze(0)    
     nx, ny, nz = ground_truth.shape
     print(f'\nshape: {ground_truth.shape}')
@@ -2006,32 +2003,32 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
         loss_list.append(loss.item())
 
-        if (step % steps_til_summary == 0) and (step>0):
-            print("Step %d, Total loss %0.6f" % (step, loss))
+    if (step % steps_til_summary == 0) and (step>0):
+        print("Step %d, Total loss %0.6f" % (step, loss))
 
-            z_idx = 20 
+        z_idx = 20 
 
-            z_vals = torch.unique(model_input[:, 2], sorted=True)
-            z_val  = z_vals[z_idx]
-            plane_mask = torch.isclose(model_input[:, 2], z_val, atol=1e-6, rtol=0.0)
-            plane_in = model_input[plane_mask]   
+        z_vals = torch.unique(model_input[:, 2], sorted=True)
+        z_val  = z_vals[z_idx]
+        plane_mask = torch.isclose(model_input[:, 2], z_val, atol=1e-6, rtol=0.0)
+        plane_in = model_input[plane_mask]   
 
-            with torch.no_grad():
-                model_output = img_siren(plane_in)
+        with torch.no_grad():
+            model_output = img_siren(plane_in)
 
-            gt = to_numpy(ground_truth).reshape(nx, ny, nz)   # both expected (nx, ny, nz)
-            gt_xy = gt[:, :, z_idx].astype(np.float32)
-            pd_xy = to_numpy(model_output).reshape(nx, ny)
-            
-            vmin, vmax = np.percentile(gt_xy, [1, 99.9]); 
-            vmin = float(vmin) if np.isfinite(vmin) else float(min(gt_xy.min(), pd_xy.min()))
-            vmax = float(vmax) if np.isfinite(vmax) and vmax>vmin else float(max(gt_xy.max(), pd_xy.max()))
-            rmse = float(np.sqrt(np.mean((pd_xy - gt_xy) ** 2)))
-            fig, ax = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
-            im0 = ax[0].imshow(gt_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[0].set_title(f"GT z={z_idx}"); ax[0].axis("off")
-            im1 = ax[1].imshow(pd_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[1].set_title(f"Pred z={z_idx}  RMSE={rmse:.4f}"); ax[1].axis("off")
-            fig.colorbar(im1, ax=ax.ravel().tolist(), fraction=0.046, pad=0.04, label="intensity")
-            plt.show()
+        gt = to_numpy(ground_truth).reshape(nx, ny, nz)   # both expected (nx, ny, nz)
+        gt_xy = gt[:, :, z_idx].astype(np.float32)
+        pd_xy = to_numpy(model_output).reshape(nx, ny)
+        
+        vmin, vmax = np.percentile(gt_xy, [1, 99.9]); 
+        vmin = float(vmin) if np.isfinite(vmin) else float(min(gt_xy.min(), pd_xy.min()))
+        vmax = float(vmax) if np.isfinite(vmax) and vmax>vmin else float(max(gt_xy.max(), pd_xy.max()))
+        rmse = float(np.sqrt(np.mean((pd_xy - gt_xy) ** 2)))
+        fig, ax = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
+        im0 = ax[0].imshow(gt_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[0].set_title(f"GT z={z_idx}"); ax[0].axis("off")
+        im1 = ax[1].imshow(pd_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[1].set_title(f"Pred z={z_idx}  RMSE={rmse:.4f}"); ax[1].axis("off")
+        fig.colorbar(im1, ax=ax.ravel().tolist(), fraction=0.046, pad=0.04, label="intensity")
+        plt.show()
 
     viewer = napari.Viewer()
     viewer.add_image(gt, name='ground_truth', scale=[dy_um*factor, dx_um*factor, dz_um])
