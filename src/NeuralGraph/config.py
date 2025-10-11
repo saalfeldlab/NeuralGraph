@@ -46,7 +46,6 @@ class SimulationConfig(BaseModel):
     tile_flip_prob: float = 0.05      # per-frame random flip probability
     tile_seed: int = 42
 
-
     n_grid: int = 128
 
     n_nodes: Optional[int] = None
@@ -60,7 +59,7 @@ class SimulationConfig(BaseModel):
     connectivity_file: str = ""
     connectivity_init: list[float] = [-1]
     connectivity_filling_factor: float = 1
-    connectivity_type: Literal["none", "distance", "voronoi", "k_nearest"] = "distance"
+    connectivity_type: Literal["none", "distance", "voronoi", "k_nearest", 'chaotic', 'ring attractor', 'rank 1', 'successor'] = "distance"
     connectivity_parameter: float = 1.0
     connectivity_distribution: str = "Gaussian"
     connectivity_distribution_params: float = 1

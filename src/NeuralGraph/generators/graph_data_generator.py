@@ -937,7 +937,6 @@ def data_generate_synaptic(
     n_frames = simulation_config.n_frames
     has_particle_dropout = training_config.particle_dropout > 0
     dataset_name = config.dataset
-    excitation = simulation_config.excitation
     noise_model_level = training_config.noise_model_level
     measurement_noise_level = training_config.measurement_noise_level
     cmap = CustomColorMap(config=config)
@@ -946,9 +945,6 @@ def data_generate_synaptic(
     if field_type != "":
         n_nodes = simulation_config.n_nodes
         n_nodes_per_axis = int(np.sqrt(n_nodes))
-
-    torch.random.fork_rng(devices=device)
-    torch.random.manual_seed(simulation_config.seed)
 
     if config.data_folder_name != "none":
         print(f"generating from data ...")
@@ -979,29 +975,16 @@ def data_generate_synaptic(
     files = glob.glob(f"./graphs_data/{dataset_name}/Fig/*")
     for f in files:
         os.remove(f)
-    os.makedirs(f"./graphs_data/{dataset_name}/Viz/", exist_ok=True)
-    files = glob.glob(f"./graphs_data/{dataset_name}/Viz/*")
-    for f in files:
-        os.remove(f)
-    os.makedirs(f"./graphs_data/{dataset_name}/Exc/", exist_ok=True)
-    files = glob.glob(f"./graphs_data/{dataset_name}/Exc/*")
-    for f in files:
-        os.remove(f)
-    os.makedirs(f"./graphs_data/{dataset_name}/Signal/", exist_ok=True)
-    files = glob.glob(f"./graphs_data/{dataset_name}/Signal/*")
-    for f in files:
-        os.remove(f)
 
-    particle_dropout_mask = np.arange(n_neurons)
     if has_particle_dropout:
         draw = np.random.permutation(np.arange(n_neurons))
         cut = int(n_neurons * (1 - training_config.particle_dropout))
         particle_dropout_mask = draw[0:cut]
         inv_particle_dropout_mask = draw[cut:]
         x_removed_list = []
-
-    if (("modulation" in model_config.field_type) | ("visual" in model_config.field_type)
-    ) & ("PDE_N6" not in model_config.signal_model_name):
+    else:
+        particle_dropout_mask = np.arange(n_neurons)
+    if ("modulation" in model_config.field_type) | ("visual" in model_config.field_type):
         im = imread(f"graphs_data/{simulation_config.node_value_map}")
     if "permutation" in field_type:
         permutation_indices = torch.randperm(n_neurons)
@@ -1013,10 +996,7 @@ def data_generate_synaptic(
             inverse_permutation_indices,
             f"./graphs_data/{dataset_name}/inverse_permutation_indices.pt",
         )
-    if "excitation_single" in field_type:
-        parts = field_type.split("_")
-        period = int(parts[-2])
-        amplitude = float(parts[-1])
+
 
     if "black" in style:
         plt.style.use("dark_background")
@@ -1066,24 +1046,6 @@ def data_generate_synaptic(
             torch.save(edge_index, f"./graphs_data/{dataset_name}/edge_index.pt")
             torch.save(mask, f"./graphs_data/{dataset_name}/mask.pt")
             torch.save(connectivity, f"./graphs_data/{dataset_name}/connectivity.pt")
-
-        if run == run_vizualized:
-            if "black" in style:
-                plt.style.use("dark_background")
-            plt.figure(figsize=(10, 10))
-            for n in range(n_neuron_types):
-                pos = torch.argwhere(T1.squeeze() == n)
-                plt.scatter(
-                    to_numpy(X1[pos, 0]),
-                    to_numpy(X1[pos, 1]),
-                    s=100,
-                    color=cmap.color(n),
-                )
-            plt.xticks([])
-            plt.yticks([])
-            plt.tight_layout()
-            plt.savefig(f"graphs_data/{dataset_name}/type_distribution.tif", dpi=130)
-            plt.close()
 
         if "modulation" in field_type:
             if run == 0:
@@ -1149,14 +1111,6 @@ def data_generate_synaptic(
                     A1[n_nodes:n_neurons, 0:1] = 1
 
                     # plt.scatter(to_numpy(X1_mesh[:, 1]), to_numpy(X1_mesh[:, 0]), s=40, c=to_numpy(A1), cmap='grey', vmin=0,vmax=1)
-                if "excitation_single" in field_type:
-                    parts = field_type.split("_")
-                    period = int(parts[-2])
-                    amplitude = float(parts[-1])
-                    if (it - 100) % period == 0:
-                        H1[0, 0] = H1[0, 0] + torch.tensor(
-                            amplitude, dtype=torch.float32, device=device
-                        )
 
                 x = torch.concatenate(
                     (
@@ -1192,10 +1146,8 @@ def data_generate_synaptic(
                 x_list.append(to_numpy(x))
                 y_list.append(to_numpy(y))
 
-            # Particle update
-            if (config.graph_model.signal_model_name == "PDE_N6") | (
-                config.graph_model.signal_model_name == "PDE_N7"
-            ):
+            # Field update
+            if (config.graph_model.signal_model_name == "PDE_N6") | (config.graph_model.signal_model_name == "PDE_N7"):
                 H1[:, 1] = y.squeeze()
                 H1[:, 0] = H1[:, 0] + H1[:, 1] * delta_t
                 if noise_model_level > 0:
@@ -1205,15 +1157,11 @@ def data_generate_synaptic(
                     )
                 H1[:, 3] = p.squeeze()
                 H1[:, 2] = torch.relu(H1[:, 2] + H1[:, 3] * delta_t)
-
             else:
                 H1[:, 1] = y.squeeze()
                 H1[:, 0] = H1[:, 0] + H1[:, 1] * delta_t
                 if noise_model_level > 0:
-                    H1[:, 0] = (
-                        H1[:, 0]
-                        + torch.randn(n_neurons, device=device) * noise_model_level
-                    )
+                    H1[:, 0] = (H1[:, 0]+ torch.randn(n_neurons, device=device) * noise_model_level)
 
             # print(f"Total allocated memory: {torch.cuda.memory_allocated(device) / 1024 ** 3:.2f} GB")
             # print(f"Total reserved memory:  {torch.cuda.memory_reserved(device) / 1024 ** 3:.2f} GB")
@@ -1435,8 +1383,9 @@ def data_generate_synaptic(
         if bSave:
             x_list = np.array(x_list)
             y_list = np.array(y_list)
-            # torch.save(x_list, f'graphs_data/{dataset_name}/x_list_{run}.pt')
             np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
+            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
+            torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
             if has_particle_dropout:
                 torch.save(
                     x_removed_list,
@@ -1450,9 +1399,6 @@ def data_generate_synaptic(
                     f"graphs_data/{dataset_name}/inv_particle_dropout_mask.npy",
                     inv_particle_dropout_mask,
                 )
-            # torch.save(y_list, f'graphs_data/{dataset_name}/y_list_{run}.pt')
-            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-            torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
             print("data saved ...")
 
         if measurement_noise_level > 0:
@@ -1473,9 +1419,7 @@ def data_generate_synaptic(
         activity = activity.squeeze()
         activity = activity.t()
         plt.figure(figsize=(15, 10))
-        ax = sns.heatmap(
-            to_numpy(activity), center=0, cmap="viridis", cbar_kws={"fraction": 0.046}
-        )
+        ax = sns.heatmap(to_numpy(activity), center=0, cmap="viridis", cbar_kws={"fraction": 0.046})
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
         ax.invert_yaxis()
