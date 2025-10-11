@@ -90,7 +90,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             self.a = nn.Parameter(torch.ones((int(self.n_neurons*100 + 1000), self.embedding_dim), device=self.device, requires_grad=True,dtype=torch.float32))
             self.embedding_step =  self.n_frames // 100
         else:
-            self.a = nn.Parameter(torch.tensor(projections, device=self.device, requires_grad=True, dtype=torch.float32))
+            self.a = nn.Parameter(torch.ones(self.n_neurons, self.embedding_dim, device=self.device, requires_grad=True, dtype=torch.float32))
 
         if (self.model == 'PDE_N6') | (self.model == 'PDE_N7'):
             self.b = nn.Parameter(torch.ones((int(self.n_neurons), 1000 + 10), device=self.device, requires_grad=True,dtype=torch.float32)*0.44)
