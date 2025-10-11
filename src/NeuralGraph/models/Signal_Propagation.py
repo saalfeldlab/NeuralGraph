@@ -89,8 +89,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         if self.model == 'PDE_N3':
             self.a = nn.Parameter(torch.ones((int(self.n_neurons*100 + 1000), self.embedding_dim), device=self.device, requires_grad=True,dtype=torch.float32))
             self.embedding_step =  self.n_frames // 100
-        elif model_config.embedding_init =='':
-            self.a = nn.Parameter(torch.ones((int(self.n_neurons), self.embedding_dim), device=self.device, requires_grad=True, dtype=torch.float32))
         else:
             self.a = nn.Parameter(torch.tensor(projections, device=self.device, requires_grad=True, dtype=torch.float32))
 

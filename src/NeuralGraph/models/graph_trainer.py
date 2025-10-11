@@ -77,18 +77,21 @@ def data_train(config=None, erase=False, best_model=None, device=None):
 
 
 def data_train_signal(config, erase, best_model, device):
+
     simulation_config = config.simulation
     train_config = config.training
     model_config = config.graph_model
 
-    dimension = simulation_config.dimension
     n_epochs = train_config.n_epochs
+    n_runs = train_config.n_runs
     n_neuron_types = simulation_config.n_neuron_types
 
     dataset_name = config.dataset
     n_frames = simulation_config.n_frames
+    dimension = simulation_config.dimension
     data_augmentation_loop = train_config.data_augmentation_loop
     recursive_loop = train_config.recursive_loop
+    recursive_parameters = train_config.recursive_parameters.copy()
     target_batch_size = train_config.batch_size
     delta_t = simulation_config.delta_t
     if train_config.small_init_batch_size:
@@ -96,10 +99,10 @@ def data_train_signal(config, erase, best_model, device):
     else:
         get_batch_size = constant_batch_size(target_batch_size)
     batch_ratio = train_config.batch_ratio
-    batch_size = get_batch_size(0)
-    embedding_cluster = EmbeddingCluster(config)
-    cmap = CustomColorMap(config=config)
-    n_runs = train_config.n_runs
+    replace_with_cluster = 'replace' in train_config.sparsity
+    sparsity_freq = train_config.sparsity_freq
+
+
     field_type = model_config.field_type
     coeff_lin_modulation = train_config.coeff_lin_modulation
     coeff_model_b = train_config.coeff_model_b
@@ -109,11 +112,13 @@ def data_train_signal(config, erase, best_model, device):
     coeff_edge_norm = train_config.coeff_edge_norm
     coeff_update_msg_sign = train_config.coeff_update_msg_sign
 
+    embedding_cluster = EmbeddingCluster(config)
+
     time_step = train_config.time_step
     has_missing_activity = train_config.has_missing_activity
     multi_connectivity = config.training.multi_connectivity
     baseline_value = simulation_config.baseline_value
-    time_window = train_config.time_window
+    cmap = CustomColorMap(config=config)
 
     if config.training.seed != 42:
         torch.random.fork_rng(devices=device)
@@ -127,11 +132,6 @@ def data_train_signal(config, erase, best_model, device):
         n_nodes = simulation_config.n_neurons
         has_neural_field = False
 
-    print(f'has_neural_field: {has_neural_field}, has_missing_activity: {has_missing_activity}')
-
-    replace_with_cluster = 'replace' in train_config.sparsity
-    sparsity_freq = train_config.sparsity_freq
-    recursive_parameters = train_config.recursive_parameters.copy()
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading graph files N: {n_runs} ...')
@@ -145,80 +145,33 @@ def data_train_signal(config, erase, best_model, device):
         x_list.append(x)
         y_list.append(y)
     x = x_list[0][n_frames - 10]
+    n_neurons = x.shape[0]
+    config.simulation.n_neurons =n_neurons
+    type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
 
-    activity = torch.tensor(x_list[0][:, :, 6:7], device=device)
-    activity = activity.squeeze()
+    activity = torch.tensor(x_list[0][:, :, 6], device=device)
     distrib = activity.flatten()
-
-    # pred_kinograph = y_list[0]
-    # fig = plt.figure(figsize=(10, 10))
-    # plt.imshow(np.transpose(pred_kinograph), aspect='auto',vmin =-3, vmax=3, cmap='viridis')
-    # plt.tight_layout()
-    # plt.savefig(f"./{log_dir}/tmp_training/pred_kinograph.tif", dpi=170)
-    # plt.close()
-
-    valid_distrib = distrib[~torch.isnan(distrib)]
-    if len(valid_distrib) > 0:
-        xnorm = torch.round(1.5 * torch.std(valid_distrib))
+    distrib = distrib[~torch.isnan(distrib)]
+    if len(distrib) > 0:
+        xnorm = torch.round(1.5 * torch.std(distrib))
     else:
         print('no valid distribution found, setting xnorm to 1.0')
         xnorm = torch.tensor(1.0, device=device)
-    torch.save(xnorm, os.path.join(log_dir, 'xnorm.pt'))
-    print(f'xnorm: {to_numpy(xnorm)}')
-    logger.info(f'xnorm: {to_numpy(xnorm)}')
-
-    n_neurons = x.shape[0]
-    print(f'N neurons: {n_neurons}')
-    logger.info(f'N neurons: {n_neurons}')
-    config.simulation.n_neurons =n_neurons
-    type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
     vnorm = torch.tensor(1.0, device=device)
     ynorm = torch.tensor(1.0, device=device)
+    torch.save(xnorm, os.path.join(log_dir, 'xnorm.pt'))
     torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
     torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
     time.sleep(0.5)
-    print(f'vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
-    logger.info(f'vnorm ynorm: {to_numpy(vnorm)} {to_numpy(ynorm)}')
 
-    if model_config.embedding_init != '':
-        print('compute init embedding ...')
-        for j in trange(n_frames):
-            if j == 0:
-                time_series = np.array(x_list[0][j][:, 6:7])
-            else:
-                time_series = np.concatenate((time_series, x_list[0][j][:, 6:7]), axis=1)
-        time_series = np.array(time_series)
+    print(f'N neurons: {n_neurons}, xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
+    logger.info(f'N neurons: {n_neurons}, xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
 
-        match model_config.embedding_init:
-            case 'umap':
-                trans = umap.UMAP(n_neighbors=50, n_components=2, transform_queue_size=0,
-                                  random_state=config.training.seed).fit(time_series)
-                projections = trans.transform(time_series)
-            case 'pca':
-                pca = PCA(n_components=2)
-                projections = pca.fit_transform(time_series)
-            case 'svd':
-                svd = TruncatedSVD(n_components=2)
-                projections = svd.fit_transform(time_series)
-            case 'tsne':
-                tsne = TSNE(n_components=2, perplexity=30, n_iter=300)
-                projections = tsne.fit_transform(time_series)
-
-        fig = plt.figure(figsize=(8, 8))
-        for n in range(n_neuron_types):
-            pos = torch.argwhere(type_list == n).squeeze()
-            plt.scatter(projections[to_numpy(pos), 0], projections[to_numpy(pos), 1], s=10, color=cmap.color(n))
-        plt.xlabel('Embedding 0', fontsize=12)
-        plt.ylabel('Embedding 1', fontsize=12)
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/Embedding_init.tif")
-        plt.close()
-    else:
-        projections = None
 
     print('create models ...')
-    model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device, projections=projections)
+    model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device)
     model.train()
+
     if has_missing_activity:
         assert batch_ratio == 1, f"batch_ratio must be 1, got {batch_ratio}"
         model_missing_activity = nn.ModuleList([
@@ -233,7 +186,6 @@ def data_train_signal(config, erase, best_model, device):
         optimizer_missing_activity = torch.optim.Adam(lr=train_config.learning_rate_missing_activity,
                                                       params=model_missing_activity.parameters())
         model_missing_activity.train()
-
     if has_neural_field:
         modulation = None
         if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
@@ -289,21 +241,17 @@ def data_train_signal(config, erase, best_model, device):
     lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
     lr_modulation = train_config.learning_rate_modulation_start
-
-    print(
-        f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
-    logger.info(
-        f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
-
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                         lr_update=lr_update, lr_W=lr_W, lr_modulation=lr_modulation)
+                                                        lr_update=lr_update, lr_W=lr_W, lr_modulation=lr_modulation)
+
+    print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
+    logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
+
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
     print(f'network: {net}')
     print(f'initial batch_size: {batch_size}')
-    logger.info(f'network: {net}')
-    logger.info(f'N epochs: {n_epochs}')
-    logger.info(f'initial batch_size: {batch_size}')
+    logger.info(f'network: {net}  N epochs: {n_epochs}  initial batch_size: {batch_size}')
 
 
     print('training setup ...')
@@ -322,15 +270,6 @@ def data_train_signal(config, erase, best_model, device):
                     model.W[run_].copy_(model.W[run_] * model.mask)
             else:
                 model.W.copy_(model.W * model.mask)
-
-        # pos = torch.argwhere(edges[1,:]==0)
-        # neurons_sender_to_0 = edges[0,pos]
-        # model.mask = (connectivity > 0) * 1.0
-        # adj_t = model.mask.float() * 1
-        # adj_t = adj_t.t() #[ post, pre] -> [pre, post]
-        # edges = adj_t.nonzero().T.contiguous()   #[(pre, post), n_elements]
-        # edges_all = edges.clone().detach()
-
     else:
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
