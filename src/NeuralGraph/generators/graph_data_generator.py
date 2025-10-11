@@ -1046,7 +1046,6 @@ def data_generate_synaptic(
                     init_mesh(config, device=device)
                 )
                 X1 = X1_mesh
-
         elif "visual" in field_type:
             if run == 0:
                 X1_mesh, V1_mesh, T1_mesh, H1_mesh, A1_mesh, N1_mesh, mesh_data = (
@@ -1062,6 +1061,8 @@ def data_generate_synaptic(
                 X1[:, 1] = X1[:, 1] + 1.5
                 X1[:, 0] = X1[:, 0] + 0.5
                 X1 = torch.cat((X1_mesh, X1[0 : n_neurons - n_nodes]), 0)
+
+        model, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
 
         x = torch.concatenate(
             (
@@ -1139,7 +1140,7 @@ def data_generate_synaptic(
                 x_list.append(to_numpy(x))
                 y_list.append(to_numpy(y))
 
-            # Field update
+            # field update
             if (config.graph_model.signal_model_name == "PDE_N6") | (config.graph_model.signal_model_name == "PDE_N7"):
                 H1[:, 1] = y.squeeze()
                 H1[:, 0] = H1[:, 0] + H1[:, 1] * delta_t
@@ -1372,6 +1373,21 @@ def data_generate_synaptic(
         if bSave:
             x_list = np.array(x_list)
             y_list = np.array(y_list)
+
+        if measurement_noise_level > 0:
+            np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)
+            np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
+            torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
+            for k in range(x_list.shape[0]):
+                x_list[k, :, 6] = x_list[k, :, 6] + np.random.normal(
+                    0, measurement_noise_level, x_list.shape[1]
+                )
+            for k in range(1, x_list.shape[0] - 1):
+                y_list[k] = (x_list[k + 1, :, 6:7] - x_list[k, :, 6:7]) / delta_t
+
+            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
+            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
+        else:
             np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
             torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
@@ -1388,59 +1404,66 @@ def data_generate_synaptic(
                     f"graphs_data/{dataset_name}/inv_particle_dropout_mask.npy",
                     inv_particle_dropout_mask,
                 )
-            print("data saved ...")
+        print("data saved ...")
 
-        if measurement_noise_level > 0:
-            np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
 
-            for k in range(x_list.shape[0]):
-                x_list[k, :, 6] = x_list[k, :, 6] + np.random.normal(
-                    0, measurement_noise_level, x_list.shape[1]
-                )
-            for k in range(1, x_list.shape[0] - 1):
-                y_list[k] = (x_list[k + 1, :, 6:7] - x_list[k, :, 6:7]) / delta_t
+        if (n_neurons <= 1000) & (run == run_vizualized):
+            print('plot activity ...')
+            activity = x_list[0:1000, :, 6:7]
+            activity = activity.squeeze()
+            activity = activity.T
 
-            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
 
-        activity = torch.tensor(x_list[:, :, 6:7], device=device)
-        activity = activity.squeeze()
-        activity = activity.t()
-        plt.figure(figsize=(15, 10))
-        ax = sns.heatmap(to_numpy(activity), center=0, cmap="viridis", cbar_kws={"fraction": 0.046})
-        cbar = ax.collections[0].colorbar
-        cbar.ax.tick_params(labelsize=32)
-        ax.invert_yaxis()
-        plt.ylabel("neurons", fontsize=64)
-        plt.xlabel("time", fontsize=64)
-        plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
-        plt.yticks([0, 999], [1, 1000], fontsize=48)
-        plt.xticks(rotation=0)
-        plt.tight_layout()
-        plt.savefig(f"graphs_data/{dataset_name}/kinograph.png", dpi=300)
-        plt.close()
+            activity = activity + 10 * np.arange(n_neurons)[:, None]
 
-        plt.figure(figsize=(15, 10))
-        if n_neurons > 2:
-            n = np.random.permutation(n_neurons)
-            NN = 25
-        else:
-            n = np.arange(n_neurons)
-            NN = 2
-        for i in range(NN):
-            plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=2)
-        plt.xlabel("time", fontsize=64)
-        plt.ylabel("$v_{i}$", fontsize=64)
-        # plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
-        plt.xticks(fontsize=24)
-        plt.yticks(fontsize=24)
-        plt.tight_layout()
-        plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
-        plt.xlim([0, 1000])
-        plt.tight_layout()
-        plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
-        plt.close()
+            plt.figure(figsize=(10, 20))
+            plt.plot(activity.T, linewidth=2)
+            plt.xlabel("time", fontsize=32)
+            plt.ylabel("neuron", fontsize=32)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
+            plt.xlim([0, 1000])
+            plt.tight_layout()
+            plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
+            plt.close()
+
+        #     activity = torch.tensor(x_list[:, :, 6:7], device=device)
+        #     activity = activity.squeeze()
+        #     activity = activity.t()
+        #     plt.figure(figsize=(15, 10))
+        #     ax = sns.heatmap(to_numpy(activity), center=0, cmap="viridis", cbar_kws={"fraction": 0.046})
+        #     cbar = ax.collections[0].colorbar
+        #     cbar.ax.tick_params(labelsize=32)
+        #     ax.invert_yaxis()
+        #     plt.ylabel("neurons", fontsize=64)
+        #     plt.xlabel("time", fontsize=64)
+        #     plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
+        #     plt.yticks([0, 999], [1, 1000], fontsize=48)
+        #     plt.xticks(rotation=0)
+        #     plt.tight_layout()
+        #     plt.savefig(f"graphs_data/{dataset_name}/kinograph.png", dpi=300)
+        #     plt.close()
+
+        #     plt.figure(figsize=(15, 10))
+        #     if n_neurons > 2:
+        #         n = np.random.permutation(n_neurons)
+        #         NN = 25
+        #     else:
+        #         n = np.arange(n_neurons)
+        #         NN = 2
+        #     for i in range(NN):
+        #         plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=2)
+        #     plt.xlabel("time", fontsize=64)
+        #     plt.ylabel("$v_{i}$", fontsize=64)
+        #     # plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
+        #     plt.xticks(fontsize=24)
+        #     plt.yticks(fontsize=24)
+        #     plt.tight_layout()
+        #     plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
+        #     plt.xlim([0, 1000])
+        #     plt.tight_layout()
+        #     plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
+        #     plt.close()
 
         # torch.cuda.memory_allocated(device)
         # gc.collect()

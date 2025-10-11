@@ -1,11 +1,11 @@
-description: 'RNN chaotic'
-dataset: 'signal_N11_1'
+description: 'RNN rank 1'
+dataset: 'signal_N11_3'
 
 simulation:
-    connectivity_type: 'chaotic'
+    connectivity_type: 'rank 1'
     connectivity_init: [0,0.1]
     connectivity_distribution: 'Gaussian'
-    params: [[7.0,1.0],[1.0,1.0],[1.0,1.0],[1.0,1.0]]
+    params: [[1.0,1.0],[1.0,1.0],[1.0,1.0],[1.0,1.0]]
     phi: 'tanh'
     tau: 1.0
     n_neurons: 100
