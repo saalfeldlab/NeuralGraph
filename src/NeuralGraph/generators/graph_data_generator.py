@@ -998,9 +998,6 @@ def data_generate_synaptic(
         )
 
 
-    if "black" in style:
-        plt.style.use("dark_background")
-
     for run in range(config.training.n_runs):
 
         id_fig = 0
@@ -1030,6 +1027,7 @@ def data_generate_synaptic(
         if run == 0:
             edge_index, connectivity, mask = init_connectivity(
                 simulation_config.connectivity_file,
+                simulation_config.connectivity_type,
                 simulation_config.connectivity_distribution,
                 simulation_config.connectivity_filling_factor,
                 T1,
@@ -1038,11 +1036,6 @@ def data_generate_synaptic(
                 dataset_name,
                 device,
             )
-
-            model, bc_pos, bc_dpos = choose_model(
-                config=config, W=connectivity, device=device
-            )
-
             torch.save(edge_index, f"./graphs_data/{dataset_name}/edge_index.pt")
             torch.save(mask, f"./graphs_data/{dataset_name}/mask.pt")
             torch.save(connectivity, f"./graphs_data/{dataset_name}/connectivity.pt")
@@ -1171,7 +1164,8 @@ def data_generate_synaptic(
                 if "latex" in style:
                     plt.rcParams["text.usetex"] = True
                     rc("font", **{"family": "serif", "serif": ["Palatino"]})
-
+                if "black" in style:
+                    plt.style.use("dark_background")
                 matplotlib.rcParams["savefig.pad_inches"] = 0
                 num = f"{id_fig:06}"
                 id_fig += 1
@@ -1313,8 +1307,6 @@ def data_generate_synaptic(
 
                     else:
                         plt.figure(figsize=(10, 10))
-                        # plt.scatter(to_numpy(X1[:, 0]), to_numpy(X1[:, 1]), s=10, c=to_numpy(x[:, 6]),
-                        #             cmap='viridis', vmin=-10, vmax=10, edgecolors='k', alpha=1)
                         plt.axis("off")
                         plt.scatter(
                             to_numpy(X1[:, 0]),
@@ -1325,8 +1317,6 @@ def data_generate_synaptic(
                             vmin=-40,
                             vmax=40,
                         )
-                        # cbar = plt.colorbar()
-                        # cbar.ax.yaxis.set_tick_params(labelsize=8)
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
@@ -1335,7 +1325,6 @@ def data_generate_synaptic(
                             dpi=170,
                         )
                         plt.close()
-
                         im_ = imread(
                             f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.tif"
                         )
