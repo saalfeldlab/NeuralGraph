@@ -69,9 +69,9 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_59_1', 'fly_N9_59_2', 'fly_N9_59_3', 'fly_N9_59_4', 'fly_N9_59_5']
         # config_list = ['fly_N9_22_10']
 
-        config_list = ['signal_N11_1']   # , 'signal_N11_2', 'signal_N11_3', 'signal_N11_4']
+        config_list = ['signal_N11_5_1']
 
-        # config_list = ['zebra_N10_34_1']
+        # config_list = ['zebra_N10_33_5_13_3', 'zebra_N10_33_5']
 
     for config_file_ in config_list:
         print(" ")
@@ -104,12 +104,12 @@ if __name__ == "__main__":
         if "test" in task:
             data_test(
                 config=config,
-                visualize=False,
+                visualize=True,
                 style="white color name continuous_slice",
                 verbose=False,
                 best_model='best',
                 run=0,
-                test_mode="full",
+                test_mode="",
                 sample_embedding=False,
                 step=2,
                 device=device,

@@ -320,6 +320,7 @@ class TrainingConfig(BaseModel):
     coeff_W_L1_ghost: float = 0
     coeff_W_sign: float = 0
 
+    coeff_lin_phi_zero: float = 1
     coeff_entropy_loss: float = 0
     coeff_loss1: float = 1
     coeff_loss2: float = 1

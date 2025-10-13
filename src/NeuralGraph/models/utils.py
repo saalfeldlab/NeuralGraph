@@ -108,7 +108,7 @@ def get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device):
 
     signal_model_name = model_config.signal_model_name
 
-    if signal_model_name in ['PDE_N4', 'PDE_N7']:
+    if signal_model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
         in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons]), dim=1)
         in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons]), dim=1)
         if model.embedding_trial:
@@ -401,6 +401,7 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
             if x[n, 6] != config.simulation.baseline_value:
                 plt.scatter(to_numpy(model.a[n, 0]), to_numpy(model.a[n, 1]), s=100,
                             color=cmap.color(int(type_list[n])), alpha=1.0, edgecolors='none')
+    
     plt.xlabel(r'$a_0$', fontsize=48)
     plt.ylabel(r'$a_1$', fontsize=48)
     plt.xticks([])
@@ -417,38 +418,37 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         pred_weight = to_numpy(model.W[:n_neurons, :n_neurons].clone().detach())
 
     if n_neurons<1000:
-
-        # fig = plt.figure(figsize=(8, 8))
-        # plt.scatter(gt_weight, pred_weight, s=10, c='k',alpha=0.2)
-        # plt.xticks([])
-        # plt.yticks([])
-        # plt.tight_layout()
-        # plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
-        # plt.close()
-
         fig = plt.figure(figsize=(16, 8))
         ax = fig.add_subplot(121)
-        ax = sns.heatmap(pred_weight, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
-        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
-        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
-        plt.ylabel('postsynaptic')
-        plt.xlabel('presynaptic')
-        ax = fig.add_subplot(122)
         ax = sns.heatmap(gt_weight, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
+        plt.ylabel('postsynaptic', fontsize=16)
+        plt.xlabel('presynaptic', fontsize=16)
+        plt.title('true weight matrix', fontsize=16)
+        ax = fig.add_subplot(122)
+        ax = sns.heatmap(pred_weight, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
+        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
+        plt.ylabel('postsynaptic', fontsize=16)
+        plt.xlabel('presynaptic', fontsize=16)
+        plt.title('predicted weight matrix', fontsize=16)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=87)
+        plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=100)
         plt.close()
     else:
         fig = plt.figure(figsize=(8, 8))
         fig, ax = fig_init()
-        plt.scatter(gt_weight, pred_weight / 10, s=0.1, c='k', alpha=0.1)
+        if n_neurons<1000:
+            plt.scatter(gt_weight, pred_weight / 10, s=1.0, c='k', alpha=1.0)
+        else:
+            plt.scatter(gt_weight, pred_weight / 10, s=0.1, c='k', alpha=0.1)
         plt.xlabel(r'true $W_{ij}$', fontsize=48)
         plt.ylabel(r'learned $W_{ij}$', fontsize=48)
         if n_neurons == 8000:
             plt.xlim([-0.05, 0.05])
         else:
+            plt.ylim([-0.2, 0.2])
             plt.xlim([-0.2, 0.2])
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
@@ -502,7 +502,6 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
                     func = func ** 2
                 plt.plot(to_numpy(rr - k), to_numpy(func), 2, color=cmap.color(idx), linewidth=2, alpha=0.25)
         plt.xlabel(r'$x_i-x_j$', fontsize=18)
-        # plt.ylabel(r'learned $\psi^*(a_i, x_i)$', fontsize=68)
         plt.ylabel(r'$MLP_1(a_i, a_j, x_i, x_j)$', fontsize=18)
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/function/lin_edge/func_{epoch}_{N}.tif", dpi=87)
@@ -513,7 +512,7 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         fig = plt.figure(figsize=(8, 8))
         rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
         for n in range(n_neurons):
-            if ('PDE_N4' in config.graph_model.signal_model_name) | ('PDE_N7' in config.graph_model.signal_model_name):
+            if config.graph_model.signal_model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                 if model.embedding_trial:
                     embedding_ = torch.cat((embedding_, model.b[0].repeat(1000, 1)), dim=1)
@@ -526,7 +525,7 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
                         dim=1)
                 else:
                     in_features = torch.cat((rr[:, None], embedding_, embedding_), dim=1)
-            elif ('PDE_N8' in config.graph_model.signal_model_name):
+            elif 'PDE_N8' in config.graph_model.signal_model_name:
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                 if model.embedding_trial:
                     in_features = torch.cat((rr[:, None] * 0, rr[:, None], embedding_, model.b[0].repeat(1000, 1),
@@ -567,7 +566,7 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
                      color=cmap.color(to_numpy(type_list)[n].astype(int)),
                      linewidth=1, alpha=0.1)
     plt.xlim(config.plotting.xlim)
-    plt.ylim([-1,1])
+    plt.ylim(config.plotting.ylim)
     plt.xticks(fontsize=24)
     plt.yticks(fontsize=24)
     plt.xlabel('$v_i$', fontsize=48)

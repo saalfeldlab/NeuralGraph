@@ -1,8 +1,8 @@
-description: 'RNN ring attractor'
-dataset: 'signal_N11_2'
+description: 'RNN successor  batch 32   noise_model_level: 1.0e-4 learning_rate_embedding_start: 1.0E-16'
+dataset: 'signal_N11_4_11'
 
 simulation:
-    connectivity_type: 'ring attractor'
+    connectivity_type: 'successor'
     connectivity_init: [0,0.1]
     connectivity_distribution: 'Gaussian'
     params: [[7.0,1.0],[1.0,1.0],[1.0,1.0],[1.0,1.0]]
@@ -13,7 +13,7 @@ simulation:
     n_frames: 10000
     delta_t: 0.1
     boundary: 'no'
-    start_frame: 0
+    start_frame: -100
 
 graph_model:
     signal_model_name: 'PDE_N11'
@@ -38,12 +38,12 @@ plotting:
     ylim: [-2,2]
 
 training:
-    n_epochs: 20
+    n_epochs: 30
     n_runs: 2
     device: 'auto'
 
     recursive_loop: 1
-    batch_size: 8
+    batch_size: 32
     small_init_batch_size: False
 
     seed: 24
@@ -54,7 +54,9 @@ training:
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
-    learning_rate_embedding_start: 5.0E-3
+    learning_rate_embedding_start: 1.0E-16
 
     coeff_W_L1: 1.0E-5
+
+    noise_model_level: 1.0e-4
 
