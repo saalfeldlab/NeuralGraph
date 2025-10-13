@@ -1,11 +1,11 @@
-description: 'RNN successor'
-dataset: 'signal_N11_4'
+description: 'RNN chaotic    coeff_edge_norm: 1000.0'
+dataset: 'signal_N11_1'
 
 simulation:
-    connectivity_type: 'successor'
+    connectivity_type: 'chaotic'
     connectivity_init: [0,0.1]
     connectivity_distribution: 'Gaussian'
-    params: [[1.0,1.0],[1.0,1.0],[1.0,1.0],[1.0,1.0]]
+    params: [[7.0,1.0],[1.0,1.0],[1.0,1.0],[1.0,1.0]]
     phi: 'tanh'
     tau: 1.0
     n_neurons: 100
@@ -19,7 +19,7 @@ graph_model:
     signal_model_name: 'PDE_N11'
     prediction: 'first_derivative'
 
-    input_size: 1
+    input_size: 3
     output_size: 1
     hidden_dim: 64
     n_layers: 3
@@ -35,10 +35,10 @@ plotting:
     colormap: 'tab10'
     arrow_length: 1
     xlim: [-5,5]
-    ylim: [-8,8]
+    ylim: [-2,2]
 
 training:
-    n_epochs: 20
+    n_epochs: 10
     n_runs: 2
     device: 'auto'
 
@@ -48,12 +48,14 @@ training:
 
     seed: 24
 
-    data_augmentation_loop: 25
+    data_augmentation_loop: 50
 
     sparsity: 'none'
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 5.0E-3
+
     coeff_W_L1: 1.0E-5
+    coeff_edge_norm: 1000.0
 

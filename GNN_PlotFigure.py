@@ -7569,6 +7569,194 @@ def get_figures(index):
                     particle_of_interest=0,
                 )
 
+        case 'figure_1_cosyne_2026':
+    
+            # config_file_ = 'fly_N9_22_10'
+            # config_file, pre_folder = add_pre_folder(config_file_)
+            # config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            # config.dataset = pre_folder + config.dataset
+            # config.config_file = pre_folder + config_file_
+            # logdir = 'log/fly/fly_N9_22_10'
+            # config.simulation.visual_input_type = "DAVIS"
+
+            # data_test(
+            #     config,
+            #     visualize=False,
+            #     style="white color name",
+            #     verbose=False,
+            #     best_model='best',
+            #     run=0,
+            #     test_mode="full",
+            #     sample_embedding=False,
+            #     step=25000,
+            #     device=device,
+            #     particle_of_interest=0,
+            # )
+
+            # config_file_ = 'fly_N9_22_10'
+            # config_file, pre_folder = add_pre_folder(config_file_)
+            # config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            # config.dataset = pre_folder + config.dataset
+            # config.config_file = pre_folder + config_file_
+            # logdir = 'log/fly/fly_N9_22_10'
+            # config.simulation.visual_input_type = "DAVIS"
+
+            # data_test(
+            #     config,
+            #     visualize=False,
+            #     style="white color name",
+            #     verbose=False,
+            #     best_model='best',
+            #     run=0,
+            #     test_mode="full test_ablation_50",
+            #     sample_embedding=False,
+            #     step=25000,
+            #     device=device,
+            #     particle_of_interest=0,
+            # )
+
+            # config_file_ = 'fly_N9_44_6'
+            # config_file, pre_folder = add_pre_folder(config_file_)
+            # config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            # config.dataset = pre_folder + config.dataset
+            # config.config_file = pre_folder + config_file_
+            # logdir = 'log/fly/fly_N9_44_6'            
+            # config.simulation.visual_input_type = "DAVIS"
+            
+            # data_test(
+            #     config,
+            #     visualize=False,
+            #     style="white color name",
+            #     verbose=False,
+            #     best_model='best',
+            #     run=0,
+            #     test_mode="full",
+            #     sample_embedding=False,
+            #     step=50,
+            #     device=device,
+            #     particle_of_interest=0,
+            # )
+
+            # config_file_ = 'fly_N9_51_2'
+            # config_file, pre_folder = add_pre_folder(config_file_)
+            # config = NeuralGraphConfig.from_yaml(f'./config/{config_file}.yaml')
+            # config.dataset = pre_folder + config.dataset
+            # config.config_file = pre_folder + config_file_
+            # logdir = 'log/fly/fly_N9_51_2'
+
+            # data_test(
+            #     config,
+            #     visualize=False,
+            #     style="black color name true_only",
+            #     verbose=False,
+            #     best_model='best',
+            #     run=0,
+            #     test_mode="full",
+            #     sample_embedding=False,
+            #     step=50,
+            #     device=device,
+            #     particle_of_interest=0,
+            # )
+
+                        
+            index_to_name = {0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2',
+                7: 'L3', 8: 'L4', 9: 'L5', 10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10',
+                14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14', 18: 'Mi15', 19: 'Mi2',
+                20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
+                27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a',
+                34: 'T3', 35: 'T4a', 36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b',
+                41: 'T5c', 42: 'T5d', 43: 'Tm1', 44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28',
+                48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y', 52: 'Tm5a', 53: 'Tm5b',
+                54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14', 59: 'TmY15',
+                60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'}
+            
+            print('plot figure 1...')
+            x = np.load(f'graphs_data/fly/fly_N9_18_4_0/x_list_0.npy')
+            type_list = x[-1,:, 6].astype(int)
+            n_neurons = len(type_list)
+
+            selected_types = [5, 12, 19, 23, 31, 35, 39, 43, 50, 55]
+            neuron_indices = []
+            for stype in selected_types:
+                indices = np.where(type_list == stype)[0]
+                if len(indices) == 0:
+                    print(f"Type {stype} ({index_to_name[stype]}) not found in type_list")
+                else:
+                    neuron_indices.append(indices[0])
+                    print(f"Type {stype} ({index_to_name[stype]}): neuron {indices[0]}")
+
+            print(f"Found {len(neuron_indices)} neurons out of {len(selected_types)}")
+            print(f"Unique types in type_list: {np.unique(type_list)}")
+
+            logdirs = {'a': 'log/fly/fly_N9_22_10', 
+                    'b': 'log/fly/fly_N9_22_10', 
+                    'c': 'log/fly/fly_N9_44_6'}
+
+            start_frame = 88000
+            end_frame = 88500
+
+            plt.style.use('default')
+            fig, axes = plt.subplots(1, 3, figsize=(20, 12))
+
+            for idx, (key, log_dir) in enumerate(logdirs.items()):
+                print(f'processing {key}) {log_dir}...')
+                ax = axes[idx]
+                
+                if idx==1:
+                    true = np.load(f"./{log_dir}/results/activity_modified.npy")
+                    pred = np.load(f"./{log_dir}/results/activity_modified_pred.npy")
+                else:
+                    true = np.load(f"./{log_dir}/results/activity_true.npy")
+                    pred = np.load(f"./{log_dir}/results/activity_pred.npy")
+                
+                true_slice = true[neuron_indices, start_frame:end_frame].copy()
+                pred_slice = pred[neuron_indices, start_frame:end_frame].copy()
+                del true, pred
+                
+                step_v = 1.5
+                
+                for i in range(10):
+                    baseline = np.mean(true_slice[i]) if idx==1 else np.mean(pred_slice[i])
+                    lw = 6 if idx==2 else 10
+                    ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.5,
+                            label='true' if i == 0 and idx==2 else None)
+                
+                for i in range(10):
+                    baseline = np.mean(true_slice[i]) if idx==1 else np.mean(pred_slice[i])
+                    ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
+                            label='pred' if i == 0 and idx==2 else None)
+                
+                if idx == 0:
+                    for i in range(10):
+                        ax.text(-100, i * step_v, index_to_name[selected_types[i]],
+                                fontsize=24, va='center')
+                
+                ax.set_ylim([-step_v, 10 * step_v])
+                ax.set_yticks([])
+                
+                # Panel labels
+                ax.text(-0.12 if idx==0 else -0.05, 1.02, f'{chr(97+idx)})', transform=ax.transAxes, 
+                        fontsize=24, va='top')
+                
+                # Spine removal
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                if idx > 0:
+                    ax.spines['left'].set_visible(False)
+                    ax.spines['bottom'].set_visible(False)
+                
+                # X-axis only for panel a
+                if idx == 0:
+                    ax.set_xticks([0, end_frame - start_frame])
+                    ax.set_xticklabels([start_frame, end_frame], fontsize=20)
+                    ax.set_xlabel('frame', fontsize=24)
+                else:
+                    ax.set_xticks([])
+
+            plt.tight_layout()
+            plt.subplots_adjust(left=0.05)
+            plt.savefig('./fig_paper/Fig1.png', dpi=400, bbox_inches='tight')
+            plt.close()
 
         case 'N9_44_6':
             config_file_ = 'fly_N9_44_6'
@@ -8246,10 +8434,11 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    # config_list = ['fly_N9_59_4']
+    config_list = ['fly_N9_51_2_optical_flow']
 
 
     # config_list = ['zebra_N10_33_5_13_3', 'zebra_N10_33_5_13_4', 'zebra_N10_33_5_13_5', 'zebra_N10_33_5_12_3']
+
     # for config_file_ in config_list:
     #     print(' ')
     #     config_file, pre_folder = add_pre_folder(config_file_)
@@ -8274,12 +8463,14 @@ if __name__ == '__main__':
     # get_figures('new_network_2')
 
     # get_figures('extra_edges')
-    get_figures('N9_22_10')
+    # get_figures('N9_22_10')
     # get_figures('results_22_10')
     # get_figures('results_44_24')
     # get_figures('results_51_2')
     # get_figures('N9_44_6')
     # get_figures('N9_51_2')
+
+    get_figures('figure_1_cosyne_2026')
 
 
 

@@ -98,19 +98,13 @@ def data_train_signal(config, erase, best_model, device):
         get_batch_size = increasing_batch_size(target_batch_size)
     else:
         get_batch_size = constant_batch_size(target_batch_size)
+    batch_size = get_batch_size(0)
     batch_ratio = train_config.batch_ratio
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
 
     field_type = model_config.field_type
-    coeff_lin_modulation = train_config.coeff_lin_modulation
-    coeff_model_b = train_config.coeff_model_b
-    coeff_W_sign = train_config.coeff_W_sign
-    coeff_update_msg_diff = train_config.coeff_update_msg_diff
-    coeff_update_u_diff = train_config.coeff_update_u_diff
-    coeff_edge_norm = train_config.coeff_edge_norm
-    coeff_update_msg_sign = train_config.coeff_update_msg_sign
 
     embedding_cluster = EmbeddingCluster(config)
 
@@ -274,7 +268,7 @@ def data_train_signal(config, erase, best_model, device):
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
 
-    if coeff_W_sign > 0:
+    if train_config.coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
             index_weight.append(torch.argwhere(model.mask[:, i] > 0).squeeze())
@@ -286,11 +280,20 @@ def data_train_signal(config, erase, best_model, device):
         pos = torch.argwhere(ind_a % 100 != 99).squeeze()
         ind_a = ind_a[pos]
 
+    coeff_lin_phi_zero = train_config.coeff_lin_phi_zero
+    coeff_lin_modulation = train_config.coeff_lin_modulation
+    coeff_model_b = train_config.coeff_model_b
+    coeff_W_sign = train_config.coeff_W_sign
+    coeff_update_msg_diff = train_config.coeff_update_msg_diff
+    coeff_update_u_diff = train_config.coeff_update_u_diff
+    coeff_edge_norm = train_config.coeff_edge_norm
+    coeff_update_msg_sign = train_config.coeff_update_msg_sign
     coeff_W_L1 = train_config.coeff_W_L1
     coeff_edge_diff = train_config.coeff_edge_diff
     coeff_update_diff = train_config.coeff_update_diff
-    logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
+
     print(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
+    logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
 
     print("start training ...")
 
@@ -323,9 +326,8 @@ def data_train_signal(config, erase, best_model, device):
             Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recursive_loop, 1))
 
         plot_frequency = int(Niter // 5)
-        print(f'{Niter} iterations per epoch')
+        print(f'{Niter} iterations per epoch, {plot_frequency} iterations per plot')
         logger.info(f'{Niter} iterations per epoch')
-        print(f'plot every {plot_frequency} iterations')
 
         total_loss = 0
         total_loss_regul = 0
@@ -394,11 +396,13 @@ def data_train_signal(config, erase, best_model, device):
                         model_W = model.W
 
                     # regularisation lin_phi(0)=0
-                    in_features = get_in_features_update(rr=None, model=model, device=device)
-                    func_phi = model.lin_phi(in_features[ids].float())
-                    loss = loss + func_phi.norm(2)
+                    if coeff_lin_phi_zero > 0:
+                        in_features = get_in_features_update(rr=None, model=model, device=device)
+                        func_phi = model.lin_phi(in_features[ids].float())
+                        loss = loss + func_phi.norm(2) * coeff_lin_phi_zero
                     # regularisation sparsity on Wij
-                    loss = loss + model_W[:n_neurons, :n_neurons].norm(1) * coeff_W_L1
+                    if coeff_W_L1 > 0:
+                        loss = loss + model_W[:n_neurons, :n_neurons].norm(1) * coeff_W_L1
                     # regularisation lin_edge
                     in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons,device)
                     if coeff_edge_diff > 0:
@@ -1125,7 +1129,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     for n_loop in range(recursive_loop):
                         for batch in range(batch_size):
                             k = k_batch[batch * x.shape[0]] + n_loop + 1
-                            dataset_batch[batch].x[:, 3:4] = dataset_batch[batch].x[:, 3:4] + delta_t * pred[0+batch*x.shape[0]:x.shape[0]+batch*x.shape[0]] * ynorm
+                            dataset_batch[batch].x[:, 3:4] = dataset_batch[batch].x[:, 3:4] + delta_t * pred[batch*x.shape[0]:x.shape[0]+batch*x.shape[0]] * ynorm
                             dataset_batch[batch].x[:, 4:5] = torch.tensor(x_list[run][k.item(),:,4:5], device=device)
                         batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                         for batch in batch_loader:
@@ -1999,6 +2003,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     if 'fly' in config.dataset:
         data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, new_params, device)
+
     elif 'zebra' in config.dataset:
         data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
     else:
@@ -2407,7 +2412,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     neuron_pred_list = []
     neuron_generated_list = []
 
-    for it in trange(start_it,start_it+800):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
+    for it in trange(start_it,start_it+4000):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
@@ -2540,102 +2545,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 plt.savefig(f"./{log_dir}/tmp_recons/Nodes_{config_file}_{num}.tif", dpi=80)
                 plt.close()
 
-            if (it % 200 == 0) & (it > 0):
-                if 'CElegans' in dataset_name:
-                    n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
-                else:
-                    n = [20, 30, 100, 150, 260, 270, 520, 620, 720, 820]
-
-                neuron_gt_list_ = torch.cat(neuron_gt_list, 0)
-                neuron_pred_list_ = torch.cat(neuron_pred_list, 0)
-                neuron_generated_list_ = torch.cat(neuron_generated_list, 0)
-                neuron_gt_list_ = torch.reshape(neuron_gt_list_, (neuron_gt_list_.shape[0] // n_neurons, n_neurons))
-                neuron_pred_list_ = torch.reshape(neuron_pred_list_, (neuron_pred_list_.shape[0] // n_neurons, n_neurons))
-                neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // n_neurons, n_neurons))
-
-
-                mpl.rcParams.update({
-                    "text.usetex": True,
-                    "font.family": "serif",
-                    "font.size": 12,           # Base font size
-                    "axes.labelsize": 14,      # Axis labels
-                    "legend.fontsize": 12,     # Legend
-                    "xtick.labelsize": 10,     # Tick labels
-                    "ytick.labelsize": 10,
-                    "text.latex.preamble": r"""
-                        \usepackage[T1]{fontenc}
-                        \usepackage[sc]{mathpazo}
-                        \linespread{1.05}
-                    """,
-                })
-
-
-                plt.figure(figsize=(20, 10))
-
-                ax = plt.subplot(121)
-                # Plot ground truth with distinct gray color, visible in legend
-                for i in range(10):
-                    color = 'gray' if i == 0 else None  # Only label first
-                    if ablation_ratio > 0:
-                        label = f'true ablation {ablation_ratio}' if i == 0 else None
-                    elif inactivity_ratio > 0:
-                        label = f'true inactivity {inactivity_ratio}' if i == 0 else None
-                    elif permutation_ratio > 0:
-                        label = f'true permutation {permutation_ratio}' if i == 0 else None
-                    else:
-                        label = 'true' if i == 0 else None
-                    plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy(), 
-                            c='gray', linewidth=8, alpha=0.5, label=label)
-                # Plot predictions with colored lines
-                colors = plt.cm.tab10(np.linspace(0, 1, 10))
-                for i in range(10):
-                    label = 'learned' if i == 0 else None
-                    plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy(), 
-                            linewidth=3, c=colors[i], label=label)
-                plt.legend(fontsize=24)
-                plt.xlim([0, 800])
-                plt.xlabel('time-points', fontsize=48)
-                plt.ylabel('$x_i$', fontsize=48)
-                plt.xticks(fontsize=24)
-                plt.yticks(fontsize=24)
-                plt.ylim([-30, 30])
-
-                ax = plt.subplot(122)
-                plt.scatter(to_numpy(neuron_generated_list_[-1, :]), 
-                        to_numpy(neuron_pred_list_[-1, :]), s=10, c=mc)
-                plt.xlim([-30, 30])
-                plt.ylim([-30, 30])
-                plt.xticks(fontsize=24)
-                plt.yticks(fontsize=24)
-
-                x_data = to_numpy(neuron_generated_list_[-1, :])
-                y_data = to_numpy(neuron_pred_list_[-1, :])
-                lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-                residuals = y_data - linear_model(x_data, *lin_fit)
-                ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                r_squared = 1 - (ss_res / ss_tot)
-
-                plt.xlabel('true $x_i$', fontsize=48)
-                plt.ylabel('learned $x_i$', fontsize=48)
-                plt.text(-28.5, 26, f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
-                plt.text(-28.5, 22, f'slope: {np.round(lin_fit[0], 2)}', fontsize=34)
-
-
-                plt.tight_layout()
-
-                if ablation_ratio>0:
-                    filename = f'comparison_vi_{it}_ablation_{ablation_ratio}.png'
-                elif inactivity_ratio>0:
-                    filename = f'comparison_vi_{it}_inactivity_{inactivity_ratio}.png'
-                elif permutation_ratio>0:
-                    filename = f'comparison_vi_{it}_permutation_{permutation_ratio}.png'
-                else:
-                    filename = f'comparison_vi_{it}.png'
-                
-                plt.savefig(f'./{log_dir}/results/{filename}', dpi=80)
-                plt.close()
-                print(f'saved figure ./log/{log_dir}/results/{filename}')
 
                 if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
 
@@ -2684,11 +2593,164 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     plt.ylim([0, 2])
                     # plt.text(40, 26, f'time: {it}', fontsize=34)
 
+        if (it % 200 == 0) & (it > 0) & (it <=4000):
+
+            if n_neurons <= 100:
+                n = np.arange(0,n_neurons,2)
+            elif 'CElegans' in dataset_name:
+                n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
+            else:
+                n = [20, 30, 100, 150, 260, 270, 520, 620, 720, 820]
+
+            neuron_gt_list_ = torch.cat(neuron_gt_list, 0)
+            neuron_pred_list_ = torch.cat(neuron_pred_list, 0)
+            neuron_generated_list_ = torch.cat(neuron_generated_list, 0)
+            neuron_gt_list_ = torch.reshape(neuron_gt_list_, (neuron_gt_list_.shape[0] // n_neurons, n_neurons))
+            neuron_pred_list_ = torch.reshape(neuron_pred_list_, (neuron_pred_list_.shape[0] // n_neurons, n_neurons))
+            neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // n_neurons, n_neurons))
+
+            mpl.rcParams.update({
+                "text.usetex": True,
+                "font.family": "serif",
+                "font.size": 12,           # Base font size
+                "axes.labelsize": 14,      # Axis labels
+                "legend.fontsize": 12,     # Legend
+                "xtick.labelsize": 10,     # Tick labels
+                "ytick.labelsize": 10,
+                "text.latex.preamble": r"""
+                    \usepackage[T1]{fontenc}
+                    \usepackage[sc]{mathpazo}
+                    \linespread{1.05}
+                """,
+            })
+
+            plt.figure(figsize=(20, 20))
+
+            ax = plt.subplot(121)
+            # Plot ground truth with distinct gray color, visible in legend
+            for i in range(len(n)):
+                color = 'gray' if i == 0 else None  # Only label first
+                if ablation_ratio > 0:
+                    label = f'true ablation {ablation_ratio}' if i == 0 else None
+                elif inactivity_ratio > 0:
+                    label = f'true inactivity {inactivity_ratio}' if i == 0 else None
+                elif permutation_ratio > 0:
+                    label = f'true permutation {permutation_ratio}' if i == 0 else None
+                else:
+                    label = 'true' if i == 0 else None
+                plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                        c='gray', linewidth=8, alpha=0.5, label=label)
+
+            # Plot predictions with colored lines
+            colors = plt.cm.tab10(np.linspace(0, 1, 10))
+            for i in range(len(n)):
+                label = 'learned' if i == 0 else None
+                plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                        linewidth=3, c=colors[i%10], label=label)
+
+            plt.xlim([0, len(neuron_gt_list_)])
+
+            # Auto ylim from ground truth range (ignore predictions if exploded)
+            y_gt = np.concatenate([neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
+            y_pred = np.concatenate([neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
+
+            if np.abs(y_pred).max() > 10 * np.abs(y_gt).max():  # Explosion
+                ylim = [y_gt.min() - 10, y_gt.max() + 10]
+            else:
+                y_all = np.concatenate([y_gt, y_pred])
+                margin = (y_all.max() - y_all.min()) * 0.05
+                ylim = [y_all.min() - margin, y_all.max() + margin]
+
+            plt.ylim(ylim)
+            plt.xlabel('time-points', fontsize=48)
+            plt.ylabel('neurons', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks([])
+
+            ax = plt.subplot(222)
+            x_data = to_numpy(neuron_generated_list_[-1, :])
+            y_data = to_numpy(neuron_pred_list_[-1, :])
+
+            # print(f"x: [{x_data.min():.2e}, {x_data.max():.2e}]")
+            # print(f"y: [{y_data.min():.2e}, {y_data.max():.2e}], std={y_data.std():.2e}")
+
+            # Detect severe collapse (constant predictions) or explosion
+            severe_collapse = y_data.std() < 0.1 * x_data.std()
+            explosion = np.abs(y_data).max() > 1e10
+
+            if not (severe_collapse or explosion):
+                # Normal/mild collapse: fit and show all data
+                mask = (np.abs(x_data - np.median(x_data)) < 3*np.std(x_data)) & \
+                    (np.abs(y_data - np.median(y_data)) < 3*np.std(y_data))
+                if mask.sum() > 10:
+                    lin_fit, _ = curve_fit(linear_model, x_data[mask], y_data[mask])
+                    slope, intercept = lin_fit
+                    r2 = 1 - np.sum((y_data - linear_model(x_data, *lin_fit))**2) / np.sum((y_data - np.mean(y_data))**2)
+                else:
+                    slope, intercept, r2 = 0, 0, 0
+                
+                # Auto limits from combined data
+                all_data = np.concatenate([x_data, y_data])
+                margin = (all_data.max() - all_data.min()) * 0.1
+                lim = [all_data.min() - margin, all_data.max() + margin]
+                
+                plt.scatter(x_data, y_data, s=100, c=mc, alpha=0.8, edgecolors='k', linewidths=0.5)
+                if mask.sum() > 10:
+                    x_line = np.array(lim)
+                    plt.plot(x_line, linear_model(x_line, slope, intercept), 'r--', linewidth=2)
+                plt.plot(lim, lim, 'k--', alpha=0.3, linewidth=1)
+                plt.text(0.05, 0.95, f'$R^2$: {r2:.3f}\nslope: {slope:.3f}', 
+                        transform=plt.gca().transAxes, fontsize=34, va='top')
+            else:
+                # Severe collapse/explosion
+                lim = [x_data.min()*1.1, 0]
+                plt.scatter(x_data, np.clip(y_data, lim[0], lim[1]), s=100, c=mc, alpha=0.8, edgecolors='k', linewidths=0.5)
+                plt.text(0.5, 0.5, 'collapsed' if severe_collapse else 'explosion', 
+                        ha='center', fontsize=48, color='red', alpha=0.3, transform=plt.gca().transAxes)
+
+            plt.xlim(lim)
+            plt.ylim(lim)
+            plt.xlabel('true $x_i$', fontsize=48)
+            plt.ylabel('learned $x_i$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
+
+            ax = plt.subplot(224)
+            corrs = []
+            for i in range(n_neurons):
+                r, _ = scipy.stats.pearsonr(
+                    to_numpy(neuron_generated_list_[:, i]), 
+                    to_numpy(neuron_pred_list_[:, i])
+                )
+                corrs.append(r)
+            plt.hist(corrs, bins=30, edgecolor='black')
+            plt.xlim([0, 1])
+            plt.xlabel('Pearson $r$', fontsize=48)
+            plt.ylabel('count', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
+            plt.text(0.05, plt.ylim()[1]*0.9, f'mean: {np.mean(corrs):.3f}', fontsize=34)
+
+            plt.tight_layout()
+
+            if ablation_ratio>0:
+                filename = f'comparison_vi_{it}_ablation_{ablation_ratio}.png'
+            elif inactivity_ratio>0:
+                filename = f'comparison_vi_{it}_inactivity_{inactivity_ratio}.png'
+            elif permutation_ratio>0:
+                filename = f'comparison_vi_{it}_permutation_{permutation_ratio}.png'
+            else:
+                filename = f'comparison_vi_{it}.png'
+            
+            plt.savefig(f'./{log_dir}/results/{filename}', dpi=80)
+            plt.close()
+            # print(f'saved figure ./log/{log_dir}/results/{filename}')
+
 
     if 'inference' in test_mode:
         torch.save(x_inference_list, f"./{log_dir}/x_inference_list_{run}.pt")
 
-    print('average rollout RMSE {:.3e}+/-{:.3e}'.format(np.mean(rmserr_list), np.std(rmserr_list)))
+    # print('average rollout RMSE {:.3e}+/-{:.3e}'.format(np.mean(rmserr_list), np.std(rmserr_list)))
 
     if 'PDE_N' in model_config.signal_model_name:
 
@@ -3028,18 +3090,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     mask = torch.arange(edges.shape[1])
 
-    if 'test_ablation' in test_mode:
-        #  test_mode="test_ablation_100"
-        ablation_ratio = int(test_mode.split('_')[-1]) / 100
-        if ablation_ratio > 0:
-            print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
-        n_ablation = int(edges.shape[1] * ablation_ratio)
-        index_ablation = np.random.choice(np.arange(edges.shape[1]), n_ablation, replace=False)
-
-        with torch.no_grad():
-            pde.p['w'][index_ablation] = 0
-            pde_modified.p['w'][index_ablation] = 0
-            model.W[index_ablation] = 0
 
     def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', ylabel='modified $W$', color='white'):
         w_true_np = w_true.detach().cpu().numpy().flatten()
@@ -3068,6 +3118,20 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         plt.close()
         return slope, r_squared
 
+
+    if 'test_ablation' in test_mode:
+        #  test_mode="test_ablation_100"
+        ablation_ratio = int(test_mode.split('_')[-1]) / 100
+        if ablation_ratio > 0:
+            print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
+        n_ablation = int(edges.shape[1] * ablation_ratio)
+        index_ablation = np.random.choice(np.arange(edges.shape[1]), n_ablation, replace=False)
+
+        with torch.no_grad():
+            pde.p['w'][index_ablation] = 0
+            pde_modified.p['w'][index_ablation] = 0
+            model.W[index_ablation] = 0
+
     if 'test_modified' in test_mode:
         noise_W = float(test_mode.split('_')[-1]) 
         if noise_W > 0:
@@ -3090,6 +3154,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             label_bg=True
         )
 
+
     # res = overlay_barycentric_into_umap(
     # w_list=[
     #     to_numpy(pde.p["w"]),
@@ -3101,6 +3166,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     # figure_path="overlay_all_bary.png",
     # show=True,
     # )
+
 
     neuron_types = to_numpy(x[:, 6]).astype(int)
     index_to_name = {0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2',
@@ -3640,7 +3706,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     print(f"RMSE range: [{np.min(rmse_per_neuron):.6f}, {np.max(rmse_per_neuron):.6f}]")
     np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_per_neuron)
     
-
     print('computing Pearson correlation per neuron...')
     pearson_per_neuron = []
     for i in range(activity_true.shape[0]):
@@ -3674,9 +3739,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         print(f"  max: {activity_max:.6f}")
         print(f"  global range: {activity_max - activity_min:.6f}")
         print(f"  per-neuron range - mean: {activity_range_mean:.6f}, std: {activity_range_std:.6f}")
-
-
-
 
     print('plot 8x8 panel for neuron types (ground truth vs predicted)...')
     np.random.seed(42)
@@ -3759,7 +3821,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_ylabel(f'{activity_label}', fontsize=22)
             n_ticks = 500
             ax.set_xticks([start_frame, end_frame])
-            ax.set_xticklabels(['start_frame', 'end_frame'], fontsize=14)
+            ax.set_xticklabels([start_frame, end_frame], fontsize=14)
             # Use dynamic y-range for this panel too
             true_data_panel = activity_true[selected_neuron, :]
             pred_data_panel = activity_pred[selected_neuron, :]
@@ -3771,8 +3833,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison.png", dpi=150)
     plt.close()
 
-
-    
     print('plot 5x4 panel for neuron types (ground truth vs predicted)...')
     fig, axes = plt.subplots(5, 4, figsize=(18, 12))
     axes_flat = axes.flatten()
@@ -3852,6 +3912,13 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/activity_5x4_panel_comparison.png", dpi=150)
     plt.close()
+
+    if ('test_ablation' in test_mode) or ('test_inactivity' in test_mode):
+        np.save(f"./{log_dir}/results/activity_modified.npy", activity_true_modified)
+        np.save(f"./{log_dir}/results/activity_modified_pred.npy", activity_pred)
+    else:
+        np.save(f"./{log_dir}/results/activity_true.npy", activity_true)
+        np.save(f"./{log_dir}/results/activity_pred.npy", activity_pred)
 
 
 def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device):

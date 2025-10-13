@@ -1409,20 +1409,26 @@ def data_generate_synaptic(
 
         if (n_neurons <= 1000) & (run == run_vizualized):
             print('plot activity ...')
-            activity = x_list[0:1000, :, 6:7]
+            activity = x_list[:, :, 6:7]
             activity = activity.squeeze()
             activity = activity.T
-
-
-            activity = activity + 10 * np.arange(n_neurons)[:, None]
-
+            activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
             plt.figure(figsize=(10, 20))
             plt.plot(activity.T, linewidth=2)
+
+            for i in range(0, n_neurons, 5):
+                plt.text(-100, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
+
+            ax = plt.gca()
+            ax.text(-1500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
             plt.xlabel("time", fontsize=32)
-            plt.ylabel("neuron", fontsize=32)
             plt.xticks(fontsize=24)
-            plt.yticks(fontsize=24)
-            plt.xlim([0, 1000])
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.yaxis.set_ticks_position('right')
+            ax.set_yticks([0, 20, 40])
+            ax.set_yticklabels(['0', '20', '40'], fontsize=20)
+            ax.text(n_frames * 1.2, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
             plt.tight_layout()
             plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
             plt.close()
