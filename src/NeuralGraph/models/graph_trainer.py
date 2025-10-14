@@ -1041,14 +1041,32 @@ def data_train_flyvis(config, erase, best_model, device):
                     #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
 
                     if batch_ratio < 1:
-                        ids_ = np.random.permutation(ids.shape[0])[:int(ids.shape[0] * batch_ratio)]
-                        ids = np.sort(ids_)
-                        mask = torch.isin(edges_all[1, :], torch.tensor(ids, device=device))
+                        # Sample core neurons
+                        n_core = int(n_neurons * batch_ratio)
+                        core_ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
+                        
+                        # Determine which neurons we need based on training mode
+                        if recursive_training and recursive_loop > 0:
+                            # For recurrent: need n-hop neighborhood
+                            required_ids = get_n_hop_neighborhood(core_ids, edges_all, recursive_loop)
+                        else:
+                            # For non-recurrent: just core neurons
+                            required_ids = core_ids
+                        
+                        # Get edges targeting required neurons
+                        mask = torch.isin(edges_all[1, :], torch.tensor(required_ids, device=device))
                         edges = edges_all[:, mask]
-                        mask = torch.arange(edges_all.shape[1],device=device)[mask]
+                        mask = torch.arange(edges_all.shape[1], device=device)[mask]
+                        
+                        # Store core_ids for loss computation (always compute loss only on core)
+                        ids = core_ids
+                        
                     else:
+                        # Use all neurons
                         edges = edges_all.clone().detach()
                         mask = torch.arange(edges_all.shape[1])
+                        ids = np.arange(n_neurons)
+                        core_ids = ids  # All neurons are "core" when batch_ratio = 1
 
                     y = torch.tensor(y_list[run][k], device=device) / ynorm
 
@@ -1122,21 +1140,72 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 if recursive_training:
                     for n_loop in range(recursive_loop):
+                        # Determine which neurons are active at this timestep
+                        # (shrinks as we move forward in time)
+                        hops_remaining = recursive_loop - n_loop
+                        if hops_remaining > 0 and batch_ratio < 1:
+                            active_ids = get_n_hop_neighborhood(core_ids, edges_all, hops_remaining)
+                            
+                            # Get edges for active neurons at this timestep
+                            mask_t = torch.isin(edges_all[1, :], torch.tensor(active_ids, device=device))
+                            edges_t = edges_all[:, mask_t]
+                            mask_indices_t = torch.arange(edges_all.shape[1], device=device)[mask_t]
+                        else:
+                            # Last step or batch_ratio=1: only need core neurons
+                            active_ids = core_ids if batch_ratio < 1 else np.arange(n_neurons)
+                            edges_t = edges
+                            mask_indices_t = mask
+                        
+                        # Update states only for active neurons
                         for batch in range(batch_size):
-                            k = k_batch[batch * x.shape[0]] + n_loop + 1
-                            dataset_batch[batch].x[:, 3:4] = dataset_batch[batch].x[:, 3:4] + delta_t * pred[batch*x.shape[0]:x.shape[0]+batch*x.shape[0]] * ynorm
-                            dataset_batch[batch].x[:, 4:5] = torch.tensor(x_list[run][k.item(),:,4:5], device=device)
+                            k = k_batch[batch * n_neurons] + n_loop + 1
+                            
+                            # Only update active neurons' states
+                            active_mask = torch.isin(torch.arange(n_neurons, device=device), 
+                                                    torch.tensor(active_ids, device=device))
+                            
+                            # Update voltage/calcium for active neurons
+                            if batch == 0:
+                                update_indices = active_mask
+                            else:
+                                update_indices = torch.cat([
+                                    torch.zeros(batch * n_neurons, dtype=torch.bool, device=device),
+                                    active_mask,
+                                    torch.zeros((batch_size - batch - 1) * n_neurons, dtype=torch.bool, device=device)
+                                ])
+                            
+                            # Apply state update
+                            dataset_batch[batch].x[active_mask, 3:4] += (
+                                delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][active_mask] * ynorm
+                            )
+                            
+                            # Update external input for active neurons
+                            dataset_batch[batch].x[active_mask, 4:5] = torch.tensor(
+                                x_list[run][k.item(), active_ids, 4:5], device=device
+                            )
+                        
+                        # Forward pass with current timestep's edges
                         batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                         for batch in batch_loader:
-                            pred = model(batch, data_id=data_id, mask=mask_batch, return_all=False)
+                            pred = model(batch, data_id=data_id, mask=mask_indices_t, return_all=False)
+                        
+                        # Compute loss only on core neurons
                         for batch in range(batch_size):
-                            k = k_batch[batch*x.shape[0]] + n_loop + 1
-                            y = torch.tensor(y_list[run][k.item()], device=device) / ynorm
+                            k = k_batch[batch * n_neurons] + n_loop + 1
+                            
+                            # Get target only for core neurons
+                            y = torch.tensor(y_list[run][k.item(), core_ids], device=device) / ynorm
+                            
                             if batch == 0:
-                                    y_batch = y
+                                y_batch = y
+                                # Build ids for loss computation (only core neurons)
+                                ids_batch = core_ids
                             else:
-                                    y_batch = torch.cat((y_batch, y), dim=0)
-                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[batch]
+                                y_batch = torch.cat((y_batch, y), dim=0)
+                                ids_batch = np.concatenate([ids_batch, core_ids + batch * n_neurons])
+                        
+                        # Loss only on core neurons
+                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
 
                 loss.backward()
 

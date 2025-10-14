@@ -1395,4 +1395,20 @@ def overlay_barycentric_into_umap(
 
     return {"emb_bg": emb_bg, "emb_new": emb_new, "ids_bg": ids_bg}
 
-
+def get_n_hop_neighborhood(target_ids, edges_all, n_hops):
+    """Get n-hop neighborhood of target neurons"""
+    current = set(target_ids)
+    all_neurons = set(target_ids)
+    
+    for hop in range(n_hops):
+        next_hop = set()
+        for node in current:
+            # Find predecessors (neurons that send to current)
+            mask = edges_all[1, :] == node
+            predecessors = edges_all[0, mask].cpu().numpy()
+            next_hop.update(predecessors)
+        
+        all_neurons.update(next_hop)
+        current = next_hop
+    
+    return np.array(sorted(all_neurons))
