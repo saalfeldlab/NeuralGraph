@@ -1195,7 +1195,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                     ax1.set_xticks([])
                                     ax1.set_yticks([])
                                     ax2 = fig.add_subplot(1, 2, 2)
-                                    sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
+                                    sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred, cmap="viridis", marker='h', vmin=0, vmax=1)
                                     ax2.set_xticks([])
                                     ax2.set_yticks([])
 
