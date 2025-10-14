@@ -979,25 +979,25 @@ def data_train_flyvis(config, erase, best_model, device):
             for batch in range(batch_size):
 
                 
-                if test_neural_field:
-                    k = 300
-                else:
-                    k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window 
+                k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window 
 
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
-                ids = np.arange(n_neurons)
+
+                if test_neural_field:
+                    ids = np.arange(n_input_neurons)
+                else:
+                    ids = np.arange(n_neurons)
 
 
                 if time_window > 0:
                     x_temporal = x_list[run][k - time_window + 1: k + 1, :, 3:4].transpose(1, 0, 2).squeeze(-1)
                     x = torch.cat((x, torch.tensor(x_temporal.reshape(n_neurons, time_window), dtype=torch.float32, device=device)), dim=1)
 
-                if has_visual_field:
-                    # x[:n_input_neurons, 4:5] = model.forward_visual(x,k)
-                    # x[n_input_neurons:, 4:5] = 0
-
-                    pred = model.forward_visual(x,k)
+                # if has_visual_field:
+                #     # x[:n_input_neurons, 4:5] = model.forward_visual(x,k)
+                #     # x[n_input_neurons:, 4:5] = 0
+                #     pred = model.forward_visual(x,k)
 
                 loss = torch.zeros(1, device=device)
 
@@ -1058,7 +1058,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                     if test_neural_field:
-                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4], device=device)
+                        y = torch.tensor(x_list[run][k, :, 4:5], device=device)
                     if loss_noise_level>0:
                         y = y + torch.randn(y.shape, device=device) * loss_noise_level
 
@@ -1091,7 +1091,12 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                 if test_neural_field:
-                    loss = loss + (pred.squeeze() - y).norm(2)
+                    batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+                    for batch in batch_loader:
+                        pred, _, _, visual = model(batch, data_id=data_id, mask=mask_batch, k=k_batch, return_all=True)
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                    
+                    # loss = loss + (pred.squeeze() - y.squeeze()).norm(2)
                 else:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
@@ -1115,9 +1120,8 @@ def data_train_flyvis(config, erase, best_model, device):
                                 pred_msg = model.lin_phi(in_features_modified)
                                 msg = in_features[:,model_config.embedding_dim+1].clone().detach()
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
-
                         else:
-                            pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
+                            pred, in_features, msg, _ = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
                 if recursive_training:
@@ -1150,62 +1154,63 @@ def data_train_flyvis(config, erase, best_model, device):
 
                         print(f'loss: {loss.item()}')
                         
-                        X1 = to_numpy(x[:n_input_neurons,1:3])
-                        gt_field = to_numpy(y) # x_list[0][k, :n_input_neurons, 4:5]
-                        reconstructed_field = to_numpy(pred.squeeze())
+                        # X1 = to_numpy(x[:n_input_neurons,1:3])
+                        # gt_field = to_numpy(y) # x_list[0][k, :n_input_neurons, 4:5]
+                        # reconstructed_field = to_numpy(pred.squeeze())
 
 
-                        fig = plt.figure(figsize=(8, 4))
-                        ax1 = fig.add_subplot(1, 2, 1)
-                        sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
-                        ax1.set_xticks([])
-                        ax1.set_yticks([])
-                        ax2 = fig.add_subplot(1, 2, 2)
-                        sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
-                        ax2.set_xticks([])
-                        ax2.set_yticks([])
+                        # fig = plt.figure(figsize=(8, 4))
+                        # ax1 = fig.add_subplot(1, 2, 1)
+                        # sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
+                        # ax1.set_xticks([])
+                        # ax1.set_yticks([])
+                        # ax2 = fig.add_subplot(1, 2, 2)
+                        # sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
+                        # ax2.set_xticks([])
+                        # ax2.set_yticks([])
 
-                        plt.tight_layout()
-                        plt.tight_layout()
-                        plt.savefig(f'{log_dir}/tmp_training/field/field_{epoch}_{N}.tif')
-                        plt.close()
+                        # plt.tight_layout()
+                        # plt.tight_layout()
+                        # plt.savefig(f'{log_dir}/tmp_training/field/field_{epoch}_{N}.tif')
+                        # plt.close()
+
+                        with torch.no_grad():
 
 
-                        # x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
-                        # with torch.no_grad():
-                            
-                        #     X1  = to_numpy(x[:n_input_neurons, 1:3])
-                        #     X1_ = x[:n_input_neurons, 1:3]
+                            plt.style.use('dark_background')
+                            X1  = to_numpy(x[:n_input_neurons, 1:3])
 
-                        #     # Setup for saving MP4
-                        #     fps = 10  # frames per second for the video
-                        #     metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
-                        #     writer = FFMpegWriter(fps=fps, metadata=metadata)
-                        #     fig = plt.figure(figsize=(8, 4))
+                            # Setup for saving MP4
+                            fps = 5  # frames per second for the video
+                            metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
+                            writer = FFMpegWriter(fps=fps, metadata=metadata)
+                            fig = plt.figure(figsize=(8, 4))
 
-                        #     # Start the writer context
-                        #     if os.path.exists(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4"):
-                        #         os.remove(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4")
-                        #     with writer.saving(fig, f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4", dpi=100):
-                        #         for k in range(0, 400, 1):
-
-                        #             kk = torch.full((X1_.size(0), 1), float(k), device=device, dtype=torch.float32)
-                        #             in_features = torch.cat((X1_/model.NNR_f_xy_period, kk/model.NNR_f_T_period), dim=1)
-                        #             reconstructed_field = to_numpy(model.NNR_f(in_features) ** 2)
-                        #             gt_field = x_list[0][k, :n_input_neurons, 4:5]
+                            # Start the writer context
+                            if os.path.exists(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4"):
+                                os.remove(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4")
+                            with writer.saving(fig, f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4", dpi=100):
+                                for k in range(0, n_frames, 1):
+                                    kk = torch.full((x.size(0), 1), float(k), device=device, dtype=torch.float32)
+                                    x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+                                    reconstructed_field = to_numpy(model.forward_visual(x,kk))
+                                    reconstructed_field = reconstructed_field[:n_input_neurons, 0:1]
+                                    gt_field = x_list[0][k, :n_input_neurons, 4:5]
                                 
-                        #             fig.clf()  
-                        #             ax1 = fig.add_subplot(1, 2, 1)
-                        #             sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
-                        #             ax1.set_xticks([])
-                        #             ax1.set_yticks([])
-                        #             ax2 = fig.add_subplot(1, 2, 2)
-                        #             sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
-                        #             ax2.set_xticks([])
-                        #             ax2.set_yticks([])
+                                    fig.clf()  
+                                    ax1 = fig.add_subplot(1, 2, 1)
+                                    ax1.set_axis_off()
+                                    sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
+                                    ax1.set_xticks([])
+                                    ax1.set_yticks([])
+                                    ax2 = fig.add_subplot(1, 2, 2)
+                                    ax2.set_axis_off()
+                                    sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=0.1)
+                                    ax2.set_xticks([])
+                                    ax2.set_yticks([])
 
-                        #             plt.tight_layout()
-                        #             writer.grab_frame()
+                                    plt.tight_layout()
+                                    writer.grab_frame()
 
 
                     else:
