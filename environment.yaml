@@ -25,11 +25,12 @@ dependencies:
   - seaborn
   - dask
   - pyvista
-  - tensorstore
-  - napari
   - pip:
     # Install PyTorch with CUDA support via pip
-    - torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    - torch
+    - torchvision
+    - torchaudio
+    - --extra-index-url https://download.pytorch.org/whl/cu121
     - geomloss
     - torch_geometric
     - PyQt5
@@ -38,4 +39,5 @@ dependencies:
     - joblib
     - flyvis
     - opencv-python
-    
+    - polars
+
