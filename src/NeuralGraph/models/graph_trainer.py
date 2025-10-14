@@ -896,6 +896,7 @@ def data_train_flyvis(config, erase, best_model, device):
     lr_W = train_config.learning_rate_W_start
     lr_modulation = train_config.learning_rate_modulation_start
     learning_rate_NNR = train_config.learning_rate_NNR
+    learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
     print(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
@@ -903,7 +904,7 @@ def data_train_flyvis(config, erase, best_model, device):
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
 
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR)
+                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
@@ -933,7 +934,7 @@ def data_train_flyvis(config, erase, best_model, device):
     print("start training ...")
 
     check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
-    # torch.autograd.set_detect_anomaly(True)
+    torch.autograd.set_detect_anomaly(True)
 
     list_loss_regul = []
     time.sleep(0.2)
@@ -993,8 +994,10 @@ def data_train_flyvis(config, erase, best_model, device):
                     x = torch.cat((x, torch.tensor(x_temporal.reshape(n_neurons, time_window), dtype=torch.float32, device=device)), dim=1)
 
                 if has_visual_field:
-                    x[:n_input_neurons, 4:5] = model.forward_visual(x,k)
-                    x[n_input_neurons:, 4:5] = 0
+                    # x[:n_input_neurons, 4:5] = model.forward_visual(x,k)
+                    # x[n_input_neurons:, 4:5] = 0
+
+                    pred = model.forward_visual(x,k)
 
                 loss = torch.zeros(1, device=device)
 
@@ -1055,7 +1058,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                     if test_neural_field:
-                        y = torch.tensor(x_list[run][k, :, 4:5], device=device)
+                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4], device=device)
                     if loss_noise_level>0:
                         y = y + torch.randn(y.shape, device=device) * loss_noise_level
 
@@ -1088,7 +1091,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                 if test_neural_field:
-                    loss = loss + (x_batch[:, 1] - y_batch[:, 0]).norm(2)
+                    loss = loss + (pred.squeeze() - y).norm(2)
                 else:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
@@ -1136,20 +1139,75 @@ def data_train_flyvis(config, erase, best_model, device):
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[batch]
 
                 loss.backward()
+
                 optimizer.step()
+
 
                 total_loss += loss.item()
 
                 if ((N % plot_frequency == 0) | (N == 0)):
                     if test_neural_field:
+
+                        print(f'loss: {loss.item()}')
+                        
                         X1 = to_numpy(x[:n_input_neurons,1:3])
-                        E1 = to_numpy(x[:n_input_neurons,4])
-                        plt.figure(figsize=(20,10))
-                        ax = plt.subplot(1,2,1)
-                        ax.scatter(X1[:,0], X1[:,1], c=E1, s=500, cmap='viridis', vmin=0, vmax=1)
+                        gt_field = to_numpy(y) # x_list[0][k, :n_input_neurons, 4:5]
+                        reconstructed_field = to_numpy(pred.squeeze())
+
+
+                        fig = plt.figure(figsize=(8, 4))
+                        ax1 = fig.add_subplot(1, 2, 1)
+                        sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
+                        ax1.set_xticks([])
+                        ax1.set_yticks([])
+                        ax2 = fig.add_subplot(1, 2, 2)
+                        sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
+                        ax2.set_xticks([])
+                        ax2.set_yticks([])
+
+                        plt.tight_layout()
                         plt.tight_layout()
                         plt.savefig(f'{log_dir}/tmp_training/field/field_{epoch}_{N}.tif')
                         plt.close()
+
+
+                        # x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
+                        # with torch.no_grad():
+                            
+                        #     X1  = to_numpy(x[:n_input_neurons, 1:3])
+                        #     X1_ = x[:n_input_neurons, 1:3]
+
+                        #     # Setup for saving MP4
+                        #     fps = 10  # frames per second for the video
+                        #     metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
+                        #     writer = FFMpegWriter(fps=fps, metadata=metadata)
+                        #     fig = plt.figure(figsize=(8, 4))
+
+                        #     # Start the writer context
+                        #     if os.path.exists(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4"):
+                        #         os.remove(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4")
+                        #     with writer.saving(fig, f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4", dpi=100):
+                        #         for k in range(0, 400, 1):
+
+                        #             kk = torch.full((X1_.size(0), 1), float(k), device=device, dtype=torch.float32)
+                        #             in_features = torch.cat((X1_/model.NNR_f_xy_period, kk/model.NNR_f_T_period), dim=1)
+                        #             reconstructed_field = to_numpy(model.NNR_f(in_features) ** 2)
+                        #             gt_field = x_list[0][k, :n_input_neurons, 4:5]
+                                
+                        #             fig.clf()  
+                        #             ax1 = fig.add_subplot(1, 2, 1)
+                        #             sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
+                        #             ax1.set_xticks([])
+                        #             ax1.set_yticks([])
+                        #             ax2 = fig.add_subplot(1, 2, 2)
+                        #             sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
+                        #             ax2.set_xticks([])
+                        #             ax2.set_yticks([])
+
+                        #             plt.tight_layout()
+                        #             writer.grab_frame()
+
+
                     else:
                         plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
                     torch.save(
