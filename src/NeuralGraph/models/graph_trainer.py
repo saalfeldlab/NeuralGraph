@@ -45,6 +45,7 @@ from scipy.stats import pearsonr
 import numpy as np
 import tensorstore as ts
 import napari
+from collections import deque
 
 
 def data_train(config=None, erase=False, best_model=None, device=None):
@@ -827,7 +828,7 @@ def data_train_flyvis(config, erase, best_model, device):
     else:
         test_neural_field = False
 
-    log_dir, logger = create_log_dir(config, erase)
+    log_dir, logger = create_log_dir(config, True)
 
     x_list = []
     y_list = []
@@ -970,6 +971,7 @@ def data_train_flyvis(config, erase, best_model, device):
             ids_batch = []
             mask_batch = []
             k_batch = []
+            visual_input_batch = []
             ids_index = 0
             mask_index = 0
 
@@ -994,7 +996,9 @@ def data_train_flyvis(config, erase, best_model, device):
                     # x[:n_input_neurons, 4:5] = model.forward_visual(x,k)
                     # x[n_input_neurons:, 4:5] = 0
 
-                    pred = model.forward_visual(x,k)
+                    visual_input = model.forward_visual(x,k)
+                    x[:model.n_input_neurons, 4:5] = visual_input
+                    x[model.n_input_neurons:, 4:5] = 0
 
                 loss = torch.zeros(1, device=device)
 
@@ -1055,7 +1059,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                     if test_neural_field:
-                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4], device=device)
+                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)
                     if loss_noise_level>0:
                         y = y + torch.randn(y.shape, device=device) * loss_noise_level
 
@@ -1071,6 +1075,8 @@ def data_train_flyvis(config, erase, best_model, device):
                             ids_batch = ids
                             mask_batch = mask
                             k_batch = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k
+                            if test_neural_field:
+                                visual_input_batch = visual_input
                         else:
                             data_id = torch.cat((data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
                             x_batch = torch.cat((x_batch, x[:, 3:5]), dim=0)
@@ -1078,6 +1084,8 @@ def data_train_flyvis(config, erase, best_model, device):
                             ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
                             mask_batch = torch.cat((mask_batch, mask + mask_index), dim=0)
                             k_batch = torch.cat((k_batch, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k), dim=0)
+                            if test_neural_field:
+                                visual_input_batch = torch.cat((visual_input_batch, visual_input), dim=0)
 
                         ids_index += x.shape[0]
                         mask_index += edges_all.shape[1]
@@ -1088,7 +1096,8 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                 if test_neural_field:
-                    loss = loss + (pred.squeeze() - y).norm(2)
+                    # loss = loss + (visual_input.squeeze() - y).norm(2)
+                    loss = loss + (visual_input_batch - y_batch).norm(2)
                 else:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
@@ -1142,66 +1151,95 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 total_loss += loss.item()
 
-                if ((N % plot_frequency == 0) | (N == 0)):
+                if ((N % plot_frequency == 0) & (N > 0)):
                     if test_neural_field:
-
-                        print(f'loss: {loss.item()}')
-                        
-                        # X1 = to_numpy(x[:n_input_neurons,1:3])
-                        # gt_field = to_numpy(y) # x_list[0][k, :n_input_neurons, 4:5]
-                        # reconstructed_field = to_numpy(pred.squeeze())
-
-
-                        # fig = plt.figure(figsize=(8, 4))
-                        # ax1 = fig.add_subplot(1, 2, 1)
-                        # sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
-                        # ax1.set_xticks([])
-                        # ax1.set_yticks([])
-                        # ax2 = fig.add_subplot(1, 2, 2)
-                        # sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
-                        # ax2.set_xticks([])
-                        # ax2.set_yticks([])
-
-                        # plt.tight_layout()
-                        # plt.tight_layout()
-                        # plt.savefig(f'{log_dir}/tmp_training/field/field_{epoch}_{N}.tif')
-                        # plt.close()
-
                         with torch.no_grad():
-
-
                             plt.style.use('dark_background')
-                            X1  = to_numpy(x[:n_input_neurons, 1:3])
 
-                            # Setup for saving MP4
-                            fps = 5  # frames per second for the video
+                            # Static XY locations (take from first frame of this run)
+                            X1 = to_numpy(x_list[run][0][:n_input_neurons, 1:3])
+
+                            # group-based selection of 10 traces
+                            groups = 217
+                            group_size = n_input_neurons // groups  # expect 8
+                            assert groups * group_size == n_input_neurons, "Unexpected packing of input neurons"
+                            picked_groups = np.linspace(0, groups - 1, 10, dtype=int)
+                            member_in_group = group_size // 2
+                            trace_ids = (picked_groups * group_size + member_in_group).astype(int)
+
+                            # MP4 writer setup
+                            fps = 5
                             metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
                             writer = FFMpegWriter(fps=fps, metadata=metadata)
-                            fig = plt.figure(figsize=(8, 4))
+                            fig = plt.figure(figsize=(24, 8))
 
-                            # Start the writer context
-                            if os.path.exists(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4"):
-                                os.remove(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4")
-                            with writer.saving(fig, f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4", dpi=100):
-                                for k in range(0, n_frames, 1):
+                            out_dir = f"./{log_dir}/tmp_training/field"
+                            os.makedirs(out_dir, exist_ok=True)
+                            out_path = f"{out_dir}/field_movie_{epoch}_{N}.mp4"
+                            if os.path.exists(out_path):
+                                os.remove(out_path)
 
+                            # rolling buffers
+                            win = 200
+                            offset = 1.25
+                            hist_t = deque(maxlen=win)
+                            hist_gt = {i: deque(maxlen=win) for i in trace_ids}
+                            hist_pred = {i: deque(maxlen=win) for i in trace_ids}
+
+                            step = max(1, n_frames // 100)
+
+                            with writer.saving(fig, out_path, dpi=100):
+                                error_list = []
+
+                                for k in range(0, n_frames, step):
+                                    # inputs and predictions
                                     x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
-                                    pred = to_numpy(model.forward_visual(x,k))
+                                    pred = to_numpy(model.forward_visual(x, k))
+                                    pred_vec = np.asarray(pred).squeeze()  # (n_input_neurons,)
+
                                     gt_field = x_list[0][k, :n_input_neurons, 4:5]
-                                
-                                    fig.clf()  
-                                    ax1 = fig.add_subplot(1, 2, 1)
-                                    sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
-                                    ax1.set_xticks([])
-                                    ax1.set_yticks([])
-                                    ax2 = fig.add_subplot(1, 2, 2)
-                                    sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred, cmap="viridis", marker='h', vmin=0, vmax=1)
-                                    ax2.set_xticks([])
-                                    ax2.set_yticks([])
+                                    gt_vec = to_numpy(gt_field).squeeze()  # (n_input_neurons,)
+
+                                    # update rolling traces
+                                    hist_t.append(k)
+                                    for i in trace_ids:
+                                        hist_gt[i].append(gt_vec[i])
+                                        hist_pred[i].append(pred_vec[i])
+
+                                    # draw three panels
+                                    fig.clf()
+
+                                    # GT field
+                                    ax1 = fig.add_subplot(1, 3, 1)
+                                    ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
+                                    ax1.set_axis_off()
+
+                                    # Predicted field
+                                    ax2 = fig.add_subplot(1, 3, 2)
+                                    ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
+                                    ax2.set_axis_off()
+
+                                    # Traces
+                                    ax3 = fig.add_subplot(1, 3, 3)
+                                    ax3.set_axis_off()
+                                    ax3.set_facecolor("black")
+
+                                    t = np.arange(len(hist_t))
+                                    for j, i in enumerate(trace_ids):
+                                        y0 = j * offset
+                                        ax3.plot(t, np.array(hist_gt[i])   + y0, color='lime',  lw=1.6, alpha=0.95)
+                                        ax3.plot(t, np.array(hist_pred[i]) + y0, color='white', lw=1.2, alpha=0.95)
+
+                                    ax3.set_xlim(max(0, len(t) - win), len(t))
+                                    ax3.set_ylim(-offset * 0.5, offset * (len(trace_ids) + 0.5))
 
                                     plt.tight_layout()
                                     writer.grab_frame()
 
+                                    # RMSE for this frame
+                                    error_list.append(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
+
+                            print(f'epoch: {epoch}  error field: {np.mean(error_list):.6f}')
 
                     else:
                         plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
