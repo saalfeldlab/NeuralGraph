@@ -44,7 +44,7 @@ plotting:
 
 training:
     n_epochs: 30
-    recursive_loop: 1
+    recurrent_loop: 1
     batch_size: 1
     small_init_batch_size: True
     n_runs: 2

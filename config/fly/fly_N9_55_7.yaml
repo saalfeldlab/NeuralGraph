@@ -39,8 +39,8 @@ training:
     n_runs: 1
     device: 'auto'
     seed: 241
-    recursive_training: True
-    recursive_loop: 5
+    recurrent_training: True
+    recurrent_loop: 5
     coeff_loop: [1.0, 1.0, 1.0, 1.0, 1.0]
     batch_size: 1
     batch_ratio: 1

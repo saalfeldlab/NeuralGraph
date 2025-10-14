@@ -2,7 +2,7 @@
 # VARIANT 1: No Jacobian Regularization (Baseline)
 # File: recur_6_sin_no_jac.yaml
 # ========================================
-description: 'FitzHugh-Nagumo Neural Dynamics - recursive_loop: 5 - NO JACOBIAN - noise 1e-3 recursive_weight:   recursive_weight: [0.5, 0.25, 0.125, 0.125, 0.125, 0.125]'
+description: 'FitzHugh-Nagumo Neural Dynamics - recurrent_loop: 5 - NO JACOBIAN - noise 1e-3 recurrent_weight:   recurrent_weight: [0.5, 0.25, 0.125, 0.125, 0.125, 0.125]'
 
 system:
   a: 0.7
@@ -42,8 +42,8 @@ training:
   learning_rate: 1.0e-4
   l1_lambda: 1.0e-3
   weight_decay: 1.0e-6
-  recursive_loop: 5
-  recursive_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  recurrent_loop: 5
+  recurrent_weight: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
   n_init_steps: 1000
   use_siren_init: false
   lambda_amp: 0

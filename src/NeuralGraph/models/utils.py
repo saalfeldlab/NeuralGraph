@@ -522,16 +522,16 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
     plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
-def plot_training_signal_field(x, n_nodes, recursive_loop, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recursive_parameters, modulation, device):
-    if recursive_loop > 1:
+def plot_training_signal_field(x, n_nodes, recurrent_loop, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):
+    if recurrent_loop > 1:
         x = torch.tensor(x_list[run][kk], device=device).clone().detach()
-        ids = np.arange(kk, kk + recursive_loop * time_step, time_step)
+        ids = np.arange(kk, kk + recurrent_loop * time_step, time_step)
         true_activity_list = np.transpose(x_list[run][ids.astype(int), :, 6:7].squeeze())
         true_modulation_list = np.transpose(x_list[run][ids.astype(int), :, 8:9].squeeze())
         loss = 0
         pred_activity_list = list([])
         pred_modulation_list = list([])
-        for loop in range(recursive_loop):
+        for loop in range(recurrent_loop):
             pred_activity_list.append(x[:, 6:7].clone().detach())
             if (loop == 0) & ('learnable_short_term_plasticity' in field_type):
                 alpha = (kk % model.embedding_step) / model.embedding_step
@@ -553,11 +553,11 @@ def plot_training_signal_field(x, n_nodes, recursive_loop, kk, time_step, x_list
             x[:, 6:7] = x[:, 6:7] + delta_t * time_step * pred
         pred_activity_list = torch.stack(pred_activity_list).squeeze().t()
         pred_modulation_list = torch.stack(pred_modulation_list).squeeze().t()
-        kk = kk - time_step * recursive_loop
+        kk = kk - time_step * recurrent_loop
         fig = plt.figure(figsize=(12, 12))
         ind_list = [10, 124, 148, 200, 250, 300]
         ax = fig.add_subplot(2, 1, 1)
-        ids = np.arange(0, recursive_loop * time_step, time_step)
+        ids = np.arange(0, recurrent_loop * time_step, time_step)
         for ind in ind_list:
             plt.plot(ids, true_activity_list[ind, :], c='k', alpha=0.5, linewidth=8)
             plt.plot(ids, to_numpy(pred_activity_list[ind, :]))
@@ -576,9 +576,9 @@ def plot_training_signal_field(x, n_nodes, recursive_loop, kk, time_step, x_list
         plt.imshow(to_numpy(modulation), aspect='auto')
         ax = fig.add_subplot(2, 2, 2)
         plt.imshow(to_numpy(model.b ** 2), aspect='auto')
-        ax.text(0.01, 0.99, f'recursive_parameter {recursive_parameters[0]:0.3f} ', transform=ax.transAxes,
+        ax.text(0.01, 0.99, f'recurrent_parameter {recurrent_parameters[0]:0.3f} ', transform=ax.transAxes,
                 verticalalignment='top', horizontalalignment='left', color='w')
-        ax.text(0.01, 0.95, f'loop {recursive_loop} ', transform=ax.transAxes,
+        ax.text(0.01, 0.95, f'loop {recurrent_loop} ', transform=ax.transAxes,
                 verticalalignment='top', horizontalalignment='left', color='w')
         ax = fig.add_subplot(2, 2, 3)
         plt.scatter(to_numpy(modulation[:, np.arange(0, n_frames, n_frames//1000)]), to_numpy(model.b[:, 0:1000] ** 2), s=0.1, color='k', alpha=0.01)

@@ -91,8 +91,8 @@ def data_train_signal(config, erase, best_model, device):
     n_frames = simulation_config.n_frames
     dimension = simulation_config.dimension
     data_augmentation_loop = train_config.data_augmentation_loop
-    recursive_loop = train_config.recursive_loop
-    recursive_parameters = train_config.recursive_parameters.copy()
+    recurrent_loop = train_config.recurrent_loop
+    recurrent_parameters = train_config.recurrent_parameters.copy()
     target_batch_size = train_config.batch_size
     delta_t = simulation_config.delta_t
     if train_config.small_init_batch_size:
@@ -323,7 +323,7 @@ def data_train_signal(config, erase, best_model, device):
         if batch_ratio < 1:
             Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio * 0.2)
         else:
-            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recursive_loop, 1))
+            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recurrent_loop, 1))
 
         plot_frequency = int(Niter // 5)
         print(f'{Niter} iterations per epoch, {plot_frequency} iterations per plot')
@@ -467,8 +467,8 @@ def data_train_signal(config, erase, best_model, device):
                         mask = torch.isin(edges[1, :], torch.tensor(ids, device=device))
                         edges = edges[:, mask]
 
-                    if recursive_loop > 1:
-                        y = torch.tensor(y_list[run][k + recursive_loop], device=device) / ynorm
+                    if recurrent_loop > 1:
+                        y = torch.tensor(y_list[run][k + recurrent_loop], device=device) / ynorm
                     elif time_step == 1:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
                     elif time_step > 1:
@@ -589,10 +589,10 @@ def data_train_signal(config, erase, best_model, device):
 
                     if has_neural_field:
                         with torch.no_grad():
-                            plot_training_signal_field(x, n_nodes, recursive_loop, k, time_step,
+                            plot_training_signal_field(x, n_nodes, recurrent_loop, k, time_step,
                                                        x_list, run, model, field_type, model_f,
                                                        edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N,
-                                                       recursive_parameters, modulation, device)
+                                                       recurrent_parameters, modulation, device)
                         torch.save({'model_state_dict': model_f.state_dict(),
                                     'optimizer_state_dict': optimizer_f.state_dict()},
                                    os.path.join(log_dir, 'models',
@@ -614,7 +614,7 @@ def data_train_signal(config, erase, best_model, device):
 
         print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
         logger.info("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
-        logger.info(f'recursive_parameters: {recursive_parameters[0]:.2f}')
+        logger.info(f'recurrent_parameters: {recurrent_parameters[0]:.2f}')
         torch.save({'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
         if has_neural_field:
@@ -784,8 +784,8 @@ def data_train_flyvis(config, erase, best_model, device):
     n_frames = simulation_config.n_frames
 
     data_augmentation_loop = train_config.data_augmentation_loop
-    recursive_training = train_config.recursive_training
-    recursive_loop = train_config.recursive_loop
+    recurrent_training = train_config.recurrent_training
+    recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
@@ -802,7 +802,9 @@ def data_train_flyvis(config, erase, best_model, device):
     coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
     coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
     coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
-
+    if coeff_loop.numel() < train_config.recurrent_loop:
+        coeff_loop = torch.linspace(coeff_loop[0], coeff_loop[-1], train_config.recurrent_loop, device=device)
+        
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
@@ -828,7 +830,7 @@ def data_train_flyvis(config, erase, best_model, device):
     else:
         test_neural_field = False
 
-    log_dir, logger = create_log_dir(config, True)
+    log_dir, logger = create_log_dir(config, erase)
 
     x_list = []
     y_list = []
@@ -945,7 +947,7 @@ def data_train_flyvis(config, erase, best_model, device):
         if batch_ratio < 1:
             Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio * 0.2)
         else:
-            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recursive_loop, 1))
+            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
 
         plot_frequency = int(Niter // 20)
         print(f'{Niter} iterations per epoch')
@@ -977,6 +979,41 @@ def data_train_flyvis(config, erase, best_model, device):
 
             loss = 0
             run = np.random.randint(n_runs)
+
+
+
+
+            if batch_ratio < 1:
+                # Sample core neurons
+                n_core = int(n_neurons * batch_ratio)
+                core_ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
+                
+                # Determine which neurons we need based on training mode
+                if recurrent_training and recurrent_loop > 0:
+                    # For recurrent: need n-hop neighborhood
+                    required_ids = get_n_hop_neighborhood(core_ids, edges_all, recurrent_loop)
+                else:
+                    # For non-recurrent: just core neurons
+                    required_ids = core_ids
+                
+                # Get edges targeting required neurons
+                mask = torch.isin(edges_all[1, :], torch.tensor(required_ids, device=device))
+                edges = edges_all[:, mask]
+                mask = torch.arange(edges_all.shape[1], device=device)[mask]
+                
+                # Store core_ids for loss computation (always compute loss only on core)
+                ids = core_ids
+                
+            else:
+                # Use all neurons
+                edges = edges_all.clone().detach()
+                mask = torch.arange(edges_all.shape[1])
+                ids = np.arange(n_neurons)
+                core_ids = ids  # All neurons are "core" when batch_ratio = 1
+
+
+
+
 
             for batch in range(batch_size):
 
@@ -1039,34 +1076,6 @@ def data_train_flyvis(config, erase, best_model, device):
                     #             loss_contribs.append(std)
                     #     if loss_contribs:
                     #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
-
-                    if batch_ratio < 1:
-                        # Sample core neurons
-                        n_core = int(n_neurons * batch_ratio)
-                        core_ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
-                        
-                        # Determine which neurons we need based on training mode
-                        if recursive_training and recursive_loop > 0:
-                            # For recurrent: need n-hop neighborhood
-                            required_ids = get_n_hop_neighborhood(core_ids, edges_all, recursive_loop)
-                        else:
-                            # For non-recurrent: just core neurons
-                            required_ids = core_ids
-                        
-                        # Get edges targeting required neurons
-                        mask = torch.isin(edges_all[1, :], torch.tensor(required_ids, device=device))
-                        edges = edges_all[:, mask]
-                        mask = torch.arange(edges_all.shape[1], device=device)[mask]
-                        
-                        # Store core_ids for loss computation (always compute loss only on core)
-                        ids = core_ids
-                        
-                    else:
-                        # Use all neurons
-                        edges = edges_all.clone().detach()
-                        mask = torch.arange(edges_all.shape[1])
-                        ids = np.arange(n_neurons)
-                        core_ids = ids  # All neurons are "core" when batch_ratio = 1
 
                     y = torch.tensor(y_list[run][k], device=device) / ynorm
 
@@ -1138,43 +1147,63 @@ def data_train_flyvis(config, erase, best_model, device):
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
-                if recursive_training:
-                    for n_loop in range(recursive_loop):
-                        # Determine which neurons are active at this timestep
-                        # (shrinks as we move forward in time)
-                        hops_remaining = recursive_loop - n_loop
-                        if hops_remaining > 0 and batch_ratio < 1:
-                            active_ids = get_n_hop_neighborhood(core_ids, edges_all, hops_remaining)
+                if recurrent_training:
+                    # Pre-compute all neighborhoods and edge masks ONCE before the loop
+                    if batch_ratio < 1:
+                        neighborhood_cache = {}
+                        edge_cache = {}
+                        
+                        for hop in range(recurrent_loop + 1):
+                            if hop > 0:
+                                # Get n-hop neighborhood
+                                active_ids = get_n_hop_neighborhood(core_ids, edges_all, hop)
+                            else:
+                                # For hop=0, just use core neurons
+                                active_ids = core_ids
                             
-                            # Get edges for active neurons at this timestep
+                            # Cache the neighborhood
+                            neighborhood_cache[hop] = active_ids
+                            
+                            # Pre-compute edge mask for these neurons
                             mask_t = torch.isin(edges_all[1, :], torch.tensor(active_ids, device=device))
                             edges_t = edges_all[:, mask_t]
                             mask_indices_t = torch.arange(edges_all.shape[1], device=device)[mask_t]
+                            
+                            # Cache edges and mask
+                            edge_cache[hop] = {
+                                'edges': edges_t,
+                                'mask': mask_indices_t,
+                                'active_ids': active_ids
+                            }
+                    
+                    # Now do the recurrent loop using cached values
+                    for n_loop in range(recurrent_loop):
+                        # Determine which neurons are active at this timestep
+                        hops_remaining = recurrent_loop - n_loop
+                        
+                        if hops_remaining > 0 and batch_ratio < 1:
+                            # Use cached values instead of recomputing
+                            cache_entry = edge_cache[hops_remaining]
+                            active_ids = cache_entry['active_ids']
+                            edges_t = cache_entry['edges']
+                            mask_indices_t = cache_entry['mask']
                         else:
-                            # Last step or batch_ratio=1: only need core neurons
+                            # Last step or batch_ratio=1: use original edges
                             active_ids = core_ids if batch_ratio < 1 else np.arange(n_neurons)
                             edges_t = edges
                             mask_indices_t = mask
+                        
+                        # Create active mask once for this timestep
+                        active_mask = torch.isin(
+                            torch.arange(n_neurons, device=device), 
+                            torch.tensor(active_ids, device=device)
+                        )
                         
                         # Update states only for active neurons
                         for batch in range(batch_size):
                             k = k_batch[batch * n_neurons] + n_loop + 1
                             
-                            # Only update active neurons' states
-                            active_mask = torch.isin(torch.arange(n_neurons, device=device), 
-                                                    torch.tensor(active_ids, device=device))
-                            
-                            # Update voltage/calcium for active neurons
-                            if batch == 0:
-                                update_indices = active_mask
-                            else:
-                                update_indices = torch.cat([
-                                    torch.zeros(batch * n_neurons, dtype=torch.bool, device=device),
-                                    active_mask,
-                                    torch.zeros((batch_size - batch - 1) * n_neurons, dtype=torch.bool, device=device)
-                                ])
-                            
-                            # Apply state update
+                            # Apply state update to active neurons
                             dataset_batch[batch].x[active_mask, 3:4] += (
                                 delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][active_mask] * ynorm
                             )
@@ -1189,22 +1218,24 @@ def data_train_flyvis(config, erase, best_model, device):
                         for batch in batch_loader:
                             pred = model(batch, data_id=data_id, mask=mask_indices_t, return_all=False)
                         
-                        # Compute loss only on core neurons
+                        # Prepare targets for loss computation (only core neurons)
+                        y_batch_list = []
                         for batch in range(batch_size):
                             k = k_batch[batch * n_neurons] + n_loop + 1
                             
                             # Get target only for core neurons
                             y = torch.tensor(y_list[run][k.item(), core_ids], device=device) / ynorm
-                            
-                            if batch == 0:
-                                y_batch = y
-                                # Build ids for loss computation (only core neurons)
-                                ids_batch = core_ids
-                            else:
-                                y_batch = torch.cat((y_batch, y), dim=0)
-                                ids_batch = np.concatenate([ids_batch, core_ids + batch * n_neurons])
+                            y_batch_list.append(y)
                         
-                        # Loss only on core neurons
+                        # Concatenate all batch targets
+                        y_batch = torch.cat(y_batch_list, dim=0)
+                        
+                        # Build indices for loss computation (only core neurons across all batches)
+                        ids_batch = np.concatenate([
+                            core_ids + batch * n_neurons for batch in range(batch_size)
+                        ])
+                        
+                        # Compute loss only on core neurons
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
 
                 loss.backward()
@@ -1453,8 +1484,8 @@ def data_train_flyvis_calcium(config, erase, best_model, device):
     n_frames = simulation_config.n_frames
 
     data_augmentation_loop = train_config.data_augmentation_loop
-    recursive_training = train_config.recursive_training
-    recursive_loop = train_config.recursive_loop
+    recurrent_training = train_config.recurrent_training
+    recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
@@ -1607,7 +1638,7 @@ def data_train_flyvis_calcium(config, erase, best_model, device):
         if batch_ratio < 1:
             Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio * 0.2)
         else:
-            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recursive_loop, 1))
+            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recurrent_loop, 1))
 
         plot_frequency = int(Niter // 20)
         print(f'{Niter} iterations per epoch')
@@ -1714,8 +1745,8 @@ def data_train_zebra(config, erase, best_model, device):
     n_frames = simulation_config.n_frames
 
     data_augmentation_loop = train_config.data_augmentation_loop
-    recursive_training = train_config.recursive_training
-    recursive_loop = train_config.recursive_loop
+    recurrent_training = train_config.recurrent_training
+    recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
@@ -2024,8 +2055,8 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     n_frames = simulation_config.n_frames
 
     data_augmentation_loop = train_config.data_augmentation_loop
-    recursive_training = train_config.recursive_training
-    recursive_loop = train_config.recursive_loop
+    recurrent_training = train_config.recurrent_training
+    recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
