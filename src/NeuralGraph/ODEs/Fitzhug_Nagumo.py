@@ -253,7 +253,7 @@ if __name__ == '__main__':
         learning_rate = config.training.learning_rate
         l1_lambda = config.training.l1_lambda
         weight_decay = config.training.weight_decay
-        recursive_loop = config.training.recursive_loop
+        recurrent_loop = config.training.recurrent_loop
         lambda_jac = config.training.lambda_jac
         lambda_ratio = config.training.lambda_ratio
         lambda_amp = config.training.lambda_amp
@@ -398,7 +398,7 @@ if __name__ == '__main__':
                 v = v0
                 optimizer.zero_grad()
 
-                recursive_loop = 3
+                recurrent_loop = 3
                 accumulated_loss = 0.0
 
                 # --- Annealing Jacobian regularizer ---
@@ -407,7 +407,7 @@ if __name__ == '__main__':
                 else:
                     lambda_jac = 0.0
 
-                for loop in range(recursive_loop):
+                for loop in range(recurrent_loop):
                     dv_pred = model.mlp0(torch.cat((v, w, I_ext[idx, None].clone().detach()), dim=1))
                     dw_pred = model.mlp1(torch.cat((v, w), dim=1))
 
@@ -444,7 +444,7 @@ if __name__ == '__main__':
                     v_step_loss = (v - v_target).norm(2)
                     w_step_loss = (w - w_target_siren).norm(2)
 
-                    step_weight = (loop + 1) / recursive_loop
+                    step_weight = (loop + 1) / recurrent_loop
                     step_loss = step_weight * (v_step_loss + w_step_loss)
 
                     # add both Jacobian penalties

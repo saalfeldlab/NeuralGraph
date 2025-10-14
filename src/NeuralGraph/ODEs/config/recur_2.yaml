@@ -1,4 +1,4 @@
-description: 'FitzHugh-Nagumo Neural Dynamics -   recursive_loop: 2'
+description: 'FitzHugh-Nagumo Neural Dynamics -   recurrent_loop: 2'
 
 system:
   a: 0.7
@@ -38,6 +38,6 @@ training:
   learning_rate: 1.0e-4
   l1_lambda: 1.0e-3
   weight_decay: 1.0e-6
-  recursive_loop: 2
+  recurrent_loop: 2
   n_init_steps: 1000
   use_siren_init: false

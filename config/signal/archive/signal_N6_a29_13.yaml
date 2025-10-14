@@ -1,4 +1,4 @@
-description: 'synaptic network test learning with modulation     random matrix no recursive loop 1000 neurons 4 types lorentz std 0.03'
+description: 'synaptic network test learning with modulation     random matrix no recurrent loop 1000 neurons 4 types lorentz std 0.03'
 dataset: 'signal_N6_a29'
 
 simulation:
@@ -62,7 +62,7 @@ training:
     epoch_reset: 1
 
     n_epochs_init: 5
-    recursive_loop: 16
+    recurrent_loop: 16
     time_step: 16
     batch_size: 1
     small_init_batch_size: True

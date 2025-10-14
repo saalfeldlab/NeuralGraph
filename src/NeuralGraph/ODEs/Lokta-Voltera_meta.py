@@ -218,13 +218,13 @@ def train_volterra_model(noise_level=0.0, verbose=True, random_seed=None):
         optimizer.zero_grad()
 
         # Hardcoded values exactly as in original
-        recursive_loop = 8
+        recurrent_loop = 8
         l1_lambda = 1E-3
 
         # Store intermediate states for gradient accumulation
         accumulated_loss = 0.0
 
-        for loop in range(recursive_loop):
+        for loop in range(recurrent_loop):
             dv_pred = model.mlp0(torch.cat((v, w), dim=1))
             dw_pred = model.mlp1(torch.cat((v, w), dim=1))
 
@@ -241,7 +241,7 @@ def train_volterra_model(noise_level=0.0, verbose=True, random_seed=None):
             w_step_loss = (w - w_target_siren).norm(2)
 
             # Weight losses by step (later steps get higher weight)
-            step_weight = (loop + 1) / recursive_loop
+            step_weight = (loop + 1) / recurrent_loop
             step_loss = step_weight * (v_step_loss + w_step_loss)
 
             accumulated_loss += step_loss

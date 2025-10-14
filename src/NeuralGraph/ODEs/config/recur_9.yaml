@@ -2,7 +2,7 @@
 # VARIANT 3: Weak Jacobian Regularization
 # File: recur_6_sin_weak_jac.yaml  
 # ========================================
-description: 'FitzHugh-Nagumo Neural Dynamics - recursive_loop: 5 - WEAK JACOBIAN'
+description: 'FitzHugh-Nagumo Neural Dynamics - recurrent_loop: 5 - WEAK JACOBIAN'
 
 system:
   a: 0.7
@@ -42,7 +42,7 @@ training:
   learning_rate: 1.0e-4
   l1_lambda: 1.0e-3
   weight_decay: 1.0e-6
-  recursive_loop: 5
+  recurrent_loop: 5
   n_init_steps: 1000
   use_siren_init: false
   lambda_amp: 0

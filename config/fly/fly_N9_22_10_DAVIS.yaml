@@ -48,7 +48,7 @@ training:
     device: 'auto'
     seed: 241
 
-    recursive_loop: 0
+    recurrent_loop: 0
     batch_size: 1
     batch_ratio: 1
 

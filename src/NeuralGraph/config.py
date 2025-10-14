@@ -376,13 +376,13 @@ class TrainingConfig(BaseModel):
     velocity_augmentation: bool = False
     data_augmentation_loop: int = 40
 
-    recursive_training: bool = False
-    recursive_training_start_epoch: int = 0
-    recursive_loop: int = 0
+    recurrent_training: bool = False
+    recurrent_training_start_epoch: int = 0
+    recurrent_loop: int = 0
     coeff_loop: list[float] = [2, 4, 8, 16, 32, 64]
     time_step: int = 1
-    recursive_sequence: str = ""
-    recursive_parameters: list[float] = [0, 0]
+    recurrent_sequence: str = ""
+    recurrent_parameters: list[float] = [0, 0]
 
     regul_matrix: bool = False
     sub_batches: int = 1

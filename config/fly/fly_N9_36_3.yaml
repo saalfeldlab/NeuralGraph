@@ -1,4 +1,4 @@
-description: 'small MLP, no extra null edges, noise_model_level: 0 only_noise_visual_input: 1.0 recursive_loop:3'
+description: 'small MLP, no extra null edges, noise_model_level: 0 only_noise_visual_input: 1.0 recurrent_loop:3'
 dataset: 'fly_N9_31_5'
 
 simulation:
@@ -51,8 +51,8 @@ training:
     n_runs: 1
     device: 'auto'
 
-    recursive_training: True
-    recursive_loop: 3
+    recurrent_training: True
+    recurrent_loop: 3
 
     batch_size: 1
     batch_ratio: 1
