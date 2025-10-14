@@ -983,19 +983,14 @@ def data_train_flyvis(config, erase, best_model, device):
                 
                 k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window 
 
-
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                 ids = np.arange(n_neurons)
-
 
                 if time_window > 0:
                     x_temporal = x_list[run][k - time_window + 1: k + 1, :, 3:4].transpose(1, 0, 2).squeeze(-1)
                     x = torch.cat((x, torch.tensor(x_temporal.reshape(n_neurons, time_window), dtype=torch.float32, device=device)), dim=1)
 
                 if has_visual_field:
-                    # x[:n_input_neurons, 4:5] = model.forward_visual(x,k)
-                    # x[n_input_neurons:, 4:5] = 0
-
                     visual_input = model.forward_visual(x,k)
                     x[:model.n_input_neurons, 4:5] = visual_input
                     x[model.n_input_neurons:, 4:5] = 0
@@ -1048,9 +1043,8 @@ def data_train_flyvis(config, erase, best_model, device):
                     if batch_ratio < 1:
                         ids_ = np.random.permutation(ids.shape[0])[:int(ids.shape[0] * batch_ratio)]
                         ids = np.sort(ids_)
-                        edges = edges_all.clone().detach()
-                        mask = torch.isin(edges[1, :], torch.tensor(ids, device=device))
-                        edges = edges[:, mask]
+                        mask = torch.isin(edges_all[1, :], torch.tensor(ids, device=device))
+                        edges = edges_all[:, mask]
                         mask = torch.arange(edges_all.shape[1],device=device)[mask]
                     else:
                         edges = edges_all.clone().detach()
@@ -1152,7 +1146,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss += loss.item()
 
                 if ((N % plot_frequency == 0) & (N > 0)):
-                    if test_neural_field:
+                    if has_visual_field:
                         with torch.no_grad():
                             plt.style.use('dark_background')
 
@@ -1171,7 +1165,7 @@ def data_train_flyvis(config, erase, best_model, device):
                             fps = 5
                             metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
                             writer = FFMpegWriter(fps=fps, metadata=metadata)
-                            fig = plt.figure(figsize=(24, 8))
+                            fig = plt.figure(figsize=(12, 4))
 
                             out_dir = f"./{log_dir}/tmp_training/field"
                             os.makedirs(out_dir, exist_ok=True)
@@ -1186,12 +1180,12 @@ def data_train_flyvis(config, erase, best_model, device):
                             hist_gt = {i: deque(maxlen=win) for i in trace_ids}
                             hist_pred = {i: deque(maxlen=win) for i in trace_ids}
 
-                            step = max(1, n_frames // 100)
+                            step = max(1, min(n_frames,1000) // 100)
 
-                            with writer.saving(fig, out_path, dpi=100):
+                            with writer.saving(fig, out_path, dpi=200):
                                 error_list = []
 
-                                for k in range(0, n_frames, step):
+                                for k in range(0, min(n_frames,1000), step):
                                     # inputs and predictions
                                     x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                                     pred = to_numpy(model.forward_visual(x, k))
@@ -1220,6 +1214,12 @@ def data_train_flyvis(config, erase, best_model, device):
                                     ax2.set_axis_off()
 
                                     # Traces
+
+                                    rmse_frame = float(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
+                                    mae_frame  = float(np.mean(np.abs(pred_vec - gt_vec)))
+                                    running_rmse = float(np.mean(error_list + [rmse_frame])) if len(error_list) else rmse_frame
+
+
                                     ax3 = fig.add_subplot(1, 3, 3)
                                     ax3.set_axis_off()
                                     ax3.set_facecolor("black")
@@ -1232,6 +1232,14 @@ def data_train_flyvis(config, erase, best_model, device):
 
                                     ax3.set_xlim(max(0, len(t) - win), len(t))
                                     ax3.set_ylim(-offset * 0.5, offset * (len(trace_ids) + 0.5))
+                                    ax3.text(
+                                        0.02, 0.98,
+                                        f"frame: {k}   RMSE: {rmse_frame:.3f}   avg RMSE: {running_rmse:.3f}",
+                                        transform=ax3.transAxes,
+                                        va='top', ha='left',
+                                        fontsize=10, color='white')
+
+
 
                                     plt.tight_layout()
                                     writer.grab_frame()
