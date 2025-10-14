@@ -39,4 +39,5 @@ dependencies:
     - joblib
     - flyvis
     - opencv-python
+    - polars
 
