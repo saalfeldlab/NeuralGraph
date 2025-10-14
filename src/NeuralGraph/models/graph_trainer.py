@@ -66,6 +66,8 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     if 'fly' in config.dataset:
         if config.simulation.calcium_type != 'none':
             data_train_flyvis_calcium(config, erase, best_model, device)
+        elif 'visual_NNR_f' in config.graph_model.field_type:
+            data_train_flyvis_visual_input(config, erase, best_model, device)
         else:
             data_train_flyvis(config, erase, best_model, device)
     elif 'zebra_fluo' in config.dataset:
@@ -125,7 +127,6 @@ def data_train_signal(config, erase, best_model, device):
     else:
         n_nodes = simulation_config.n_neurons
         has_neural_field = False
-
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading graph files N: {n_runs} ...')
@@ -984,16 +985,10 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                 if (has_visual_field) & (epoch >= training_NNR_start_epoch):
-                    if model_config.input_size_nnr == 1:
-                        x[:n_input_neurons, 4] = model.visual_NNR(torch.tensor([k / n_frames], dtype=torch.float32, device=device)) ** 2
 
-                    # if model_config.input_size_nnr == 1:
-                    #     in_features = torch.tensor([k / n_frames], dtype=torch.float32, device=device) ** 2
-                    #     x[:n_input_neurons, 4] = model.visual_NNR(in_features) ** 2
-                    # else:
-                    #     t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
-                    #     in_features = torch.cat((x[:n_input_neurons, 1:3], t.unsqueeze(0).repeat(n_input_neurons, 1)), dim=1)
-                    #     x[:n_input_neurons, 4:5] = model.visual_NNR(in_features) ** 2
+                    kk = torch.full((n_input_neurons, 1), float(k), device=device, dtype=torch.float32)
+                    in_features = torch.cat((x[:n_input_neurons, 1:3]/model.NNR_f_xy_period * 2 * np.pi, kk/model.NNR_f_T_period * 2 * np.pi), dim=1)
+                    x[:n_input_neurons, 4] = model.NNR_f(in_features) ** 2
 
                 loss = torch.zeros(1, device=device)
 
@@ -1510,6 +1505,281 @@ def data_train_flyvis_calcium(config, erase, best_model, device):
         plt.close()
 
 
+def data_train_flyvis_visual_input(config, erase, best_model, device):
+
+    simulation_config = config.simulation
+    train_config = config.training
+    model_config = config.graph_model
+
+    dimension = simulation_config.dimension
+    n_epochs = train_config.n_epochs
+    n_neurons = simulation_config.n_neurons
+    n_input_neurons = simulation_config.n_input_neurons
+    n_neuron_types = simulation_config.n_neuron_types
+    calcium_type = simulation_config.calcium_type
+    delta_t = simulation_config.delta_t
+
+    dataset_name = config.dataset
+    n_runs = train_config.n_runs
+    n_frames = simulation_config.n_frames
+
+    data_augmentation_loop = train_config.data_augmentation_loop
+    recursive_training = train_config.recursive_training
+    recursive_loop = train_config.recursive_loop
+    batch_size = train_config.batch_size
+    batch_ratio = train_config.batch_ratio
+    training_NNR_start_epoch = train_config.training_NNR_start_epoch
+    time_window = train_config.time_window
+    plot_batch_size = config.plotting.plot_batch_size
+
+    field_type = model_config.field_type
+    time_step = train_config.time_step
+
+    coeff_NNR_f = train_config.coeff_NNR_f
+
+    if config.training.seed != 42:
+        torch.random.fork_rng(devices=device)
+        torch.random.manual_seed(config.training.seed)
+
+    cmap = CustomColorMap(config=config)
+    plt.style.use('dark_background')
+
+    log_dir, logger = create_log_dir(config, erase)
+    print(f'loading graph files N: {n_runs} ...')
+    logger.info(f'Graph files N: {n_runs}')
+
+    x_list = []
+    for run in trange(0,n_runs):
+        x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
+        x_list.append(x)
+    print(f'dataset: {len(x_list)} run, {len(x_list[0])} frames')
+     
+    if x_list[0].shape[0] < n_frames:
+        n_frames = x_list[0].shape[0]
+    print(f'number of frames: {n_frames}')
+    config.simulation.n_frames = n_frames
+
+    x = x_list[0][n_frames - 10]
+    n_neurons = x.shape[0]
+    print(f'N neurons: {n_neurons}')
+    logger.info(f'N neurons: {n_neurons}')
+    config.simulation.n_neurons =n_neurons
+    type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
+    vnorm = torch.tensor(1.0, device=device)
+    ynorm = torch.tensor(1.0, device=device)
+    torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
+    torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
+    time.sleep(0.5)
+    print(f'vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
+    logger.info(f'vnorm ynorm: {to_numpy(vnorm)} {to_numpy(ynorm)}')
+
+    print('create models ...')
+    model = Signal_Propagation_Zebra(aggr_type=model_config.aggr_type, config=config, device=device)
+
+    start_epoch = 0
+    list_loss = []
+
+    lr = train_config.learning_rate_start
+    if train_config.learning_rate_update_start == 0:
+        lr_update = train_config.learning_rate_start
+    else:
+        lr_update = train_config.learning_rate_update_start
+    learning_rate_NNR_f = train_config.learning_rate_NNR_f
+    learning_rate_NNR_f_start = train_config.learning_rate_NNR_f_start
+    if learning_rate_NNR_f_start == 0:
+        learning_rate_NNR_f_start = learning_rate_NNR_f
+    lr_embedding = train_config.learning_rate_embedding_start
+    lr_W = train_config.learning_rate_W_start
+
+    print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR_f {learning_rate_NNR_f}')
+    logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR_f}')
+
+    optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f_start)
+    model.train()
+
+    net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
+    print(f'network: {net}')
+    print(f'initial batch_size: {batch_size}')
+    logger.info(f'network: {net}')
+    logger.info(f'N epochs: {n_epochs}')
+    logger.info(f'initial batch_size: {batch_size}')
+
+
+    print("start training ...")
+
+    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
+    # torch.autograd.set_detect_anomaly(True)
+
+    list_loss_regul = []
+    time.sleep(0.2)
+
+    ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
+
+    Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio)
+    plot_frequency = int(Niter // 5)
+    print(f'{Niter} iterations per epoch')
+    logger.info(f'{Niter} iterations per epoch')
+    print(f'plot every {plot_frequency} iterations')
+
+    print("start training ...")
+
+    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
+    # torch.autograd.set_detect_anomaly(True)
+
+    time.sleep(0.2)
+
+    list_loss = []
+    for epoch in range(start_epoch, n_epochs + 1):
+
+        total_loss = torch.tensor(0.0, dtype=torch.float32, device=device)
+
+        if epoch == 2:
+            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
+                                                                lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f)
+            model.train()
+
+        for N in trange(Niter):
+
+            optimizer.zero_grad()
+
+            loss = 0
+
+            dataset_batch = []
+            ids_batch = []
+            ids_index = 0
+            edges = []
+
+            for batch in range(batch_size):
+
+                k = np.random.randint(n_frames - 1)
+
+                ids = np.arange(n_input_neurons)
+
+                if batch_ratio < 1:
+                    ids_ = np.random.permutation(ids.shape[0])[:int(ids.shape[0] * batch_ratio)]
+                    ids = np.sort(ids_)
+
+                x = torch.tensor(x_list[run][k, :n_input_neurons, 0:7], dtype=torch.float32, device=device).clone().detach()
+                y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], dtype=torch.float32, device=device).clone().detach()
+
+                dataset = data.Data(x=x, edge_index=edges)
+                dataset_batch.append(dataset)
+
+                k_t = torch.ones((x.shape[0], 1), dtype=torch.float32, device=device) * k * delta_t
+
+                if batch == 0:
+
+                    data_id = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run
+                    y_batch = y
+                    k_batch = k_t
+                    ids_batch = ids
+
+                else:
+
+                    data_id = torch.cat((data_id, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * run), dim=0)
+                    y_batch = torch.cat((y_batch, y), dim=0)
+                    k_batch = torch.cat((k_batch, k_t), dim=0)
+                    ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
+
+                ids_index += x.shape[0]
+
+            ids_batch_t = torch.as_tensor(ids_batch, device=device, dtype=torch.long)
+            batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+
+            for batch in batch_loader:
+                pred, field_f, field_f_laplacians = model(batch, data_id=data_id, k=k_batch, ids=ids_batch_t)
+
+            loss = loss + (field_f[:,None] - y_batch[ids_batch]).norm(2) 
+            if coeff_NNR_f > 0:
+                loss = loss + (field_f_laplacians).norm(2)
+
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+
+            if (N % plot_frequency == 0):
+                x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
+                with torch.no_grad():
+                    
+                    X1  = to_numpy(x[:n_input_neurons, 1:3])
+                    X1_ = x[:n_input_neurons, 1:3]
+
+                    # Setup for saving MP4
+                    fps = 10  # frames per second for the video
+                    metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
+                    writer = FFMpegWriter(fps=fps, metadata=metadata)
+                    fig = plt.figure(figsize=(8, 4))
+
+                    # Start the writer context
+                    if os.path.exists(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4"):
+                        os.remove(f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4")
+                    with writer.saving(fig, f"./{log_dir}/tmp_training/field/field_movie_{epoch}_{N}.mp4", dpi=100):
+                        for k in range(0, 400, 1):
+
+                            kk = torch.full((X1_.size(0), 1), float(k), device=device, dtype=torch.float32)
+                            in_features = torch.cat((X1_/model.NNR_f_xy_period, kk/model.NNR_f_T_period), dim=1)
+                            reconstructed_field = to_numpy(model.NNR_f(in_features) ** 2)
+                            gt_field = x_list[0][k, :n_input_neurons, 4:5]
+                        
+                            fig.clf()  
+                            ax1 = fig.add_subplot(1, 2, 1)
+                            sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=0,vmax=1)
+                            ax1.set_xticks([])
+                            ax1.set_yticks([])
+                            ax2 = fig.add_subplot(1, 2, 2)
+                            sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=0, vmax=1)
+                            ax2.set_xticks([])
+                            ax2.set_yticks([])
+
+                            plt.tight_layout()
+                            writer.grab_frame()
+
+
+
+
+
+
+
+
+                torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
+
+        print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
+        logger.info("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
+        torch.save({'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict()},
+                os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
+
+        list_loss.append(to_numpy(total_loss) / n_neurons)
+        # torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
+
+        fig = plt.figure(figsize=(20, 10))
+        ax = fig.add_subplot(1, 2, 1)
+        plt.plot(list_loss, color='w', linewidth=1)
+        plt.xlim([0, n_epochs])
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.ylabel('loss', fontsize=12)
+        plt.xlabel('epochs', fontsize=12)
+        ax = fig.add_subplot(1, 2, 2)
+        field_files = glob.glob(f"./{log_dir}/tmp_training/field/*.png")
+        last_file = max(field_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
+        filename = os.path.basename(last_file)
+        filename = filename.replace('.png', '')
+        parts = filename.split('_')
+        if len(parts) >= 3:
+            last_epoch = parts[1]
+            last_N = parts[2]
+        else:
+            last_epoch, last_N = parts[-2], parts[-1]
+        img = imageio.imread(f"./{log_dir}/tmp_training/field/field_{last_epoch}_{last_N}.png")
+        plt.imshow(img)
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
+        plt.close()
+
+
 def data_train_zebra(config, erase, best_model, device):
     simulation_config = config.simulation
     train_config = config.training
@@ -1639,12 +1909,10 @@ def data_train_zebra(config, erase, best_model, device):
     lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
 
-
     print(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR_f {learning_rate_NNR_f}')
     logger.info(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR_f}')
-
 
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=None, learning_rate_NNR_f=learning_rate_NNR_f_start)

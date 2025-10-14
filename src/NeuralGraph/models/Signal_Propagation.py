@@ -39,6 +39,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.field_type = model_config.field_type
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
+        self.MLP_activation = config.graph_model.MLP_activation
 
         self.input_size = model_config.input_size
         self.output_size = model_config.output_size
@@ -74,13 +75,13 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             self.embedding_evolves = False
 
         self.lin_edge = MLP(input_size=self.input_size, output_size=self.output_size, nlayers=self.n_layers,
-                            hidden_size=self.hidden_dim, device=self.device)
+                            hidden_size=self.hidden_dim, activation=self.MLP_activation, device=self.device)
 
         self.lin_phi = MLP(input_size=self.input_size_update, output_size=self.output_size, nlayers=self.n_layers_update,
-                            hidden_size=self.hidden_dim_update, device=self.device)
+                            hidden_size=self.hidden_dim_update, activation=self.MLP_activation, device=self.device)
 
         if 'excitation' in self.update_type:
-            self.lin_exc = MLP(input_size=self.input_size_excitation, output_size= 1, nlayers=self.n_layers_excitation, hidden_size=self.hidden_dim_excitation, device=self.device)
+            self.lin_exc = MLP(input_size=self.input_size_excitation, output_size= 1, nlayers=self.n_layers_excitation, hidden_size=self.hidden_dim_excitation, activation=self.MLP_activation, device=self.device)
 
         if self.embedding_trial:
             self.b = nn.Parameter(

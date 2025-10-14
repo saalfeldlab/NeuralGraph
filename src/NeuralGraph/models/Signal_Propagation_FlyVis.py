@@ -42,6 +42,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.calcium_type = simulation_config.calcium_type
+        self.MLP_activation = config.graph_model.MLP_activation
 
         self.training_time_window = config.training.time_window
 
@@ -66,6 +67,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             output_size=self.output_size,
             nlayers=self.n_layers,
             hidden_size=self.hidden_dim,
+            activation=self.MLP_activation,
             device=self.device,
         )
 
@@ -74,6 +76,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             output_size=self.output_size,
             nlayers=self.n_layers_update,
             hidden_size=self.hidden_dim_update,
+            activation=self.MLP_activation,
             device=self.device,
         )
 
@@ -94,15 +97,17 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         )
 
         if 'visual' in model_config.field_type:
-            self.visual_NNR = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
-                  hidden_features=model_config.hidden_dim_nnr,
-                  hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
-                  hidden_omega_0=model_config.omega,
-                  outermost_linear=model_config.outermost_linear_nnr)
-            self.visual_NNR.to(self.device)
+            self.NNR_f = Siren(in_features=model_config.input_size_nnr_f, out_features=model_config.output_size_nnr_f,
+                        hidden_features=model_config.hidden_dim_nnr_f,
+                        hidden_layers=model_config.n_layers_nnr_f, first_omega_0=model_config.omega_f,
+                        hidden_omega_0=model_config.omega_f,
+                        outermost_linear=model_config.outermost_linear_nnr_f)
+            self.NNR_f.to(self.device)
 
+            self.NNR_f_xy_period = model_config.nnr_f_xy_period
+            self.NNR_f_T_period = model_config.nnr_f_T_period
 
-    def forward(self, data=[], data_id=[], mask=[], return_all=False):
+    def forward(self, data=[], data_id=[], mask=[], k = [],return_all=False):
         self.return_all = return_all
         x, edge_index = data.x, data.edge_index
 
@@ -113,7 +118,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             v = data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
         else:
             v = data.x[:, 3:4]
-
+ 
         excitation = data.x[:, 4:5]
 
         particle_id = x[:, 0].long()

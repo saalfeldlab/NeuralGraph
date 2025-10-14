@@ -35,6 +35,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         self.device = device
         self.model = model_config.signal_model_name
         self.delta_t = simulation_config.delta_t
+        self.dimension = simulation_config.dimension
         self.embedding_dim = model_config.embedding_dim
         self.n_neurons = simulation_config.n_neurons
         self.n_frames = simulation_config.n_frames
@@ -44,6 +45,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.calcium_type = simulation_config.calcium_type
+        self.MLP_activation = config.graph_model.MLP_activation
 
         self.coeff_NNR_f = config.training.coeff_NNR_f
         self.training_time_window = config.training.time_window
@@ -69,6 +71,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
             output_size=self.output_size,
             nlayers=self.n_layers,
             hidden_size=self.hidden_dim,
+            activation=self.MLP_activation,
             device=self.device,
         )
 
@@ -77,6 +80,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
             output_size=self.output_size,
             nlayers=self.n_layers_update,
             hidden_size=self.hidden_dim_update,
+            activation=self.MLP_activation,
             device=self.device,
         )
 
@@ -134,8 +138,6 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         pred = None
         return pred, f_sq, lap
 
-        return pred, self.f, self_f_laplacians
-
     def message(self, edge_index_i, edge_index_j, v_i, v_j, embedding_i, embedding_j, data_id_i):
         if (self.model=='PDE_N9_B'):
             in_features = torch.cat([v_i, v_j, embedding_i, embedding_j], dim=1)
@@ -163,7 +165,8 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
             ids = ids.to(device=x.device, dtype=torch.long)
 
         # Select inputs
-        pos = x[ids, 1:4]  # (M, 3)
+        pos = x[ids, 1:1+self.dimension]  
+
 
         if torch.is_tensor(k):
             kk = k[ids].reshape(-1, 1).to(device=x.device, dtype=pos.dtype)

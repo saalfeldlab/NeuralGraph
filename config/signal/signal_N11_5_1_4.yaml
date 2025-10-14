@@ -1,4 +1,4 @@
-description: 'RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4'
+description: 'RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4      seed: 34     MLP_activation  soft_relu'
 dataset: 'signal_N11_5_1'
 
 simulation:
@@ -18,6 +18,8 @@ simulation:
 graph_model:
     signal_model_name: 'PDE_N11'
     prediction: 'first_derivative'
+
+    MLP_activation: 'soft_relu'
 
     input_size: 3
     output_size: 1
@@ -46,7 +48,7 @@ training:
     batch_size: 8
     small_init_batch_size: False
 
-    seed: 24
+    seed: 34
 
     data_augmentation_loop: 200
 

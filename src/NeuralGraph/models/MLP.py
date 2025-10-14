@@ -35,6 +35,12 @@ class MLP(nn.Module):
             self.activation = lambda x: x
         elif activation=='tanh':
             self.activation = F.tanh
+        elif activation=='sigmoid':
+            self.activation = torch.sigmoid
+        elif activation=='leaky_relu':
+            self.activation = F.leaky_relu
+        elif activation=='soft_relu':
+            self.activation = F.softplus
         else:
             self.activation = F.relu
 

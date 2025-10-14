@@ -48,7 +48,7 @@ training:
 
     seed: 24
 
-    data_augmentation_loop: 75
+    data_augmentation_loop: 200
 
     sparsity: 'none'
 

@@ -67,9 +67,9 @@ if __name__ == "__main__":
         # config_list = ['fly_N9_22_10'] #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17', 'fly_N9_22_18']
 
         # config_list = ['fly_N9_59_1', 'fly_N9_59_2', 'fly_N9_59_3', 'fly_N9_59_4', 'fly_N9_59_5']
-        config_list = ['fly_N9_61_1']
+        # config_list = ['fly_N9_61_2']
 
-        # config_list = ['signal_N11_5_1']
+        config_list = ['signal_N11_5_1_3']
 
         # config_list = ['zebra_N10_33_5_13_3', 'zebra_N10_33_5']
 
