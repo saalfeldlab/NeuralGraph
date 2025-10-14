@@ -110,8 +110,10 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
 
     def forward_visual(self, x=[], k = []):
-        kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
-        in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, kk / self.NNR_f_T_period), dim=1)
+        # kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
+        # in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, kk / self.NNR_f_T_period), dim=1)
+
+        in_features = (x[:,1:1+self.dimension] + 8) / self.NNR_f_xy_period
         reconstructed_field = self.NNR_f(in_features[:self.n_input_neurons]) ** 2
 
         return reconstructed_field
