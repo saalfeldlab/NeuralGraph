@@ -108,17 +108,11 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
 
             self.NNR_f_xy_period = model_config.nnr_f_xy_period / (2*np.pi)
             self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
-            self.has_visual_field = True
-        else:
-            self.has_visual_field = False
 
     def forward_visual(self, x=[], k = []):
-        # kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
-        in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, k / self.NNR_f_T_period), dim=1)
-
-        # in_features = (x[:,1:1+self.dimension] + 8) / self.NNR_f_xy_period
-        reconstructed_field = self.NNR_f(in_features) ** 2
-        reconstructed_field[self.n_input_neurons:] = 0
+        kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
+        in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, kk / self.NNR_f_T_period), dim=1)
+        reconstructed_field = self.NNR_f(in_features[:self.n_input_neurons]) ** 2
 
         return reconstructed_field
 
@@ -134,11 +128,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         else:
             v = data.x[:, 3:4]
  
-        if self.has_visual_field:
-            reconstructed_field = self.forward_visual(x, k)
-            excitation = reconstructed_field[:, 0:1]
-        else:
-            excitation = data.x[:, 4:5]
+        excitation = data.x[:, 4:5]
 
         particle_id = x[:, 0].long()
         embedding = self.a[particle_id].squeeze()
@@ -151,7 +141,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         pred = self.lin_phi(in_features)
         
         if return_all:
-            return pred, in_features, msg, excitation
+            return pred, in_features, msg
         else:
             return pred
 
