@@ -1,4 +1,4 @@
-description: 'RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4'
+description: 'RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4      seed: 34'
 dataset: 'signal_N11_5_1'
 
 simulation:
@@ -46,7 +46,7 @@ training:
     batch_size: 8
     small_init_batch_size: False
 
-    seed: 24
+    seed: 34
 
     data_augmentation_loop: 200
 

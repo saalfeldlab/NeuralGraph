@@ -136,11 +136,20 @@ class GraphModelConfig(BaseModel):
         "test_field",
     ] = "none"
 
+    MLP_activation: Literal[
+        "relu", 
+        "tanh", 
+        "sigmoid", 
+        "leaky_relu", 
+        "soft_relu", 
+        "none"
+    ] = "relu"
+
+
     input_size_update: int = 3
     n_layers_update: int = 3
     hidden_dim_update: int = 64
     output_size_update: int = 1
-
 
     kernel_type: str = "mlp"
 
@@ -151,7 +160,6 @@ class GraphModelConfig(BaseModel):
     outermost_linear_nnr: bool = True
     omega: float = 80.0
 
-
     input_size_nnr_f: int = 3
     n_layers_nnr_f: int = 5
     hidden_dim_nnr_f: int = 128
@@ -161,7 +169,6 @@ class GraphModelConfig(BaseModel):
 
     nnr_f_xy_period: float = 1.0
     nnr_f_T_period: float = 1.0
-
 
     input_size_modulation: int = 2
     n_layers_modulation: int = 3
