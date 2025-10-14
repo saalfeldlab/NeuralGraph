@@ -11,7 +11,7 @@ simulation:
     n_input_neurons: 1736
     n_neuron_types: 65
     n_edges: 434112
-    n_frames: 2048
+    n_frames: 100
     delta_t: 0.02
     baseline_value: 0
 
@@ -37,16 +37,16 @@ graph_model:
     lin_edge_positive: True
 
 
-    input_size_nnr_f: 2
-    hidden_dim_nnr_f: 64
+    input_size_nnr_f: 3
+    hidden_dim_nnr_f: 128
     n_layers_nnr_f: 3
 
     outermost_linear_nnr_f: True
     output_size_nnr_f: 1
     
     nnr_f_xy_period: 16.0
-    nnr_f_T_period: 2048
-    omega_f: 10
+    nnr_f_T_period: 100
+    omega_f: 128
 
 
 plotting:
@@ -61,12 +61,12 @@ training:
     device: 'auto'
 
     recursive_loop: 1
-    batch_size: 1
+    batch_size: 16
     batch_ratio: 1.0
 
     sparsity: 'none'
     rotation_augmentation: False
-    data_augmentation_loop: 50
+    data_augmentation_loop: 2000
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
