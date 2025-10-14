@@ -34,8 +34,10 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
 
         self.device = device
         self.model = model_config.signal_model_name
+        self.dimension = simulation_config.dimension
         self.embedding_dim = model_config.embedding_dim
         self.n_neurons = simulation_config.n_neurons
+        self.n_input_neurons = simulation_config.n_input_neurons
         self.n_dataset = config.training.n_runs
         self.n_frames = simulation_config.n_frames
         self.field_type = model_config.field_type
@@ -104,8 +106,15 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
                         outermost_linear=model_config.outermost_linear_nnr_f)
             self.NNR_f.to(self.device)
 
-            self.NNR_f_xy_period = model_config.nnr_f_xy_period
-            self.NNR_f_T_period = model_config.nnr_f_T_period
+            self.NNR_f_xy_period = model_config.nnr_f_xy_period / (2*np.pi)
+            self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
+
+    def forward_visual(self, x=[], k = []):
+        kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
+        in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, kk / self.NNR_f_T_period), dim=1)
+        reconstructed_field = self.NNR_f(in_features[:self.n_input_neurons]) ** 2
+
+        return reconstructed_field
 
     def forward(self, data=[], data_id=[], mask=[], k = [],return_all=False):
         self.return_all = return_all
