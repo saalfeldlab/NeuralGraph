@@ -864,7 +864,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
             print("data saved ...")
 
-        # Neuron type index to name mapping
+    # Neuron type index to name mapping
     index_to_name = {
         0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
         10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
@@ -887,6 +887,54 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     
     plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, f'graphs_data/{dataset_name}/')
 
+    print('plot figure activity ...')
+    n_neurons = len(type_list)
+    type_list = to_numpy(type_list.squeeze())
+    activity = to_numpy(activity)
+
+    selected_types = [5, 12, 19, 23, 31, 35, 39, 43, 50, 55]
+    neuron_indices = []
+    for stype in selected_types:
+        indices = np.where(type_list == stype)[0]
+        if len(indices) == 0:
+            print(f"Type {stype} ({index_to_name[stype]}) not found in type_list")
+        else:
+            neuron_indices.append(indices[0])
+            print(f"Type {stype} ({index_to_name[stype]}): neuron {indices[0]}")
+
+    print(f"found {len(neuron_indices)} neurons out of {len(selected_types)}")
+    print(f"unique types in type_list: {np.unique(type_list)}")
+
+    start_frame = 63000
+    end_frame = 63500
+    true_slice = activity[neuron_indices, start_frame:end_frame]
+    step_v = 1.5
+
+    plt.style.use('default')
+    plt.figure(figsize=(10,10))
+    
+    for i in range(10):
+        baseline = np.mean(true_slice[i])
+        lw = 10
+        plt.plot(true_slice[i] - baseline + i * step_v, linewidth=1, c='green', alpha=0.5)
+
+    for i in range(10):
+        plt.text(-100, i * step_v, index_to_name[selected_types[i]],
+                fontsize=24, va='center')
+    
+    plt.ylim([-step_v, 10 * step_v])
+    plt.yticks([])      
+
+    plt.xticks([0, end_frame - start_frame])
+    plt.gca().set_xticklabels([start_frame, end_frame], fontsize=20)
+    plt.gca().set_xlabel('frame', fontsize=24)
+
+
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.05)
+    plt.savefig(f'./graphs_data/{dataset_name}/activity', dpi=200, bbox_inches='tight')
+    plt.close()
+
     if visualize & (run == run_vizualized):
         print('generating lossless video ...')
 
@@ -903,7 +951,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         for f in files:
             os.remove(f)
 
-
+    
 
 
 def data_generate_synaptic(

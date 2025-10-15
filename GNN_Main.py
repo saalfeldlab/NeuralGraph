@@ -56,7 +56,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None 
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'generate'  # 'generate', 'train', 'test'
 
         # config_list = ['signal_CElegans_d2', 'signal_CElegans_d2a', 'signal_CElegans_d3', 'signal_CElegans_d3a', 'signal_CElegans_d3b']
         # config_list = ['signal_CElegans_c14_4']
@@ -96,7 +96,7 @@ if __name__ == "__main__":
                 alpha=1,
                 erase=False,
                 bSave=True,
-                step=20
+                step=2
             ) 
 
         if "train" in task:
