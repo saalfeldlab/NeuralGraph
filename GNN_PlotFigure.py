@@ -7228,39 +7228,6 @@ def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, in
    plt.tight_layout()
    plt.savefig(f'./{output_path}/activity_mu_sigma.png', dpi=300, bbox_inches='tight')
    plt.close()
-
-   # Plot individual traces for target types (keeping original functionality)
-   for target_type_name in target_type_name_list:
-       target_type_index = None
-       for idx, name in index_to_name.items():
-           if name == target_type_name:
-               target_type_index = idx
-               break
-       if target_type_index is not None:
-           type_mask = (to_numpy(type_list).squeeze() == target_type_index)
-           neurons_of_type = np.where(type_mask)[0]
-           if len(neurons_of_type) > 0:
-               # Select up to 10 neurons of this type
-               n_neurons_to_plot = min(10, len(neurons_of_type))
-               selected_neurons = neurons_of_type[:n_neurons_to_plot]
-
-               plt.figure(figsize=(10, 10))
-               for i, neuron_idx in enumerate(selected_neurons):
-                   plt.plot(to_numpy(activity[neuron_idx, :]), linewidth=1,
-                            label=f'{target_type_name}_{i}' if n_neurons_to_plot <= 5 else None)
-
-               plt.xlabel('time', fontsize=24)
-               plt.ylabel(r'$v_i$', fontsize=24)
-               plt.xlim([0, n_frames // 400])
-               plt.xticks(fontsize=18)
-               plt.yticks(fontsize=18)
-               plt.title(f'{target_type_name}  id:{target_type_index}  ({n_neurons_to_plot} traces)',
-                         fontsize=24)
-               if n_neurons_to_plot <= 5:
-                   plt.legend(fontsize=24)
-               plt.tight_layout()
-               plt.savefig(f'./{output_path}/activity_{target_type_name}.png', dpi=300)
-               plt.close()
    
    # Return per-neuron statistics (NEW)
    return {
