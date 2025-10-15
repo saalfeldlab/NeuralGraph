@@ -882,7 +882,7 @@ def data_train_flyvis(config, erase, best_model, device):
         start_epoch = int(best_model.split('_')[0])
         print(f'best_model: {best_model}  start_epoch: {start_epoch}')
         logger.info(f'best_model: {best_model}  start_epoch: {start_epoch}')
-        list_loss = torch.load(f"{log_dir}/loss.pt")
+        # list_loss = torch.load(f"{log_dir}/loss.pt")
     elif  train_config.pretrained_model !='':
         net = train_config.pretrained_model
         print(f'load pretrained {net} ...')
@@ -949,7 +949,7 @@ def data_train_flyvis(config, erase, best_model, device):
         else:
             Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
 
-        plot_frequency = int(Niter // 20)
+        plot_frequency = int(Niter // 10)
         print(f'{Niter} iterations per epoch')
         logger.info(f'{Niter} iterations per epoch')
         print(f'plot every {plot_frequency} iterations')
@@ -987,20 +987,29 @@ def data_train_flyvis(config, erase, best_model, device):
                 
                 # Determine which neurons we need based on training mode
                 if recurrent_training and recurrent_loop > 0:
-                    # For recurrent: need n-hop neighborhood
-                    required_ids = get_n_hop_neighborhood(core_ids, edges_all, recurrent_loop)
+                    # For recurrent: need n-hop neighborhood (compute ONCE)
+
+
+                    verbose = (N == 0) & (epoch==0)  # Print only on first iteration
+                    # or: verbose = (N % 100 == 0)  # Print every 100 iterations
+                    # or: verbose = False  # Never print
+                    
+                    required_ids = get_n_hop_neighborhood_with_stats(
+                        core_ids, edges_all, recurrent_loop, verbose=verbose
+                    )
+                    
                 else:
                     # For non-recurrent: just core neurons
                     required_ids = core_ids
                 
-                # Get edges targeting required neurons
+                # Get edges ONCE for all timesteps
                 mask = torch.isin(edges_all[1, :], torch.tensor(required_ids, device=device))
                 edges = edges_all[:, mask]
                 mask = torch.arange(edges_all.shape[1], device=device)[mask]
                 
-                # Store core_ids for loss computation (always compute loss only on core)
+                # Store core_ids for loss computation
                 ids = core_ids
-                
+                            
             else:
                 # Use all neurons
                 edges = edges_all.clone().detach()
@@ -1144,94 +1153,48 @@ def data_train_flyvis(config, erase, best_model, device):
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
                 if recurrent_training:
-                    # Pre-compute all neighborhoods and edge masks ONCE before the loop
-                    if batch_ratio < 1:
-                        neighborhood_cache = {}
-                        edge_cache = {}
-                        
-                        for hop in range(recurrent_loop + 1):
-                            if hop > 0:
-                                # Get n-hop neighborhood
-                                active_ids = get_n_hop_neighborhood(core_ids, edges_all, hop)
-                            else:
-                                # For hop=0, just use core neurons
-                                active_ids = core_ids
-                            
-                            # Cache the neighborhood
-                            neighborhood_cache[hop] = active_ids
-                            
-                            # Pre-compute edge mask for these neurons
-                            mask_t = torch.isin(edges_all[1, :], torch.tensor(active_ids, device=device))
-                            edges_t = edges_all[:, mask_t]
-                            mask_indices_t = torch.arange(edges_all.shape[1], device=device)[mask_t]
-                            
-                            # Cache edges and mask
-                            edge_cache[hop] = {
-                                'edges': edges_t,
-                                'mask': mask_indices_t,
-                                'active_ids': active_ids
-                            }
-                    
-                    # Now do the recurrent loop using cached values
+                    # Use SAME edges and mask for entire rollout
                     for n_loop in range(recurrent_loop):
-                        # Determine which neurons are active at this timestep
-                        hops_remaining = recurrent_loop - n_loop
-                        
-                        if hops_remaining > 0 and batch_ratio < 1:
-                            # Use cached values instead of recomputing
-                            cache_entry = edge_cache[hops_remaining]
-                            active_ids = cache_entry['active_ids']
-                            edges_t = cache_entry['edges']
-                            mask_indices_t = cache_entry['mask']
-                        else:
-                            # Last step or batch_ratio=1: use original edges
-                            active_ids = core_ids if batch_ratio < 1 else np.arange(n_neurons)
-                            edges_t = edges
-                            mask_indices_t = mask
-                        
-                        # Create active mask once for this timestep
-                        active_mask = torch.isin(
-                            torch.arange(n_neurons, device=device), 
-                            torch.tensor(active_ids, device=device)
-                        )
-                        
-                        # Update states only for active neurons
+                        # Update states for required_ids neurons
                         for batch in range(batch_size):
                             k = k_batch[batch * n_neurons] + n_loop + 1
                             
-                            # Apply state update to active neurons
-                            dataset_batch[batch].x[active_mask, 3:4] += (
-                                delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][active_mask] * ynorm
+                            # Update only required neurons (not all)
+                            if batch_ratio < 1:
+                                update_indices = required_ids
+                            else:
+                                update_indices = np.arange(n_neurons)
+                            
+                            # Apply state update
+                            dataset_batch[batch].x[update_indices, 3:4] += (
+                                delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][update_indices] * ynorm
                             )
                             
-                            # Update external input for active neurons
-                            dataset_batch[batch].x[active_mask, 4:5] = torch.tensor(
-                                x_list[run][k.item(), active_ids, 4:5], device=device
+                            # Update external input
+                            dataset_batch[batch].x[update_indices, 4:5] = torch.tensor(
+                                x_list[run][k.item(), update_indices, 4:5], device=device
                             )
                         
-                        # Forward pass with current timestep's edges
+                        # Forward pass with SAME edges/mask
                         batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                         for batch in batch_loader:
-                            pred = model(batch, data_id=data_id, mask=mask_indices_t, return_all=False)
+                            pred = model(batch, data_id=data_id, mask=mask, return_all=False)
                         
-                        # Prepare targets for loss computation (only core neurons)
+                        # Loss computation on core neurons only
                         y_batch_list = []
                         for batch in range(batch_size):
                             k = k_batch[batch * n_neurons] + n_loop + 1
-                            
-                            # Get target only for core neurons
                             y = torch.tensor(y_list[run][k.item(), core_ids], device=device) / ynorm
                             y_batch_list.append(y)
                         
-                        # Concatenate all batch targets
                         y_batch = torch.cat(y_batch_list, dim=0)
                         
-                        # Build indices for loss computation (only core neurons across all batches)
+                        # Indices for loss (core neurons across all batches)
                         ids_batch = np.concatenate([
                             core_ids + batch * n_neurons for batch in range(batch_size)
                         ])
                         
-                        # Compute loss only on core neurons
+                        # Loss only on core neurons
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
 
                 loss.backward()
@@ -1241,7 +1204,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 total_loss += loss.item()
 
-                if ((N % plot_frequency == 0) | (N == 0)):
+                if ((N % plot_frequency == 0) & (N > 0)):
                     if has_visual_field:
                         with torch.no_grad():
                             plt.style.use('dark_background')
@@ -1258,7 +1221,7 @@ def data_train_flyvis(config, erase, best_model, device):
                             trace_ids = (picked_groups * group_size + member_in_group).astype(int)
 
                             # MP4 writer setup
-                            fps = 5
+                            fps = 10
                             metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
                             writer = FFMpegWriter(fps=fps, metadata=metadata)
                             fig = plt.figure(figsize=(12, 4))
@@ -1276,12 +1239,12 @@ def data_train_flyvis(config, erase, best_model, device):
                             hist_gt = {i: deque(maxlen=win) for i in trace_ids}
                             hist_pred = {i: deque(maxlen=win) for i in trace_ids}
 
-                            step = max(1, min(n_frames,1000) // 100)
+                            step_video = 2
 
                             with writer.saving(fig, out_path, dpi=200):
                                 error_list = []
 
-                                for k in range(0, min(n_frames,1000), step):
+                                for k in trange(0, 800, step_video):
                                     # inputs and predictions
                                     x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                                     pred = to_numpy(model.forward_visual(x, k))
@@ -1303,16 +1266,6 @@ def data_train_flyvis(config, erase, best_model, device):
                                     # draw three panels
                                     fig.clf()
 
-                                    # GT field
-                                    ax1 = fig.add_subplot(1, 3, 1)
-                                    ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
-                                    ax1.set_axis_off()
-
-                                    # Predicted field
-                                    ax2 = fig.add_subplot(1, 3, 2)
-                                    ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred_vec, cmap="viridis", marker='h', vmin=vmin, vmax=vmax)
-                                    ax2.set_axis_off()
-
                                     # Traces
 
                                     rmse_frame = float(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
@@ -1327,8 +1280,12 @@ def data_train_flyvis(config, erase, best_model, device):
                                     t = np.arange(len(hist_t))
                                     for j, i in enumerate(trace_ids):
                                         y0 = j * offset
+
+                                        # correction = 1/(vmax+1E-8)   #   
+                                        correction = np.mean(np.array(hist_gt[i]) / (np.array(hist_pred[i])+1E-16))
+
                                         ax3.plot(t, np.array(hist_gt[i])   + y0, color='lime',  lw=1.6, alpha=0.95)
-                                        ax3.plot(t, np.array(hist_pred[i]) + y0, color='white', lw=1.2, alpha=0.95)
+                                        ax3.plot(t, np.array(hist_pred[i])*correction + y0, color='white', lw=1.2, alpha=0.95)
 
                                     ax3.set_xlim(max(0, len(t) - win), len(t))
                                     ax3.set_ylim(-offset * 0.5, offset * (len(trace_ids) + 0.5))
@@ -1339,13 +1296,24 @@ def data_train_flyvis(config, erase, best_model, device):
                                         va='top', ha='left',
                                         fontsize=10, color='white')
 
+                                                                        # GT field
+                                    
+                                    ax1 = fig.add_subplot(1, 3, 1)
+                                    ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
+                                    ax1.set_axis_off()
+                                    ax1.set_title('ground truth', fontsize=12)
 
+                                    # Predicted field
+                                    ax2 = fig.add_subplot(1, 3, 2)
+                                    ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred_vec, cmap="viridis", marker='h', vmin=0, vmax=1/correction)
+                                    ax2.set_axis_off()
+                                    ax2.set_title('prediction', fontsize=12)
 
                                     plt.tight_layout()
                                     writer.grab_frame()
 
                                     # RMSE for this frame
-                                    error_list.append(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
+                                    error_list.append(np.sqrt(((pred_vec * correction - gt_vec) ** 2).mean()))
 
 
                     if not(test_neural_field):

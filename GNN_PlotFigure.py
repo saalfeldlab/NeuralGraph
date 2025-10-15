@@ -5362,72 +5362,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             plot_reconstruction_correlations(activity_results=activity_results, results_per_neuron=results_per_neuron, gt_taus=gt_taus, gt_V_Rest=gt_V_Rest, type_list=type_list, index_to_name=index_to_name, log_dir=log_dir)
 
-            if 'visual' in field_type:
-                n_frames = config.simulation.n_frames
-                k = 100
-                reconstructed_field = to_numpy(
-                    model.visual_NNR(torch.tensor([k / n_frames], dtype=torch.float32, device=device)) ** 2)
-                gt_field = x_list[0][k, :n_input_neurons, 4:5]
-
-                # Setup for saving MP4
-                fps = 10  # frames per second for the video
-                metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
-                writer = FFMpegWriter(fps=fps, metadata=metadata)
-                fig = plt.figure(figsize=(12, 4))
-
-                # Start the writer context
-                if os.path.exists(f'{log_dir}/results/field_movie_{config_indices}.mp4'):
-                    os.remove(f'{log_dir}/results/field_movie_{config_indices}.mp4')
-                r_squared_list = []
-                slope_list = []
-                with writer.saving(fig, f'{log_dir}/results/field_movie_{epoch}.mp4', dpi=80):
-                    for k in range(0, 4000, 10):
-                        # Inference and data extraction
-                        reconstructed_field = to_numpy(
-                            model.visual_NNR(torch.tensor([k / n_frames], dtype=torch.float32, device=device)) ** 2)
-                        gt_field = x_list[0][k, :n_input_neurons, 4:5]
-                        X1 = x_list[0][k, :n_input_neurons, 1:3]
-                        vmin = reconstructed_field.min()
-                        vmax = reconstructed_field.max()
-                        fig.clf()  # Clear the figure
-                        # Ground truth
-                        ax1 = fig.add_subplot(1, 3, 1)
-                        sc1 = ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_field, cmap="viridis", marker='h', vmin=-2, vmax=2)
-                        ax1.set_xticks([])
-                        ax1.set_yticks([])
-                        ax1.set_title("ground Truth", fontsize=48)
-                        # Reconstructed
-                        ax2 = fig.add_subplot(1, 3, 2)
-                        sc2 = ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=reconstructed_field, cmap="viridis", marker='h', vmin=vmin, vmax=vmax)
-                        ax2.set_xticks([])
-                        ax2.set_yticks([])
-                        ax2.set_title("reconstructed", fontsize=48)
-
-                        ax3 = fig.add_subplot(1, 3, 3)
-                        sc3 = ax3.scatter(gt_field, reconstructed_field, s=1, c=mc)
-                        x_data = gt_field.squeeze()
-                        y_data = reconstructed_field
-                        lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-                        residuals = y_data - linear_model(x_data, *lin_fit)
-                        ss_res = np.sum(residuals ** 2)
-                        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                        r_squared = 1 - (ss_res / ss_tot)
-                        r_squared_list.append(r_squared)
-                        slope_list.append(lin_fit[0])
-                        ax3.text(0.05, 0.95,
-                                 f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
-                                 transform=ax3.transAxes,
-                                 verticalalignment='top',
-                                 fontsize=12)
-                        ax3.set_xlim([0,1])
-                        ax3.set_ylim([0,1])
-                        plt.tight_layout()
-                        writer.grab_frame()
-
-                print(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
-                logger.info(f"visual field R²: {np.mean(r_squared_list):.3f}  std: {np.std(r_squared_list):.3f}  slope: {np.mean(slope_list):.3f}")
-            print(" ")
-
 
 def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style, extended, device):
     dataset_name = config.dataset
@@ -8401,7 +8335,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    config_list = ['fly_N9_51_15', 'fly_N9_51_16', 'fly_N9_51_17']
+    config_list = ['fly_N9_62_1', 'fly_N9_62_4']
 
 
     # config_list = ['zebra_N10_33_5_13_3', 'zebra_N10_33_5_13_4', 'zebra_N10_33_5_13_5', 'zebra_N10_33_5_12_3']
