@@ -1345,20 +1345,69 @@ def overlay_barycentric_into_umap(
 
     return {"emb_bg": emb_bg, "emb_new": emb_new, "ids_bg": ids_bg}
 
-def get_n_hop_neighborhood(target_ids, edges_all, n_hops):
-    """Get n-hop neighborhood of target neurons"""
+def get_n_hop_neighborhood_with_stats(target_ids, edges_all, n_hops, verbose=False):
+    """Get n-hop neighborhood with optional detailed statistics per hop"""
     current = set(target_ids)
     all_neurons = set(target_ids)
     
+    if verbose:
+        print(f"\n=== N-hop Neighborhood Expansion ===")
+        print(f"Starting with {len(target_ids)} core neurons")
+    
+    # Track stats per hop
+    hop_stats = []
+    
     for hop in range(n_hops):
         next_hop = set()
+        edge_count = 0
+        
         for node in current:
             # Find predecessors (neurons that send to current)
             mask = edges_all[1, :] == node
             predecessors = edges_all[0, mask].cpu().numpy()
             next_hop.update(predecessors)
+            edge_count += len(predecessors)
         
+        # New neurons added at this hop
+        new_neurons = next_hop - all_neurons
         all_neurons.update(next_hop)
+        
+        if verbose:
+            # Calculate edges to neurons at this hop
+            edges_to_current = torch.isin(edges_all[1, :], 
+                                         torch.tensor(list(all_neurons), device=edges_all.device))
+            total_edges = edges_to_current.sum().item()
+            
+            # Store stats
+            hop_stats.append({
+                'hop': hop + 1,
+                'new_neurons': len(new_neurons),
+                'total_neurons': len(all_neurons),
+                'edges_this_hop': edge_count,
+                'total_edges': total_edges,
+                'expansion_factor': len(all_neurons) / len(target_ids)
+            })
+            
+            print(f"\nHop {hop + 1}:")
+            print(f"  New neurons added: {len(new_neurons):,}")
+            print(f"  Total neurons now: {len(all_neurons):,} ({100*len(all_neurons)/13741:.1f}% of network)")
+            print(f"  Edges from this hop: {edge_count:,}")
+            print(f"  Total edges needed: {total_edges:,} ({100*total_edges/edges_all.shape[1]:.1f}% of all edges)")
+            print(f"  Expansion factor: {len(all_neurons)/len(target_ids):.2f}x")
+            print(f"  Compute cost estimate: {len(all_neurons) * total_edges / 1e6:.2f}M operations")
+        
         current = next_hop
+        
+        if len(current) == 0:
+            if verbose:
+                print(f"  -> No more expansion possible")
+            break
+    
+    if verbose:
+        print(f"\n=== Summary ===")
+        print(f"Total neurons: {len(all_neurons):,} / 13,741 ({100*len(all_neurons)/13741:.1f}%)")
+        print(f"Total edges: {total_edges:,} / {edges_all.shape[1]:,} ({100*total_edges/edges_all.shape[1]:.1f}%)")
+        print(f"Memory estimate: {(len(all_neurons) * 8 + total_edges * 8) / 1e6:.2f} MB")
     
     return np.array(sorted(all_neurons))
+

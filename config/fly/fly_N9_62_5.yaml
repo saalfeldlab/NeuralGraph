@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective batch 32'
+description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective   recurrent training'
 dataset: 'fly_N9_62_1'
 
 simulation:
@@ -47,9 +47,9 @@ training:
     n_runs: 1
     device: 'auto'
 
-    recurrent_training: False
-    recurrent_loop: 1
-    batch_size: 32
+    recurrent_training: True
+    recurrent_loop: 10
+    batch_size: 1
     batch_ratio: 1
 
     sparsity: 'none'
