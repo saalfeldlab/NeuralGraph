@@ -1114,7 +1114,6 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                 if test_neural_field:
-                    # loss = loss + (visual_input.squeeze() - y).norm(2)
                     loss = loss + (visual_input_batch - y_batch).norm(2)
                 else:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
@@ -1242,7 +1241,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 total_loss += loss.item()
 
-                if ((N % plot_frequency == 0) & (N > 0)):
+                if ((N % plot_frequency == 0) | (N == 0)):
                     if has_visual_field:
                         with torch.no_grad():
                             plt.style.use('dark_background')
@@ -1288,6 +1287,10 @@ def data_train_flyvis(config, erase, best_model, device):
                                     pred = to_numpy(model.forward_visual(x, k))
                                     pred_vec = np.asarray(pred).squeeze()  # (n_input_neurons,)
 
+                                    if k==0:
+                                        vmin = pred_vec.min()
+                                        vmax = pred_vec.max()
+
                                     gt_field = x_list[0][k, :n_input_neurons, 4:5]
                                     gt_vec = to_numpy(gt_field).squeeze()  # (n_input_neurons,)
 
@@ -1307,7 +1310,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                                     # Predicted field
                                     ax2 = fig.add_subplot(1, 3, 2)
-                                    ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
+                                    ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred_vec, cmap="viridis", marker='h', vmin=vmin, vmax=vmax)
                                     ax2.set_axis_off()
 
                                     # Traces
@@ -1344,7 +1347,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                     # RMSE for this frame
                                     error_list.append(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
 
-                            print(f'epoch: {epoch}  error field: {np.mean(error_list):.6f}')
+
                     if not(test_neural_field):
                         plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
                     torch.save(
