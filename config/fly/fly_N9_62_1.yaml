@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0.025 DAVIS  64K frames augmented objective'
+description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective'
 dataset: 'fly_N9_62_1'
 
 simulation:
@@ -60,9 +60,9 @@ training:
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 1.0E-3
 
-    noise_model_level: 0.025
+    noise_model_level: 0.05
 
-    noise_model_level: 0
+
     coeff_edge_diff: 500
     coeff_update_u_diff: 0
     coeff_update_msg_diff: 0

@@ -224,9 +224,6 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     if simulation_config.seed != 42:
         torch.random.manual_seed(simulation_config.seed)
 
-    print(
-        f"generating data ... {model_config.particle_model_name} {model_config.mesh_model_name} seed: {simulation_config.seed}")
-
     dataset_name = config.dataset
     n_neurons = simulation_config.n_neurons
     n_neuron_types = simulation_config.n_neuron_types
@@ -251,6 +248,9 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     calcium_tau = simulation_config.calcium_tau  # time constant for calcium dynamics
     calcium_alpha = simulation_config.calcium_alpha
     calcium_beta = simulation_config.calcium_beta
+
+
+    print(f"generating data ... {model_config.signal_model_name}  noise: {noise_model_level}  seed: {simulation_config.seed}")
 
     run = 0
 
@@ -898,9 +898,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         indices = np.where(type_list == stype)[0]
         if len(indices) == 0:
             print(f"Type {stype} ({index_to_name[stype]}) not found in type_list")
-        else:
-            neuron_indices.append(indices[0])
-            print(f"Type {stype} ({index_to_name[stype]}): neuron {indices[0]}")
+        neuron_indices.append(indices[0])
 
     print(f"found {len(neuron_indices)} neurons out of {len(selected_types)}")
     print(f"unique types in type_list: {np.unique(type_list)}")
@@ -915,8 +913,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     
     for i in range(10):
         baseline = np.mean(true_slice[i])
-        lw = 10
-        plt.plot(true_slice[i] - baseline + i * step_v, linewidth=1, c='green', alpha=0.5)
+        plt.plot(true_slice[i] - baseline + i * step_v, linewidth=1, c='green', alpha=0.75)
 
     for i in range(10):
         plt.text(-100, i * step_v, index_to_name[selected_types[i]],
