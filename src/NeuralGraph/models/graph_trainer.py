@@ -980,9 +980,6 @@ def data_train_flyvis(config, erase, best_model, device):
             loss = 0
             run = np.random.randint(n_runs)
 
-
-
-
             if batch_ratio < 1:
                 # Sample core neurons
                 n_core = int(n_neurons * batch_ratio)
@@ -1147,100 +1144,100 @@ def data_train_flyvis(config, erase, best_model, device):
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
-            if recurrent_training:
-                # Pre-compute all neighborhoods and edge masks ONCE before the loop
-                if batch_ratio < 1:
-                    neighborhood_cache = {}
-                    edge_cache = {}
+                if recurrent_training:
+                    # Pre-compute all neighborhoods and edge masks ONCE before the loop
+                    if batch_ratio < 1:
+                        neighborhood_cache = {}
+                        edge_cache = {}
+                        
+                        for hop in range(recurrent_loop + 1):
+                            if hop > 0:
+                                # Get n-hop neighborhood
+                                active_ids = get_n_hop_neighborhood(core_ids, edges_all, hop)
+                            else:
+                                # For hop=0, just use core neurons
+                                active_ids = core_ids
+                            
+                            # Cache the neighborhood
+                            neighborhood_cache[hop] = active_ids
+                            
+                            # Pre-compute edge mask for these neurons
+                            mask_t = torch.isin(edges_all[1, :], torch.tensor(active_ids, device=device))
+                            edges_t = edges_all[:, mask_t]
+                            mask_indices_t = torch.arange(edges_all.shape[1], device=device)[mask_t]
+                            
+                            # Cache edges and mask
+                            edge_cache[hop] = {
+                                'edges': edges_t,
+                                'mask': mask_indices_t,
+                                'active_ids': active_ids
+                            }
                     
-                    for hop in range(recurrent_loop + 1):
-                        if hop > 0:
-                            # Get n-hop neighborhood
-                            active_ids = get_n_hop_neighborhood(core_ids, edges_all, hop)
+                    # Now do the recurrent loop using cached values
+                    for n_loop in range(recurrent_loop):
+                        # Determine which neurons are active at this timestep
+                        hops_remaining = recurrent_loop - n_loop
+                        
+                        if hops_remaining > 0 and batch_ratio < 1:
+                            # Use cached values instead of recomputing
+                            cache_entry = edge_cache[hops_remaining]
+                            active_ids = cache_entry['active_ids']
+                            edges_t = cache_entry['edges']
+                            mask_indices_t = cache_entry['mask']
                         else:
-                            # For hop=0, just use core neurons
-                            active_ids = core_ids
+                            # Last step or batch_ratio=1: use original edges
+                            active_ids = core_ids if batch_ratio < 1 else np.arange(n_neurons)
+                            edges_t = edges
+                            mask_indices_t = mask
                         
-                        # Cache the neighborhood
-                        neighborhood_cache[hop] = active_ids
-                        
-                        # Pre-compute edge mask for these neurons
-                        mask_t = torch.isin(edges_all[1, :], torch.tensor(active_ids, device=device))
-                        edges_t = edges_all[:, mask_t]
-                        mask_indices_t = torch.arange(edges_all.shape[1], device=device)[mask_t]
-                        
-                        # Cache edges and mask
-                        edge_cache[hop] = {
-                            'edges': edges_t,
-                            'mask': mask_indices_t,
-                            'active_ids': active_ids
-                        }
-                
-                # Now do the recurrent loop using cached values
-                for n_loop in range(recurrent_loop):
-                    # Determine which neurons are active at this timestep
-                    hops_remaining = recurrent_loop - n_loop
-                    
-                    if hops_remaining > 0 and batch_ratio < 1:
-                        # Use cached values instead of recomputing
-                        cache_entry = edge_cache[hops_remaining]
-                        active_ids = cache_entry['active_ids']
-                        edges_t = cache_entry['edges']
-                        mask_indices_t = cache_entry['mask']
-                    else:
-                        # Last step or batch_ratio=1: use original edges
-                        active_ids = core_ids if batch_ratio < 1 else np.arange(n_neurons)
-                        edges_t = edges
-                        mask_indices_t = mask
-                    
-                    # Create active mask once for this timestep
-                    active_mask = torch.isin(
-                        torch.arange(n_neurons, device=device), 
-                        torch.tensor(active_ids, device=device)
-                    )
-                    
-                    # Update states only for active neurons
-                    for batch in range(batch_size):
-                        k = k_batch[batch * n_neurons] + n_loop + 1
-                        
-                        # Apply state update to active neurons
-                        dataset_batch[batch].x[active_mask, 3:4] += (
-                            delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][active_mask] * ynorm
+                        # Create active mask once for this timestep
+                        active_mask = torch.isin(
+                            torch.arange(n_neurons, device=device), 
+                            torch.tensor(active_ids, device=device)
                         )
                         
-                        # Update external input for active neurons
-                        dataset_batch[batch].x[active_mask, 4:5] = torch.tensor(
-                            x_list[run][k.item(), active_ids, 4:5], device=device
-                        )
-                    
-                    # Forward pass with current timestep's edges
-                    batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
-                    for batch in batch_loader:
-                        pred = model(batch, data_id=data_id, mask=mask_indices_t, return_all=False)
-                    
-                    # Prepare targets for loss computation (only core neurons)
-                    y_batch_list = []
-                    for batch in range(batch_size):
-                        k = k_batch[batch * n_neurons] + n_loop + 1
+                        # Update states only for active neurons
+                        for batch in range(batch_size):
+                            k = k_batch[batch * n_neurons] + n_loop + 1
+                            
+                            # Apply state update to active neurons
+                            dataset_batch[batch].x[active_mask, 3:4] += (
+                                delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][active_mask] * ynorm
+                            )
+                            
+                            # Update external input for active neurons
+                            dataset_batch[batch].x[active_mask, 4:5] = torch.tensor(
+                                x_list[run][k.item(), active_ids, 4:5], device=device
+                            )
                         
-                        # Get target only for core neurons
-                        y = torch.tensor(y_list[run][k.item(), core_ids], device=device) / ynorm
-                        y_batch_list.append(y)
-                    
-                    # Concatenate all batch targets
-                    y_batch = torch.cat(y_batch_list, dim=0)
-                    
-                    # Build indices for loss computation (only core neurons across all batches)
-                    ids_batch = np.concatenate([
-                        core_ids + batch * n_neurons for batch in range(batch_size)
-                    ])
-                    
-                    # Compute loss only on core neurons
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
+                        # Forward pass with current timestep's edges
+                        batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+                        for batch in batch_loader:
+                            pred = model(batch, data_id=data_id, mask=mask_indices_t, return_all=False)
+                        
+                        # Prepare targets for loss computation (only core neurons)
+                        y_batch_list = []
+                        for batch in range(batch_size):
+                            k = k_batch[batch * n_neurons] + n_loop + 1
+                            
+                            # Get target only for core neurons
+                            y = torch.tensor(y_list[run][k.item(), core_ids], device=device) / ynorm
+                            y_batch_list.append(y)
+                        
+                        # Concatenate all batch targets
+                        y_batch = torch.cat(y_batch_list, dim=0)
+                        
+                        # Build indices for loss computation (only core neurons across all batches)
+                        ids_batch = np.concatenate([
+                            core_ids + batch * n_neurons for batch in range(batch_size)
+                        ])
+                        
+                        # Compute loss only on core neurons
+                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
 
-                loss.backward()
+                    loss.backward()
 
-                optimizer.step()
+                    optimizer.step()
 
 
                 total_loss += loss.item()
@@ -1348,8 +1345,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                     error_list.append(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
 
                             print(f'epoch: {epoch}  error field: {np.mean(error_list):.6f}')
-
-                    else:
+                    if not(test_neural_field):
                         plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
                     torch.save(
                         {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
