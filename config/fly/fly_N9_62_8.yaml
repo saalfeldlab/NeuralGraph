@@ -37,7 +37,7 @@ graph_model:
     lin_edge_positive: True
 
     input_size_nnr_f: 3
-    hidden_dim_nnr_f: 2048
+    hidden_dim_nnr_f: 4096
     n_layers_nnr_f: 3
 
     outermost_linear_nnr_f: True
@@ -45,7 +45,7 @@ graph_model:
     
     nnr_f_xy_period: 1.0
     nnr_f_T_period: 64000
-    omega_f: 2048
+    omega_f: 4096
 
 
 plotting:

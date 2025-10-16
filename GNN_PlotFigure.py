@@ -7402,15 +7402,15 @@ def plot_results_figure(config_file_, config_indices, panel_suffix='domain'):
     print(f'figure results {config_file_}...')
     
     # Generate plots
-    data_plot(config=config, config_file=config_file, epoch_list=['best'], 
-              style='white color', extended='plots', device=device)
+    # data_plot(config=config, config_file=config_file, epoch_list=['best'], 
+    #           style='white color', extended='plots', device=device)
     
     # Setup paths
     log_dir = f'log/fly/{config_file_}'
     panels = {
         'a': f"{log_dir}/results/corrected_comparison.png",
         'b': f"{log_dir}/results/embedding_{config_indices}.png",
-        'c': f"{log_dir}/results/edge_functions_{config_indices}_{panel_suffix}.png",
+        'c': f"{log_dir}/results/edge_functions_{config_indices}_all.png",
         'd': f"{log_dir}/results/phi_functions_{config_indices}_domain.png",
         'e': f"{log_dir}/results/tau_comparison_{config_indices}.png",
         'f': f"{log_dir}/results/V_rest_comparison_{config_indices}.png"
@@ -7431,6 +7431,8 @@ def plot_results_figure(config_file_, config_indices, panel_suffix='domain'):
                         wspace=0.02, hspace=0.04)
     plt.savefig(f"./fig_paper/results_{config_file_.split('_')[-2]}_{config_file_.split('_')[-1]}.png", 
                 dpi=300, bbox_inches='tight')
+    plt.savefig(f"./fig_paper/results_{config_file_.split('_')[-2]}_{config_file_.split('_')[-1]}.pdf", 
+                dpi=300, bbox_inches='tight')
     plt.close()
 
 
@@ -7440,11 +7442,11 @@ def get_figures(index):
 
     match index:
 
-        case 'results_22_10':
-             plot_results_figure('fly_N9_44_24', '44_6', 'domain')
         case 'results_44_6':
-             plot_results_figure('fly_N9_51_2', '37_2', 'domain')
+             plot_results_figure('fly_N9_44_24', '44_6', 'domain')
         case 'results_51_2':
+             plot_results_figure('fly_N9_51_2', '37_2', 'domain')
+        case 'results_22_10':
              plot_results_figure('fly_N9_22_10', '18_4_0', 'domain')
 
         case 'extra_edges':
@@ -7656,6 +7658,7 @@ def get_figures(index):
 
             plt.tight_layout()
             plt.subplots_adjust(left=0.05)
+            plt.savefig('./fig_paper/Fig1.pdf', dpi=400, bbox_inches='tight')
             plt.savefig('./fig_paper/Fig1.png', dpi=400, bbox_inches='tight')
             plt.close()
 
@@ -8323,7 +8326,7 @@ if __name__ == '__main__':
     #     matplotlib.use("Qt5Agg")
     # except:
     #     pass
-
+   
 
     # config_list = ['signal_N2_1', 'signal_N2_2'] #, 'signal_N2_3', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
 
@@ -8335,10 +8338,11 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    config_list = ['fly_N9_62_1', 'fly_N9_62_4']
+    # config_list = ['fly_N9_62_1', 'fly_N9_62_4']
+    # config_list = ['fly_N9_51_2']
 
 
-    # config_list = ['zebra_N10_33_5_13_3', 'zebra_N10_33_5_13_4', 'zebra_N10_33_5_13_5', 'zebra_N10_33_5_12_3']
+    config_list = ['fly_N9_62_1', 'fly_N9_62_2', 'fly_N9_62_3', 'fly_N9_62_4', 'fly_N9_62_5_1', 'fly_N9_62_5_2', 'fly_N9_62_5_3']
 
     for config_file_ in config_list:
         print(' ')
@@ -8351,14 +8355,13 @@ if __name__ == '__main__':
         os.makedirs(folder_name, exist_ok=True)
         data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
-    # # compare_experiments(config_list, None)
+    compare_experiments(config_list, None)
 
     # get_figures('weight_vs_noise')
     # get_figures('correction_weight')
     # get_figures('correction_weight_noise')
 
-    # get_figures('ablation_weights')
-    # get_figures('ablation_cells')
+    # get_figures('ablation_weights')]
     # get_figures('permutation_types')
     # get_figures('new_network_1')
     # get_figures('new_network_2')
@@ -8367,10 +8370,10 @@ if __name__ == '__main__':
     # get_figures('N9_22_10')
     # get_figures('results_22_10')
     # get_figures('results_44_24')
-    # get_figures('results_51_2')
     # get_figures('N9_44_6')
     # get_figures('N9_51_2')
 
+    # get_figures('results_51_2')
     # get_figures('figure_1_cosyne_2026')
 
 

@@ -866,6 +866,8 @@ def data_train_flyvis(config, erase, best_model, device):
     print(f'ynorm: {to_numpy(ynorm)}')
     logger.info(f'ynorm: {to_numpy(ynorm)}')
 
+
+
     print('create models ...')
     if time_window >0:
         model = Signal_Propagation_Temporal(aggr_type=model_config.aggr_type, config=config, device=device)
@@ -874,7 +876,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
     start_epoch = 0
     list_loss = []
-    if (best_model != None) & (best_model != ''):
+    if (best_model != None) & (best_model != '') & (best_model != '') & (best_model != 'None'):
         net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
         print(f'load {net} ...')
         state_dict = torch.load(net, map_location=device)
@@ -923,11 +925,30 @@ def data_train_flyvis(config, erase, best_model, device):
     edges_all = edges.clone().detach()
     print(f'{edges.shape[1]} edges')
 
+
+    res = analyze_type_neighbors(
+        type_name="Mi1",
+        edges_all=edges_all,
+        type_list=type_list,          # (N,1) or (N,)
+        n_hops=10,
+        direction='in',
+        verbose=True
+    )
+    # for hop in res["per_hop"]:
+    #     print('hop ', hop["hop"], ':' , hop["n_new"], hop["type_counts"])
+    hop_counts = [h["n_new"] for h in res["per_hop"]]          # number of neurons at each hop
+    total_excl_target = sum(hop_counts)                        # unique neurons discovered (excluding target)
+    total_incl_target = 1 + total_excl_target                  # including the target neuron
+    cumulative_by_hop = np.cumsum(hop_counts).tolist()
+    print("per-hop:", hop_counts)
+    print("cumulative:", cumulative_by_hop)
+    print("total excl target:", total_excl_target)
+
+
     if coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
             index_weight.append(torch.argwhere(model.mask[:, i] > 0).squeeze())
-
     coeff_W_L1 = train_config.coeff_W_L1
     coeff_edge_diff = train_config.coeff_edge_diff
     coeff_update_diff = train_config.coeff_update_diff

@@ -26,6 +26,7 @@ from matplotlib.animation import FFMpegWriter
 from scipy.signal import find_peaks
 from pathlib import Path
 from joblib import load
+from collections import Counter
 
 def linear_model(x, a, b):
     return a * x + b
@@ -203,6 +204,9 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
 
     if n_neurons is None:
         n_neurons = len(type_list)
+
+
+    ptl.style.use('default')
 
     # Plot 1: Embedding scatter plot
     fig = plt.figure(figsize=(8, 8))
@@ -1347,6 +1351,7 @@ def overlay_barycentric_into_umap(
 
 def get_n_hop_neighborhood_with_stats(target_ids, edges_all, n_hops, verbose=False):
     """Get n-hop neighborhood with optional detailed statistics per hop"""
+    
     current = set(target_ids)
     all_neurons = set(target_ids)
     
@@ -1411,3 +1416,133 @@ def get_n_hop_neighborhood_with_stats(target_ids, edges_all, n_hops, verbose=Fal
     
     return np.array(sorted(all_neurons))
 
+
+
+def analyze_type_neighbors(
+    type_name: str,
+    edges_all: torch.Tensor,        # shape (2, E); row0=pre, row1=post; on some device
+    type_list: torch.Tensor,        # shape (N,1) or (N,); integer type indices aligned with node IDs
+    n_hops: int = 3,
+    direction: str = 'in',          # 'in' | 'out' | 'both'
+    verbose: bool = False
+):
+    """
+    Pick one neuron of the given type and expand n hops to collect per-hop type compositions.
+    Returns a dict with the target info, per-hop stats, and a short summary.
+    """
+
+    device = edges_all.device
+    type_vec = type_list.squeeze(-1).long().to(device)  # (N,)
+
+    index_to_name = {
+        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
+        10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
+        18: 'Mi15', 19: 'Mi2', 20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
+        27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a',
+        36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1',
+        44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28', 48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y',
+        52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14',
+        59: 'TmY15', 60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
+    }
+
+    # --- map type_name -> type_index (simple, case-insensitive) ---
+    def _norm(s): return ''.join(ch for ch in s.lower() if ch.isalnum())
+    name_to_index = {}
+    for k, v in index_to_name.items():
+        name_to_index[_norm(v)] = int(k)
+
+    tkey = _norm(type_name)
+    if tkey not in name_to_index:
+        raise ValueError(f"Unknown type name: {type_name}")
+
+    target_type_idx = name_to_index[tkey]
+    target_type_name = index_to_name.get(target_type_idx, f"Type{target_type_idx}")
+
+    # --- pick one neuron of that type (first occurrence) ---
+    cand = torch.nonzero(type_vec == target_type_idx, as_tuple=True)[0]
+    if cand.numel() == 0:
+        return {
+            "target_type_idx": target_type_idx,
+            "target_type_name": target_type_name,
+            "note": "No neuron of this type present.",
+            "per_hop": [],
+            "summary": {"total_neurons": 0, "total_hops_realized": 0, "direction": direction}
+        }
+    target_id = int(cand[0].item())
+
+    # --- neighborhood expansion ---
+    visited = torch.tensor([target_id], device=device, dtype=torch.long)
+    current = visited.clone()
+    per_hop = []
+
+    for hop in range(1, n_hops + 1):
+        if direction == 'in':
+            mask = torch.isin(edges_all[1], current)
+            nxt = edges_all[0, mask]
+        elif direction == 'out':
+            mask = torch.isin(edges_all[0], current)
+            nxt = edges_all[1, mask]
+        else:  # 'both'
+            mask_in = torch.isin(edges_all[1], current)
+            mask_out = torch.isin(edges_all[0], current)
+            nxt = torch.cat([edges_all[0, mask_in], edges_all[1, mask_out]], dim=0)
+
+        if nxt.numel() == 0:
+            break
+
+        nxt = torch.unique(nxt)
+        # remove already visited
+        new = nxt[~torch.isin(nxt, visited)]
+        if new.numel() == 0:
+            break
+
+        # types for newly discovered nodes
+        new_types = type_vec[new]
+        new_ids = new.tolist()
+        new_type_idxs = new_types.tolist()
+        new_type_names = [index_to_name.get(int(t), f"Type{int(t)}") for t in new_type_idxs]
+
+        # per-hop counts
+        cnt = Counter(new_type_names)
+        n_new = int(new.numel())
+        type_counts = dict(cnt)
+        type_perc = {k: v / n_new for k, v in type_counts.items()}
+
+        per_hop.append({
+            "hop": hop,
+            "new_neuron_ids": new_ids,
+            "type_indices": new_type_idxs,
+            "type_names": new_type_names,
+            "type_counts": type_counts,
+            "type_perc": type_perc,
+            "n_new": n_new,
+        })
+
+        if verbose:
+            print(f"hop {hop}: new={n_new}  unique types={len(cnt)}  top={cnt.most_common(3)}")
+
+        # advance
+        visited = torch.unique(torch.cat([visited, new], dim=0))
+        current = new
+
+    # --- summary (simple) ---
+    cumulative = Counter()
+    total_new = 0
+    for h in per_hop:
+        cumulative.update(h["type_counts"])
+        total_new += h["n_new"]
+    cumulative_perc = {k: (v / total_new if total_new else 0.0) for k, v in cumulative.items()}
+
+    return {
+        "target_id": target_id,
+        "target_type_idx": target_type_idx,
+        "target_type_name": target_type_name,
+        "per_hop": per_hop,
+        "summary": {
+            "total_neurons": int(visited.numel()),
+            "total_hops_realized": len(per_hop),
+            "direction": direction,
+            "cumulative_type_counts": dict(cumulative),
+            "cumulative_type_perc": cumulative_perc,
+        },
+    }
