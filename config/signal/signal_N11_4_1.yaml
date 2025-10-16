@@ -1,5 +1,5 @@
-description: 'RNN successor'
-dataset: 'signal_N11_4'
+description: 'RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4'
+dataset: 'signal_N11_4_1'
 
 simulation:
     connectivity_type: 'successor'
@@ -10,10 +10,10 @@ simulation:
     tau: 1.0
     n_neurons: 100
     n_neuron_types: 1
-    n_frames: 10000
+    n_frames: 5000
     delta_t: 0.1
     boundary: 'no'
-    start_frame: -100
+    start_frame: -50
 
 graph_model:
     signal_model_name: 'PDE_N11'
@@ -38,7 +38,7 @@ plotting:
     ylim: [-2,2]
 
 training:
-    n_epochs: 30
+    n_epochs: 20
     n_runs: 2
     device: 'auto'
 
@@ -48,13 +48,13 @@ training:
 
     seed: 24
 
-    data_augmentation_loop: 50
+    data_augmentation_loop: 200
 
     sparsity: 'none'
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
-    learning_rate_embedding_start: 5.0E-3
+    learning_rate_embedding_start: 1.0E-16
 
-    coeff_W_L1: 1.0E-5
+    coeff_W_L1: 1.0E-4
 

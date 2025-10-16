@@ -14,7 +14,7 @@ dependencies:
   - tqdm
   - PyYAML
   - tifffile
-  - pydantic
+  - pydanticconda 
   - gputil
   - pip
   - imageio
@@ -25,6 +25,7 @@ dependencies:
   - seaborn
   - dask
   - pyvista
+  - umap-learn
   - pip:
     # Install PyTorch with CUDA support via pip
     - torch
