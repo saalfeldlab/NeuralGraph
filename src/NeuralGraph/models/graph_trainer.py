@@ -926,23 +926,23 @@ def data_train_flyvis(config, erase, best_model, device):
     print(f'{edges.shape[1]} edges')
 
 
-    res = analyze_type_neighbors(
-        type_name="Mi1",
-        edges_all=edges_all,
-        type_list=type_list,          # (N,1) or (N,)
-        n_hops=10,
-        direction='in',
-        verbose=True
-    )
-    # for hop in res["per_hop"]:
-    #     print('hop ', hop["hop"], ':' , hop["n_new"], hop["type_counts"])
-    hop_counts = [h["n_new"] for h in res["per_hop"]]          # number of neurons at each hop
-    total_excl_target = sum(hop_counts)                        # unique neurons discovered (excluding target)
-    total_incl_target = 1 + total_excl_target                  # including the target neuron
-    cumulative_by_hop = np.cumsum(hop_counts).tolist()
-    print("per-hop:", hop_counts)
-    print("cumulative:", cumulative_by_hop)
-    print("total excl target:", total_excl_target)
+    # res = analyze_type_neighbors(
+    #     type_name="Mi1",
+    #     edges_all=edges_all,
+    #     type_list=type_list,          # (N,1) or (N,)
+    #     n_hops=10,
+    #     direction='in',
+    #     verbose=True
+    # )
+    # # for hop in res["per_hop"]:
+    # #     print('hop ', hop["hop"], ':' , hop["n_new"], hop["type_counts"])
+    # hop_counts = [h["n_new"] for h in res["per_hop"]]          # number of neurons at each hop
+    # total_excl_target = sum(hop_counts)                        # unique neurons discovered (excluding target)
+    # total_incl_target = 1 + total_excl_target                  # including the target neuron
+    # cumulative_by_hop = np.cumsum(hop_counts).tolist()
+    # print("per-hop:", hop_counts)
+    # print("cumulative:", cumulative_by_hop)
+    # print("total excl target:", total_excl_target)
 
 
     if coeff_W_sign > 0:
@@ -1199,7 +1199,7 @@ def data_train_flyvis(config, erase, best_model, device):
                         # Forward pass with SAME edges/mask
                         batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                         for batch in batch_loader:
-                            pred = model(batch, data_id=data_id, mask=mask, return_all=False)
+                            pred = model(batch, data_id=data_id, mask=mask_batch, return_all=False)
                         
                         # Loss computation on core neurons only
                         y_batch_list = []

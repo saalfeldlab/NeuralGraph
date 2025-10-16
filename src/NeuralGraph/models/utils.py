@@ -206,7 +206,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
         n_neurons = len(type_list)
 
 
-    ptl.style.use('default')
+    plt.style.use('default')
 
     # Plot 1: Embedding scatter plot
     fig = plt.figure(figsize=(8, 8))
