@@ -16,12 +16,12 @@ simulation:
     baseline_value: 0
 
 graph_model:
-    signal_model_name: 'PDE_N9_MLP'
+    signal_model_name: 'PDE_N9_RNN'
     prediction: 'first_derivative'
 
     input_size: 15477
     output_size: 13741
-    hidden_dim: 256
+    hidden_dim: 128
     n_layers: 3
     MLP_activation: 'relu'
 

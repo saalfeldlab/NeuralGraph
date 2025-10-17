@@ -259,6 +259,8 @@ class TrainingConfig(BaseModel):
     ctrl_tracking: bool = False
     distance_threshold: float = 0.1
     epoch_distance_replace: int = 20
+    warm_up_length: int = 10
+    sequence_length: int = 32
 
     denoiser: bool = False
     denoiser_type: Literal["none", "window", "LSTM", "Gaussian_filter", "wavelet"] = ("none")

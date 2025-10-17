@@ -21,7 +21,7 @@ graph_model:
 
     input_size: 15477
     output_size: 13741
-    hidden_dim: 1024
+    hidden_dim: 256
     n_layers: 3
     MLP_activation: 'relu'
 

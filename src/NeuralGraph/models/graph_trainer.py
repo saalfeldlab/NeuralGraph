@@ -18,6 +18,7 @@ from NeuralGraph.models.Signal_Propagation_MLP import *
 from NeuralGraph.models.Signal_Propagation_MLP_NODE import *
 from NeuralGraph.models.Signal_Propagation_Zebra import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
+from NeuralGraph.models.Signal_Propagation_RNN import *
 from NeuralGraph.models.Calcium_Latent_Dynamics import *
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.generators.davis import *
@@ -69,6 +70,8 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     if 'fly' in config.dataset:
         if config.simulation.calcium_type != 'none':
             data_train_flyvis_calcium(config, erase, best_model, device)
+        elif 'RNN' in config.graph_model.signal_model_name:
+            data_train_flyvis_RNN(config, erase, best_model, device)
         else:
             data_train_flyvis(config, erase, best_model, device)
     elif 'zebra_fluo' in config.dataset:
@@ -880,6 +883,11 @@ def data_train_flyvis(config, erase, best_model, device):
     else:   
         model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
 
+    # Count parameters
+    n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'total parameters: {n_total_params:,}')
+    logger.info(f'total parameters: {n_total_params:,}')
+
     start_epoch = 0
     list_loss = []
     if (best_model != None) & (best_model != '') & (best_model != '') & (best_model != 'None'):
@@ -1465,6 +1473,159 @@ def data_train_flyvis(config, erase, best_model, device):
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
         plt.close()
+
+
+def data_train_flyvis_RNN(config, erase, best_model, device):
+    """RNN training with sequential processing through time"""
+    
+    simulation_config = config.simulation
+    train_config = config.training
+    model_config = config.graph_model
+
+    signal_model_name = model_config.signal_model_name
+    dimension = simulation_config.dimension
+    n_epochs = train_config.n_epochs
+    n_neurons = simulation_config.n_neurons
+    n_input_neurons = simulation_config.n_input_neurons
+    delta_t = simulation_config.delta_t
+    dataset_name = config.dataset
+    n_runs = train_config.n_runs
+    n_frames = simulation_config.n_frames
+    data_augmentation_loop = train_config.data_augmentation_loop
+    
+    warm_up_length = train_config.warm_up_length  # e.g., 10
+    sequence_length = train_config.sequence_length  # e.g., 32
+    total_length = warm_up_length + sequence_length
+    
+    seed = config.training.seed
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    
+    log_dir, logger = create_log_dir(config, erase)
+    
+    print(f"Loading data from {dataset_name}...")
+    x_list = []
+    y_list = []
+    for run in trange(0, n_runs, ncols=50):
+        x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
+        y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+        x_list.append(x)
+        y_list.append(y)
+    
+    print(f'dataset: {len(x_list)} runs, {len(x_list[0])} frames')
+    
+    # Normalization
+    activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
+    activity = activity.squeeze()
+    distrib = activity.flatten()
+    valid_distrib = distrib[~torch.isnan(distrib)]
+    
+    if len(valid_distrib) > 0:
+        xnorm = torch.round(1.5 * torch.std(valid_distrib))
+    else:
+        xnorm = torch.tensor(1.0, device=device)
+    
+    ynorm = torch.tensor(1.0, device=device)
+    torch.save(xnorm, os.path.join(log_dir, 'xnorm.pt'))
+    torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
+    
+    print(f'xnorm: {xnorm.item():.3f}')
+    print(f'ynorm: {ynorm.item():.3f}')
+    logger.info(f'xnorm: {xnorm.item():.3f}')
+    logger.info(f'ynorm: {ynorm.item():.3f}')
+    
+    # Create model
+    print('creating RNN model...')
+    model = Signal_Propagation_RNN(aggr_type=model_config.aggr_type, config=config, device=device)
+    
+    # Count parameters
+    n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'total parameters: {n_total_params:,}')
+    logger.info(f'Total parameters: {n_total_params:,}')
+    
+    # Optimizer
+    lr = train_config.learning_rate_start
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-5)
+    
+    print(f'learning rate: {lr}')
+    logger.info(f'learning rate: {lr}')
+    
+    print("starting RNN training...")
+    logger.info("Starting RNN training...")
+    
+    list_loss = []
+    
+    for epoch in range(n_epochs):
+        
+        # Number of sequences per epoch
+        n_sequences = (n_frames - total_length) // 10 * data_augmentation_loop # Sample ~10% of possible sequences
+
+        total_loss = 0
+        model.train()
+        
+        for seq_idx in trange(n_sequences, ncols=150, desc=f"Epoch {epoch}"):
+            
+            optimizer.zero_grad()
+            
+            # Sample random sequence
+            run = np.random.randint(n_runs)
+            k_start = np.random.randint(0, n_frames - total_length)
+            
+            # Initialize hidden state to None (GRU will initialize to zeros)
+            h = None
+            
+            # Warm-up phase (no gradient, just build hidden state)
+            with torch.no_grad():
+                for t in range(k_start, k_start + warm_up_length):
+                    x = torch.tensor(x_list[run][t], dtype=torch.float32, device=device)
+                    _, h = model(x, h=h, return_all=True)
+            
+            # Prediction phase (compute loss)
+            loss = 0
+            for t in range(k_start + warm_up_length, k_start + total_length):
+                x = torch.tensor(x_list[run][t], dtype=torch.float32, device=device)
+                y_true = torch.tensor(y_list[run][t], dtype=torch.float32, device=device)
+                
+                # RNN forward
+                y_pred, h = model(x, h=h, return_all=True)
+                
+                # Accumulate loss
+                loss += (y_pred - y_true).norm(2)
+                
+                # Truncated BPTT: detach hidden state
+                h = h.detach()
+            
+            # Normalize by sequence length
+            loss = loss / sequence_length
+            
+            # Backward and optimize
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            optimizer.step()
+            
+            total_loss += loss.item()
+        
+        # Epoch statistics
+        avg_loss = total_loss / n_sequences
+        print(f"Epoch {epoch}. Loss: {avg_loss:.6f}")
+        logger.info(f"Epoch {epoch}. Loss: {avg_loss:.6f}")
+        
+        # Save model
+        torch.save({
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict()
+        }, os.path.join(log_dir, 'models', f'best_model_with_{n_runs-1}_graphs_{epoch}.pt'))
+        
+        list_loss.append(avg_loss)
+        torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
+        
+        # Learning rate decay
+        if (epoch + 1) % 10 == 0:
+            for param_group in optimizer.param_groups:
+                param_group['lr'] *= 0.5
+            print(f"Learning rate decreased to {param_group['lr']}")
+            logger.info(f"Learning rate decreased to {param_group['lr']}")
 
 
 def data_train_flyvis_calcium(config, erase, best_model, device):
@@ -2171,9 +2332,6 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     viewer.add_image(pd, name='pred_img', scale=[dy_um*factor, dx_um*factor, dz_um])
     viewer.dims.ndisplay = 3
     napari.run()  
-
-
-
 
 
 
