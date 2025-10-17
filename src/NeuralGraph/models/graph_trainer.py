@@ -3250,7 +3250,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     measurement_noise_level = training_config.measurement_noise_level
     noise_model_level = training_config.noise_model_level
-    warm_up_length = training_config.warm_up_length
+    warm_up_length = 100
 
     n_extra_null_edges = simulation_config.n_extra_null_edges
 
@@ -3741,7 +3741,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         else:
                             x[:, 3:4] = x[:, 3:4] + delta_t * y
 
-                    if (it < warm_up_length) and ('RNN' in signal_model_name):
+                    if (it <= warm_up_length) and ('RNN' in signal_model_name):
                         x[:, 3:4] = x_generated[:, 3:4].clone()
 
                     if calcium_type == "leaky":
