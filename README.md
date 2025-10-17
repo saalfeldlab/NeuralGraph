@@ -1,8 +1,10 @@
 # NeuralGraph
 Graph network modeling neural activities
 
-![NeuralGraph Overview](./assets/Fig1.png)
-*The temporal activity of a simulated neural network (**a**) is converted into densely connected graph (**b**) processed by a message passing GNN (**c**). Each neuron (node i) receives activity signals x_j from connected neurons (node j), processed by a transfer function ψ\* and weighted by the matrix W_ij. The sum of these messages is updated with functions φ\* and Ω\* to obtain the predicted activity rate ẋ̂_i. In addition to the observed activity x_i, the GNN has access to learnable latent vectors a_i associated with each node i.*
+<p align="center">
+  <img src="./assets/overview.png" alt="NeuralGraph Overview" width="600">
+</p>
+<p align="center"><em>Figure 1: The temporal activity of a simulated neural network (a) is converted into densely connected graph (b) processed by a message passing GNN (c). Each neuron (node i) receives activity signals from connected neurons (node j), processed by a transfer function and weighted by the connection matrix. The sum of these messages is updated to obtain the predicted activity rate. In addition to the observed activity, the GNN has access to learnable latent vectors associated with each node.</em></p>
 
 
 ### Setup
