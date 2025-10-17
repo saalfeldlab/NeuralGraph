@@ -4,6 +4,7 @@ scratch/*
 log/
 graphs_data/
 tmp_data/
+!assets/*.png
 *.png
 results/*
 log/*
