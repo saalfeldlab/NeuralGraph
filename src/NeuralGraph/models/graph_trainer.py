@@ -3471,7 +3471,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     mask = torch.arange(edges.shape[1])
 
-    if ('test_ablation' in test_mode) & (not('MLP' in signal_model_name)):
+    if ('test_ablation' in test_mode) & (not('MLP' in signal_model_name)) & (not('RNN' in signal_model_name)):
         #  test_mode="test_ablation_100"
         ablation_ratio = int(test_mode.split('_')[-1]) / 100
         if ablation_ratio > 0:
@@ -4091,98 +4091,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         print(f"  global range: {activity_max - activity_min:.6f}")
         print(f"  per-neuron range - mean: {activity_range_mean:.6f}, std: {activity_range_std:.6f}")
 
-    print('plot 8x8 panel for neuron types (ground truth vs predicted)...')
-    np.random.seed(42)
-    fig, axes = plt.subplots(8, 8, figsize=(34, 24))
-    axes_flat = axes.flatten()
-    panel_order = [23, 24, 25, 26, 27, 28, 29, 30, 5, 6, 7, 8, 9, 10, 11, 12, 19, 20, 21,
-                22, 13, 14, 15, 16, 17, 18, 43, 45, 48, 50, 44, 46, 47, 49, 51, 52, 53, 54,
-                55, 61, 62, 63, 56, 57, 58, 59, 60, 64, 1, 2, 4, 3, 31, 32, 33, 34, 35, 36,
-                37, 38, 39, 40, 41, 42, 0]
-    neuron_types = x_list[-1, :, 6].astype(int)
-    for idx, type_idx in enumerate(panel_order):
-        if idx >= 64:  # Only 64 panels in 8x8
-            break
-        
-        ax = axes_flat[idx]
-        
-        # Find all neurons of this type
-        type_mask = neuron_types == type_idx
-        neuron_indices = np.where(type_mask)[0]
-        
-        if len(neuron_indices) > 0:
-            # Randomly select one neuron of this type for clarity
-            selected_neuron = np.random.choice(neuron_indices, 1)[0]
-            
-            # Get data for this neuron
-            true_data = activity_true[selected_neuron, :]
-            pred_data = activity_pred[selected_neuron, :]
-            true_data_modified = activity_true_modified[selected_neuron, :]
-            
-            start_frame = 85000
-            end_frame = 85500
-            n_frames = true_data.shape[0]
-            if target_frames < end_frame:
-                # print(f"warning: not enough frames ({n_frames}), using available range for panel {idx}")
-                start_frame = 0
-                end_frame = 500
-
-
-            # Calculate dynamic y-limits with padding
-            y_min = min(np.min(true_data), np.min(pred_data))
-            y_max = max(np.max(true_data), np.max(pred_data))
-            y_range = y_max - y_min
-            y_padding = y_range * 0.1  # 10% padding
-       
-           
-            ax.plot(true_data, linewidth=8, color='green', alpha=0.75)
-
-            if 'true_only' not in style:
-                if 'test_modified' in test_mode:
-                    ax.plot(true_data_modified, linewidth=2, color='red', alpha=1.0)
-                else:
-                    ax.plot(pred_data, linewidth=1, color=mc, alpha=1.0)
-                rmse = np.sqrt(np.mean((true_data - pred_data)**2))
-                ax.text(0.525, 0.95, f'RMSE: {rmse:.3f}', transform=ax.transAxes, ha='left', va='top', fontsize=16, color=mc)
-            # Add type name in top left corner
-            type_name = index_to_name.get(type_idx, f'Type_{type_idx}')
-            ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
-                    ha='left', va='top', fontsize=20, color=mc)
-            
-            ax.set_xlim([start_frame, end_frame])
-            ax.set_ylim([y_min - y_padding, y_max + 1.2 *y_padding])
-            
-            # Add y-axis ticks for all panels
-            ax.set_yticks([y_min, (y_min+y_max)/2, y_max])
-            ax.set_yticklabels([f'{y_min:.2f}', f'{(y_min+y_max)/2:.2f}', f'{y_max:.2f}'], fontsize=14)
-            
-        else:
-            # No neurons of this type
-            type_name = index_to_name.get(type_idx, f"Type_{type_idx}")
-            ax.text(0.5, 0.5, f'{type_name}\n(n=0)', 
-                    transform=ax.transAxes, ha='center', va='center', color='gray', fontsize=8)
-            # Add y-axis ticks even for empty panels for consistency
-            ax.set_yticks([])
-        
-        # Remove x-ticks for cleaner look
-        ax.set_xticks([])
-        
-        if idx == 56:  # Bottom left corner - add axis labels with much larger font
-            ax.set_xlabel('frame', fontsize=22)
-            ax.set_ylabel(f'{activity_label}', fontsize=22)
-            n_ticks = 500
-            ax.set_xticks([start_frame, end_frame])
-            ax.set_xticklabels([f'{start_frame}', f'{end_frame}'], fontsize=14)
-            # Use dynamic y-range for this panel too
-            true_data_panel = activity_true[selected_neuron, :]
-            pred_data_panel = activity_pred[selected_neuron, :]
-            y_min_panel = min(np.min(true_data_panel), np.min(pred_data_panel))
-            y_max_panel = max(np.max(true_data_panel), np.max(pred_data_panel))
-            ax.set_yticks([y_min_panel, (y_min_panel+y_max_panel)/2, y_max_panel])
-            ax.set_yticklabels([f'{y_min_panel:.2f}', f'{(y_min_panel+y_max_panel)/2:.2f}', f'{y_max_panel:.2f}'], fontsize=14)
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/activity_8x8_panel_comparison.png", dpi=150)
-    plt.close()
 
     print('plot 5x4 panel for neuron types (ground truth vs predicted)...')
     fig, axes = plt.subplots(5, 4, figsize=(18, 12))
@@ -4263,6 +4171,64 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/activity_5x4_panel_comparison.png", dpi=150)
     plt.close()
+
+    # Add at the end of data_test_flyvis, after the 5x4 panel plot
+
+    print('plot rollout traces for selected neuron types...')
+
+    # Define selected neuron types and their indices
+    selected_types = [5, 12, 19, 23, 31, 35, 39, 43, 50, 55]  # L1, Mi1, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
+    neuron_indices = []
+    for stype in selected_types:
+        indices = np.where(neuron_types == stype)[0]
+        if len(indices) > 0:
+            neuron_indices.append(indices[0])
+
+        plt.style.use('default')
+        fig, ax = plt.subplots(1, 1, figsize=(12, 18))
+        
+        true_slice = activity_true[neuron_indices, start_frame:end_frame]
+        pred_slice = activity_pred[neuron_indices, start_frame:end_frame]
+        
+        step_v = 2.5
+        
+        # Plot ground truth (green, thick)
+        for i in range(len(neuron_indices)):
+            baseline = np.mean(pred_slice[i])
+            ax.plot(true_slice[i] - baseline + i * step_v, linewidth=8, c='green', alpha=0.5,
+                    label='ground truth' if i == 0 else None)
+        
+        # Plot predictions (black, thin)
+        for i in range(len(neuron_indices)):
+            baseline = np.mean(pred_slice[i])
+            ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
+                    label='prediction' if i == 0 else None)
+        
+        # Add neuron type labels on left
+        for i in range(len(neuron_indices)):
+            type_idx = selected_types[i]
+            ax.text(-50, i * step_v, index_to_name[type_idx],
+                    fontsize=18, va='center', ha='right')
+        
+        ax.set_ylim([-step_v, len(neuron_indices) * step_v])
+        ax.set_yticks([])
+        ax.set_xticks([0, end_frame - start_frame])
+        ax.set_xticklabels([start_frame, end_frame], fontsize=16)
+        ax.set_xlabel('frame', fontsize=20)
+        
+        # Remove unnecessary spines
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        
+        # Add legend
+        ax.legend(loc='upper right', fontsize=14)
+        
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/rollout_traces_selected_types.png", dpi=300, bbox_inches='tight')
+    plt.close()
+        
+
 
     if ('test_ablation' in test_mode) or ('test_inactivity' in test_mode):
         np.save(f"./{log_dir}/results/activity_modified.npy", activity_true_modified)
