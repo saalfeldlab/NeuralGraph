@@ -14,6 +14,7 @@ from NeuralGraph.models.utils import *
 from NeuralGraph.utils import *
 from NeuralGraph.models.Siren_Network import *
 from NeuralGraph.models.Signal_Propagation_FlyVis import *
+from NeuralGraph.models.Signal_Propagation_MLP import *
 from NeuralGraph.models.Signal_Propagation_Zebra import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.models.Calcium_Latent_Dynamics import *
@@ -834,7 +835,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
     x_list = []
     y_list = []
-    for run in trange(0,n_runs):
+    for run in trange(0,n_runs, ncols=50):
         x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
         x_list.append(x)
@@ -871,6 +872,8 @@ def data_train_flyvis(config, erase, best_model, device):
     print('create models ...')
     if time_window >0:
         model = Signal_Propagation_Temporal(aggr_type=model_config.aggr_type, config=config, device=device)
+    elif 'MLP' in signal_model_name:
+        model = Signal_Propagation_MLP(aggr_type=model_config.aggr_type, config=config, device=device)
     else:   
         model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
 
@@ -1168,7 +1171,6 @@ def data_train_flyvis(config, erase, best_model, device):
                                 pred_msg = model.lin_phi(in_features_modified)
                                 msg = in_features[:,model_config.embedding_dim+1].clone().detach()
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
-
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
@@ -1335,9 +1337,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                                     # RMSE for this frame
                                     error_list.append(np.sqrt(((pred_vec * correction - gt_vec) ** 2).mean()))
-
-
-                    if not(test_neural_field):
+                    if (not(test_neural_field)) & (not('MLP' in signal_model_name)):
                         plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
                     torch.save(
                         {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
