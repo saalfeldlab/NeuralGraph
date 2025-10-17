@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24'
+description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark RNN'
 dataset: 'fly_N9_18_4_0'
 
 simulation:
@@ -19,8 +19,6 @@ graph_model:
     signal_model_name: 'PDE_N9_RNN'
     prediction: 'first_derivative'
 
-    input_size: 15477
-    output_size: 13741
     hidden_dim: 128
     n_layers: 3
     MLP_activation: 'relu'

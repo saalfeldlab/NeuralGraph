@@ -56,9 +56,9 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = 'None' 
-        task = 'test'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
-        config_list = ['fly_N9_64_1', 'fly_N9_64_2', 'fly_N9_64_3']
+        config_list = ['fly_N9_64_3']
 
 
     for config_file_ in config_list:
@@ -70,8 +70,8 @@ if __name__ == "__main__":
         config.config_file = pre_folder + config_file_
         device = set_device(config.training.device)
 
-        print(f"\033[92mconfig_file  {config.config_file}\033[0m")
-        print(f"\033[92mdevice  {device}\033[0m")
+        print(f"\033[92mconfig_file:  {config.config_file}\033[0m")
+        print(f"\033[92mdevice:  {device}\033[0m")
 
         if "generate" in task:
             data_generate(

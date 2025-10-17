@@ -66,6 +66,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
 
     dataset_name = config.dataset
     print(f"\033[92mdataset_name: {dataset_name}\033[0m")
+    print(f"\033[92mdevice: {config.description}\033[0m")
 
     if 'fly' in config.dataset:
         if config.simulation.calcium_type != 'none':
@@ -1559,7 +1560,11 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
     for epoch in range(n_epochs):
         
         # Number of sequences per epoch
-        n_sequences = (n_frames - total_length) // 10 * data_augmentation_loop # Sample ~10% of possible sequences
+        n_sequences = (n_frames - total_length) // 10 * data_augmentation_loop
+        plot_frequency = int(n_sequences // 10) # Sample ~10% of possible sequences
+        if epoch == 0:
+            print(f'{n_sequences} sequences per epoch, plot every {plot_frequency} sequences')
+            logger.info(f'{n_sequences} sequences per epoch, plot every {plot_frequency} sequences')
 
         total_loss = 0
         model.train()
@@ -1605,6 +1610,13 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
             optimizer.step()
             
             total_loss += loss.item()
+
+            if (seq_idx % plot_frequency == 0) and (seq_idx > 0):
+                # Save intermediate model
+                torch.save({
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict()
+                }, os.path.join(log_dir, 'models', f'best_model_with_{n_runs-1}_graphs_{epoch}_{seq_idx}.pt'))
         
         # Epoch statistics
         avg_loss = total_loss / n_sequences
@@ -2348,6 +2360,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     dataset_name = config.dataset
     print(f"\033[92mdataset_name: {dataset_name}\033[0m")
+    print(f"\033[92mdevice: {config.description}\033[0m")
 
     if test_mode == "":
         test_mode = "test_ablation_0"
@@ -3198,6 +3211,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.savefig(f"./{log_dir}/results/angle.tif", dpi=170.7)
         plt.close
 
+
 def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', new_params = None, device=None):
 
 
@@ -3236,6 +3250,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     measurement_noise_level = training_config.measurement_noise_level
     noise_model_level = training_config.noise_model_level
+    warm_up_length = training_config.warm_up_length
 
     n_extra_null_edges = simulation_config.n_extra_null_edges
 
@@ -3725,6 +3740,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             x[:, 3:4] = x[:, 3:4] + y  # y already contains full update
                         else:
                             x[:, 3:4] = x[:, 3:4] + delta_t * y
+
+                    if (it < warm_up_length) and ('RNN' in signal_model_name):
+                        x[:, 3:4] = x_generated[:, 3:4].clone()
 
                     if calcium_type == "leaky":
                         # Voltage-driven activation
