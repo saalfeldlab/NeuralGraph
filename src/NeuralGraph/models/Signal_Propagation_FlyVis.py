@@ -109,10 +109,6 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             self.NNR_f_xy_period = model_config.nnr_f_xy_period / (2*np.pi)
             self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
 
-            self.learn_visual = True
-        else:
-            self.learn_visual = False
-
     def forward_visual(self, x=[], k = []):
         kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
         in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, kk / self.NNR_f_T_period), dim=1)
@@ -141,12 +137,8 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             edge_index, v=v, embedding=embedding, data_id=self.data_id[:, None]
         )
 
-        if self.learn_visual:
-            in_features = torch.cat([v, embedding, msg], dim=1)
-            pred = self.lin_phi(in_features) + excitation
-        else:
-            in_features = torch.cat([v, embedding, msg, excitation], dim=1)
-            pred = self.lin_phi(in_features)
+        in_features = torch.cat([v, embedding, msg, excitation], dim=1)
+        pred = self.lin_phi(in_features)
         
         if return_all:
             return pred, in_features, msg

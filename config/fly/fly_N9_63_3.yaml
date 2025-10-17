@@ -27,7 +27,7 @@ graph_model:
     hidden_dim: 64
     output_size: 1
 
-    input_size_update: 4
+    input_size_update: 5
     n_layers_update: 3
     hidden_dim_update: 64
     aggr_type: 'add'
