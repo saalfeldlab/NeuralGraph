@@ -95,7 +95,7 @@ def load_training_data(dataset_name, n_runs, log_dir, device):
     y_list = []
     print('load data ...')
     time.sleep(0.5)
-    for run in trange(n_runs):
+    for run in trange(n_runs, ncols=90):
         # check if path exists
         if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
             x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
@@ -170,7 +170,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
     x_list = []
     y_list = []
-    for run in trange(1,2):
+    for run in trange(1,2, ncols=90):
         if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
             x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
             y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
@@ -272,7 +272,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         slope_list = []
         it = -1
         with torch.no_grad():
-            for file_id_ in trange(0,len(file_id_list)):
+            for file_id_ in trange(0,len(file_id_list), ncols=90):
                 it = it + 1
                 num = str(it).zfill(4)
                 file_id = file_id_list[file_id_]
@@ -758,7 +758,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             r_squared_list = []
             slope_list = []
-            for i in trange(0,1500,10):
+            for i in trange(0,1500,10, ncols=90):
                 plt.figure(figsize=(20, 10))
                 ax = plt.subplot(121)
                 plt.plot(neuron_gt_list[:, n[0]].detach().cpu().numpy(), c='w', linewidth=8, label='true', alpha=0.25)
@@ -1015,7 +1015,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             fig, ax = fig_init()
             rr = torch.linspace(-xnorm.squeeze() * 2 , xnorm.squeeze() * 2 , 1000).to(device)
             func_list = []
-            for n in trange(0,n_neurons):
+            for n in trange(0,n_neurons, ncols=90):
                 if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
@@ -1143,7 +1143,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     true_func = true_model.func(rr, 0, 'phi')
                     plt.plot(to_numpy(rr), to_numpy(true_func), c = mc, linewidth = 16, label = 'original', alpha = 0.21)
 
-                for n in trange(0,n_neurons):
+                for n in trange(0,n_neurons, ncols=90):
                     if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
                         embedding_ = model.a[n, :] * torch.ones((1500, config.graph_model.embedding_dim), device=device)
                         in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
@@ -1180,14 +1180,14 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print('interaction functions ...')
 
             fig, ax = fig_init()
-            for n in trange(n_neuron_types):
+            for n in trange(n_neuron_types, ncols=90):
                 if model_config.signal_model_name == 'PDE_N5':
                     true_func = true_model.func(rr, n, n, 'update')
                 else:
                     true_func = true_model.func(rr, n, 'update')
                 plt.plot(to_numpy(rr), to_numpy(true_func), c=mc, linewidth=16, label='original', alpha=0.21)
             phi_list = []
-            for n in trange(n_neurons):
+            for n in trange(n_neurons, ncols=90):
                 embedding_ = model.a[n, :] * torch.ones((1500, config.graph_model.embedding_dim), device=device)
                 # in_features = torch.cat((rr[:, None], embedding_), dim=1)
                 in_features = get_in_features_update(rr[:, None], model, embedding_, device)
@@ -1216,7 +1216,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             proj_interaction = (proj_interaction - np.min(proj_interaction)) / (np.max(proj_interaction) - np.min(proj_interaction) + 1e-10)
             fig, ax = fig_init()
-            for n in trange(n_neuron_types):
+            for n in trange(n_neuron_types, ncols=90):
                 pos = torch.argwhere(type_list == n)
                 pos = to_numpy(pos)
                 if len(pos) > 0:
@@ -1400,7 +1400,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 if ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
 
-                    for frame in trange(0, n_frames, n_frames // 100):
+                    for frame in trange(0, n_frames, n_frames // 100, ncols=90):
                         t = torch.tensor([frame/ n_frames], dtype=torch.float32, device=device)
                         if (model_config.update_type == '2steps'):
                                 m_ = model_f(t) ** 2
@@ -1517,7 +1517,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     im_list = list([])
                     pred_list = list([])
 
-                    for frame in trange(0, n_frames, n_frames // 100):
+                    for frame in trange(0, n_frames, n_frames // 100, ncols=90):
 
                         fig, ax = fig_init()
                         im_ = np.zeros((44, 44))
@@ -1655,7 +1655,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.savefig(f"./{log_dir}/results/pic_comparison {epoch}.png", dpi=80)
                 plt.close()
 
-                for frame in trange(0, modulation.shape[1], modulation.shape[1] // 257):
+                for frame in trange(0, modulation.shape[1], modulation.shape[1] // 257, ncols=90):
                     im = modulation[:, frame]
                     im = np.reshape(im, (32, 32))
                     plt.figure(figsize=(8, 8))
@@ -1945,7 +1945,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
 
     x_list = []
     y_list = []
-    for run in trange(1):
+    for run in trange(1, ncols=90):
         if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
             x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
             y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
@@ -2025,7 +2025,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
         slope_list = []
 
         with torch.no_grad():
-            for file_id_ in trange(0, 100):
+            for file_id_ in trange(0, 100, ncols=90):
                 file_id = file_id_list[file_id_]
 
                 epoch = files[file_id].split('graphs')[1][1:-3]
@@ -2252,7 +2252,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
         adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
         true_model, bc_pos, bc_dpos = choose_model(config=config, W=adjacency, device=device)
 
-        for n in trange(100):
+        for n in trange(100, ncols=90):
 
             indices = np.arange(n_neurons)*100+n
 
@@ -2436,7 +2436,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 im_list=list([])
                 pred_list=list([])
 
-                for frame in trange(0, n_frames, n_frames//100):
+                for frame in trange(0, n_frames, n_frames//100, ncols=90):
 
                     fig, ax = fig_init()
                     im_ = np.zeros((44,44))
@@ -2612,7 +2612,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 c2 = cmap.color((it + 1) % 4)
                 c_list = np.linspace(c1, c2, 100)
                 fig, ax = fig_init()
-                for n in trange(k*100,(k+1)*100):
+                for n in trange(k*100,(k+1)*100, ncols=90):
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
                     with torch.no_grad():
@@ -2636,7 +2636,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             fig, ax = fig_init()
             rr = torch.tensor(np.linspace(-5, 5, 1000)).to(device)
             func_list = []
-            for n in trange(0,n_neurons,n_neurons):
+            for n in trange(0,n_neurons,n_neurons, ncols=90):
                 if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
@@ -2674,7 +2674,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 true_func = true_model.func(rr, 0, 'phi')
                 plt.plot(to_numpy(rr), to_numpy(true_func), c = 'k', linewidth = 16, label = 'original', alpha = 0.21)
 
-            for n in trange(0,n_neurons):
+            for n in trange(0,n_neurons, ncols=90):
                 in_features = rr[:, None]
                 with torch.no_grad():
                     func = model.lin_edge(in_features.float()) * correction
@@ -2777,7 +2777,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
     x_list = []
     y_list = []
-    for run in trange(0,n_runs):
+    for run in trange(0,n_runs, ncols=90):
         if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
             x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
             y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
@@ -2880,7 +2880,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
         slope_list = []
         it = -1
         with torch.no_grad():
-            for file_id_ in trange(0,len(file_id_list)):
+            for file_id_ in trange(0,len(file_id_list), ncols=90):
                 it = it + 1
                 num = str(it).zfill(4)
                 file_id = file_id_list[file_id_]
@@ -4803,21 +4803,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.ylabel(r'$\mathbf{a}_{i1}$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
-
-
-            if True:
-                print('embedding clustering...')
-                for eps in [0.02]: #[0.001, 0.0025, 0.005, 0.0075, 0.01, 0.02, 0.05]:
-                    results = clustering_evaluation(to_numpy(model.a), type_list, eps=eps)
-                    print(f"eps={eps}: {results['n_clusters_found']} clusters, "
-                          f"accuracy=\033[32m{results['accuracy']:.3f}\033[0m")
-                    logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "f"accuracy={results['accuracy']:.3f}")
-                time.sleep(1)
-
-            plt.text(0.05, 0.95, f"N: {n_neurons}\naccuracy: {results['accuracy']:.2f}",
-                    transform=plt.gca().transAxes, fontsize=32,
-                    verticalalignment='top', color=mc)
-
+            # results = clustering_gmm(to_numpy(model.a), type_list, n_components=75)
+            # print(f"GMM n_components=75: {results['n_components']} components, "
+            #     f"accuracy=\033[32m{results['accuracy']:.3f}\033[0m")
+            # logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "
+            #             f"accuracy={results['accuracy']:.3f}")
+            # plt.text(0.05, 0.95, f"N: {n_neurons}\naccuracy: {results['accuracy']:.2f}",
+            #         transform=plt.gca().transAxes, fontsize=32,
+            #         verticalalignment='top', color=mc)
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/embedding_{config_indices}.png', dpi=300)
             plt.close()
@@ -4827,7 +4820,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             ax = plt.gca()
             for spine in ax.spines.values():
                 spine.set_alpha(0.75)
-            for n in trange(n_neurons):
+            for n in trange(n_neurons, ncols=90):
                 rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                 if ('PDE_N9_A' in config.graph_model.signal_model_name) | ('PDE_N9_D' in config.graph_model.signal_model_name):
@@ -4857,7 +4850,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             slopes_lin_edge_list = []
             fig = plt.figure(figsize=(10, 9))
-            for n in trange(n_neurons):
+            for n in trange(n_neurons, ncols=90):
                 if mu_activity[n] + 1 * sigma_activity[n] > 0:
                     rr = torch.linspace(max(mu_activity[n] - 2 * sigma_activity[n],0), mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
@@ -4919,7 +4912,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             if 'plots' in extended:
                 fig = plt.figure(figsize=(10, 9))
-                for n in trange(n_neurons):
+                for n in trange(n_neurons, ncols=90):
                     rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
@@ -4940,7 +4933,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             slopes_lin_phi_list = []
             offsets_list = []
             fig = plt.figure(figsize=(10, 9))
-            for n in trange(n_neurons):
+            for n in trange(n_neurons, ncols=90):
                 rr = torch.linspace(mu_activity[n] - 2 * sigma_activity[n], mu_activity[n] + 2 * sigma_activity[n], 1000, device=device)
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                 in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
@@ -5052,8 +5045,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_params.png", dpi=300)
             plt.close()
-
-
 
             for target_type_name in target_type_name_list:  # Change this to any desired type name
                 target_type_index = None
@@ -5363,6 +5354,75 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plot_reconstruction_correlations(activity_results=activity_results, results_per_neuron=results_per_neuron, gt_taus=gt_taus, gt_V_Rest=gt_V_Rest, type_list=type_list, index_to_name=index_to_name, log_dir=log_dir)
 
 
+            print('alternative clustering methods...')
+            a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest])
+            print('GMM a tau V_rest:')
+            for n_comp in [50, 75, 100, 125, 150]:
+                results = clustering_gmm(a_aug, type_list, n_components=n_comp)
+                print(f"  n_components={n_comp}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
+
+
+            print(learned_tau.shape, learned_V_rest.shape, to_numpy(model.a).shape)
+            w = learned_weights.flatten()  # edge weights
+            w_in_mean = np.zeros(n_neurons)
+            w_in_std = np.zeros(n_neurons)
+            w_out_mean = np.zeros(n_neurons)
+            w_out_std = np.zeros(n_neurons)
+
+            edges = to_numpy(edges)
+            for i in trange(n_neurons, ncols=90):
+                in_w = w[edges[1] == i]
+                out_w = w[edges[0] == i]
+                w_in_mean[i] = in_w.mean() if len(in_w) > 0 else 0
+                w_in_std[i] = in_w.std() if len(in_w) > 0 else 0
+                w_out_mean[i] = out_w.mean() if len(out_w) > 0 else 0
+                w_out_std[i] = out_w.std() if len(out_w) > 0 else 0
+
+            a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest, 
+                                    w_in_mean, w_in_std, w_out_mean, w_out_std])
+            print('GMM a tau V_rest weights W:')
+
+            best_acc = 0
+            best_n = 0
+            for n_comp in [50, 75, 100, 125, 150]:
+                results = clustering_gmm(a_aug, type_list, n_components=n_comp)
+                print(f"  n_components={n_comp}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
+                if results['accuracy'] > best_acc:
+                    best_acc = results['accuracy']
+                    best_n = n_comp
+
+            print(f"\best: n_components={best_n}, accuracy=\033[32m{best_acc:.3f}\033[0m")
+            logger.info(f"GMM best: n_components={best_n}, accuracy={best_acc:.3f}")
+
+            reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
+            a_umap = reducer.fit_transform(a_aug)
+
+            fig = plt.figure(figsize=(10, 9))
+            ax = plt.gca()
+            for spine in ax.spines.values():
+                spine.set_alpha(0.75)
+            for n in range(n_types):
+                pos = to_numpy(torch.argwhere(type_list == n).squeeze())
+                plt.scatter(a_umap[pos, 0], a_umap[pos, 1], s=24, color=colors_65[n], alpha=0.1, edgecolors='none')
+            plt.xlabel(r'UMAP$_1$', fontsize=48)
+            plt.ylabel(r'UMAP$_2$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
+            plt.text(0.05, 0.95, f"N: {n_neurons}\naccuracy: {best_acc:.2f}", 
+                    transform=plt.gca().transAxes, fontsize=32, verticalalignment='top')
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/augmented_embedding_{config_indices}.png', dpi=300)
+            plt.close()
+
+
+            # Spectral clustering
+            # print('spectral:')
+            # for n_clust in [50, 75, 100, 125, 150]:
+            #     results = clustering_spectral(a_aug, type_list, n_clusters=n_clust)
+            #     print(f"  n_clusters={n_clust}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
+
+
+
 def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style, extended, device):
     dataset_name = config.dataset
     model_config = config.graph_model
@@ -5525,7 +5585,7 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
 
             recons_loss_list = []
             baseline_loss_list = []
-            for it in trange(0, n_frames-1):
+            for it in trange(0, n_frames-1, ncols=90):
 
                 x = torch.tensor(x_list[run][it,:,7:8], dtype=torch.float32, device=device).squeeze()
                 y = torch.tensor(x_list[run][it+1,:,7:8], device=device).squeeze()   # auto-encoder_loss
@@ -5645,7 +5705,7 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
 
     it_idx = 0
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
-    for it in trange(0, min(n_frames,7800), 1):
+    for it in trange(0, min(n_frames,7800), 1, ncols=90):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
         with torch.no_grad():
             in_features = torch.cat((x[:,1:4]/model.NNR_f_xy_period, it/model.NNR_f_T_period * ones), 1)
@@ -5940,9 +6000,6 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
     plt.savefig(f"./{log_dir}/results/residual_analysis_comprehensive.png", dpi=200, bbox_inches='tight')
     plt.show()
     plt.close()
-
-
-
 
 
 def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_taus, gt_V_Rest, 
@@ -6254,7 +6311,7 @@ def create_combined_movie(config, log_dir, config_indices, files, file_id_list, 
     mp4_path = f'{log_dir}/results/training_{config_indices}.mp4'
 
     with writer.saving(fig, mp4_path, dpi=80):
-        for file_id_ in trange(len(file_id_list)):
+        for file_id_ in trange(len(file_id_list), ncols=90):
             plt.clf()  # Clear the figure
 
             # Load model for this epoch
@@ -6782,8 +6839,8 @@ def compare_gnn_results(config_list, varied_parameter):
         param_display_name = varied_parameter.split('.')[1]
     
     # Print summary table
-    print(f"\n=== GNN Performance Comparison: {param_display_name} ===")
-    print(f"{'Parameter':<15} {'Weights R²':<15} {'Tau R²':<15} {'V_rest R²':<15} {'Clustering':<15}")
+    print("-" * 75)
+    print(f"{'parameter':<15} {'weights R²':<15} {'tau R²':<15} {'V_rest R²':<15} {'clustering':<15}")
     print("-" * 75)
     
     for r in summary_results:
@@ -7081,9 +7138,9 @@ def compare_experiments(config_list, varied_parameter=None):
         varied_parameter: 'section.parameter' format or None for config indices
     """
     
-    print("\n" + "="*80)
-    print("EXPERIMENT COMPARISON")
-    print("="*80)
+    # print("\n" + "="*80)
+    # print("EXPERIMENT COMPARISON")
+    # print("="*80)
     
     # Run GNN comparison
     gnn_results = compare_gnn_results(config_list, varied_parameter)
@@ -8342,7 +8399,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_51_2']
 
 
-    config_list = ['fly_N9_62_1', 'fly_N9_62_2', 'fly_N9_62_3', 'fly_N9_62_4', 'fly_N9_62_5_1', 'fly_N9_62_5_2', 'fly_N9_62_5_3']
+    config_list = ['fly_N9_62_1'] ## , 'fly_N9_62_2', 'fly_N9_62_3', 'fly_N9_62_4', 'fly_N9_62_5_1', 'fly_N9_62_5_2', 'fly_N9_62_5_3']
 
     for config_file_ in config_list:
         print(' ')
@@ -8355,7 +8412,7 @@ if __name__ == '__main__':
         os.makedirs(folder_name, exist_ok=True)
         data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
 
-    compare_experiments(config_list, None)
+    # compare_experiments(config_list, None)
 
     # get_figures('weight_vs_noise')
     # get_figures('correction_weight')

@@ -479,6 +479,125 @@ def functional_clustering_evaluation(func_list, type_list, eps=0.5, min_samples=
     }
 
 
+
+def clustering_evaluation_augmented(data, type_list, eps=0.5):
+    from sklearn.cluster import DBSCAN
+    from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, accuracy_score, silhouette_score
+    from scipy.optimize import linear_sum_assignment
+    
+    true_labels = to_numpy(type_list).flatten()
+    dbscan = DBSCAN(eps=eps, min_samples=5)
+    cluster_labels = dbscan.fit_predict(data)
+    n_clusters_found = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+    n_noise_points = list(cluster_labels).count(-1)
+    cluster_labels_clean = cluster_labels.copy()
+    cluster_labels_clean[cluster_labels_clean == -1] = n_clusters_found
+    
+    n_true = len(np.unique(true_labels))
+    n_found = len(np.unique(cluster_labels_clean))
+    conf_mat = np.zeros((n_true, n_found))
+    for i in range(len(true_labels)):
+        conf_mat[int(true_labels[i]), int(cluster_labels_clean[i])] += 1
+    row_ind, col_ind = linear_sum_assignment(-conf_mat)
+    mapping = {col_ind[i]: row_ind[i] for i in range(len(col_ind)) if i < len(row_ind)}
+    mapped_labels = np.array([mapping.get(label, -1) for label in cluster_labels_clean])
+    
+    accuracy = accuracy_score(true_labels, mapped_labels)
+    ari = adjusted_rand_score(true_labels, cluster_labels_clean)
+    nmi = normalized_mutual_info_score(true_labels, cluster_labels_clean)
+    sil = silhouette_score(data, cluster_labels_clean) if n_clusters_found > 1 else 0.0
+    
+    return {'n_clusters_found': n_clusters_found, 'n_noise_points': n_noise_points, 'eps_used': eps,
+            'ari': ari, 'nmi': nmi, 'accuracy': accuracy, 'silhouette': sil}
+
+def clustering_spectral(data, type_list, n_clusters=None):
+    from sklearn.cluster import SpectralClustering
+    from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, accuracy_score, silhouette_score
+    from scipy.optimize import linear_sum_assignment
+    
+    true_labels = to_numpy(type_list).flatten()
+    if n_clusters is None:
+        n_clusters = len(np.unique(true_labels))
+    
+    spectral = SpectralClustering(n_clusters=n_clusters, affinity='nearest_neighbors', n_neighbors=10, random_state=42)
+    cluster_labels = spectral.fit_predict(data)
+    
+    n_true = len(np.unique(true_labels))
+    n_found = len(np.unique(cluster_labels))
+    conf_mat = np.zeros((n_true, n_found))
+    for i in range(len(true_labels)):
+        conf_mat[int(true_labels[i]), int(cluster_labels[i])] += 1
+    row_ind, col_ind = linear_sum_assignment(-conf_mat)
+    mapping = {col_ind[i]: row_ind[i] for i in range(len(col_ind))}
+    mapped_labels = np.array([mapping.get(label, -1) for label in cluster_labels])
+    
+    accuracy = accuracy_score(true_labels, mapped_labels)
+    ari = adjusted_rand_score(true_labels, cluster_labels)
+    nmi = normalized_mutual_info_score(true_labels, cluster_labels)
+    sil = silhouette_score(data, cluster_labels) if n_found > 1 else 0.0
+    
+    return {'n_clusters': n_clusters, 'accuracy': accuracy, 'ari': ari, 'nmi': nmi, 'silhouette': sil}
+
+def clustering_hdbscan(data, type_list, min_cluster_size=5):
+    from hdbscan import HDBSCAN
+    from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, accuracy_score, silhouette_score
+    from scipy.optimize import linear_sum_assignment
+    
+    true_labels = to_numpy(type_list).flatten()
+    hdb = HDBSCAN(min_cluster_size=min_cluster_size, min_samples=5)
+    cluster_labels = hdb.fit_predict(data)
+    
+    n_clusters_found = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+    cluster_labels_clean = cluster_labels.copy()
+    cluster_labels_clean[cluster_labels_clean == -1] = n_clusters_found
+    
+    n_true = len(np.unique(true_labels))
+    n_found = len(np.unique(cluster_labels_clean))
+    conf_mat = np.zeros((n_true, n_found))
+    for i in range(len(true_labels)):
+        conf_mat[int(true_labels[i]), int(cluster_labels_clean[i])] += 1
+    row_ind, col_ind = linear_sum_assignment(-conf_mat)
+    mapping = {col_ind[i]: row_ind[i] for i in range(len(col_ind))}
+    mapped_labels = np.array([mapping.get(label, -1) for label in cluster_labels_clean])
+    
+    accuracy = accuracy_score(true_labels, mapped_labels)
+    ari = adjusted_rand_score(true_labels, cluster_labels_clean)
+    nmi = normalized_mutual_info_score(true_labels, cluster_labels_clean)
+    sil = silhouette_score(data, cluster_labels_clean) if n_clusters_found > 1 else 0.0
+    
+    return {'n_clusters_found': n_clusters_found, 'min_cluster_size': min_cluster_size, 
+            'accuracy': accuracy, 'ari': ari, 'nmi': nmi, 'silhouette': sil}
+
+def clustering_gmm(data, type_list, n_components=None):
+    from sklearn.mixture import GaussianMixture
+    from sklearn.metrics import adjusted_rand_score, normalized_mutual_info_score, accuracy_score, silhouette_score
+    from scipy.optimize import linear_sum_assignment
+    
+    true_labels = to_numpy(type_list).flatten()
+    if n_components is None:
+        n_components = len(np.unique(true_labels))
+    
+    gmm = GaussianMixture(n_components=n_components, covariance_type='full', random_state=42)
+    cluster_labels = gmm.fit_predict(data)
+    
+    n_true = len(np.unique(true_labels))
+    n_found = len(np.unique(cluster_labels))
+    conf_mat = np.zeros((n_true, n_found))
+    for i in range(len(true_labels)):
+        conf_mat[int(true_labels[i]), int(cluster_labels[i])] += 1
+    row_ind, col_ind = linear_sum_assignment(-conf_mat)
+    mapping = {col_ind[i]: row_ind[i] for i in range(len(col_ind))}
+    mapped_labels = np.array([mapping.get(label, -1) for label in cluster_labels])
+    
+    accuracy = accuracy_score(true_labels, mapped_labels)
+    ari = adjusted_rand_score(true_labels, cluster_labels)
+    nmi = normalized_mutual_info_score(true_labels, cluster_labels)
+    sil = silhouette_score(data, cluster_labels) if n_found > 1 else 0.0
+    
+    return {'n_components': n_components, 'accuracy': accuracy, 'ari': ari, 'nmi': nmi, 'silhouette': sil}
+
+
+
 # Usage example:
 # After running your phi function plotting code:
 # results = functional_clustering_evaluation(func_list, type_list, eps=0.2)
