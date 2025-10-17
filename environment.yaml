@@ -26,6 +26,7 @@ dependencies:
   - dask
   - pyvista
   - umap-learn
+  - torchdiffeq
   - pip:
     # Install PyTorch with CUDA support via pip
     - torch

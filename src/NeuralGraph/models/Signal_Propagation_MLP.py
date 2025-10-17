@@ -8,7 +8,20 @@ from NeuralGraph.models.Siren_Network import *
 
 
 class Signal_Propagation_MLP(nn.Module):  # NOT MessagePassing
-    """MLP baseline that predicts dv/dt from flattened (v, I)"""
+    """MLP baseline that predicts dv/dt from flattened (v, I)
+    
+    Standard feedforward neural network baseline for comparison with GNN.
+    
+    Model: dv/dt = MLP_θ([v₁, ..., vₙ, I₁, ..., Iₘ])
+    
+    Architecture:
+    - Input: Concatenated neuron states (v) and external inputs (I)
+    - Output: Predicted derivatives dv/dt for all neurons
+    - No graph structure, no connectivity information
+    
+    This is the naive baseline to demonstrate the value of incorporating
+    connectivity structure (as done in GNN) for neural circuit modeling.
+    """
     
     def __init__(self, aggr_type='add', config=None, device=None):
         super(Signal_Propagation_MLP, self).__init__()
@@ -44,15 +57,15 @@ class Signal_Propagation_MLP(nn.Module):  # NOT MessagePassing
             requires_grad=True,
         )
     
-    def forward(self, data=[], data_id=[], mask=[], k=[], return_all=False):
+    def forward(self, x=[], data_id=[], mask=[], k=[], return_all=False):
         # Extract features
 
         if self.calcium_type != "none":
-            v = data.x[:, 7:8]  # calcium
+            v = x[:, 7:8]  # calcium
         else:
-            v = data.x[:, 3:4]  # voltage
+            v = x[:, 3:4]  # voltage
         
-        excitation = data.x[:self.n_input_neurons, 4:5]
+        excitation = x[:self.n_input_neurons, 4:5]
         
         # Flatten: concatenate all neurons and inputs
         # Assuming data.x has shape (n_neurons, n_features)
@@ -61,4 +74,4 @@ class Signal_Propagation_MLP(nn.Module):  # NOT MessagePassing
         # Predict dv/dt for all neurons
         pred = self.mlp(in_features)
         
-        return pred.view(-1, 1), None, None  # Match GNN output shape
+        return pred.view(-1, 1) # Match GNN output shape

@@ -16,7 +16,7 @@ simulation:
     baseline_value: 0
 
 graph_model:
-    signal_model_name: 'PDE_N9_MLP'
+    signal_model_name: 'PDE_N9_MLP_ODE'
     prediction: 'first_derivative'
 
     input_size: 15477

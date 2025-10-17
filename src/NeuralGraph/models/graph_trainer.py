@@ -15,6 +15,7 @@ from NeuralGraph.utils import *
 from NeuralGraph.models.Siren_Network import *
 from NeuralGraph.models.Signal_Propagation_FlyVis import *
 from NeuralGraph.models.Signal_Propagation_MLP import *
+from NeuralGraph.models.Signal_Propagation_MLP_NODE import *
 from NeuralGraph.models.Signal_Propagation_Zebra import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.models.Calcium_Latent_Dynamics import *
@@ -872,6 +873,8 @@ def data_train_flyvis(config, erase, best_model, device):
     print('create models ...')
     if time_window >0:
         model = Signal_Propagation_Temporal(aggr_type=model_config.aggr_type, config=config, device=device)
+    elif 'MLP_ODE' in signal_model_name:
+        model = Signal_Propagation_MLP_NODE(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP' in signal_model_name:
         model = Signal_Propagation_MLP(aggr_type=model_config.aggr_type, config=config, device=device)
     else:   
@@ -989,7 +992,7 @@ def data_train_flyvis(config, erase, best_model, device):
         coeff_phi_weight_L1 = train_config.coeff_phi_weight_L1 * (1 - np.exp(-train_config.coeff_phi_weight_L1_rate*epoch))
         coeff_W_L1 = train_config.coeff_W_L1 * (1 - np.exp(-train_config.coeff_W_L1_rate * epoch))
 
-        for N in trange(Niter):
+        for N in trange(Niter,ncols=150):
 
             optimizer.zero_grad()
 
@@ -1148,6 +1151,16 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 if test_neural_field:
                     loss = loss + (visual_input_batch - y_batch).norm(2)
+                elif 'MLP_ODE' in signal_model_name:
+                    batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+                    for batch in batch_loader:
+                        pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                elif 'MLP' in signal_model_name:
+                    batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+                    for batch in batch_loader:
+                        pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
                 else:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
@@ -1171,6 +1184,8 @@ def data_train_flyvis(config, erase, best_model, device):
                                 pred_msg = model.lin_phi(in_features_modified)
                                 msg = in_features[:,model_config.embedding_dim+1].clone().detach()
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
+                        
+                        
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
@@ -3057,6 +3072,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     delta_t = simulation_config.delta_t
     n_frames = simulation_config.n_frames
     field_type = model_config.field_type
+    signal_model_name = model_config.signal_model_name
 
     ensemble_id = simulation_config.ensemble_id
     model_id = simulation_config.model_id
@@ -3159,7 +3175,14 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     pde = PDE_N9(p=p, f=torch.nn.functional.relu, params=simulation_config.params, model_type=model_config.signal_model_name, n_neuron_types=n_neuron_types, device=device)
     pde_modified = PDE_N9(p=copy.deepcopy(p), f=torch.nn.functional.relu, params=simulation_config.params, model_type=model_config.signal_model_name, n_neuron_types=n_neuron_types, device=device)
-    model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
+
+
+    if 'MLP_ODE' in signal_model_name:
+        model = Signal_Propagation_MLP_NODE(aggr_type=model_config.aggr_type, config=config, device=device)
+    elif 'MLP' in signal_model_name:
+        model = Signal_Propagation_MLP(aggr_type=model_config.aggr_type, config=config, device=device)
+    else:
+        model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
 
     
     if best_model == 'best':
@@ -3270,7 +3293,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     mask = torch.arange(edges.shape[1])
 
-    if 'test_ablation' in test_mode:
+    if ('test_ablation' in test_mode) & (not('MLP' in signal_model_name)):
         #  test_mode="test_ablation_100"
         ablation_ratio = int(test_mode.split('_')[-1]) / 100
         if ablation_ratio > 0:
@@ -3339,7 +3362,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
-            for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="processing stimulus data")):
+            for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="processing stimulus data", ncols=150)):
 
                 sequences = data["lum"]
                 # Sample flash parameters for each subsequence if flash stimulus is requested
@@ -3523,28 +3546,44 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                     x_generated_modified[:,4] = x[:,4]
                     dataset_modified = pyg.data.Data(x=x_generated_modified, pos=x_generated_modified[:, 1:3], edge_index=edge_index)
                     y_generated_modified = pde_modified(dataset_modified, has_field=False)
-
+                    
                     if 'visual' in field_type:
-                        visual_input = model.forward_visual(x,it)
+                        visual_input = model.forward_visual(x, it)
                         x[:model.n_input_neurons, 4:5] = visual_input
                         x[model.n_input_neurons:, 4:5] = 0
 
-                    dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
-                    data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
-                    y = model(dataset, data_id, mask, False)
+                    # Prediction step
+                    if 'MLP_ODE' in signal_model_name:
+                        v = x[:, 3:4]
+                        I = x[:n_input_neurons, 4:5]
+                        y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
+                    elif 'MLP' in signal_model_name:
+                        y = model(x, data_id=None, mask=None, return_all=False)
+                    else:
+                        dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
+                        data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
+                        y = model(dataset, data_id, mask, False)
 
+                    # Save states
                     x_generated_list.append(to_numpy(x_generated.clone().detach()))
                     x_generated_modified_list.append(to_numpy(x_generated_modified.clone().detach()))
                     x_list.append(to_numpy(x.clone().detach()))
 
+                    # Integration step
                     if noise_model_level > 0:
                         x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
-                        x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level  
-                        x[:, 3:4] = x[:, 3:4] + delta_t * y 
+                        x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
+                        if 'MLP_ODE' in signal_model_name:
+                            x[:, 3:4] = x[:, 3:4] + y  # y already contains full update
+                        else:
+                            x[:, 3:4] = x[:, 3:4] + delta_t * y
                     else:
                         x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated
                         x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified
-                        x[:, 3:4] = x[:, 3:4] + delta_t * y
+                        if 'MLP_ODE' in signal_model_name:
+                            x[:, 3:4] = x[:, 3:4] + y  # y already contains full update
+                        else:
+                            x[:, 3:4] = x[:, 3:4] + delta_t * y
 
                     if calcium_type == "leaky":
                         # Voltage-driven activation
