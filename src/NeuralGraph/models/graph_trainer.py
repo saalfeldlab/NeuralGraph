@@ -3198,7 +3198,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.savefig(f"./{log_dir}/results/angle.tif", dpi=170.7)
         plt.close
 
-
 def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', new_params = None, device=None):
 
 
@@ -3335,7 +3334,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     pde_modified = PDE_N9(p=copy.deepcopy(p), f=torch.nn.functional.relu, params=simulation_config.params, model_type=model_config.signal_model_name, n_neuron_types=n_neuron_types, device=device)
 
 
-    if 'MLP_ODE' in signal_model_name:
+    if 'RNN' in signal_model_name:
+        model = Signal_Propagation_RNN(aggr_type=model_config.aggr_type, config=config, device=device)
+    elif 'MLP_ODE' in signal_model_name:
         model = Signal_Propagation_MLP_NODE(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP' in signal_model_name:
         model = Signal_Propagation_MLP(aggr_type=model_config.aggr_type, config=config, device=device)
@@ -3436,6 +3437,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     x_generated = x.clone()
     x_generated_modified = x.clone()
+    
+    # Initialize RNN hidden state
+    if 'RNN' in signal_model_name:
+        h_state = None
 
     it = simulation_config.start_frame
     id_fig = 0
@@ -3472,30 +3477,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             pde_modified.p['w'] = pde.p['w'].clone() + noise_p_W
 
         plot_weight_comparison(pde.p['w'], pde_modified.p['w'], f"./{log_dir}/results/weight_comparison_{noise_W}.png")
-
-    # if simulation_config.n_extra_null_edges==0:
-    #     res = overlay_umap_refit_with_W_list(
-    #         w_list=[
-    #             to_numpy(pde.p["w"]),
-    #             to_numpy(pde_modified.p["w"]),
-    #             to_numpy(model.W.squeeze()),
-    #         ],
-    #         labels=["W_000", "W + noise", "GNN W"],
-    #         figure_path="overlay_all_W.png",
-    #         show=True,
-    #         label_bg=True
-    #     )
-    # res = overlay_barycentric_into_umap(
-    # w_list=[
-    #     to_numpy(pde.p["w"]),
-    #     to_numpy(pde_modified.p["w"]),
-    #     to_numpy(model.W.squeeze()),
-    # ],
-    # labels=["W_000", "W + noise", "GNN W"],
-    # out_prefix="/groups/saalfeld/home/allierc/Py/NeuralGraph/flyvis_connectomes",
-    # figure_path="overlay_all_bary.png",
-    # show=True,
-    # )
 
 
     neuron_types = to_numpy(x[:, 6]).astype(int)
@@ -3711,7 +3692,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         x[model.n_input_neurons:, 4:5] = 0
 
                     # Prediction step
-                    if 'MLP_ODE' in signal_model_name:
+                    if 'RNN' in signal_model_name:
+                        y, h_state = model(x, h=h_state, return_all=True)
+                    elif 'MLP_ODE' in signal_model_name:
                         v = x[:, 3:4]
                         I = x[:n_input_neurons, 4:5]
                         y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
@@ -4068,6 +4051,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     std_pearson = np.nanstd(pearson_per_neuron)
     print(f"Pearson r per neuron - Mean: \033[92m{mean_pearson:.3f}\033[0m, Std: {std_pearson:.3f}")
     print(f"Pearson r range: [{np.nanmin(pearson_per_neuron):.3f}, {np.nanmax(pearson_per_neuron):.3f}]")
+
 
     if 'full' in test_mode:
 
