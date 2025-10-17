@@ -1546,3 +1546,30 @@ def analyze_type_neighbors(
             "cumulative_type_perc": cumulative_perc,
         },
     }
+
+def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', ylabel='modified $W$', color='white'):
+    w_true_np = w_true.detach().cpu().numpy().flatten()
+    w_modified_np = w_modified.detach().cpu().numpy().flatten()
+    plt.figure(figsize=(8, 8))
+    plt.scatter(w_true_np, w_modified_np, s=8, alpha=0.5, color=color, edgecolors='none')
+    # Fit linear model
+    lin_fit, _ = curve_fit(linear_model, w_true_np, w_modified_np)
+    slope = lin_fit[0]
+    offset = lin_fit[1]
+    # R2 calculation
+    residuals = w_modified_np - linear_model(w_true_np, *lin_fit)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((w_modified_np - np.mean(w_modified_np)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+    # Plot identity line
+    plt.plot([w_true_np.min(), w_true_np.max()], [w_true_np.min(), w_true_np.max()], 'r--', linewidth=2, label='identity')
+    # Add text
+    plt.text(w_true_np.min(), w_true_np.max(), f'$R^2$: {r_squared:.3f}\nslope: {slope:.2f}', fontsize=18, va='top', ha='left')
+    plt.xlabel(xlabel, fontsize=24)
+    plt.ylabel(ylabel, fontsize=24)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150)
+    plt.close()
+    return slope, r_squared

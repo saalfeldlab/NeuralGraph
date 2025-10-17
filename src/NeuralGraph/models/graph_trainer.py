@@ -3056,6 +3056,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     n_input_neurons = simulation_config.n_input_neurons
     delta_t = simulation_config.delta_t
     n_frames = simulation_config.n_frames
+    field_type = model_config.field_type
 
     ensemble_id = simulation_config.ensemble_id
     model_id = simulation_config.model_id
@@ -3239,7 +3240,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     else:
         target_frames = 600
         step = 10
-    print(f'plot activity frames \033[92m0-{target_frames} ...\033[0m')
+    print(f'plot activity frames \033[92m0-{target_frames}...\033[0m')
 
     dataset_length = len(stimulus_dataset)
     frames_per_sequence = 35
@@ -3268,35 +3269,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     mask = torch.arange(edges.shape[1])
-
-
-    def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', ylabel='modified $W$', color='white'):
-        w_true_np = w_true.detach().cpu().numpy().flatten()
-        w_modified_np = w_modified.detach().cpu().numpy().flatten()
-        plt.figure(figsize=(8, 8))
-        plt.scatter(w_true_np, w_modified_np, s=8, alpha=0.5, color=color, edgecolors='none')
-        # Fit linear model
-        lin_fit, _ = curve_fit(linear_model, w_true_np, w_modified_np)
-        slope = lin_fit[0]
-        offset = lin_fit[1]
-        # R2 calculation
-        residuals = w_modified_np - linear_model(w_true_np, *lin_fit)
-        ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((w_modified_np - np.mean(w_modified_np)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot)
-        # Plot identity line
-        plt.plot([w_true_np.min(), w_true_np.max()], [w_true_np.min(), w_true_np.max()], 'r--', linewidth=2, label='identity')
-        # Add text
-        plt.text(w_true_np.min(), w_true_np.max(), f'$R^2$: {r_squared:.3f}\nslope: {slope:.2f}', fontsize=18, va='top', ha='left')
-        plt.xlabel(xlabel, fontsize=24)
-        plt.ylabel(ylabel, fontsize=24)
-        plt.xticks(fontsize=18)
-        plt.yticks(fontsize=18)
-        plt.tight_layout()
-        plt.savefig(output_path, dpi=150)
-        plt.close()
-        return slope, r_squared
-
 
     if 'test_ablation' in test_mode:
         #  test_mode="test_ablation_100"
@@ -3543,7 +3515,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                 x[:n_input_neurons, 4:5] = x[:n_input_neurons, 4:5] + torch.randn((n_input_neurons, 1),
                                                                                                   dtype=torch.float32,
                                                                                                   device=device) * noise_visual_input
-                                
+        
                     x_generated[:,4] = x[:,4]
                     dataset = pyg.data.Data(x=x_generated, pos=x_generated[:, 1:3], edge_index=edge_index)
                     y_generated = pde(dataset, has_field=False)
@@ -3552,6 +3524,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                     dataset_modified = pyg.data.Data(x=x_generated_modified, pos=x_generated_modified[:, 1:3], edge_index=edge_index)
                     y_generated_modified = pde_modified(dataset_modified, has_field=False)
 
+                    if 'visual' in field_type:
+                        visual_input = model.forward_visual(x,it)
+                        x[:model.n_input_neurons, 4:5] = visual_input
+                        x[model.n_input_neurons:, 4:5] = 0
 
                     dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
                     data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
