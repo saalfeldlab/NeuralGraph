@@ -5329,6 +5329,11 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             else:
                 print(f'outliers: 0  (no outliers detected)')
 
+
+
+
+
+
             # plot analyze_neuron_type_reconstruction
             results_per_neuron = analyze_neuron_type_reconstruction(
                 config=config,
@@ -5352,7 +5357,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             )
 
             plot_reconstruction_correlations(activity_results=activity_results, results_per_neuron=results_per_neuron, gt_taus=gt_taus, gt_V_Rest=gt_V_Rest, type_list=type_list, index_to_name=index_to_name, log_dir=log_dir)
-
 
             print('alternative clustering methods...')
             a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest])
@@ -5391,19 +5395,35 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     best_acc = results['accuracy']
                     best_n = n_comp
 
-            print(f"\best: n_components={best_n}, accuracy=\033[32m{best_acc:.3f}\033[0m")
+            print(f"best: n_components={best_n}, accuracy=\033[92m{best_acc:.3f}\033[0m")
             logger.info(f"GMM best: n_components={best_n}, accuracy={best_acc:.3f}")
 
             reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
             a_umap = reducer.fit_transform(a_aug)
 
+            # Get cluster labels from best GMM
+            results = clustering_gmm(a_aug, type_list, n_components=best_n)
+            cluster_labels = GaussianMixture(n_components=best_n, random_state=42).fit_predict(a_aug)
+
             fig = plt.figure(figsize=(10, 9))
             ax = plt.gca()
             for spine in ax.spines.values():
                 spine.set_alpha(0.75)
-            for n in range(n_types):
-                pos = to_numpy(torch.argwhere(type_list == n).squeeze())
-                plt.scatter(a_umap[pos, 0], a_umap[pos, 1], s=24, color=colors_65[n], alpha=0.1, edgecolors='none')
+            # for n in range(n_types):
+            #     pos = to_numpy(torch.argwhere(type_list == n).squeeze())
+            #     plt.scatter(a_umap[pos, 0], a_umap[pos, 1], s=24, color=colors_65[n], alpha=0.8, edgecolors='none')
+            from matplotlib.colors import ListedColormap
+            cmap_65 = ListedColormap(colors_65)
+            plt.scatter(a_umap[:, 0], a_umap[:, 1], c=cluster_labels, s=24, cmap=cmap_65, alpha=0.8, edgecolors='none')
+
+
+            # Add cluster centroids
+            for c in range(best_n):
+                mask = cluster_labels == c
+                if mask.sum() > 0:
+                    cx, cy = np.median(a_umap[mask, 0]), np.median(a_umap[mask, 1])
+                    plt.text(cx, cy, str(c), fontsize=8, ha='center', va='center')
+
             plt.xlabel(r'UMAP$_1$', fontsize=48)
             plt.ylabel(r'UMAP$_2$', fontsize=48)
             plt.xticks(fontsize=24)
@@ -5411,9 +5431,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.text(0.05, 0.95, f"N: {n_neurons}\naccuracy: {best_acc:.2f}", 
                     transform=plt.gca().transAxes, fontsize=32, verticalalignment='top')
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/augmented_embedding_{config_indices}.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/embedding_augmented_{config_indices}.png', dpi=300)
             plt.close()
-
 
             # Spectral clustering
             # print('spectral:')
@@ -8399,7 +8418,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_51_2']
 
 
-    config_list = ['fly_N9_62_1'] ## , 'fly_N9_62_2', 'fly_N9_62_3', 'fly_N9_62_4', 'fly_N9_62_5_1', 'fly_N9_62_5_2', 'fly_N9_62_5_3']
+    config_list = ['fly_N9_63_1','fly_N9_62_1','fly_N9_62_5_1', 'fly_N9_62_5_2', 'fly_N9_62_5_3','fly_N9_62_5_4', 'fly_N9_62_9']
 
     for config_file_ in config_list:
         print(' ')

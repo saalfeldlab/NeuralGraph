@@ -3239,6 +3239,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     else:
         target_frames = 600
         step = 10
+    print(f'plot activity frames \033[92m0-{target_frames} ...\033[0m')
 
     dataset_length = len(stimulus_dataset)
     frames_per_sequence = 35
@@ -3319,20 +3320,18 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
         plot_weight_comparison(pde.p['w'], pde_modified.p['w'], f"./{log_dir}/results/weight_comparison_{noise_W}.png")
 
-    if simulation_config.n_extra_null_edges==0:
-        res = overlay_umap_refit_with_W_list(
-            w_list=[
-                to_numpy(pde.p["w"]),
-                to_numpy(pde_modified.p["w"]),
-                to_numpy(model.W.squeeze()),
-            ],
-            labels=["W_000", "W + noise", "GNN W"],
-            figure_path="overlay_all_W.png",
-            show=True,
-            label_bg=True
-        )
-
-
+    # if simulation_config.n_extra_null_edges==0:
+    #     res = overlay_umap_refit_with_W_list(
+    #         w_list=[
+    #             to_numpy(pde.p["w"]),
+    #             to_numpy(pde_modified.p["w"]),
+    #             to_numpy(model.W.squeeze()),
+    #         ],
+    #         labels=["W_000", "W + noise", "GNN W"],
+    #         figure_path="overlay_all_W.png",
+    #         show=True,
+    #         label_bg=True
+    #     )
     # res = overlay_barycentric_into_umap(
     # w_list=[
     #     to_numpy(pde.p["w"]),
@@ -3785,7 +3784,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     x_generated_modified_list = np.array(x_generated_modified_list)
     y_list = np.array(y_list)
 
-    print('plot activity ...')
     activity = torch.tensor(x_list[:, :, 3:4], device=device).squeeze().t()  # voltage
     input_visual = torch.tensor(x_list[:, :, 4:5], device=device).squeeze().t()
     if calcium_type != "none":
@@ -3880,8 +3878,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     rmse_per_neuron = np.sqrt(np.mean((activity_true - activity_pred)**2, axis=1))  # (n_neurons,)
     mean_rmse = np.mean(rmse_per_neuron)
     std_rmse = np.std(rmse_per_neuron)
-    print(f"RMSE per neuron - Mean: {mean_rmse:.6f}, Std: {std_rmse:.6f}")
-    print(f"RMSE range: [{np.min(rmse_per_neuron):.6f}, {np.max(rmse_per_neuron):.6f}]")
+    print(f"RMSE per neuron - Mean: \033[92m{mean_rmse:.4f}\033[0m, Std: {std_rmse:.4f}")
+    print(f"RMSE range: [{np.min(rmse_per_neuron):.4f}, {np.max(rmse_per_neuron):.4f}]")
     np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_per_neuron)
     
     print('computing Pearson correlation per neuron...')
@@ -3895,8 +3893,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     pearson_per_neuron = np.array(pearson_per_neuron)
     mean_pearson = np.nanmean(pearson_per_neuron)
     std_pearson = np.nanstd(pearson_per_neuron)
-    print(f"Pearson r per neuron - Mean: {mean_pearson:.6f}, Std: {std_pearson:.6f}")
-    print(f"Pearson r range: [{np.nanmin(pearson_per_neuron):.6f}, {np.nanmax(pearson_per_neuron):.6f}]")
+    print(f"Pearson r per neuron - Mean: \033[92m{mean_pearson:.3f}\033[0m, Std: {std_pearson:.3f}")
+    print(f"Pearson r range: [{np.nanmin(pearson_per_neuron):.3f}, {np.nanmax(pearson_per_neuron):.3f}]")
 
     if 'full' in test_mode:
 
@@ -3999,7 +3997,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_ylabel(f'{activity_label}', fontsize=22)
             n_ticks = 500
             ax.set_xticks([start_frame, end_frame])
-            ax.set_xticklabels([start_frame, end_frame], fontsize=14)
+            ax.set_xticklabels([f'{start_frame}', f'{end_frame}'], fontsize=14)
             # Use dynamic y-range for this panel too
             true_data_panel = activity_true[selected_neuron, :]
             pred_data_panel = activity_pred[selected_neuron, :]
@@ -4079,7 +4077,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_ylabel(f'{activity_label}', fontsize=22)
             n_ticks = 500
             ax.set_xticks([start_frame, end_frame])
-            ax.set_xticklabels(['start_frame', 'end_frame'], fontsize=14)
+            ax.set_xticklabels([f'{start_frame}', f'{end_frame}'], fontsize=14)
             # Use dynamic y-range for this panel too
             true_data_panel = activity_true[selected_neuron, :]
             pred_data_panel = activity_pred[selected_neuron, :]
