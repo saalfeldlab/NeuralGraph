@@ -3435,7 +3435,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         target_frames = 90000
         step = 25000
     else:
-        target_frames = 600
+        target_frames = 4000
         step = 10
     print(f'plot activity frames \033[92m0-{target_frames}...\033[0m')
 
@@ -3763,7 +3763,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
                     y_list.append(to_numpy(y.clone().detach()))
 
-                    if (it>0) & (it % step == 0) & visualize:
+                    if (it>0) & (it<100) & (it % step == 0) & visualize:
                         if "latex" in style:
                             plt.rcParams["text.usetex"] = True
                             rc("font", **{"family": "serif", "serif": ["Palatino"]})
@@ -3934,7 +3934,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                 break
     print(f"generated {len(x_list)} frames total")
 
-    if (visualize):
+    if (False):
         print('generating lossless video ...')
 
         config_indices = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
@@ -3958,81 +3958,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     x_generated_modified_list = np.array(x_generated_modified_list)
     y_list = np.array(y_list)
 
-    activity = torch.tensor(x_list[:, :, 3:4], device=device).squeeze().t()  # voltage
-    input_visual = torch.tensor(x_list[:, :, 4:5], device=device).squeeze().t()
-    if calcium_type != "none":
-        calcium_activity = torch.tensor(x_list[:, :, 7:8], device=device).squeeze().t()
-
-        plt.figure(figsize=(16, 12))
-
-        # --- Top row: visual input ---
-        plt.subplot(3, 1, 1)
-        plt.title("Input to visual neurons", fontsize=24)
-        input_neurons = [731, 1042, 329, 1110, 1176, 1526, 1350, 90, 813, 1695]
-        for i in input_neurons:
-            plt.plot(to_numpy(input_visual[i, :]), linewidth=1)
-        plt.ylabel("$x_i$", fontsize=20)
-        plt.xlim([0, n_frames // 300])
-        plt.xticks(fontsize=16)
-        plt.yticks(fontsize=16)
-
-        # --- Middle row: voltage ---
-        plt.subplot(3, 1, 2)
-        plt.title("Voltage activity of neurons (x10)", fontsize=24)
-        neurons_to_plot = [2602, 3175, 12915, 10391, 13120, 9939, 12463, 3758, 10341, 4293]
-        for i in neurons_to_plot:
-            plt.plot(to_numpy(activity[i, :]), linewidth=1)
-        plt.ylabel("$V_i$", fontsize=20)
-        plt.xlim([0, n_frames // 300])
-        plt.xticks(fontsize=16)
-        plt.yticks(fontsize=16)
-
-        # --- Bottom row: calcium ---
-        plt.subplot(3, 1, 3)
-        plt.title("Calcium activity of neurons", fontsize=24)
-        for i in neurons_to_plot:
-            plt.plot(to_numpy(calcium_activity[i, :]), linewidth=1)
-        plt.xlabel("time", fontsize=20)
-        plt.ylabel("$[Ca]_i$", fontsize=20)
-        plt.xlim([0, n_frames // 300])
-        plt.xticks(fontsize=16)
-        plt.yticks(fontsize=16)
-
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/activity_voltage_calcium.tif", dpi=300)
-        plt.close()
-    else:
-        # Original 2-row figure (input + voltage)
-        plt.figure(figsize=(16, 8))
-
-        # Left subplot: visual input
-        plt.subplot(1, 2, 1)
-        plt.title("input to visual neurons", fontsize=24)
-        input_neurons = [731, 1042, 329, 1110, 1176, 1526, 1350, 90, 813, 1695]
-        for i in input_neurons:
-            plt.plot(to_numpy(input_visual[i, :]), linewidth=1)
-        plt.xlabel("time", fontsize=24)
-        plt.ylabel("$x_i$", fontsize=24)
-        plt.xlim([0, n_frames // 300])
-        plt.xticks(fontsize=16)
-        plt.yticks(fontsize=16)
-
-        # Right subplot: voltage
-        plt.subplot(1, 2, 2)
-        plt.title("voltage activity of neurons (x10)", fontsize=24)
-        neurons_to_plot = [2602, 3175, 12915, 10391, 13120, 9939, 12463, 3758, 10341, 4293]
-        for i in neurons_to_plot:
-            plt.plot(to_numpy(activity[i, :]), linewidth=1)
-        plt.xlabel("time", fontsize=24)
-        plt.ylabel("$v_i$", fontsize=24)
-        plt.xlim([0, target_frames])
-        plt.ylim([-3, 3])
-        plt.xticks(fontsize=16)
-        plt.yticks(fontsize=16)
-
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/activity_voltage.tif", dpi=300)
-        plt.close()
 
     print('compute statistics ...')
     if calcium_type != "none":
@@ -4106,26 +4031,32 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         
         if len(neuron_indices) > 0:
             # Randomly select one neuron of this type for clarity
-            selected_neuron = np.random.choice(neuron_indices, 1)[0]
+            selected_neuron = neuron_indices[0]
             
             # Get data for this neuron
             true_data = activity_true[selected_neuron, :]
             pred_data = activity_pred[selected_neuron, :]
             true_data_modified = activity_true_modified[selected_neuron, :]
             
-            start_frame = 85000
-            end_frame = 85500
-            n_frames = true_data.shape[0]
-            if target_frames < end_frame:
-                start_frame = 0
-                end_frame = 500
+
+
+            start_frame = 0
+            end_frame = target_frames
+            lw=4
+            if 'full' in test_mode:
+                start_frame = target_frames-1500
+                end_frame = target_frames-500
+                lw=8
+            if target_frames < 1000:
+                lw =8
+
 
             y_min = min(np.min(true_data[start_frame:end_frame]), np.min(pred_data[start_frame:end_frame]))
             y_max = max(np.max(true_data[start_frame:end_frame]), np.max(pred_data[start_frame:end_frame]))
             y_range = y_max - y_min
             y_padding = y_range * 0.25  # 10% padding
        
-            ax.plot(true_data, linewidth=8, color='green', alpha=0.4)
+            ax.plot(true_data, linewidth=lw, color='green', alpha=0.4)
 
             if 'true_only' not in style:
                 if 'test_modified' in test_mode:
@@ -4194,13 +4125,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         
         # Plot ground truth (green, thick)
         for i in range(len(neuron_indices)):
-            baseline = np.mean(pred_slice[i])
-            ax.plot(true_slice[i] - baseline + i * step_v, linewidth=8, c='green', alpha=0.5,
+            baseline = np.mean(true_slice[i])
+            ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.5,
                     label='ground truth' if i == 0 else None)
-        
-        # Plot predictions (black, thin)
-        for i in range(len(neuron_indices)):
-            baseline = np.mean(pred_slice[i])
             ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
                     label='prediction' if i == 0 else None)
         
@@ -4212,8 +4139,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         
         ax.set_ylim([-step_v, len(neuron_indices) * step_v])
         ax.set_yticks([])
-        ax.set_xticks([0, end_frame - start_frame])
-        ax.set_xticklabels([start_frame, end_frame], fontsize=16)
+        ax.set_xticks([0, (end_frame - start_frame) // 2, end_frame - start_frame])
+        ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
         ax.set_xlabel('frame', fontsize=20)
         
         # Remove unnecessary spines
