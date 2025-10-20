@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective batch 16  NNR_f  LR 1E-8  hidden 4096  batch 8'
+description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective NNR_f  LR 1E-8  hidden 4096  batch 8'
 dataset: 'fly_N9_62_1'
 
 simulation:

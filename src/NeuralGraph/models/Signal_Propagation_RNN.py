@@ -20,14 +20,14 @@ class Signal_Propagation_RNN(nn.Module):
         self.n_neurons = simulation_config.n_neurons
         self.n_input_neurons = simulation_config.n_input_neurons
         self.calcium_type = simulation_config.calcium_type
+        self.input_size = model_config.input_size
         self.device = device
         
-        input_dim = self.n_neurons + self.n_input_neurons
         hidden_dim = model_config.hidden_dim  # e.g., 512
         
         # GRU layers
         self.gru = nn.GRU(
-            input_size=input_dim,
+            input_size=self.input_size,
             hidden_size=hidden_dim,
             num_layers=2,
             batch_first=True

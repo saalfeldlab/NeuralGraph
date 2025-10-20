@@ -4,7 +4,7 @@ from NeuralGraph.models.MLP import MLP
 from torchdiffeq import odeint
 import time
 
-class Signal_Propagation_MLP_NODE(nn.Module):
+class Signal_Propagation_MLP_ODE(nn.Module):
     """Neural ODE baseline: dv/dt = f_θ(v, I)
     
     Backward-compatible:
@@ -12,7 +12,7 @@ class Signal_Propagation_MLP_NODE(nn.Module):
       - Call `enable_solver_training(True)` to train with an ODE solver in forward().
     """
     def __init__(self, aggr_type='add', config=None, device=None):
-        super(Signal_Propagation_MLP_NODE, self).__init__()
+        super(Signal_Propagation_MLP_ODE, self).__init__()
 
         simulation_config = config.simulation
         model_config = config.graph_model
@@ -24,9 +24,9 @@ class Signal_Propagation_MLP_NODE(nn.Module):
         self.delta_t = float(simulation_config.delta_t)
 
         # --- drift network f_θ ---
-        input_dim = self.n_neurons + self.n_input_neurons
+
         self.ode_func = MLP(
-            input_size=input_dim,
+            input_size=model_config.input_size,
             output_size=self.n_neurons,
             nlayers=model_config.n_layers,
             hidden_size=model_config.hidden_dim,
