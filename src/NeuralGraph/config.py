@@ -266,6 +266,9 @@ class TrainingConfig(BaseModel):
     denoiser_type: Literal["none", "window", "LSTM", "Gaussian_filter", "wavelet"] = ("none")
     denoiser_param: float = 1.0
 
+    training_single_neuron: bool = False
+    single_neuron_id: int = 0
+
     time_window: int = 0
 
     n_runs: int = 2

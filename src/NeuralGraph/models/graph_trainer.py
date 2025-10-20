@@ -15,7 +15,7 @@ from NeuralGraph.utils import *
 from NeuralGraph.models.Siren_Network import *
 from NeuralGraph.models.Signal_Propagation_FlyVis import *
 from NeuralGraph.models.Signal_Propagation_MLP import *
-from NeuralGraph.models.Signal_Propagation_MLP_NODE import *
+from NeuralGraph.models.Signal_Propagation_MLP_ODE import *
 from NeuralGraph.models.Signal_Propagation_Zebra import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.models.Signal_Propagation_RNN import *
@@ -81,6 +81,9 @@ def data_train(config=None, erase=False, best_model=None, device=None):
         data_train_zebra(config, erase, best_model, device)
     else:
         data_train_signal(config, erase, best_model, device)
+
+
+
 
 
 def data_train_signal(config, erase, best_model, device):
@@ -770,6 +773,8 @@ def data_train_signal(config, erase, best_model, device):
                 logger.info( f'learning rates: lr_W {lr_W}, lr {lr}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
 
+
+
 def data_train_flyvis(config, erase, best_model, device):
     simulation_config = config.simulation
     train_config = config.training
@@ -796,6 +801,7 @@ def data_train_flyvis(config, erase, best_model, device):
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
     time_window = train_config.time_window
+    training_single_neuron = train_config.training_single_neuron
 
     field_type = model_config.field_type
     time_step = train_config.time_step
@@ -843,8 +849,14 @@ def data_train_flyvis(config, erase, best_model, device):
     for run in trange(0,n_runs, ncols=50):
         x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+
+        if training_single_neuron:
+            x = x[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
+            y = y[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
+
         x_list.append(x)
         y_list.append(y)
+
     print(f'dataset: {len(x_list)} run, {len(x_list[0])} frames')
     x = x_list[0][n_frames - 10]
 
@@ -853,7 +865,7 @@ def data_train_flyvis(config, erase, best_model, device):
     distrib = activity.flatten()
     valid_distrib = distrib[~torch.isnan(distrib)]
     if len(valid_distrib) > 0:
-        xnorm = torch.round(1.5 * torch.std(valid_distrib))
+        xnorm = 1.5 * torch.std(valid_distrib)
     else:
         print('no valid distribution found, setting xnorm to 1.0')
         xnorm = torch.tensor(1.0, device=device)
@@ -878,7 +890,7 @@ def data_train_flyvis(config, erase, best_model, device):
     if time_window >0:
         model = Signal_Propagation_Temporal(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP_ODE' in signal_model_name:
-        model = Signal_Propagation_MLP_NODE(aggr_type=model_config.aggr_type, config=config, device=device)
+        model = Signal_Propagation_MLP_ODE(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP' in signal_model_name:
         model = Signal_Propagation_MLP(aggr_type=model_config.aggr_type, config=config, device=device)
     else:   
@@ -1493,6 +1505,7 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
     n_runs = train_config.n_runs
     n_frames = simulation_config.n_frames
     data_augmentation_loop = train_config.data_augmentation_loop
+    training_single_neuron = train_config.training_single_neuron
     
     warm_up_length = train_config.warm_up_length  # e.g., 10
     sequence_length = train_config.sequence_length  # e.g., 32
@@ -1511,6 +1524,11 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
     for run in trange(0, n_runs, ncols=50):
         x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+
+        if training_single_neuron:
+            x = x[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
+            y = y[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
+
         x_list.append(x)
         y_list.append(y)
     
@@ -1523,7 +1541,7 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
     valid_distrib = distrib[~torch.isnan(distrib)]
     
     if len(valid_distrib) > 0:
-        xnorm = torch.round(1.5 * torch.std(valid_distrib))
+        xnorm = 1.5 * torch.std(valid_distrib)
     else:
         xnorm = torch.tensor(1.0, device=device)
     
@@ -1900,6 +1918,7 @@ def data_train_flyvis_calcium(config, erase, best_model, device):
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
         plt.close()
+
 
 
 
@@ -3352,7 +3371,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     if 'RNN' in signal_model_name:
         model = Signal_Propagation_RNN(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP_ODE' in signal_model_name:
-        model = Signal_Propagation_MLP_NODE(aggr_type=model_config.aggr_type, config=config, device=device)
+        model = Signal_Propagation_MLP_ODE(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP' in signal_model_name:
         model = Signal_Propagation_MLP(aggr_type=model_config.aggr_type, config=config, device=device)
     else:
@@ -4115,48 +4134,46 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         if len(indices) > 0:
             neuron_indices.append(indices[0])
 
-        plt.style.use('default')
-        fig, ax = plt.subplots(1, 1, figsize=(12, 18))
-        
-        true_slice = activity_true[neuron_indices, start_frame:end_frame]
-        pred_slice = activity_pred[neuron_indices, start_frame:end_frame]
-        
-        step_v = 2.5
-        
-        # Plot ground truth (green, thick)
-        for i in range(len(neuron_indices)):
-            baseline = np.mean(true_slice[i])
-            ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.5,
-                    label='ground truth' if i == 0 else None)
-            ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
-                    label='prediction' if i == 0 else None)
-        
-        # Add neuron type labels on left
-        for i in range(len(neuron_indices)):
-            type_idx = selected_types[i]
-            ax.text(-50, i * step_v, index_to_name[type_idx],
-                    fontsize=18, va='center', ha='right')
-        
-        ax.set_ylim([-step_v, len(neuron_indices) * step_v])
-        ax.set_yticks([])
-        ax.set_xticks([0, (end_frame - start_frame) // 2, end_frame - start_frame])
-        ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
-        ax.set_xlabel('frame', fontsize=20)
-        
-        # Remove unnecessary spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-        
-        # Add legend
-        ax.legend(loc='upper right', fontsize=14)
+    plt.style.use('default')
+    fig, ax = plt.subplots(1, 1, figsize=(12, 18))
+    
+    true_slice = activity_true[neuron_indices, start_frame:end_frame]
+    pred_slice = activity_pred[neuron_indices, start_frame:end_frame]
+    
+    step_v = 2.5
+    
+    # Plot ground truth (green, thick)
+    for i in range(len(neuron_indices)):
+        baseline = np.mean(true_slice[i])
+        ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.5,
+                label='ground truth' if i == 0 else None)
+        ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
+                label='prediction' if i == 0 else None)
+    
+    # Add neuron type labels on left
+    for i in range(len(neuron_indices)):
+        type_idx = selected_types[i]
+        ax.text(-50, i * step_v, f'{index_to_name[type_idx]}\n{neuron_indices[i]}',
+                fontsize=18, va='center', ha='right')
+    
+    ax.set_ylim([-step_v, len(neuron_indices) * step_v])
+    ax.set_yticks([])
+    ax.set_xticks([0, (end_frame - start_frame) // 2, end_frame - start_frame])
+    ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
+    ax.set_xlabel('frame', fontsize=20)
+    
+    # Remove unnecessary spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    
+    # Add legend
+    ax.legend(loc='upper right', fontsize=14)
         
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/rollout_traces_selected_types.png", dpi=300, bbox_inches='tight')
     plt.close()
         
-
-
     if ('test_ablation' in test_mode) or ('test_inactivity' in test_mode):
         np.save(f"./{log_dir}/results/activity_modified.npy", activity_true_modified)
         np.save(f"./{log_dir}/results/activity_modified_pred.npy", activity_pred)

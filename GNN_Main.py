@@ -56,9 +56,9 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = 'None' 
-        task = 'test'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
-        config_list = ['fly_N9_22_10', 'fly_N9_64_1', 'fly_N9_64_2', 'fly_N9_64_3']
+        config_list = ['fly_N9_64_3_1']
 
 
     for config_file_ in config_list:
@@ -92,8 +92,6 @@ if __name__ == "__main__":
         if "test" in task:
 
             config.training.noise_model_level = 0.0
-            config.simulation.visual_input_type = ""
-
 
             data_test(
                 config=config,
