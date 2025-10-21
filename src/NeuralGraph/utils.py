@@ -24,6 +24,7 @@ from scipy import stats
 
 import warnings
 from collections import defaultdict
+from scipy.stats import pearsonr
 
 warnings.filterwarnings('ignore')
 
@@ -2184,3 +2185,60 @@ def plot_interesting_causality_pairs(significant_pairs, filtered_time_series, tr
     print(f"all plots saved to graphs_data/{dataset_name}/causality_pair_*.png")
 
     return selected_pairs
+
+
+def compute_feve(true, pred, n_repeats=None):
+    """
+    Compute FEVE metric (Stringer et al.)
+    true/pred: (n_neurons, n_timepoints)
+    n_repeats: number of trial repeats (if data has repeated stimuli)
+    """
+    if n_repeats is not None:
+        # Reshape to (n_neurons, n_trials, n_frames_per_trial)
+        n_frames_per_trial = true.shape[1] // n_repeats
+        true_trials = true.reshape(-1, n_repeats, n_frames_per_trial)
+        
+        # Trial-averaged response (stimulus-locked component)
+        mean_response = np.mean(true_trials, axis=1, keepdims=True)
+        
+        # Explainable variance (trial-to-trial variability)
+        var_explainable = np.var(true_trials - mean_response, axis=(1,2))
+    else:
+        # Without trial structure, use total variance
+        var_explainable = np.var(true, axis=1)
+    
+    # Prediction error variance
+    var_error = np.var(true - pred, axis=1)
+    
+    # FEVE per neuron
+    feve = 1 - var_error / (var_explainable + 1e-8)
+    feve = np.clip(feve, -np.inf, 1.0)  # Can be negative if pred worse than mean
+    
+    return feve
+
+
+def compute_trace_metrics(true, pred, label=""):
+    """compute RMSE, Pearson correlation metrics, FEVE."""
+    n_samples = true.shape[0]
+    rmse_list, pearson_list = [], []
+    
+    for i in range(n_samples):
+        valid = ~(np.isnan(true[i]) | np.isnan(pred[i]))
+        if valid.sum() > 0:
+            rmse_list.append(np.sqrt(np.mean((true[i,valid] - pred[i,valid])**2)))
+            if valid.sum() > 1 and np.std(true[i,valid]) > 1e-8 and np.std(pred[i,valid]) > 1e-8:
+                pearson_list.append(pearsonr(true[i,valid], pred[i,valid])[0])
+            else:
+                pearson_list.append(np.nan)
+    
+    rmse = np.array(rmse_list)
+    pearson = np.array(pearson_list)
+
+    print(f"RMSE: \033[92m{np.mean(rmse):.4f}\033[0m ± {np.std(rmse):.4f} [{np.min(rmse):.4f}, {np.max(rmse):.4f}]")
+    print(f"Pearson r: \033[92m{np.nanmean(pearson):.3f}\033[0m ± {np.nanstd(pearson):.3f} [{np.nanmin(pearson):.3f}, {np.nanmax(pearson):.3f}]")
+
+    feve = compute_feve(true, pred, None)
+    print(f"FEVE: \033[92m{np.mean(feve):.3f}\033[0m ± {np.std(feve):.3f} [{np.min(feve):.3f}, {np.max(feve):.3f}]")
+    
+    
+    return rmse, pearson, feve

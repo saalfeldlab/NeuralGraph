@@ -19,6 +19,8 @@ from NeuralGraph.models.Signal_Propagation_MLP_ODE import *
 from NeuralGraph.models.Signal_Propagation_Zebra import *
 from NeuralGraph.models.Signal_Propagation_Temporal import *
 from NeuralGraph.models.Signal_Propagation_RNN import *
+from NeuralGraph.models.Signal_Propagation_LSTM import *
+
 from NeuralGraph.models.Calcium_Latent_Dynamics import *
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.generators.davis import *
@@ -71,7 +73,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     if 'fly' in config.dataset:
         if config.simulation.calcium_type != 'none':
             data_train_flyvis_calcium(config, erase, best_model, device)
-        elif 'RNN' in config.graph_model.signal_model_name:
+        elif 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
             data_train_flyvis_RNN(config, erase, best_model, device)
         else:
             data_train_flyvis(config, erase, best_model, device)
@@ -1557,8 +1559,12 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
     logger.info(f'ynorm: {ynorm.item():.3f}')
     
     # Create model
-    print('creating RNN model...')
-    model = Signal_Propagation_RNN(aggr_type=model_config.aggr_type, config=config, device=device)
+    if 'LSTM' in signal_model_name:
+        model = Signal_Propagation_LSTM(aggr_type=model_config.aggr_type, config=config, device=device)
+        use_lstm = True
+    else:  # GRU/RNN
+        model = Signal_Propagation_RNN(aggr_type=model_config.aggr_type, config=config, device=device)
+        use_lstm = False
     
     # Count parameters
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -1599,12 +1605,16 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
             
             # Initialize hidden state to None (GRU will initialize to zeros)
             h = None
+            c = None if use_lstm else None
             
-            # Warm-up phase (no gradient, just build hidden state)
+            # Warm-up phase
             with torch.no_grad():
                 for t in range(k_start, k_start + warm_up_length):
                     x = torch.tensor(x_list[run][t], dtype=torch.float32, device=device)
-                    _, h = model(x, h=h, return_all=True)
+                    if use_lstm:
+                        _, h, c = model(x, h=h, c=c, return_all=True)
+                    else:
+                        _, h = model(x, h=h, return_all=True)
             
             # Prediction phase (compute loss)
             loss = 0
@@ -1612,8 +1622,11 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
                 x = torch.tensor(x_list[run][t], dtype=torch.float32, device=device)
                 y_true = torch.tensor(y_list[run][t], dtype=torch.float32, device=device)
                 
-                # RNN forward
-                y_pred, h = model(x, h=h, return_all=True)
+                # Forward pass
+                if use_lstm:
+                    y_pred, h, c = model(x, h=h, c=c, return_all=True)
+                else:
+                    y_pred, h = model(x, h=h, return_all=True)
                 
                 # Accumulate loss
                 loss += (y_pred - y_true).norm(2)
@@ -3379,6 +3392,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     if 'RNN' in signal_model_name:
         model = Signal_Propagation_RNN(aggr_type=model_config.aggr_type, config=config, device=device)
+    elif 'LSTM' in signal_model_name:
+        model = Signal_Propagation_LSTM(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP_ODE' in signal_model_name:
         model = Signal_Propagation_MLP_ODE(aggr_type=model_config.aggr_type, config=config, device=device)
     elif 'MLP' in signal_model_name:
@@ -3498,6 +3513,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     # Initialize RNN hidden state
     if 'RNN' in signal_model_name:
         h_state = None
+    if 'LSTM' in signal_model_name:
+        h_state = None
+        c_state = None
 
     it = simulation_config.start_frame
     id_fig = 0
@@ -3513,7 +3531,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     mask = torch.arange(edges.shape[1])
 
-    if ('test_ablation' in test_mode) & (not('MLP' in signal_model_name)) & (not('RNN' in signal_model_name)):
+    if ('test_ablation' in test_mode) & (not('MLP' in signal_model_name)) & (not('RNN' in signal_model_name)) & (not('LSTM' in signal_model_name)):
         #  test_mode="test_ablation_100"
         ablation_ratio = int(test_mode.split('_')[-1]) / 100
         if ablation_ratio > 0:
@@ -3752,6 +3770,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         x_selected[:,4] = x[:,4][selected_neuron_ids].clone().detach()
                         if 'RNN' in signal_model_name:
                             y, h_state = model(x_selected, h=h_state, return_all=True)
+                        elif 'LSTM' in signal_model_name:
+                            y, h_state, c_state = model(x_selected, h=h_state, c=c_state, return_all=True)
                         elif 'MLP_ODE' in signal_model_name:
                             v = x_selected[:, 3:4]
                             I = x_selected[:, 4:5]
@@ -3762,6 +3782,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                     else:
                         if 'RNN' in signal_model_name:
                             y, h_state = model(x, h=h_state, return_all=True)
+                        elif 'LSTM' in signal_model_name:
+                            y, h_state, c_state = model(x, h=h_state, c=c_state, return_all=True)
                         elif 'MLP_ODE' in signal_model_name:
                             v = x[:, 3:4]
                             I = x[:n_input_neurons, 4:5]
@@ -4074,8 +4096,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())  
             ax.text(-50, i * step_v, f'{index_to_name[type_idx]}',
                     fontsize=18, va='bottom', ha='right')
-            ax.text(-50, i * step_v - 0.3, f'{selected_neuron_ids[i]}',
-                    fontsize=12, va='top', ha='right', color='black')
+            
+            if len(selected_neuron_ids) <= 20:
+                ax.text(-50, i * step_v - 0.3, f'{selected_neuron_ids[i]}',
+                        fontsize=12, va='top', ha='right', color='black')
 
         ax.set_ylim([-step_v, len(selected_neuron_ids) * step_v])
         ax.set_yticks([])
@@ -4118,31 +4142,16 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
         plt.close()
 
+        rmse_sel, pearson_sel, _ = compute_trace_metrics(true_slice, pred_slice, "Selected Neurons")
+        np.save(f"./{log_dir}/results/rmse_selected_neurons.npy", rmse_sel)
+        np.save(f"./{log_dir}/results/pearson_selected_neurons.npy", pearson_sel)
+
 
         return
 
-    print('compute statistics ...')
-    print('computing RMSE per neuron...')
-    rmse_per_neuron = np.sqrt(np.mean((activity_true - activity_pred)**2, axis=1))  # (n_neurons,)
-    mean_rmse = np.mean(rmse_per_neuron)
-    std_rmse = np.std(rmse_per_neuron)
-    print(f"RMSE per neuron - Mean: \033[92m{mean_rmse:.4f}\033[0m, Std: {std_rmse:.4f}")
-    print(f"RMSE range: [{np.min(rmse_per_neuron):.4f}, {np.max(rmse_per_neuron):.4f}]")
-    np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_per_neuron)
-    
-    print('computing Pearson correlation per neuron...')
-    pearson_per_neuron = []
-    for i in range(activity_true.shape[0]):
-        if np.std(activity_true[i]) > 1e-8 and np.std(activity_pred[i]) > 1e-8:
-            r, _ = pearsonr(activity_true[i], activity_pred[i])
-            pearson_per_neuron.append(r)
-        else:
-            pearson_per_neuron.append(np.nan)
-    pearson_per_neuron = np.array(pearson_per_neuron)
-    mean_pearson = np.nanmean(pearson_per_neuron)
-    std_pearson = np.nanstd(pearson_per_neuron)
-    print(f"Pearson r per neuron - Mean: \033[92m{mean_pearson:.3f}\033[0m, Std: {std_pearson:.3f}")
-    print(f"Pearson r range: [{np.nanmin(pearson_per_neuron):.3f}, {np.nanmax(pearson_per_neuron):.3f}]")
+    rmse_all, pearson_all, _ = compute_trace_metrics(activity_true, activity_pred, "All Neurons")
+    np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_all)
+    np.save(f"./{log_dir}/results/pearson_per_neuron.npy", pearson_all)
 
 
     if 'full' in test_mode:
