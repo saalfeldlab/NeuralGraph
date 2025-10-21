@@ -1618,8 +1618,8 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
                 # Accumulate loss
                 loss += (y_pred - y_true).norm(2)
                 
-                # Truncated BPTT: detach hidden state
-                h = h.detach()
+                # # Truncated BPTT: detach hidden state
+                # h = h.detach()
             
             # Normalize by sequence length
             loss = loss / sequence_length
