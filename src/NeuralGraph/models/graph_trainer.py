@@ -801,7 +801,7 @@ def data_train_flyvis(config, erase, best_model, device):
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
     time_window = train_config.time_window
-    training_single_neuron = train_config.training_single_neuron
+    training_selected_neurons = train_config.training_selected_neurons
 
     field_type = model_config.field_type
     time_step = train_config.time_step
@@ -850,9 +850,10 @@ def data_train_flyvis(config, erase, best_model, device):
         x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
 
-        if training_single_neuron:
-            x = x[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
-            y = y[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
+        if training_selected_neurons:
+            selected_neuron_ids = np.array(train_config.selected_neuron_ids).astype(int)
+            x = x[:, selected_neuron_ids, :]
+            y = y[:, selected_neuron_ids, :]
 
         x_list.append(x)
         y_list.append(y)
@@ -1505,7 +1506,7 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
     n_runs = train_config.n_runs
     n_frames = simulation_config.n_frames
     data_augmentation_loop = train_config.data_augmentation_loop
-    training_single_neuron = train_config.training_single_neuron
+    training_selected_neurons = train_config.training_selected_neurons
     
     warm_up_length = train_config.warm_up_length  # e.g., 10
     sequence_length = train_config.sequence_length  # e.g., 32
@@ -1525,9 +1526,10 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
         x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
 
-        if training_single_neuron:
-            x = x[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
-            y = y[:, train_config.single_neuron_id:train_config.single_neuron_id+1, :]
+        if training_selected_neurons:
+            selected_neuron_ids = np.array(train_config.selected_neuron_ids).astype(int)
+            x = x[:, selected_neuron_ids, :]
+            y = y[:, selected_neuron_ids, :]
 
         x_list.append(x)
         y_list.append(y)
@@ -3256,13 +3258,20 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         f"testing... {model_config.particle_model_name} {model_config.mesh_model_name} seed: {simulation_config.seed}")
 
     dataset_name = config.dataset
-    n_neurons = simulation_config.n_neurons
-    n_neuron_types = simulation_config.n_neuron_types
+
+    training_selected_neurons = training_config.training_selected_neurons
+    if training_selected_neurons:
+        n_neurons = 13741
+        n_neuron_types = 1736
+    else:
+        n_neurons = simulation_config.n_neurons
+        n_neuron_types = simulation_config.n_neuron_types
     n_input_neurons = simulation_config.n_input_neurons
     delta_t = simulation_config.delta_t
     n_frames = simulation_config.n_frames
     field_type = model_config.field_type
     signal_model_name = model_config.signal_model_name
+    
 
     ensemble_id = simulation_config.ensemble_id
     model_id = simulation_config.model_id
@@ -3423,6 +3432,20 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     x[:, 7] = torch.rand(n_neurons, dtype=torch.float32, device=device)
     x[:, 8] = calcium_alpha * x[:, 7] + calcium_beta
 
+    if training_selected_neurons:
+        selected_neuron_ids =  training_config.selected_neuron_ids
+        x_selected = torch.zeros(len(selected_neuron_ids), 9, dtype=torch.float32, device=device)
+        selected_neuron_ids = np.array(selected_neuron_ids).astype(int)
+        print(f'testing single neuron id {selected_neuron_ids} ...')
+        x_selected[:, 1:3] = X1[selected_neuron_ids,:]
+        x_selected[:, 0] = torch.arange(1, dtype=torch.float32)
+        x_selected[:, 3] = initial_state[selected_neuron_ids]
+        x_selected[:, 4] = net.stimulus().squeeze()[selected_neuron_ids]
+        x_selected[:, 5] = torch.tensor(grouped_types[selected_neuron_ids], dtype=torch.float32, device=device)
+        x_selected[:, 6] = torch.tensor(node_types_int[selected_neuron_ids], dtype=torch.float32, device=device)
+        x_selected[:, 7] = torch.rand(1, dtype=torch.float32, device=device)
+        x_selected[:, 8] = calcium_alpha * x_selected[0, 7] + calcium_beta
+
     # Mixed sequence setup
     if "mixed" in visual_input_type:
         mixed_types = ["sintel", "davis", "blank", "noise"]
@@ -3454,7 +3477,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         target_frames = 90000
         step = 25000
     else:
-        target_frames = 4000
+        target_frames = 2000
         step = 10
     print(f'plot activity frames \033[92m0-{target_frames}...\033[0m')
 
@@ -3585,6 +3608,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                     sequence_length = sequences.shape[0]
 
                 for frame_id in range(sequence_length):
+                    
                     if "flash" in visual_input_type:
                         # Generate repeating flash stimulus
                         current_flash_frame = frame_id % (flash_cycle_frames * 2)  # Create on/off cycle
@@ -3633,7 +3657,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         # 4) Baseline for all neurons (mean luminance), then write per-column values to PRs
                         x[:, 4] = 0.5
                         col_vals_pm1 = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,), ±1 before knobs
-    
                         # Apply the two simple knobs per frame on ±1 codes
                         col_vals_pm1 = apply_pairwise_knobs_torch(
                             code_pm1=col_vals_pm1,
@@ -3641,7 +3664,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             flip_prob=float(simulation_config.tile_flip_prob),
                             seed=int(simulation_config.seed) + int(tile_idx)
                         )
-    
                         # Map to [0,1] with your contrast convention and broadcast via labels
                         col_vals_01 = 0.5 + (tile_contrast * 0.5) * col_vals_pm1
                         x[:n_input_neurons, 4] = col_vals_01[tile_labels]
@@ -3711,7 +3733,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                 x[:n_input_neurons, 4:5] = x[:n_input_neurons, 4:5] + torch.randn((n_input_neurons, 1),
                                                                                                   dtype=torch.float32,
                                                                                                   device=device) * noise_visual_input
-        
+    
                     x_generated[:,4] = x[:,4]
                     dataset = pyg.data.Data(x=x_generated, pos=x_generated[:, 1:3], edge_index=edge_index)
                     y_generated = pde(dataset, has_field=False)
@@ -3726,42 +3748,62 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         x[model.n_input_neurons:, 4:5] = 0
 
                     # Prediction step
-                    if 'RNN' in signal_model_name:
-                        y, h_state = model(x, h=h_state, return_all=True)
-                    elif 'MLP_ODE' in signal_model_name:
-                        v = x[:, 3:4]
-                        I = x[:n_input_neurons, 4:5]
-                        y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
-                    elif 'MLP' in signal_model_name:
-                        y = model(x, data_id=None, mask=None, return_all=False)
+                    if training_selected_neurons:
+                        x_selected[:,4] = x[:,4][selected_neuron_ids].clone().detach()
+                        if 'RNN' in signal_model_name:
+                            y, h_state = model(x_selected, h=h_state, return_all=True)
+                        elif 'MLP_ODE' in signal_model_name:
+                            v = x_selected[:, 3:4]
+                            I = x_selected[:, 4:5]
+                            y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
+                        elif 'MLP' in signal_model_name:
+                            y = model(x_selected, data_id=None, mask=None, return_all=False)
+
                     else:
-                        dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
-                        data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
-                        y = model(dataset, data_id, mask, False)
+                        if 'RNN' in signal_model_name:
+                            y, h_state = model(x, h=h_state, return_all=True)
+                        elif 'MLP_ODE' in signal_model_name:
+                            v = x[:, 3:4]
+                            I = x[:n_input_neurons, 4:5]
+                            y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
+                        elif 'MLP' in signal_model_name:
+                            y = model(x, data_id=None, mask=None, return_all=False)
+                        else:
+                            dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
+                            data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
+                            y = model(dataset, data_id, mask, False)
 
                     # Save states
                     x_generated_list.append(to_numpy(x_generated.clone().detach()))
                     x_generated_modified_list.append(to_numpy(x_generated_modified.clone().detach()))
-                    x_list.append(to_numpy(x.clone().detach()))
+
+                    if training_selected_neurons:
+                        x_list.append(to_numpy(x_selected.clone().detach()))
+                    else:
+                        x_list.append(to_numpy(x.clone().detach()))
 
                     # Integration step
                     if noise_model_level > 0:
                         x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
                         x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
-                        if 'MLP_ODE' in signal_model_name:
-                            x[:, 3:4] = x[:, 3:4] + y  # y already contains full update
-                        else:
-                            x[:, 3:4] = x[:, 3:4] + delta_t * y
                     else:
                         x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated
                         x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified
+                        
+                    if training_selected_neurons:   
+                        if 'MLP_ODE' in signal_model_name:
+                            x_selected[:, 3:4] = x_selected[:, 3:4] + y  # y already contains full update
+                        else:
+                            x_selected[:, 3:4] = x_selected[:, 3:4] + delta_t * y
+                        if (it <= warm_up_length) and ('RNN' in signal_model_name):
+                            x_selected[:, 3:4] = x_generated[selected_neuron_ids, 3:4].clone()
+                    else: 
                         if 'MLP_ODE' in signal_model_name:
                             x[:, 3:4] = x[:, 3:4] + y  # y already contains full update
                         else:
                             x[:, 3:4] = x[:, 3:4] + delta_t * y
-
-                    if (it <= warm_up_length) and ('RNN' in signal_model_name):
-                        x[:, 3:4] = x_generated[:, 3:4].clone()
+                        if (it <= warm_up_length) and ('RNN' in signal_model_name):
+                            x[:, 3:4] = x_generated[:, 3:4].clone()
 
                     if calcium_type == "leaky":
                         # Voltage-driven activation
@@ -3782,7 +3824,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
                     y_list.append(to_numpy(y.clone().detach()))
 
-                    if (it>0) & (it<100) & (it % step == 0) & visualize:
+                    if (it>0) & (it<100) & (it % step == 0) & visualize & (not training_selected_neurons):  
                         if "latex" in style:
                             plt.rcParams["text.usetex"] = True
                             rc("font", **{"family": "serif", "serif": ["Palatino"]})
@@ -3967,10 +4009,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         #                                 config_indices=config_indices,framerate=20)
         generate_compressed_video_mp4(output_dir=f"./{log_dir}/results", run=run,
                                         config_indices=config_indices,framerate=20)
-
-    # files = glob.glob(f'./{log_dir}/tmp_recons/*')
-    # for f in files:
-    #     os.remove(f)
+        
+        # files = glob.glob(f'./{log_dir}/tmp_recons/*')
+        # for f in files:
+        #     os.remove(f)
 
     x_list = np.array(x_list)
     x_generated_list = np.array(x_generated_list)
@@ -3978,7 +4020,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     y_list = np.array(y_list)
 
 
-    print('compute statistics ...')
     if calcium_type != "none":
         # Use calcium (index 7)
         activity_true = x_generated_list[:, :, 7].squeeze().T  # (n_neurons, n_frames)
@@ -3988,10 +4029,74 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     else:
         # Use voltage (index 3)
         activity_true = x_generated_list[:, :, 3].squeeze().T
+        visual_input_true = x_generated_list[:, :, 4].squeeze().T
         activity_true_modified = x_generated_modified_list[:, :, 3].squeeze().T   
         activity_pred = x_list[:, :, 3].squeeze().T
         activity_label = "voltage"
         y_lim = [-3, 3]
+
+
+    start_frame = 0
+    end_frame = target_frames
+
+
+    if training_selected_neurons:
+        print(f"evaluating on selected neurons only: {selected_neuron_ids}")
+        x_generated_list = x_generated_list[:, selected_neuron_ids, :]
+        x_generated_modified_list = x_generated_modified_list[:, selected_neuron_ids, :]
+        neuron_types = neuron_types[selected_neuron_ids]
+    
+        plt.style.use('default')
+        
+        fig, ax = plt.subplots(1, 1, figsize=(12, 18))
+
+        true_slice = activity_true[selected_neuron_ids, start_frame:end_frame]
+        visual_input_slice = visual_input_true[selected_neuron_ids, start_frame:end_frame]
+        pred_slice = activity_pred[start_frame:end_frame]
+        if len(selected_neuron_ids)==1:
+            pred_slice = pred_slice[None,:]
+        step_v = 2.5
+        lw = 4
+
+        # Plot ground truth (green, thick)
+        for i in trange(len(selected_neuron_ids),ncols=50):
+            baseline = np.mean(true_slice[i])
+            ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.5,
+                    label='ground truth' if i == 0 else None)
+            if visual_input_slice[i].mean() > 0:
+                ax.plot(visual_input_slice[i] - baseline + i * step_v, linewidth=2, c='blue', alpha=0.5,
+                        label='visual input' if i == 0 else None)
+            ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
+                    label='prediction' if i == 0 else None)
+        
+        # Add neuron type labels on left
+        for i in range(len(selected_neuron_ids)):
+            type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())  # Convert to scalar int
+            ax.text(-50, i * step_v, f'{index_to_name[type_idx]}\n{selected_neuron_ids[i]}',
+                    fontsize=18, va='center', ha='right')
+
+        ax.set_ylim([-step_v, len(selected_neuron_ids) * step_v])
+        ax.set_yticks([])
+        ax.set_xlabel('frame', fontsize=20)
+
+        
+        # Remove unnecessary spines
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        
+        # Add legend
+        ax.legend(loc='upper right', fontsize=14)
+            
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/results/rollout_traces_selected_neurons.png", dpi=80, bbox_inches='tight')
+
+        plt.close()
+
+
+        return
+
+    print('compute statistics ...')
     print('computing RMSE per neuron...')
     rmse_per_neuron = np.sqrt(np.mean((activity_true - activity_pred)**2, axis=1))  # (n_neurons,)
     mean_rmse = np.mean(rmse_per_neuron)
@@ -4036,98 +4141,13 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         print(f"  per-neuron range - mean: {activity_range_mean:.6f}, std: {activity_range_std:.6f}")
 
 
-    print('plot 5x4 panel for neuron types (ground truth vs predicted)...')
-    fig, axes = plt.subplots(5, 4, figsize=(18, 12))
-    axes_flat = axes.flatten()
-    panel_order = [23, 24, 5, 6, 11, 12, 13, 15, 16, 44, 46, 47, 50, 52, 53, 1, 2, 31, 32, 41]
-    for idx, type_idx in enumerate(panel_order):
-        if idx >= 20:  
-            break
-        ax = axes_flat[idx]
-        # Find all neurons of this type
-        type_mask = neuron_types == type_idx
-        neuron_indices = np.where(type_mask)[0]
-        
-        if len(neuron_indices) > 0:
-            # Randomly select one neuron of this type for clarity
-            selected_neuron = neuron_indices[0]
-            
-            # Get data for this neuron
-            true_data = activity_true[selected_neuron, :]
-            pred_data = activity_pred[selected_neuron, :]
-            true_data_modified = activity_true_modified[selected_neuron, :]
-            
-
-
-            start_frame = 0
-            end_frame = target_frames
-            lw=4
-            if 'full' in test_mode:
-                start_frame = target_frames-1500
-                end_frame = target_frames-500
-                lw=8
-            if target_frames < 1000:
-                lw =8
-
-
-            y_min = min(np.min(true_data[start_frame:end_frame]), np.min(pred_data[start_frame:end_frame]))
-            y_max = max(np.max(true_data[start_frame:end_frame]), np.max(pred_data[start_frame:end_frame]))
-            y_range = y_max - y_min
-            y_padding = y_range * 0.25  # 10% padding
-       
-            ax.plot(true_data, linewidth=lw, color='green', alpha=0.4)
-
-            if 'true_only' not in style:
-                if 'test_modified' in test_mode:
-                    ax.plot(true_data_modified, linewidth=2, color='red', alpha=1.0)
-                else:
-                    ax.plot(pred_data, linewidth=1, color=mc, alpha=1.0)
-                rmse = np.sqrt(np.mean((true_data - pred_data)**2))
-                ax.text(0.525, 0.95, f'RMSE: {rmse:.3f}', transform=ax.transAxes, ha='left', va='top', fontsize=16, color=mc)
-            type_name = index_to_name.get(type_idx, f'Type_{type_idx}')
-            ax.text(0.05, 0.95, type_name, transform=ax.transAxes, 
-                    ha='left', va='top', fontsize=20, color=mc)
-            
-            ax.set_xlim([start_frame, end_frame])
-            ax.set_ylim([y_min - y_padding, y_max + y_padding])
-            
-            ax.set_yticks([y_min, (y_min+y_max)/2, y_max])
-            ax.set_yticklabels([f'{y_min:.2f}', f'{(y_min+y_max)/2:.2f}', f'{y_max:.2f}'], fontsize=14)
-            
-        else:
-            # No neurons of this type
-            type_name = index_to_name.get(type_idx, f"Type_{type_idx}")
-            ax.text(0.5, 0.5, f'{type_name}\n(n=0)', 
-                    transform=ax.transAxes, ha='center', va='center', color='gray', fontsize=8)
-            # Add y-axis ticks even for empty panels for consistency
-            ax.set_yticks([])
-        
-        # Remove x-ticks for cleaner look
-        ax.set_xticks([])
-        
-        if idx == 16:  # Bottom left corner - add axis labels with much larger font
-            ax.set_xlabel('frame', fontsize=22)
-            ax.set_ylabel(f'{activity_label}', fontsize=22)
-            n_ticks = 500
-            ax.set_xticks([start_frame, end_frame])
-            ax.set_xticklabels([f'{start_frame}', f'{end_frame}'], fontsize=14)
-            # Use dynamic y-range for this panel too
-            true_data_panel = activity_true[selected_neuron, :]
-            pred_data_panel = activity_pred[selected_neuron, :]
-            y_min_panel = min(np.min(true_data_panel), np.min(pred_data_panel))
-            y_max_panel = max(np.max(true_data_panel), np.max(pred_data_panel))
-            ax.set_yticks([y_min_panel, (y_min_panel+y_max_panel)/2, y_max_panel])
-            ax.set_yticklabels([f'{y_min_panel:.2f}', f'{(y_min_panel+y_max_panel)/2:.2f}', f'{y_max_panel:.2f}'], fontsize=14)
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/activity_5x4_panel_comparison.png", dpi=150)
-    plt.close()
 
     # Add at the end of data_test_flyvis, after the 5x4 panel plot
 
     print('plot rollout traces for selected neuron types...')
 
     # Define selected neuron types and their indices
-    selected_types = [5, 12, 19, 23, 31, 35, 39, 43, 50, 55]  # L1, Mi1, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
+    selected_types = [55, 50, 43, 39, 35, 31, 23, 19, 12, 5]  # L1, Mi1, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
     neuron_indices = []
     for stype in selected_types:
         indices = np.where(neuron_types == stype)[0]
@@ -4141,6 +4161,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     pred_slice = activity_pred[neuron_indices, start_frame:end_frame]
     
     step_v = 2.5
+    lw = 4
     
     # Plot ground truth (green, thick)
     for i in range(len(neuron_indices)):

@@ -27,7 +27,7 @@ class Signal_Propagation_MLP_ODE(nn.Module):
 
         self.ode_func = MLP(
             input_size=model_config.input_size,
-            output_size=self.n_neurons,
+            output_size=model_config.output_size,
             nlayers=model_config.n_layers,
             hidden_size=model_config.hidden_dim,
             activation=model_config.MLP_activation,
