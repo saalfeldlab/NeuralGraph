@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark MLP  training on 65 neurons 10000 frames'
+description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark MLP_ODE  training on 65 neurons 10000 frames  n_layers 4'
 dataset: 'fly_N9_18_4_0'
 
 simulation:
@@ -16,13 +16,13 @@ simulation:
     baseline_value: 0
 
 graph_model:
-    signal_model_name: 'PDE_N9_MLP'
+    signal_model_name: 'PDE_N9_MLP_ODE'
     prediction: 'first_derivative'
 
     input_size: 130
     output_size: 65
     hidden_dim: 256
-    n_layers: 3
+    n_layers: 4
     MLP_activation: 'relu'
 
 

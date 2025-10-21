@@ -3817,7 +3817,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             x_selected[:, 3:4] = x_selected[:, 3:4] + y  # y already contains full update
                         else:
                             x_selected[:, 3:4] = x_selected[:, 3:4] + delta_t * y
-                        if (it <= warm_up_length) and ('RNN' in signal_model_name):
+                        if (it <= warm_up_length) and ('RNN' in signal_model_name or 'LSTM' in signal_model_name):
                             x_selected[:, 3:4] = x_generated[selected_neuron_ids, 3:4].clone()
                     else: 
                         if 'MLP_ODE' in signal_model_name:

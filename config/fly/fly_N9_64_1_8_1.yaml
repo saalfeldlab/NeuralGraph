@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark MLP  training on 65 neurons 10000 frames'
+description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark MLP  training on 65 neurons 1000 frames n_layers 4'
 dataset: 'fly_N9_18_4_0'
 
 simulation:
@@ -11,7 +11,7 @@ simulation:
     n_input_neurons: 65
     n_neuron_types: 65
     n_edges: 434112
-    n_frames: 10000
+    n_frames: 1000
     delta_t: 0.02
     baseline_value: 0
 
@@ -22,7 +22,7 @@ graph_model:
     input_size: 130
     output_size: 65
     hidden_dim: 256
-    n_layers: 3
+    n_layers: 4
     MLP_activation: 'relu'
 
 
