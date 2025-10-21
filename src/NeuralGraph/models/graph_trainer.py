@@ -4071,9 +4071,11 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         
         # Add neuron type labels on left
         for i in range(len(selected_neuron_ids)):
-            type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())  # Convert to scalar int
-            ax.text(-50, i * step_v, f'{index_to_name[type_idx]}\n{selected_neuron_ids[i]}',
-                    fontsize=18, va='center', ha='right')
+            type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())  
+            ax.text(-50, i * step_v, f'{index_to_name[type_idx]}',
+                    fontsize=18, va='bottom', ha='right')
+            ax.text(-50, i * step_v - 0.3, f'{selected_neuron_ids[i]}',
+                    fontsize=12, va='top', ha='right', color='black')
 
         ax.set_ylim([-step_v, len(selected_neuron_ids) * step_v])
         ax.set_yticks([])
@@ -4087,6 +4089,29 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         
         # Add legend
         ax.legend(loc='upper right', fontsize=14)
+
+        for i in range(len(selected_neuron_ids)):
+            # Calculate metrics for this neuron
+            true_i = true_slice[i]
+            pred_i = pred_slice[i]
+            
+            # Remove NaNs for correlation
+            valid_mask = ~(np.isnan(true_i) | np.isnan(pred_i))
+            if valid_mask.sum() > 1:
+                rmse = np.sqrt(np.mean((true_i[valid_mask] - pred_i[valid_mask])**2))
+                pearson_r, _ = pearsonr(true_i[valid_mask], pred_i[valid_mask])
+            else:
+                rmse = np.nan
+                pearson_r = np.nan
+            
+            # Add text on the right side
+            ax.text(end_frame - start_frame + 10, i * step_v, 
+                    f'RMSE: {rmse:.3f}\nr: {pearson_r:.3f}',
+                    fontsize=10, va='center', ha='left', 
+                    color='black')
+
+        # Adjust x-axis limit to make room for metrics
+        ax.set_xlim([0, end_frame - start_frame + 100])
             
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/results/rollout_traces_selected_neurons.png", dpi=80, bbox_inches='tight')
@@ -4156,13 +4181,12 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     plt.style.use('default')
     fig, ax = plt.subplots(1, 1, figsize=(12, 18))
-    
+
     true_slice = activity_true[neuron_indices, start_frame:end_frame]
     pred_slice = activity_pred[neuron_indices, start_frame:end_frame]
-    
     step_v = 2.5
     lw = 4
-    
+
     # Plot ground truth (green, thick)
     for i in range(len(neuron_indices)):
         baseline = np.mean(true_slice[i])
@@ -4170,27 +4194,51 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                 label='ground truth' if i == 0 else None)
         ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
                 label='prediction' if i == 0 else None)
-    
+
     # Add neuron type labels on left
     for i in range(len(neuron_indices)):
         type_idx = selected_types[i]
-        ax.text(-50, i * step_v, f'{index_to_name[type_idx]}\n{neuron_indices[i]}',
-                fontsize=18, va='center', ha='right')
-    
+        ax.text(-50, i * step_v, f'{index_to_name[type_idx]}',
+                fontsize=18, va='bottom', ha='right')
+        ax.text(-50, i * step_v - 0.3, f'{neuron_indices[i]}',
+                fontsize=12, va='top', ha='right', color='black')
+        
+        # Calculate and add metrics on right
+        true_i = true_slice[i]
+        pred_i = pred_slice[i]
+        
+        # Remove NaNs for correlation
+        valid_mask = ~(np.isnan(true_i) | np.isnan(pred_i))
+        if valid_mask.sum() > 1:
+            rmse = np.sqrt(np.mean((true_i[valid_mask] - pred_i[valid_mask])**2))
+            pearson_r, _ = pearsonr(true_i[valid_mask], pred_i[valid_mask])
+        else:
+            rmse = np.nan
+            pearson_r = np.nan
+        
+        # Add metrics text on the right
+        ax.text(end_frame - start_frame + 10, i * step_v, 
+                f'RMSE: {rmse:.3f}\nr: {pearson_r:.3f}',
+                fontsize=10, va='center', ha='left', 
+                color='black')
+
     ax.set_ylim([-step_v, len(neuron_indices) * step_v])
     ax.set_yticks([])
     ax.set_xticks([0, (end_frame - start_frame) // 2, end_frame - start_frame])
     ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
     ax.set_xlabel('frame', fontsize=20)
-    
+
+    # Adjust x-axis limit to make room for metrics
+    ax.set_xlim([-50, end_frame - start_frame + 100])
+
     # Remove unnecessary spines
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     ax.spines['left'].set_visible(False)
-    
+
     # Add legend
     ax.legend(loc='upper right', fontsize=14)
-        
+
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/rollout_traces_selected_types.png", dpi=300, bbox_inches='tight')
     plt.close()
