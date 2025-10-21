@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark MLP  training on neuron 1 1000 frames'
+description: 'no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark MLP  training on neuron 4193 Mi2 1000 frames'
 dataset: 'fly_N9_18_4_0'
 
 simulation:
@@ -46,7 +46,7 @@ training:
     seed: 241
 
     training_selected_neurons: True
-    selected_neuron_ids: [1]
+    selected_neuron_ids: [4193]
 
     recurrent_loop: 0
     batch_size: 1
