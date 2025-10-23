@@ -2,7 +2,7 @@ import glob
 import logging
 import os
 
-import GPUtil
+
 import imageio
 import matplotlib.pyplot as plt
 import numpy as np
@@ -680,7 +680,7 @@ def fig_init(fontsize=48, formatx='%.2f', formaty='%.2f'):
     ax.yaxis.set_major_formatter(FormatStrFormatter(formaty))
     plt.xticks(fontsize=fontsize)
     plt.yticks(fontsize=fontsize)
-    
+
     # Set axis line alpha to 0.75
     for spine in ax.spines.values():
         spine.set_alpha(0.75)
@@ -2198,23 +2198,23 @@ def compute_feve(true, pred, n_repeats=None):
         # Reshape to (n_neurons, n_trials, n_frames_per_trial)
         n_frames_per_trial = true.shape[1] // n_repeats
         true_trials = true.reshape(-1, n_repeats, n_frames_per_trial)
-        
+
         # Trial-averaged response (stimulus-locked component)
         mean_response = np.mean(true_trials, axis=1, keepdims=True)
-        
+
         # Explainable variance (trial-to-trial variability)
         var_explainable = np.var(true_trials - mean_response, axis=(1,2))
     else:
         # Without trial structure, use total variance
         var_explainable = np.var(true, axis=1)
-    
+
     # Prediction error variance
     var_error = np.var(true - pred, axis=1)
-    
+
     # FEVE per neuron
     feve = 1 - var_error / (var_explainable + 1e-8)
     feve = np.clip(feve, -np.inf, 1.0)  # Can be negative if pred worse than mean
-    
+
     return feve
 
 
@@ -2222,7 +2222,7 @@ def compute_trace_metrics(true, pred, label=""):
     """compute RMSE, Pearson correlation metrics, FEVE."""
     n_samples = true.shape[0]
     rmse_list, pearson_list = [], []
-    
+
     for i in range(n_samples):
         valid = ~(np.isnan(true[i]) | np.isnan(pred[i]))
         if valid.sum() > 0:
@@ -2231,7 +2231,7 @@ def compute_trace_metrics(true, pred, label=""):
                 pearson_list.append(pearsonr(true[i,valid], pred[i,valid])[0])
             else:
                 pearson_list.append(np.nan)
-    
+
     rmse = np.array(rmse_list)
     pearson = np.array(pearson_list)
 
@@ -2240,6 +2240,6 @@ def compute_trace_metrics(true, pred, label=""):
 
     feve = compute_feve(true, pred, None)
     print(f"FEVE: \033[92m{np.mean(feve):.3f}\033[0m ± {np.std(feve):.3f} [{np.min(feve):.3f}, {np.max(feve):.3f}]")
-    
-    
+
+
     return rmse, pearson, feve
