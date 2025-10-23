@@ -800,6 +800,7 @@ def data_train_flyvis(config, erase, best_model, device):
     recurrent_training = train_config.recurrent_training
     recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
+    small_init_batch_size = train_config.small_init_batch_size
     batch_ratio = train_config.batch_ratio
     training_NNR_start_epoch = train_config.training_NNR_start_epoch
     time_window = train_config.time_window

@@ -51,6 +51,7 @@ training:
     recurrent_loop: 1
     batch_size: 32
     batch_ratio: 1
+    small_init_batch_size: False
 
     sparsity: 'none'
     rotation_augmentation: False
