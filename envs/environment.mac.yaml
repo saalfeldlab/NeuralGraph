@@ -38,6 +38,8 @@ dependencies:
   - ipython
   - ipykernel
   - jupytext
+  - tensorstore
+  - napari
 
   # PyTorch on conda (single OpenMP runtime managed by conda)
   - pytorch=2.7.1

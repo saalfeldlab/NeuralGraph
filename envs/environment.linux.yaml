@@ -41,6 +41,8 @@ dependencies:
   - ipykernel
   - jupytext
   - gputil
+  - tensorstore
+  - napari
 
   - pip:
       # Get CUDA 13.0 wheels
