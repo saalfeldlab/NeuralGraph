@@ -806,6 +806,9 @@ def data_train_flyvis(config, erase, best_model, device):
     time_window = train_config.time_window
     training_selected_neurons = train_config.training_selected_neurons
 
+    prediction_time_step = train_config.time_step
+    prediction = model_config.prediction
+
     field_type = model_config.field_type
     time_step = train_config.time_step
 
@@ -1063,20 +1066,20 @@ def data_train_flyvis(config, erase, best_model, device):
                 ids = core_ids
                             
             else:
-                # Use all neurons
+                # use all neurons
                 edges = edges_all.clone().detach()
                 mask = torch.arange(edges_all.shape[1])
                 ids = np.arange(n_neurons)
                 core_ids = ids  # All neurons are "core" when batch_ratio = 1
 
 
-
-
-
             for batch in range(batch_size):
 
-                
-                k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window 
+                if prediction == 'next_activity':
+                    k = np.random.randint(n_frames - 4 - time_step) 
+                    k = k - k%time_step
+                else:
+                    k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window 
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                 ids = np.arange(n_neurons)
@@ -1135,7 +1138,10 @@ def data_train_flyvis(config, erase, best_model, device):
                     #     if loss_contribs:
                     #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
 
-                    y = torch.tensor(y_list[run][k], device=device) / ynorm
+                    if prediction == 'next_activity':
+                        y = torch.tensor(x_list[run][k+time_step,:,3:4], dtype=torch.float32, device=device).detach()
+                    else:
+                        y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                     if test_neural_field:
                         y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)
@@ -1144,7 +1150,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                     if not (torch.isnan(y).any()):
 
-                        dataset = data.Data(x=x, edge_index=edges)
+                        dataset = data.Data(x=x.clone(), edge_index=edges)
                         dataset_batch.append(dataset)
 
                         if len(dataset_batch) == 1:
@@ -1186,6 +1192,26 @@ def data_train_flyvis(config, erase, best_model, device):
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+
+                elif prediction == 'next_activity':
+                    
+                    for n_loop in range(time_step):
+                        batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+                        for batch in batch_loader:
+                            pred = model(batch, data_id=data_id, mask=mask_batch, return_all=False)
+                        for batch in range(batch_size):
+                            dataset_batch[batch].x[:, 3:4] += delta_t * pred[batch*n_neurons:(batch+1)*n_neurons]
+
+                    pred_x = [] 
+                    for batch in range(batch_size):
+                        pred_x_ = dataset_batch[batch].x[:, 3:4]
+                        pred_x.append(pred_x_)
+                    pred_x = torch.cat(pred_x, dim=0)   
+
+                    loss = loss + (pred_x[ids_batch] - y_batch[ids_batch]).norm(2)
+                            
+                        
+
                 else:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
@@ -1209,16 +1235,14 @@ def data_train_flyvis(config, erase, best_model, device):
                                 pred_msg = model.lin_phi(in_features_modified)
                                 msg = in_features[:,model_config.embedding_dim+1].clone().detach()
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
-                        
-                        
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
                 if recurrent_training:
-                    # Use SAME edges and mask for entire rollout
+
                     for n_loop in range(recurrent_loop):
-                        # Update states for required_ids neurons
+
                         for batch in range(batch_size):
                             k = k_batch[batch * n_neurons] + n_loop + 1
                             
@@ -1259,6 +1283,8 @@ def data_train_flyvis(config, erase, best_model, device):
                         
                         # Loss only on core neurons
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
+
+
 
                 loss.backward()
 

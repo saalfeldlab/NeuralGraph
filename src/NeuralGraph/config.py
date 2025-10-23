@@ -96,7 +96,7 @@ class GraphModelConfig(BaseModel):
     cell_model_name: str = ""
     mesh_model_name: str = ""
     signal_model_name: str = ""
-    prediction: Literal["first_derivative", "2nd_derivative"] = "2nd_derivative"
+    prediction: Literal["first_derivative", "2nd_derivative","next_activity"] = "2nd_derivative"
     integration: Literal["Euler", "Runge-Kutta"] = "Euler"
 
     aggr_type: str
@@ -254,10 +254,6 @@ class TrainingConfig(BaseModel):
     with_connectivity_mask: bool = False
     has_missing_activity: bool = False
 
-    do_tracking: bool = False
-    tracking_gt_file: str = ""
-    ctrl_tracking: bool = False
-    distance_threshold: float = 0.1
     epoch_distance_replace: int = 20
     warm_up_length: int = 10
     sequence_length: int = 32
