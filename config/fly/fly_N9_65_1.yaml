@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective'
+description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective    next_activity   time_step: 1'
 dataset: 'fly_N9_62_1'
 
 simulation:
@@ -19,7 +19,7 @@ simulation:
 
 graph_model:
     signal_model_name: 'PDE_N9_A'
-    prediction: 'first_derivative'
+    prediction: 'next_activity'
 
     input_size: 3
     n_layers: 3
@@ -47,9 +47,11 @@ training:
     n_runs: 1
     device: 'auto'
 
+    time_step: 1
+
     recurrent_training: False
     recurrent_loop: 1
-    batch_size: 1
+    batch_size: 8
     batch_ratio: 1
     small_init_batch_size: False
 
