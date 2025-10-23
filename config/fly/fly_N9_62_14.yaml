@@ -1,4 +1,4 @@
-description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective'
+description: 'no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective   hidden 256'
 dataset: 'fly_N9_62_1'
 
 simulation:
@@ -23,12 +23,12 @@ graph_model:
 
     input_size: 3
     n_layers: 3
-    hidden_dim: 64
+    hidden_dim: 256
     output_size: 1
 
     input_size_update: 5
     n_layers_update: 3
-    hidden_dim_update: 64
+    hidden_dim_update: 256
     aggr_type: 'add'
     embedding_dim: 2
 
