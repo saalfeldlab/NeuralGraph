@@ -51,7 +51,7 @@ training:
 
     recurrent_training: False
     recurrent_loop: 1
-    batch_size: 4
+    batch_size: 8
     batch_ratio: 1
     small_init_batch_size: False
 

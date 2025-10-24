@@ -6309,14 +6309,14 @@ def movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges
     metadata = dict(title='Model evolution', artist='Matplotlib', comment='Model evolution over epochs')
 
     # Create main combined movie
-    # create_combined_movie(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
-    #                       edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
-    #                       mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata)
+    create_combined_movie(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
+                          edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
+                          mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata)
 
     # Create individual subplot movies
-    create_individual_movies(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
-                             edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
-                             mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata)
+    # create_individual_movies(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
+    #                          edges, gt_weights, gt_taus, gt_V_Rest, type_list, n_neurons, n_types, colors_65,
+    #                          mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata)
 
 
 def create_combined_movie(config, log_dir, config_indices, files, file_id_list, n_runs, device, x_list, y_list,
@@ -6325,7 +6325,7 @@ def create_combined_movie(config, log_dir, config_indices, files, file_id_list, 
     """Create the main 1x4 subplot movie."""
 
     writer = FFMpegWriter(fps=fps, metadata=metadata)
-    fig = plt.figure(figsize=(32, 8))  # Wider figure for 4 columns
+    fig = plt.figure(figsize=(20, 20))  # Wider figure for 4 columns
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
     mp4_path = f'{log_dir}/results/training_{config_indices}.mp4'
 
@@ -6341,10 +6341,10 @@ def create_combined_movie(config, log_dir, config_indices, files, file_id_list, 
                 model, config, n_neurons, mu_activity, sigma_activity, device, x_list, y_list, edges, ynorm)
 
             # Create 4 subplots in 1 row
-            create_weight_subplot(fig, model, gt_weights, mc, 1, 4, 1)
-            create_embedding_subplot(fig, model, type_list, n_types, colors_65, 1, 4, 2)
-            create_lin_phi_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list, device, 1, 4, 3)
-            create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list, device, 1, 4, 4)
+            create_weight_subplot(fig, model, gt_weights, mc, 2, 2, 1)
+            create_embedding_subplot(fig, model, type_list, n_types, colors_65, 2, 2, 2)
+            create_lin_phi_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list, device, 2, 2, 3)
+            create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list, device, 2, 2, 4)
 
             # plt.suptitle(f'Epoch {epoch}', fontsize=20)
             plt.tight_layout()
@@ -6529,8 +6529,8 @@ def create_weight_subplot(fig, model, gt_weights, mc, rows, cols, pos):
     plt.scatter(true_weights, learned_weights , c=mc, s=0.1, alpha=0.1)
     ax.set_xlabel('true $W_{ij}$', fontsize=32)
     ax.set_ylabel('learned $W_{ij}$', fontsize=32)
-    ax.set_xlim([-2, 4.5])
-    ax.set_ylim([-20, 45])
+    ax.set_xlim([-2, 2])
+    ax.set_ylim([-5, 5])
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
@@ -6596,7 +6596,7 @@ def create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_ac
                         linewidth=1, alpha=0.2)
 
     ax.set_xlim(config.plotting.xlim)
-    ax.set_ylim([-config.plotting.xlim[1] / 10, config.plotting.xlim[1] * 2])
+    ax.set_ylim([-config.plotting.xlim[1] / 10, config.plotting.xlim[1] * 1.2])
     ax.set_xlabel('$v_i$', fontsize=32)
     ax.set_ylabel('learned $\mathrm{MLP_1}(\mathbf{a}_j, v_i)$', fontsize=32)
     ax.tick_params(axis='both', which='major', labelsize=24)
@@ -6788,25 +6788,9 @@ def compare_gnn_results(config_list, varied_parameter):
             
             vrest_r2_match = re.search(r'V_rest reconstruction R²:\s*([\d.-]+)', content)
             vrest_r2 = float(vrest_r2_match.group(1)) if vrest_r2_match else None
-            
-            clustering_results = []
-            for line in content.splitlines():
-                if 'eps=' in line and 'accuracy' in line:
-                    eps_match = re.search(r'eps=([\d.-]+)', line)
-                    acc_match = re.search(r'accuracy[=:]\s*([\d.-]+)', line)
-                    if eps_match and acc_match:
-                        clustering_results.append({
-                            'eps': float(eps_match.group(1)),
-                            'accuracy': float(acc_match.group(1))
-                        })
-            
-            if clustering_results:
-                best_result = max(clustering_results, key=lambda x: x['accuracy'])
-                best_clustering_acc = best_result['accuracy']
-                best_eps = best_result['eps']
-            else:
-                best_clustering_acc = None
-                best_eps = None
+
+            acc_match = re.search(r'accuracy=([\d.-]+)', content)
+            best_clustering_acc = float(acc_match.group(1)) if acc_match else None
             
             results.append({
                 'config': config_file_,
@@ -6815,7 +6799,6 @@ def compare_gnn_results(config_list, varied_parameter):
                 'tau_r2': tau_r2,
                 'vrest_r2': vrest_r2,
                 'best_clustering_acc': best_clustering_acc,
-                'best_eps': best_eps
             })
             
         except Exception as e:
@@ -8418,7 +8401,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_51_2']
 
 
-    config_list = ['fly_N9_63_1','fly_N9_63_2','fly_N9_63_3', 'fly_N9_62_1']
+    config_list = ['fly_N9_62_1']    #, 'fly_N9_62_2', 'fly_N9_62_10', 'fly_N9_62_11', 'fly_N9_62_12']
 
     for config_file_ in config_list:
         print(' ')
@@ -8429,9 +8412,9 @@ if __name__ == '__main__':
         print(f'\033[94mconfig_file  {config.config_file}\033[0m')
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='white color', extended='plots', device=device)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)
 
-    # compare_experiments(config_list, None)
+    compare_experiments(config_list, 'training.batch_size')
 
     # get_figures('weight_vs_noise')
     # get_figures('correction_weight')
