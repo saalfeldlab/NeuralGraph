@@ -98,7 +98,7 @@ if __name__ == "__main__":
             data_test(
                 config=config,
                 visualize=False,
-                style="white color name continuous_slice",
+                style="black color name continuous_slice",
                 verbose=False,
                 best_model='best',
                 run=0,
