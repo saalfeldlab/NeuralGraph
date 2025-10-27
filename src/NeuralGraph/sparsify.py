@@ -580,22 +580,35 @@ def clustering_gmm(data, type_list, n_components=None):
     gmm = GaussianMixture(n_components=n_components, covariance_type='full', random_state=42)
     cluster_labels = gmm.fit_predict(data)
     
+    # Fix: Ensure cluster labels are contiguous starting from 0
+    unique_clusters = np.unique(cluster_labels)
+    cluster_mapping = {old_label: new_label for new_label, old_label in enumerate(unique_clusters)}
+    cluster_labels_remapped = np.array([cluster_mapping[label] for label in cluster_labels])
+    
     n_true = len(np.unique(true_labels))
-    n_found = len(np.unique(cluster_labels))
+    n_found = len(unique_clusters)  # Use actual number of unique clusters
+    
     conf_mat = np.zeros((n_true, n_found))
     for i in range(len(true_labels)):
-        conf_mat[int(true_labels[i]), int(cluster_labels[i])] += 1
+        try:
+            true_idx = int(true_labels[i])
+            cluster_idx = int(cluster_labels_remapped[i])
+            if 0 <= true_idx < n_true and 0 <= cluster_idx < n_found:
+                conf_mat[true_idx, cluster_idx] += 1
+        except (IndexError, ValueError) as e:
+            print(f"Skipping invalid indices: true_idx={true_labels[i]}, cluster_idx={cluster_labels[i]}")
+            continue
+            
     row_ind, col_ind = linear_sum_assignment(-conf_mat)
     mapping = {col_ind[i]: row_ind[i] for i in range(len(col_ind))}
-    mapped_labels = np.array([mapping.get(label, -1) for label in cluster_labels])
+    mapped_labels = np.array([mapping.get(label, -1) for label in cluster_labels_remapped])
     
     accuracy = accuracy_score(true_labels, mapped_labels)
-    ari = adjusted_rand_score(true_labels, cluster_labels)
-    nmi = normalized_mutual_info_score(true_labels, cluster_labels)
-    sil = silhouette_score(data, cluster_labels) if n_found > 1 else 0.0
+    ari = adjusted_rand_score(true_labels, cluster_labels_remapped)
+    nmi = normalized_mutual_info_score(true_labels, cluster_labels_remapped)
+    sil = silhouette_score(data, cluster_labels_remapped) if n_found > 1 else 0.0
     
     return {'n_components': n_components, 'accuracy': accuracy, 'ari': ari, 'nmi': nmi, 'silhouette': sil}
-
 
 
 # Usage example:

@@ -1919,6 +1919,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     #     logger.info(symbolic(n))
 
 
+
 def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
@@ -2740,6 +2741,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             plt.tight_layout()
             plt.savefig(f'./{log_dir}/results/learned connectivity.png', dpi=300)
             plt.close()
+
 
 
 def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, extended, device):
@@ -4619,6 +4621,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             #         #     logger.info(symbolic(n))
 
 
+
 def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extended, device):
     dataset_name = config.dataset
     model_config = config.graph_model
@@ -5359,32 +5362,123 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plot_reconstruction_correlations(activity_results=activity_results, results_per_neuron=results_per_neuron, gt_taus=gt_taus, gt_V_Rest=gt_V_Rest, type_list=type_list, index_to_name=index_to_name, log_dir=log_dir)
 
             print('alternative clustering methods...')
-            a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest])
-            print('GMM a tau V_rest:')
-            for n_comp in [50, 75, 100, 125, 150]:
-                results = clustering_gmm(a_aug, type_list, n_components=n_comp)
-                print(f"  n_components={n_comp}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
 
 
-            print(learned_tau.shape, learned_V_rest.shape, to_numpy(model.a).shape)
-            w = learned_weights.flatten()  # edge weights
-            w_in_mean = np.zeros(n_neurons)
-            w_in_std = np.zeros(n_neurons)
-            w_out_mean = np.zeros(n_neurons)
-            w_out_std = np.zeros(n_neurons)
 
-            edges = to_numpy(edges)
+
+
+
+            # compute connectivity statistics for true weights
+            print('computing connectivity statistics...')
+            w = true_weights.flatten()
+            w_in_mean_true = np.zeros(n_neurons)
+            w_in_std_true = np.zeros(n_neurons)
+            w_out_mean_true = np.zeros(n_neurons)
+            w_out_std_true = np.zeros(n_neurons)
+            edges_np = to_numpy(edges)
+
             for i in trange(n_neurons, ncols=90):
-                in_w = w[edges[1] == i]
-                out_w = w[edges[0] == i]
-                w_in_mean[i] = in_w.mean() if len(in_w) > 0 else 0
-                w_in_std[i] = in_w.std() if len(in_w) > 0 else 0
-                w_out_mean[i] = out_w.mean() if len(out_w) > 0 else 0
-                w_out_std[i] = out_w.std() if len(out_w) > 0 else 0
+                in_w = w[edges_np[1] == i]
+                out_w = w[edges_np[0] == i]
+                w_in_mean_true[i] = in_w.mean() if len(in_w) > 0 else 0
+                w_in_std_true[i] = in_w.std() if len(in_w) > 0 else 0
+                w_out_mean_true[i] = out_w.mean() if len(out_w) > 0 else 0
+                w_out_std_true[i] = out_w.std() if len(out_w) > 0 else 0
+
+            # compute connectivity statistics for learned weights
+            w = learned_weights.flatten()
+            w_in_mean_learned = np.zeros(n_neurons)
+            w_in_std_learned = np.zeros(n_neurons)
+            w_out_mean_learned = np.zeros(n_neurons)
+            w_out_std_learned = np.zeros(n_neurons)
+
+            for i in trange(n_neurons, ncols=90):
+                in_w = w[edges_np[1] == i]
+                out_w = w[edges_np[0] == i]
+                w_in_mean_learned[i] = in_w.mean() if len(in_w) > 0 else 0
+                w_in_std_learned[i] = in_w.std() if len(in_w) > 0 else 0
+                w_out_mean_learned[i] = out_w.mean() if len(out_w) > 0 else 0
+                w_out_std_learned[i] = out_w.std() if len(out_w) > 0 else 0
+
+            # all 4 connectivity stats combined
+            W_learned = np.column_stack([w_in_mean_learned, w_in_std_learned, 
+                                        w_out_mean_learned, w_out_std_learned])
+            W_true = np.column_stack([w_in_mean_true, w_in_std_true, 
+                                    w_out_mean_true, w_out_std_true])
+
+            # learned combinations
+            learned_combos = {
+                'a': to_numpy(model.a),
+                'τ': learned_tau.reshape(-1, 1),
+                'V': learned_V_rest.reshape(-1, 1),
+                'W': W_learned,
+                '(τ,V)': np.column_stack([learned_tau, learned_V_rest]),
+                '(τ,V,W)': np.column_stack([learned_tau, learned_V_rest, W_learned]),
+                '(a,τ,V,W)': np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest, W_learned]),
+            }
+
+            # true combinations
+            true_combos = {
+                'τ': gt_taus.reshape(-1, 1),
+                'V': gt_V_rest.reshape(-1, 1),
+                'W': W_true,
+                '(τ,V)': np.column_stack([gt_taus, gt_V_rest]),
+                '(τ,V,W)': np.column_stack([gt_taus, gt_V_rest, W_true]),
+            }
+
+            # cluster learned
+            print('\nclustering learned features...')
+            learned_results = {}
+            for name, feat_array in learned_combos.items():
+                result = clustering_gmm(feat_array, type_list, n_components=75)
+                learned_results[name] = result['accuracy']
+                print(f"{name}: {result['accuracy']:.3f}")
+
+            # Cluster true
+            print('\nclustering true features...')
+            true_results = {}
+            for name, feat_array in true_combos.items():
+                result = clustering_gmm(feat_array, type_list, n_components=75)
+                true_results[name] = result['accuracy']
+                print(f"{name}: {result['accuracy']:.3f}")
+
+            # Plot two-panel figure
+            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+            # Learned features - fixed order
+            learned_order = ['a', 'τ', 'V', 'W', '(τ,V)', '(τ,V,W)', '(a,τ,V,W)']
+            learned_vals = [learned_results[k] for k in ['a', 'τ', 'V', 'W', '(τ,V)', '(τ,V,W)', '(a,τ,V,W)']]
+            colors_l = ['#d62728' if v < 0.6 else '#ff7f0e' if v < 0.85 else '#2ca02c' for v in learned_vals]
+            ax1.barh(range(len(learned_order)), learned_vals, color=colors_l)
+            ax1.set_yticks(range(len(learned_order)))
+            ax1.set_yticklabels(learned_order, fontsize=11)
+            ax1.set_xlabel('clustering accuracy', fontsize=12)
+            ax1.set_title('learned features', fontsize=14, fontweight='bold')
+            ax1.set_xlim([0, 1])
+            ax1.grid(axis='x', alpha=0.3)
+            ax1.invert_yaxis()
+            for i, v in enumerate(learned_vals):
+                ax1.text(v + 0.02, i, f'{v:.3f}', va='center', fontsize=10)
+            # True features - fixed order
+            true_order = ['τ', 'V', 'W', '(τ,V)', '(τ,V,W)']
+            true_vals = [true_results[k] for k in ['τ', 'V', 'W', '(τ,V)', '(τ,V,W)']]
+            colors_t = ['#d62728' if v < 0.6 else '#ff7f0e' if v < 0.85 else '#2ca02c' for v in true_vals]
+            ax2.barh(range(len(true_order)), true_vals, color=colors_t)
+            ax2.set_yticks(range(len(true_order)))
+            ax2.set_yticklabels(true_order, fontsize=11)
+            ax2.set_xlabel('clustering accuracy', fontsize=12)
+            ax2.set_title('true features', fontsize=14, fontweight='bold')
+            ax2.set_xlim([0, 1])
+            ax2.grid(axis='x', alpha=0.3)
+            ax2.invert_yaxis()
+            for i, v in enumerate(true_vals):
+                ax2.text(v + 0.02, i, f'{v:.3f}', va='center', fontsize=10)
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/clustering_comprehensive.png', dpi=300, bbox_inches='tight')
+            plt.close()
 
             a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest, 
-                                    w_in_mean, w_in_std, w_out_mean, w_out_std])
-            print('GMM a tau V_rest weights W:')
+                                    w_in_mean_learned, w_in_std_learned, w_out_mean_learned, w_out_std_learned])
+            print('GMM learned a tau V_rest weights W:')
 
             best_acc = 0
             best_n = 0
@@ -6530,7 +6624,7 @@ def create_weight_subplot(fig, model, gt_weights, mc, rows, cols, pos):
     ax.set_xlabel('true $W_{ij}$', fontsize=32)
     ax.set_ylabel('learned $W_{ij}$', fontsize=32)
     ax.set_xlim([-2, 2])
-    ax.set_ylim([-5, 5])
+    ax.set_ylim([-8, 8])
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
@@ -8397,11 +8491,9 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
     # compare_experiments(config_list,'training.noise_model_level')
 
-    # config_list = ['fly_N9_62_1', 'fly_N9_62_4']
+    # config_list = ['fly_N9_44_24']
     # config_list = ['fly_N9_51_2']
-
-
-    config_list = ['fly_N9_62_1']    #, 'fly_N9_62_2', 'fly_N9_62_10', 'fly_N9_62_11', 'fly_N9_62_12']
+    config_list = ['fly_N9_62_1']
 
     for config_file_ in config_list:
         print(' ')
@@ -8414,7 +8506,7 @@ if __name__ == '__main__':
         os.makedirs(folder_name, exist_ok=True)
         data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)
 
-    compare_experiments(config_list, 'training.batch_size')
+    # compare_experiments(config_list, 'training.batch_size')
 
     # get_figures('weight_vs_noise')
     # get_figures('correction_weight')
