@@ -183,7 +183,10 @@ def make_batches_random(
         )
     while True:
         start_indices = torch.randint(
-            low=0, high=total_time - time_units, size=(batch_size,)
+            low=0,
+            high=total_time - time_units,
+            size=(batch_size,),
+            device=data.device,
         )
         x_t = data[start_indices]
         x_t_plus = data[start_indices + time_units]
@@ -242,7 +245,14 @@ def train_step(model, x_t, x_t_plus):
 def train(cfg: ModelParams):
     """Configurable training loop."""
     device = get_device()
+
+    if cfg.training.use_tf32_matmul and device.type == "cuda":
+        torch.set_float32_matmul_precision("high")
+        print("TF32 matmul precision: enabled ('high')")
+
     model = LatentModel(cfg).to(device)
+
+    model.train()
 
     OptimizerClass = getattr(torch.optim, cfg.training.optimizer)
     optimizer = OptimizerClass(model.parameters(), lr=cfg.training.learning_rate)
@@ -266,7 +276,7 @@ def train(cfg: ModelParams):
             x_t, x_t_plus = next(batch_iter)  # already on the same device as `data`
             loss = train_step(model, x_t, x_t_plus)
             optimizer.step()
-            running_loss += float(loss.detach())
+            running_loss += loss.detach().item()
 
         mean_loss = running_loss / batches_per_epoch
         print(f"Epoch {epoch+1}/{cfg.training.epochs} | Loss: {mean_loss:.4e}")
