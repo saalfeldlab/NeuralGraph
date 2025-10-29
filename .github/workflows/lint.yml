@@ -16,7 +16,7 @@ jobs:
 
     env:
       CONDA_ENV_NAME: neural-graph-linux
-      CACHE_NUMBER: 0  # Increment to force cache refresh
+      CACHE_NUMBER: 1  # Increment to force cache refresh
 
     steps:
     - name: Checkout code
