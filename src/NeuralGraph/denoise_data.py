@@ -33,10 +33,10 @@ def denoise_data(config, x_list, y_list, denoise_std, device):
 
 
 
-# def denoise_signal(config, signal, noise_std, device):
-#     # noise_std = estimate_noise_std(signal)
-#     denoised_signal = gaussian_filter(signal, torch.tensor([noise_std], dtype=torch.float32, device=device))
-#     return denoised_signal
+def denoise_signal(config, signal, noise_std, device):
+    # noise_std = estimate_noise_std(signal)
+    denoised_signal = gaussian_filter(signal, torch.tensor([noise_std], dtype=torch.float32, device=device))
+    return denoised_signal
 
 
 def estimate_noise_std(signal):
