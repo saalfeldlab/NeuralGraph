@@ -1,28 +1,67 @@
 import os
 import umap
 import torch
+import torch.nn as nn
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import FormatStrFormatter
+from matplotlib.animation import FFMpegWriter
 from torch_geometric.nn import MessagePassing
+from torch_geometric.loader import DataLoader
+import torch_geometric.data as data
 import torch_geometric.utils as pyg_utils
 import imageio.v2 as imageio
 from matplotlib import rc
 from NeuralGraph.utils import set_size
 from scipy.ndimage import median_filter
+from scipy.optimize import curve_fit
+from sklearn.mixture import GaussianMixture
+from shutil import copyfile
+from collections import defaultdict
+import scipy
+import logging
+import re
+import matplotlib
 
 # os.environ["PATH"] += os.pathsep + '/usr/local/texlive/2023/bin/x86_64-linux'
 
 # from data_loaders import *
 
-from GNN_Main import *
+from GNN_Main import data_test, add_pre_folder
 
-from NeuralGraph.fitting_models import *
-from NeuralGraph.sparsify import *
-from NeuralGraph.models.utils import *
-from NeuralGraph.models.plot_utils import *
-from NeuralGraph.models.MLP import *
-from NeuralGraph.utils import to_numpy, CustomColorMap
+from NeuralGraph.fitting_models import linear_model
+from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_gmm
+from NeuralGraph.models.utils import (
+    choose_training_model,
+    get_in_features,
+    get_in_features_update,
+    get_index_particles,
+    analyze_odor_responses_by_neuron,
+    plot_odor_heatmaps,
+)
+from NeuralGraph.models.plot_utils import (
+    analyze_mlp_edge_lines,
+    analyze_mlp_edge_lines_weighted_with_max,
+    analyze_mlp_phi_synaptic,
+    find_top_responding_pairs,
+    run_neural_architecture_pipeline,
+)
+from NeuralGraph.utils import (
+    to_numpy,
+    CustomColorMap,
+    sort_key,
+    fig_init,
+    get_equidistant_points,
+    map_matrix,
+    create_log_dir,
+    find_suffix_pairs_with_index,
+)
+from NeuralGraph.models.Siren_Network import Siren, Siren_Network
+from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyVis
+from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
+from NeuralGraph.models.Calcium_Latent_Dynamics import Calcium_Latent_Dynamics
+from NeuralGraph.generators.utils import choose_model
+from NeuralGraph.config import NeuralGraphConfig
 
 from NeuralGraph.models.Ising_analysis import analyze_ising_model
 
@@ -33,10 +72,11 @@ import warnings
 import seaborn as sns
 import glob
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap
 import pickle
 import json
-from tqdm import tqdm
+from tqdm import tqdm, trange
+import time
+from sklearn import metrics
 from tifffile import imread
 
 from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum, compute_spectral_coefs
@@ -45,7 +85,12 @@ from colorama import Fore, Style
 from scipy.spatial.distance import jensenshannon
 import matplotlib.ticker as ticker
 import shutil
-import imageio.v2 as imageio
+
+# Optional dependency
+try:
+    from pysr import PySRRegressor
+except ImportError:
+    PySRRegressor = None
 
 
 def get_training_files(log_dir, n_runs):
@@ -856,7 +901,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 larynx_neuron_list = json.load(file)
             with open(f'graphs_data/{dataset_name}/all_neuron_list.json', 'r') as file:
                 activity_neuron_list = json.load(file)
-            map_larynx_matrix, n = map_matrix(larynx_neuron_list, all_neuron_list, adjacency)
+            map_larynx_matrix, n = map_matrix(larynx_neuron_list, activity_neuron_list, adjacency)
         else:
             n = np.random.randint(0, n_neurons, 50)
         for i in range(len(n)):
@@ -2829,6 +2874,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     if field_type != '':
         has_field = True
         n_nodes = config.simulation.n_nodes
+        n_nodes_per_axis = int(np.sqrt(n_nodes))
         if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
             model_f = nn.ModuleList([
                 Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
@@ -2943,7 +2989,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=24)
                 plt.subplot(2, 2, 1)
 
-                larynx_pred_weight, index_larynx = map_matrix(larynx_neuron_list, activity_neuron_list, A)
+                larynx_pred_weight, index_larynx = map_matrix(larynx_neuron_list, all_neuron_list, A)
                 ax = sns.heatmap(to_numpy(larynx_pred_weight) / second_correction, cbar=False, center=0, square=True, cmap='bwr', vmin=-4, vmax=4)
 
                 plt.xticks([])
@@ -3504,19 +3550,20 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 summary_plot = results['summary_figure']
                 # Finds neurons that appear in BOTH high connectivity AND high odor responses
                 # These are the "bridge" neurons between detection and integration
-                preprocessing_results = run_preprocessing_analysis(
-                    top_pairs_by_run,
-                    odor_responses_by_run,
-                    results['architecture_analysis'],  # From your previous analysis
-                    all_neuron_list
-                )
-                preprocessing_results['preprocessing_figure'].savefig(
-                    f"./{log_dir}/results/preprocessing_analysis.png",
-                    dpi=150, bbox_inches='tight'
-                )
-                plt.close()
-                with open(f"./{log_dir}/results/preprocessing_analysis.pkl", 'wb') as f:
-                    pickle.dump(preprocessing_results, f)
+                # TODO: run_preprocessing_analysis is not implemented yet
+                # preprocessing_results = run_preprocessing_analysis(
+                #     top_pairs_by_run,
+                #     odor_responses_by_run,
+                #     results['architecture_analysis'],  # From your previous analysis
+                #     all_neuron_list
+                # )
+                # preprocessing_results['preprocessing_figure'].savefig(
+                #     f"./{log_dir}/results/preprocessing_analysis.png",
+                #     dpi=150, bbox_inches='tight'
+                # )
+                # plt.close()
+                # with open(f"./{log_dir}/results/preprocessing_analysis.pkl", 'wb') as f:
+                #     pickle.dump(preprocessing_results, f)
 
             # Line plots for specific neurons
             selected_neurons = ['ADAL', 'ADAR', 'AVAL', 'AVAR']  # 4 neurons of interest

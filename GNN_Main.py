@@ -24,10 +24,9 @@ from matplotlib.ticker import FuncFormatter
 from prettytable import PrettyTable
 
 from NeuralGraph.config import NeuralGraphConfig
-from NeuralGraph.generators.graph_data_generator import *
-from NeuralGraph.models.graph_trainer import *
-from NeuralGraph.models.Siren_Network import *
-from NeuralGraph.models.utils import *
+from NeuralGraph.generators.graph_data_generator import data_generate
+from NeuralGraph.models.graph_trainer import data_train, data_test
+from NeuralGraph.models.utils import set_device, add_pre_folder
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")

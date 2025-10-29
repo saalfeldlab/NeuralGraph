@@ -1,56 +1,105 @@
 import os
 import time
+import glob
 
 import matplotlib.pyplot as plt
 from matplotlib import rc
+from matplotlib.animation import FFMpegWriter
+from matplotlib.ticker import FormatStrFormatter
 import matplotlib as mpl
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 import random
 import copy
 
-from GNN_Main import *
-from NeuralGraph.models.utils import *
-from NeuralGraph.utils import *
-from NeuralGraph.models.Siren_Network import *
-from NeuralGraph.models.Signal_Propagation_FlyVis import *
-from NeuralGraph.models.Signal_Propagation_MLP import *
-from NeuralGraph.models.Signal_Propagation_MLP_ODE import *
-from NeuralGraph.models.Signal_Propagation_Zebra import *
-from NeuralGraph.models.Signal_Propagation_Temporal import *
-from NeuralGraph.models.Signal_Propagation_RNN import *
-from NeuralGraph.models.Signal_Propagation_LSTM import *
+from NeuralGraph.models.utils import (
+    choose_training_model,
+    increasing_batch_size,
+    constant_batch_size,
+    set_trainable_parameters,
+    set_trainable_parameters_vae,
+    get_in_features_update,
+    get_in_features_lin_edge,
+    analyze_edge_function,
+    get_n_hop_neighborhood_with_stats,
+    plot_training_signal,
+    plot_training_signal_field,
+    plot_training_signal_missing_activity,
+    plot_training_flyvis,
+    plot_weight_comparison,
+    get_index_particles,
+)
+from NeuralGraph.utils import (
+    to_numpy,
+    CustomColorMap,
+    create_log_dir,
+    check_and_clear_memory,
+    sort_key,
+    fig_init,
+    get_equidistant_points,
+    open_gcs_zarr,
+    compute_trace_metrics,
+)
+from NeuralGraph.models.Siren_Network import Siren, Siren_Network
+from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyVis
+from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
+from NeuralGraph.models.Signal_Propagation_MLP_ODE import Signal_Propagation_MLP_ODE
+from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
+from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal
+from NeuralGraph.models.Signal_Propagation_RNN import Signal_Propagation_RNN
+from NeuralGraph.models.Signal_Propagation_LSTM import Signal_Propagation_LSTM
+from NeuralGraph.models.utils_zebra import (
+    plot_field_comparison,
+    plot_field_comparison_continuous_slices,
+    plot_field_comparison_discrete_slices,
+    plot_field_discrete_xy_slices_grid,
+)
 
-from NeuralGraph.models.Calcium_Latent_Dynamics import *
+from NeuralGraph.models.Calcium_Latent_Dynamics import Calcium_Latent_Dynamics
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
-from NeuralGraph.generators.davis import *
 from NeuralGraph.fitting_models import linear_model
-from NeuralGraph.models.utils_zebra import *
 
 from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
 
-from torch_geometric.utils import dense_to_sparse
-import torch.optim as optim
-import torch.nn.functional as F
+from torch_geometric.utils import dense_to_sparse, to_networkx
+from torch_geometric.data import Data as pyg_Data
+from torch_geometric.loader import DataLoader
+import torch_geometric as pyg
 import seaborn as sns
 from sklearn.decomposition import PCA, TruncatedSVD
 from sklearn.manifold import TSNE
-from NeuralGraph.denoise_data import *
+# denoise_data import not needed - removed star import
 from scipy.spatial import KDTree
 from sklearn import neighbors, metrics
 from scipy.ndimage import median_filter
 from tifffile import imwrite, imread
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.spatial import cKDTree
-from NeuralGraph.generators.utils import *
 from scipy.special import logsumexp
-from NeuralGraph.generators.utils import generate_compressed_video_mp4
+from NeuralGraph.generators.utils import choose_model, generate_compressed_video_mp4, init_connectivity
+from NeuralGraph.generators.graph_data_generator import (
+    apply_pairwise_knobs_torch,
+    assign_columns_from_uv,
+    build_neighbor_graph,
+    compute_column_labels,
+    greedy_blue_mask,
+    mseq_bits,
+)
+from NeuralGraph.generators.davis import AugmentedDavis
 from scipy.stats import pearsonr
 import numpy as np
+import pandas as pd
 import tensorstore as ts
 import napari
 from collections import deque
+from tqdm import tqdm, trange
+import networkx as nx
+import scipy
+from prettytable import PrettyTable
+import imageio
 
 
 def data_train(config=None, erase=False, best_model=None, device=None):
@@ -464,7 +513,7 @@ def data_train_signal(config, erase, best_model, device):
                             loss = loss + (model.lin_phi(in_feature_update) - model.lin_phi(in_feature_update_next_bis)).norm(2) * coeff_update_diff
                         if 'second_derivative' in train_config.diff_update_regul:
                             in_feature_update_prev = torch.cat((torch.zeros((n_neurons, 1), device=device),
-                                                                model.a[:n_neurons], msg_1,
+                                                                model.a[:n_neurons], msg1,
                                                                 torch.ones((n_neurons, 1), device=device)), dim=1)
                             in_feature_update_prev = in_feature_update_prev[ids]
                             loss = loss + (model.lin_phi(in_feature_update_prev) + model.lin_phi(
@@ -487,7 +536,7 @@ def data_train_signal(config, erase, best_model, device):
 
                     if not (torch.isnan(y).any()):
 
-                        dataset = data.Data(x=x, edge_index=edges)
+                        dataset = pyg_Data(x=x, edge_index=edges)
                         dataset_batch.append(dataset)
 
                         if len(dataset_batch) == 1:
@@ -1150,7 +1199,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                     if not (torch.isnan(y).any()):
 
-                        dataset = data.Data(x=x, edge_index=edges)
+                        dataset = pyg_Data(x=x, edge_index=edges)
                         dataset_batch.append(dataset)
 
                         if len(dataset_batch) == 1:
@@ -2194,7 +2243,7 @@ def data_train_zebra(config, erase, best_model, device):
                 x = torch.tensor(x_list[run][k, :, 0:7], dtype=torch.float32, device=device).clone().detach()
                 y = torch.tensor(x_list[run][k, :, 6:7], dtype=torch.float32, device=device).clone().detach()
 
-                dataset = data.Data(x=x, edge_index=edges)
+                dataset = pyg_Data(x=x, edge_index=edges)
                 dataset_batch.append(dataset)
 
                 k_t = torch.ones((x.shape[0], 1), dtype=torch.float32, device=device) * k * delta_t
@@ -2456,6 +2505,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     has_missing_activity = training_config.has_missing_activity
     has_excitation = ('excitation' in model_config.update_type)
     baseline_value = simulation_config.baseline_value
+    x_inference_list = []  # Initialize for inference test mode
 
     torch.random.fork_rng(devices=device)
     torch.random.manual_seed(simulation_config.seed)
@@ -2875,7 +2925,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             x[:n_nodes, 8:9] = model_f(time=it / n_frames) ** 2
             x[n_nodes:n_neurons, 8:9] = 1
         elif 'learnable_short_term_plasticity' in field_type:
-            alpha = (k % model.embedding_step) / model.embedding_step
+            alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 8] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
                                                                                                 it // model.embedding_step] ** 2
         elif ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
@@ -2892,10 +2942,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             x[ids_missing, 6] = missing_activity[ids_missing]
 
         with torch.no_grad():
-            dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
+            dataset = pyg_Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
             pred = model(dataset, data_id=data_id)
             y = pred
-            dataset = data.Data(x=x_generated, pos=x[:, 1:3], edge_index=edge_index)
+            dataset = pyg_Data(x=x_generated, pos=x[:, 1:3], edge_index=edge_index)
             pred_generator = model_generator(dataset, data_id=data_id)
 
         # signal update
@@ -2954,7 +3004,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             else:
 
                 plt.close()
-                matplotlib.rcParams['savefig.pad_inches'] = 0
+                mpl.rcParams['savefig.pad_inches'] = 0
 
                 black_to_green = LinearSegmentedColormap.from_list('black_green', ['black', 'green'])
                 black_to_yellow = LinearSegmentedColormap.from_list('black_yellow', ['black', 'yellow'])
@@ -3217,7 +3267,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             temp1_ = temp1[:, [2, 1]].clone().detach()
             pos = dict(enumerate(np.array((temp1_).detach().cpu()), 0))
-            dataset = data.Data(x=temp1_, edge_index=torch.squeeze(temp4[:, p]))
+            dataset = pyg_Data(x=temp1_, edge_index=torch.squeeze(temp4[:, p]))
             vis = to_networkx(dataset, remove_self_loops=True, to_undirected=True)
             nx.draw_networkx(vis, pos=pos, node_size=0, linewidths=0, with_labels=False, ax=ax, edge_color='r', width=4)
             for n in range(n_neuron_types):
@@ -3879,7 +3929,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             plt.rcParams["text.usetex"] = True
                             rc("font", **{"family": "serif", "serif": ["Palatino"]})
 
-                        matplotlib.rcParams["savefig.pad_inches"] = 0
+                        mpl.rcParams["savefig.pad_inches"] = 0
                         num = f"{id_fig:06}"
                         id_fig += 1
 

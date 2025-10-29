@@ -2,7 +2,7 @@
 import torch_geometric as pyg
 import torch_geometric.utils as pyg_utils
 import torch
-from NeuralGraph.utils import *
+from NeuralGraph.utils import to_numpy
 
 class PDE_N(pyg.nn.MessagePassing):
     """Interaction Network as proposed in this paper:

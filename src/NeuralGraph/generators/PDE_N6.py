@@ -2,7 +2,6 @@ import torch_geometric as pyg
 import torch_geometric.utils as pyg_utils
 from NeuralGraph.utils import to_numpy
 import torch
-from NeuralGraph.utils import *
 
 
 class PDE_N6(pyg.nn.MessagePassing):

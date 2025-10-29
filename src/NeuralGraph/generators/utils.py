@@ -1,19 +1,32 @@
 
-from NeuralGraph.generators import *
-from NeuralGraph.utils import *
-from time import sleep
-from scipy.spatial import Delaunay
-from tifffile import imread, imwrite as imsave
-from torch_geometric.utils import get_mesh_laplacian
-from tqdm import trange
-from torch_geometric.utils import dense_to_sparse
-from scipy import stats
-import seaborn as sns
-from scipy.spatial import cKDTree
-import subprocess
-import os
 import glob
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+import scipy
 import subprocess
+import torch
+import torch.nn as nn
+import torch_geometric.data as data
+import xarray as xr
+from matplotlib import rc
+from NeuralGraph.generators import PDE_N2, PDE_N3, PDE_N4, PDE_N5, PDE_N6, PDE_N7, PDE_N11
+from NeuralGraph.utils import choose_boundary_values, get_equidistant_points, to_numpy, constructRandomMatrices, large_tensor_nonzero
+from scipy import stats
+from scipy.spatial import cKDTree, Delaunay
+from time import sleep
+from tifffile import imread, imwrite as imsave
+from torch_geometric.utils import get_mesh_laplacian, dense_to_sparse
+from torch_geometric.utils.convert import to_networkx
+from tqdm import trange
+import seaborn as sns
+
+# Optional imports
+try:
+    from fa2_modified import ForceAtlas2
+except ImportError:
+    ForceAtlas2 = None
 
 
 def choose_model(config=[], W=[], device=[]):
@@ -301,8 +314,8 @@ def init_mesh(config, device):
     return pos_mesh, dpos_mesh, type_mesh, node_value, a_mesh, node_id_mesh, mesh_data
 
 
-def init_synapse_map(config, x, edge_attr_adjacency, device):
-
+def init_synapse_map(config, x, edge_attr_adjacency, edge_index, device):
+    # TODO: This function appears to be dead code with missing parameters (dataset_name, N1, V1, T1, H1, A1)
     dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index, edge_attr=edge_attr_adjacency)
     G = to_networkx(dataset, remove_self_loops=True, to_undirected=True)
     forceatlas2 = ForceAtlas2(
@@ -331,10 +344,12 @@ def init_synapse_map(config, x, edge_attr_adjacency, device):
     X1 = torch.tensor(positions, dtype=torch.float32, device=device)
     X1 = X1 - torch.mean(X1, 0)
 
-    torch.save(X1, f'./graphs_data/graphs_{dataset_name}/X1.pt')
+    # torch.save(X1, f'./graphs_data/graphs_{dataset_name}/X1.pt')  # TODO: dataset_name parameter missing
 
-    x = torch.concatenate((N1.clone().detach(), X1.clone().detach(), V1.clone().detach(), T1.clone().detach(),
-                           H1.clone().detach(), A1.clone().detach()), 1)
+    # TODO: N1, V1, T1, H1, A1 parameters missing - this code appears to be incomplete
+    # x = torch.concatenate((N1.clone().detach(), X1.clone().detach(), V1.clone().detach(), T1.clone().detach(),
+    #                        H1.clone().detach(), A1.clone().detach()), 1)
+    x = None  # Placeholder since original code is incomplete
 
     # pos = nx.spring_layout(G, weight='weight', seed=42, k=1)
     # for k,p in pos.items():
@@ -362,7 +377,8 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
     elif 'tif' in connectivity_file:
         connectivity = constructRandomMatrices(n_neurons=n_neurons, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
         n_neurons = connectivity.shape[0]
-        config.simulation.n_neurons = n_neurons
+        # TODO: config parameter not passed to this function
+        # config.simulation.n_neurons = n_neurons
 
     elif connectivity_type != 'none':
         if 'chaotic' in connectivity_type:
