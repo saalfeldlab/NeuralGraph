@@ -1,0 +1,39 @@
+name: Lint
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: "3.12"
+        miniforge-version: latest
+        use-mamba: true
+        environment-file: envs/environment.linux.yaml
+        activate-environment: neural-graph-linux
+
+    - name: Cache conda environment
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/share/miniconda3/envs/neural-graph-linux
+        key: ${{ runner.os }}-conda-${{ hashFiles('envs/environment.linux.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-conda-
+
+    - name: Run ruff check
+      shell: bash -el {0}
+      run: |
+        ruff check .
