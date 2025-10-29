@@ -22,6 +22,27 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Get date for cache key
+      id: get-date
+      run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
+
+    - name: Cache conda environment directory
+      id: cache-env
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.CONDA }}/envs/${{ env.CONDA_ENV_NAME }}
+        key: ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ steps.get-date.outputs.today }}-${{ hashFiles('envs/environment.linux.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ steps.get-date.outputs.today }}-
+
+    - name: Cache conda package downloads
+      uses: actions/cache@v4
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-conda-pkgs-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-conda-pkgs-
+
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -32,50 +53,11 @@ jobs:
         activate-environment: ${{ env.CONDA_ENV_NAME }}
         use-only-tar-bz2: true
 
-    - name: Cache packed conda environment
-      id: cache-env
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.CONDA_ENV_NAME }}.tar.gz
-        key: ${{ runner.os }}-conda-pack-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-conda-pack-${{ env.CACHE_NUMBER }}-
-
-    - name: Create and pack environment (on cache miss)
+    - name: Update environment (on cache miss or daily refresh)
       if: steps.cache-env.outputs.cache-hit != 'true'
       run: |
-        echo "Cache miss - creating environment from scratch"
-
-        # Remove existing environment if it exists
-        conda env remove -n ${{ env.CONDA_ENV_NAME }} -y || true
-
-        # Create environment from file
-        mamba env create -f envs/environment.linux.yaml
-
-        # Install conda-pack in the environment
-        mamba install -n ${{ env.CONDA_ENV_NAME }} conda-pack -y
-
-        # Pack the environment for caching
-        conda pack -n ${{ env.CONDA_ENV_NAME }} -o ${{ env.CONDA_ENV_NAME }}.tar.gz --force
-
-        echo "Environment packed successfully"
-
-    - name: Unpack cached environment (on cache hit)
-      if: steps.cache-env.outputs.cache-hit == 'true'
-      run: |
-        echo "Cache hit - unpacking environment"
-
-        # Create directory for environment
-        mkdir -p $CONDA/envs/${{ env.CONDA_ENV_NAME }}
-
-        # Unpack the cached environment
-        tar -xzf ${{ env.CONDA_ENV_NAME }}.tar.gz -C $CONDA/envs/${{ env.CONDA_ENV_NAME }}
-
-        # Activate and make environment relocatable
-        source $CONDA/envs/${{ env.CONDA_ENV_NAME }}/bin/activate
-        conda-unpack
-
-        echo "Environment unpacked successfully"
+        echo "Creating/updating conda environment"
+        mamba env update -n ${{ env.CONDA_ENV_NAME }} -f envs/environment.linux.yaml
 
     - name: Verify environment
       run: |
