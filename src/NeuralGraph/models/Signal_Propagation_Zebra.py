@@ -4,7 +4,7 @@ import torch_geometric as pyg
 from NeuralGraph.models.MLP import MLP
 from NeuralGraph.utils import to_numpy
 import numpy as np
-from NeuralGraph.models.Siren_Network import *
+from NeuralGraph.models.Siren_Network import Siren
 
 class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
     """Interaction Network as proposed in this paper:

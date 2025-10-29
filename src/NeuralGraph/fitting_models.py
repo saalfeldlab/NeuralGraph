@@ -1,12 +1,20 @@
 
+import logging
 import torch
 import numpy as np
 from scipy.optimize import curve_fit
 import warnings
 import matplotlib.pyplot as plt
-from NeuralGraph.utils import *
+from NeuralGraph.utils import to_numpy, fig_init
 import matplotlib as mpl
-# from pysr import PySRRegressor
+
+# PySRRegressor is an optional dependency
+try:
+    from pysr import PySRRegressor
+except ImportError:
+    PySRRegressor = None
+
+logger = logging.getLogger(__name__)
 
 def power_model(x, a, b):
     return a / (x ** b)
@@ -82,8 +90,8 @@ def reaction_diffusion_model_L(variable_name):
 
         relative_error = np.abs(y_data - x_data) / x_data
         n_outliers = np.argwhere(relative_error < threshold)
-        x_data_ = x_data[pos[:, 0]]
-        y_data_ = y_data[pos[:, 0]]
+        x_data_ = x_data[n_outliers[:, 0]]
+        y_data_ = y_data[n_outliers[:, 0]]
         lin_fit, lin_fitv = curve_fit(linear_model, x_data_, y_data_)
         logger.info(' ')
         residuals = y_data_ - linear_model(x_data_, *lin_fit)
