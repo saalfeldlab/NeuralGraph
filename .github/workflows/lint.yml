@@ -46,8 +46,11 @@ jobs:
       run: |
         echo "Cache miss - creating environment from scratch"
 
+        # Remove existing environment if it exists
+        conda env remove -n ${{ env.CONDA_ENV_NAME }} -y || true
+
         # Create environment from file
-        mamba env create -f envs/environment.linux.yaml --force
+        mamba env create -f envs/environment.linux.yaml
 
         # Install conda-pack in the environment
         mamba install -n ${{ env.CONDA_ENV_NAME }} conda-pack -y
