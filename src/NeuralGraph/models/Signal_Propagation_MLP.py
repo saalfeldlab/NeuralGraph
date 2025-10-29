@@ -4,7 +4,7 @@ import torch_geometric as pyg
 from NeuralGraph.models.MLP import MLP
 from NeuralGraph.utils import to_numpy
 import numpy as np
-from NeuralGraph.models.Siren_Network import *
+# Siren_Network import not needed - removed star import
 
 
 class Signal_Propagation_MLP(nn.Module):  # NOT MessagePassing

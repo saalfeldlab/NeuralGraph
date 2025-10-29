@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import scipy.cluster.hierarchy as hcluster
 
-from NeuralGraph.utils import *
+from NeuralGraph.utils import to_numpy, fig_init
 import time
 import numpy as np
 from sklearn.cluster import KMeans
@@ -617,6 +617,11 @@ def clustering_gmm(data, type_list, n_components=None):
 # comparison = compare_embedding_vs_functional_clustering(model, type_list, func_list)
 if __name__ == '__main__':
     # generate 3 clusters of each around 100 points and one orphan point
+    from types import SimpleNamespace
+
+    # Create a mock config for testing
+    mock_config = SimpleNamespace(training=SimpleNamespace(cluster_connectivity='single'))
+    embedding_cluster = EmbeddingCluster(mock_config)
 
     N = 100
     data = np.random.randn(3 * N, 2)

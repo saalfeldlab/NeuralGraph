@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tifffile import imread
 import torch
-from NeuralGraph.utils import *
+from NeuralGraph.utils import to_numpy
 
 
 class PDE_N4(pyg.nn.MessagePassing):

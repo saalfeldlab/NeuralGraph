@@ -1,20 +1,34 @@
+import glob
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
+import time
 import torch
-from NeuralGraph.generators.utils import *
-from NeuralGraph.models.utils import *
-from NeuralGraph.data_loaders import *
-
-from GNN_Main import *
-from NeuralGraph.utils import set_size
+import torch_geometric.data as data
+from matplotlib import rc
+from NeuralGraph.data_loaders import load_wormvae_data, load_zebrafish_data
+from NeuralGraph.generators.davis import AugmentedDavis
+from NeuralGraph.generators.utils import (
+    choose_model,
+    init_neurons,
+    init_mesh,
+    generate_lossless_video_ffv1,
+    generate_lossless_video_libx264,
+    generate_compressed_video_mp4,
+    init_connectivity,
+    get_equidistant_points,
+)
+from NeuralGraph.utils import to_numpy, set_size, CustomColorMap, check_and_clear_memory
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from scipy import stats
 from scipy.spatial import Voronoi, voronoi_plot_2d
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
+from tifffile import imread
 import tifffile
+from tqdm import tqdm, trange
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from pathlib import Path
 import os
@@ -25,12 +39,11 @@ import os
 # import xarray as xr
 import pandas as pd
 import tables
+import torch_geometric as pyg
 import torch_geometric.utils as pyg_utils
 from scipy.ndimage import zoom
 import re
 import imageio
-from NeuralGraph.generators.utils import *
-from NeuralGraph.generators.davis import *
 from GNN_PlotFigure import plot_neuron_activity_analysis, plot_ground_truth_distributions
 
 # import taichi as ti
@@ -100,7 +113,8 @@ def generate_from_data(config, device, visualize=True, step=None, cmap=None, sty
     if "wormvae" in data_folder_name:
         load_wormvae_data(config, device, visualize, step)
     elif "NeuroPAL" in data_folder_name:
-        load_neuropal_data(config, device, visualize, step)
+        # load_neuropal_data(config, device, visualize, step)  # TODO: Function not yet implemented
+        raise NotImplementedError("NeuroPAL data loading not yet implemented")
     elif 'Zapbench' in data_folder_name:
         load_zebrafish_data(config, device, visualize, step, cmap, style)
     else:
@@ -993,14 +1007,14 @@ def data_generate_synaptic(
         n_nodes = simulation_config.n_nodes
         n_nodes_per_axis = int(np.sqrt(n_nodes))
 
+    folder = f"./graphs_data/{dataset_name}/"
+
     if config.data_folder_name != "none":
         print(f"generating from data ...")
         generate_from_data(
-            config=config, device=device, visualize=visualize, folder=folder, step=step
+            config=config, device=device, visualize=visualize, step=step
         )
         return
-
-    folder = f"./graphs_data/{dataset_name}/"
     if erase:
         files = glob.glob(f"{folder}/*")
         for f in files:

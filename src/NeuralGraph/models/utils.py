@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
+import os
 import torch
+import torch_geometric.data as data
 
 from matplotlib.ticker import FormatStrFormatter
-from NeuralGraph.models import *
-from NeuralGraph.utils import *
-
-from GNN_Main import *
+from NeuralGraph.models import Signal_Propagation
+from NeuralGraph.utils import to_numpy, fig_init, map_matrix, choose_boundary_values
 import matplotlib as mpl
 import networkx as nx
 from torch_geometric.utils.convert import to_networkx
@@ -14,6 +14,12 @@ import numpy as np
 import time
 import tqdm
 from tifffile import imread, imwrite as imsave
+
+# Optional import
+try:
+    import umap
+except ImportError:
+    umap = None
 
 import torch.nn as nn
 import torch.nn.functional as F
@@ -110,6 +116,7 @@ def get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device):
     signal_model_name = model_config.signal_model_name
 
     if signal_model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
+        in_features_prev = torch.cat((x[:n_neurons, 6:7] - xnorm / 150, model.a[:n_neurons]), dim=1)
         in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons]), dim=1)
         in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons]), dim=1)
         if model.embedding_trial:
