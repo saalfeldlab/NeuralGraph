@@ -1,15 +1,25 @@
 """
-Latent space voltage model with optional YAML config and torch.compile support.
+Latent space voltage model with optional YAML config, torch.compile support,
+and reproducible training with run logging.
 """
 
 from pathlib import Path
 from typing import Callable, Iterator
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from uuid import uuid4
+from datetime import datetime
+import random
+import os
+import sys
+
 import torch
 import torch.nn as nn
 import yaml
 import tyro
+import numpy as np
+from pydantic import BaseModel, Field, field_validator, ConfigDict
+
 from NeuralGraph.generators.load_flyvis import SimulationResults, Column
+
 
 # -------------------------------------------------------------------
 # Pydantic Config Classes
@@ -52,18 +62,47 @@ class DecoderParams(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
+class DataSplit(BaseModel):
+    train_start: int
+    train_end: int
+    validation_start: int
+    validation_end: int
+    test_start: int
+    test_end: int
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("*")
+    @classmethod
+    def check_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("Indices in data_split must be non-negative.")
+        return v
+
+    @field_validator("train_end")
+    @classmethod
+    def check_order(cls, v, info):
+        # very basic ordering sanity check
+        d = info.data
+        if "train_start" in d and v <= d["train_start"]:
+            raise ValueError("train_end must be greater than train_start.")
+        return v
+
+
 class TrainingConfig(BaseModel):
     epochs: int = 10
     batch_size: int = 32
     learning_rate: float = 1e-3
     optimizer: str = Field("Adam", description="Optimizer name from torch.optim")
     train_step: str = Field("train_step", description="Compiled train step function")
-    data_path: str = Field(..., description="Path to .npy simulation data file")
-    column_to_model: Column = Field(Column.CALCIUM, description="Which column to model")
+    data_path: str | None = Field(None, description="Path to .npy simulation data file")
+    column_to_model: str = "CALCIUM"
     use_tf32_matmul: bool = Field(
-        False,
-        description="Enable fast tf32 multiplication on certain nvidia gpus",
+        False, description="Enable fast tf32 multiplication on certain NVIDIA GPUs"
     )
+    seed: int = 42
+    data_split: DataSplit
+
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -162,10 +201,12 @@ class LatentModel(nn.Module):
         return x_t_next
 
 
+# -------------------------------------------------------------------
+# Data + Batching
+# -------------------------------------------------------------------
+
+
 def load_column_data(path: str, column: Column) -> torch.Tensor:
-    """
-    Load flyvis simulation results and extract the selected column as a torch tensor.
-    """
     sim = SimulationResults.load(path)
     return torch.from_numpy(sim[column]).float()  # (T, N)
 
@@ -173,9 +214,6 @@ def load_column_data(path: str, column: Column) -> torch.Tensor:
 def make_batches_random(
     data: torch.Tensor, batch_size: int, time_units: int
 ) -> Iterator[tuple[torch.Tensor, torch.Tensor]]:
-    """
-    Randomly sample batches of time points and their future evolution.
-    """
     total_time = data.shape[0]
     if total_time <= time_units:
         raise ValueError(
@@ -183,10 +221,7 @@ def make_batches_random(
         )
     while True:
         start_indices = torch.randint(
-            low=0,
-            high=total_time - time_units,
-            size=(batch_size,),
-            device=data.device,
+            low=0, high=total_time - time_units, size=(batch_size,), device=data.device
         )
         x_t = data[start_indices]
         x_t_plus = data[start_indices + time_units]
@@ -198,18 +233,14 @@ def make_batches_random(
 # -------------------------------------------------------------------
 
 
-def load_config(yaml_path: str | None = None) -> ModelParams:
-    """Load config from YAML into Pydantic model, with fallback to default path."""
-    if yaml_path is None:
-        default_path = (
-            Path(__file__).resolve().parent / "../../../config/fly/latent_default.yaml"
-        )
-        yaml_path = default_path
-        print(f"No YAML specified. Loading default: {yaml_path}")
-
-    with open(yaml_path, "r") as f:
-        data = yaml.safe_load(f)
-    return ModelParams(**data)
+def seed_everything(seed: int):
+    """Set all random seeds for reproducibility."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    print(f"Random seed set to {seed}")
 
 
 def get_device() -> torch.device:
@@ -218,7 +249,6 @@ def get_device() -> torch.device:
         print("Using Apple MPS backend for training.")
         return torch.device("mps")
     elif torch.cuda.is_available():
-        torch.set_float32_matmul_precision("high")
         print(f"Using CUDA device: {torch.cuda.get_device_name(0)}")
         return torch.device("cuda")
     else:
@@ -233,7 +263,6 @@ torch._dynamo.config.compiled_autograd = True
 def train_step(model, x_t, x_t_plus):
     output = model(x_t)
     loss = torch.nn.functional.mse_loss(output, x_t_plus)
-    loss.backward()
     return loss
 
 
@@ -243,43 +272,145 @@ def train_step(model, x_t, x_t_plus):
 
 
 def train(cfg: ModelParams):
-    """Configurable training loop."""
-    device = get_device()
+    """Configurable training loop with train/val/test evaluation."""
+    if not cfg.training.data_path:
+        raise ValueError("training.data_path is required in config or CLI overrides.")
 
-    if cfg.training.use_tf32_matmul and device.type == "cuda":
-        torch.set_float32_matmul_precision("high")
-        print("TF32 matmul precision: enabled ('high')")
+    # --- Reproducibility ---
+    seed_everything(cfg.training.seed)
 
-    model = LatentModel(cfg).to(device)
+    # --- Run directory creation ---
+    run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + str(uuid4())[:8]
+    run_dir = Path("runs") / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    log_path = run_dir / "stdout.log"
 
-    model.train()
+    # ✅ Use context manager for safe redirection
+    with open(log_path, "w", buffering=1) as log_file:  # line-buffered
+        sys.stdout = log_file
+        sys.stderr = log_file  # capture errors too
 
-    OptimizerClass = getattr(torch.optim, cfg.training.optimizer)
-    optimizer = OptimizerClass(model.parameters(), lr=cfg.training.learning_rate)
+        print(f"Run directory: {run_dir.resolve()}")
 
-    # Select loss function dynamically (from this module)
-    train_step: Callable = globals()[cfg.training.train_step]
+        # Save full config
+        config_path = run_dir / "config.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(cfg.model_dump(), f, sort_keys=False, indent=2)
+        print(f"Saved config to {config_path}")
 
-    data = load_column_data(cfg.training.data_path, cfg.training.column_to_model).to(
-        device
-    )
+        # --- Device setup ---
+        device = get_device()
+        if cfg.training.use_tf32_matmul and device.type == "cuda":
+            torch.set_float32_matmul_precision("high")
+            print("TF32 matmul precision: enabled ('high')")
 
-    num_time_points = data.shape[0]
-    batches_per_epoch = num_time_points // cfg.training.batch_size
-    batch_iter = make_batches_random(
-        data, cfg.training.batch_size, cfg.evolver_params.time_units
-    )
-    for epoch in range(cfg.training.epochs):
-        running_loss = 0.0
-        for _ in range(batches_per_epoch):
-            optimizer.zero_grad()
-            x_t, x_t_plus = next(batch_iter)  # already on the same device as `data`
-            loss = train_step(model, x_t, x_t_plus)
-            optimizer.step()
-            running_loss += loss.detach().item()
+        # --- Model, optimizer ---
+        model = LatentModel(cfg).to(device)
+        model.train()
+        OptimizerClass = getattr(torch.optim, cfg.training.optimizer)
+        optimizer = OptimizerClass(model.parameters(), lr=cfg.training.learning_rate)
+        train_step_fn: Callable = globals()[cfg.training.train_step]
 
-        mean_loss = running_loss / batches_per_epoch
-        print(f"Epoch {epoch+1}/{cfg.training.epochs} | Loss: {mean_loss:.4e}")
+        # --- Load data ---
+        data = load_column_data(
+            cfg.training.data_path, Column[cfg.training.column_to_model]
+        ).to(device)
+        split = cfg.training.data_split
+
+        # Extract subsets
+        train_data = data[split.train_start : split.train_end]
+        val_data = data[split.validation_start : split.validation_end]
+        test_data = data[split.test_start : split.test_end]
+
+        print(
+            f"Data split: train {train_data.shape}, "
+            f"val {val_data.shape}, test {test_data.shape}"
+        )
+
+        # --- Batching setup ---
+        num_time_points = train_data.shape[0]
+        batches_per_epoch = max(1, num_time_points // cfg.training.batch_size)
+        batch_iter = make_batches_random(
+            train_data, cfg.training.batch_size, cfg.evolver_params.time_units
+        )
+
+        # --- Log file ---
+        log_path = run_dir / "training_log.csv"
+        with open(log_path, "w") as f:
+            f.write("epoch,train_loss,val_loss\n")
+
+        training_start = datetime.now()
+
+        # --- Epoch loop ---
+        for epoch in range(cfg.training.epochs):
+            epoch_start = datetime.now()
+            running_loss = 0.0
+
+            # ---- Training phase ----
+            for _ in range(batches_per_epoch):
+                optimizer.zero_grad()
+                x_t, x_t_plus = next(batch_iter)
+                loss = train_step_fn(model, x_t, x_t_plus)
+                loss.backward()
+                optimizer.step()
+                running_loss += loss.detach().item()
+
+            mean_train_loss = running_loss / batches_per_epoch
+
+            # ---- Validation phase ----
+            model.eval()
+            with torch.no_grad():
+                val_x_t = val_data[: -cfg.evolver_params.time_units]
+                val_x_t_plus = val_data[cfg.evolver_params.time_units :]
+                val_loss = torch.nn.functional.mse_loss(
+                    model(val_x_t), val_x_t_plus
+                ).item()
+            model.train()
+
+            epoch_end = datetime.now()
+            epoch_duration = (epoch_end - epoch_start).total_seconds()
+            total_elapsed = (epoch_end - training_start).total_seconds()
+
+            print(
+                f"Epoch {epoch+1}/{cfg.training.epochs} | "
+                f"Train Loss: {mean_train_loss:.4e} | Val Loss: {val_loss:.4e} | "
+                f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
+            )
+
+            # Log to CSV
+            with open(log_path, "a") as f:
+                f.write(f"{epoch+1},{mean_train_loss:.6f},{val_loss:.6f}\n")
+
+        # --- Final test evaluation ---
+        model.eval()
+        with torch.no_grad():
+            test_x_t = test_data[: -cfg.evolver_params.time_units]
+            test_x_t_plus = test_data[cfg.evolver_params.time_units :]
+            test_loss = torch.nn.functional.mse_loss(
+                model(test_x_t), test_x_t_plus
+            ).item()
+
+        print(f"Final Test Loss: {test_loss:.4e}")
+
+        # Save final metrics
+        metrics_path = run_dir / "final_metrics.yaml"
+        with open(metrics_path, "w") as f:
+            yaml.dump(
+                {
+                    "final_train_loss": mean_train_loss,
+                    "final_val_loss": val_loss,
+                    "final_test_loss": test_loss,
+                },
+                f,
+                sort_keys=False,
+                indent=2,
+            )
+        print(f"Saved metrics to {metrics_path}")
+
+        # --- Save final model ---
+        model_path = run_dir / "model_final.pt"
+        torch.save(model.state_dict(), model_path)
+        print(f"Saved final model to {model_path}")
 
 
 # -------------------------------------------------------------------
@@ -287,25 +418,16 @@ def train(cfg: ModelParams):
 # -------------------------------------------------------------------
 
 
-def main(
-    yaml_path: str | None = None,
-    overrides: ModelParams | None = None,
-):
-    """
-    Entry point for command-line usage.
+if __name__ == "__main__":
+    # Load default YAML
+    default_path = (
+        Path(__file__).resolve().parent / "../../../config/fly/latent_default.yaml"
+    )
+    with open(default_path, "r") as f:
+        data = yaml.safe_load(f)
+    default_cfg = ModelParams(**data)
 
-    Examples:
-      python latent_model.py
-      python latent_model.py --yaml-path custom.yaml
-      python latent_model.py --overrides.training.epochs 50
-    """
-    cfg = load_config(yaml_path)
-
-    if overrides is not None:
-        cfg = cfg.model_copy(update=overrides.model_dump(exclude_unset=True))
+    # Parse CLI overrides with Tyro
+    cfg = tyro.cli(ModelParams, default=default_cfg)
 
     train(cfg)
-
-
-if __name__ == "__main__":
-    tyro.cli(main)

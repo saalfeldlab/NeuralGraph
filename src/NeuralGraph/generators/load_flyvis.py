@@ -30,7 +30,7 @@ class NeuronData(NamedTuple):
 
 class SimulationResults(NamedTuple):
     neuron_data: NeuronData
-    _data: np.ndarray[tuple[int, int, int], np.dtype[np.float32]]
+    data: np.ndarray[tuple[int, int, int], np.dtype[np.float32]]
 
     @staticmethod
     def load(path: str):
@@ -49,11 +49,11 @@ class SimulationResults(NamedTuple):
                 group_type=x[0, :, Column.GROUP_TYPE].astype(np.uint8),
                 type=x[0, :, Column.TYPE].astype(np.uint8),
             ),
-            _data=x,
+            data=x,
         )
 
     def __getitem__(
         self, col: Column
     ) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
         """Access underlying simulation data"""
-        return self._data[:, :, col]
+        return self.data[:, :, col]
