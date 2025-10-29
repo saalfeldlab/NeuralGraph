@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: [ main ]
 
+defaults:
+  run:
+    shell: bash -l {0}  # Login shell for conda activation
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+
+    env:
+      CONDA_ENV_NAME: neural-graph-linux
+      CACHE_NUMBER: 0  # Increment to force cache refresh
 
     steps:
     - name: Checkout code
@@ -21,19 +29,60 @@ jobs:
         python-version: "3.12"
         miniforge-version: latest
         use-mamba: true
-        environment-file: envs/environment.linux.yaml
-        activate-environment: neural-graph-linux
+        activate-environment: ${{ env.CONDA_ENV_NAME }}
+        use-only-tar-bz2: true
 
-    - name: Cache conda environment
+    - name: Cache packed conda environment
+      id: cache-env
       uses: actions/cache@v4
       with:
-        path: |
-          /usr/share/miniconda3/envs/neural-graph-linux
-        key: ${{ runner.os }}-conda-${{ hashFiles('envs/environment.linux.yaml') }}
+        path: ${{ env.CONDA_ENV_NAME }}.tar.gz
+        key: ${{ runner.os }}-conda-pack-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-conda-
+          ${{ runner.os }}-conda-pack-${{ env.CACHE_NUMBER }}-
+
+    - name: Create and pack environment (on cache miss)
+      if: steps.cache-env.outputs.cache-hit != 'true'
+      run: |
+        echo "Cache miss - creating environment from scratch"
+
+        # Create environment from file
+        mamba env create -f envs/environment.linux.yaml --force
+
+        # Install conda-pack in the environment
+        mamba install -n ${{ env.CONDA_ENV_NAME }} conda-pack -y
+
+        # Pack the environment for caching
+        conda pack -n ${{ env.CONDA_ENV_NAME }} -o ${{ env.CONDA_ENV_NAME }}.tar.gz --force
+
+        echo "Environment packed successfully"
+
+    - name: Unpack cached environment (on cache hit)
+      if: steps.cache-env.outputs.cache-hit == 'true'
+      run: |
+        echo "Cache hit - unpacking environment"
+
+        # Create directory for environment
+        mkdir -p $CONDA/envs/${{ env.CONDA_ENV_NAME }}
+
+        # Unpack the cached environment
+        tar -xzf ${{ env.CONDA_ENV_NAME }}.tar.gz -C $CONDA/envs/${{ env.CONDA_ENV_NAME }}
+
+        # Activate and make environment relocatable
+        source $CONDA/envs/${{ env.CONDA_ENV_NAME }}/bin/activate
+        conda-unpack
+
+        echo "Environment unpacked successfully"
+
+    - name: Verify environment
+      run: |
+        conda activate ${{ env.CONDA_ENV_NAME }}
+        echo "Python version:"
+        python --version
+        echo "Ruff version:"
+        ruff --version
 
     - name: Run ruff check
-      shell: bash -el {0}
       run: |
+        conda activate ${{ env.CONDA_ENV_NAME }}
         ruff check .
