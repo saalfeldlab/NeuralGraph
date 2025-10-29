@@ -4,6 +4,6 @@ from .graph_trainer import *
 from .utils import get_embedding, get_embedding_time_series, choose_training_model, constant_batch_size, increasing_batch_size, set_trainable_parameters, set_trainable_division_parameters, set_trainable_parameters_vae, get_n_hop_neighborhood_with_stats, analyze_type_neighbors, plot_weight_comparison, compute_trace_metrics
 from .plot_utils import analyze_embedding_space
 
-__all__ = [graph_trainer, Siren_Network, Siren, Signal_Propagation, get_embedding, get_embedding_time_series,
-           choose_training_model, constant_batch_size, increasing_batch_size, set_trainable_parameters, set_trainable_division_parameters, 
-           set_trainable_parameters_vae, get_n_hop_neighborhood_with_stats, analyze_type_neighbors, analyze_embedding_space, plot_weight_comparison, compute_trace_metrics]
+__all__ = ["graph_trainer", "Siren_Network", "Siren", "Signal_Propagation", "get_embedding", "get_embedding_time_series",
+           "choose_training_model", "constant_batch_size", "increasing_batch_size", "set_trainable_parameters", "set_trainable_division_parameters",
+           "set_trainable_parameters_vae", "get_n_hop_neighborhood_with_stats", "analyze_type_neighbors", "analyze_embedding_space", "plot_weight_comparison", "compute_trace_metrics"]

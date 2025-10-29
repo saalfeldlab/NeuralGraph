@@ -43,6 +43,7 @@ dependencies:
   - gputil
   - tensorstore
   - napari
+  - ruff
 
   - pip:
       # Get CUDA 13.0 wheels

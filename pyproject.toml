@@ -8,3 +8,28 @@ version = "0.1"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+# Exclude common directories
+exclude = [
+    ".git",
+    ".venv",
+    "venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.lint]
+# Enable only rules that catch actual runtime errors
+select = [
+    "F821",   # undefined name (will cause NameError at runtime)
+    "PLE",    # Pylint Error rules (runtime errors)
+]
+
+# Disable all code quality/style rules
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]  # Allow unused imports and star imports in __init__.py files
