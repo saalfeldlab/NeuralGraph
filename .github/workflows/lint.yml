@@ -22,18 +22,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Get date for cache key
-      id: get-date
-      run: echo "today=$(/bin/date -u '+%Y%m%d')" >> $GITHUB_OUTPUT
-
     - name: Cache conda environment directory
       id: cache-env
       uses: actions/cache@v4
       with:
         path: /usr/share/miniconda3/envs/${{ env.CONDA_ENV_NAME }}
-        key: ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ steps.get-date.outputs.today }}-${{ hashFiles('envs/environment.linux.yaml') }}
+        key: ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ steps.get-date.outputs.today }}-
+          ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-
 
     - name: Cache conda package downloads
       uses: actions/cache@v4
@@ -53,10 +49,10 @@ jobs:
         activate-environment: ${{ env.CONDA_ENV_NAME }}
         use-only-tar-bz2: true
 
-    - name: Update environment (on cache miss or daily refresh)
+    - name: Update environment (on cache miss)
       if: steps.cache-env.outputs.cache-hit != 'true'
       run: |
-        echo "Creating/updating conda environment"
+        echo "Cache miss - creating conda environment"
         mamba env update -n ${{ env.CONDA_ENV_NAME }} -f envs/environment.linux.yaml
 
     - name: Verify environment
