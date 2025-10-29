@@ -214,7 +214,7 @@ def data_train_signal(config, erase, best_model, device):
         xnorm = torch.tensor(1.0, device=device)
     vnorm = torch.tensor(1.0, device=device)
     ynorm = torch.tensor(1.0, device=device)
-    torch.save(xnorm, os.path.join(log_dir, 'xnorm.pt'))
+    torch.save(xnorm_variable_doesnt_exist, os.path.join(log_dir, 'xnorm.pt'))
     torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
     torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
     time.sleep(0.5)
