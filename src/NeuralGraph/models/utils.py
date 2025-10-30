@@ -5,6 +5,7 @@ import torch_geometric.data as data
 
 from matplotlib.ticker import FormatStrFormatter
 from NeuralGraph.models import Signal_Propagation
+from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
 from NeuralGraph.utils import to_numpy, fig_init, map_matrix, choose_boundary_values
 import matplotlib as mpl
 import networkx as nx
@@ -764,26 +765,26 @@ def choose_training_model(model_config=None, device=None):
     model_name = model_config.graph_model.particle_model_name
     match model_name:
         case 'PDE_R':
-            model = Interaction_Mouse(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos,
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos,
                                      dimension=dimension)
         case 'PDE_MPM' | 'PDE_MPM_A':
-            model = Interaction_MPM(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos,
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos,
                                     dimension=dimension)
         case  'PDE_Cell' | 'PDE_Cell_area':
-            model = Interaction_Cell(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
             model.edges = []
         case 'PDE_ParticleField_A' | 'PDE_ParticleField_B':
-            model = Interaction_Particle_Field(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
             model.edges = []
         case 'PDE_Agents' | 'PDE_Agents_A' | 'PDE_Agents_B' | 'PDE_Agents_C':
-            model = Interaction_Agent(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
         case 'PDE_A' | 'PDE_A_bis' | 'PDE_B' | 'PDE_B_mass' | 'PDE_B_bis' | 'PDE_E' | 'PDE_G' | 'PDE_K' | 'PDE_T':
-            model = Interaction_Particle(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
             model.edges = []
             if 'PDE_K' in model_name:
                 model.connection_matrix = torch.load(f'./graphs_data/{dataset_name}/connection_matrix_list.pt', map_location=device)
         case 'PDE_GS':
-            model = Interaction_Planet(aggr_type=aggr_type, config=model_config, device=device)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device)
             t = np.arange(model_config.simulation.n_neurons)
             t1 = np.repeat(t, model_config.simulation.n_neurons)
             t2 = np.tile(t, model_config.simulation.n_neurons)
@@ -792,7 +793,7 @@ def choose_training_model(model_config=None, device=None):
             e = e[:, pos]
             model.edges = torch.tensor(e, dtype=torch.long, device=device)
         case 'PDE_GS2':
-            model = Interaction_Planet2(aggr_type=aggr_type, config=model_config, device=device)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device)
             t = np.arange(model_config.simulation.n_neurons)
             t1 = np.repeat(t, model_config.simulation.n_neurons)
             t2 = np.tile(t, model_config.simulation.n_neurons)
@@ -801,32 +802,32 @@ def choose_training_model(model_config=None, device=None):
             e = e[:, pos]
             model.edges = torch.tensor(e, dtype=torch.long, device=device)
         case 'PDE_Cell_A' | 'PDE_Cell_B' | 'PDE_Cell_B_area' | 'PDE_Cell_A_area':
-            model = Interaction_Cell(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
         case 'PDE_F_A' |'PDE_F_B'|'PDE_F_C'|'PDE_F_D'|'PDE_F_E' :
-            model = Interaction_Smooth_Particle(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
         case 'PDE_MLPs' | 'PDE_MLPs_A' | 'PDE_MLPs_A_bis' | 'PDE_MLPs_A_ter' | 'PDE_MLPs_B'| 'PDE_MLPs_B_0' |'PDE_MLPs_B_1' | 'PDE_MLPs_B_4'| 'PDE_MLPs_B_10' |'PDE_MLPs_C' | 'PDE_MLPs_D' | 'PDE_MLPs_E' | 'PDE_MLPs_F':
-            model = Interaction_PDE_Particle(aggr_type=aggr_type, config=model_config, device=device,
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device,
                                                 bc_dpos=bc_dpos, dimension=dimension)
         case 'PDE_M' | 'PDE_M2':
-            model = Interaction_Particle2(aggr_type=aggr_type, config=model_config, bc_dpos=bc_dpos, dimension=dimension, device=device)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, bc_dpos=bc_dpos, dimension=dimension, device=device)
         case 'PDE_MM' | 'PDE_MM_1layer' | 'PDE_MM_2layers' | 'PDE_MM_3layers':
-            model = Interaction_Particle3(aggr_type=aggr_type, config=model_config, bc_dpos=bc_dpos, dimension=dimension, device=device)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, bc_dpos=bc_dpos, dimension=dimension, device=device)
         case 'PDE_MS':
-            model = Interaction_Falling_Water_Smooth(aggr_type=aggr_type, config=model_config,bc_dpos=bc_dpos, dimension=dimension, device=device)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config,bc_dpos=bc_dpos, dimension=dimension, device=device)
 
     model_name = model_config.graph_model.mesh_model_name
     match model_name:
         case 'DiffMesh':
-            model = Mesh_Laplacian(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
             model.edges = []
         case 'WaveMesh':
-            model = Mesh_Laplacian(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
             model.edges = []
         case 'WaveMeshSmooth':
-            model = Mesh_Smooth(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
             model.edges = []
         case 'RD_Mesh' | 'RD_Mesh2' | 'RD_Mesh3' | 'RD_Mesh4':
-            model = Mesh(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
+            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos)
             model.edges = []
 
     model_name = model_config.graph_model.signal_model_name
@@ -902,6 +903,7 @@ def set_trainable_parameters(model=[], lr_embedding=[], lr=[],  lr_update=[], lr
 
 def set_trainable_parameters_vae(
     model=[],                    # global fallback LR (like your original `lr`)
+    lr=[],
     lr_encoder=[],
     lr_latent_update=[],
     lr_decoder=[],         # optional WD for all groups
