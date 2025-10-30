@@ -46,21 +46,28 @@ jobs:
         python-version: "3.12"
         miniforge-version: latest
         use-mamba: true
-        activate-environment: ${{ env.CONDA_ENV_NAME }}
         use-only-tar-bz2: true
 
-    - name: Update environment (on cache miss)
-      if: steps.cache-env.outputs.cache-hit != 'true'
+    - name: Create or restore environment
       run: |
-        echo "Cache miss - creating conda environment"
-        mamba env update -n ${{ env.CONDA_ENV_NAME }} -f envs/environment.linux.yaml
+        if [ -d "/home/runner/miniconda3/envs/${{ env.CONDA_ENV_NAME }}" ]; then
+          echo "Environment directory exists (cache hit) - activating"
+        else
+          echo "Environment directory missing (cache miss) - creating"
+          mamba env create -n ${{ env.CONDA_ENV_NAME }} -f envs/environment.linux.yaml
+        fi
 
     - name: Verify environment
       run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
         echo "Python version:"
         python --version
         echo "Ruff version:"
         ruff --version
 
     - name: Run ruff check
-      run: ruff check .
+      run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
+        ruff check .
