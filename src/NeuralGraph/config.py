@@ -90,6 +90,7 @@ class SimulationConfig(BaseModel):
     diffusion_coefficients: list[list[float]] = None
 
 
+
 class GraphModelConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     particle_model_name: str = ""
@@ -115,10 +116,16 @@ class GraphModelConfig(BaseModel):
     hidden_dim_2: int = 1
     n_layers_2: int = 1
 
+
     input_size_decoder: int = 1
     output_size_decoder: int = 1
     hidden_dim_decoder: int = 1
     n_layers_decoder: int = 1
+
+    input_size_encoder: int = 1
+    output_size_encoder: int = 1
+    hidden_dim_encoder: int = 1
+    n_layers_encoder: int = 1
 
     lin_edge_positive: bool = False
 
@@ -404,6 +411,8 @@ class NeuralGraphConfig(BaseModel):
     connectome_folder_name: str = "none"
     data_folder_mesh_name: str = "none"
     config_file: str = "none"
+
+    
     simulation: SimulationConfig
     graph_model: GraphModelConfig
     plotting: PlottingConfig

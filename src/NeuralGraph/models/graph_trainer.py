@@ -1150,7 +1150,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                     if not (torch.isnan(y).any()):
 
-                        dataset = data.Data(x=x.clone(), edge_index=edges)
+                        dataset = data.Data(x=x, edge_index=edges)
                         dataset_batch.append(dataset)
 
                         if len(dataset_batch) == 1:
