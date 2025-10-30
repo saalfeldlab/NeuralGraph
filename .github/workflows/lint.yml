@@ -6,14 +6,50 @@ on:
   pull_request:
     branches: [ main ]
 
+defaults:
+  run:
+    shell: bash -l {0}  # Login shell for conda activation
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+
+    env:
+      CONDA_ENV_NAME: neural-graph-linux
+      # CACHE_NUMBER: Increment this to force a cache refresh (e.g., 1 -> 2)
+      # This invalidates the existing cache and creates a new one
+      # Use when: environment is corrupted, or you want to rebuild from scratch
+      CACHE_NUMBER: 1
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # Cache the complete conda environment directory
+    # This is the main cache that saves ~4-5 minutes on each run
+    # Cache key includes: OS + CACHE_NUMBER + hash of environment.yaml
+    # When environment.yaml changes, the hash changes and a new cache is created
+    - name: Cache conda environment directory
+      id: cache-env
+      uses: actions/cache@v4
+      with:
+        path: /home/runner/miniconda3/envs/${{ env.CONDA_ENV_NAME }}
+        key: ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-
+
+    # Cache conda package downloads to speed up environment creation on cache miss
+    # This provides a secondary speedup when the environment cache misses
+    - name: Cache conda package downloads
+      uses: actions/cache@v4
+      with:
+        path: ~/conda_pkgs_dir
+        key: ${{ runner.os }}-conda-pkgs-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-conda-pkgs-
+
+    # Setup miniconda but don't create the environment yet
+    # We'll check if the cached environment exists first
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -21,19 +57,35 @@ jobs:
         python-version: "3.12"
         miniforge-version: latest
         use-mamba: true
-        environment-file: envs/environment.linux.yaml
-        activate-environment: neural-graph-linux
+        use-only-tar-bz2: true
 
-    - name: Cache conda environment
-      uses: actions/cache@v4
-      with:
-        path: |
-          /usr/share/miniconda3/envs/neural-graph-linux
-        key: ${{ runner.os }}-conda-${{ hashFiles('envs/environment.linux.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-conda-
-
-    - name: Run ruff check
-      shell: bash -el {0}
+    # Check if cached environment exists and create only if needed
+    # On cache hit: environment directory exists, skip creation (~1m40s total)
+    # On cache miss: create environment from scratch (~6m total)
+    - name: Create or restore environment
       run: |
+        if [ -d "/home/runner/miniconda3/envs/${{ env.CONDA_ENV_NAME }}" ]; then
+          echo "Environment directory exists (cache hit) - activating"
+        else
+          echo "Environment directory missing (cache miss) - creating"
+          mamba env create -n ${{ env.CONDA_ENV_NAME }} -f envs/environment.linux.yaml
+        fi
+
+    # Verify the environment is working correctly
+    # We manually activate the environment in each step because we didn't
+    # use activate-environment in setup-miniconda (which conflicts with cached envs)
+    - name: Verify environment
+      run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
+        echo "Python version:"
+        python --version
+        echo "Ruff version:"
+        ruff --version
+
+    # Run the actual linting check
+    - name: Run ruff check
+      run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
         ruff check .
