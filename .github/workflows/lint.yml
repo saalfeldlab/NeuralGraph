@@ -57,13 +57,10 @@ jobs:
 
     - name: Verify environment
       run: |
-        conda activate ${{ env.CONDA_ENV_NAME }}
         echo "Python version:"
         python --version
         echo "Ruff version:"
         ruff --version
 
     - name: Run ruff check
-      run: |
-        conda activate ${{ env.CONDA_ENV_NAME }}
-        ruff check .
+      run: ruff check .
