@@ -24,6 +24,7 @@ exclude = [
 [tool.ruff.lint]
 # Enable only rules that catch actual runtime errors
 select = [
+    "F403",   # star imports are banned (prevents undefined name detection)
     "F821",   # undefined name (will cause NameError at runtime)
     "PLE",    # Pylint Error rules (runtime errors)
 ]

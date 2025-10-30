@@ -1,17 +1,20 @@
-from NeuralGraph.generators.utils import *
+from NeuralGraph.generators.utils import choose_boundary_values, get_equidistant_points
+from NeuralGraph.utils import CustomColorMap, get_neuron_index, map_matrix, to_numpy
 import os
 import re
 from dataclasses import dataclass
 from typing import Dict, Tuple, Literal
 
 import astropy.units as u
+import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import pyvista as pv
 import torch
 from astropy.units import Unit
 from scipy.interpolate import CubicSpline, interp1d, make_interp_spline
-from tqdm import trange
+from tqdm import tqdm, trange
 
 from NeuralGraph.TimeSeries import TimeSeries
 
@@ -36,7 +39,6 @@ from skimage import filters, feature
 import pandas as pd
 import scipy.io
 from matplotlib.colors import LinearSegmentedColormap
-from NeuralGraph.models.Siren_Network import *
 import pywt
 import torch.nn.functional as F
 from scipy.optimize import curve_fit
@@ -873,7 +875,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
         if positions.ndim != 2 or positions.shape[1] != 3:
             raise ValueError("positions must have shape (N, 3)")
         if traces.shape[1] != positions.shape[0]:
-            raise ValueError(f"trace0 length ({trace.shape[0]}) must match positions.shape[0] ({positions.shape[0]})")
+            raise ValueError(f"trace0 length ({traces.shape[0]}) must match positions.shape[0] ({positions.shape[0]})")
 
         for id_fig in tqdm(range(0,n_frames)):
 

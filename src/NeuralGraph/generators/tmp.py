@@ -1,13 +1,24 @@
+import glob
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import networkx as nx
 import torch
-from NeuralGraph.generators.utils import *
-from NeuralGraph.models.utils import *
-from NeuralGraph.data_loaders import *
-
-from GNN_Main import *
-from NeuralGraph.utils import set_size
+import torch_geometric as pyg
+from matplotlib import rc
+from NeuralGraph.generators.davis import AugmentedDavis
+from NeuralGraph.generators.graph_data_generator import assign_columns_from_uv as _assign_columns_from_uv, mseq_bits as _mseq_bits
+from NeuralGraph.generators.utils import generate_lossless_video_ffv1, generate_lossless_video_libx264, generate_compressed_video_mp4
+from NeuralGraph.data_loaders import (
+    data_generate_synaptic,
+    data_generate_particle,
+    load_solar_system,
+    load_RGB_grid_data,
+    load_wormvae_data,
+)
+from NeuralGraph.utils import to_numpy, set_size
+from NeuralGraph.sparsify import sparse_ising_fit_fast
+from tqdm import tqdm
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from scipy import stats
@@ -33,8 +44,6 @@ import torch_geometric.utils as pyg_utils
 from scipy.ndimage import zoom
 import re
 import imageio
-from NeuralGraph.generators.utils import *
-from NeuralGraph.generators.davis import *
 # import taichi as ti
 import random
 import json
@@ -119,28 +128,28 @@ def generate_from_data(config, device, visualize=True, step=None, cmap=None):
     elif "RGB" in config.graph_model.particle_model_name:
         load_RGB_grid_data(config, device, visualize, step)
     elif "LG-ODE" in data_folder_name:
-        load_LG_ODE(config, device, visualize, step)
+        raise NotImplementedError("load_LG_ODE not yet implemented")
     elif "WaterDropSmall" in data_folder_name:
-        load_WaterDropSmall(config, device, visualize, step, cmap)
+        raise NotImplementedError("load_WaterDropSmall not yet implemented")
     elif "WaterRamps" in data_folder_name:
-        load_Goole_data(config, device, visualize, step, cmap)
+        raise NotImplementedError("load_Goole_data not yet implemented")
     elif "MultiMaterial" in data_folder_name:
-        load_Goole_data(config, device, visualize, step, cmap)
+        raise NotImplementedError("load_Goole_data not yet implemented")
     elif "Kato" in data_folder_name:
-        load_worm_Kato_data(config, device, visualize, step)
+        raise NotImplementedError("load_worm_Kato_data not yet implemented")
     elif "wormvae" in data_folder_name:
         load_wormvae_data(config, device, visualize, step)
     elif "NeuroPAL" in data_folder_name:
-        load_neuropal_data(config, device, visualize, step)
+        raise NotImplementedError("load_neuropal_data not yet implemented")
     elif "U2OS" in data_folder_name:
-        load_2Dfluo_data_on_mesh(config, device, visualize, step)
+        raise NotImplementedError("load_2Dfluo_data_on_mesh not yet implemented")
     elif "cardio" in data_folder_name:
-        load_2Dgrid_data(config, device, visualize, step)
+        raise NotImplementedError("load_2Dgrid_data not yet implemented")
     elif image_data.file_type != "none":
         if image_data.file_type == "3D fluo Cellpose":
-            load_3Dfluo_data_with_Cellpose(config, device, visualize)
+            raise NotImplementedError("load_3Dfluo_data_with_Cellpose not yet implemented")
         if image_data.file_type == "2D fluo Cellpose":
-            load_2Dfluo_data_with_Cellpose(config, device, visualize)
+            raise NotImplementedError("load_2Dfluo_data_with_Cellpose not yet implemented")
     else:
         raise ValueError(f"Unknown data folder name {data_folder_name}")
 
