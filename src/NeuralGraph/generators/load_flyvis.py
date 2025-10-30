@@ -5,7 +5,7 @@ from typing import NamedTuple
 import numpy as np
 
 
-class Column(IntEnum):
+class FlyVisSim(IntEnum):
     """Column interpretation in flyvis simulation outputs."""
 
     INDEX = 0
@@ -38,22 +38,22 @@ class SimulationResults(NamedTuple):
         # T x N x 9 array
         x = np.load(path)
 
-        assert (x[0, :, Column.GROUP_TYPE] <= np.iinfo(np.uint8).max).all()
-        assert (x[0, :, Column.TYPE] <= np.iinfo(np.uint8).max).all()
+        assert (x[0, :, FlyVisSim.GROUP_TYPE] <= np.iinfo(np.uint8).max).all()
+        assert (x[0, :, FlyVisSim.TYPE] <= np.iinfo(np.uint8).max).all()
 
         # split off time-independent piece
         return SimulationResults(
             neuron_data=NeuronData(
-                ix=x[0, :, Column.INDEX].astype(np.int32),
-                pos=x[0, :, [Column.XPOS, Column.YPOS]],
-                group_type=x[0, :, Column.GROUP_TYPE].astype(np.uint8),
-                type=x[0, :, Column.TYPE].astype(np.uint8),
+                ix=x[0, :, FlyVisSim.INDEX].astype(np.int32),
+                pos=x[0, :, [FlyVisSim.XPOS, FlyVisSim.YPOS]],
+                group_type=x[0, :, FlyVisSim.GROUP_TYPE].astype(np.uint8),
+                type=x[0, :, FlyVisSim.TYPE].astype(np.uint8),
             ),
             data=x,
         )
 
     def __getitem__(
-        self, col: Column
+        self, col: FlyVisSim
     ) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
         """Access underlying simulation data"""
         return self.data[:, :, col]

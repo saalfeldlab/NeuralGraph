@@ -18,7 +18,7 @@ import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-from NeuralGraph.generators.load_flyvis import SimulationResults, Column
+from NeuralGraph.generators.load_flyvis import SimulationResults, FlyVisSim
 
 
 # -------------------------------------------------------------------
@@ -63,6 +63,8 @@ class DecoderParams(BaseModel):
 
 
 class DataSplit(BaseModel):
+    """Split the time series into train/validation/test."""
+
     train_start: int
     train_end: int
     validation_start: int
@@ -206,7 +208,7 @@ class LatentModel(nn.Module):
 # -------------------------------------------------------------------
 
 
-def load_column_data(path: str, column: Column) -> torch.Tensor:
+def load_column_data(path: str, column: FlyVisSim) -> torch.Tensor:
     sim = SimulationResults.load(path)
     return torch.from_numpy(sim[column]).float()  # (T, N)
 
@@ -240,7 +242,6 @@ def seed_everything(seed: int):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-    print(f"Random seed set to {seed}")
 
 
 def get_device() -> torch.device:
@@ -261,9 +262,16 @@ torch._dynamo.config.compiled_autograd = True
 
 @torch.compile(fullgraph=True, mode="max-autotune")
 def train_step(model, x_t, x_t_plus):
+    # evolution loss
     output = model(x_t)
-    loss = torch.nn.functional.mse_loss(output, x_t_plus)
-    return loss
+    evolve_loss = torch.nn.functional.mse_loss(output, x_t_plus)
+
+    # reconstruction loss
+    recon = model.decoder(model.encoder(x_t))
+    recon_loss = torch.nn.functional.mse_loss(recon, x_t)
+
+    loss = evolve_loss + recon_loss
+    return (loss, recon_loss, evolve_loss)
 
 
 # -------------------------------------------------------------------
@@ -285,7 +293,6 @@ def train(cfg: ModelParams):
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = run_dir / "stdout.log"
 
-    # ✅ Use context manager for safe redirection
     with open(log_path, "w", buffering=1) as log_file:  # line-buffered
         sys.stdout = log_file
         sys.stderr = log_file  # capture errors too
@@ -313,7 +320,7 @@ def train(cfg: ModelParams):
 
         # --- Load data ---
         data = load_column_data(
-            cfg.training.data_path, Column[cfg.training.column_to_model]
+            cfg.training.data_path, FlyVisSim[cfg.training.column_to_model]
         ).to(device)
         split = cfg.training.data_split
 
@@ -350,7 +357,7 @@ def train(cfg: ModelParams):
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 x_t, x_t_plus = next(batch_iter)
-                loss = train_step_fn(model, x_t, x_t_plus)
+                (loss, _recon_loss, _evolve_loss) = train_step_fn(model, x_t, x_t_plus)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.detach().item()
