@@ -205,7 +205,7 @@ pl.title("Multiscale Spectrogram")
 pl.xlabel("Time (s)")
 pl.ylabel("Frequency (Hz)")
 pl.savefig(save_path + "multiscale_spectrogram.png")
-plt.close()
+pl.close()
 
 
 

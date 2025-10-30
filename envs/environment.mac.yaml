@@ -40,6 +40,7 @@ dependencies:
   - jupytext
   - tensorstore
   - napari
+  - ruff
 
   # PyTorch on conda (single OpenMP runtime managed by conda)
   - pytorch=2.7.1

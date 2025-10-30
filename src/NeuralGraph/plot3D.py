@@ -17,9 +17,10 @@ import subprocess
 
 import PIL
 import numpy as np
+import matplotlib
 import matplotlib.pylab as pl
 
-# from IPython.display import display, Image, HTML
+from IPython.display import display, Image, HTML
 
 def np2pil(a):
   if a.dtype in [np.float32, np.float64]:
@@ -78,7 +79,7 @@ class VideoWriter:
 
   def _open(self, w, h):
     cmd = f'''ffmpeg -y -f rawvideo -vcodec rawvideo -s {w}x{h}
-      -pix_fmt rgb24 -r {self.fps} -i - -pix_fmt yuv420p 
+      -pix_fmt rgb24 -r {self.fps} -i - -pix_fmt yuv420p
       -c:v libx264 -crf 20 {self.filename}'''.split()
     return subprocess.Popen(cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
