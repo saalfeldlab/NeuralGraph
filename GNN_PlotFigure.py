@@ -5478,13 +5478,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest, 
                                     w_in_mean_learned, w_in_std_learned, w_out_mean_learned, w_out_std_learned])
-            print('GMM learned a tau V_rest weights W:')
+            print('\nGMM learned a tau V_rest weights W:')
 
             best_acc = 0
             best_n = 0
             for n_comp in [50, 75, 100, 125, 150]:
                 results = clustering_gmm(a_aug, type_list, n_components=n_comp)
-                print(f"  n_components={n_comp}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
+                print(f"n_components={n_comp}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
                 if results['accuracy'] > best_acc:
                     best_acc = results['accuracy']
                     best_n = n_comp
@@ -8493,7 +8493,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_24']
     # config_list = ['fly_N9_51_2']
-    config_list = ['fly_N9_62_1']
+    config_list = ['fly_N9_62_16']
 
     for config_file_ in config_list:
         print(' ')
