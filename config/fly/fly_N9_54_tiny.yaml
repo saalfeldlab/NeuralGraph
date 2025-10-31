@@ -42,21 +42,21 @@ graph_model:
     lin_edge_positive: True
 
 
-    latent_dim: 64
+    latent_dim: 4
     latent_update_steps: 10
     stochastic_latent: True
     latent_init_std: 1.0
 
     input_size_encoder: 13741
-    n_layers_encoder: 3
-    hidden_dim_encoder: 128
+    n_layers_encoder: 1
+    hidden_dim_encoder: 4
 
     latent_n_layers_update: 3
-    latent_hidden_dim_update: 128
+    latent_hidden_dim_update: 4
     output_size_decoder: 13741
 
     n_layers_decoder: 3
-    hidden_dim_decoder: 128
+    hidden_dim_decoder: 4
 
 
 
