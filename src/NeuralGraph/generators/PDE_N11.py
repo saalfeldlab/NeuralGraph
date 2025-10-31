@@ -23,14 +23,22 @@ class PDE_N11(pyg.nn.MessagePassing):
         
     """
 
-    def __init__(self, aggr_type=[], p=[], W=[], phi=[]):
+    def __init__(self, config = [],aggr_type=[], p=[], W=[], phi=[], device=[]):
         super(PDE_N11, self).__init__(aggr=aggr_type)
 
         self.p = p
         self.W = W
         self.phi = phi
 
-    def forward(self, data=[], has_field=False, data_id=[]):
+        self.device = device
+        self.n_neurons = config.simulation.n_neurons
+        self.A = config.simulation.oscillation_max_amplitude
+        self.e = self.A * (torch.rand((self.n_neurons,1), device = self.device) * 2 -1)
+        self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device = self.device)
+
+        self.has_oscillations = (config.simulation.visual_input_type == 'oscillatory')
+
+    def forward(self, data=[], has_field=False, data_id=[], frame=[]):
         x, edge_index = data.x, data.edge_index
         # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = x[:, 5].long()
@@ -43,7 +51,10 @@ class PDE_N11(pyg.nn.MessagePassing):
 
         msg = torch.matmul(self.W, self.phi(u))
 
-        du = -c*u + g * msg
+        if self.has_oscillations:
+            du = -c*u + g * msg + self.e * torch.cos(self.w*frame/(2*np.pi))
+        else:
+            du = -c*u + g * msg
 
         return du
 

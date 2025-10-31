@@ -1177,6 +1177,8 @@ def data_generate_synaptic(
                     (y,p,) = model(dataset, has_field=False)
                 elif "PDE_N7" in model_config.signal_model_name:
                     (y,p,) = model(dataset, has_field=False)
+                elif "PDE_N11" in model_config.signal_model_name:
+                    y = model(dataset, has_field=False, frame=it)
                 else:
                     y = model(dataset, has_field=False)
 

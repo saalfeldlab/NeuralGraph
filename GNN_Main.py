@@ -12,6 +12,7 @@ from sklearn import metrics
 from tifffile import imread
 from torch_geometric.loader import DataLoader
 from torch_geometric.utils.convert import to_networkx
+
 from scipy.optimize import curve_fit
 from scipy.spatial import Delaunay
 from torchvision.transforms import GaussianBlur
@@ -56,11 +57,11 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = 'None' 
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'generate'  # 'generate', 'train', 'test'
 
         # config_list = ['fly_N9_64_1_8', 'fly_N9_64_1_9', 'fly_N9_64_2_8', 'fly_N9_64_2_9', 'fly_N9_64_3_6', 'fly_N9_64_3_7', 'fly_N9_64_3_7_1', 'fly_N9_64_3_7_2', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_7']  # for quick test
         
-        config_list = ['fly_N9_65_5']  # for quick test
+        config_list = ['signal_N11_2_1'] 
 
 
     for config_file_ in config_list:
