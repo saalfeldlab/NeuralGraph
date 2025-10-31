@@ -209,7 +209,8 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
     # Initialize datasets
     if "DAVIS" in visual_input_type or "mixed" in visual_input_type:
-        datavis_root = "/groups/saalfeld/home/allierc/signaling/DATAVIS/JPEGImages/480p"
+        datavis_root = os.path.join(get_datavis_root_dir(), "JPEGImages/480p")
+        assert os.path.exists(datavis_root)
         davis_config = {
             "root_dir": datavis_root,
             "n_frames": 50,

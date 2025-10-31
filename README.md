@@ -55,3 +55,7 @@ Then, you should be able to import all the modules from the package in python:
 ```python
 from NeuralGraph import *
 ```
+The entry point for the code is to run `python GNN_Main.py` and there are
+hard-coded references to paths in `/groups/saalfeld/...` throughout. See
+[PR #13](https://github.com/saalfeldlab/NeuralGraph/pull/13) for one way to add
+support for running the code on multiple machines.
