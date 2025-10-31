@@ -41,6 +41,9 @@ class SimulationConfig(BaseModel):
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
 
+    oscillation_max_amplitude: float = 1.0
+    oscillation_frequency: float = 5.0
+
     tile_contrast: float = 0.2
     tile_corr_strength: float = 0.0   # correlation knob for tile_mseq / tile_blue_noise
     tile_flip_prob: float = 0.05      # per-frame random flip probability

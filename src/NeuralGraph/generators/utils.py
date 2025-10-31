@@ -51,7 +51,7 @@ def choose_model(config=[], W=[], device=[]):
         case 'PDE_N7':
             model = PDE_N7(aggr_type=aggr_type, p=p, W=W, phi=phi, short_term_plasticity_mode = short_term_plasticity_mode)
         case 'PDE_N11':
-            model = PDE_N11(aggr_type=aggr_type, p=p, W=W, phi=phi)
+            model = PDE_N11(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, device=device)
 
 
 
