@@ -4838,7 +4838,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
                             linewidth=1, alpha=0.1)
             plt.xlabel('$v_j$', fontsize=48)
-            plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
+            plt.ylabel(r'$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.xlim([-1,2.5])
@@ -4884,7 +4884,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 else:
                     slopes_lin_edge_list.append(1)
             plt.xlabel('$v_j$', fontsize=48)
-            plt.ylabel('$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
+            plt.ylabel(r'$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.xlim([-1,5])
@@ -4925,7 +4925,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 plt.xlim([-2.5,2.5])
                 plt.ylim([-100,100])
                 plt.xlabel('$v_i$', fontsize=48)
-                plt.ylabel('$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
+                plt.ylabel(r'$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
                 plt.xticks(fontsize=24)
                 plt.yticks(fontsize=24)
                 plt.tight_layout()
@@ -4961,7 +4961,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.xlim(config.plotting.xlim)
             plt.ylim(config.plotting.ylim)
             plt.xlabel('$v_i$', fontsize=48)
-            plt.ylabel('$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
+            plt.ylabel(r'$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.text(0.05, 0.95, f"N: {n_neurons}",
@@ -5078,7 +5078,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     plt.xlim(config.plotting.xlim)
                     plt.ylim(config.plotting.ylim)
                     plt.xlabel('$v_i$', fontsize=48)
-                    plt.ylabel('$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
+                    plt.ylabel(r'$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
 
                     # Calculate mean tau and V_rest values for neurons of this type
                     type_gt_taus = gt_taus[neurons_of_type]
@@ -5126,8 +5126,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
-            plt.xlabel('true $\mathbf{W}_{ij}$', fontsize=48)
-            plt.ylabel('learned $\widehat{\mathbf{W}}_{ij}$', fontsize=48)
+            plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
+            plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}$', fontsize=48)
             plt.xticks(fontsize = 24)
             plt.yticks(fontsize = 24)
             plt.tight_layout()
@@ -5290,8 +5290,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 plt.text(0.05, 0.95,
                         f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
                         transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
-                plt.xlabel('true $\mathbf{W}_{ij}$', fontsize=48)
-                plt.ylabel('learned $\widehat{\mathbf{W}}_{ij}r_j$', fontsize=48)
+                plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
+                plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}r_j$', fontsize=48)
                 plt.xticks(fontsize = 24)
                 plt.yticks(fontsize = 24)
                 plt.tight_layout()
@@ -5309,7 +5309,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.text(0.05, 0.95,
                      f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
-            plt.xlabel('true $\mathbf{W}_{ij}$', fontsize=48)
+            plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
             # plt.ylabel(r'learned -$\widehat{\mathbf{W}}_{ij} \, g_i r_j \, \widehat{\tau}_i$', fontsize=48)
             plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}^*$', fontsize=48)
             plt.xticks(fontsize = 24)
@@ -6663,7 +6663,7 @@ def create_lin_phi_subplot(fig, model, config, n_neurons, mu_activity, sigma_act
     ax.set_xlim(config.plotting.xlim)
     ax.set_ylim(config.plotting.ylim)
     ax.set_xlabel('$v_i$', fontsize=32)
-    ax.set_ylabel('learned $\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=32)
+    ax.set_ylabel(r'learned $\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=32)
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
@@ -6692,7 +6692,7 @@ def create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_ac
     ax.set_xlim(config.plotting.xlim)
     ax.set_ylim([-config.plotting.xlim[1] / 10, config.plotting.xlim[1] * 1.2])
     ax.set_xlabel('$v_i$', fontsize=32)
-    ax.set_ylabel('learned $\mathrm{MLP_1}(\mathbf{a}_j, v_i)$', fontsize=32)
+    ax.set_ylabel(r'learned $\mathrm{MLP_1}(\mathbf{a}_j, v_i)$', fontsize=32)
     ax.tick_params(axis='both', which='major', labelsize=24)
 
 
@@ -6739,7 +6739,7 @@ def create_vrest_subplot(fig, slopes_lin_phi_list, offsets_list, gt_V_Rest, n_ne
     ax.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest_numpy)}',
             transform=ax.transAxes, verticalalignment='top', fontsize=24)
     ax.set_xlabel('true $V_{rest}$', fontsize=32)
-    ax.set_ylabel('learned $\widehat{V}_{rest}$', fontsize=32)
+    ax.set_ylabel(r'learned $\widehat{V}_{rest}$', fontsize=32)
     ax.set_xlim([-0.05, 0.9])
     ax.set_ylim([-0.05, 0.9])
     ax.tick_params(axis='both', which='major', labelsize=24)
