@@ -33,6 +33,9 @@ class PDE_N9(pyg.nn.MessagePassing):
         self.model_type = model_type
         self.device = device
 
+        for key in self.p:
+            self.p[key] = self.p[key].to(device)
+
         if 'multiple_ReLU' in model_type:
             if n_neuron_types is None:
                 raise ValueError("n_neuron_types must be provided for multiple_ReLU model type")

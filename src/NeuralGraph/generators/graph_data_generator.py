@@ -315,8 +315,6 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     config_net = get_default_config(overrides=[], path=f"{CONFIG_PATH}/network/network.yaml")
     config_net.connectome.extent = extent
     net = Network(**config_net)
-    print(f"DEBUG: {config_net=}")
-    print(f"DEBUG: {CONFIG_PATH=}")
     nnv = NetworkView(f"flow/{ensemble_id}/{model_id}")
     trained_net = nnv.init_network(checkpoint=0)
     net.load_state_dict(trained_net.state_dict())
