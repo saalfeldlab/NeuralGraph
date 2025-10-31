@@ -2243,3 +2243,19 @@ def compute_trace_metrics(true, pred, label=""):
 
 
     return rmse, pearson, feve
+
+
+def get_datavis_root_dir() -> str:
+    """Location of downloaded DAVIS data.
+
+    Defaults to /groups/saalfeld/... location but allows for override with
+    environment variable DATAVIS_ROOT.
+    """
+
+    datavis_root = os.environ.get(
+            "DATAVIS_ROOT", "/groups/saalfeld/home/allierc/signaling/DATAVIS"
+        )
+    assert os.path.exists(datavis_root), f"DAVIS data missing at path {datavis_root}. \
+Specify environment variable $DATAVIS_ROOT, e.g., \
+DATAVIS_ROOT = \"${{USER}}/Downloads/DATAVIS"
+    return datavis_root
