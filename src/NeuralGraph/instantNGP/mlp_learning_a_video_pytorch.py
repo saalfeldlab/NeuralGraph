@@ -16,6 +16,10 @@ def calculate_psnr(img1, img2, max_val=1.0):
     psnr = 20 * np.log10(max_val / np.sqrt(mse))
     return psnr
 
+def count_parameters(model):
+    """Count the number of learnable parameters in a model"""
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def read_video(filename):
     """Read multi-frame TIFF as (T, H, W, C) array in [0,1]"""
     img = PILImage.open(filename)
@@ -67,8 +71,8 @@ class Video(torch.nn.Module):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("video", nargs="?", default="dolphins.tif")
-    parser.add_argument("config", nargs="?", default="config_hash_video.json")
-    parser.add_argument("n_steps", nargs="?", type=int, default=100000)
+    parser.add_argument("config", nargs="?", default="config_hash_video composite.json")
+    parser.add_argument("n_steps", nargs="?", type=int, default=31000)
     args = parser.parse_args()
     
     device = torch.device("cuda")
@@ -91,11 +95,19 @@ if __name__ == "__main__":
         network_config=config["network"]
     ).to(device)
     
+    # Print model information
+    n_params = count_parameters(model)
+    print (f'{args.config}')
+    print(f"model has {n_params:,} learnable parameters")
+    print(f"video shape: {video.shape} (T={T}, H={H}, W={W}, C={C}) = {T*H*W*C:,} values")
+    
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     batch_size = 2**20
+
+
     
-    for i in trange(args.n_steps, ncols=150):
+    for i in trange(args.n_steps, ncols=80):
         batch = torch.rand([batch_size, 3], device=device)
         targets = video(batch)
         output = model(batch)
@@ -105,8 +117,7 @@ if __name__ == "__main__":
         optimizer.step()
 
         if (i+1) % 10000 == 0:
-            print(f"step {i+1}/{args.n_steps}, loss: {loss.item():.6f}")
-    
+
             # Save result
             t_coords = torch.linspace(0.5/T, 1-0.5/T, T, device=device)
             y_coords = torch.linspace(0.5/H, 1-0.5/H, H, device=device)
@@ -125,10 +136,7 @@ if __name__ == "__main__":
             result_stack = np.stack(result_frames)
             write_video(result_path, result_stack)
     
-    # Calculate PSNR between ground truth and reconstruction
-    ground_truth = video.data.cpu().numpy()
-    psnr_db = calculate_psnr(ground_truth, result_stack)
-    
-    print(f"Final loss: {loss.item():.6f}")
-    print(f"PSNR: {psnr_db:.2f} dB")
-    print(f"Result saved to: {result_path}")
+            # Calculate PSNR between ground truth and reconstruction
+            ground_truth = video.data.cpu().numpy()
+            psnr_db = calculate_psnr(ground_truth, result_stack)
+            print(f"step {i+1}/{args.n_steps}, loss: {loss.item():.6f}, PSNR: {psnr_db:.2f} dB")

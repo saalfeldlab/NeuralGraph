@@ -109,8 +109,8 @@ if __name__ == "__main__":
     
     # 32 configs: 4×2×4 = 32
     n_levels_opts = [16, 20, 24, 28]
-    log2_hash_opts = [15, 19]
-    n_neurons_opts = [64, 128, 256]
+    log2_hash_opts = [15, 19, 23, 27]
+    n_neurons_opts = [64, 128]
     
     results = []
     total = len(list(itertools.product(n_levels_opts, log2_hash_opts, n_neurons_opts)))
