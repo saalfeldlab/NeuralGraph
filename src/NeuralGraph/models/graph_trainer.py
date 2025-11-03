@@ -18,7 +18,6 @@ from NeuralGraph.models.utils import (
     increasing_batch_size,
     constant_batch_size,
     set_trainable_parameters,
-    set_trainable_parameters_vae,
     get_in_features_update,
     get_in_features_lin_edge,
     analyze_edge_function,
@@ -57,7 +56,6 @@ from NeuralGraph.models.utils_zebra import (
     plot_field_discrete_xy_slices_grid,
 )
 
-from NeuralGraph.models.Calcium_Latent_Dynamics import Calcium_Latent_Dynamics
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.fitting_models import linear_model
 
@@ -111,9 +109,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     print(f"\033[92mdevice: {config.description}\033[0m")
 
     if 'fly' in config.dataset:
-        if config.simulation.calcium_type != 'none':
-            data_train_flyvis_calcium(config, erase, best_model, device)
-        elif 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
+        if 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
             data_train_flyvis_RNN(config, erase, best_model, device)
         else:
             data_train_flyvis(config, erase, best_model, device)
