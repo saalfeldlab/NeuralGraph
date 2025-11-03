@@ -40,6 +40,11 @@ conda env create -f envs/environment.linux.yaml
 conda activate neural-graph-linux
 ```
 
+Install tiny-cuda-nn manually
+```
+pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+```
+
 Install the package by executing the following command from the root of this directory:
 ```
 pip install -e .
