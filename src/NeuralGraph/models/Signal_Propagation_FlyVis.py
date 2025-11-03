@@ -99,20 +99,31 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         )
 
         if 'visual' in model_config.field_type:
-            self.NNR_f = Siren(in_features=model_config.input_size_nnr_f, out_features=model_config.output_size_nnr_f,
-                        hidden_features=model_config.hidden_dim_nnr_f,
-                        hidden_layers=model_config.n_layers_nnr_f, first_omega_0=model_config.omega_f,
-                        hidden_omega_0=model_config.omega_f,
-                        outermost_linear=model_config.outermost_linear_nnr_f)
-            self.NNR_f.to(self.device)
 
-            self.NNR_f_xy_period = model_config.nnr_f_xy_period / (2*np.pi)
-            self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
+            if 'instantNGP' in model_config.field_type:
+                # to be implemented
+                pass
+            else:
+                print('use NNR for visual field reconstruction')
+                self.NNR_f = Siren(in_features=model_config.input_size_nnr_f, out_features=model_config.output_size_nnr_f,
+                            hidden_features=model_config.hidden_dim_nnr_f,
+                            hidden_layers=model_config.n_layers_nnr_f, first_omega_0=model_config.omega_f,
+                            hidden_omega_0=model_config.omega_f,
+                            outermost_linear=model_config.outermost_linear_nnr_f)
+                self.NNR_f.to(self.device)
+
+                self.NNR_f_xy_period = model_config.nnr_f_xy_period / (2*np.pi)
+                self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
 
     def forward_visual(self, x=[], k = []):
-        kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
-        in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, kk / self.NNR_f_T_period), dim=1)
-        reconstructed_field = self.NNR_f(in_features[:self.n_input_neurons]) ** 2
+
+        if 'instantNGP' in model_config.field_type:
+            # to be implemented
+            pass
+        else:
+            kk = torch.full((x.size(0), 1), float(k), device=self.device, dtype=torch.float32)
+            in_features = torch.cat((x[:,1:1+self.dimension] / self.NNR_f_xy_period, kk / self.NNR_f_T_period), dim=1)
+            reconstructed_field = self.NNR_f(in_features[:self.n_input_neurons]) ** 2
 
         return reconstructed_field
 

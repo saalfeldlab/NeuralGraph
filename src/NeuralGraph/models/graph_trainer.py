@@ -889,7 +889,10 @@ def data_train_flyvis(config, erase, best_model, device):
 
     if 'visual' in field_type:
         has_visual_field = True
-        print('train with visual field NNR')
+        if 'instantNGP' in field_type:
+            print('train with visual field instantNGP')
+        else:
+            print('train with visual field NNR')
     else:
         has_visual_field = False
     if 'test' in field_type:
@@ -1751,6 +1754,7 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
             logger.info(f"Learning rate decreased to {param_group['lr']}")
 
 
+
 def data_train_zebra(config, erase, best_model, device):
     simulation_config = config.simulation
     train_config = config.training
@@ -2059,6 +2063,7 @@ def data_train_zebra(config, erase, best_model, device):
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
         plt.close()
+
 
 
 def data_train_zebra_fluo(config, erase, best_model, device):
