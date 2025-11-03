@@ -37,7 +37,7 @@ class PDE_N11(pyg.nn.MessagePassing):
         self.has_oscillations = (config.simulation.visual_input_type == 'oscillatory')
 
     def forward(self, data=[], has_field=False, data_id=[], frame=[]):
-        x, edge_index = data.x, data.edge_index
+        x, _edge_index = data.x, data.edge_index
         # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = x[:, 5].long()
         parameters = self.p[neuron_type]
@@ -70,6 +70,6 @@ class PDE_N11(pyg.nn.MessagePassing):
             return self.phi(u)
 
         elif function=='update':
-            g, c = self.p[type, 0:1], self.p[type, 1:2]
+            _g, c = self.p[type, 0:1], self.p[type, 1:2]
             return -c * u
 

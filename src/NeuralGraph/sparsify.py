@@ -82,7 +82,7 @@ def sparsify_cluster(cluster_method, proj_interaction, embedding, cluster_distan
         if len(pos) > 0:
             tmp = labels[pos[:,0]]
             label_list.append(np.round(np.median(tmp)))
-            pos_ = np.argwhere(labels == np.median(tmp))
+            np.argwhere(labels == np.median(tmp))
 
     label_list = np.array(label_list)
 

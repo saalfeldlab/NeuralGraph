@@ -779,7 +779,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                 ax = axes_flat[panel_idx]
 
                                 if type_idx is None:
-                                    stimulus_scatter = ax.scatter(to_numpy(X1[:n_input_neurons, 0]),
+                                    ax.scatter(to_numpy(X1[:n_input_neurons, 0]),
                                                                   to_numpy(X1[:n_input_neurons, 1]), s=64,
                                                                   c=to_numpy(x[:n_input_neurons, 4]), cmap="viridis",
                                                                   vmin=0, vmax=1.05, marker='h', alpha=1.0, linewidths=0.0,
@@ -793,21 +793,21 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                         type_voltages = to_numpy(x[type_mask, 3])
                                         hex_positions_x = to_numpy(X1[:type_count, 0])
                                         hex_positions_y = to_numpy(X1[:type_count, 1])
-                                        neural_scatter = ax.scatter(hex_positions_x, hex_positions_y, s=72, c=type_voltages,
+                                        ax.scatter(hex_positions_x, hex_positions_y, s=72, c=type_voltages,
                                                                     cmap='viridis', vmin=-2, vmax=2, marker='h', alpha=1,
                                                                     linewidths=0.0, edgecolors='black')
                                         if type_name.startswith('R'):
-                                            title_color = 'yellow'
+                                            pass
                                         elif type_name.startswith(('L', 'Lawf')):
-                                            title_color = 'cyan'
+                                            pass
                                         elif type_name.startswith(('Mi', 'Tm', 'TmY')):
-                                            title_color = 'orange'
+                                            pass
                                         elif type_name.startswith('T'):
-                                            title_color = 'red'
+                                            pass
                                         elif type_name.startswith('C'):
-                                            title_color = 'magenta'
+                                            pass
                                         else:
-                                            title_color = 'white'
+                                            pass
                                         ax.set_title(f'{type_name}', fontsize=18, color='white', pad=8, y=0.95)
                                     else:
                                         ax.text(0.5, 0.5, f'No {type_name}\nNeurons', transform=ax.transAxes, ha='center',
@@ -872,12 +872,12 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14',
         59: 'TmY15', 60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
     }
-    sorted_neuron_type_names = [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
+    [index_to_name.get(i, f'Type{i}') for i in range(n_neuron_types)]
 
     activity = torch.tensor(x_list[:, :, 3:4], device=device)
     activity = activity.squeeze().t()
-    mu_activity = torch.mean(activity, dim=1)
-    sigma_activity = torch.std(activity, dim=1)
+    torch.mean(activity, dim=1)
+    torch.std(activity, dim=1)
 
     target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30']
     type_list = torch.tensor(x[:, 6:7], device=device)
@@ -983,7 +983,7 @@ def data_generate_synaptic(
     dataset_name = config.dataset
     noise_model_level = training_config.noise_model_level
     measurement_noise_level = training_config.measurement_noise_level
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
 
     field_type = model_config.field_type
     if field_type != "":
@@ -1218,7 +1218,7 @@ def data_generate_synaptic(
                 id_fig += 1
 
                 if "visual" in field_type:
-                    fig = plt.figure(figsize=(8, 8))
+                    plt.figure(figsize=(8, 8))
                     plt.axis("off")
                     plt.subplot(211)
                     plt.axis("off")
@@ -1275,7 +1275,7 @@ def data_generate_synaptic(
                     plt.close()
 
                 elif "modulation" in field_type:
-                    fig = plt.figure(figsize=(12, 12))
+                    plt.figure(figsize=(12, 12))
                     plt.subplot(221)
                     plt.scatter(
                         to_numpy(X1[:, 1]),

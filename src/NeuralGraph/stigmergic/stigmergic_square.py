@@ -121,7 +121,7 @@ def draw_frame(ep, q_vec):
     for ei in keep:
         u,v = edges[ei]
         nodes_fg.add(u); nodes_fg.add(v)
-    nodes_bg = [n for n in G.nodes if n not in nodes_fg]
+    [n for n in G.nodes if n not in nodes_fg]
     edges_bg = [e for i,e in enumerate(edges) if i not in keep]
 
     plt.figure(figsize=(8,6))

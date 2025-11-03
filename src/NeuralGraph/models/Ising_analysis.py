@@ -626,7 +626,7 @@ def entropy_exact_ising(S, max_iter=200, lr=1.0, lam=0.0, tol=1e-6, logbase=2.0,
     for it in range(1, max_iter+1):
         # Compute model stats and log-likelihood for monitoring
         p, _, logZ = model_probs(h, J, X)
-        m_mod = p @ X
+        p @ X
         C_mod = np.tensordot(p, X[:, :, None] * X[:, None, :], axes=(0,0))
         np.fill_diagonal(C_mod, 1.0)
 

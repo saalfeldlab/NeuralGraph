@@ -194,7 +194,6 @@ def get_in_features(rr=None, embedding=None, model=[], model_name = [], max_radi
 def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list,
                          gt_weights, n_neurons=None, n_neuron_types=None):
     signal_model_name = config.graph_model.signal_model_name
-    n_input_neurons = config.simulation.n_input_neurons
 
     if n_neurons is None:
         n_neurons = len(type_list)
@@ -203,7 +202,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.style.use('default')
 
     # Plot 1: Embedding scatter plot
-    fig = plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 8))
     for n in range(n_neuron_types):
         pos = torch.argwhere(type_list == n)
         plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=5, color=cmap.color(n), alpha=0.7, edgecolors='none')
@@ -226,7 +225,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
 
 
     # Plot 2: Weight comparison scatter plot
-    fig = plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 8))
 
     plt.scatter(to_numpy(gt_weights), to_numpy(model.W.squeeze()), s=0.1, c='k', alpha=0.01)
     plt.xlabel(r'true $W_{ij}$', fontsize=18)
@@ -240,7 +239,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.close()
 
     # Plot 3: Edge function visualization
-    fig = plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 8))
     rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
     for n in range(n_neurons):
         embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
@@ -262,7 +261,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.close()
 
     # Plot 4: Phi function visualization
-    fig = plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 8))
     for n in range(n_neurons):
         embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
         if ('PDE_N9_C' in signal_model_name):
@@ -350,7 +349,6 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         plt.close()
 
     if ('PDE_N8' in config.graph_model.signal_model_name):
-        dataset = config.dataset
         os.makedirs(f"./{log_dir}/tmp_training/matrix/larynx", exist_ok=True)
         data_folder_name = f'./graphs_data/{config.dataset}/'
         with open(data_folder_name+"all_neuron_list.json", "r") as f:
@@ -613,23 +611,23 @@ def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, m
         prediction = model_missing_activity[0](t)
         prediction = prediction.t()
         fig = plt.figure(figsize=(16, 16))
-        ax = fig.add_subplot(2, 2, 1)
+        fig.add_subplot(2, 2, 1)
         plt.title('neural field')
         plt.imshow(to_numpy(prediction), aspect='auto', cmap='viridis')
-        ax = fig.add_subplot(2, 2, 2)
+        fig.add_subplot(2, 2, 2)
         plt.title('true activity')
         activity = torch.tensor(x_list[0][:, :, 6:7], device=device)
         activity = activity.squeeze()
         activity = activity.t()
         plt.imshow(to_numpy(activity), aspect='auto', cmap='viridis')
         plt.tight_layout()
-        ax = fig.add_subplot(2, 2, 3)
+        fig.add_subplot(2, 2, 3)
         plt.title('learned missing activity')
         pos = np.argwhere(x_list[0][k][:, 6] != baseline_value)
         prediction_ = prediction.clone().detach()
         prediction_[pos[:,0]]=0
         plt.imshow(to_numpy(prediction_), aspect='auto', cmap='viridis')
-        ax = fig.add_subplot(2, 2, 4)
+        fig.add_subplot(2, 2, 4)
         plt.title('learned observed activity')
         pos = np.argwhere(x_list[0][k][:, 6] == baseline_value)
         prediction_ = prediction.clone().detach()
@@ -1017,7 +1015,6 @@ def analyze_odor_responses_by_neuron(model, x_list, edges, n_runs, n_frames, tim
 
     # Store responses: difference between excitation and baseline
     odor_responses = {odor: [] for odor in odor_list}
-    embeddings_by_neuron = []
     valid_samples = 0
 
     model.eval()
@@ -1553,7 +1550,7 @@ def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', y
     # Fit linear model
     lin_fit, _ = curve_fit(linear_model, w_true_np, w_modified_np)
     slope = lin_fit[0]
-    offset = lin_fit[1]
+    lin_fit[1]
     # R2 calculation
     residuals = w_modified_np - linear_model(w_true_np, *lin_fit)
     ss_res = np.sum(residuals ** 2)

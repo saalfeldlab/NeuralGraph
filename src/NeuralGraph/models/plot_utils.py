@@ -415,7 +415,7 @@ def analyze_embedding_space(model, n_neurons=300):
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
     # 1. Embedding scatter plot
-    scatter = axes[0].scatter(embedding[:, 0], embedding[:, 1],
+    axes[0].scatter(embedding[:, 0], embedding[:, 1],
                               c=np.arange(n_neurons), cmap='tab10', alpha=0.7)
     axes[0].set_xlabel('Embedding Dimension 1')
     axes[0].set_ylabel('Embedding Dimension 2')
@@ -584,7 +584,7 @@ def analyze_mlp_phi_embedding(model, n_neurons=300, signal_range=(0, 10), resolu
 
     # Store outputs for each embedding dimension
     all_outputs_emb1 = torch.zeros(n_sample_pairs, resolution, device=device)
-    all_outputs_emb2 = torch.zeros(n_sample_pairs, resolution, device=device)
+    torch.zeros(n_sample_pairs, resolution, device=device)
 
     # Process in batches
     batch_size = 50
@@ -654,7 +654,7 @@ def analyze_mlp_phi_embedding(model, n_neurons=300, signal_range=(0, 10), resolu
         output_grid[i, :] = phi_output.squeeze()
 
     output_grid_np = output_grid.cpu().numpy()
-    u_vals_np = u_vals.cpu().numpy()
+    u_vals.cpu().numpy()
     emb_vals_np = emb_vals.cpu().numpy()
 
     # Create 2D heatmap
@@ -700,7 +700,7 @@ def compute_separation_index(connectivity_neurons, odor_responsive_neurons):
     overlap = connectivity_set.intersection(odor_set)
 
     # Compute separation metrics
-    total_unique = len(connectivity_set.union(odor_set))
+    len(connectivity_set.union(odor_set))
     overlap_count = len(overlap)
     min_set_size = min(len(connectivity_set), len(odor_set))
 
@@ -1104,7 +1104,7 @@ def plot_architecture_analysis_summary(architecture_analysis, hub_analysis, path
         neurons_type1 = [item[0] for item in hub_analysis[arch_types[0]]['top_10_neurons']]
         freq_type1 = [item[1]['frequency'] for item in hub_analysis[arch_types[0]]['top_10_neurons']]
 
-        neurons_type2 = [item[0] for item in hub_analysis[arch_types[1]]['top_10_neurons']]
+        [item[0] for item in hub_analysis[arch_types[1]]['top_10_neurons']]
         freq_type2 = [item[1]['frequency'] for item in hub_analysis[arch_types[1]]['top_10_neurons']]
 
         x_pos = np.arange(len(neurons_type1))

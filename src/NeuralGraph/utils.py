@@ -184,15 +184,15 @@ def norm_area(xx, device):
 def norm_velocity(xx, dimension, device):
     if dimension == 2:
         vx = torch.std(xx[:, 3])
-        vy = torch.std(xx[:, 4])
+        torch.std(xx[:, 4])
         nvx = np.array(xx[:, 3].detach().cpu())
         vx01, vx99 = symmetric_cutoff(nvx)
         nvy = np.array(xx[:, 4].detach().cpu())
         vy01, vy99 = symmetric_cutoff(nvy)
     else:
         vx = torch.std(xx[:, 4])
-        vy = torch.std(xx[:, 5])
-        vz = torch.std(xx[:, 6])
+        torch.std(xx[:, 5])
+        torch.std(xx[:, 6])
         nvx = np.array(xx[:, 4].detach().cpu())
         vx01, vx99 = symmetric_cutoff(nvx)
         nvy = np.array(xx[:, 5].detach().cpu())
@@ -221,7 +221,7 @@ def norm_position(xx, dimension, device):
 
 def norm_acceleration(yy, device):
     ax = torch.std(yy[:, 0])
-    ay = torch.std(yy[:, 1])
+    torch.std(yy[:, 1])
     nax = np.array(yy[:, 0].detach().cpu())
     ax01, ax99 = symmetric_cutoff(nax)
     nay = np.array(yy[:, 1].detach().cpu())
@@ -749,7 +749,7 @@ def check_and_clear_memory(
     """
 
     if device and 'cuda' in device:
-        logger = logging.getLogger(__name__)
+        logging.getLogger(__name__)
 
         if (iteration_number % every_n_iterations == 0):
 
@@ -1153,7 +1153,6 @@ def find_average_spatial_neighbors(filtered_time_series, track_info_dict, max_ra
     print(f"computing distances for {len(track_ids)} filtered tracks...")
 
     # Your distance calculation approach (adapted)
-    dimension = 2  # y, x coordinates
     distance = torch.sum((positions[:, None, :] - positions[None, :, :]) ** 2, dim=2)
 
     # Create adjacency matrix
@@ -1677,7 +1676,7 @@ def visualize_network_leader_follower(G, network_scores, track_positions, save_p
 
     # Draw nodes with categories
     node_positions = np.array([[pos[node][1], pos[node][0]] for node in G.nodes()])
-    scatter = ax.scatter(node_positions[:, 0], node_positions[:, 1],
+    ax.scatter(node_positions[:, 0], node_positions[:, 1],
                          c=node_colors, s=node_sizes,
                          alpha=0.8, edgecolors='None')
 
@@ -1688,7 +1687,7 @@ def visualize_network_leader_follower(G, network_scores, track_positions, save_p
     ax.set_aspect('equal')
 
     # Add legend for categories
-    legend_elements = [
+    [
         patches.Patch(color='#FF4444', label=f'Leaders ({np.sum(np.array(categories) == "leader")})'),
         patches.Patch(color='#4444FF', label=f'Followers ({np.sum(np.array(categories) == "follower")})'),
         patches.Patch(color='#AA44AA', label=f'Mixed ({np.sum(np.array(categories) == "mixed")})'),
@@ -1698,7 +1697,7 @@ def visualize_network_leader_follower(G, network_scores, track_positions, save_p
 
     # Add network statistics
     total_possible_pairs = G.number_of_nodes() * (G.number_of_nodes() - 1) // 2
-    causal_percentage = (G.number_of_edges() / total_possible_pairs) * 100 if total_possible_pairs > 0 else 0
+    (G.number_of_edges() / total_possible_pairs) * 100 if total_possible_pairs > 0 else 0
 
 #     stats_text = f"""network statistics:
 # nodes: {G.number_of_nodes()}

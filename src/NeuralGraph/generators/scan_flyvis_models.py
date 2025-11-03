@@ -245,7 +245,7 @@ def main():
         transform_mode="graph",
         verbose=True
     )
-    emb2 = reducer.fit_transform(W)
+    reducer.fit_transform(W)
 
     out = Path(args.out_prefix)
     out.parent.mkdir(parents=True, exist_ok=True) 

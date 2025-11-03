@@ -158,7 +158,7 @@ def train_volterra_model(noise_level=0.0, verbose=True, random_seed=None):
     T = 60  # total time to see oscillations
     dt = 0.01  # time step
     n_steps = int(T / dt)
-    time = np.linspace(0, T, n_steps)
+    np.linspace(0, T, n_steps)
 
     # Initialize variables
     v = np.zeros(n_steps)  # x (prey/species 1)

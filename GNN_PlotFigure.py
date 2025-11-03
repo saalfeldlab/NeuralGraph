@@ -181,7 +181,6 @@ def plot_confusion_matrix(index, true_labels, new_labels, n_neuron_types, epoch,
 def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
-    data_folder_name = config.data_folder_name
 
     train_config = config.training
     model_config = config.graph_model
@@ -205,7 +204,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         has_field = False
     n_ghosts = int(train_config.n_ghosts)
     has_ghost = n_ghosts > 0
-    is_CElegans = 'CElegans' in dataset_name
 
     x_list = []
     y_list = []
@@ -241,7 +239,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
     activity = torch.tensor(x_list[0][:, :, 6:7],device=device)
     activity = activity.squeeze()
-    distrib = to_numpy(activity.flatten())
+    to_numpy(activity.flatten())
     activity = activity.t()
 
     if os.path.exists(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy'):
@@ -292,7 +290,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         modulation = modulation[:, :, 8:9].squeeze()
         modulation = modulation.t()
         modulation = modulation.clone().detach()
-        d_modulation = (modulation[:, 1:] - modulation[:, :-1]) / delta_t
+        (modulation[:, 1:] - modulation[:, :-1]) / delta_t
 
     if epoch_list[0] == 'all':
         files = glob.glob(f"{log_dir}/models/*.pt")
@@ -478,7 +476,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 fig, ax = fig_init()
                 func_list = []
-                config_model = config.graph_model.signal_model_name
                 for n in range(n_neurons):
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     # in_features = torch.cat((rr[:, None], embedding_), dim=1)
@@ -1968,13 +1965,12 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
     n_frames = config.simulation.n_frames
     n_runs = config.training.n_runs
     n_neuron_types = config.simulation.n_neuron_types
-    delta_t = config.simulation.delta_t
     p = config.simulation.params
     omega = model_config.omega
     cmap = CustomColorMap(config=config)
     dimension = config.simulation.dimension
     max_radius = config.simulation.max_radius
-    embedding_cluster = EmbeddingCluster(config)
+    EmbeddingCluster(config)
     field_type = model_config.field_type
     if field_type != '':
         n_nodes = config.simulation.n_nodes
@@ -2081,7 +2077,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
 
                 amax = torch.max(model.a, dim=0).values
                 amin = torch.min(model.a, dim=0).values
-                model_a = (model.a - amin) / (amax - amin)
+                (model.a - amin) / (amax - amin)
 
                 # fig, ax = fig_init()
                 # for n in range(n_neuron_types):
@@ -2814,7 +2810,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     neuron_types_list = ['larynx', 'sensory', 'inter', 'motor', ]
     odor_list = ['butanone', 'pentanedione', 'NaCL']
 
-    black_to_green = LinearSegmentedColormap.from_list('black_green', ['black', 'green'])
+    LinearSegmentedColormap.from_list('black_green', ['black', 'green'])
 
     x_list = []
     y_list = []
@@ -2828,7 +2824,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
             y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
             if os.path.exists(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy'):
-                raw_x = np.load(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy')
+                np.load(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy')
         x_list.append(x)
         y_list.append(y)
     vnorm = torch.load(os.path.join(log_dir, 'vnorm.pt'))
@@ -2840,7 +2836,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     print(f'xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
 
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
-    edges_all = edges.clone().detach()
+    edges.clone().detach()
 
     print('update variables ...')
     x = x_list[0][n_frames - 5]
@@ -2887,7 +2883,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
         modulation = modulation[:, :, 8:9].squeeze()
         modulation = modulation.t()
         modulation = modulation.clone().detach()
-        d_modulation = (modulation[:, 1:] - modulation[:, :-1]) / delta_t
+        (modulation[:, 1:] - modulation[:, :-1]) / delta_t
     else:
         has_field = False
         model_f = None
@@ -3093,8 +3089,6 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     plt.close()
 
                 fig, ax = fig_init()
-                func_list = []
-                config_model = config.graph_model.signal_model_name
                 for n in range(n_neurons):
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
                     # in_features = torch.cat((rr[:, None], embedding_), dim=1)
@@ -3538,10 +3532,10 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 results = run_neural_architecture_pipeline(top_pairs_by_run, odor_responses_by_run, all_neuron_list)
                 results['summary_figure'].savefig(f"./{log_dir}/results/neural_architecture_summary.png",dpi=150, bbox_inches='tight')
                 plt.close()
-                architecture_types = results['architecture_analysis']['architecture_data']
-                hub_neurons = results['hub_analysis']
-                pathway_patterns = results['pathway_analysis']
-                summary_plot = results['summary_figure']
+                results['architecture_analysis']['architecture_data']
+                results['hub_analysis']
+                results['pathway_analysis']
+                results['summary_figure']
                 # Finds neurons that appear in BOTH high connectivity AND high odor responses
                 # These are the "bridge" neurons between detection and integration
                 # TODO: run_preprocessing_analysis is not implemented yet
@@ -4672,15 +4666,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
     n_runs = config.training.n_runs
     n_neurons = config.simulation.n_neurons
     n_neuron_types = config.simulation.n_neuron_types
-    n_input_neurons = config.simulation.n_input_neurons
-    field_type = model_config.field_type
     delta_t = config.simulation.delta_t
     n_edges = config.simulation.n_edges
 
     colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
     colors_65 = colors_65[:65]
 
-    max_radius = config.simulation.max_radius if hasattr(config.simulation, 'max_radius') else 2.5
+    config.simulation.max_radius if hasattr(config.simulation, 'max_radius') else 2.5
     dimension = config.simulation.dimension
 
     log_file = os.path.join(log_dir, 'results.log')
@@ -4705,19 +4697,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
     logger.info(f'experiment description: {config.description}')
 
     # Load neuron group mapping for flyvis
-    group_names = ['R1-R6', 'R7-R8', 'L1-L5', 'Lamina_Inter', 'Mi_Early', 'Mi_Mid', 'Mi_Late',
-                   'Tm_Early', 'Tm5_Family', 'Tm_Mid', 'Tm_Late', 'TmY', 'T4a_Up', 'T4b_Right',
-                   'T4c_Down', 'T4d_Left', 'T5_OFF', 'Tangential', 'Wide_Field', 'Other']
 
-    region_colors = {
-        'Retina': ['R1-R6', 'R7-R8'],
-        'Lamina': ['L1-L5', 'Lamina_Inter'],
-        'Medulla_Mi': ['Mi_Early', 'Mi_Mid', 'Mi_Late'],
-        'Medulla_Tm': ['Tm_Early', 'Tm5_Family', 'Tm_Mid', 'Tm_Late', 'TmY'],
-        'T4_Motion': ['T4a_Up', 'T4b_Right', 'T4c_Down', 'T4d_Left'],
-        'T5_Motion': ['T5_OFF'],
-        'Other': ['Tangential', 'Wide_Field', 'Other']
-    }
     cmap = CustomColorMap(config=config)
 
     if 'black' in style:
@@ -5540,7 +5520,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             results = clustering_gmm(a_aug, type_list, n_components=best_n)
             cluster_labels = GaussianMixture(n_components=best_n, random_state=42).fit_predict(a_aug)
 
-            fig = plt.figure(figsize=(10, 9))
+            plt.figure(figsize=(10, 9))
             ax = plt.gca()
             for spine in ax.spines.values():
                 spine.set_alpha(0.75)
@@ -5579,22 +5559,16 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style, extended, device):
     dataset_name = config.dataset
-    model_config = config.graph_model
-    config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
+    config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
 
     n_frames = config.simulation.n_frames
     n_runs = config.training.n_runs
     n_neurons = config.simulation.n_neurons
-    n_neuron_types = config.simulation.n_neuron_types
-    n_input_neurons = config.simulation.n_input_neurons
-    field_type = model_config.field_type
-    delta_t = config.simulation.delta_t
-    n_edges = config.simulation.n_edges
 
     colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
     colors_65 = colors_65[:65]
 
-    max_radius = config.simulation.max_radius if hasattr(config.simulation, 'max_radius') else 2.5
+    config.simulation.max_radius if hasattr(config.simulation, 'max_radius') else 2.5
     dimension = config.simulation.dimension
 
     log_file = os.path.join(log_dir, 'results.log')
@@ -5619,20 +5593,8 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
     logger.info(f'experiment description: {config.description}')
 
     # Load neuron group mapping for flyvis
-    group_names = ['R1-R6', 'R7-R8', 'L1-L5', 'Lamina_Inter', 'Mi_Early', 'Mi_Mid', 'Mi_Late',
-                   'Tm_Early', 'Tm5_Family', 'Tm_Mid', 'Tm_Late', 'TmY', 'T4a_Up', 'T4b_Right',
-                   'T4c_Down', 'T4d_Left', 'T5_OFF', 'Tangential', 'Wide_Field', 'Other']
 
-    region_colors = {
-        'Retina': ['R1-R6', 'R7-R8'],
-        'Lamina': ['L1-L5', 'Lamina_Inter'],
-        'Medulla_Mi': ['Mi_Early', 'Mi_Mid', 'Mi_Late'],
-        'Medulla_Tm': ['Tm_Early', 'Tm5_Family', 'Tm_Mid', 'Tm_Late', 'TmY'],
-        'T4_Motion': ['T4a_Up', 'T4b_Right', 'T4c_Down', 'T4d_Left'],
-        'T5_Motion': ['T5_OFF'],
-        'Other': ['Tangential', 'Wide_Field', 'Other']
-    }
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
 
     if 'black' in style:
         plt.style.use('dark_background')
@@ -5669,35 +5631,25 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
     # Load data with new format
     # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
     gt_weights = torch.load(f'./graphs_data/{dataset_name}/weights.pt', map_location=device)
-    gt_taus = torch.load(f'./graphs_data/{dataset_name}/taus.pt', map_location=device)
-    gt_V_Rest = torch.load(f'./graphs_data/{dataset_name}/V_i_rest.pt', map_location=device)
+    torch.load(f'./graphs_data/{dataset_name}/taus.pt', map_location=device)
+    torch.load(f'./graphs_data/{dataset_name}/V_i_rest.pt', map_location=device)
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
     true_weights[edges[1], edges[0]] = gt_weights
 
     x = x_list[0][n_frames - 10]
     type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
-    n_types = len(np.unique(to_numpy(type_list)))
+    len(np.unique(to_numpy(type_list)))
     region_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
-    n_region_types = len(np.unique(to_numpy(region_list)))
+    len(np.unique(to_numpy(region_list)))
     n_neurons = len(type_list)
 
     # Neuron type index to name mapping
-    index_to_name = {
-        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
-        10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
-        18: 'Mi15', 19: 'Mi2', 20: 'Mi3', 21: 'Mi4', 22: 'Mi9', 23: 'R1', 24: 'R2', 25: 'R3', 26: 'R4',
-        27: 'R5', 28: 'R6', 29: 'R7', 30: 'R8', 31: 'T1', 32: 'T2', 33: 'T2a', 34: 'T3', 35: 'T4a',
-        36: 'T4b', 37: 'T4c', 38: 'T4d', 39: 'T5a', 40: 'T5b', 41: 'T5c', 42: 'T5d', 43: 'Tm1',
-        44: 'Tm16', 45: 'Tm2', 46: 'Tm20', 47: 'Tm28', 48: 'Tm3', 49: 'Tm30', 50: 'Tm4', 51: 'Tm5Y',
-        52: 'Tm5a', 53: 'Tm5b', 54: 'Tm5c', 55: 'Tm9', 56: 'TmY10', 57: 'TmY13', 58: 'TmY14',
-        59: 'TmY15', 60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'
-    }
 
     activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
     activity = activity.squeeze().t()
-    mu_activity = torch.mean(activity, dim=1)
-    sigma_activity = torch.std(activity, dim=1)
+    torch.mean(activity, dim=1)
+    torch.std(activity, dim=1)
 
     os.makedirs(f'{log_dir}/results/', exist_ok=True)
 
@@ -5707,7 +5659,7 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
         print ('not implemented yet ...')
 
     else:
-        config_indices = config.dataset.split('fly_N9_')[1]
+        config.dataset.split('fly_N9_')[1]
         files, file_id_list = get_training_files(log_dir, n_runs)
 
         for epoch in epoch_list:
@@ -5723,7 +5675,7 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
 
             # Plot 1: Loss curve
             if os.path.exists(os.path.join(log_dir, 'loss.pt')):
-                fig = plt.figure(figsize=(8, 6))
+                plt.figure(figsize=(8, 6))
                 ax = plt.gca()
                 for spine in ax.spines.values():
                     spine.set_alpha(0.75)
@@ -5776,15 +5728,12 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
 
     n_neuron_types = simulation_config.n_neuron_types
     n_neurons = simulation_config.n_neurons
-    n_nodes = simulation_config.n_nodes
     n_runs = training_config.n_runs
     n_frames = simulation_config.n_frames
     delta_t = simulation_config.delta_t
-    time_window = training_config.time_window
-    time_step = training_config.time_step
     plot_batch_size = config.plotting.plot_batch_size
 
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
     dimension = simulation_config.dimension
 
 
@@ -5839,8 +5788,8 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
                 index = np.arange(n_neurons * n // 3, n_neurons * (n + 1) // 3)
                 index_particles.append(index)
                 n_neuron_types = 3
-    ynorm = torch.load(f'{log_dir}/ynorm.pt', map_location=device, weights_only=True)
-    vnorm = torch.load(f'{log_dir}/vnorm.pt', map_location=device, weights_only=True)
+    torch.load(f'{log_dir}/ynorm.pt', map_location=device, weights_only=True)
+    torch.load(f'{log_dir}/vnorm.pt', map_location=device, weights_only=True)
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch_list[0]}.pt"
 
@@ -5857,7 +5806,6 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
     # tail_list = np.array(to_numpy(x_list[0][:,0,11:14]))
     # print (tail_list.shape)
 
-    it_idx = 0
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
     for it in trange(0, min(n_frames,7800), 1, ncols=90):
         x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
@@ -5961,10 +5909,10 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
     end_frame = 500
 
     N_slices = 72
-    z_min = x_list[0][0,:,3:4].min()
-    z_max = x_list[0][0,:,3:4].max()
-    z_thickness = 0.28 / N_slices
-    delta_t_step = delta_t/N_slices
+    x_list[0][0,:,3:4].min()
+    x_list[0][0,:,3:4].max()
+    0.28 / N_slices
+    delta_t/N_slices
 
     for idx, neuron_id in enumerate(neuron_ids):
         if idx >= 20:
@@ -5994,7 +5942,6 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
         if idx == 16:  # Bottom left corner - add axis labels with much larger font
             ax.set_xlabel('frame', fontsize=22)
             ax.set_ylabel('calcium', fontsize=22)
-            n_ticks = 500
             ax.set_xticks([start_frame, (start_frame + end_frame) / 2, end_frame])
 
             # ax.set_xticklabels(['start_frame', 'end_frame'], fontsize=14)
@@ -6403,7 +6350,7 @@ def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_ta
            colors_valid = [neuron_colors[i] for i in range(n_neurons) if valid_mask[i]]
 
            # Plot individual neurons with low alpha
-           scatter = ax.scatter(x_valid, y_valid, c=colors_valid,
+           ax.scatter(x_valid, y_valid, c=colors_valid,
                               alpha=alpha_individual, s=10, edgecolors='none')
 
            # Plot type-averaged values with high visibility
@@ -7769,7 +7716,7 @@ def get_figures(index):
             print('plot figure 1...')
             x = np.load('graphs_data/fly/fly_N9_18_4_0/x_list_0.npy')
             type_list = x[-1,:, 6].astype(int)
-            n_neurons = len(type_list)
+            len(type_list)
 
             selected_types = [5, 12, 19, 23, 31, 35, 39, 43, 50, 55]
             neuron_indices = []

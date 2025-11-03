@@ -205,7 +205,7 @@ def main():
         
         # Sort by different criteria
         by_psnr = sorted(results, key=lambda x: x['psnr'], reverse=True)
-        by_params = sorted(results, key=lambda x: x['params'])
+        sorted(results, key=lambda x: x['params'])
         
         print("\nTop 5 by PSNR (Quality):")
         for i, r in enumerate(by_psnr[:5]):
