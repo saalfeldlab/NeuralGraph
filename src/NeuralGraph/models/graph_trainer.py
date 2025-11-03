@@ -41,6 +41,7 @@ from NeuralGraph.utils import (
     get_equidistant_points,
     open_gcs_zarr,
     compute_trace_metrics,
+    get_datavis_root_dir,
 )
 from NeuralGraph.models.Siren_Network import Siren, Siren_Network
 from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyVis

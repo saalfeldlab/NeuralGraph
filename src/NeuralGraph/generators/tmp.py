@@ -16,7 +16,7 @@ from NeuralGraph.data_loaders import (
     load_RGB_grid_data,
     load_wormvae_data,
 )
-from NeuralGraph.utils import to_numpy, set_size
+from NeuralGraph.utils import to_numpy, set_size, get_datavis_root_dir
 from NeuralGraph.sparsify import sparse_ising_fit_fast
 from tqdm import tqdm
 from sklearn.linear_model import LinearRegression
