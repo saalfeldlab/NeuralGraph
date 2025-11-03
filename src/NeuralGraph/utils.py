@@ -15,7 +15,7 @@ import gc
 from torch import cuda
 import subprocess
 import re
-from tqdm import *
+from tqdm import tqdm
 from scipy.fft import fft, ifft
 import networkx as nx
 from collections import defaultdict
@@ -1703,8 +1703,7 @@ def visualize_network_leader_follower(G, network_scores, track_positions, save_p
     # ax.legend(handles=legend_elements, loc='upper right', fontsize=10)
 
     # Add network statistics
-    total_possible_pairs = len(neighbor_pairs) if 'neighbor_pairs' in locals() else G.number_of_nodes() * (
-                G.number_of_nodes() - 1) // 2
+    total_possible_pairs = G.number_of_nodes() * (G.number_of_nodes() - 1) // 2
     causal_percentage = (G.number_of_edges() / total_possible_pairs) * 100 if total_possible_pairs > 0 else 0
 
 #     stats_text = f"""network statistics:
@@ -1746,7 +1745,7 @@ def run_granger_network_analysis(neighbor_pairs, filtered_time_series, track_pos
     network_scores = compute_network_scores(G)
 
     # Step 5: Visualize
-    visualize_network(G, network_scores, track_positions)
+    visualize_network_leader_follower(G, network_scores, track_positions)
 
     return G, network_scores, significant_pairs
 
@@ -2243,3 +2242,19 @@ def compute_trace_metrics(true, pred, label=""):
 
 
     return rmse, pearson, feve
+
+
+def get_datavis_root_dir() -> str:
+    """Location of downloaded DAVIS data.
+
+    Defaults to /groups/saalfeld/... location but allows for override with
+    environment variable DATAVIS_ROOT.
+    """
+
+    datavis_root = os.environ.get(
+            "DATAVIS_ROOT", "/groups/saalfeld/home/allierc/signaling/DATAVIS"
+        )
+    assert os.path.exists(datavis_root), f"DAVIS data missing at path {datavis_root}. \
+Specify environment variable $DATAVIS_ROOT, e.g., \
+DATAVIS_ROOT = \"${{USER}}/Downloads/DATAVIS"
+    return datavis_root

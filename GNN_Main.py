@@ -24,10 +24,9 @@ from matplotlib.ticker import FuncFormatter
 from prettytable import PrettyTable
 
 from NeuralGraph.config import NeuralGraphConfig
-from NeuralGraph.generators.graph_data_generator import *
-from NeuralGraph.models.graph_trainer import *
-from NeuralGraph.models.Siren_Network import *
-from NeuralGraph.models.utils import *
+from NeuralGraph.generators.graph_data_generator import data_generate
+from NeuralGraph.models.graph_trainer import data_train, data_test
+from NeuralGraph.utils import set_device, add_pre_folder
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
@@ -57,7 +56,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = 'None' 
-        task = 'generate'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['fly_N9_64_1_8', 'fly_N9_64_1_9', 'fly_N9_64_2_8', 'fly_N9_64_2_9', 'fly_N9_64_3_6', 'fly_N9_64_3_7', 'fly_N9_64_3_7_1', 'fly_N9_64_3_7_2', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_7']  # for quick test
         
