@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tifffile import imread
 import torch
-from NeuralGraph.utils import *
+from NeuralGraph.utils import to_numpy
 
 
 class PDE_N9(pyg.nn.MessagePassing):
@@ -32,6 +32,9 @@ class PDE_N9(pyg.nn.MessagePassing):
         self.f = f
         self.model_type = model_type
         self.device = device
+
+        for key in self.p:
+            self.p[key] = self.p[key].to(device)
 
         if 'multiple_ReLU' in model_type:
             if n_neuron_types is None:
