@@ -2,10 +2,19 @@
 import argparse
 import commentjson as json
 import numpy as np
+import os
 import torch
 import tinycudann as tcnn
 from tqdm import trange
 from PIL import Image as PILImage
+
+def calculate_psnr(img1, img2, max_val=1.0):
+    """Calculate PSNR between two images or video sequences"""
+    mse = np.mean((img1 - img2) ** 2)
+    if mse == 0:
+        return float('inf')
+    psnr = 20 * np.log10(max_val / np.sqrt(mse))
+    return psnr
 
 def read_video(filename):
     """Read multi-frame TIFF as (T, H, W, C) array in [0,1]"""
@@ -59,14 +68,21 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("video", nargs="?", default="dolphins.tif")
     parser.add_argument("config", nargs="?", default="config_hash_video.json")
-    parser.add_argument("n_steps", nargs="?", type=int, default=10000)
+    parser.add_argument("n_steps", nargs="?", type=int, default=100000)
     args = parser.parse_args()
     
     device = torch.device("cuda")
-    with open(args.config) as f:
+    
+    # Get script directory and construct paths
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(script_dir, args.config)
+    video_path = os.path.join(script_dir, args.video)
+    result_path = os.path.join(script_dir, "result.tif")
+    
+    with open(config_path) as f:
         config = json.load(f)
     
-    video = Video(args.video, device)
+    video = Video(video_path, device)
     T, H, W, C = video.shape
     
     model = tcnn.NetworkWithInputEncoding(
@@ -76,9 +92,10 @@ if __name__ == "__main__":
     ).to(device)
     
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
     batch_size = 2**20
     
-    for i in trange(args.n_steps):
+    for i in trange(args.n_steps, ncols=150):
         batch = torch.rand([batch_size, 3], device=device)
         targets = video(batch)
         output = model(batch)
@@ -86,20 +103,32 @@ if __name__ == "__main__":
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        if (i+1) % 10000 == 0:
+            print(f"step {i+1}/{args.n_steps}, loss: {loss.item():.6f}")
     
-    # Save result
-    t_coords = torch.linspace(0.5/T, 1-0.5/T, T, device=device)
-    y_coords = torch.linspace(0.5/H, 1-0.5/H, H, device=device)
-    x_coords = torch.linspace(0.5/W, 1-0.5/W, W, device=device)
+            # Save result
+            t_coords = torch.linspace(0.5/T, 1-0.5/T, T, device=device)
+            y_coords = torch.linspace(0.5/H, 1-0.5/H, H, device=device)
+            x_coords = torch.linspace(0.5/W, 1-0.5/W, W, device=device)
+            
+            result_frames = []
+            with torch.no_grad():
+                for t in t_coords:
+                    yv, xv = torch.meshgrid(y_coords, x_coords, indexing='ij')
+                    tv = torch.full_like(xv, t)
+                    xyt = torch.stack([xv.flatten(), yv.flatten(), tv.flatten()], dim=1)
+                    frame = model(xyt).reshape(H, W, C).clamp(0, 1).cpu().numpy()
+                    result_frames.append(frame)
+            
+            # Save result in current working directory
+            result_stack = np.stack(result_frames)
+            write_video(result_path, result_stack)
     
-    result_frames = []
-    with torch.no_grad():
-        for t in t_coords:
-            yv, xv = torch.meshgrid(y_coords, x_coords, indexing='ij')
-            tv = torch.full_like(xv, t)
-            xyt = torch.stack([xv.flatten(), yv.flatten(), tv.flatten()], dim=1)
-            frame = model(xyt).reshape(H, W, C).clamp(0, 1).cpu().numpy()
-            result_frames.append(frame)
+    # Calculate PSNR between ground truth and reconstruction
+    ground_truth = video.data.cpu().numpy()
+    psnr_db = calculate_psnr(ground_truth, result_stack)
     
-    write_video("result.tif", np.stack(result_frames))
     print(f"Final loss: {loss.item():.6f}")
+    print(f"PSNR: {psnr_db:.2f} dB")
+    print(f"Result saved to: {result_path}")
