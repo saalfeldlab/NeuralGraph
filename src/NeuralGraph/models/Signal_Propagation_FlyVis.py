@@ -116,7 +116,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
 
     def forward_visual(self, x=[], k = []):
 
-        if 'instantNGP' in model_config.field_type:
+        if 'instantNGP' in self.field_type:
             # to be implemented
             pass
         else:
@@ -137,7 +137,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             v = data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
         else:
             v = data.x[:, 3:4]
- 
+
         excitation = data.x[:, 4:5]
 
         particle_id = x[:, 0].long()
@@ -149,7 +149,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
 
         in_features = torch.cat([v, embedding, msg, excitation], dim=1)
         pred = self.lin_phi(in_features)
-        
+
         if return_all:
             return pred, in_features, msg
         else:

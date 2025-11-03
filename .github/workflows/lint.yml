@@ -88,4 +88,25 @@ jobs:
       run: |
         source /home/runner/miniconda3/etc/profile.d/conda.sh
         conda activate ${{ env.CONDA_ENV_NAME }}
-        ruff check .
+        ruff check --exclude *.ipynb .
+
+    # Install package in editable mode
+    - name: Install package
+      run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
+        pip install -e .
+
+    # Generate test data
+    - name: Data generate
+      run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
+        timeout 30 python GNN_Main.py -o generate signal_tiny
+
+    # Train model on test data
+    - name: Model train
+      run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
+        timeout 30 python GNN_Main.py -o train signal_tiny

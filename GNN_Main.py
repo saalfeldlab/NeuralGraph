@@ -1,7 +1,5 @@
 import matplotlib
 matplotlib.use('Agg')  # Set non-interactive backend before other imports
-import time
-from shutil import copyfile
 import argparse
 import os
 
