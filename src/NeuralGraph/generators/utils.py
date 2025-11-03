@@ -12,7 +12,7 @@ import torch_geometric.data as data
 import xarray as xr
 from matplotlib import rc
 from NeuralGraph.generators import PDE_N2, PDE_N3, PDE_N4, PDE_N5, PDE_N6, PDE_N7, PDE_N11
-from NeuralGraph.utils import choose_boundary_values, get_equidistant_points, to_numpy, constructRandomMatrices, large_tensor_nonzero
+from NeuralGraph.utils import choose_boundary_values, get_equidistant_points, to_numpy, large_tensor_nonzero
 from scipy import stats
 from scipy.spatial import cKDTree, Delaunay
 from time import sleep
@@ -375,8 +375,10 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
         connectivity = torch.tensor(values, dtype=torch.float32, device=device)
         values=[]
     elif 'tif' in connectivity_file:
-        connectivity = constructRandomMatrices(n_neurons=n_neurons, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
-        n_neurons = connectivity.shape[0]
+        # TODO: constructRandomMatrices function not implemented
+        raise NotImplementedError("constructRandomMatrices function not implemented for tif files")
+        # connectivity = constructRandomMatrices(n_neurons=n_neurons, density=1.0, connectivity_mask=f"./graphs_data/{connectivity_file}" ,device=device)
+        # n_neurons = connectivity.shape[0]
         # TODO: config parameter not passed to this function
         # config.simulation.n_neurons = n_neurons
 
