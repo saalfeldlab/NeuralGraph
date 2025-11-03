@@ -19,7 +19,7 @@ from NeuralGraph.generators.utils import (
     init_connectivity,
     get_equidistant_points,
 )
-from NeuralGraph.utils import to_numpy, set_size, CustomColorMap, check_and_clear_memory
+from NeuralGraph.utils import to_numpy, set_size, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 from scipy import stats
