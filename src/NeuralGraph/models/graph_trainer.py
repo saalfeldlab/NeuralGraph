@@ -10,7 +10,6 @@ import matplotlib as mpl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 import random
 import copy
 
@@ -62,24 +61,16 @@ from NeuralGraph.models.Calcium_Latent_Dynamics import Calcium_Latent_Dynamics
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.fitting_models import linear_model
 
-from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
 
-from torch_geometric.utils import dense_to_sparse, to_networkx
+from torch_geometric.utils import to_networkx
 from torch_geometric.data import Data as pyg_Data
 from torch_geometric.loader import DataLoader
 import torch_geometric as pyg
 import seaborn as sns
-from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.manifold import TSNE
 # denoise_data import not needed - removed star import
-from scipy.spatial import KDTree
-from sklearn import neighbors, metrics
-from scipy.ndimage import median_filter
-from tifffile import imwrite, imread
+from tifffile import imread
 from matplotlib.colors import LinearSegmentedColormap
-from scipy.spatial import cKDTree
-from scipy.special import logsumexp
 from NeuralGraph.generators.utils import choose_model, generate_compressed_video_mp4, init_connectivity
 from NeuralGraph.generators.graph_data_generator import (
     apply_pairwise_knobs_torch,
@@ -93,7 +84,6 @@ from NeuralGraph.generators.davis import AugmentedDavis
 from scipy.stats import pearsonr
 import numpy as np
 import pandas as pd
-import tensorstore as ts
 import napari
 from collections import deque
 from tqdm import tqdm, trange

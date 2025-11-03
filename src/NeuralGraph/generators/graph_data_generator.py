@@ -2,7 +2,6 @@ import glob
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import networkx as nx
 import time
 import torch
 import torch_geometric.data as data
@@ -19,35 +18,18 @@ from NeuralGraph.generators.utils import (
     init_connectivity,
     get_equidistant_points,
 )
-from NeuralGraph.utils import to_numpy, set_size, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
-from scipy import stats
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from matplotlib.patches import Polygon
-from matplotlib.collections import PatchCollection
+from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
-import tifffile
 from tqdm import tqdm, trange
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from pathlib import Path
 import os
 
 # from fa2_modified import ForceAtlas2
 # import h5py as h5
 # import zarr
 # import xarray as xr
-import pandas as pd
-import tables
 import torch_geometric as pyg
-import torch_geometric.utils as pyg_utils
-from scipy.ndimage import zoom
-import re
-import imageio
 
 # import taichi as ti
-import random
-import json
 
 def data_generate(
     config,

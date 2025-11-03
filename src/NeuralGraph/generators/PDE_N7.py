@@ -1,6 +1,5 @@
 
 import torch_geometric as pyg
-import torch_geometric.utils as pyg_utils
 from NeuralGraph.utils import to_numpy
 import torch
 

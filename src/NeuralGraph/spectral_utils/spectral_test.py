@@ -1,5 +1,4 @@
 #%%
-import matplotlib
 # matplotlib.use('Agg')  # Use non-interactive backend for headless environments
 import numpy as np
 import matplotlib.pyplot as pl

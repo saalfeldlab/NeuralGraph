@@ -4,8 +4,6 @@ import torch
 import tinycudann as tcnn
 import commentjson as json
 import os
-import gc
-import sys
 
 def test_batch_size(model, batch_size, device):
     """Test if a given batch size works without OOM"""

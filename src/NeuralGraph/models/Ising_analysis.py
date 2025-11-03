@@ -1,15 +1,12 @@
 import numpy as np
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple, List, Dict
 from tqdm import trange
-from itertools import product, combinations
+from itertools import product
 from math import log
 from tqdm import tqdm
 from collections import defaultdict
-import os
 from matplotlib import pyplot as plt
-from scipy import stats
 
 def analyze_ising_model(x_list, delta_t, log_dir, logger, edges):
     """

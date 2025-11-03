@@ -1,7 +1,6 @@
 # SIREN network
 # Code adapted from the following GitHub repository:
 # https://github.com/vsitzmann/siren?tab=readme-ov-file
-import os
 
 import numpy as np
 import torch
@@ -10,9 +9,7 @@ import torch.nn as nn
 # from NeuralGraph.generators.utils import get_time_series
 import matplotlib
 from matplotlib import pyplot as plt
-from tifffile import imread, imwrite as imsave
 from tqdm import trange
-from tqdm import tqdm
 # from torch.utils.data import DataLoader, Dataset
 # from PIL import Image
 # import skimage
@@ -247,7 +244,7 @@ if __name__ == '__main__':
     if True:
         import skimage
         from PIL import Image
-        from torchvision.transforms import Resize, Compose, ToTensor, Normalize
+        from torchvision.transforms import Resize, Compose, ToTensor
 
         sidelength = 128
         img = Image.fromarray(skimage.data.camera())

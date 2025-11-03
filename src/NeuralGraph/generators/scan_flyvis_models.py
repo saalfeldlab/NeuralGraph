@@ -5,11 +5,9 @@
 #   python collect_flyvis_connectomes_umap_debug.py \
 #       --ensemble-id 0000 --start 0 --end 50 --extent 8 --out-prefix flyvis_ens0000 --debug
 
-import os, sys, argparse, traceback
+import sys, argparse, traceback
 from pathlib import Path
 import numpy as np
-import torch
-import matplotlib.pyplot as plt
 from umap import UMAP
 from joblib import dump
 

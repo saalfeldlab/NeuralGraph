@@ -2,7 +2,6 @@ import glob
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import networkx as nx
 import torch
 import torch_geometric as pyg
 from matplotlib import rc
@@ -16,18 +15,9 @@ from NeuralGraph.data_loaders import (
     load_RGB_grid_data,
     load_wormvae_data,
 )
-from NeuralGraph.utils import to_numpy, set_size, get_datavis_root_dir
+from NeuralGraph.utils import to_numpy, get_datavis_root_dir
 from NeuralGraph.sparsify import sparse_ising_fit_fast
 from tqdm import tqdm
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
-from scipy import stats
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from matplotlib.patches import Polygon
-from matplotlib.collections import PatchCollection
-import tifffile
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from pathlib import Path
 import os
 
 
@@ -38,15 +28,7 @@ import os
 # import h5py as h5
 # import zarr
 # import xarray as xr
-import pandas as pd
-import tables
-import torch_geometric.utils as pyg_utils
-from scipy.ndimage import zoom
-import re
-import imageio
 # import taichi as ti
-import random
-import json
 
 def data_generate(
     config,

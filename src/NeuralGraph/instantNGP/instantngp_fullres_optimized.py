@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 
 # Full resolution InstantNGP optimization based on the fixed instantngp_girl_timed.py
-import argparse
 import json
 import numpy as np
 import os
 import sys
 import torch
 import time
-from tqdm import trange
-import shutil
 
 try:
 	import tinycudann as tcnn

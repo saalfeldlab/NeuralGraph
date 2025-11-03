@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import time
 from PIL import Image as PILImage
-import os
 import json
 from itertools import product
 

@@ -12,15 +12,12 @@ from skimage.metrics import structural_similarity as ssim
 from torch_geometric.data import Data
 from torchvision.transforms import CenterCrop
 import gc
-from torch import cuda
 import subprocess
 import re
 from tqdm import tqdm
-from scipy.fft import fft, ifft
 import networkx as nx
 from collections import defaultdict
 from sklearn.linear_model import LinearRegression
-from scipy import stats
 
 import warnings
 from collections import defaultdict
@@ -1599,7 +1596,6 @@ def compute_network_scores(G):
 
 
 import matplotlib.patches as patches
-from matplotlib.colors import LinearSegmentedColormap
 
 
 def visualize_network_leader_follower(G, network_scores, track_positions, save_path=None,

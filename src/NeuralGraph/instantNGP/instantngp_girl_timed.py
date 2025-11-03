@@ -33,7 +33,6 @@ import os
 import sys
 import torch
 import time
-from tqdm import trange
 
 try:
 	import tinycudann as tcnn

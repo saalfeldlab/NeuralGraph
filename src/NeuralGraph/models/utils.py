@@ -3,18 +3,11 @@ import os
 import torch
 import torch_geometric.data as data
 
-from matplotlib.ticker import FormatStrFormatter
 from NeuralGraph.models import Signal_Propagation
 from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
 from NeuralGraph.utils import to_numpy, fig_init, map_matrix, choose_boundary_values
-import matplotlib as mpl
-import networkx as nx
-from torch_geometric.utils.convert import to_networkx
 import warnings
 import numpy as np
-import time
-import tqdm
-from tifffile import imread, imwrite as imsave
 
 # Optional import
 try:
@@ -22,17 +15,10 @@ try:
 except ImportError:
     umap = None
 
-import torch.nn as nn
-import torch.nn.functional as F
 import seaborn as sns
 from scipy.optimize import curve_fit
-from sklearn.linear_model import LogisticRegression
-from NeuralGraph.fitting_models import linear_model
 import json
-from matplotlib.animation import FFMpegWriter
-from scipy.signal import find_peaks
 from pathlib import Path
-from joblib import load
 from collections import Counter
 
 def linear_model(x, a, b):

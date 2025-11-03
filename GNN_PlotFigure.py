@@ -6,14 +6,10 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.animation import FFMpegWriter
-from torch_geometric.nn import MessagePassing
 from torch_geometric.loader import DataLoader
 import torch_geometric.data as data
-import torch_geometric.utils as pyg_utils
 import imageio.v2 as imageio
 from matplotlib import rc
-from NeuralGraph.utils import set_size
-from scipy.ndimage import median_filter
 from scipy.optimize import curve_fit
 from sklearn.mixture import GaussianMixture
 from shutil import copyfile
@@ -80,10 +76,7 @@ import time
 from sklearn import metrics
 from tifffile import imread
 
-from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum, compute_spectral_coefs
 
-from colorama import Fore, Style
-from scipy.spatial.distance import jensenshannon
 import matplotlib.ticker as ticker
 import shutil
 
@@ -6882,7 +6875,7 @@ def compare_gnn_results(config_list, varied_parameter):
     plt.style.use('default')
 
     from NeuralGraph.config import NeuralGraphConfig
-    from NeuralGraph.models.utils import add_pre_folder, to_numpy
+    from NeuralGraph.models.utils import add_pre_folder
 
     results = []
 
@@ -7313,7 +7306,6 @@ def create_combined_summary_plot(gnn_results, ising_results, varied_parameter):
 
 
 def plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, output_path):
-   from NeuralGraph.spectral_utils.myspectral_funcs import estimate_spectrum
 
    # Calculate mean and std for each neuron
    mu_activity = torch.mean(activity, dim=1)
