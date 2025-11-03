@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from NeuralGraph.models.MLP import MLP
 from torchdiffeq import odeint
-import time
 
 class Signal_Propagation_MLP_ODE(nn.Module):
     """Neural ODE baseline: dv/dt = f_θ(v, I)

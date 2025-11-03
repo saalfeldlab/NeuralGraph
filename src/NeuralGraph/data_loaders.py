@@ -1,11 +1,9 @@
 from NeuralGraph.generators.utils import choose_boundary_values, get_equidistant_points
 from NeuralGraph.utils import CustomColorMap, get_neuron_index, map_matrix, to_numpy
 import os
-import re
 from dataclasses import dataclass
-from typing import Dict, Tuple, Literal
+from typing import Dict
 
-import astropy.units as u
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,35 +11,19 @@ import pandas as pd
 import pyvista as pv
 import torch
 from astropy.units import Unit
-from scipy.interpolate import CubicSpline, interp1d, make_interp_spline
 from tqdm import tqdm, trange
 
-from NeuralGraph.TimeSeries import TimeSeries
 
 import json
-from tqdm import trange
-import matplotlib
 from skimage.measure import label, regionprops
-import tifffile
-import torch_geometric.data as data
-import networkx as nx
-from torch_geometric.utils.convert import to_networkx
 import scipy.io as sio
 import seaborn as sns
 from torch_geometric.utils import dense_to_sparse
 import pickle
-import json
 import scipy.io
-import re
 from skimage.draw import disk
-from skimage.transform import resize
-from skimage import filters, feature
-import pandas as pd
-import scipy.io
 from matplotlib.colors import LinearSegmentedColormap
-import pywt
 import torch.nn.functional as F
-from scipy.optimize import curve_fit
 
 
 
@@ -61,7 +43,6 @@ def extract_object_properties(segmentation_image, fluorescence_image=[], radius=
     object_properties = []
     for id, region in enumerate(regionprops(labeled_image, intensity_image=fluorescence_image)):
         # Get the cell ID
-        cell_id = id
 
         pos_x = region.centroid[0]
         pos_y = region.centroid[1]
@@ -178,17 +159,11 @@ def load_worm_Kato_data(config, device=None, visualize=None, step=None, cmap=Non
 
     data_folder_name = config.data_folder_name
     dataset_name = config.dataset
-    connectome_folder_name = config.connectome_folder_name
 
-    simulation_config = config.simulation
-    train_config = config.training
-    n_frames = simulation_config.n_frames
 
-    n_runs = train_config.n_runs
 
-    delta_t = simulation_config.delta_t
     bc_pos, bc_dpos = choose_boundary_values('no')
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
 
     folder = f'./graphs_data/{dataset_name}/'
     os.makedirs(folder, exist_ok=True)
@@ -284,7 +259,7 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
 
     delta_t = simulation_config.delta_t
     bc_pos, bc_dpos = choose_boundary_values('no')
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
 
     folder = f'./graphs_data/{dataset_name}/'
     os.makedirs(folder, exist_ok=True)
@@ -328,7 +303,7 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
 
     trace_variable = sio.loadmat(data_folder_name)
     trace_arr = trace_variable['traces']
-    is_L = trace_variable['is_L']
+    trace_variable['is_L']
     stimulate_seconds = trace_variable['stim_times']
     stims = trace_variable['stims']
 
@@ -392,7 +367,6 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
     # activity_worm = process_trace(activity_worm)
 
     time = np.arange(start=0, stop=T * step, step=step)
-    odor_list = ['butanone', 'pentanedione', 'NaCL']
     for idata in range(n_runs):
         for it_stimu in range(stimulate_seconds.shape[0]):
             tim1_ind = time > stimulate_seconds[it_stimu][0]
@@ -411,8 +385,8 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
 
     chem_weights = torch.load(connectome_folder_name + 'chem_weights.pt')
     eassym_weights = torch.load(connectome_folder_name + 'eassym_weights.pt')
-    chem_sparsity = torch.load(connectome_folder_name + 'chem_sparsity.pt')
-    esym_sparsity = torch.load(connectome_folder_name + 'esym_sparsity.pt')
+    torch.load(connectome_folder_name + 'chem_sparsity.pt')
+    torch.load(connectome_folder_name + 'esym_sparsity.pt')
     map_Turuga_matrix = chem_weights+eassym_weights
     map_Turuga_matrix = map_Turuga_matrix.to(device=device)
     # plot_worm_adjacency_matrix(to_numpy(map_Turuga_matrix), all_neuron_list, 'adjacency matrix Turuga 2022', f"graphs_data/{dataset_name}/full_Turuga_adjacency_matrix.png")
@@ -445,7 +419,7 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
 
     # Comparison with data from https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.0020095
     data_Kaiser = scipy.io.loadmat('/groups/saalfeld/home/allierc/signaling/Celegans/Kaiser_2006/celegans277.mat')
-    positions = data_Kaiser['celegans277positions']
+    data_Kaiser['celegans277positions']
     labels_raw = data_Kaiser['celegans277labels']
     Kaiser_neuron_names = [str(label[0]) for label in labels_raw.squeeze()]
     Kaiser_matrix = np.array(data_Kaiser['celegans277matrix'])
@@ -697,7 +671,7 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
         ax = fig.add_subplot(222)
-        plt.title(f'missing data', fontsize=18)
+        plt.title('missing data', fontsize=18)
         test_im = activity * 0
         pos = np.argwhere(activity == 6)
         test_im[pos[:, 0], pos[:, 1]] = 1
@@ -712,7 +686,7 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
         plt.imshow(odor_worms[idata], aspect='auto', vmin =0, vmax=1, cmap='viridis', interpolation='nearest')
         plt.xlabel('time', fontsize=18)
         plt.ylabel('odor', fontsize=18)
-        plt.title(f'odor stimuli', fontsize=18)
+        plt.title('odor stimuli', fontsize=18)
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
         plt.tight_layout()
@@ -725,7 +699,6 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     dataset_name = config.dataset
 
     simulation_config = config.simulation
-    train_config = config.training
 
     n_frames = simulation_config.n_frames
     n_neurons = simulation_config.n_neurons
@@ -737,7 +710,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     delta_y = 0.406 # in microns
     delta_z = 4 # in microns
 
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
 
 
     if 'black' in style:
@@ -806,7 +779,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     print("downsampled shape:", stim_ephys.shape)
     print("downsampled dtype:", stim_ephys.dtype)
 
-    np.save(f'/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy/stim_ephys.npy', stim_ephys)
+    np.save('/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy/stim_ephys.npy', stim_ephys)
 
 
 
@@ -846,7 +819,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
 
         if (visualize) & (n % step == 0):
             if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
-                fig  = plt.figure(figsize=(17, 10))
+                plt.figure(figsize=(17, 10))
                 plt.axis('off')
                 plt.scatter(x[:,1], x[:,2], s=5, c=x[:,6], vmin=vmin, vmax=vmax, cmap='plasma')
                 label = f"frame: {n} \n{condition_names[int(conditions[n])]}  "

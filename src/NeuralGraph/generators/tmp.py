@@ -2,7 +2,6 @@ import glob
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import networkx as nx
 import torch
 import torch_geometric as pyg
 from matplotlib import rc
@@ -16,18 +15,9 @@ from NeuralGraph.data_loaders import (
     load_RGB_grid_data,
     load_wormvae_data,
 )
-from NeuralGraph.utils import to_numpy, set_size, get_datavis_root_dir
+from NeuralGraph.utils import to_numpy, get_datavis_root_dir
 from NeuralGraph.sparsify import sparse_ising_fit_fast
 from tqdm import tqdm
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
-from scipy import stats
-from scipy.spatial import Voronoi, voronoi_plot_2d
-from matplotlib.patches import Polygon
-from matplotlib.collections import PatchCollection
-import tifffile
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from pathlib import Path
 import os
 
 
@@ -38,15 +28,7 @@ import os
 # import h5py as h5
 # import zarr
 # import xarray as xr
-import pandas as pd
-import tables
-import torch_geometric.utils as pyg_utils
-from scipy.ndimage import zoom
-import re
-import imageio
 # import taichi as ti
-import random
-import json
 
 def data_generate(
     config,
@@ -630,7 +612,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                                       cmap='plasma', vmin=0, vmax=2, marker='h',
                                                       alpha=1, linewidths=0, edgecolors='black')  # green LUT
                                     else:
-                                        ax_ca.text(0.5, 0.5, f'No neurons', transform=ax_ca.transAxes, ha='center',
+                                        ax_ca.text(0.5, 0.5, 'No neurons', transform=ax_ca.transAxes, ha='center',
                                                    va='center', color='red', fontsize=10)
                                     ax_ca.set_title(index_to_name.get(type_idx, f"Type_{type_idx}"), fontsize=18,
                                                     color='white')  # increased fontsize
@@ -665,7 +647,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                 ax = axes_flat[panel_idx]
 
                                 if type_idx is None:
-                                    stimulus_scatter = ax.scatter(to_numpy(X1[:n_input_neurons, 0]),
+                                    ax.scatter(to_numpy(X1[:n_input_neurons, 0]),
                                                                   to_numpy(X1[:n_input_neurons, 1]), s=64,
                                                                   c=to_numpy(x[:n_input_neurons, 4]), cmap="viridis",
                                                                   vmin=0, vmax=1.05, marker='h', alpha=1.0, linewidths=0.0,
@@ -679,21 +661,21 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                         type_voltages = to_numpy(x[type_mask, 3])
                                         hex_positions_x = to_numpy(X1[:type_count, 0])
                                         hex_positions_y = to_numpy(X1[:type_count, 1])
-                                        neural_scatter = ax.scatter(hex_positions_x, hex_positions_y, s=72, c=type_voltages,
+                                        ax.scatter(hex_positions_x, hex_positions_y, s=72, c=type_voltages,
                                                                     cmap='viridis', vmin=-2, vmax=2, marker='h', alpha=1,
                                                                     linewidths=0.0, edgecolors='black')
                                         if type_name.startswith('R'):
-                                            title_color = 'yellow'
+                                            pass
                                         elif type_name.startswith(('L', 'Lawf')):
-                                            title_color = 'cyan'
+                                            pass
                                         elif type_name.startswith(('Mi', 'Tm', 'TmY')):
-                                            title_color = 'orange'
+                                            pass
                                         elif type_name.startswith('T'):
-                                            title_color = 'red'
+                                            pass
                                         elif type_name.startswith('C'):
-                                            title_color = 'magenta'
+                                            pass
                                         else:
-                                            title_color = 'white'
+                                            pass
                                         ax.set_title(f'{type_name}', fontsize=18, color='white', pad=8, y=0.95)
                                     else:
                                         ax.text(0.5, 0.5, f'No {type_name}\nNeurons', transform=ax.transAxes, ha='center',

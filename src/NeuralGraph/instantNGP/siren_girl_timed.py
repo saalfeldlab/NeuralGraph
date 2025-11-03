@@ -201,7 +201,7 @@ if __name__ == "__main__":
     i = 0
     
     # Save initial state (t=0)
-    path = f"siren_outputs/time_000_000ms.jpg"
+    path = "siren_outputs/time_000_000ms.jpg"
     print(f"Writing '{path}'... ", end="")
     with torch.no_grad():
         predicted_image = model(coords).reshape(height, width, channels)

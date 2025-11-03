@@ -7,7 +7,6 @@ import time
 import os
 import numpy as np
 from PIL import Image
-from tqdm import trange
 
 def load_image(path, target_size=None):
     """Load and preprocess image"""

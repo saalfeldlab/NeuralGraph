@@ -57,7 +57,6 @@ if __name__ == '__main__':
 
     import torch.nn as nn
     import torch.optim as optim
-    import numpy as np
     from tqdm import trange
     import matplotlib
     import matplotlib.pyplot as plt

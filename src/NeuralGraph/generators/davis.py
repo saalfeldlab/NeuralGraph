@@ -1,5 +1,4 @@
 import logging
-import os
 import cv2
 from contextlib import contextmanager
 from itertools import product
