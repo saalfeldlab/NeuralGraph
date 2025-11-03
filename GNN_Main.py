@@ -8,7 +8,7 @@ import os
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test
-from NeuralGraph.utils import set_device, add_pre_folder
+from NeuralGraph.utils import set_device, add_pre_folder0
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
