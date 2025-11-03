@@ -60,7 +60,7 @@ from NeuralGraph.models.Siren_Network import Siren, Siren_Network
 from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyVis
 from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
 from NeuralGraph.models.Calcium_Latent_Dynamics import Calcium_Latent_Dynamics
-from NeuralGraph.models.graph_trainer import data_test
+from NeuralGraph.models.trainer import data_test
 from NeuralGraph.generators.utils import choose_model
 from NeuralGraph.config import NeuralGraphConfig
 
