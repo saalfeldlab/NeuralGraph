@@ -1,0 +1,40 @@
+{
+    "loss": {
+        "otype": "RelativeL2"
+    },
+    "optimizer": {
+        "otype": "Adam",
+        "learning_rate": 0.01,
+        "beta1": 0.9,
+        "beta2": 0.99,
+        "epsilon": 1e-15,
+        "l2_reg": 1e-06
+    },
+    "encoding": {
+        "otype": "Composite",
+        "nested": [
+            {
+            "n_dims_to_encode": 2,     // Spatial dimensions (x,y)
+            "otype": "Grid",
+            "type": "Hash",
+            "n_levels": 18,
+            "n_features_per_level": 2,
+            "log2_hashmap_size": 23,
+            "base_resolution": 16,     // Higher spatial base resolution
+            "per_level_scale": 1.5     // Standard spatial scaling
+            },
+            {
+            "n_dims_to_encode": 1,     // Time dimension
+            "otype": "Frequency",      // Try Frequency encoding for time
+            "n_frequencies": 32        // Sufficient frequencies for smooth motion
+            }
+        ]
+    },
+    "network": {
+        "otype": "FullyFusedMLP",
+        "activation": "ReLU",
+        "output_activation": "Sigmoid",
+        "n_neurons": 64,
+        "n_hidden_layers": 2
+    }
+}
