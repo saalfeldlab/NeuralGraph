@@ -128,10 +128,10 @@ def data_train(config=None, erase=False, best_model=None, device=None):
         else:
             data_train_flyvis(config, erase, best_model, device)
     elif 'zebra_fluo' in config.dataset:
-        data_train_zebra_fluo(config, erase, best_model, device)    
+        data_train_zebra_fluo(config, erase, best_model, device)
     elif 'zebra' in config.dataset:
         data_train_zebra(config, erase, best_model, device)
-    else:   
+    else:
         data_train_signal(config, erase, best_model, device)
 
 
@@ -872,7 +872,7 @@ def data_train_flyvis(config, erase, best_model, device):
     coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
     if coeff_loop.numel() < train_config.recurrent_loop:
         coeff_loop = torch.linspace(coeff_loop[0], coeff_loop[-1], train_config.recurrent_loop, device=device)
-                
+
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
@@ -1089,7 +1089,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 # Sample core neurons
                 n_core = int(n_neurons * batch_ratio)
                 core_ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
-                
+
                 # Determine which neurons we need based on training mode
                 if recurrent_training and recurrent_loop > 0:
                     # For recurrent: need n-hop neighborhood (compute ONCE)
@@ -1098,23 +1098,23 @@ def data_train_flyvis(config, erase, best_model, device):
                     verbose = (N == 0) & (epoch==0)  # Print only on first iteration
                     # or: verbose = (N % 100 == 0)  # Print every 100 iterations
                     # or: verbose = False  # Never print
-                
+
                     required_ids = get_n_hop_neighborhood_with_stats(
                         core_ids, edges_all, recurrent_loop, verbose=verbose
                     )
-                
+
                 else:
                     # For non-recurrent: just core neurons
                     required_ids = core_ids
-                
+
                 # Get edges ONCE for all timesteps
                 mask = torch.isin(edges_all[1, :], torch.tensor(required_ids, device=device))
                 edges = edges_all[:, mask]
                 mask = torch.arange(edges_all.shape[1], device=device)[mask]
-                
+
                 # Store core_ids for loss computation
                 ids = core_ids
-                
+
             else:
                 # use all neurons
                 edges = edges_all.clone().detach()
@@ -1244,7 +1244,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
                 elif prediction == 'next_activity':
-                
+
                     for n_loop in range(time_step):
                         batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                         for batch in batch_loader:
@@ -1259,8 +1259,8 @@ def data_train_flyvis(config, erase, best_model, device):
                     pred_x = torch.cat(pred_x, dim=0)
 
                     loss = loss + (pred_x[ids_batch] - y_batch[ids_batch]).norm(2)
-                
-                
+
+
 
                 else:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
@@ -1295,7 +1295,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                         for batch in range(batch_size):
                             k = k_batch[batch * n_neurons] + n_loop + 1
-                
+
                             # Update only required neurons (not all)
                             if batch_ratio < 1:
                                 update_indices = required_ids
