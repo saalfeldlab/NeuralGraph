@@ -204,7 +204,7 @@ def estimate_spectrum(
             if yn != xn:
                 raise Exception("invalid dimensions for not all to all")
 
-    wn = coefs_xnkf.shape[-1]
+    coefs_xnkf.shape[-1]
     kn = coefs_xnkf.shape[1]
     coefs_xnkf = da.from_array(coefs_xnkf, chunks=("auto"))
     if ynt is not None:
@@ -261,8 +261,8 @@ def compute_multiscale_spectral_coefs(xnt: np.ndarray, fs: float, window: str, n
     n, t = xnt.shape
     N = t
     freqs = get_freqs(t, fs)
-    lowest_freq = 1/(N/fs)
-    highest_freq = (N/2)/(N/fs) # i.e.: 2/fps
+    1/(N/fs)
+    (N/2)/(N/fs) # i.e.: 2/fps
     freqs_ = (np.arange(1, int(N/2))/(N/fs))[::(int(N/2)//num_levels)]
 
 

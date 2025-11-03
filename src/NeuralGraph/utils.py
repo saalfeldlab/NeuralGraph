@@ -12,24 +12,19 @@ from skimage.metrics import structural_similarity as ssim
 from torch_geometric.data import Data
 from torchvision.transforms import CenterCrop
 import gc
-from torch import cuda
 import subprocess
 import re
 from tqdm import tqdm
-from scipy.fft import fft, ifft
 import networkx as nx
 from collections import defaultdict
 from sklearn.linear_model import LinearRegression
-from scipy import stats
 
 import warnings
-from collections import defaultdict
 from scipy.stats import pearsonr
 
 warnings.filterwarnings('ignore')
 
 
-import re
 import tensorstore as ts
 
 def open_gcs_zarr(url: str):
@@ -189,15 +184,15 @@ def norm_area(xx, device):
 def norm_velocity(xx, dimension, device):
     if dimension == 2:
         vx = torch.std(xx[:, 3])
-        vy = torch.std(xx[:, 4])
+        torch.std(xx[:, 4])
         nvx = np.array(xx[:, 3].detach().cpu())
         vx01, vx99 = symmetric_cutoff(nvx)
         nvy = np.array(xx[:, 4].detach().cpu())
         vy01, vy99 = symmetric_cutoff(nvy)
     else:
         vx = torch.std(xx[:, 4])
-        vy = torch.std(xx[:, 5])
-        vz = torch.std(xx[:, 6])
+        torch.std(xx[:, 5])
+        torch.std(xx[:, 6])
         nvx = np.array(xx[:, 4].detach().cpu())
         vx01, vx99 = symmetric_cutoff(nvx)
         nvy = np.array(xx[:, 5].detach().cpu())
@@ -226,7 +221,7 @@ def norm_position(xx, dimension, device):
 
 def norm_acceleration(yy, device):
     ax = torch.std(yy[:, 0])
-    ay = torch.std(yy[:, 1])
+    torch.std(yy[:, 1])
     nax = np.array(yy[:, 0].detach().cpu())
     ax01, ax99 = symmetric_cutoff(nax)
     nay = np.array(yy[:, 1].detach().cpu())
@@ -754,7 +749,7 @@ def check_and_clear_memory(
     """
 
     if device and 'cuda' in device:
-        logger = logging.getLogger(__name__)
+        logging.getLogger(__name__)
 
         if (iteration_number % every_n_iterations == 0):
 
@@ -1158,7 +1153,6 @@ def find_average_spatial_neighbors(filtered_time_series, track_info_dict, max_ra
     print(f"computing distances for {len(track_ids)} filtered tracks...")
 
     # Your distance calculation approach (adapted)
-    dimension = 2  # y, x coordinates
     distance = torch.sum((positions[:, None, :] - positions[None, :, :]) ** 2, dim=2)
 
     # Create adjacency matrix
@@ -1258,7 +1252,7 @@ def fit_ar_model_with_bic(time_series, max_order=10):
             bic_scores.append(bic)
             models.append((model, residuals))
 
-        except Exception as e:
+        except Exception:
             bic_scores.append(np.inf)
             models.append(None)
 
@@ -1342,7 +1336,7 @@ def fit_granger_models(ts1, ts2, max_order=10):
             'n_samples': len(y)
         }
 
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -1599,7 +1593,6 @@ def compute_network_scores(G):
 
 
 import matplotlib.patches as patches
-from matplotlib.colors import LinearSegmentedColormap
 
 
 def visualize_network_leader_follower(G, network_scores, track_positions, save_path=None,
@@ -1683,7 +1676,7 @@ def visualize_network_leader_follower(G, network_scores, track_positions, save_p
 
     # Draw nodes with categories
     node_positions = np.array([[pos[node][1], pos[node][0]] for node in G.nodes()])
-    scatter = ax.scatter(node_positions[:, 0], node_positions[:, 1],
+    ax.scatter(node_positions[:, 0], node_positions[:, 1],
                          c=node_colors, s=node_sizes,
                          alpha=0.8, edgecolors='None')
 
@@ -1694,7 +1687,7 @@ def visualize_network_leader_follower(G, network_scores, track_positions, save_p
     ax.set_aspect('equal')
 
     # Add legend for categories
-    legend_elements = [
+    [
         patches.Patch(color='#FF4444', label=f'Leaders ({np.sum(np.array(categories) == "leader")})'),
         patches.Patch(color='#4444FF', label=f'Followers ({np.sum(np.array(categories) == "follower")})'),
         patches.Patch(color='#AA44AA', label=f'Mixed ({np.sum(np.array(categories) == "mixed")})'),
@@ -1704,7 +1697,7 @@ def visualize_network_leader_follower(G, network_scores, track_positions, save_p
 
     # Add network statistics
     total_possible_pairs = G.number_of_nodes() * (G.number_of_nodes() - 1) // 2
-    causal_percentage = (G.number_of_edges() / total_possible_pairs) * 100 if total_possible_pairs > 0 else 0
+    (G.number_of_edges() / total_possible_pairs) * 100 if total_possible_pairs > 0 else 0
 
 #     stats_text = f"""network statistics:
 # nodes: {G.number_of_nodes()}
@@ -1824,7 +1817,7 @@ def plot_combined_causality_analysis(leader_track_id, follower_track_id, filtere
     granger_diff = pair_result.get('granger_diff', 0)
     p_value = pair_result.get('p_value', 1)
 
-    title1 = f'fluorescence traces\n'
+    title1 = 'fluorescence traces\n'
     title1 += f'gc: {gc_12:.3f}→{gc_21:.3f}, diff: {granger_diff:.3f}, p: {p_value:.4f}'
     ax1.set_title(title1, fontsize=12, fontweight='bold')
     ax1.set_xlabel('frame')
@@ -1928,7 +1921,7 @@ def plot_combined_causality_analysis(leader_track_id, follower_track_id, filtere
         else:
             lag_interpretation = "synchronous (weak correlation)"
 
-    title3 = f'cross-correlation\n'
+    title3 = 'cross-correlation\n'
     title3 += f'peak lag: {peak_lag}, corr: {peak_corr:.3f}\n'
     title3 += f'{lag_interpretation}'
     ax3.set_title(title3, fontsize=12, fontweight='bold')
@@ -2140,14 +2133,14 @@ def plot_interesting_causality_pairs(significant_pairs, filtered_time_series, tr
     for category, count in category_counts.items():
         print(f"  {category}: {count}")
 
-    print(f"\ntop examples:")
+    print("\ntop examples:")
     for i, pair in enumerate(selected_pairs[:5]):
         print(f"  {i + 1}. {pair['leader_id']}→{pair['follower_id']}: "
               f"{pair['category']}, diff={pair['granger_diff']:.3f}, "
               f"dist={pair['distance']:.1f}px")
 
     # Plot each selected pair
-    print(f"\ngenerating plots...")
+    print("\ngenerating plots...")
     for i, pair in enumerate(selected_pairs):
         l = pair['leader_id']
         f = pair['follower_id']

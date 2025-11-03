@@ -99,7 +99,7 @@ if __name__ == '__main__':
     plt.xlim([0, 1000])
     plt.tight_layout()
     plt.show()
-    plt.savefig(f'tmp/activity_1000_raw.png', dpi=300)
+    plt.savefig('tmp/activity_1000_raw.png', dpi=300)
     plt.close()
 
     # Denoise each time series signal

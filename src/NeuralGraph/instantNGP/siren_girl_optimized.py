@@ -291,8 +291,8 @@ if __name__ == "__main__":
     print(f"Images saved at calibrated 250ms intervals (total: {len(calibration_iterations)} saves)")
     
     # Calculate PSNR as a function of computing time
-    print(f"\nCalculating PSNR as function of training time...")
-    print(f"================================================================")
+    print("\nCalculating PSNR as function of training time...")
+    print("================================================================")
     
     # Get all saved images and calculate PSNR
     image_files = sorted([f for f in os.listdir(output_dir) if f.endswith('.png')])
@@ -320,17 +320,17 @@ if __name__ == "__main__":
         
         print(f"Time: {time_s:6.3f}s, PSNR: {psnr:6.2f} dB ({img_file})")
     
-    print(f"================================================================")
-    print(f"OPTIMIZED SIREN PSNR SUMMARY:")
+    print("================================================================")
+    print("OPTIMIZED SIREN PSNR SUMMARY:")
     print(f"Initial PSNR: {psnr_values[0]:6.2f} dB (t=0)")
     print(f"Final PSNR:   {psnr_values[-1]:6.2f} dB (t={time_values[-1]:.3f}s)")
     print(f"PSNR gain:    {psnr_values[-1] - psnr_values[0]:6.2f} dB")
-    print(f"================================================================")
-    print(f"Hyperparameters used:")
-    print(f"  Learning rate: 3e-4")
-    print(f"  Hidden features: 256") 
-    print(f"  Hidden layers: 4")
-    print(f"  First omega_0: 60")
-    print(f"  Hidden omega_0: 30")
+    print("================================================================")
+    print("Hyperparameters used:")
+    print("  Learning rate: 3e-4")
+    print("  Hidden features: 256") 
+    print("  Hidden layers: 4")
+    print("  First omega_0: 60")
+    print("  Hidden omega_0: 30")
     print(f"  Model parameters: {num_params:,}")
-    print(f"================================================================")
+    print("================================================================")

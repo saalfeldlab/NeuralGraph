@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch_geometric as pyg
 from NeuralGraph.models.MLP import MLP
-from NeuralGraph.utils import to_numpy
 import numpy as np
 from NeuralGraph.models.Siren_Network import Siren
 
@@ -114,18 +113,18 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
 
     def forward(self, data=[], data_id=[], k = [], ids=[], return_all=False):
         self.return_all = return_all
-        x, edge_index = data.x, data.edge_index
+        x, _edge_index = data.x, data.edge_index
 
         self.data_id = data_id.squeeze().long().clone().detach()
         # self.mask = mask.squeeze().long().clone().detach()
 
         if self.calcium_type!="none":
-            v = data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
+            data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
         else:
-            v = data.x[:, 6:7]
+            data.x[:, 6:7]
 
         particle_id = x[:, 0].long()
-        embedding = self.a[particle_id].squeeze()
+        self.a[particle_id].squeeze()
 
         # msg = self.propagate(
         #     edge_index, v=v, embedding=embedding, data_id=self.data_id[:, None]

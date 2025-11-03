@@ -1,22 +1,18 @@
 
-import glob
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import scipy
 import subprocess
 import torch
-import torch.nn as nn
 import torch_geometric.data as data
 import xarray as xr
-from matplotlib import rc
 from NeuralGraph.generators import PDE_N2, PDE_N3, PDE_N4, PDE_N5, PDE_N6, PDE_N7, PDE_N11
 from NeuralGraph.utils import choose_boundary_values, get_equidistant_points, to_numpy, large_tensor_nonzero
 from scipy import stats
-from scipy.spatial import cKDTree, Delaunay
+from scipy.spatial import Delaunay
 from time import sleep
-from tifffile import imread, imwrite as imsave
+from tifffile import imread
 from torch_geometric.utils import get_mesh_laplacian, dense_to_sparse
 from torch_geometric.utils.convert import to_networkx
 from tqdm import trange
@@ -77,7 +73,6 @@ def initialize_random_values(n, device):
 
 def init_neurons(config=[], scenario='none', ratio=1, device=[]):
     simulation_config = config.simulation
-    n_frames = config.simulation.n_frames
     n_neurons = simulation_config.n_neurons * ratio
     n_neuron_types = simulation_config.n_neuron_types
     dimension = simulation_config.dimension
@@ -368,7 +363,7 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
         dataset = xr.open_zarr(connectivity_file)
         trained_weights = dataset["trained"]  # alpha * sign * N
         print(f'weights {trained_weights.shape}')
-        untrained_weights = dataset["untrained"]  # sign * N
+        dataset["untrained"]  # sign * N
         values = trained_weights[0:n_neurons,0:n_neurons]
         values = np.array(values)
         values = values / np.max(values)
@@ -640,7 +635,6 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name="
 
     # Video filter to ensure even dimensions (required for yuv420p)
     # This scales the video so both width and height are divisible by 2
-    video_filter = "scale=trunc(iw/2)*2:trunc(ih/2)*2"
 
     ffmpeg_cmd = [
         "ffmpeg",

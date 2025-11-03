@@ -10,7 +10,6 @@ import matplotlib as mpl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 import random
 import copy
 
@@ -19,7 +18,6 @@ from NeuralGraph.models.utils import (
     increasing_batch_size,
     constant_batch_size,
     set_trainable_parameters,
-    set_trainable_parameters_vae,
     get_in_features_update,
     get_in_features_lin_edge,
     analyze_edge_function,
@@ -58,28 +56,19 @@ from NeuralGraph.models.utils_zebra import (
     plot_field_discrete_xy_slices_grid,
 )
 
-from NeuralGraph.models.Calcium_Latent_Dynamics import Calcium_Latent_Dynamics
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.fitting_models import linear_model
 
-from sklearn.neighbors import NearestNeighbors
 from scipy.optimize import curve_fit
 
-from torch_geometric.utils import dense_to_sparse, to_networkx
+from torch_geometric.utils import to_networkx
 from torch_geometric.data import Data as pyg_Data
 from torch_geometric.loader import DataLoader
 import torch_geometric as pyg
 import seaborn as sns
-from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.manifold import TSNE
 # denoise_data import not needed - removed star import
-from scipy.spatial import KDTree
-from sklearn import neighbors, metrics
-from scipy.ndimage import median_filter
-from tifffile import imwrite, imread
+from tifffile import imread
 from matplotlib.colors import LinearSegmentedColormap
-from scipy.spatial import cKDTree
-from scipy.special import logsumexp
 from NeuralGraph.generators.utils import choose_model, generate_compressed_video_mp4, init_connectivity
 from NeuralGraph.generators.graph_data_generator import (
     apply_pairwise_knobs_torch,
@@ -93,7 +82,6 @@ from NeuralGraph.generators.davis import AugmentedDavis
 from scipy.stats import pearsonr
 import numpy as np
 import pandas as pd
-import tensorstore as ts
 import napari
 from collections import deque
 from tqdm import tqdm, trange
@@ -121,9 +109,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     print(f"\033[92mdevice: {config.description}\033[0m")
 
     if 'fly' in config.dataset:
-        if config.simulation.calcium_type != 'none':
-            data_train_flyvis_calcium(config, erase, best_model, device)
-        elif 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
+        if 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
             data_train_flyvis_RNN(config, erase, best_model, device)
         else:
             data_train_flyvis(config, erase, best_model, device)
@@ -257,8 +243,8 @@ def data_train_signal(config, erase, best_model, device):
                 modulation = modulation[:, :, 8:9].squeeze()
                 modulation = modulation.t()
                 modulation = modulation.clone().detach()
-                d_modulation = (modulation[:, 1:] - modulation[:, :-1]) / delta_t
-                modulation_norm = torch.tensor(1.0E-2, device=device)
+                (modulation[:, 1:] - modulation[:, :-1]) / delta_t
+                torch.tensor(1.0E-2, device=device)
         elif 'visual' in field_type:
             n_nodes_per_axis = int(np.sqrt(n_nodes))
             model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
@@ -692,7 +678,7 @@ def data_train_signal(config, erase, best_model, device):
         fig = plt.figure(figsize=(15, 10))
 
         # Plot 1: Loss
-        ax = fig.add_subplot(2, 3, 1)
+        fig.add_subplot(2, 3, 1)
         plt.plot(list_loss, color='k', linewidth=1)
         plt.xlim([0, n_epochs])
         plt.ylabel('loss', fontsize=24)
@@ -711,25 +697,25 @@ def data_train_signal(config, erase, best_model, device):
             from tifffile import imread
 
             # Plot 2: Last embedding
-            ax = fig.add_subplot(2, 3, 2)
+            fig.add_subplot(2, 3, 2)
             img = imread(f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
 
             # Plot 3: Last weight comparison
-            ax = fig.add_subplot(2, 3, 3)
+            fig.add_subplot(2, 3, 3)
             img = imread(f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
 
             # Plot 4: Last phi function
-            ax = fig.add_subplot(2, 3, 4)
+            fig.add_subplot(2, 3, 4)
             img = imread(f"./{log_dir}/tmp_training/function/lin_phi/func_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
 
             # Plot 5: Last edge function
-            ax = fig.add_subplot(2, 3, 5)
+            fig.add_subplot(2, 3, 5)
             img = imread(f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
@@ -769,16 +755,16 @@ def data_train_signal(config, erase, best_model, device):
                 # Constrain embedding domain
                 with torch.no_grad():
                     model.a.copy_(model_a_)
-                print(f'regul_embedding: replaced')
-                logger.info(f'regul_embedding: replaced')
+                print('regul_embedding: replaced')
+                logger.info('regul_embedding: replaced')
 
                 # Constrain function domain
                 if train_config.sparsity == 'replace_embedding_function':
 
-                    logger.info(f'replace_embedding_function')
+                    logger.info('replace_embedding_function')
                     y_func_list = func_list * 0
 
-                    ax = fig.add_subplot(2, 5, 9)
+                    fig.add_subplot(2, 5, 9)
                     for n in np.unique(new_labels):
                         pos = np.argwhere(new_labels == n)
                         pos = pos.squeeze()
@@ -799,7 +785,7 @@ def data_train_signal(config, erase, best_model, device):
                         pred = []
                         optimizer.zero_grad()
                         for n in range(n_neurons):
-                            embedding_ = model.a[n, :].clone().detach() * torch.ones((1000, model_config.embedding_dim),
+                            model.a[n, :].clone().detach() * torch.ones((1000, model_config.embedding_dim),
                                                                                      device=device)
                             in_features = get_in_features_update(rr=rr[:, None], model=model, device=device)
                             pred.append(model.lin_phi(in_features.float()))
@@ -839,7 +825,6 @@ def data_train_flyvis(config, erase, best_model, device):
     n_neurons = simulation_config.n_neurons
     n_input_neurons = simulation_config.n_input_neurons
     n_neuron_types = simulation_config.n_neuron_types
-    calcium_type = simulation_config.calcium_type
     delta_t = simulation_config.delta_t
 
     dataset_name = config.dataset
@@ -850,13 +835,10 @@ def data_train_flyvis(config, erase, best_model, device):
     recurrent_training = train_config.recurrent_training
     recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
-    small_init_batch_size = train_config.small_init_batch_size
     batch_ratio = train_config.batch_ratio
-    training_NNR_start_epoch = train_config.training_NNR_start_epoch
     time_window = train_config.time_window
     training_selected_neurons = train_config.training_selected_neurons
 
-    prediction_time_step = train_config.time_step
     prediction = model_config.prediction
 
     field_type = model_config.field_type
@@ -876,8 +858,6 @@ def data_train_flyvis(config, erase, best_model, device):
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
-    n_edges = simulation_config.n_edges
-    n_extra_null_edges = simulation_config.n_extra_null_edges
 
     if config.training.seed != 42:
         torch.random.fork_rng(devices=device)
@@ -983,7 +963,6 @@ def data_train_flyvis(config, erase, best_model, device):
         lr_update = train_config.learning_rate_update_start
     lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
-    lr_modulation = train_config.learning_rate_modulation_start
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
@@ -1390,8 +1369,8 @@ def data_train_flyvis(config, erase, best_model, device):
                                     pred_vec = np.asarray(pred).squeeze()  # (n_input_neurons,)
 
                                     if k==0:
-                                        vmin = pred_vec.min()
-                                        vmax = pred_vec.max()
+                                        pred_vec.min()
+                                        pred_vec.max()
 
                                     gt_field = x_list[0][k, :n_input_neurons, 4:5]
                                     gt_vec = to_numpy(gt_field).squeeze()  # (n_input_neurons,)
@@ -1408,7 +1387,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                     # Traces
 
                                     rmse_frame = float(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
-                                    mae_frame  = float(np.mean(np.abs(pred_vec - gt_vec)))
+                                    float(np.mean(np.abs(pred_vec - gt_vec)))
                                     running_rmse = float(np.mean(error_list + [rmse_frame])) if len(error_list) else rmse_frame
 
 
@@ -1475,7 +1454,7 @@ def data_train_flyvis(config, erase, best_model, device):
         fig = plt.figure(figsize=(15, 10))
 
         # Plot 1: Loss
-        ax = fig.add_subplot(2, 3, 1)
+        fig.add_subplot(2, 3, 1)
         plt.plot(list_loss, color='k', linewidth=1)
         plt.xlim([0, n_epochs])
         plt.ylabel('loss', fontsize=12)
@@ -1492,28 +1471,28 @@ def data_train_flyvis(config, erase, best_model, device):
             from tifffile import imread
 
             # Plot 2: Last embedding
-            ax = fig.add_subplot(2, 3, 2)
+            fig.add_subplot(2, 3, 2)
             img = imread(f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Embedding', fontsize=12)
 
             # Plot 3: Last weight comparison
-            ax = fig.add_subplot(2, 3, 3)
+            fig.add_subplot(2, 3, 3)
             img = imread(f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Weight Comparison', fontsize=12)
 
             # Plot 4: Last edge function
-            ax = fig.add_subplot(2, 3, 4)
+            fig.add_subplot(2, 3, 4)
             img = imread(f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Edge Function', fontsize=12)
 
             # Plot 5: Last phi function
-            ax = fig.add_subplot(2, 3, 5)
+            fig.add_subplot(2, 3, 5)
             img = imread(f"./{log_dir}/tmp_training/function/lin_phi/func_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
@@ -1538,7 +1517,7 @@ def data_train_flyvis(config, erase, best_model, device):
                         with torch.no_grad():
                             model.a[indices, :] = torch.mean(model.a[indices, :], dim=0, keepdim=True)
 
-                ax = fig.add_subplot(2, 3, 6)
+                fig.add_subplot(2, 3, 6)
                 for n in range(n_neuron_types):
                     pos = torch.argwhere(type_list == n)
                     plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=5, color=cmap.color(n),
@@ -1577,11 +1556,7 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
     model_config = config.graph_model
 
     signal_model_name = model_config.signal_model_name
-    dimension = simulation_config.dimension
     n_epochs = train_config.n_epochs
-    n_neurons = simulation_config.n_neurons
-    n_input_neurons = simulation_config.n_input_neurons
-    delta_t = simulation_config.delta_t
     dataset_name = config.dataset
     n_runs = train_config.n_runs
     n_frames = simulation_config.n_frames
@@ -1759,9 +1734,6 @@ def data_train_zebra(config, erase, best_model, device):
     dimension = simulation_config.dimension
     n_epochs = train_config.n_epochs
     n_neurons = simulation_config.n_neurons
-    n_input_neurons = simulation_config.n_input_neurons
-    n_neuron_types = simulation_config.n_neuron_types
-    calcium_type = simulation_config.calcium_type
     delta_t = simulation_config.delta_t
 
     dataset_name = config.dataset
@@ -1769,37 +1741,23 @@ def data_train_zebra(config, erase, best_model, device):
     n_frames = simulation_config.n_frames
 
     data_augmentation_loop = train_config.data_augmentation_loop
-    recurrent_training = train_config.recurrent_training
-    recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
-    training_NNR_start_epoch = train_config.training_NNR_start_epoch
-    time_window = train_config.time_window
     plot_batch_size = config.plotting.plot_batch_size
 
-    field_type = model_config.field_type
-    time_step = train_config.time_step
 
     coeff_W_sign = train_config.coeff_W_sign
-    coeff_update_msg_diff = train_config.coeff_update_msg_diff
-    coeff_update_u_diff = train_config.coeff_update_u_diff
-    coeff_edge_norm = train_config.coeff_edge_norm
-    coeff_update_msg_sign = train_config.coeff_update_msg_sign
-    coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
-    coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
     coeff_NNR_f = train_config.coeff_NNR_f
 
-    replace_with_cluster = 'replace' in train_config.sparsity
-    sparsity_freq = train_config.sparsity_freq
 
     if config.training.seed != 42:
         torch.random.fork_rng(devices=device)
         torch.random.manual_seed(config.training.seed)
 
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
     plt.style.use('dark_background')
 
-    coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
+    torch.tensor(train_config.coeff_loop, device = device)
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading graph files N: {n_runs} ...')
@@ -1838,7 +1796,7 @@ def data_train_zebra(config, erase, best_model, device):
     print(f'N neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons =n_neurons
-    type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
+    torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
     vnorm = torch.tensor(1.0, device=device)
     ynorm = torch.tensor(1.0, device=device)
     torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
@@ -1914,7 +1872,6 @@ def data_train_zebra(config, erase, best_model, device):
     check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
     # torch.autograd.set_detect_anomaly(True)
 
-    list_loss_regul = []
     time.sleep(0.2)
 
     ones = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
@@ -2035,14 +1992,14 @@ def data_train_zebra(config, erase, best_model, device):
         # torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
 
         fig = plt.figure(figsize=(20, 10))
-        ax = fig.add_subplot(1, 2, 1)
+        fig.add_subplot(1, 2, 1)
         plt.plot(list_loss, color='w', linewidth=1)
         plt.xlim([0, n_epochs])
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.ylabel('loss', fontsize=12)
         plt.xlabel('epochs', fontsize=12)
-        ax = fig.add_subplot(1, 2, 2)
+        fig.add_subplot(1, 2, 2)
         field_files = glob.glob(f"./{log_dir}/tmp_training/field/*.png")
         last_file = max(field_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
         filename = os.path.basename(last_file)
@@ -2062,38 +2019,18 @@ def data_train_zebra(config, erase, best_model, device):
 
 
 def data_train_zebra_fluo(config, erase, best_model, device):
-    simulation_config = config.simulation
     train_config = config.training
-    model_config = config.graph_model
 
-    dimension = simulation_config.dimension
-    n_epochs = train_config.n_epochs
-    n_neurons = simulation_config.n_neurons
-    n_input_neurons = simulation_config.n_input_neurons
-    n_neuron_types = simulation_config.n_neuron_types
-    calcium_type = simulation_config.calcium_type
-    delta_t = simulation_config.delta_t
 
-    dataset_name = config.dataset
-    n_runs = train_config.n_runs
-    n_frames = simulation_config.n_frames
 
-    data_augmentation_loop = train_config.data_augmentation_loop
-    recurrent_training = train_config.recurrent_training
-    recurrent_loop = train_config.recurrent_loop
-    batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
-    training_NNR_start_epoch = train_config.training_NNR_start_epoch
-    time_window = train_config.time_window
-    plot_batch_size = config.plotting.plot_batch_size
 
-    coeff_NNR_f = train_config.coeff_NNR_f
 
     if config.training.seed != 42:
         torch.random.fork_rng(devices=device)
         torch.random.manual_seed(config.training.seed)
 
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
     plt.style.use('dark_background')
 
     log_dir, logger = create_log_dir(config, erase)
@@ -2182,7 +2119,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
         vmax = float(vmax) if np.isfinite(vmax) and vmax>vmin else float(max(gt_xy.max(), pd_xy.max()))
         rmse = float(np.sqrt(np.mean((pd_xy - gt_xy) ** 2)))
         fig, ax = plt.subplots(1, 2, figsize=(10, 4), constrained_layout=True)
-        im0 = ax[0].imshow(gt_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[0].set_title(f"GT z={z_idx}"); ax[0].axis("off")
+        ax[0].imshow(gt_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[0].set_title(f"GT z={z_idx}"); ax[0].axis("off")
         im1 = ax[1].imshow(pd_xy, cmap="gray", vmin=vmin, vmax=vmax); ax[1].set_title(f"Pred z={z_idx}  RMSE={rmse:.4f}"); ax[1].axis("off")
         fig.colorbar(im1, ax=ax.ravel().tolist(), fraction=0.046, pad=0.04, label="intensity")
         plt.show()
@@ -2291,13 +2228,13 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         print(f'best model: {best_model}')
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
 
-    n_sub_population = n_neurons // n_neuron_types
+    n_neurons // n_neuron_types
     first_cell_id_particles = []
     for n in range(n_neuron_types):
         index = np.arange(n_neurons * n // n_neuron_types, n_neurons * (n + 1) // n_neuron_types)
         first_cell_id_particles.append(index)
 
-    print(f'load data...')
+    print('load data...')
 
     x_list = []
     y_list = []
@@ -2350,8 +2287,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         neuron_pred_list = []
         modulation_gt_list = []
         modulation_pred_list = []
-        node_gt_list = []
-        node_pred_list = []
 
         if os.path.exists(f'./graphs_data/{dataset_name}/X1.pt') > 0:
             X1_first = torch.load(f'./graphs_data/{dataset_name}/X1.pt', map_location=device)
@@ -2429,17 +2364,16 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         model_missing_activity.eval()
 
     rmserr_list = []
-    pred_err_list = []
     geomloss_list = []
     angle_list = []
     time.sleep(1)
 
     if time_window > 0:
         start_it = time_window
-        stop_it = n_frames - 1
+        n_frames - 1
     else:
         start_it = 0
-        stop_it = n_frames - 1
+        n_frames - 1
 
     start_it = 12
 
@@ -2558,7 +2492,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         cell_types = to_numpy(x[:, 5]).astype(int)
         type_counts = [np.sum(cell_types == n) for n in range(n_neuron_types)]
         plt.figure(figsize=(10, 10))
-        bars = plt.bar(range(n_neuron_types), type_counts,
+        plt.bar(range(n_neuron_types), type_counts,
                     color=[cmap.color(n) for n in range(n_neuron_types)])
 
         plt.xlabel('neuron type', fontsize=48)
@@ -2604,7 +2538,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 cell_types = to_numpy(x[:, 5]).astype(int)
         type_counts = [np.sum(cell_types == n) for n in range(n_neuron_types)]
         plt.figure(figsize=(10, 10))
-        bars = plt.bar(range(n_neuron_types), type_counts,
+        plt.bar(range(n_neuron_types), type_counts,
                     color=[cmap.color(n) for n in range(n_neuron_types)])
 
         plt.xlabel('neuron type', fontsize=48)
@@ -2630,7 +2564,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
             x0_next = x_list[0][(it + time_step)].clone().detach()
-            y0 = y_list[0][it].clone().detach()
+            y_list[0][it].clone().detach()
         if has_excitation:
             x[:, 10: 10 + model_config.excitation_dim] = x0[:, 10: 10 + model_config.excitation_dim]
 
@@ -2745,7 +2679,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 mpl.rcParams['savefig.pad_inches'] = 0
 
                 black_to_green = LinearSegmentedColormap.from_list('black_green', ['black', 'green'])
-                black_to_yellow = LinearSegmentedColormap.from_list('black_yellow', ['black', 'yellow'])
+                LinearSegmentedColormap.from_list('black_yellow', ['black', 'yellow'])
 
                 plt.figure(figsize=(10, 10))
                 plt.scatter(to_numpy(x[:, 1]), to_numpy(x[:, 2]), s=700, c=to_numpy(x[:, 6]), alpha=1, edgecolors='none', vmin =2 , vmax=8, cmap=black_to_green)
@@ -2785,7 +2719,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     residuals = y_data - linear_model(x_data, *lin_fit)
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                    r_squared = 1 - (ss_res / ss_tot)
+                    1 - (ss_res / ss_tot)
                     plt.xlabel(r'true modulation', fontsize=48)
                     plt.ylabel(r'learned modulation', fontsize=48)
                     # plt.text(0.05, 0.9 * lin_fit[0], f'$R^2$: {np.round(r_squared, 3)}', fontsize=34)
@@ -2842,7 +2776,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             ax = plt.subplot(121)
             # Plot ground truth with distinct gray color, visible in legend
             for i in range(len(n)):
-                color = 'gray' if i == 0 else None  # Only label first
                 if ablation_ratio > 0:
                     label = f'true ablation {ablation_ratio}' if i == 0 else None
                 elif inactivity_ratio > 0:
@@ -3066,10 +2999,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     if "black" in style:
         plt.style.use("dark_background")
-        mc = 'w'
     else:
         plt.style.use("default")
-        mc = 'k'
 
     simulation_config = config.simulation
     training_config = config.training
@@ -3096,7 +3027,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         n_neuron_types = simulation_config.n_neuron_types
     n_input_neurons = simulation_config.n_input_neurons
     delta_t = simulation_config.delta_t
-    n_frames = simulation_config.n_frames
     field_type = model_config.field_type
     signal_model_name = model_config.signal_model_name
 
@@ -3104,7 +3034,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     ensemble_id = simulation_config.ensemble_id
     model_id = simulation_config.model_id
 
-    measurement_noise_level = training_config.measurement_noise_level
     noise_model_level = training_config.noise_model_level
     warm_up_length = 100
 
@@ -3321,7 +3250,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     x_list = []
     x_generated_list = []
     x_generated_modified_list = []
-    rmserr_list = []
 
     x_generated = x.clone()
     x_generated_modified = x.clone()
@@ -3738,7 +3666,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                                       cmap='plasma', vmin=0, vmax=2, marker='h',
                                                       alpha=1, linewidths=0, edgecolors='black')  # green LUT
                                     else:
-                                        ax_ca.text(0.5, 0.5, f'No neurons', transform=ax_ca.transAxes, ha='center',
+                                        ax_ca.text(0.5, 0.5, 'No neurons', transform=ax_ca.transAxes, ha='center',
                                                    va='center', color='red', fontsize=10)
                                     ax_ca.set_title(index_to_name.get(type_idx, f"Type_{type_idx}"), fontsize=18,
                                                     color='white')  # increased fontsize
@@ -3773,7 +3701,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                 ax = axes_flat[panel_idx]
 
                                 if type_idx is None:
-                                    stimulus_scatter = ax.scatter(to_numpy(X1[:n_input_neurons, 0]),
+                                    ax.scatter(to_numpy(X1[:n_input_neurons, 0]),
                                                                   to_numpy(X1[:n_input_neurons, 1]), s=64,
                                                                   c=to_numpy(x[:n_input_neurons, 4]), cmap="viridis",
                                                                   vmin=0, vmax=1.05, marker='h', alpha=1.0, linewidths=0.0,
@@ -3787,21 +3715,21 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                         type_voltages = to_numpy(x[type_mask, 3])
                                         hex_positions_x = to_numpy(X1[:type_count, 0])
                                         hex_positions_y = to_numpy(X1[:type_count, 1])
-                                        neural_scatter = ax.scatter(hex_positions_x, hex_positions_y, s=72, c=type_voltages,
+                                        ax.scatter(hex_positions_x, hex_positions_y, s=72, c=type_voltages,
                                                                     cmap='viridis', vmin=-2, vmax=2, marker='h', alpha=1,
                                                                     linewidths=0.0, edgecolors='black')
                                         if type_name.startswith('R'):
-                                            title_color = 'yellow'
+                                            pass
                                         elif type_name.startswith(('L', 'Lawf')):
-                                            title_color = 'cyan'
+                                            pass
                                         elif type_name.startswith(('Mi', 'Tm', 'TmY')):
-                                            title_color = 'orange'
+                                            pass
                                         elif type_name.startswith('T'):
-                                            title_color = 'red'
+                                            pass
                                         elif type_name.startswith('C'):
-                                            title_color = 'magenta'
+                                            pass
                                         else:
-                                            title_color = 'white'
+                                            pass
                                         ax.set_title(f'{type_name}', fontsize=18, color='white', pad=8, y=0.95)
                                     else:
                                         ax.text(0.5, 0.5, f'No {type_name}\nNeurons', transform=ax.transAxes, ha='center',
@@ -3862,16 +3790,12 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         # Use calcium (index 7)
         activity_true = x_generated_list[:, :, 7].squeeze().T  # (n_neurons, n_frames)
         activity_pred = x_list[:, :, 7].squeeze().T
-        activity_label = "calcium"
-        y_lim = [0, 3]
     else:
         # Use voltage (index 3)
         activity_true = x_generated_list[:, :, 3].squeeze().T
         visual_input_true = x_generated_list[:, :, 4].squeeze().T
         activity_true_modified = x_generated_modified_list[:, :, 3].squeeze().T
         activity_pred = x_list[:, :, 3].squeeze().T
-        activity_label = "voltage"
-        y_lim = [-3, 3]
 
 
     start_frame = 0
@@ -3982,7 +3906,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         activity_range_mean = np.mean(activity_range_per_neuron)
         activity_range_std = np.std(activity_range_per_neuron)
 
-        print(f"overall activity statistics:")
+        print("overall activity statistics:")
         print(f"  mean: {activity_mean:.6f}")
         print(f"  std: {activity_std:.6f}")
         print(f"  min: {activity_min:.6f}")
@@ -4085,20 +4009,13 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     n_neuron_types = simulation_config.n_neuron_types
     n_neurons = simulation_config.n_neurons
-    n_nodes = simulation_config.n_nodes
     n_runs = training_config.n_runs
     n_frames = simulation_config.n_frames
-    delta_t = simulation_config.delta_t
-    time_window = training_config.time_window
-    time_step = training_config.time_step
     plot_batch_size = config.plotting.plot_batch_size
 
-    cmap = CustomColorMap(config=config)
+    CustomColorMap(config=config)
     dimension = simulation_config.dimension
 
-    has_missing_activity = training_config.has_missing_activity
-    has_excitation = ('excitation' in model_config.update_type)
-    baseline_value = simulation_config.baseline_value
 
     torch.random.fork_rng(devices=device)
     torch.random.manual_seed(simulation_config.seed)
@@ -4113,10 +4030,8 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
         rc('font', **{'family': 'serif', 'serif': ['Palatino']})
     if 'black' in style:
         plt.style.use('dark_background')
-        mc = 'w'
     else:
         plt.style.use('default')
-        mc = 'k'
 
 
     log_dir = 'log/' + config.config_file
@@ -4162,8 +4077,8 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
                 index = np.arange(n_neurons * n // 3, n_neurons * (n + 1) // 3)
                 index_particles.append(index)
                 n_neuron_types = 3
-    ynorm = torch.load(f'{log_dir}/ynorm.pt', map_location=device, weights_only=True)
-    vnorm = torch.load(f'{log_dir}/vnorm.pt', map_location=device, weights_only=True)
+    torch.load(f'{log_dir}/ynorm.pt', map_location=device, weights_only=True)
+    torch.load(f'{log_dir}/vnorm.pt', map_location=device, weights_only=True)
 
 
     model = Signal_Propagation_Zebra(aggr_type=model_config.aggr_type, config=config, device=device)

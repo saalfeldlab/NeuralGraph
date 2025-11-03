@@ -1,4 +1,3 @@
-import os
 
 # Configure matplotlib to use headless backend before importing pyplot
 import matplotlib
@@ -10,18 +9,8 @@ import torch
 import torch.nn as nn
 
 # from NeuralGraph.generators.utils import get_time_series
-from matplotlib import pyplot as plt
-from tqdm import trange
 from NeuralGraph.utils import to_numpy, set_device
-from NeuralGraph.config import NeuralGraphConfig
-import seaborn as sns
 import torch.nn.functional as F
-import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
-from PIL import Image
-import skimage
-from torchvision.transforms import Resize, Compose, ToTensor, Normalize
-import torch.optim as optim
 import time as Time
 
 
@@ -169,7 +158,7 @@ def train_volterra_model(noise_level=0.0, verbose=True, random_seed=None):
     T = 60  # total time to see oscillations
     dt = 0.01  # time step
     n_steps = int(T / dt)
-    time = np.linspace(0, T, n_steps)
+    np.linspace(0, T, n_steps)
 
     # Initialize variables
     v = np.zeros(n_steps)  # x (prey/species 1)
@@ -431,7 +420,7 @@ def run_parameter_sweep():
 
             # Skip if no valid runs
             if valid_runs == 0:
-                print(f" SKIPPED - All runs contained NaN")
+                print(" SKIPPED - All runs contained NaN")
                 continue
 
             print(f" ({valid_runs} valid)", end="")
@@ -484,7 +473,7 @@ def run_parameter_sweep():
     print(f"W MSE: {best_overall['w_mse']:.6f}")
 
     c = best_overall['coeffs']
-    print(f"Ground truth: a=1.0, b=0.1, c=1.5, d=0.075")
+    print("Ground truth: a=1.0, b=0.1, c=1.5, d=0.075")
     print(f"Reconstructed: a={c['a']:.3f}, b={c['b']:.3f}, c={c['c']:.3f}, d={c['d']:.3f}")
 
     # Coefficient errors

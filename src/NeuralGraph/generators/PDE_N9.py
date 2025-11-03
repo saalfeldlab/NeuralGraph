@@ -1,10 +1,6 @@
 import torch_geometric as pyg
-import torch_geometric.utils as pyg_utils
 import numpy as np
-import matplotlib.pyplot as plt
-from tifffile import imread
 import torch
-from NeuralGraph.utils import to_numpy
 
 
 class PDE_N9(pyg.nn.MessagePassing):
