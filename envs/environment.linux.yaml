@@ -60,6 +60,7 @@ dependencies:
       - joblib
       - flyvis
       - polars
-      # - ninja
-      # - commentjson
-      # - git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
+      - ninja
+      - commentjson
+      # Note: Install tiny-cuda-nn manually after environment creation:
+      # pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
