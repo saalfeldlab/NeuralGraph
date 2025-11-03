@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import time
 from PIL import Image as PILImage
-import os
 import json
 from itertools import product
 
@@ -254,7 +253,7 @@ def main():
               f"Speed: {result['iterations_per_second']:5.2f} it/s | "
               f"Params: {result['model_parameters']:,}")
     
-    print(f"\nBest configuration:")
+    print("\nBest configuration:")
     print(f"Learning rate: {best_config['learning_rate']}")
     print(f"Hidden features: {best_config['hidden_features']}")  
     print(f"Hidden layers: {best_config['hidden_layers']}")
@@ -279,7 +278,7 @@ def main():
         
         json.dump(json_results, f, indent=2)
     
-    print(f"\nResults saved to 'siren_optimization_results.json'")
+    print("\nResults saved to 'siren_optimization_results.json'")
     print("================================================================")
 
 if __name__ == "__main__":

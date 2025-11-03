@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
-import torch_geometric as pyg
 from NeuralGraph.models.MLP import MLP
-from NeuralGraph.utils import to_numpy
-import numpy as np
 # Siren_Network import not needed - removed star import
 
 

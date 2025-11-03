@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch_geometric as pyg
 from NeuralGraph.models.MLP import MLP
-from NeuralGraph.utils import to_numpy
-import numpy as np
 
 class Signal_Propagation(pyg.nn.MessagePassing):
     """Interaction Network as proposed in this paper:

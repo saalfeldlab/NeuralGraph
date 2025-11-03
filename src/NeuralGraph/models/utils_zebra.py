@@ -433,7 +433,7 @@ def plot_field_comparison_discrete_slices(
     X_MIN, X_MAX = 0.0, 0.8
     Y_MIN, Y_MAX = 0.0, 0.51
     Z_MIN, Z_MAX = 0.0, 0.285
-    spanX, spanY, spanZ = X_MAX - X_MIN, Y_MAX - Y_MIN, Z_MAX - Z_MIN
+    _spanX, spanY, spanZ = X_MAX - X_MIN, Y_MAX - Y_MIN, Z_MAX - Z_MIN
     z_over_y = spanZ / (spanY + 1e-12)
 
     # ---------- model inference once (discrete at all points) ----------
@@ -575,10 +575,8 @@ def plot_field_discrete_xy_slices_grid(
     from matplotlib import cm
 
     # --- styling (small fonts, black bg) ---
-    TITLE_FZ  = 6
     LABEL_FZ  = 9
     TICK_FZ   = 6
-    TITLE_PAD = 4
     LABEL_PAD = 4
     cmap = cm.plasma
 
@@ -589,7 +587,7 @@ def plot_field_discrete_xy_slices_grid(
     # --- extents (match your constants) ---
     X_MIN, X_MAX = 0.0, 0.8
     Y_MIN, Y_MAX = 0.0, 0.51
-    Z_MIN, Z_MAX = 0.0, 0.285
+    _Z_MIN, _Z_MAX = 0.0, 0.285
 
     # precompute model at discrete positions (once)
     t_feat = (k * model.delta_t) / model.NNR_f_T_period

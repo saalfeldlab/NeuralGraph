@@ -4,11 +4,8 @@ import torch
 import tinycudann as tcnn
 import json
 import time
-import os
 import numpy as np
 from PIL import Image
-from tqdm import trange
-import matplotlib.pyplot as plt
 
 def load_image(path, target_size=None):
     """Load and preprocess image"""

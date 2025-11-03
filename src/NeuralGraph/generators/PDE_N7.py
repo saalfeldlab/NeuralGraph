@@ -1,6 +1,5 @@
 
 import torch_geometric as pyg
-import torch_geometric.utils as pyg_utils
 from NeuralGraph.utils import to_numpy
 import torch
 
@@ -67,6 +66,6 @@ class PDE_N7(pyg.nn.MessagePassing):
             return self.phi(u)
 
         elif function=='update':
-            g, s, c = self.p[type, 0:1], self.p[type, 1:2], self.p[type, 2:3]
+            _g, s, c = self.p[type, 0:1], self.p[type, 1:2], self.p[type, 2:3]
             return -c * u + s * torch.tanh(u)
 

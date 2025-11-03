@@ -13,15 +13,7 @@ import torch.nn as nn
 from matplotlib import pyplot as plt
 from tqdm import trange
 from NeuralGraph.utils import to_numpy, set_device
-from NeuralGraph.config import NeuralGraphConfig
-import seaborn as sns
 import torch.nn.functional as F
-import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
-from PIL import Image
-import skimage
-from torchvision.transforms import Resize, Compose, ToTensor, Normalize
-import torch.optim as optim
 import time as Time
 
 from config_Fitzhug_Nagumo import FitzhughNagumoConfig
@@ -707,7 +699,7 @@ if __name__ == '__main__':
             plt.savefig(training_plot_path, dpi=200, bbox_inches='tight', facecolor='white')
             plt.close(fig)
 
-        print(f"\nCONVERGENCE SUMMARY")
+        print("\nCONVERGENCE SUMMARY")
         print(f"{'run':<4} {'Loss':<12} {'V MSE':<12} {'W MSE':<12} {'Total MSE':<12}")
         print(f"{'-' * 60}")
         for result in convergence_results:

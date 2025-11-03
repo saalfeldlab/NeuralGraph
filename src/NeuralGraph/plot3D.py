@@ -122,12 +122,6 @@ def balls_sdf(balls, p, ball_r=0.1):
   dists = norm(p-balls.pos)-ball_r
   return dists.min()
 
-def scene_sdf(balls, p, ball_r=0.1, c=8.0):
-  dists = norm(p-balls.pos)-ball_r
-  balls_dist = -jax.nn.logsumexp(-dists*c)/c  # softmin
-  floor_dist = p[1]+3.0  # floor is at y==-3.0
-  return jp.minimum(balls_dist, floor_dist)
-
 def raycast(sdf, p0, dir, step_n=50):
   def f(_, p):
     return p+sdf(p)*dir
