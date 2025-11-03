@@ -58,7 +58,7 @@ if __name__ == "__main__":
         best_model = 'None' 
         task = 'train'  # 'generate', 'train', 'test'
 
-        # config_list = ['fly_N9_64_1_8', 'fly_N9_64_1_9', 'fly_N9_64_2_8', 'fly_N9_64_2_9', 'fly_N9_64_3_6', 'fly_N9_64_3_7', 'fly_N9_64_3_7_1', 'fly_N9_64_3_7_2', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_7']  # for quick test
+        config_list = ['fly_N9_64_1_8', 'fly_N9_64_1_9', 'fly_N9_64_2_8', 'fly_N9_64_2_9', 'fly_N9_64_3_6', 'fly_N9_64_3_7', 'fly_N9_64_3_7_1', 'fly_N9_64_3_7_2', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_7']  # for quick test
         
         config_list = ['signal_N11_2_1'] 
 
