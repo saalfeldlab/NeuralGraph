@@ -44,7 +44,6 @@ import torch_geometric.utils as pyg_utils
 from scipy.ndimage import zoom
 import re
 import imageio
-from GNN_PlotFigure import plot_neuron_activity_analysis, plot_ground_truth_distributions
 
 # import taichi as ti
 import random
@@ -898,9 +897,11 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     mu_activity = torch.mean(activity, dim=1)
     sigma_activity = torch.std(activity, dim=1)
 
-    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30'] 
+    target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30']
     type_list = torch.tensor(x[:, 6:7], device=device)
-    
+
+    # Lazy import to avoid circular dependency
+    from GNN_PlotFigure import plot_neuron_activity_analysis
     plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, f'graphs_data/{dataset_name}/')
 
     print('plot figure activity ...')
