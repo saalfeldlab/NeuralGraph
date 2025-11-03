@@ -9,10 +9,8 @@ from NeuralGraph.utils import to_numpy, fig_init
 import matplotlib as mpl
 
 # PySRRegressor is an optional dependency
-try:
-    from pysr import PySRRegressor
-except ImportError:
-    PySRRegressor = None
+# from pysr import PySRRegressor
+# PySRRegressor = None
 
 logger = logging.getLogger(__name__)
 

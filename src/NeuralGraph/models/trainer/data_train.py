@@ -1,5 +1,10 @@
 """Extracted from graph_trainer.py"""
 from ._imports import *
+from .data_train_flyvis import data_train_flyvis
+from .data_train_flyvis_calcium import data_train_flyvis_calcium
+from .data_train_signal import data_train_signal
+from .data_train_zebra import data_train_zebra
+from .data_train_zebra_fluo import data_train_zebra_fluo
 
 def data_train(config=None, erase=False, best_model=None, device=None):
     # plt.rcParams['text.usetex'] = True
@@ -21,8 +26,6 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     if 'fly' in config.dataset:
         if config.simulation.calcium_type != 'none':
             data_train_flyvis_calcium(config, erase, best_model, device)
-        elif 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
-            data_train_flyvis_RNN(config, erase, best_model, device)
         else:
             data_train_flyvis(config, erase, best_model, device)
     elif 'zebra_fluo' in config.dataset:
