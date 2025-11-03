@@ -1518,6 +1518,7 @@ def data_train_flyvis(config, erase, best_model, device):
         plt.close()
 
 
+
 def data_train_flyvis_RNN(config, erase, best_model, device):
     """RNN training with sequential processing through time"""
     
@@ -1698,6 +1699,7 @@ def data_train_flyvis_RNN(config, erase, best_model, device):
                 param_group['lr'] *= 0.5
             print(f"Learning rate decreased to {param_group['lr']}")
             logger.info(f"Learning rate decreased to {param_group['lr']}")
+
 
 
 def data_train_flyvis_calcium(config, erase, best_model, device):
@@ -1960,7 +1962,6 @@ def data_train_flyvis_calcium(config, erase, best_model, device):
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
         plt.close()
-
 
 
 

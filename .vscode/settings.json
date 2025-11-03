@@ -3,5 +3,8 @@
     "python-envs.defaultPackageManager": "ms-python.python:conda",
     "files.autoSave": "afterDelay",
     "files.autoSaveDelay": 500,
-    "python-envs.pythonProjects": []
+    "python-envs.pythonProjects": [],
+    "python.defaultInterpreterPath": "/workspace/.conda_envs/neural-graph-linux/bin/python",
+    "python.condaPath": "/opt/conda/bin/conda",
+    "python.terminal.activateEnvironment": true
 }
