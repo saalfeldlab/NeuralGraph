@@ -90,6 +90,13 @@ jobs:
         conda activate ${{ env.CONDA_ENV_NAME }}
         ruff check --exclude *.ipynb .
 
+    # Install package in editable mode
+    - name: Install package
+      run: |
+        source /home/runner/miniconda3/etc/profile.d/conda.sh
+        conda activate ${{ env.CONDA_ENV_NAME }}
+        pip install -e .
+
     # Generate test data
     - name: Data generate
       run: |
