@@ -1253,9 +1253,6 @@ def overlay_umap_refit_with_W_list(
 
     return {"emb_bg": emb_bg, "emb_new": emb_new, "ids_bg": ids_bg, "reducer": reducer}
 
-from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 import joblib
 
@@ -1357,7 +1354,7 @@ def get_n_hop_neighborhood_with_stats(target_ids, edges_all, n_hops, verbose=Fal
     all_neurons = set(target_ids)
     
     if verbose:
-        print(f"\n=== N-hop Neighborhood Expansion ===")
+        print("\n=== N-hop Neighborhood Expansion ===")
         print(f"Starting with {len(target_ids)} core neurons")
     
     # Track stats per hop
@@ -1406,11 +1403,11 @@ def get_n_hop_neighborhood_with_stats(target_ids, edges_all, n_hops, verbose=Fal
         
         if len(current) == 0:
             if verbose:
-                print(f"  -> No more expansion possible")
+                print("  -> No more expansion possible")
             break
     
     if verbose:
-        print(f"\n=== Summary ===")
+        print("\n=== Summary ===")
         print(f"Total neurons: {len(all_neurons):,} / 13,741 ({100*len(all_neurons)/13741:.1f}%)")
         print(f"Total edges: {total_edges:,} / {edges_all.shape[1]:,} ({100*total_edges/edges_all.shape[1]:.1f}%)")
         print(f"Memory estimate: {(len(all_neurons) * 8 + total_edges * 8) / 1e6:.2f} MB")

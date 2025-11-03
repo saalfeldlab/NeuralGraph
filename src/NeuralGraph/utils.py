@@ -20,13 +20,11 @@ from collections import defaultdict
 from sklearn.linear_model import LinearRegression
 
 import warnings
-from collections import defaultdict
 from scipy.stats import pearsonr
 
 warnings.filterwarnings('ignore')
 
 
-import re
 import tensorstore as ts
 
 def open_gcs_zarr(url: str):
@@ -1255,7 +1253,7 @@ def fit_ar_model_with_bic(time_series, max_order=10):
             bic_scores.append(bic)
             models.append((model, residuals))
 
-        except Exception as e:
+        except Exception:
             bic_scores.append(np.inf)
             models.append(None)
 
@@ -1339,7 +1337,7 @@ def fit_granger_models(ts1, ts2, max_order=10):
             'n_samples': len(y)
         }
 
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -1820,7 +1818,7 @@ def plot_combined_causality_analysis(leader_track_id, follower_track_id, filtere
     granger_diff = pair_result.get('granger_diff', 0)
     p_value = pair_result.get('p_value', 1)
 
-    title1 = f'fluorescence traces\n'
+    title1 = 'fluorescence traces\n'
     title1 += f'gc: {gc_12:.3f}→{gc_21:.3f}, diff: {granger_diff:.3f}, p: {p_value:.4f}'
     ax1.set_title(title1, fontsize=12, fontweight='bold')
     ax1.set_xlabel('frame')
@@ -1924,7 +1922,7 @@ def plot_combined_causality_analysis(leader_track_id, follower_track_id, filtere
         else:
             lag_interpretation = "synchronous (weak correlation)"
 
-    title3 = f'cross-correlation\n'
+    title3 = 'cross-correlation\n'
     title3 += f'peak lag: {peak_lag}, corr: {peak_corr:.3f}\n'
     title3 += f'{lag_interpretation}'
     ax3.set_title(title3, fontsize=12, fontweight='bold')
@@ -2136,14 +2134,14 @@ def plot_interesting_causality_pairs(significant_pairs, filtered_time_series, tr
     for category, count in category_counts.items():
         print(f"  {category}: {count}")
 
-    print(f"\ntop examples:")
+    print("\ntop examples:")
     for i, pair in enumerate(selected_pairs[:5]):
         print(f"  {i + 1}. {pair['leader_id']}→{pair['follower_id']}: "
               f"{pair['category']}, diff={pair['granger_diff']:.3f}, "
               f"dist={pair['distance']:.1f}px")
 
     # Plot each selected pair
-    print(f"\ngenerating plots...")
+    print("\ngenerating plots...")
     for i, pair in enumerate(selected_pairs):
         l = pair['leader_id']
         f = pair['follower_id']

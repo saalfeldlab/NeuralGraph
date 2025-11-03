@@ -5371,7 +5371,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 print(
                     f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
             else:
-                print(f'outliers: 0  (no outliers detected)')
+                print('outliers: 0  (no outliers detected)')
 
 
 
@@ -5993,7 +5993,7 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
         ax.set_yticks([])
         if idx == 16:  # Bottom left corner - add axis labels with much larger font
             ax.set_xlabel('frame', fontsize=22)
-            ax.set_ylabel(f'calcium', fontsize=22)
+            ax.set_ylabel('calcium', fontsize=22)
             n_ticks = 500
             ax.set_xticks([start_frame, (start_frame + end_frame) / 2, end_frame])
 
@@ -6300,7 +6300,7 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
     plt.close()
 
     # Log summary statistics
-    logger.info(f"Neuron type reconstruction analysis:")
+    logger.info("Neuron type reconstruction analysis:")
     logger.info(f"Mean weights RMSE: {np.mean(rmse_weights):.3f} ± {np.std(rmse_weights):.3f}")
     logger.info(f"Mean tau RMSE: {np.mean(rmse_taus):.3f} ± {np.std(rmse_taus):.3f}")
     logger.info(f"Mean V_rest RMSE: {np.mean(rmse_vrests):.3f} ± {np.std(rmse_vrests):.3f}")
@@ -6895,7 +6895,7 @@ def compare_gnn_results(config_list, varied_parameter):
                     continue
             else:
                 if '.' not in varied_parameter:
-                    raise ValueError(f"parameter must be in 'section.parameter' format")
+                    raise ValueError("parameter must be in 'section.parameter' format")
                 section_name, param_name = varied_parameter.split('.', 1)
                 section = getattr(config, section_name, None)
                 if section is None:
@@ -7767,7 +7767,7 @@ def get_figures(index):
                 60: 'TmY18', 61: 'TmY3', 62: 'TmY4', 63: 'TmY5a', 64: 'TmY9'}
 
             print('plot figure 1...')
-            x = np.load(f'graphs_data/fly/fly_N9_18_4_0/x_list_0.npy')
+            x = np.load('graphs_data/fly/fly_N9_18_4_0/x_list_0.npy')
             type_list = x[-1,:, 6].astype(int)
             n_neurons = len(type_list)
 
@@ -8398,7 +8398,7 @@ def get_figures(index):
             ax9.text(0.1, 1.01, 'i)', transform=ax9.transAxes, fontsize=18, va='bottom', ha='right')
 
             plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
-            plt.savefig(f"./fig_paper/figure_correction_weight.png", dpi=300, bbox_inches='tight')
+            plt.savefig("./fig_paper/figure_correction_weight.png", dpi=300, bbox_inches='tight')
             plt.close()
 
         case 'correction_weight_noise':
@@ -8493,7 +8493,7 @@ def get_figures(index):
             ax9.text(0.1, 1.01, 'i)', transform=ax9.transAxes, fontsize=18, va='bottom', ha='right')
 
             plt.subplots_adjust(left=0.02, right=0.98, top=0.95, bottom=0.02, wspace=0.02, hspace=0.04)
-            plt.savefig(f"./fig_paper/figure_correction_weight_noise.png", dpi=300, bbox_inches='tight')
+            plt.savefig("./fig_paper/figure_correction_weight_noise.png", dpi=300, bbox_inches='tight')
             plt.close()
 
 

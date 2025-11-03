@@ -95,24 +95,24 @@ def find_max_batch_size():
     
     optimal_batch_size = min_size
     
-    print(f"\n" + "="*50)
-    print(f"RESULTS:")
+    print("\n" + "="*50)
+    print("RESULTS:")
     print(f"Maximum batch size: {optimal_batch_size:,}")
     print(f"Power of 2: 2^{int(torch.log2(torch.tensor(optimal_batch_size)).item())}")
     print(f"Memory usage per sample: ~{torch.cuda.max_memory_allocated() / optimal_batch_size / 1024:.1f} KB")
-    print(f"="*50)
+    print("="*50)
     
     return optimal_batch_size
 
 if __name__ == "__main__":
     max_batch_size = find_max_batch_size()
     
-    print(f"\nTo use this batch size, change line 160 in mlp_learning_an_image_pytorch.py to:")
+    print("\nTo use this batch size, change line 160 in mlp_learning_an_image_pytorch.py to:")
     print(f"batch_size = {max_batch_size}")
     
     # Find the closest power of 2
     power = int(torch.log2(torch.tensor(max_batch_size)).item())
     closest_power_of_2 = 2**power
     if max_batch_size != closest_power_of_2:
-        print(f"Or use closest power of 2:")
+        print("Or use closest power of 2:")
         print(f"batch_size = 2**{power}  # {closest_power_of_2:,}")

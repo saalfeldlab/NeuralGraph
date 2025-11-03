@@ -15,17 +15,13 @@ from tqdm import tqdm, trange
 
 
 import json
-from tqdm import trange
 from skimage.measure import label, regionprops
 import scipy.io as sio
 import seaborn as sns
 from torch_geometric.utils import dense_to_sparse
 import pickle
-import json
 import scipy.io
 from skimage.draw import disk
-import pandas as pd
-import scipy.io
 from matplotlib.colors import LinearSegmentedColormap
 import torch.nn.functional as F
 
@@ -683,7 +679,7 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
         ax = fig.add_subplot(222)
-        plt.title(f'missing data', fontsize=18)
+        plt.title('missing data', fontsize=18)
         test_im = activity * 0
         pos = np.argwhere(activity == 6)
         test_im[pos[:, 0], pos[:, 1]] = 1
@@ -698,7 +694,7 @@ def load_wormvae_data(config, device=None, visualize=None, step=None, cmap=None)
         plt.imshow(odor_worms[idata], aspect='auto', vmin =0, vmax=1, cmap='viridis', interpolation='nearest')
         plt.xlabel('time', fontsize=18)
         plt.ylabel('odor', fontsize=18)
-        plt.title(f'odor stimuli', fontsize=18)
+        plt.title('odor stimuli', fontsize=18)
         plt.xticks(fontsize=14)
         plt.yticks(fontsize=14)
         plt.tight_layout()
@@ -792,7 +788,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     print("downsampled shape:", stim_ephys.shape)
     print("downsampled dtype:", stim_ephys.dtype)
 
-    np.save(f'/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy/stim_ephys.npy', stim_ephys)
+    np.save('/groups/saalfeld/home/allierc/signaling/Zapbench/zapbench_numpy/stim_ephys.npy', stim_ephys)
 
 
 

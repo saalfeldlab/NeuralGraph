@@ -107,17 +107,17 @@ def calculate_enrichment_metrics(results_random, results_connected, s, edges, lo
     logger.info(f"Enrichment I_HOC:  {enrichment_I_HOC:.3f}x")
     logger.info(f"Enrichment C_3:    {enrichment_C3:.3f}x")
     
-    logger.info(f"\nStatistical comparison (Mann-Whitney U):")
+    logger.info("\nStatistical comparison (Mann-Whitney U):")
     logger.info(f"  p-value: {pvalue:.4e}")
     logger.info(f"  Cohen's d: {cohens_d:.3f}")
     logger.info(f"  Connected > median(random): {pct_connected_above_median:.1f}%")
     
-    logger.info(f"\nConnectivity statistics:")
+    logger.info("\nConnectivity statistics:")
     logger.info(f"  Edge density random:    {edge_density_random:.4f}")
     logger.info(f"  Edge density connected: {edge_density_connected:.4f}")
     logger.info(f"  Density ratio:          {edge_density_connected/(edge_density_random+1e-10):.2f}x")
     
-    logger.info(f"\nCorrelation structure:")
+    logger.info("\nCorrelation structure:")
     logger.info(f"  Mean corr (1-hop):   {correlation_decay['one_hop']:.4f}")
     logger.info(f"  Mean corr (2-hop):   {correlation_decay['two_hop']:.4f}")
     logger.info(f"  Mean corr (no edge): {correlation_decay['no_edge']:.4f}")

@@ -11,7 +11,6 @@ import torch.nn as nn
 from matplotlib import pyplot as plt
 from NeuralGraph.utils import to_numpy, set_device
 import torch.nn.functional as F
-import torch.nn as nn
 import time as Time
 
 
@@ -272,7 +271,7 @@ if __name__ == '__main__':
     test_runs = 5
     convergence_results = []
 
-    print(f" ")
+    print(" ")
 
     for run in range(test_runs):
         print(f"training run {run+1}/{test_runs}")

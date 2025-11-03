@@ -5,7 +5,6 @@ import scipy.cluster.hierarchy as hcluster
 
 from NeuralGraph.utils import to_numpy, fig_init
 import time
-import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.cluster import DBSCAN
 from sklearn.preprocessing import StandardScaler
@@ -595,7 +594,7 @@ def clustering_gmm(data, type_list, n_components=None):
             cluster_idx = int(cluster_labels_remapped[i])
             if 0 <= true_idx < n_true and 0 <= cluster_idx < n_found:
                 conf_mat[true_idx, cluster_idx] += 1
-        except (IndexError, ValueError) as e:
+        except (IndexError, ValueError):
             print(f"Skipping invalid indices: true_idx={true_labels[i]}, cluster_idx={cluster_labels[i]}")
             continue
             

@@ -15,7 +15,6 @@ except ImportError:
 	sys.exit()
 
 from PIL import Image as PILImage
-import numpy as np
 
 def read_image(filename):
     """Read image and convert to numpy array with values in [0,1]"""
@@ -222,7 +221,7 @@ def main():
             print(f"{i+1}. {r['name']:20s}: {r['efficiency']:5.2f} eff ({r['psnr']:.2f} dB, {r['params']:,} params)")
         
         # Save best configurations
-        print(f"\nSaving optimized configurations for full resolution...")
+        print("\nSaving optimized configurations for full resolution...")
         
         configs_to_save = [
             ('config_fullres_best_quality.json', by_psnr[0]['config']),
@@ -235,12 +234,12 @@ def main():
                 json.dump(config, f, indent=2)
             print(f"  Saved: {filename}")
         
-        print(f"\n🎯 RECOMMENDATION for full resolution (2138x1808):")
+        print("\n🎯 RECOMMENDATION for full resolution (2138x1808):")
         best = by_psnr[0]
         print(f"   Use: {best['name']}")
         print(f"   PSNR: {best['psnr']:.2f} dB")
         print(f"   Parameters: {best['params']:,}")
-        print(f"   Config file: config_fullres_best_quality.json")
+        print("   Config file: config_fullres_best_quality.json")
         
     else:
         print("\nNo successful configurations found!")

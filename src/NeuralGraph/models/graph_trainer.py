@@ -759,13 +759,13 @@ def data_train_signal(config, erase, best_model, device):
                 # Constrain embedding domain
                 with torch.no_grad():
                     model.a.copy_(model_a_)
-                print(f'regul_embedding: replaced')
-                logger.info(f'regul_embedding: replaced')
+                print('regul_embedding: replaced')
+                logger.info('regul_embedding: replaced')
 
                 # Constrain function domain
                 if train_config.sparsity == 'replace_embedding_function':
 
-                    logger.info(f'replace_embedding_function')
+                    logger.info('replace_embedding_function')
                     y_func_list = func_list * 0
 
                     ax = fig.add_subplot(2, 5, 9)
@@ -2287,7 +2287,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         index = np.arange(n_neurons * n // n_neuron_types, n_neurons * (n + 1) // n_neuron_types)
         first_cell_id_particles.append(index)
 
-    print(f'load data...')
+    print('load data...')
 
     x_list = []
     y_list = []
@@ -3728,7 +3728,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                                       cmap='plasma', vmin=0, vmax=2, marker='h',
                                                       alpha=1, linewidths=0, edgecolors='black')  # green LUT
                                     else:
-                                        ax_ca.text(0.5, 0.5, f'No neurons', transform=ax_ca.transAxes, ha='center',
+                                        ax_ca.text(0.5, 0.5, 'No neurons', transform=ax_ca.transAxes, ha='center',
                                                    va='center', color='red', fontsize=10)
                                     ax_ca.set_title(index_to_name.get(type_idx, f"Type_{type_idx}"), fontsize=18,
                                                     color='white')  # increased fontsize
@@ -3972,7 +3972,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         activity_range_mean = np.mean(activity_range_per_neuron)
         activity_range_std = np.std(activity_range_per_neuron)
 
-        print(f"overall activity statistics:")
+        print("overall activity statistics:")
         print(f"  mean: {activity_mean:.6f}")
         print(f"  std: {activity_std:.6f}")
         print(f"  min: {activity_min:.6f}")

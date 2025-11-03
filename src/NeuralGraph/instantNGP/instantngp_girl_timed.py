@@ -46,7 +46,6 @@ except ImportError:
 	sys.exit()
 
 from PIL import Image as PILImage
-import numpy as np
 
 def read_image(filename):
     """Read image and convert to numpy array with values in [0,1]"""
@@ -143,7 +142,7 @@ if __name__ == "__main__":
 
 	xy = torch.stack((yv.flatten(), xv.flatten())).t()
 
-	path = f"reference.png"
+	path = "reference.png"
 	print(f"Writing '{path}'... ", end="")
 	write_image(path, image(xy).reshape(img_shape).detach().cpu().numpy())
 	print("done.")
@@ -159,7 +158,7 @@ if __name__ == "__main__":
 		traced_image = torch.jit.trace(image, batch)
 	except:
 		# If tracing causes an error, fall back to regular execution
-		print(f"WARNING: PyTorch JIT trace failed. Performance will be slightly worse than regular.")
+		print("WARNING: PyTorch JIT trace failed. Performance will be slightly worse than regular.")
 		traced_image = image
 
 	# Create output directory and clear it
@@ -215,7 +214,7 @@ if __name__ == "__main__":
 	i = 0
 	
 	# Save initial state (t=0)
-	path = f"instantngp_outputs/time_000_000ms.png"
+	path = "instantngp_outputs/time_000_000ms.png"
 	print(f"Writing '{path}'... ", end="")
 	with torch.no_grad():
 		write_image(path, model(xy).reshape(img_shape).clamp(0.0, 1.0).detach().cpu().numpy())
@@ -261,16 +260,16 @@ if __name__ == "__main__":
 		i += 1
 
 	total_wall_time = time.perf_counter() - start_time
-	print(f"\n================================================================")
-	print(f"TRAINING COMPLETED")
-	print(f"================================================================")
+	print("\n================================================================")
+	print("TRAINING COMPLETED")
+	print("================================================================")
 	print(f"Wall time: {total_wall_time:.3f}s")
 	print(f"Pure training time: {total_training_time:.3f}s") 
 	print(f"Total iterations: {i}")
 	print(f"Training efficiency: {total_training_time/total_wall_time*100:.1f}% (rest is I/O overhead)")
 	print(f"Images saved: {save_counter} (every 250ms from 0ms to {int((save_counter-1)*250)}ms)")
-	print(f"Output directory: instantngp_outputs/")
-	print(f"================================================================")
+	print("Output directory: instantngp_outputs/")
+	print("================================================================")
 
 	if args.result_filename:
 		print(f"Writing '{args.result_filename}'... ", end="")

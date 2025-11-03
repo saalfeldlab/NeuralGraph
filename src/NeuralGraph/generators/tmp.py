@@ -612,7 +612,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                                       cmap='plasma', vmin=0, vmax=2, marker='h',
                                                       alpha=1, linewidths=0, edgecolors='black')  # green LUT
                                     else:
-                                        ax_ca.text(0.5, 0.5, f'No neurons', transform=ax_ca.transAxes, ha='center',
+                                        ax_ca.text(0.5, 0.5, 'No neurons', transform=ax_ca.transAxes, ha='center',
                                                    va='center', color='red', fontsize=10)
                                     ax_ca.set_title(index_to_name.get(type_idx, f"Type_{type_idx}"), fontsize=18,
                                                     color='white')  # increased fontsize

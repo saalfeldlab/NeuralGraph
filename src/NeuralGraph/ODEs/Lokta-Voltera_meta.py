@@ -11,7 +11,6 @@ import torch.nn as nn
 # from NeuralGraph.generators.utils import get_time_series
 from NeuralGraph.utils import to_numpy, set_device
 import torch.nn.functional as F
-import torch.nn as nn
 import time as Time
 
 
@@ -421,7 +420,7 @@ def run_parameter_sweep():
 
             # Skip if no valid runs
             if valid_runs == 0:
-                print(f" SKIPPED - All runs contained NaN")
+                print(" SKIPPED - All runs contained NaN")
                 continue
 
             print(f" ({valid_runs} valid)", end="")
@@ -474,7 +473,7 @@ def run_parameter_sweep():
     print(f"W MSE: {best_overall['w_mse']:.6f}")
 
     c = best_overall['coeffs']
-    print(f"Ground truth: a=1.0, b=0.1, c=1.5, d=0.075")
+    print("Ground truth: a=1.0, b=0.1, c=1.5, d=0.075")
     print(f"Reconstructed: a={c['a']:.3f}, b={c['b']:.3f}, c={c['c']:.3f}, d={c['d']:.3f}")
 
     # Coefficient errors

@@ -154,7 +154,7 @@ def analyze_mlp_edge_lines(model, neuron_list, all_neuron_list, adjacency_matrix
 
     ax_lines.set_xlabel('u_j - u_i (signal difference)')
     ax_lines.set_ylabel('edge function output')
-    ax_lines.set_title(f'edge function vs signal difference\n(mean ± std across incoming connections)')
+    ax_lines.set_title('edge function vs signal difference\n(mean ± std across incoming connections)')
     # grid(True, alpha=0.3)
 
     # Adaptive legend placement based on number of neurons
@@ -575,7 +575,7 @@ def analyze_mlp_phi_embedding(model, n_neurons=300, signal_range=(0, 10), resolu
     # Create signal grid
     u_vals = torch.linspace(signal_range[0], signal_range[1], resolution, device=device)
 
-    print(f"analyzing phi function across signal and embedding space...")
+    print("analyzing phi function across signal and embedding space...")
     print(f"resolution: {resolution}x{resolution}, excitation_dim: {excitation_dim}")
 
     # Sample random neurons for embedding analysis
