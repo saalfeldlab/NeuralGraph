@@ -1,11 +1,6 @@
 
 import torch_geometric as pyg
-import torch_geometric.utils as pyg_utils
-import numpy as np
-import matplotlib.pyplot as plt
-from tifffile import imread
 import torch
-from NeuralGraph.utils import to_numpy
 
 class PDE_N5(pyg.nn.MessagePassing):
     """Interaction Network as proposed in this paper:
@@ -84,5 +79,5 @@ class PDE_N5(pyg.nn.MessagePassing):
             return self.phi((u-b)/t) - u*l/50
 
         elif function=='update':
-            g, s, c = self.p[type_i, 0:1], self.p[type_i, 1:2], self.p[type_i, 2:3]
+            _g, s, c = self.p[type_i, 0:1], self.p[type_i, 1:2], self.p[type_i, 2:3]
             return -c * u + s * torch.tanh(u)

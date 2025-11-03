@@ -1,7 +1,5 @@
 
 import torch_geometric as pyg
-import torch_geometric.utils as pyg_utils
-from NeuralGraph.utils import to_numpy
 import torch
 
 class PDE_N3(pyg.nn.MessagePassing):
@@ -30,7 +28,7 @@ class PDE_N3(pyg.nn.MessagePassing):
         self.phi = phi
 
     def forward(self, data=[], has_field=False, alpha=1.0, data_id=[]):
-        x, edge_index = data.x, data.edge_index
+        x, _edge_index = data.x, data.edge_index
         # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = x[:, 5].long()
         parameters = alpha * self.p[neuron_type + 1] + (1-alpha) * self.p[neuron_type]
@@ -62,6 +60,6 @@ class PDE_N3(pyg.nn.MessagePassing):
             return self.phi(u)
 
         elif function=='update':
-            g, s, c = self.p[type, 0:1], self.p[type, 1:2], self.p[type, 2:3]
+            _g, s, c = self.p[type, 0:1], self.p[type, 1:2], self.p[type, 2:3]
             return -c * u + s * torch.tanh(u)
 

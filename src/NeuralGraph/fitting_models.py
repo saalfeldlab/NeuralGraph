@@ -217,7 +217,7 @@ def symbolic_regression_multi(x,y):
     y_ = model_pysrr.predict(to_numpy(x))
 
     fig, ax= fig_init(formatx='%.5f', formaty='%.5f')
-    fmt = lambda x, pos: '{:.1f}e-4'.format((x) * 1e4, pos)
+    fmt = lambda x, pos: '{:.1f}e-4'.format((x) * 1e4)
     ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(fmt))
     ax.yaxis.set_major_formatter(mpl.ticker.FuncFormatter(fmt))
     plt.scatter(to_numpy(y), y_, s=0.1, c='k',alpha=0.1)

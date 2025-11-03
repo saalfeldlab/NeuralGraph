@@ -22,14 +22,14 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# Enable only rules that catch actual runtime errors
+# Enable ONLY rules that catch actual runtime errors
 select = [
-    "F403",   # star imports are banned (prevents undefined name detection)
-    "F821",   # undefined name (will cause NameError at runtime)
-    "PLE",    # Pylint Error rules (runtime errors)
+    "F",      # Pyflakes: NameError, ImportError, UnboundLocalError, etc.
+    "E9",     # Syntax errors that cause immediate failure
+    "PLE",    # Pylint Error rules (actual runtime errors)
 ]
 
-# Disable all code quality/style rules
+# Explicitly ignore all style/quality rules that don't cause runtime errors
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]

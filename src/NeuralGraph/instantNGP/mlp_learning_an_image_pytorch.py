@@ -48,7 +48,6 @@ except ImportError:
 	sys.exit()
 
 from PIL import Image as PILImage
-import numpy as np
 
 def read_image(filename):
     """Read image and convert to numpy array with values in [0,1]"""
@@ -151,7 +150,7 @@ if __name__ == "__main__":
 
 	xy = torch.stack((yv.flatten(), xv.flatten())).t()
 
-	path = f"reference.jpg"
+	path = "reference.jpg"
 	print(f"Writing '{path}'... ", end="")
 	write_image(path, image(xy).reshape(img_shape).detach().cpu().numpy())
 	print("done.")
@@ -170,7 +169,7 @@ if __name__ == "__main__":
 		traced_image = torch.jit.trace(image, batch)
 	except:
 		# If tracing causes an error, fall back to regular execution
-		print(f"WARNING: PyTorch JIT trace failed. Performance will be slightly worse than regular.")
+		print("WARNING: PyTorch JIT trace failed. Performance will be slightly worse than regular.")
 		traced_image = image
 
 	# Override for testing
