@@ -8,7 +8,6 @@ from typing import Callable, Iterator
 from uuid import uuid4
 from datetime import datetime
 import random
-import os
 import sys
 
 import torch

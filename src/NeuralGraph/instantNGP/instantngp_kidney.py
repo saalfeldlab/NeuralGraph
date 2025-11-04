@@ -33,7 +33,6 @@ import os
 import sys
 import torch
 import time
-from PIL import Image as PILImage
 import tifffile
 
 try:
@@ -98,7 +97,8 @@ def reconstruct_full_volume(model, xyz, depth, height, width, device, batch_size
             batch_output = model(batch_coords).squeeze().float()
             
             # Convert flat indices back to 3D indices
-            batch_size_actual = end_idx - start_idx
+            # TODO (Cedric): `batch_size_actual` is not used anywhere. Bug or intentional?
+            _batch_size_actual = end_idx - start_idx
             flat_indices = torch.arange(start_idx, end_idx, device=device)
             z_indices = flat_indices // (height * width)
             y_indices = (flat_indices % (height * width)) // width
