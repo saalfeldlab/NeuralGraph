@@ -30,17 +30,18 @@ dependencies:
   - pydantic
   - astropy
   - pyvista
-  - vtk           # keep VTK native on conda (pip wheels may bundle their own OMP)
-  - opencv        # same reason; avoid pip opencv-python’s vendor libs
-  - pyqt          # Qt via conda to avoid mixed toolchains
+  - vtk # keep VTK native on conda (pip wheels may bundle their own OMP)
+  - opencv # same reason; avoid pip opencv-python’s vendor libs
+  - pyqt # Qt via conda to avoid mixed toolchains
   - pysr
-  - pytables      # native HDF5 bindings via conda
+  - pytables # native HDF5 bindings via conda
   - ipython
   - ipykernel
   - jupytext
   - tensorstore
   - napari
   - ruff
+  - tyro
 
   # PyTorch on conda (single OpenMP runtime managed by conda)
   - pytorch=2.7.1
