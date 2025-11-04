@@ -9,7 +9,7 @@ from matplotlib.colors import Normalize
 import os
 import tifffile
 
-def extract_gradient_field(model, xyz, device, batch_size=2**16):
+def extract_gradient_field(model, xyz, device, batch_size=2**20):
     """
     Extract gradients (∇F_θ(x,y,z)) from the trained neural field.
     Returns gradient vectors for all coordinates.
@@ -17,7 +17,10 @@ def extract_gradient_field(model, xyz, device, batch_size=2**16):
     total_coords = xyz.shape[0]
     gradient_field = torch.zeros((total_coords, 3), device=device)
     
-    for start_idx in range(0, total_coords, batch_size):
+    num_batches = (total_coords + batch_size - 1) // batch_size
+    
+    for batch_idx in trange(num_batches, desc="Extracting gradients", ncols=150):
+        start_idx = batch_idx * batch_size
         end_idx = min(start_idx + batch_size, total_coords)
         batch_coords = xyz[start_idx:end_idx].clone().detach().requires_grad_(True)
         
@@ -32,12 +35,7 @@ def extract_gradient_field(model, xyz, device, batch_size=2**16):
             retain_graph=False)[0]
         
         gradient_field[start_idx:end_idx] = gradient
-        
-        if (start_idx // batch_size) % 10 == 0:
-            progress = 100.0 * end_idx / total_coords
-            print(f"  Gradient field computation: {progress:.1f}%")
     
-    print("Gradient field extraction completed")
     return gradient_field
 
 def calculate_surface_normals(gradient_field):
@@ -103,8 +101,6 @@ def compute_hessian_eigenvalues(model, xyz, device, batch_size=10000, epsilon=1e
     Compute principal curvatures using finite differences to approximate Hessian eigenvalues
     (avoids double backward pass which tiny-cuda-nn doesn't support)
     """
-    print("Computing principal curvatures (finite difference approximation)...")
-    
     total_coords = xyz.shape[0]
     curvature_field = torch.zeros((total_coords, 3), device=device)
     
@@ -124,12 +120,6 @@ def compute_hessian_eigenvalues(model, xyz, device, batch_size=10000, epsilon=1e
             # Approximate Hessian eigenvalues using finite differences
             curvatures = approximate_curvature_finite_diff(model, sub_coords, device, epsilon)
             curvature_field[start_idx + sub_start:start_idx + sub_end] = curvatures
-        
-        if (start_idx // batch_size) % 5 == 0:
-            progress = 100.0 * end_idx / total_coords
-            print(f"  Curvature computation: {progress:.1f}%")
-    
-    print("Curvature calculation completed")
     return curvature_field
 
 def approximate_curvature_finite_diff(model, coords, device, epsilon=1e-4):
@@ -179,34 +169,179 @@ def approximate_curvature_finite_diff(model, coords, device, epsilon=1e-4):
     
     return curvatures
 
-def run_feature_extraction(model, xyz, depth, height, width, device, output_dir, subsample_factor=4):
+def run_feature_extraction(model, xyz, depth, height, width, device, 
+                          output_dir="features", subsample_factor=1.0, gradients_only=True):
     """
-    Run all feature extraction methods and save results
+    Extract gradient field and other features from a trained neural field model
     
     Args:
-        subsample_factor: Subsampling factor for curvature computation (default: 4)
+        model: Trained neural field model
+        xyz: Coordinate grid tensor
+        depth, height, width: Volume dimensions  
+        device: CUDA/CPU device
+        output_dir: Directory to save features
+        subsample_factor: Factor to subsample coordinates (default: no subsampling)
+        gradients_only: If True, only extract gradients (faster)
+    
+    Returns:
+        output_dir: Directory where features were saved
     """
     print("Starting feature extraction pipeline...")
     print(f"Volume dimensions: {depth}×{height}×{width}")
     print(f"Curvature subsample factor: {subsample_factor}")
     
+    print(f"Starting feature extraction with volume reconstruction...")
+    print(f"First: Reconstructed volume visualization in napari")
+    print(f"Second: Divergence field visualization in napari")
     features_dir = os.path.join(output_dir, "features") if "features" not in output_dir else output_dir
     os.makedirs(features_dir, exist_ok=True)
     
+    # First reconstruct the volume from the neural field
+    # Use half precision to match model output
+    reconstructed_volume = torch.zeros((depth, height, width), device=device, dtype=torch.half)
+    
+    # Evaluate the model on all coordinates to get the reconstructed volume
+    with torch.no_grad():
+        num_batches = (xyz.shape[0] + 2**20 - 1) // 2**20
+        for batch_idx in trange(num_batches, desc="Reconstructing volume", ncols=150):
+            start_idx = batch_idx * 2**20
+            end_idx = min(start_idx + 2**20, xyz.shape[0])
+            batch_coords = xyz[start_idx:end_idx]
+            
+            # Get model predictions
+            batch_output = model(batch_coords).squeeze()
+            
+            # Convert flat indices back to 3D indices
+            batch_flat_indices = torch.arange(start_idx, end_idx, device=device)
+            z_indices = batch_flat_indices // (height * width)
+            y_indices = (batch_flat_indices % (height * width)) // width
+            x_indices = batch_flat_indices % width
+            
+            # Place predictions into 3D volume
+            reconstructed_volume[z_indices, y_indices, x_indices] = batch_output
+    
+    # Show reconstructed volume in napari first
+    try:
+        import napari
+        
+        # Convert to numpy for napari
+        volume_np = reconstructed_volume.cpu().numpy()
+        
+        # Create viewer with simple, stable configuration
+        viewer = napari.Viewer()
+        
+        # Calculate volume statistics for better contrast
+        vol_min = volume_np.min()
+        vol_max = volume_np.max()
+        vol_std = volume_np.std()
+        vol_mean = volume_np.mean()
+        
+        # Set contrast limits to show structure with transparency
+        # Use mean ± 2*std to focus on interesting regions
+        contrast_min = max(vol_min, vol_mean - 2 * vol_std)
+        contrast_max = min(vol_max, vol_mean + 2 * vol_std)
+        
+        # Add reconstructed volume
+        viewer.add_image(
+            volume_np,
+            name='Reconstructed Volume',
+            colormap='viridis',
+            contrast_limits=[contrast_min, contrast_max]
+        )
+        
+        # Set 3D display mode
+        viewer.dims.ndisplay = 3
+        
+        # Start napari event loop (blocks until window is closed)
+        napari.run()
+    except ImportError:
+        pass
+    except Exception as e:
+        pass
+
     # Extract gradient field
-    print("Extracting gradient field...")
     gradient_field = extract_gradient_field(model, xyz, device)
     
-    # Calculate surface normals and gradient magnitude
-    print("Calculating surface normals...")
-    normals, gradient_magnitude = calculate_surface_normals(gradient_field)
+    # Calculate divergence for second napari visualization
+    divergence = calculate_divergence(gradient_field, xyz, depth, height, width, device)
     
+    # Convert divergence to numpy for napari
+    divergence_volume_np = divergence.cpu().numpy()
+    
+    try:
+        import napari
+        
+        # Create viewer with simple, stable configuration
+        viewer = napari.Viewer()
+        
+        # Calculate divergence statistics for better contrast
+        div_min = divergence_volume_np.min()
+        div_max = divergence_volume_np.max()
+        
+        # Set contrast limits to exclude near-zero values
+        threshold = max(abs(div_min), abs(div_max)) * 0.2  # 20% threshold for stability
+        contrast_min = -threshold
+        contrast_max = threshold
+        
+        # Add image with minimal, stable parameters
+        viewer.add_image(
+            divergence_volume_np,
+            name='Divergence Field',
+            colormap='coolwarm',
+            contrast_limits=[contrast_min, contrast_max]
+        )
+        
+        # Set 3D display mode
+        viewer.dims.ndisplay = 3
+        
+        # Start napari event loop (blocks until window is closed)
+        napari.run()
+    except ImportError:
+        pass
+    except Exception as e:
+        pass
+
+    if gradients_only:
+
+        # Calculate surface normals and gradient magnitude
+        normals, gradient_magnitude = calculate_surface_normals(gradient_field)
+        
+        # Save middle slice visualizations
+        middle_slice = depth // 2
+        
+        # Reconstruct 3D volumes from flattened fields  
+        gradient_magnitude_3d = torch.zeros((depth, height, width), device=device)
+        flat_indices = torch.arange(0, xyz.shape[0], device=device)
+        z_indices = flat_indices // (height * width)
+        y_indices = (flat_indices % (height * width)) // width
+        x_indices = flat_indices % width
+        
+        gradient_magnitude_3d[z_indices, y_indices, x_indices] = gradient_magnitude.squeeze()
+        
+        # Save gradient magnitude as numpy array
+        gradient_magnitude_np = gradient_magnitude_3d.cpu().numpy()
+        np.save(os.path.join(features_dir, "gradient_magnitude.npy"), gradient_magnitude_np)
+        
+        # Save normals
+        normals_np = normals.cpu().numpy()
+        np.save(os.path.join(features_dir, "surface_normals.npy"), normals_np)
+        
+        # Save middle slice as image
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(10, 8))
+        plt.imshow(gradient_magnitude_np[middle_slice], cmap='viridis')
+        plt.title(f'Gradient Magnitude - Middle Slice (z={middle_slice})')
+        plt.colorbar()
+        plt.savefig(os.path.join(features_dir, "gradient_magnitude_middle_slice.png"), dpi=150, bbox_inches='tight')
+        plt.close()
+        
+        return features_dir
+    
+    # Continue with full feature extraction if not gradients_only
     # Calculate divergence for density distribution
-    print("Computing density distribution (divergence)...")
     divergence = calculate_divergence(gradient_field, xyz, depth, height, width, device)
     
     # Calculate principal curvatures (sampling a subset for efficiency)
-    print("Computing principal curvatures (Hessian eigenvalues)...")
     # Subsample for efficiency
     subsample_z = torch.arange(0, depth, subsample_factor)
     subsample_y = torch.arange(0, height, subsample_factor)
@@ -241,7 +376,6 @@ def run_feature_extraction(model, xyz, depth, height, width, device, output_dir,
     normals_3d[z_indices, y_indices, x_indices] = normals_rgb
     
     # Save middle slices
-    print("Saving feature visualizations...")
     
     # Save gradient magnitude slice
     gradient_mag_slice = gradient_magnitude_3d[middle_slice].cpu().numpy()
@@ -306,7 +440,6 @@ def run_feature_extraction(model, xyz, depth, height, width, device, output_dir,
         plt.close()
     
     # Save full 3D volumes as TIFF
-    print("Saving 3D feature volumes...")
     
     # Save gradient magnitude volume
     gradient_mag_volume = gradient_magnitude_3d.cpu().numpy()
@@ -349,5 +482,4 @@ def run_feature_extraction(model, xyz, depth, height, width, device, output_dir,
             f.write("- mean_curvature.png: Mean curvature visualization (subsampled middle slice)\n")
             f.write("- gaussian_curvature.png: Gaussian curvature visualization (subsampled middle slice)\n")
     
-    print(f"Feature extraction complete. Results saved to {features_dir}")
     return features_dir

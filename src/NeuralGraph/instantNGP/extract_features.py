@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Standalone feature extraction script for trained InstantNGP models
-Usage: python extract_features.py <model_path> [--subsample_factor 10]
+Usage: python extract_features.py [model_path] [--subsample_factor 10] [--output_dir path]
+Default model_path: instantngp_outputs/trained_model.pth
 """
 
 import argparse
@@ -51,10 +52,15 @@ def create_coordinate_grid(depth, height, width, device):
     return xyz
 
 def main():
+    # Get the script directory to make default path relative to script location
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_model_path = os.path.join(script_dir, "instantngp_outputs", "trained_model.pth")
+    
     parser = argparse.ArgumentParser(description="Extract features from trained InstantNGP model")
-    parser.add_argument("model_path", help="Path to trained model (.pth file)")
-    parser.add_argument("--subsample_factor", type=float, default=10.0, 
-                       help="Subsampling factor for feature extraction (default: 10.0)")
+    parser.add_argument("model_path", nargs='?', default=default_model_path,
+                       help=f"Path to trained model (.pth file) (default: {default_model_path})")
+    parser.add_argument("--subsample_factor", type=float, default=1.0, 
+                       help="Subsampling factor for feature extraction (default: 1.0)")
     parser.add_argument("--output_dir", default="", 
                        help="Output directory (default: same as model directory)")
     
@@ -62,7 +68,11 @@ def main():
     
     # Setup device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print(f"using device: {device}")
+    
+    # Check if model file exists
+    if not os.path.exists(args.model_path):
+        return
     
     # Load the trained model
     model, config, volume_shape, final_psnr = load_trained_model(args.model_path, device)
@@ -81,20 +91,18 @@ def main():
     features_output_dir = os.path.join(output_dir, "features")
     os.makedirs(features_output_dir, exist_ok=True)
     
-    print(f"\\nExtracting features with subsample factor: {args.subsample_factor}")
-    print(f"Features will be saved to: {features_output_dir}")
+
     
-    # Run feature extraction
+    # Run feature extraction (gradients only)
     try:
         features_dir = run_feature_extraction(
             model, xyz, depth, height, width, device, 
-            features_output_dir, subsample_factor=args.subsample_factor
+            features_output_dir, subsample_factor=args.subsample_factor,
+            gradients_only=True
         )
-        print("\\n✅ Feature extraction completed successfully!")
-        print(f"Features saved in: {features_dir}")
-        
+
     except Exception as e:
-        print(f"❌ Feature extraction failed: {str(e)}")
+        print(f"❌ feature extraction failed: {str(e)}")
         raise
 
 if __name__ == "__main__":
