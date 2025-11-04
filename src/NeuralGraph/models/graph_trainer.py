@@ -12,6 +12,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import random
 import copy
+import tifffile
+import numpy as np
 
 from NeuralGraph.models.utils import (
     choose_training_model,
@@ -80,7 +82,6 @@ from NeuralGraph.generators.graph_data_generator import (
 )
 from NeuralGraph.generators.davis import AugmentedDavis
 from scipy.stats import pearsonr
-import numpy as np
 import pandas as pd
 import napari
 from collections import deque
@@ -2052,6 +2053,35 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
     ground_truth = torch.tensor(vol_xyz, device=device, dtype=torch.float32) / 512
     ground_truth = ground_truth.permute(1,0,2)
+
+    
+    print("Saving vol_xyz as TIFF...")
+    print(f"  Shape: {vol_xyz.shape}")
+    print(f"  Dtype: {vol_xyz.dtype}")
+    print(f"  Value range: [{vol_xyz.min():.4f}, {vol_xyz.max():.4f}]")
+    
+    vol_norm = vol_xyz / 1600
+    
+    # Transpose to put Z dimension first for ImageJ: (1328, 2048, 72) -> (72, 1328, 2048)
+    vol_norm = vol_norm.transpose(2, 0, 1)  # Move Z from last to first dimension
+    print(f"  Transposed shape for ImageJ: {vol_norm.shape} (Z×Y×X)")
+    
+    # Convert to uint16 for TIFF
+    vol_uint16 = (vol_norm * 65535).astype(np.uint16)
+    
+    tifffile.imwrite(
+        'zapbench.tif',
+        vol_uint16,
+        imagej=True,
+        metadata={
+            'axes': 'ZYX',
+            'unit': 'micrometer',
+            'spacing': [4.0, 0.406, 0.406]  # dz, dy, dx
+        },
+        description=f"ZapBench volume, frame {FRAME}, shape: {vol_xyz.shape}"
+    )
+    
+    print(f"✅ Saved zapbench.tif - Shape: {vol_uint16.shape}, Size: {vol_uint16.nbytes/(1024*1024):.1f} MB")
 
     # down sample
     factor = 4

@@ -3,11 +3,8 @@
 # Implements advanced feature extraction from trained neural fields
 
 import torch
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.colors import Normalize
 import os
-import tifffile
+from tqdm import trange
 
 def extract_gradient_field(model, xyz, device, batch_size=2**20):
     """
@@ -96,7 +93,7 @@ def calculate_divergence(gradient_field, xyz, depth, height, width, device):
     
     return divergence
 
-def compute_hessian_eigenvalues(model, xyz, device, batch_size=10000, epsilon=1e-4):
+def compute_hessian_eigenvalues(model, xyz, device, batch_size=2**19, epsilon=1e-4):
     """
     Compute principal curvatures using finite differences to approximate Hessian eigenvalues
     (avoids double backward pass which tiny-cuda-nn doesn't support)
@@ -106,20 +103,27 @@ def compute_hessian_eigenvalues(model, xyz, device, batch_size=10000, epsilon=1e
     
     model.eval()
     
-    for start_idx in range(0, total_coords, batch_size):
+    num_batches = (total_coords + batch_size - 1) // batch_size
+    
+    for batch_idx in trange(num_batches, desc="Computing curvatures", ncols=150):
+        start_idx = batch_idx * batch_size
         end_idx = min(start_idx + batch_size, total_coords)
         batch_coords = xyz[start_idx:end_idx]
         batch_size_actual = batch_coords.shape[0]
         
         # Process in smaller sub-batches for memory efficiency
-        sub_batch_size = 1000
-        for sub_start in range(0, batch_size_actual, sub_batch_size):
+        sub_batch_size = 16000
+        num_sub_batches = (batch_size_actual + sub_batch_size - 1) // sub_batch_size
+        
+        for sub_batch_idx in range(num_sub_batches):
+            sub_start = sub_batch_idx * sub_batch_size
             sub_end = min(sub_start + sub_batch_size, batch_size_actual)
             sub_coords = batch_coords[sub_start:sub_end]
             
             # Approximate Hessian eigenvalues using finite differences
             curvatures = approximate_curvature_finite_diff(model, sub_coords, device, epsilon)
             curvature_field[start_idx + sub_start:start_idx + sub_end] = curvatures
+
     return curvature_field
 
 def approximate_curvature_finite_diff(model, coords, device, epsilon=1e-4):
@@ -190,9 +194,10 @@ def run_feature_extraction(model, xyz, depth, height, width, device,
     print(f"Volume dimensions: {depth}×{height}×{width}")
     print(f"Curvature subsample factor: {subsample_factor}")
     
-    print(f"Starting feature extraction with volume reconstruction...")
-    print(f"First: Reconstructed volume visualization in napari")
-    print(f"Second: Divergence field visualization in napari")
+    print("Starting feature extraction with volume reconstruction...")
+    print("First: Reconstructed volume visualization in napari")
+    print("Second: Surface normals (RGB) visualization in napari")
+    print("Third: Mean & Gaussian curvature visualization in napari")
     features_dir = os.path.join(output_dir, "features") if "features" not in output_dir else output_dir
     os.makedirs(features_dir, exist_ok=True)
     
@@ -262,33 +267,37 @@ def run_feature_extraction(model, xyz, depth, height, width, device,
     # Extract gradient field
     gradient_field = extract_gradient_field(model, xyz, device)
     
-    # Calculate divergence for second napari visualization
-    divergence = calculate_divergence(gradient_field, xyz, depth, height, width, device)
+    # Calculate surface normals and gradient magnitude
+    normals, gradient_magnitude = calculate_surface_normals(gradient_field)
     
-    # Convert divergence to numpy for napari
-    divergence_volume_np = divergence.cpu().numpy()
+    # Create 3D volumes from flattened fields for napari visualization
+    flat_indices = torch.arange(0, xyz.shape[0], device=device)
+    z_indices = flat_indices // (height * width)
+    y_indices = (flat_indices % (height * width)) // width
+    x_indices = flat_indices % width
     
+    # Create color representations of normals (RGB mapping)
+    normals_3d = torch.zeros((depth, height, width, 3), device=device)
+    # Scale from [-1,1] to [0,1] for RGB
+    normals_rgb = (normals + 1) / 2
+    normals_3d[z_indices, y_indices, x_indices] = normals_rgb
+    
+    # Show surface normals in napari as RGB volume
     try:
         import napari
+        
+        # Convert to numpy for napari
+        normals_np = normals_3d.cpu().numpy()
         
         # Create viewer with simple, stable configuration
         viewer = napari.Viewer()
         
-        # Calculate divergence statistics for better contrast
-        div_min = divergence_volume_np.min()
-        div_max = divergence_volume_np.max()
-        
-        # Set contrast limits to exclude near-zero values
-        threshold = max(abs(div_min), abs(div_max)) * 0.2  # 20% threshold for stability
-        contrast_min = -threshold
-        contrast_max = threshold
-        
-        # Add image with minimal, stable parameters
+        # Add normals as RGB image (no colormap needed)
         viewer.add_image(
-            divergence_volume_np,
-            name='Divergence Field',
-            colormap='coolwarm',
-            contrast_limits=[contrast_min, contrast_max]
+            normals_np,
+            name='Surface Normals (RGB)',
+            rgb=True,  # Interpret as RGB data
+            contrast_limits=[0, 1]  # RGB values are in [0,1]
         )
         
         # Set 3D display mode
@@ -300,56 +309,17 @@ def run_feature_extraction(model, xyz, depth, height, width, device,
         pass
     except Exception as e:
         pass
-
-    if gradients_only:
-
-        # Calculate surface normals and gradient magnitude
-        normals, gradient_magnitude = calculate_surface_normals(gradient_field)
-        
-        # Save middle slice visualizations
-        middle_slice = depth // 2
-        
-        # Reconstruct 3D volumes from flattened fields  
-        gradient_magnitude_3d = torch.zeros((depth, height, width), device=device)
-        flat_indices = torch.arange(0, xyz.shape[0], device=device)
-        z_indices = flat_indices // (height * width)
-        y_indices = (flat_indices % (height * width)) // width
-        x_indices = flat_indices % width
-        
-        gradient_magnitude_3d[z_indices, y_indices, x_indices] = gradient_magnitude.squeeze()
-        
-        # Save gradient magnitude as numpy array
-        gradient_magnitude_np = gradient_magnitude_3d.cpu().numpy()
-        np.save(os.path.join(features_dir, "gradient_magnitude.npy"), gradient_magnitude_np)
-        
-        # Save normals
-        normals_np = normals.cpu().numpy()
-        np.save(os.path.join(features_dir, "surface_normals.npy"), normals_np)
-        
-        # Save middle slice as image
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(10, 8))
-        plt.imshow(gradient_magnitude_np[middle_slice], cmap='viridis')
-        plt.title(f'Gradient Magnitude - Middle Slice (z={middle_slice})')
-        plt.colorbar()
-        plt.savefig(os.path.join(features_dir, "gradient_magnitude_middle_slice.png"), dpi=150, bbox_inches='tight')
-        plt.close()
-        
-        return features_dir
     
-    # Continue with full feature extraction if not gradients_only
-    # Calculate divergence for density distribution
-    divergence = calculate_divergence(gradient_field, xyz, depth, height, width, device)
     
     # Calculate principal curvatures (sampling a subset for efficiency)
     # Subsample for efficiency
-    subsample_z = torch.arange(0, depth, subsample_factor)
-    subsample_y = torch.arange(0, height, subsample_factor)
-    subsample_x = torch.arange(0, width, subsample_factor)
+    subsample_z = torch.arange(0, depth, int(subsample_factor), dtype=torch.long, device=device)
+    subsample_y = torch.arange(0, height, int(subsample_factor), dtype=torch.long, device=device)
+    subsample_x = torch.arange(0, width, int(subsample_factor), dtype=torch.long, device=device)
     
     ss_z, ss_y, ss_x = torch.meshgrid(subsample_z, subsample_y, subsample_x, indexing='ij')
     subsample_indices = ss_z.flatten() * (height * width) + ss_y.flatten() * width + ss_x.flatten()
-    subsample_indices = subsample_indices[subsample_indices < xyz.shape[0]]
+    subsample_indices = subsample_indices[subsample_indices < xyz.shape[0]].long()
     
     subsample_xyz = xyz[subsample_indices]
     
@@ -359,50 +329,11 @@ def run_feature_extraction(model, xyz, depth, height, width, device,
     # Save middle slice visualizations of all features
     middle_slice = depth // 2
     
-    # Reconstruct 3D volumes from flattened fields
+    # Reconstruct gradient magnitude 3D volume
     gradient_magnitude_3d = torch.zeros((depth, height, width), device=device)
-    flat_indices = torch.arange(0, xyz.shape[0], device=device)
-    z_indices = flat_indices // (height * width)
-    y_indices = (flat_indices % (height * width)) // width
-    x_indices = flat_indices % width
-    
-    # Place gradient magnitude into 3D volume
     gradient_magnitude_3d[z_indices, y_indices, x_indices] = gradient_magnitude.squeeze(1)
     
-    # Create color representations of normals (RGB mapping)
-    normals_3d = torch.zeros((depth, height, width, 3), device=device)
-    # Scale from [-1,1] to [0,1] for RGB
-    normals_rgb = (normals + 1) / 2
-    normals_3d[z_indices, y_indices, x_indices] = normals_rgb
-    
-    # Save middle slices
-    
-    # Save gradient magnitude slice
-    gradient_mag_slice = gradient_magnitude_3d[middle_slice].cpu().numpy()
-    plt.figure(figsize=(10, 10))
-    plt.imshow(gradient_mag_slice, cmap='inferno')
-    plt.colorbar(label='Gradient Magnitude')
-    plt.title('Gradient Magnitude (Edge Detection)')
-    plt.savefig(os.path.join(features_dir, "gradient_magnitude.png"), dpi=150)
-    plt.close()
-    
-    # Save normal map slice (RGB)
-    normals_slice = normals_3d[middle_slice].cpu().numpy()
-    plt.figure(figsize=(10, 10))
-    plt.imshow(normals_slice)
-    plt.title('Surface Normals (RGB Mapping)')
-    plt.savefig(os.path.join(features_dir, "surface_normals.png"), dpi=150)
-    plt.close()
-    
-    # Save divergence slice
-    divergence_slice = divergence[middle_slice].cpu().numpy()
-    plt.figure(figsize=(10, 10))
-    plt.imshow(divergence_slice, cmap='viridis')
-    plt.colorbar(label='Divergence')
-    plt.title('Density Distribution (Divergence ∇⋅E)')
-    plt.savefig(os.path.join(features_dir, "divergence.png"), dpi=150)
-    plt.close()
-    
+
     # Reconstruct and save principal curvatures for the subsampled volume
     if curvature_field.shape[0] > 0:
         # Create 3D volume with subsampling taken into account
@@ -418,68 +349,64 @@ def run_feature_extraction(model, xyz, depth, height, width, device,
         gaussian_curvature = curvature_field[:, 0] * curvature_field[:, 1] * curvature_field[:, 2]
         gaussian_curvature_3d = gaussian_curvature.reshape(subsampled_depth, subsampled_height, subsampled_width)
         
-        # Middle slice of subsampled volume
-        subsampled_middle = subsampled_depth // 2
-        
-        # Save mean curvature
-        mean_curv_slice = mean_curvature_3d[subsampled_middle].cpu().numpy()
-        plt.figure(figsize=(10, 10))
-        plt.imshow(mean_curv_slice, cmap='coolwarm')
-        plt.colorbar(label='Mean Curvature')
-        plt.title('Mean Curvature (H)')
-        plt.savefig(os.path.join(features_dir, "mean_curvature.png"), dpi=150)
-        plt.close()
-        
-        # Save Gaussian curvature
-        gaussian_curv_slice = gaussian_curvature_3d[subsampled_middle].cpu().numpy()
-        plt.figure(figsize=(10, 10))
-        plt.imshow(gaussian_curv_slice, cmap='coolwarm', norm=Normalize(vmin=-0.01, vmax=0.01))
-        plt.colorbar(label='Gaussian Curvature')
-        plt.title('Gaussian Curvature (K)')
-        plt.savefig(os.path.join(features_dir, "gaussian_curvature.png"), dpi=150)
-        plt.close()
-    
-    # Save full 3D volumes as TIFF
-    
-    # Save gradient magnitude volume
-    gradient_mag_volume = gradient_magnitude_3d.cpu().numpy()
-    # Normalize to [0, 65535] for uint16
-    gradient_mag_norm = np.clip(gradient_mag_volume / np.max(gradient_mag_volume) * 65535, 0, 65535).astype(np.uint16)
-    tifffile.imwrite(os.path.join(features_dir, "gradient_magnitude_volume.tif"), gradient_mag_norm)
-    
-    # Save divergence volume
-    divergence_volume = divergence.cpu().numpy()
-    # Center around zero and scale to [0, 65535]
-    divergence_min = np.min(divergence_volume)
-    divergence_max = np.max(divergence_volume)
-    div_range = max(abs(divergence_min), abs(divergence_max))
-    if div_range > 0:
-        divergence_norm = ((divergence_volume / div_range) * 0.5 + 0.5) * 65535
-    else:
-        divergence_norm = np.zeros_like(divergence_volume)
-    divergence_norm = np.clip(divergence_norm, 0, 65535).astype(np.uint16)
-    tifffile.imwrite(os.path.join(features_dir, "divergence_volume.tif"), divergence_norm)
-    
-    # Create a feature summary file
-    with open(os.path.join(features_dir, "feature_summary.txt"), 'w') as f:
-        f.write("Feature Extraction Summary\n")
-        f.write("========================\n\n")
-        f.write(f"Gradient magnitude range: [{gradient_mag_volume.min():.6f}, {gradient_mag_volume.max():.6f}]\n")
-        f.write(f"Divergence range: [{divergence_volume.min():.6f}, {divergence_volume.max():.6f}]\n")
-        if curvature_field.shape[0] > 0:
-            mean_curv_volume = mean_curvature_3d.cpu().numpy()
-            gaussian_curv_volume = gaussian_curvature_3d.cpu().numpy()
-            f.write(f"Mean curvature range: [{mean_curv_volume.min():.6f}, {mean_curv_volume.max():.6f}]\n")
-            f.write(f"Gaussian curvature range: [{gaussian_curv_volume.min():.6f}, {gaussian_curv_volume.max():.6f}]\n")
-        f.write("\n")
-        f.write("Files generated:\n")
-        f.write("- gradient_magnitude.png: Edge detection visualization (middle slice)\n")
-        f.write("- surface_normals.png: Surface orientation visualization (middle slice)\n")
-        f.write("- divergence.png: Density distribution visualization (middle slice)\n")
-        f.write("- gradient_magnitude_volume.tif: Full 3D edge detection volume\n")
-        f.write("- divergence_volume.tif: Full 3D density distribution volume\n")
-        if curvature_field.shape[0] > 0:
-            f.write("- mean_curvature.png: Mean curvature visualization (subsampled middle slice)\n")
-            f.write("- gaussian_curvature.png: Gaussian curvature visualization (subsampled middle slice)\n")
-    
+        # Show curvature results in napari
+        try:
+            import napari
+            
+            # Convert to numpy for napari
+            mean_curvature_np = mean_curvature_3d.cpu().numpy()
+            gaussian_curvature_np = gaussian_curvature_3d.cpu().numpy()
+            
+            # Create viewer with simple, stable configuration
+            viewer = napari.Viewer()
+            
+            # Calculate curvature statistics for better contrast
+            mean_curv_min = mean_curvature_np.min()
+            mean_curv_max = mean_curvature_np.max()
+            mean_curv_std = mean_curvature_np.std()
+            mean_curv_mean = mean_curvature_np.mean()
+            
+            gauss_curv_min = gaussian_curvature_np.min()
+            gauss_curv_max = gaussian_curvature_np.max()
+            gauss_curv_std = gaussian_curvature_np.std()
+            gauss_curv_mean = gaussian_curvature_np.mean()
+            
+            # Set contrast limits for mean curvature
+            mean_contrast_min = max(mean_curv_min, mean_curv_mean - 2 * mean_curv_std)
+            mean_contrast_max = min(mean_curv_max, mean_curv_mean + 2 * mean_curv_std)
+            
+            # Set contrast limits for Gaussian curvature  
+            gauss_contrast_min = max(gauss_curv_min, gauss_curv_mean - 2 * gauss_curv_std)
+            gauss_contrast_max = min(gauss_curv_max, gauss_curv_mean + 2 * gauss_curv_std)
+            
+            # Add mean curvature
+            viewer.add_image(
+                mean_curvature_np,
+                name='Mean Curvature',
+                colormap='plasma',
+                contrast_limits=[mean_contrast_min, mean_contrast_max]
+            )
+            
+            # Add Gaussian curvature
+            viewer.add_image(
+                gaussian_curvature_np,
+                name='Gaussian Curvature',
+                colormap='turbo',
+                contrast_limits=[gauss_contrast_min, gauss_contrast_max]
+            )
+            
+            # Set 3D display mode
+            viewer.dims.ndisplay = 3
+            
+            print("\nCurvature statistics:")
+            print(f"Mean curvature: min={mean_curv_min:.4f}, max={mean_curv_max:.4f}, mean={mean_curv_mean:.4f}")
+            print(f"Gaussian curvature: min={gauss_curv_min:.4f}, max={gauss_curv_max:.4f}, mean={gauss_curv_mean:.4f}")
+            
+            # Start napari event loop (blocks until window is closed)
+            napari.run()
+        except ImportError:
+            pass
+        except Exception as e:
+            pass
+
     return features_dir
