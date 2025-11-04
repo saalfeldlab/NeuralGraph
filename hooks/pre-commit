@@ -1,0 +1,95 @@
+#!/bin/bash
+# Pre-commit hook to check file sizes and run ruff check
+# This runs the same check as the GitHub workflow
+
+# Configuration
+MAX_FILE_SIZE=512000  # 500KB in bytes
+MAX_NOTEBOOK_SIZE=2097152  # 2MB in bytes
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo "Running pre-commit checks..."
+
+# 1. Check file sizes
+echo ""
+echo "Checking file sizes..."
+files_too_large=()
+
+# Get list of staged files
+while IFS= read -r file; do
+    if [ -f "$file" ]; then
+        file_size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null)
+
+        if [[ "$file" == *.ipynb ]]; then
+            # Notebook files have a 2MB limit
+            if [ "$file_size" -gt "$MAX_NOTEBOOK_SIZE" ]; then
+                files_too_large+=("$file ($(numfmt --to=iec-i --suffix=B $file_size) > 2MB)")
+            fi
+        else
+            # Regular files have a 500KB limit
+            if [ "$file_size" -gt "$MAX_FILE_SIZE" ]; then
+                files_too_large+=("$file ($(numfmt --to=iec-i --suffix=B $file_size) > 500KB)")
+            fi
+        fi
+    fi
+done < <(git diff --cached --name-only --diff-filter=ACM)
+
+if [ ${#files_too_large[@]} -gt 0 ]; then
+    echo -e "${RED}Error: The following files exceed size limits:${NC}"
+    printf '%s\n' "${files_too_large[@]}"
+    echo ""
+    echo "File size limits:"
+    echo "  - Regular files: 500KB (configurable via MAX_FILE_SIZE)"
+    echo "  - Notebook files (*.ipynb): 2MB (configurable via MAX_NOTEBOOK_SIZE)"
+    echo ""
+    echo "Please reduce file sizes or update the configuration if needed."
+    exit 1
+fi
+
+echo -e "${GREEN}File size check passed!${NC}"
+
+# 2. Check for conda environment and run ruff
+echo ""
+echo "Checking for conda environment..."
+
+# Determine which conda environment to use
+CONDA_ENV=""
+if conda env list | grep -q "neural-graph-linux"; then
+    CONDA_ENV="neural-graph-linux"
+elif conda env list | grep -q "neural-graph-mac"; then
+    CONDA_ENV="neural-graph-mac"
+else
+    echo -e "${RED}Error: Neither 'neural-graph-linux' nor 'neural-graph-mac' conda environment found.${NC}"
+    echo "Please create one of these environments before committing."
+    exit 1
+fi
+
+echo -e "${GREEN}Found conda environment: $CONDA_ENV${NC}"
+
+# 3. Run ruff check in conda environment
+echo ""
+echo "Running ruff check with conda environment '$CONDA_ENV'..."
+
+# Run ruff check in the conda environment
+conda run -n "$CONDA_ENV" ruff check . --exclude '*.ipynb'
+
+if [ $? -ne 0 ]; then
+    echo ""
+    echo -e "${RED}Ruff check failed. Please fix the issues before committing.${NC}"
+    echo ""
+    echo -e "${YELLOW}To fix the issues, run:${NC}"
+    echo "  conda run -n $CONDA_ENV ruff check . --exclude '*.ipynb' --fix"
+    echo ""
+    echo "Or activate the environment and run ruff directly:"
+    echo "  conda activate $CONDA_ENV"
+    echo "  ruff check . --exclude '*.ipynb' --fix"
+    exit 1
+fi
+
+echo ""
+echo -e "${GREEN}All pre-commit checks passed!${NC}"
+exit 0

@@ -5,8 +5,6 @@ Usage: python extract_features.py <model_path> [--subsample_factor 10]
 """
 
 import argparse
-import json
-import numpy as np
 import os
 import torch
 import tinycudann as tcnn
@@ -92,7 +90,7 @@ def main():
             model, xyz, depth, height, width, device, 
             features_output_dir, subsample_factor=args.subsample_factor
         )
-        print(f"\\n✅ Feature extraction completed successfully!")
+        print("\\n✅ Feature extraction completed successfully!")
         print(f"Features saved in: {features_dir}")
         
     except Exception as e:

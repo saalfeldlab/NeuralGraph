@@ -34,7 +34,6 @@ import sys
 import torch
 import time
 import tifffile
-import downstream_tasks
 
 try:
 	import tinycudann as tcnn
