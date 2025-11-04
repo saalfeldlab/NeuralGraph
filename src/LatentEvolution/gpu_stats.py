@@ -54,6 +54,18 @@ def get_gpu_memory_used_mb() -> float:
         return 0.0
 
 
+def get_gpu_memory_total_mb() -> float:
+    """Get total GPU memory available in MB."""
+    try:
+        result = subprocess.check_output(
+            ["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+        return float(result.split('\n')[0])  # Get first GPU if multiple
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
+        return 0.0
+
+
 class GPUMonitor:
     """
     Context manager for monitoring GPU statistics during training.
@@ -61,12 +73,14 @@ class GPUMonitor:
     Tracks:
     - Average GPU utilization per epoch
     - Maximum GPU memory usage across all epochs
+    - Total GPU memory available
     - GPU device name
     """
 
     def __init__(self):
         self.enabled = is_nvidia_gpu_available()
         self.gpu_name = get_gpu_name() if self.enabled else None
+        self.total_memory_mb = get_gpu_memory_total_mb() if self.enabled else 0.0
         self.max_memory_mb = 0.0
         self.epoch_utilizations = []
 
@@ -104,12 +118,14 @@ class GPUMonitor:
         if not self.enabled:
             return {
                 "gpu_type": "N/A",
+                "total_gpu_memory_mb": "N/A",
                 "max_gpu_memory_mb": "N/A",
                 "avg_gpu_utilization_percent": "N/A",
             }
 
         return {
             "gpu_type": self.gpu_name or "Unknown",
+            "total_gpu_memory_mb": round(self.total_memory_mb, 2),
             "max_gpu_memory_mb": round(self.max_memory_mb, 2),
             "avg_gpu_utilization_percent": round(self.get_average_utilization() or 0.0, 2),
         }
