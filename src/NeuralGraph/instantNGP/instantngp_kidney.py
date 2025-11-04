@@ -49,17 +49,17 @@ except ImportError:
 
 def read_volume(filename):
     """Read 3D volume from TIFF file and normalize to [0,1]"""
-    print(f"Reading volume: {filename}")
+    print(f"reading volume: {filename}")
     volume = tifffile.imread(filename)
-    print(f"Original volume shape: {volume.shape}, dtype: {volume.dtype}")
-    print(f"Original value range: [{volume.min():.6f}, {volume.max():.6f}]")
+    print(f"original volume shape: {volume.shape}, dtype: {volume.dtype}")
+    print(f"original value range: [{volume.min():.6f}, {volume.max():.6f}]")
     
     # Convert to float32 and normalize to [0,1]
     volume = volume.astype(np.float32)
     if volume.max() > 1.0:
         volume = volume / volume.max()
     
-    print(f"Normalized value range: [{volume.min():.6f}, {volume.max():.6f}]")
+    print(f"normalized value range: [{volume.min():.6f}, {volume.max():.6f}]")
     return volume
 
 def write_volume_tiff(filename, volume_array):
@@ -86,8 +86,7 @@ def reconstruct_full_volume(model, xyz, depth, height, width, device, batch_size
     total_voxels = depth * height * width
     # Use float32 to match model output after conversion
     reconstructed = torch.zeros(depth, height, width, device=device, dtype=torch.float32)
-    
-    print(f"Reconstructing full volume: {depth}x{height}x{width} = {total_voxels:,} voxels")
+
     
     with torch.no_grad():
         for start_idx in range(0, total_voxels, batch_size_vol):
@@ -124,7 +123,6 @@ class Volume(torch.nn.Module):
                 print(f"Reordered volume to: {self.shape} (depth, height, width)")
         
         self.data = torch.from_numpy(self.data).float().to(device)
-        print(f"Volume loaded on device: {self.shape}")
 
     def forward(self, coords):
         """Trilinear interpolation for 3D volume sampling"""
@@ -179,7 +177,7 @@ class Volume(torch.nn.Module):
 def get_args():
     parser = argparse.ArgumentParser(description="3D Volume reconstruction using InstantNGP.")
     
-    parser.add_argument("volume", nargs="?", default="kidney.tif", help="3D volume file to reconstruct")
+    parser.add_argument("volume", nargs="?", default="kidney_512.tif", help="3D volume file to reconstruct")
     parser.add_argument("config", nargs="?", default="config_hash_3d.json", help="JSON config for tiny-cuda-nn")
     parser.add_argument("n_steps", nargs="?", type=int, default=10000000, help="Number of training steps")
     parser.add_argument("result_filename", nargs="?", default="", help="Output volume filename")
@@ -190,7 +188,7 @@ def get_args():
 if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print(f"using device: {device}")
     
     args = get_args()
 
@@ -215,13 +213,13 @@ if __name__ == "__main__":
     ).to(device)
     
     print(model)
-    print("Using modern tiny-cuda-nn for 3D volume reconstruction.")
+    print("using modern tiny-cuda-nn for 3D volume reconstruction.")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
     # Create 3D coordinate grid
     n_voxels = depth * height * width
-    print(f"Volume dimensions: {depth}x{height}x{width} = {n_voxels:,} voxels")
+    print(f"volume dimensions: {depth}x{height}x{width} = {n_voxels:,} voxels")
 
     # Create coordinate meshgrid
     z_coords = torch.linspace(0.5/depth, 1-0.5/depth, depth, device=device)
@@ -231,37 +229,30 @@ if __name__ == "__main__":
     zv, yv, xv = torch.meshgrid(z_coords, y_coords, x_coords, indexing='ij')
     xyz = torch.stack((zv.flatten(), yv.flatten(), xv.flatten())).t()
     
-    print(f"Coordinate grid shape: {xyz.shape}")
+    print(f"coordinate grid shape: {xyz.shape}")
 
     # Clean and create output directory
     import shutil
     output_dir = os.path.join(script_dir, "kidney_outputs")
     if os.path.exists(output_dir):
-        print(f"Cleaning existing output directory: {output_dir}")
         # Count files being removed for user feedback
         existing_files = os.listdir(output_dir)
         tif_files = [f for f in existing_files if f.endswith('.tif')]
         png_files = [f for f in existing_files if f.endswith('.png')]
-        if tif_files:
-            print(f"  Removing {len(tif_files)} TIFF files (~{len(tif_files)*86:.0f}MB)")
-        if png_files:
-            print(f"  Removing {len(png_files)} PNG files")
         shutil.rmtree(output_dir)
-        print("  Directory cleaned successfully")
     
     os.makedirs(output_dir, exist_ok=True)
-    print(f"created fresh output directory: {output_dir}")
 
     middle_slice = depth // 2
 
     # batch size for 3d (smaller due to memory constraints)
     batch_size = 2**20  # 1,048,576 - Adjusted for 3D volume
-    print(f"Using batch size: {batch_size:,} samples")
+    print(f"using batch size: {batch_size:,} samples")
 
     try:
         batch = torch.rand([batch_size, 3], device=device, dtype=torch.float32)
         traced_volume = torch.jit.trace(volume, batch)
-        print("Volume tracing successful.")
+        print("volume tracing successful.")
     except:
         print("WARNING: PyTorch JIT trace failed. Using regular volume sampling.")
         traced_volume = volume

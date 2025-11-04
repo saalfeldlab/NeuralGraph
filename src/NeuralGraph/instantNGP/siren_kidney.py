@@ -66,17 +66,17 @@ class Siren(nn.Module):
 
 def read_volume(filename):
     """Read 3D volume from TIFF file and normalize to [0,1]"""
-    print(f"Reading volume: {filename}")
+    print(f"reading volume: {filename}")
     volume = tifffile.imread(filename)
-    print(f"Original volume shape: {volume.shape}, dtype: {volume.dtype}")
-    print(f"Original value range: [{volume.min():.6f}, {volume.max():.6f}]")
+    print(f"original volume shape: {volume.shape}, dtype: {volume.dtype}")
+    print(f"original value range: [{volume.min():.6f}, {volume.max():.6f}]")
     
     # Convert to float32 and normalize to [0,1]
     volume = volume.astype(np.float32)
     if volume.max() > 1.0:
         volume = volume / volume.max()
     
-    print(f"Normalized value range: [{volume.min():.6f}, {volume.max():.6f}]")
+    print(f"normalized value range: [{volume.min():.6f}, {volume.max():.6f}]")
     return volume
 
 def write_volume_tiff(filename, volume_array):
@@ -102,8 +102,6 @@ def reconstruct_full_volume(model, coords, depth, height, width, device, batch_s
     total_voxels = depth * height * width
     reconstructed = torch.zeros(depth, height, width, device=device, dtype=torch.float32)
     
-    print(f"reconstructing full volume: {depth}x{height}x{width} = {total_voxels:,} voxels")
-    
     with torch.no_grad():
         for start_idx in range(0, total_voxels, batch_size_vol):
             end_idx = min(start_idx + batch_size_vol, total_voxels)
@@ -126,7 +124,7 @@ def reconstruct_full_volume(model, coords, depth, height, width, device, batch_s
 if __name__ == "__main__":
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print(f"using device: {device}")
     
     # Get script directory for file operations
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -140,10 +138,10 @@ if __name__ == "__main__":
         # If shape is (1200, 1200, 30), reorder to (30, 1200, 1200)
         if original_volume.shape[2] < original_volume.shape[0]:
             original_volume = np.transpose(original_volume, (2, 0, 1))
-            print(f"Reordered volume to: {original_volume.shape} (depth, height, width)")
+            print(f"reordered volume to: {original_volume.shape} (depth, height, width)")
     
     depth, height, width = original_volume.shape
-    print(f"Processing volume dimensions: {depth}x{height}x{width}")
+    print(f"processing volume dimensions: {depth}x{height}x{width}")
     
     # Create 3D coordinate grid
     z_coords, y_coords, x_coords = np.mgrid[0:depth, 0:height, 0:width]
@@ -152,11 +150,11 @@ if __name__ == "__main__":
     x_coords = x_coords.astype(np.float32) / (width - 1)   # Normalize to [0, 1]
     coords = np.stack([z_coords.ravel(), y_coords.ravel(), x_coords.ravel()], axis=1)
     coords = torch.from_numpy(coords).to(device)
-    print(f"Coordinate grid shape: {coords.shape}")
+    print(f"coordinate grid shape: {coords.shape}")
     
     target_voxels = torch.from_numpy(original_volume.reshape(-1, 1)).to(device)
-    print(f"Target voxels shape: {target_voxels.shape}")
-    
+    print(f"target voxels shape: {target_voxels.shape}")
+
     # Create SIREN model optimized for 3D volumes
     model = Siren(
         in_features=3,        # 3D input (x, y, z)
@@ -171,23 +169,17 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)  # Lower LR for 3D stability
     
     num_params = sum(p.numel() for p in model.parameters())
-    print(f"Model parameters: {num_params:,}")
-    
+    print(f"model parameters: {num_params:,}")
+
     # Clean and create output directory
     import shutil
     output_dir = os.path.join(script_dir, "siren_kidney_outputs")
     if os.path.exists(output_dir):
-        print(f"Cleaning existing output directory: {output_dir}")
         # Count files being removed for user feedback
         existing_files = os.listdir(output_dir)
         tif_files = [f for f in existing_files if f.endswith('.tif')]
         png_files = [f for f in existing_files if f.endswith('.png')]
-        if tif_files:
-            print(f"  Removing {len(tif_files)} TIFF files (~{len(tif_files)*86:.0f}MB)")
-        if png_files:
-            print(f"  Removing {len(png_files)} PNG files")
         shutil.rmtree(output_dir)
-        print("  Directory cleaned successfully")
     
     os.makedirs(output_dir, exist_ok=True)
 
