@@ -46,7 +46,7 @@ if __name__ == "__main__":
     for config_file_ in config_list:
         print(" ")
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
-        config_file, pre_folder = add_ppppre_folder(config_file_)
+        config_file, pre_folder = add_pre_folder(config_file_)
         config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
         config.dataset = pre_folder + config.dataset
         config.config_file = pre_folder + config_file_
