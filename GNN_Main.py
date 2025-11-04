@@ -38,7 +38,7 @@ if __name__ == "__main__":
         best_model = 'None' 
         task = 'train'  # 'generate', 'train', 'test'
 
-        config_list = ['fly_N9_63_4']  # for quick test
+        config_list = ['fly_N9_64_1_1']  # for quick test
         
         # config_list = ['signal_N11_2_1'] 
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     for config_file_ in config_list:
         print(" ")
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
-        config_file, pre_folder = add_pre_folder(config_file_)
+        config_file, pre_folder = add_ppppre_folder(config_file_)
         config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
         config.dataset = pre_folder + config.dataset
         config.config_file = pre_folder + config_file_
