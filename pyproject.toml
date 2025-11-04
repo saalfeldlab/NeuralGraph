@@ -30,7 +30,9 @@ select = [
 ]
 
 # Explicitly ignore all style/quality rules that don't cause runtime errors
-ignore = []
+ignore = [
+    "F841",   # Allow unused local variables (common in research/development code)
+]
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401", "F403"]  # Allow unused imports and star imports in __init__.py files
