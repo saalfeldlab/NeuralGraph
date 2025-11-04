@@ -19,6 +19,7 @@ import numpy as np
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim
+from LatentEvolution.gpu_stats import GPUMonitor
 
 
 # -------------------------------------------------------------------
@@ -389,11 +390,20 @@ def train(cfg: ModelParams):
         with open(log_path, "w") as f:
             f.write("epoch,train_loss,val_loss\n")
 
+        # --- Initialize GPU monitoring ---
+        gpu_monitor = GPUMonitor()
+        if gpu_monitor.enabled:
+            print(f"GPU monitoring enabled for: {gpu_monitor.gpu_name}")
+        else:
+            print("GPU monitoring not available (no NVIDIA GPU detected)")
+
         training_start = datetime.now()
+        epoch_durations = []
 
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
+            gpu_monitor.sample_epoch_start()
             running_loss = 0.0
 
             # ---- Training phase ----
@@ -418,7 +428,9 @@ def train(cfg: ModelParams):
             model.train()
 
             epoch_end = datetime.now()
+            gpu_monitor.sample_epoch_end()
             epoch_duration = (epoch_end - epoch_start).total_seconds()
+            epoch_durations.append(epoch_duration)
             total_elapsed = (epoch_end - training_start).total_seconds()
 
             print(
@@ -442,14 +454,25 @@ def train(cfg: ModelParams):
 
         print(f"Final Test Loss: {test_loss:.4e}")
 
+        # Calculate training statistics
+        training_end = datetime.now()
+        total_training_duration = (training_end - training_start).total_seconds()
+        avg_epoch_duration = sum(epoch_durations) / len(epoch_durations) if epoch_durations else 0.0
+
+        # Collect GPU metrics
+        gpu_metrics = gpu_monitor.get_metrics()
+
         metrics.update(
             {
                     "final_train_loss": mean_train_loss,
                     "final_val_loss": val_loss,
                     "final_test_loss": test_loss,
                     "commit_hash": commit_hash,
+                    "training_duration_seconds": round(total_training_duration, 2),
+                    "avg_epoch_duration_seconds": round(avg_epoch_duration, 2),
                 }
         )
+        metrics.update(gpu_metrics)
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
         with open(metrics_path, "w") as f:
