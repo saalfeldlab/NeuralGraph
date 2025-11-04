@@ -10,6 +10,7 @@ vis*/
 archive/
 src/models/data/
 src/NeuralGraph/scripts/tmp/
+runs/
 
 # Media and data files
 *.png

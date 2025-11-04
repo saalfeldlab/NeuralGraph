@@ -1,0 +1,36 @@
+# Default configuration for the Latent Space Voltage Model
+
+latent_dims: 128 # Dimensionality of latent space
+num_neurons: 13741 # Number of observed neurons (input/output size)
+
+encoder_params:
+  num_hidden_layers: 3 # Layers in the encoder MLP
+  num_hidden_units: 128 # Hidden units per layer
+
+decoder_params:
+  num_hidden_layers: 3 # Layers in the decoder MLP
+  num_hidden_units: 128 # Hidden units per layer
+
+evolver_params:
+  time_units: 1 # Number of time steps to evolve per forward pass
+  num_hidden_layers: 3 # Hidden layers in the evolver network
+  num_hidden_units: 128 # Hidden units per layer in the evolver
+
+training:
+  simulation_config: "fly_N9_62_1"
+  epochs: 1000 # Total number of epochs
+  batch_size: 32 # Samples per batch
+  learning_rate: 0.001 # Learning rate for optimizer
+  optimizer: Adam # Optimizer name from torch.optim
+  train_step: train_step
+  column_to_model: "VOLTAGE" # Options: CALCIUM, VOLTAGE, FLUORESCENCE, STIMULUS
+  use_tf32_matmul: true
+  seed: 42
+
+  data_split:
+    train_start: 4000 # Exclude burn-in
+    train_end: 34000
+    validation_start: 40000
+    validation_end: 50000
+    test_start: 54000
+    test_end: 64000
