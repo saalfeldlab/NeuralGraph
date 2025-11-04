@@ -26,7 +26,7 @@
             {
             "n_dims_to_encode": 1,     // Time dimension
             "otype": "Frequency",      // Try Frequency encoding for time
-            "n_frequencies": 32        // Sufficient frequencies for smooth motion
+            "n_frequencies": 16        // Sufficient frequencies for smooth motion
             }
         ]
     },

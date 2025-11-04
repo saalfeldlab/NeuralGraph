@@ -85,22 +85,18 @@ def calculate_psnr(img1, img2, max_val=1.0):
     return 20 * np.log10(max_val / np.sqrt(mse))
 
 if __name__ == "__main__":
-    print("================================================================")
-    print("OPTIMIZED SIREN Neural Network Image Reconstruction")
-    print("Reconstructing: Girl with a Pearl Earring (Optimized Config)")
-    print("Best hyperparameters: lr=3e-4, hf=256, hl=4, fo=60, ho=30")
-    print("================================================================")
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print(f"using device: {device}")
+    
+    # Get script directory for file operations
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     
     # Load image
-    image_path = "/groups/saalfeld/home/allierc/Py/ParticleGraph/src/ParticleGraph/scripts/instantNGP/Girl_with_a_Pearl_Earring.jpg"
-    print(f"Loading image: {image_path}")
-    
+    image_path = os.path.join(script_dir, "girl_with_a_pearl_earring.jpg")
+
     original_img = read_image(image_path)
     height, width, channels = original_img.shape
-    print(f"Processing image dimensions: {height}x{width} with {channels} channels")
     
     # Create coordinate grid
     y_coords, x_coords = np.mgrid[0:height, 0:width]
@@ -108,10 +104,10 @@ if __name__ == "__main__":
     y_coords = y_coords.astype(np.float32) / (height - 1)  # Normalize to [0, 1]
     coords = np.stack([x_coords.ravel(), y_coords.ravel()], axis=1)
     coords = torch.from_numpy(coords).to(device)
-    print(f"Coordinate grid shape: {coords.shape}")
+    print(f"coordinate grid shape: {coords.shape}")
     
     target_pixels = torch.from_numpy(original_img.reshape(-1, channels)).to(device)
-    print(f"Target pixels shape: {target_pixels.shape}")
+    print(f"target pixels shape: {target_pixels.shape}")
     
     # Create optimized SIREN model
     model = Siren(
@@ -127,17 +123,16 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=3e-4)  # Optimized learning rate
     
     num_params = sum(p.numel() for p in model.parameters())
-    print(f"Model parameters: {num_params:,}")
+    print(f"model parameters: {num_params:,}")
     
     # Clear and create output directory
-    output_dir = "siren_optimized_outputs"
+    output_dir = os.path.join(script_dir, "siren_optimized_outputs")
     if os.path.exists(output_dir):
         import shutil
         shutil.rmtree(output_dir)
     os.makedirs(output_dir)
-    print(f"Cleared and created output directory: {output_dir}/")
     
-    print("PHASE 1: Calibration - measuring iterations per 250ms without I/O...")
+    print("\nphase 1: calibration - measuring iterations per 250ms without I/O\n")
     
     # Calibration phase - pure training for 40 seconds to get 40 save points (every 250ms)
     calibration_start = time.perf_counter()
@@ -186,14 +181,12 @@ if __name__ == "__main__":
         if len(calibration_times) == 0 or elapsed_time >= (len(calibration_times) * 0.25):
             calibration_iterations.append(i)
             calibration_times.append(elapsed_time)
-            print(f"Calibration: {elapsed_time:.3f}s = iteration {i}")
+            print(f"calibration: {elapsed_time:.3f}s = iteration {i}")
         
         i += 1
     
-    print(f"Calibration completed: {i} iterations in 40 seconds")
-    print(f"Save points (250ms intervals): {calibration_iterations}")
     
-    print("\nPHASE 2: Training with iteration-based saving...")
+    print("\nphase 2: training with iteration-based saving")
     
     # Reset model for actual training
     model = Siren(
@@ -213,13 +206,11 @@ if __name__ == "__main__":
     i = 0
     
     # Save initial state (t=0)
-    path = f"{output_dir}/time_000_000ms.png"
-    print(f"Writing '{path}'... ", end="")
+    path = os.path.join(output_dir, "time_000_000ms.png")
     with torch.no_grad():
         predicted_image = model(coords).reshape(height, width, channels)
         predicted_image = torch.clamp(predicted_image, 0, 1)
         write_image(path, predicted_image.cpu().numpy())
-    print("done.")
     save_counter += 1
     
     # Training loop using calibrated iteration points
@@ -263,8 +254,7 @@ if __name__ == "__main__":
             save_idx = calibration_iterations.index(i)
             expected_time_ms = (save_idx + 1) * 250  # +1 because we start from 250ms
             
-            path = f"{output_dir}/time_{save_idx + 1:03d}_{expected_time_ms:03d}ms.png"
-            print(f"Writing '{path}' (iteration {i})... ", end="")
+            path = os.path.join(output_dir, f"time_{save_idx + 1:03d}_{expected_time_ms:03d}ms.png")
             
             with torch.no_grad():
                 # Reconstruct full image in batches
@@ -278,21 +268,10 @@ if __name__ == "__main__":
                 predicted_image = predicted_full.reshape(height, width, channels)
                 predicted_image = torch.clamp(predicted_image, 0, 1)
                 write_image(path, predicted_image.cpu().numpy())
-            
-            print("done.")
         
         i += 1
 
     total_wall_time = time.perf_counter() - start_time
-    print(f"\nTraining completed: Wall time={total_wall_time:.3f}s, Pure training time={total_training_time:.3f}s, {i} iterations")
-    print(f"Training efficiency: {total_training_time/total_wall_time*100:.1f}% (rest is I/O overhead)")
-
-    print(f"All outputs saved in '{output_dir}/' directory")
-    print(f"Images saved at calibrated 250ms intervals (total: {len(calibration_iterations)} saves)")
-    
-    # Calculate PSNR as a function of computing time
-    print("\nCalculating PSNR as function of training time...")
-    print("================================================================")
     
     # Get all saved images and calculate PSNR
     image_files = sorted([f for f in os.listdir(output_dir) if f.endswith('.png')])
@@ -317,20 +296,17 @@ if __name__ == "__main__":
         
         psnr_values.append(psnr)
         time_values.append(time_s)
-        
-        print(f"Time: {time_s:6.3f}s, PSNR: {psnr:6.2f} dB ({img_file})")
     
+    print("\n================================================================")
+    print("training completed")
     print("================================================================")
-    print("OPTIMIZED SIREN PSNR SUMMARY:")
-    print(f"Initial PSNR: {psnr_values[0]:6.2f} dB (t=0)")
-    print(f"Final PSNR:   {psnr_values[-1]:6.2f} dB (t={time_values[-1]:.3f}s)")
-    print(f"PSNR gain:    {psnr_values[-1] - psnr_values[0]:6.2f} dB")
-    print("================================================================")
-    print("Hyperparameters used:")
-    print("  Learning rate: 3e-4")
-    print("  Hidden features: 256") 
-    print("  Hidden layers: 4")
-    print("  First omega_0: 60")
-    print("  Hidden omega_0: 30")
-    print(f"  Model parameters: {num_params:,}")
+    print(f"wall time: {total_wall_time:.3f}s")
+    print(f"pure training time: {total_training_time:.3f}s")
+    print(f"total iterations: {i}")
+    print(f"initial PSNR: {psnr_values[0]:.2f} dB (t=0)")
+    print(f"final PSNR: {psnr_values[-1]:.2f} dB")
+    print(f"PSNR gain: {psnr_values[-1] - psnr_values[0]:.2f} dB")
+    print(f"training efficiency: {total_training_time/total_wall_time*100:.1f}% (rest is I/O overhead)")
+    print(f"images saved: {len(image_files)} (every 250ms from 0ms to {int((len(image_files)-1)*250)}ms)")
+    print(f"output directory: {output_dir}")
     print("================================================================")
