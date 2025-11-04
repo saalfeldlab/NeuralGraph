@@ -18,7 +18,7 @@ import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-from NeuralGraph.generators.load_flyvis import SimulationResults, FlyVisSim
+from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim
 
 
 # -------------------------------------------------------------------
@@ -97,7 +97,7 @@ class TrainingConfig(BaseModel):
     learning_rate: float = 1e-3
     optimizer: str = Field("Adam", description="Optimizer name from torch.optim")
     train_step: str = Field("train_step", description="Compiled train step function")
-    data_path: str | None = Field(None, description="Path to .npy simulation data file")
+    simulation_config: str
     column_to_model: str = "CALCIUM"
     use_tf32_matmul: bool = Field(
         False, description="Enable fast tf32 multiplication on certain NVIDIA GPUs"
@@ -281,9 +281,6 @@ def train_step(model, x_t, x_t_plus):
 
 def train(cfg: ModelParams):
     """Configurable training loop with train/val/test evaluation."""
-    if not cfg.training.data_path:
-        raise ValueError("training.data_path is required in config or CLI overrides.")
-
     # --- Reproducibility ---
     seed_everything(cfg.training.seed)
 
@@ -319,8 +316,9 @@ def train(cfg: ModelParams):
         train_step_fn: Callable = globals()[cfg.training.train_step]
 
         # --- Load data ---
+        data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
         data = load_column_data(
-            cfg.training.data_path, FlyVisSim[cfg.training.column_to_model]
+            data_path, FlyVisSim[cfg.training.column_to_model]
         ).to(device)
         split = cfg.training.data_split
 
@@ -338,6 +336,19 @@ def train(cfg: ModelParams):
             f"Data split: train {train_data.shape}, "
             f"val {val_data.shape}, test {test_data.shape}"
         )
+
+        metrics = {
+            "val_loss_constant_model": torch.nn.functional.mse_loss(
+                val_data[: -cfg.evolver_params.time_units], val_data[cfg.evolver_params.time_units:]
+            ).item(),
+            "train_loss_constant_model": torch.nn.functional.mse_loss(
+                train_data[: -cfg.evolver_params.time_units], train_data[cfg.evolver_params.time_units:]
+            ).item(),
+            "test_loss_constant_model": torch.nn.functional.mse_loss(
+                test_data[: -cfg.evolver_params.time_units], test_data[cfg.evolver_params.time_units:]
+            ).item(),
+        }
+        print(f"Constant model loss: {metrics}")
 
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
@@ -404,15 +415,19 @@ def train(cfg: ModelParams):
 
         print(f"Final Test Loss: {test_loss:.4e}")
 
+        metrics.update(
+            {
+                    "final_train_loss": mean_train_loss,
+                    "final_val_loss": val_loss,
+                    "final_test_loss": test_loss,
+
+                }
+        )
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
         with open(metrics_path, "w") as f:
             yaml.dump(
-                {
-                    "final_train_loss": mean_train_loss,
-                    "final_val_loss": val_loss,
-                    "final_test_loss": test_loss,
-                },
+                metrics,
                 f,
                 sort_keys=False,
                 indent=2,
@@ -433,7 +448,7 @@ def train(cfg: ModelParams):
 if __name__ == "__main__":
     # Load default YAML
     default_path = (
-        Path(__file__).resolve().parent / "../../../config/fly/latent_default.yaml"
+        Path(__file__).resolve().parent / "latent_default.yaml"
     )
     with open(default_path, "r") as f:
         data = yaml.safe_load(f)
