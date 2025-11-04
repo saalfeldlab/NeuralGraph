@@ -34,6 +34,7 @@ import sys
 import torch
 import time
 import tifffile
+import downstream_tasks
 
 try:
 	import tinycudann as tcnn
@@ -88,10 +89,9 @@ def print_hash_table_analysis(config, volume_shape=None):
     
     hashmap_size = 2 ** log2_hashmap_size
     
-    print("\n" + "="*90)
-    print("HASH GRID ENCODING ANALYSIS")
+    print("\n")
     print("="*90)
-    print(f"{'Level':<6} {'Resolution':<12} {'Pixels':<12} {'Grid Size':<12} {'Hash Entries':<12} {'Features':<12}")
+    print(f"{'level':<6} {'resolution':<12} {'pixels':<12} {'grid size':<12} {'hash entries':<12} {'features':<12}")
     print("-" * 90)
     
     total_parameters = 0
@@ -239,7 +239,8 @@ def get_args():
     parser.add_argument("config", nargs="?", default="config_hash_3d.json", help="JSON config for tiny-cuda-nn")
     parser.add_argument("n_steps", nargs="?", type=int, default=10000000, help="Number of training steps")
     parser.add_argument("result_filename", nargs="?", default="", help="Output volume filename")
-
+    parser.add_argument("--extract_features", action="store_true", help="Run downstream feature extraction after training")
+    
     args = parser.parse_args()
     return args
 
@@ -286,7 +287,7 @@ if __name__ == "__main__":
 
     # Create 3D coordinate grid
     n_voxels = depth * height * width
-    print(f"volume dimensions: {depth}x{height}x{width} = {n_voxels:,} voxels")
+
 
     # Create coordinate meshgrid
     z_coords = torch.linspace(0.5/depth, 1-0.5/depth, depth, device=device)
@@ -296,8 +297,6 @@ if __name__ == "__main__":
     zv, yv, xv = torch.meshgrid(z_coords, y_coords, x_coords, indexing='ij')
     xyz = torch.stack((zv.flatten(), yv.flatten(), xv.flatten())).t()
     
-    print(f"coordinate grid shape: {xyz.shape}")
-
     # Clean and create output directory
     import shutil
     output_dir = os.path.join(script_dir, "instantngp_outputs")
@@ -319,7 +318,7 @@ if __name__ == "__main__":
     try:
         batch = torch.rand([batch_size, 3], device=device, dtype=torch.float32)
         traced_volume = torch.jit.trace(volume, batch)
-        print("volume tracing successful.")
+        print("volume tracing successful torch.jit")
     except:
         print("WARNING: PyTorch JIT trace failed. Using regular volume sampling.")
         traced_volume = volume
@@ -442,7 +441,7 @@ if __name__ == "__main__":
         write_volume_tiff(result_path, final_volume.cpu().numpy())
         print(f"saved final reconstructed volume: {result_path}")
 
-    print("================================================================")
+    print("\n")
     print("training completed")
     print("================================================================")
     print(f"wall time: {total_wall_time:.3f}s")
@@ -453,5 +452,36 @@ if __name__ == "__main__":
     print(f"volumes saved: {save_counter} (every 10s from 0ms to {int((save_counter-1)*10000)}ms)")
     print(f"output directory: {output_dir}")
     print("================================================================")
+
+    # Save the trained model
+    model_path = os.path.join(output_dir, "trained_model.pth")
+    torch.save({
+        'model_state_dict': model.state_dict(),
+        'config': config,
+        'volume_shape': (depth, height, width),
+        'final_psnr': final_psnr
+    }, model_path)
+    print(f"\nModel saved to: {model_path}")
+
+    if args.extract_features:
+        print("\nphase 3: running downstream feature extraction tasks")
+        from downstream_tasks import run_feature_extraction
+        
+        # Run all feature extraction methods
+        features_dir = run_feature_extraction(model, xyz, depth, height, width, device, output_dir)
+        
+        print("\n================================================================")
+        print("Feature extraction completed")
+        print("================================================================")
+        print(f"Features directory: {features_dir}")
+        print("Generated features:")
+        print("- Gradient magnitude (edge detection)")
+        print("- Surface normals")
+        print("- Density distribution (divergence ∇⋅E)")
+        print("- Principal curvatures (Hessian eigenvalues)")
+        print("================================================================")
+
+
+
 
     tcnn.free_temporary_memory()
