@@ -187,3 +187,7 @@ cython_debug/
 
 # nohup logs
 nohup*.out
+
+# misc
+instantNGP/*.pth
+instantNGP/*.tif
