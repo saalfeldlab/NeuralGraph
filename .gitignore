@@ -181,3 +181,9 @@ cython_debug/
 
 # conda environments
 .conda_envs/
+
+# claude local settings
+.claude/settings.local.json
+
+# nohup logs
+nohup*.out
