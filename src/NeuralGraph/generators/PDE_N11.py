@@ -35,6 +35,7 @@ class PDE_N11(pyg.nn.MessagePassing):
         self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device = self.device)
 
         self.has_oscillations = (config.simulation.visual_input_type == 'oscillatory')
+        self.max_frame = config.simulation.n_frames + 1
 
     def forward(self, data=[], has_field=False, data_id=[], frame=[]):
         x, _edge_index = data.x, data.edge_index
@@ -50,12 +51,11 @@ class PDE_N11(pyg.nn.MessagePassing):
         msg = torch.matmul(self.W, self.phi(u))
 
         if self.has_oscillations:
-            du = -c*u + g * msg + self.e * torch.cos(self.w*frame/(2*np.pi))
+            du = -c*u + g * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
         else:
             du = -c*u + g * msg
 
         return du
-
 
     def message(self, u_j, edge_attr):
 

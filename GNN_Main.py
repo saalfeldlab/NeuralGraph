@@ -36,11 +36,11 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = 'None' 
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'generate'  # 'generate', 'train', 'test'
 
-        config_list = ['fly_N9_64_1_1']  # for quick test
+        # config_list = ['fly_N9_64_1_1']  # for quick test
         
-        # config_list = ['signal_N11_2_1'] 
+        config_list = ['signal_N11_2_1'] 
 
 
     for config_file_ in config_list:
