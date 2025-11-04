@@ -324,6 +324,11 @@ def train(cfg: ModelParams):
         ).to(device)
         split = cfg.training.data_split
 
+        total_time_points = data.shape[0]
+        assert split.train_end <= total_time_points
+        assert split.validation_end <= total_time_points
+        assert split.test_end <= total_time_points
+
         # Extract subsets
         train_data = data[split.train_start : split.train_end]
         val_data = data[split.validation_start : split.validation_end]
