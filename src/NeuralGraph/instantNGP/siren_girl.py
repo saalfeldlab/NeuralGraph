@@ -126,7 +126,7 @@ if __name__ == "__main__":
     print(f"model parameters: {num_params:,}")
     
     # Clear and create output directory
-    output_dir = os.path.join(script_dir, "siren_optimized_outputs")
+    output_dir = os.path.join(script_dir, "siren_outputs")
     if os.path.exists(output_dir):
         import shutil
         shutil.rmtree(output_dir)

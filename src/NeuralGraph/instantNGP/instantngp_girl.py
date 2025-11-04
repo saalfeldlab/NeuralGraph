@@ -66,6 +66,58 @@ def calculate_psnr(pred, target, max_val=1.0):
     psnr = 20 * torch.log10(max_val / torch.sqrt(mse))
     return psnr.item()
 
+def print_hash_table_analysis(config):
+    """Print detailed hash table breakdown per level for 2D images"""
+    encoding_config = config["encoding"]
+    n_levels = encoding_config["n_levels"]
+    n_features_per_level = encoding_config["n_features_per_level"]
+    log2_hashmap_size = encoding_config["log2_hashmap_size"]
+    base_resolution = encoding_config["base_resolution"]
+    per_level_scale = encoding_config["per_level_scale"]
+    
+    hashmap_size = 2 ** log2_hashmap_size
+    
+    print("\n" + "="*90)
+    print("HASH GRID ENCODING ANALYSIS (2D)")
+    print("="*90)
+    print(f"{'Level':<6} {'Resolution':<12} {'Pixels':<12} {'Grid Size':<12} {'Hash Entries':<12} {'Features':<12}")
+    print("-" * 90)
+    
+    total_parameters = 0
+    
+    for level in range(n_levels):
+        resolution = int(base_resolution * (per_level_scale ** level))
+        pixels = resolution ** 2  # 2D pixels
+        grid_size = resolution ** 2  # 2D grid
+        hash_entries = min(grid_size, hashmap_size)
+        level_features = hash_entries * n_features_per_level
+        total_parameters += level_features
+        
+        print(f"{level:<6} {resolution:<12} {pixels:<12.2e} {grid_size:<12.2e} {hash_entries:<12.2e} {level_features:<12.2e}")
+    
+    print("-" * 90)
+    print(f"Total encoding parameters: {total_parameters:.2e}")
+    print(f"Highest resolution pixels: {resolution**2:.2e} ({resolution}²)")
+    
+    # Add network parameters estimate
+    network_config = config["network"]
+    n_neurons = network_config["n_neurons"]
+    n_hidden_layers = network_config["n_hidden_layers"]
+    
+    # Input layer: (n_levels * n_features_per_level) -> n_neurons
+    network_params = (n_levels * n_features_per_level * n_neurons) + n_neurons
+    
+    # Hidden layers: n_neurons -> n_neurons
+    for _ in range(n_hidden_layers):
+        network_params += (n_neurons * n_neurons) + n_neurons
+    
+    # Output layer: n_neurons -> 3 (RGB)
+    network_params += (n_neurons * 3) + 3
+    
+    print(f"Network parameters: {network_params:.2e}")
+    print(f"Total estimated parameters: {total_parameters + network_params:.2e}")
+    print("="*90 + "\n")
+
 class Image(torch.nn.Module):
 	def __init__(self, filename, device):
 		super(Image, self).__init__()
@@ -128,6 +180,9 @@ if __name__ == "__main__":
 	
 	print(model)
 	print("Using modern tiny-cuda-nn with automatic kernel optimization.")
+
+	# Print detailed hash table analysis
+	print_hash_table_analysis(config)
 
 	optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
@@ -254,6 +309,9 @@ if __name__ == "__main__":
 				full_output = model(xy).reshape(img_shape).clamp(0.0, 1.0)
 				target_img = image(xy).reshape(img_shape)
 				psnr_db = calculate_psnr(full_output, target_img)
+			
+			print(f"checkpoint {save_counter + 1}: psnr = {psnr_db:.2f} db")
+			
 			# Save image
 			path = os.path.join(output_dir, f"time_{save_counter:03d}_{expected_ms:04d}ms.png")
 			write_image(path, full_output.detach().cpu().numpy())
