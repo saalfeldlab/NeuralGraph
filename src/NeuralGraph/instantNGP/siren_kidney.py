@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
     # Clean and create output directory
     import shutil
-    output_dir = os.path.join(script_dir, "siren_kidney_outputs")
+    output_dir = os.path.join(script_dir, "siren_outputs")
     if os.path.exists(output_dir):
         # Count files being removed for user feedback
         existing_files = os.listdir(output_dir)

@@ -78,6 +78,58 @@ def calculate_psnr(pred, target, max_val=1.0):
     psnr = 20 * torch.log10(max_val / torch.sqrt(mse))
     return psnr.item()
 
+def print_hash_table_analysis(config):
+    """Print detailed hash table breakdown per level"""
+    encoding_config = config["encoding"]
+    n_levels = encoding_config["n_levels"]
+    n_features_per_level = encoding_config["n_features_per_level"]
+    log2_hashmap_size = encoding_config["log2_hashmap_size"]
+    base_resolution = encoding_config["base_resolution"]
+    per_level_scale = encoding_config["per_level_scale"]
+    
+    hashmap_size = 2 ** log2_hashmap_size
+    
+    print("\n" + "="*90)
+    print("HASH GRID ENCODING ANALYSIS")
+    print("="*90)
+    print(f"{'Level':<6} {'Resolution':<12} {'Pixels':<12} {'Grid Size':<12} {'Hash Entries':<12} {'Features':<12}")
+    print("-" * 90)
+    
+    total_parameters = 0
+    
+    for level in range(n_levels):
+        resolution = int(base_resolution * (per_level_scale ** level))
+        pixels = resolution ** 2  # 2D pixels for display
+        grid_size = resolution ** 3  # 3D grid
+        hash_entries = min(grid_size, hashmap_size)
+        level_features = hash_entries * n_features_per_level
+        total_parameters += level_features
+        
+        print(f"{level:<6} {resolution:<12} {pixels:<12.2e} {grid_size:<12.2e} {hash_entries:<12.2e} {level_features:<12.2e}")
+    
+    print("-" * 90)
+    print(f"Total encoding parameters: {total_parameters:.2e}")
+    print(f"Highest resolution voxels: {resolution**3:.2e} ({resolution}³)")
+    
+    # Add network parameters estimate
+    network_config = config["network"]
+    n_neurons = network_config["n_neurons"]
+    n_hidden_layers = network_config["n_hidden_layers"]
+    
+    # Input layer: (n_levels * n_features_per_level) -> n_neurons
+    network_params = (n_levels * n_features_per_level * n_neurons) + n_neurons
+    
+    # Hidden layers: n_neurons -> n_neurons
+    for _ in range(n_hidden_layers):
+        network_params += (n_neurons * n_neurons) + n_neurons
+    
+    # Output layer: n_neurons -> 1
+    network_params += n_neurons + 1
+    
+    print(f"Network parameters: {network_params:.2e}")
+    print(f"Total estimated parameters: {total_parameters + network_params:.2e}")
+    print("="*90 + "\n")
+
 def reconstruct_full_volume(model, xyz, depth, height, width, device, batch_size_vol=None):
     """Reconstruct full 3D volume from model in memory-efficient batches"""
     if batch_size_vol is None:
@@ -123,14 +175,18 @@ class Volume(torch.nn.Module):
                 print(f"Reordered volume to: {self.shape} (depth, height, width)")
         
         self.data = torch.from_numpy(self.data).float().to(device)
+        
+        # Pre-compute scaling tensor to avoid TracerWarning
+        depth, height, width = self.shape
+        self.scale_tensor = torch.tensor([depth-1, height-1, width-1], device=device, dtype=torch.float32)
 
     def forward(self, coords):
         """Trilinear interpolation for 3D volume sampling"""
         with torch.no_grad():
             # coords is Nx3 with values in [0,1]
-            # Scale to volume dimensions
+            # Scale to volume dimensions using pre-computed tensor
             depth, height, width = self.shape
-            scaled_coords = coords * torch.tensor([depth-1, height-1, width-1], device=coords.device).float()
+            scaled_coords = coords * self.scale_tensor
             
             # Get integer indices and interpolation weights
             indices = scaled_coords.long()
@@ -215,7 +271,13 @@ if __name__ == "__main__":
     print(model)
     print("using modern tiny-cuda-nn for 3D volume reconstruction.")
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    # Print detailed hash table analysis
+    print_hash_table_analysis(config)
+
+    # Use learning rate from config file
+    learning_rate = config["optimizer"]["learning_rate"]
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    print(f"using learning rate: {learning_rate}")
 
     # Create 3D coordinate grid
     n_voxels = depth * height * width
@@ -233,7 +295,7 @@ if __name__ == "__main__":
 
     # Clean and create output directory
     import shutil
-    output_dir = os.path.join(script_dir, "kidney_outputs")
+    output_dir = os.path.join(script_dir, "instantngp_outputs")
     if os.path.exists(output_dir):
         # Count files being removed for user feedback
         existing_files = os.listdir(output_dir)
@@ -257,7 +319,7 @@ if __name__ == "__main__":
         print("WARNING: PyTorch JIT trace failed. Using regular volume sampling.")
         traced_volume = volume
 
-    print("\nphase 1: calibration - measuring iterations per 2.5s")
+    print("\nphase 1: calibration - measuring iterations per 10s")
     
     # calibration phase - 100 seconds for more data points
     calibration_start = time.perf_counter()
@@ -280,11 +342,11 @@ if __name__ == "__main__":
         current_time = time.perf_counter()
         elapsed_time = current_time - calibration_start
         
-        # Record every 2.5s
-        if len(calibration_times) == 0 or elapsed_time >= (len(calibration_times) * 2.5):
+        # Record every 10s
+        if len(calibration_times) == 0 or elapsed_time >= (len(calibration_times) * 10):
             calibration_iterations.append(i)
             calibration_times.append(elapsed_time)
-            print(f"calibration: {elapsed_time:.3f}s = iteration {i}")
+            print(f"calibration: {elapsed_time:.3f}s = iteration {i}  loss={loss.item():.6f}")
         
         i += 1
     
@@ -297,7 +359,7 @@ if __name__ == "__main__":
         encoding_config=config["encoding"], 
         network_config=config["network"]
     ).to(device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
     
     start_time = time.perf_counter()
     total_training_time = 0.0
@@ -340,10 +402,8 @@ if __name__ == "__main__":
         
         # save at calibration points
         if save_counter < len(calibration_iterations) and i == calibration_iterations[save_counter]:
-            expected_ms = save_counter * 2500
-            
-            print(f"saving checkpoint at {expected_ms}ms...")
-            
+            expected_ms = save_counter * 10000
+        
             # reconstruct and save full volume
             pred_volume = reconstruct_full_volume(model, xyz, depth, height, width, device)
             
@@ -355,6 +415,8 @@ if __name__ == "__main__":
             pred_slice = pred_volume[middle_slice]
             target_slice = volume.data[middle_slice]
             psnr_db = calculate_psnr(pred_slice, target_slice)
+
+            print(f"checkpoint {save_counter}: psnr = {psnr_db:.2f} db")
             
             save_counter += 1
         
@@ -383,7 +445,7 @@ if __name__ == "__main__":
     print(f"total iterations: {i}")
     print(f"final psnr (middle slice): {final_psnr:.2f} db")
     print(f"training efficiency: {total_training_time/total_wall_time*100:.1f}% (rest is i/o overhead)")
-    print(f"volumes saved: {save_counter} (every 2.5s from 0ms to {int((save_counter-1)*2500)}ms)")
+    print(f"volumes saved: {save_counter} (every 10s from 0ms to {int((save_counter-1)*10000)}ms)")
     print(f"output directory: {output_dir}")
     print("================================================================")
 
