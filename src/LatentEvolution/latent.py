@@ -9,6 +9,7 @@ from uuid import uuid4
 from datetime import datetime
 import random
 import sys
+import subprocess
 
 import torch
 import torch.nn as nn
@@ -234,6 +235,30 @@ def make_batches_random(
 # -------------------------------------------------------------------
 
 
+def get_git_commit_hash() -> str:
+    """Get the short git commit hash, with -dirty suffix if working tree has changes."""
+    try:
+        # Get short commit hash
+        commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        # Check if working tree is dirty
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        if status:
+            commit_hash += "-dirty"
+
+        return commit_hash
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If git is not available or not a git repo, return a placeholder
+        return "unknown"
+
+
 def seed_everything(seed: int):
     """Set all random seeds for reproducibility."""
     random.seed(seed)
@@ -283,8 +308,11 @@ def train(cfg: ModelParams):
     # --- Reproducibility ---
     seed_everything(cfg.training.seed)
 
+    # --- Get git commit hash ---
+    commit_hash = get_git_commit_hash()
+
     # --- Run directory creation ---
-    run_id = datetime.now().strftime("%Y%m%d_%H%M%S") + "_" + str(uuid4())[:8]
+    run_id = datetime.now().strftime("%Y%m%d") + "_" + commit_hash + "_" + str(uuid4())[:8]
     run_dir = Path("runs") / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = run_dir / "stdout.log"
@@ -419,7 +447,7 @@ def train(cfg: ModelParams):
                     "final_train_loss": mean_train_loss,
                     "final_val_loss": val_loss,
                     "final_test_loss": test_loss,
-
+                    "commit_hash": commit_hash,
                 }
         )
         # Save final metrics
