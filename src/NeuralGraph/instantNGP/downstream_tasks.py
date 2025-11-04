@@ -5,11 +5,9 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import cm
 from matplotlib.colors import Normalize
 import os
 import tifffile
-from PIL import Image as PILImage
 
 def extract_gradient_field(model, xyz, device, batch_size=2**16):
     """
@@ -188,7 +186,7 @@ def run_feature_extraction(model, xyz, depth, height, width, device, output_dir,
     Args:
         subsample_factor: Subsampling factor for curvature computation (default: 4)
     """
-    print(f"Starting feature extraction pipeline...")
+    print("Starting feature extraction pipeline...")
     print(f"Volume dimensions: {depth}×{height}×{width}")
     print(f"Curvature subsample factor: {subsample_factor}")
     
