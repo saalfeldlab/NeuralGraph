@@ -77,8 +77,8 @@ def calculate_psnr(pred, target, max_val=1.0):
     psnr = 20 * torch.log10(max_val / torch.sqrt(mse))
     return psnr.item()
 
-def print_hash_table_analysis(config):
-    """Print detailed hash table breakdown per level"""
+def print_hash_table_analysis(config, volume_shape=None):
+    """Print detailed hash table breakdown per level for 3D volumes"""
     encoding_config = config["encoding"]
     n_levels = encoding_config["n_levels"]
     n_features_per_level = encoding_config["n_features_per_level"]
@@ -107,8 +107,8 @@ def print_hash_table_analysis(config):
         print(f"{level:<6} {resolution:<12} {pixels:<12.2e} {grid_size:<12.2e} {hash_entries:<12.2e} {level_features:<12.2e}")
     
     print("-" * 90)
-    print(f"Total encoding parameters: {total_parameters:.2e}")
-    print(f"Highest resolution voxels: {resolution**3:.2e} ({resolution}³)")
+    print(f"total encoding parameters: {total_parameters:.2e}")
+    print(f"highest resolution voxels: {resolution**3:.2e} ({resolution}³)")
     
     # Add network parameters estimate
     network_config = config["network"]
@@ -125,12 +125,17 @@ def print_hash_table_analysis(config):
     # Output layer: n_neurons -> 1
     network_params += n_neurons + 1
     
-    print(f"Network parameters: {network_params:.2e}")
-    print(f"Total estimated parameters: {total_parameters + network_params:.2e}")
+    print(f"network parameters: {network_params:.2e}")
+    print(f"total estimated parameters: {total_parameters + network_params:.2e}")
+    # Add original volume voxels in scientific notation if volume_shape provided
+    if volume_shape is not None:
+        depth, height, width = volume_shape
+        original_voxels = depth * height * width
+        print(f"original volume voxels: {original_voxels:.2e} ({depth}×{height}×{width})")
     print("="*90 + "\n")
 
 def reconstruct_full_volume(model, xyz, depth, height, width, device, batch_size_vol=None):
-    """Reconstruct full 3D volume from model in memory-efficient batches"""
+    """reconstruct full 3D volume from model in memory-efficient batches"""
     if batch_size_vol is None:
         batch_size_vol = height * width  # Process one slice at a time by default
     
@@ -147,9 +152,6 @@ def reconstruct_full_volume(model, xyz, depth, height, width, device, batch_size
             # Get model predictions for this batch and convert to float32
             batch_output = model(batch_coords).squeeze().float()
             
-            # Convert flat indices back to 3D indices
-            # TODO (Cedric): `batch_size_actual` is not used anywhere. Bug or intentional?
-            _batch_size_actual = end_idx - start_idx
             flat_indices = torch.arange(start_idx, end_idx, device=device)
             z_indices = flat_indices // (height * width)
             y_indices = (flat_indices % (height * width)) // width
@@ -256,6 +258,9 @@ if __name__ == "__main__":
     with open(config_path) as config_file:
         config = json.load(config_file)
 
+    # Print config filename in green
+    print(f"\033[92mUsing config: {args.config}\033[0m")
+
     # Load 3D volume
     volume = Volume(volume_path, device)
     depth, height, width = volume.shape
@@ -272,7 +277,7 @@ if __name__ == "__main__":
     print("using modern tiny-cuda-nn for 3D volume reconstruction.")
 
     # Print detailed hash table analysis
-    print_hash_table_analysis(config)
+    print_hash_table_analysis(config, volume.shape)
 
     # Use learning rate from config file
     learning_rate = config["optimizer"]["learning_rate"]

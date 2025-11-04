@@ -66,7 +66,7 @@ def calculate_psnr(pred, target, max_val=1.0):
     psnr = 20 * torch.log10(max_val / torch.sqrt(mse))
     return psnr.item()
 
-def print_hash_table_analysis(config):
+def print_hash_table_analysis(config, image=None):
     """Print detailed hash table breakdown per level for 2D images"""
     encoding_config = config["encoding"]
     n_levels = encoding_config["n_levels"]
@@ -76,6 +76,12 @@ def print_hash_table_analysis(config):
     per_level_scale = encoding_config["per_level_scale"]
     
     hashmap_size = 2 ** log2_hashmap_size
+    
+    # Get original image information if provided
+    if image is not None:
+        original_height, original_width = image.shape[:2]
+        original_pixels = original_height * original_width
+        print(f"\nOriginal image: {original_width}×{original_height} = {original_pixels:,} pixels")
     
     print("\n" + "="*90)
     print("HASH GRID ENCODING ANALYSIS (2D)")
@@ -116,6 +122,11 @@ def print_hash_table_analysis(config):
     
     print(f"Network parameters: {network_params:.2e}")
     print(f"Total estimated parameters: {total_parameters + network_params:.2e}")
+	# Add original image pixels in scientific notation if image provided
+    if image is not None:
+        original_height, original_width = image.shape[:2]
+        original_pixels = original_height * original_width
+        print(f"Original image pixels: {original_pixels:.2e} ({original_width}×{original_height})")
     print("="*90 + "\n")
 
 class Image(torch.nn.Module):
@@ -179,10 +190,9 @@ if __name__ == "__main__":
 	model = tcnn.NetworkWithInputEncoding(n_input_dims=2, n_output_dims=n_channels, encoding_config=config["encoding"], network_config=config["network"]).to(device)
 	
 	print(model)
-	print("Using modern tiny-cuda-nn with automatic kernel optimization.")
 
 	# Print detailed hash table analysis
-	print_hash_table_analysis(config)
+	print_hash_table_analysis(config, image)
 
 	optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
@@ -253,7 +263,7 @@ if __name__ == "__main__":
 		if len(calibration_times) == 0 or elapsed_time >= (len(calibration_times) * 0.25):
 			calibration_iterations.append(i)
 			calibration_times.append(elapsed_time)
-			print(f"calibration: {elapsed_time:.3f}s = iteration {i}")
+			print(f"calibration: {elapsed_time:.3f}s = iteration {i}   loss={loss.item():.6f}")
 		
 		i += 1
 
