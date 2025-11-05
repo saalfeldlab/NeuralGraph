@@ -282,8 +282,7 @@ def get_device() -> torch.device:
         return torch.device("cpu")
 
 
-@torch.compile(fullgraph=True, mode="reduce-overhead")
-def train_step(model, x_t, x_t_plus):
+def train_step_nocompile(model, x_t, x_t_plus):
     # evolution loss
     output = model(x_t)
     evolve_loss = torch.nn.functional.mse_loss(output, x_t_plus)
@@ -295,13 +294,14 @@ def train_step(model, x_t, x_t_plus):
     loss = evolve_loss + recon_loss
     return (loss, recon_loss, evolve_loss)
 
+train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
 # -------------------------------------------------------------------
 # Training
 # -------------------------------------------------------------------
 
 
-def train(cfg: ModelParams):
+def train(cfg: ModelParams, run_dir: Path):
     """Configurable training loop with train/val/test evaluation."""
     # --- Reproducibility ---
     seed_everything(cfg.training.seed)
@@ -309,15 +309,12 @@ def train(cfg: ModelParams):
     # --- Get git commit hash ---
     commit_hash = get_git_commit_hash()
 
-    # --- Run directory creation ---
-    run_id = datetime.now().strftime("%Y%m%d") + "_" + commit_hash + "_" + str(uuid4())[:8]
-    run_dir = Path("runs") / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
-    log_path = run_dir / "stdout.log"
 
-    with open(log_path, "w", buffering=1) as log_file:  # line-buffered
+    log_path = run_dir / "stdout.log"
+    err_path = run_dir / "stderr.log"
+    with open(log_path, "w", buffering=1) as log_file, open(err_path, "w", buffering=1) as err_log:
         sys.stdout = log_file
-        sys.stderr = log_file  # capture errors too
+        sys.stderr = err_log
 
         print(f"Run directory: {run_dir.resolve()}")
 
@@ -491,8 +488,18 @@ def train(cfg: ModelParams):
 # CLI Entry Point
 # -------------------------------------------------------------------
 
-
 if __name__ == "__main__":
+    commit_hash = get_git_commit_hash()
+
+    # Make run dir
+    run_id = datetime.now().strftime("%Y%m%d") + "_" + commit_hash + "_" + str(uuid4())[:8]
+    run_dir = Path("runs") / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Log command line in run dir for tracking
+    with open(run_dir / "command_line.txt", "w") as out:
+        out.write("\n".join(sys.argv))
+
     # Load default YAML
     default_path = (
         Path(__file__).resolve().parent / "latent_default.yaml"
@@ -504,4 +511,10 @@ if __name__ == "__main__":
     # Parse CLI overrides with Tyro
     cfg = tyro.cli(ModelParams, default=default_cfg)
 
-    train(cfg)
+    train(cfg, run_dir)
+
+    # add a completion flag
+    with open(run_dir / "complete", "w"):
+        pass
+
+

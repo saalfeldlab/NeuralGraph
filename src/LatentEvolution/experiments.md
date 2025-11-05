@@ -30,9 +30,38 @@ for lr in 0.001 0.0001 0.00001 0.000001 ; do \
     done
 ```
 
-TODO:
+See [#25](https://github.com/saalfeldlab/NeuralGraph/pull/25) - many jobs failed due to the use of `max-autotune` compilation. I don't yet understand why, but changing to `reduce-overhead` which is less aggressive worked.
 
-- [ ] add stimulus
-- [ ] make diagnostic plots
-- [ ] are we doing better than predicting a constant
-- [ ] sweep parameters
+## Performance benchmark experiments
+
+Assess the performance impact of (GPU, compile?, tensor float32).
+
+```bash
+
+gpu_types=("gpu_l4" "gpu_a100" "gpu_h100" "gpu_h200")
+train_steps=("train_step_nocompile" "train_step")
+use_tf32_matmuls=("true" "false")
+
+for gpu_type in "${gpu_types[@]}"
+do
+    for train_step in "${train_steps[@]}"
+    do
+        for use_tf32_matmul in "${use_tf32_matmuls[@]}"
+        do
+            if [[ $gpu_type == "gpu_l4" ]]; then
+                slots_per_gpu="8"
+            else
+                slots_per_gpu="12"
+            fi
+            name="${gpu_type}_${train_step}_${use_tf32_matmul}"
+            bsub -J $name -n $slots_per_gpu \
+                -gpu \"num=1\" -q $gpu_type -o ${name}.log python \
+                src/LatentEvolution/latent.py \
+                --training.train_step $train_step \
+                --training.use_tf32_matmul $use_tf32_matmul \
+                --training.epochs 5000 \
+                --training.batch_size 256
+        done
+    done
+done
+```
