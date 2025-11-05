@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      CONDA_ENV_NAME: neural-graph-linux
+      CONDA_ENV_NAME: neural-graph-ci
       # CACHE_NUMBER: Increment this to force a cache refresh (e.g., 1 -> 2)
       # This invalidates the existing cache and creates a new one
       # Use when: environment is corrupted, or you want to rebuild from scratch
@@ -34,7 +34,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: /home/runner/miniconda3/envs/${{ env.CONDA_ENV_NAME }}
-        key: ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
+        key: ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.ci.yaml') }}
         restore-keys: |
           ${{ runner.os }}-conda-env-${{ env.CACHE_NUMBER }}-
 
@@ -44,7 +44,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/conda_pkgs_dir
-        key: ${{ runner.os }}-conda-pkgs-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.linux.yaml') }}
+        key: ${{ runner.os }}-conda-pkgs-${{ env.CACHE_NUMBER }}-${{ hashFiles('envs/environment.ci.yaml') }}
         restore-keys: |
           ${{ runner.os }}-conda-pkgs-
 
@@ -68,7 +68,7 @@ jobs:
           echo "Environment directory exists (cache hit) - activating"
         else
           echo "Environment directory missing (cache miss) - creating"
-          mamba env create -n ${{ env.CONDA_ENV_NAME }} -f envs/environment.linux.yaml
+          mamba env create -n ${{ env.CONDA_ENV_NAME }} -f envs/environment.ci.yaml
         fi
 
     # Verify the environment is working correctly

@@ -1,0 +1,46 @@
+name: neural-graph-ci
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  # Core
+  - python=3.12
+  - pip
+
+  # Use OpenBLAS / LLVM-OpenMP to avoid mixing OpenMP runtimes
+  - "libblas=*=*openblas*"
+  - "liblapack=*=*openblas*"
+  - llvm-openmp
+
+  # Essential scientific packages for CI tests
+  - numpy=2.3.3
+  - scipy=1.16.2
+  - pandas
+  - matplotlib
+  - seaborn
+  - scikit-image
+  - networkx
+  - prettytable
+  - pyyaml
+  - tqdm
+  - imageio
+  - tifffile
+  - pydantic
+
+  # Development tools
+  - ruff
+  - tyro
+
+  - pip:
+      # CPU-only PyTorch wheels (much smaller than CUDA versions)
+      - torch==2.9 --index-url https://download.pytorch.org/whl/cpu
+      - torchvision==0.24 --index-url https://download.pytorch.org/whl/cpu
+      - torchaudio==2.9 --index-url https://download.pytorch.org/whl/cpu
+
+      # Essential pip packages for tests
+      - torch_geometric==2.7.0
+      - torchdiffeq
+      - joblib
+      - polars
+      - commentjson
