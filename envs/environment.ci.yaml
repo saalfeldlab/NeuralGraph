@@ -36,6 +36,7 @@ dependencies:
   - opencv
   - astropy
   - shapely
+  - napari
 
   # Development tools
   - ruff
