@@ -53,3 +53,4 @@ dependencies:
       - joblib
       - polars
       - commentjson
+      - flyvis
