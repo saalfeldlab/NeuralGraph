@@ -29,6 +29,7 @@ dependencies:
   - tifffile
   - pydantic
   - tensorstore
+  - xarray
 
   # Development tools
   - ruff
