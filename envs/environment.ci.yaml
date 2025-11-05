@@ -20,6 +20,7 @@ dependencies:
   - matplotlib
   - seaborn
   - scikit-image
+  - scikit-learn
   - networkx
   - prettytable
   - pyyaml
