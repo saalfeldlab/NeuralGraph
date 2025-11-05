@@ -13,36 +13,24 @@ dependencies:
   - "liblapack=*=*openblas*"
   - llvm-openmp
 
-  # Scientific / data stack
+  # Essential scientific packages for CI tests
   - numpy=2.3.3
   - scipy=1.16.2
   - pandas
   - matplotlib
   - seaborn
   - scikit-image
-  - dask
-  - umap-learn
+  - scikit-learn
   - networkx
   - prettytable
   - pyyaml
   - tqdm
   - imageio
   - tifffile
-  - shapely
   - pydantic
-  - astropy
-  - pyvista
-  - vtk
-  - opencv
-  - pyqt
-  - pysr
-  - pytables
-  - ipython
-  - ipykernel
-  - jupytext
-  - gputil
   - tensorstore
-  - napari
+
+  # Development tools
   - ruff
   - tyro
 
@@ -52,15 +40,9 @@ dependencies:
       - torchvision==0.24 --index-url https://download.pytorch.org/whl/cpu
       - torchaudio==2.9 --index-url https://download.pytorch.org/whl/cpu
 
-      # Additional pip-only packages:
-      - geomloss==0.2
+      # Essential pip packages for tests
       - torch_geometric==2.7.0
       - torchdiffeq
-      - vedo
       - joblib
-      - flyvis
       - polars
-      - ninja
       - commentjson
-      # Note: Install tiny-cuda-nn manually after environment creation:
-      # pip install git+https://github.com/NVlabs/tiny-cuda-nn/#subdirectory=bindings/torch
