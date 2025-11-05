@@ -282,10 +282,7 @@ def get_device() -> torch.device:
         return torch.device("cpu")
 
 
-torch._dynamo.config.compiled_autograd = True
-
-
-@torch.compile(fullgraph=True, mode="max-autotune")
+@torch.compile(fullgraph=True, mode="reduce-overhead")
 def train_step(model, x_t, x_t_plus):
     # evolution loss
     output = model(x_t)
