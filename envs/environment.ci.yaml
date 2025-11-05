@@ -31,6 +31,9 @@ dependencies:
   - tensorstore
   - xarray
   - h5py
+  - pyvista
+  - vtk
+  - opencv
 
   # Development tools
   - ruff
