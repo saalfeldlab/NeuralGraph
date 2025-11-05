@@ -28,6 +28,7 @@ dependencies:
   - imageio
   - tifffile
   - pydantic
+  - tensorstore
 
   # Development tools
   - ruff
