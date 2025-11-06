@@ -11,7 +11,7 @@ we are not adding in the stimulus.
 
 for bs in 32 128 512 2048; do \
     bsub -J "batch${bs}" -n 12 -gpu "num=1" -q gpu_a100 -o batch${bs}.log python \
-        src/LatentEvolution/latent.py \
+        src/LatentEvolution/latent.py batch_size_sweep \
         --training.batch-size $bs \
         --training.epochs 5000
     done
@@ -23,7 +23,7 @@ for bs in 32 128 512 2048; do \
 
 for lr in 0.001 0.0001 0.00001 0.000001 ; do \
     bsub -J "lr${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o lr${lr}.log python \
-        src/LatentEvolution/latent.py \
+        src/LatentEvolution/latent.py learning_rate_sweep \
         --training.batch-size 128 \
         --training.epochs 5000 \
         --training.learning-rate $lr
@@ -40,13 +40,13 @@ Assess the performance impact of (GPU, compile?, tensor float32).
 
 gpu_types=("gpu_l4" "gpu_a100" "gpu_h100" "gpu_h200")
 train_steps=("train_step_nocompile" "train_step")
-tf32_flag=("use-tf32-matmul" "no-use-tf32-matmul")
+tf32_flags=("use-tf32-matmul" "no-use-tf32-matmul")
 
 for gpu_type in "${gpu_types[@]}"
 do
     for train_step in "${train_steps[@]}"
     do
-        for use_tf32_matmul in "${use_tf32_matmuls[@]}"
+        for tf32_flag in "${tf32_flags[@]}"
         do
             if [[ $gpu_type == "gpu_l4" ]]; then
                 slots_per_gpu="8"
@@ -56,7 +56,7 @@ do
             name="${gpu_type}_${train_step}_${use_tf32_matmul}"
             bsub -J $name -n $slots_per_gpu \
                 -gpu \"num=1\" -q $gpu_type -o ${name}.log python \
-                src/LatentEvolution/latent.py \
+                src/LatentEvolution/latent.py gpu_type_sweep \
                 --training.train-step $train_step \
                 --training.${tf32_flag} \
                 --training.epochs 5000 \

@@ -10,6 +10,7 @@ from datetime import datetime
 import random
 import sys
 import subprocess
+import re
 
 import torch
 import torch.nn as nn
@@ -489,11 +490,28 @@ def train(cfg: ModelParams, run_dir: Path):
 # -------------------------------------------------------------------
 
 if __name__ == "__main__":
+    msg = "First argument should be an expt_code that turns into a directory. \
+expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
+`latent.py dummy_code --help`."
+    if len(sys.argv) == 1:
+        print(msg)
+        sys.exit(1)
+
+    # Extract expt_code from command line
+    expt_code = sys.argv[1]
+
+    if not re.match("[A-Za-z0-9_]+", expt_code):
+        print(msg)
+        sys.exit(1)
+
+    # Create argument list for tyro (excluding expt_code)
+    tyro_args = sys.argv[2:]
+
     commit_hash = get_git_commit_hash()
 
-    # Make run dir
+    # Make run dir with hierarchical structure: runs / expt_code / run_id
     run_id = datetime.now().strftime("%Y%m%d") + "_" + commit_hash + "_" + str(uuid4())[:8]
-    run_dir = Path("runs") / run_id
+    run_dir = Path("runs") / expt_code / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Log command line in run dir for tracking
@@ -508,8 +526,8 @@ if __name__ == "__main__":
         data = yaml.safe_load(f)
     default_cfg = ModelParams(**data)
 
-    # Parse CLI overrides with Tyro
-    cfg = tyro.cli(ModelParams, default=default_cfg)
+    # Parse CLI overrides with Tyro, passing filtered args explicitly
+    cfg = tyro.cli(ModelParams, default=default_cfg, args=tyro_args)
 
     train(cfg, run_dir)
 
