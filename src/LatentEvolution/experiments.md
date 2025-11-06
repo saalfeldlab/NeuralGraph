@@ -124,12 +124,12 @@ Sorted by validation loss:  shape: (4, 4)
 
 ##### Run Overview
 
-| Latent Dims | Batch Size | Epochs | Output Directory                                                       | Status |
-| ----------- | ---------- | ------ | ---------------------------------------------------------------------- | ------ |
-| 64          | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_fb768da5                        | ✓      |
-| 128         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_d1bb96ce                        | ✓      |
-| 256         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_c0880554                        | ✓      |
-| 512         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_f1d10a3a                        | ✓      |
+| Latent Dims | Batch Size | Epochs | Output Directory                                | Status |
+| ----------- | ---------- | ------ | ----------------------------------------------- | ------ |
+| 64          | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_fb768da5 | ✓      |
+| 128         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_d1bb96ce | ✓      |
+| 256         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_c0880554 | ✓      |
+| 512         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_f1d10a3a | ✓      |
 
 ##### Performance Metrics
 
@@ -143,16 +143,19 @@ Sorted by validation loss:  shape: (4, 4)
 ##### Key Findings
 
 **Model Performance:**
+
 - Latent dimensions 64 and 256 achieve nearly identical performance (test loss ~0.029), representing the best results
 - Performance degrades with latent dim 128 (test loss 0.0316, 8.2% worse) and 512 (test loss 0.0308, 5.5% worse)
 - All configurations achieve 13-20% improvement over constant baseline model (test loss 0.0364)
 
 **Compute Performance:**
+
 - Training time is essentially constant across all latent dimensions (35-37 minutes for 10k epochs)
 - GPU memory usage is identical (~8.1 GB) regardless of latent dimension
 - GPU utilization remains consistent at 70-71% across all configurations
 
 **Training Dynamics:**
+
 - All runs converged smoothly over 10k epochs without instabilities
 - Initial losses start high (~1.7 train, ~0.66 val at epoch 1) and converge to final values
 - No evidence of overfitting - validation and test losses track closely
@@ -206,27 +209,27 @@ All 16 runs completed successfully. The experiment swept 3 parameters across 4 �
 - **Compilation**: `train_step` (compiled) vs `train_step_nocompile`
 - **TF32**: enabled vs disabled
 
-| GPU Type   | Compilation   | TF32   | Train Time (min)   | Avg Epoch (s)   | GPU Mem (GB)   | Mem Used (GB)   | Mem %   | Train Loss   | Val Loss   | Test Loss   |
-| ---------- | ------------- | ------ | ------------------ | --------------- | -------------- | --------------- | ------- | ------------ | ---------- | ----------- |
-| **L4**     | Compiled      | ✓      | 73.9               | 0.83            | 22.5           | 7.6             | 33.9%   | 0.036807     | 0.022916   | 0.022492    |
-| **L4**     | Compiled      | ✗      | 73.1               | 0.82            | 22.5           | 7.6             | 33.9%   | 0.037038     | 0.022594   | 0.022269    |
-| **L4**     | No compile    | ✓      | 129.9              | 1.50            | 22.5           | 7.6             | 34.0%   | 0.036822     | 0.030394   | 0.029912    |
-| **L4**     | No compile    | ✗      | 139.6              | 1.61            | 22.5           | 7.6             | 34.0%   | 0.037055     | 0.022462   | 0.022135    |
-|            |               |        |                    |                 |                |                 |         |              |            |             |
-| **A100**   | Compiled      | ✓      | 19.4               | 0.20            | 80.0           | 7.9             | 9.9%    | 0.036817     | 0.026472   | 0.025493    |
-| **A100**   | Compiled      | ✗      | 25.5               | 0.26            | 80.0           | 7.9             | 9.9%    | 0.037191     | 0.022161   | 0.021853    |
-| **A100**   | No compile    | ✓      | 58.9               | 0.67            | 80.0           | 7.9             | 9.9%    | 0.037209     | 0.023222   | 0.023485    |
-| **A100**   | No compile    | ✗      | 58.8               | 0.67            | 80.0           | 7.9             | 9.9%    | 0.037032     | 0.024684   | 0.024398    |
-|            |               |        |                    |                 |                |                 |         |              |            |             |
-| **H100**   | Compiled      | ✓      | 34.7               | 0.37            | 79.6           | 8.0             | 10.0%   | 0.036632     | 0.030513   | 0.030244    |
-| **H100**   | Compiled      | ✗      | 34.8               | 0.37            | 79.6           | 8.0             | 10.0%   | 0.036865     | 0.024154   | 0.023849    |
-| **H100**   | No compile    | ✓      | 56.7               | 0.63            | 79.6           | 8.1             | 10.2%   | 0.037008     | 0.023195   | 0.023047    |
-| **H100**   | No compile    | ✗      | 61.0               | 0.68            | 79.6           | 8.1             | 10.2%   | 0.037247     | 0.024638   | 0.024301    |
-|            |               |        |                    |                 |                |                 |         |              |            |             |
-| **H200**   | Compiled      | ✓      | 19.0               | 0.20            | 140.4          | 8.0             | 5.7%    | 0.036632     | 0.030513   | 0.030244    |
-| **H200**   | Compiled      | ✗      | 19.1               | 0.20            | 140.4          | 8.0             | 5.7%    | 0.036865     | 0.024154   | 0.023849    |
-| **H200**   | No compile    | ✓      | 40.7               | 0.46            | 140.4          | 8.1             | 5.8%    | 0.037008     | 0.023195   | 0.023047    |
-| **H200**   | No compile    | ✗      | 42.0               | 0.47            | 140.4          | 8.1             | 5.8%    | 0.037247     | 0.024638   | 0.024301    |
+| GPU Type | Compilation | TF32 | Train Time (min) | Avg Epoch (s) | GPU Mem (GB) | Mem Used (GB) | Mem % | Train Loss | Val Loss | Test Loss |
+| -------- | ----------- | ---- | ---------------- | ------------- | ------------ | ------------- | ----- | ---------- | -------- | --------- |
+| **L4**   | Compiled    | ✓    | 73.9             | 0.83          | 22.5         | 7.6           | 33.9% | 0.036807   | 0.022916 | 0.022492  |
+| **L4**   | Compiled    | ✗    | 73.1             | 0.82          | 22.5         | 7.6           | 33.9% | 0.037038   | 0.022594 | 0.022269  |
+| **L4**   | No compile  | ✓    | 129.9            | 1.50          | 22.5         | 7.6           | 34.0% | 0.036822   | 0.030394 | 0.029912  |
+| **L4**   | No compile  | ✗    | 139.6            | 1.61          | 22.5         | 7.6           | 34.0% | 0.037055   | 0.022462 | 0.022135  |
+|          |             |      |                  |               |              |               |       |            |          |           |
+| **A100** | Compiled    | ✓    | 19.4             | 0.20          | 80.0         | 7.9           | 9.9%  | 0.036817   | 0.026472 | 0.025493  |
+| **A100** | Compiled    | ✗    | 25.5             | 0.26          | 80.0         | 7.9           | 9.9%  | 0.037191   | 0.022161 | 0.021853  |
+| **A100** | No compile  | ✓    | 58.9             | 0.67          | 80.0         | 7.9           | 9.9%  | 0.037209   | 0.023222 | 0.023485  |
+| **A100** | No compile  | ✗    | 58.8             | 0.67          | 80.0         | 7.9           | 9.9%  | 0.037032   | 0.024684 | 0.024398  |
+|          |             |      |                  |               |              |               |       |            |          |           |
+| **H100** | Compiled    | ✓    | 34.7             | 0.37          | 79.6         | 8.0           | 10.0% | 0.036632   | 0.030513 | 0.030244  |
+| **H100** | Compiled    | ✗    | 34.8             | 0.37          | 79.6         | 8.0           | 10.0% | 0.036865   | 0.024154 | 0.023849  |
+| **H100** | No compile  | ✓    | 56.7             | 0.63          | 79.6         | 8.1           | 10.2% | 0.037008   | 0.023195 | 0.023047  |
+| **H100** | No compile  | ✗    | 61.0             | 0.68          | 79.6         | 8.1           | 10.2% | 0.037247   | 0.024638 | 0.024301  |
+|          |             |      |                  |               |              |               |       |            |          |           |
+| **H200** | Compiled    | ✓    | 19.0             | 0.20          | 140.4        | 8.0           | 5.7%  | 0.036632   | 0.030513 | 0.030244  |
+| **H200** | Compiled    | ✗    | 19.1             | 0.20          | 140.4        | 8.0           | 5.7%  | 0.036865   | 0.024154 | 0.023849  |
+| **H200** | No compile  | ✓    | 40.7             | 0.46          | 140.4        | 8.1           | 5.8%  | 0.037008   | 0.023195 | 0.023047  |
+| **H200** | No compile  | ✗    | 42.0             | 0.47          | 140.4        | 8.1           | 5.8%  | 0.037247   | 0.024638 | 0.024301  |
 
 **Performance Observations:**
 
@@ -244,3 +247,89 @@ All 16 runs completed successfully. The experiment swept 3 parameters across 4 �
 - L4 (22.5 GB total) has highest utilization at 34%
 - H200 (140.4 GB total) has lowest utilization at 5.7%
 - Memory usage is not a limiting factor for this workload on any GPU
+
+## Assess variance in training
+
+Run 5 repeat trainings from different initial conditions to assess reproducibility.
+
+```bash
+
+for seed in 1 12 123 1234 12345 ; do \
+    bsub -J "seed${seed}" -n 12 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
+        src/LatentEvolution/latent.py reproducibility \
+        --training.seed $seed
+    done
+```
+
+### Results (Analyzed 2025-11-06)
+
+All 5 runs completed successfully, but the experiment reveals **critical reproducibility issues** with the current training configuration. Only 2 out of 5 runs converged properly, while 3 runs experienced catastrophic validation loss divergence despite maintaining stable training loss.
+
+#### Run Overview
+
+| Seed  | Batch Size | Learning Rate | Epochs | Output Directory                               | Status |
+| ----- | ---------- | ------------- | ------ | ---------------------------------------------- | ------ |
+| 1     | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_b51ffffc | ✓      |
+| 12    | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_057cc888 | ✓      |
+| 123   | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_74fd1381 | ✓      |
+| 1234  | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_12502a4a | ✓      |
+| 12345 | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_b2591dec | ✓      |
+
+#### Performance Metrics
+
+| Seed  | Train Time (min) | Avg Epoch (s) | GPU Util (%) | GPU Mem (GB) | Train Loss | Val Loss  | Test Loss | Convergence Status |
+| ----- | ---------------- | ------------- | ------------ | ------------ | ---------- | --------- | --------- | ------------------ |
+| 1     | 288.6            | 1.69          | 84.29        | 8.1          | 0.0313     | **0.481** | **1.162** | DIVERGED           |
+| 12    | 289.7            | 1.70          | 84.43        | 8.1          | 0.0314     | 0.027     | 0.029     | **CONVERGED**      |
+| 123   | 289.2            | 1.70          | 84.42        | 8.1          | 0.0317     | 0.026     | 0.031     | **CONVERGED**      |
+| 1234  | 288.6            | 1.69          | 84.78        | 8.1          | 0.0313     | **0.046** | **0.079** | UNSTABLE           |
+| 12345 | 288.6            | 1.69          | 84.49        | 8.1          | 0.0316     | **0.214** | **0.524** | DIVERGED           |
+
+**Baseline**: Constant model achieves test loss of 0.0364
+
+#### Key Findings
+
+**Critical Reproducibility Issues:**
+
+- **Only 40% success rate**: 2 out of 5 runs (seeds 12, 123) converged properly to achieve test loss ~0.030
+- **60% failure rate**: 3 out of 5 runs (seeds 1, 1234, 12345) diverged with test losses ranging from 0.079 to 1.162 (2.5x to 38x worse than successful runs)
+- **Divergence pattern**: Failed runs show stable training loss (~0.031) throughout, but validation loss explodes in late training
+  - Seed 1: Val loss explodes to 0.48-0.79 in final epochs
+  - Seed 12345: Val loss reaches 10.3 (epoch 9976) with extreme oscillations
+  - Seed 1234: Moderate instability with val loss spikes up to 2.27
+- **Training dynamics**: All runs start identically (train loss ~0.26, val loss ~0.059 at epoch 1) and converge similarly through mid-training, but diverge catastrophically in later epochs for 3 out of 5 seeds
+
+**Compute Performance:**
+
+- Training time is highly consistent across all seeds: 288-290 minutes for 10k epochs
+- GPU utilization and memory usage are identical regardless of convergence outcome
+- Performance metrics provide no early warning of impending divergence
+
+**Model Performance (successful runs only):**
+
+- When training succeeds (seeds 12, 123), the model achieves 15-20% improvement over constant baseline
+- Test loss of 0.029-0.031 for successful runs vs 0.0364 for constant model
+- However, the 60% failure rate makes this configuration unreliable for production use
+
+#### Analysis
+
+The catastrophic failure mode observed in 3 out of 5 runs represents a **severe overfitting collapse** in late training:
+
+1. **Stable training loss**: All runs maintain train loss ~0.031, indicating the model continues to fit the training data
+2. **Exploding validation loss**: Failed runs show validation loss suddenly diverging by 1-2 orders of magnitude
+3. **Late-stage collapse**: Divergence occurs after ~9000+ epochs, when training appears stable
+4. **Seed-dependent**: The failure is deterministic for each seed but unpredictable across seeds
+
+This is consistent with the model learning training-specific artifacts that generalize catastrophically poorly. The small batch size (32) combined with long training (10k epochs) may allow the model to memorize training examples rather than learning robust features.
+
+#### Recommendations
+
+**CRITICAL**: The current configuration (batch size 32, LR 0.0001, 10k epochs) is **not suitable for production** due to 60% failure rate.
+
+Recommended next steps:
+
+1. **Increase batch size**: Test batch sizes 128-512 to reduce overfitting (previous experiments showed batch size 512 achieved good results with latent dim sweep)
+2. **Reduce training duration**: Try 5000 epochs instead of 10000 to avoid late-stage collapse
+3. **Add early stopping**: Implement validation-based early stopping to detect divergence before catastrophic failure
+4. **Add regularization**: Consider weight decay, dropout, or gradient clipping to improve generalization
+5. **Validate with multiple seeds**: Always run 3+ seeds to detect reproducibility issues before trusting results
