@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr view:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(git diff:*)",
+      "Bash(echo:*)"
+    ],
+    "deny": ["Bash(rm:*)", "Bash(chmod:*)"]
+  }
+}
