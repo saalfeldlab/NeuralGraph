@@ -77,6 +77,22 @@ See [#25](https://github.com/saalfeldlab/NeuralGraph/pull/25) - many jobs failed
 to the use of `max-autotune` compilation. I don't yet understand why, but changing to
 `reduce-overhead` which is less aggressive worked.
 
+### sweep latent dimensions
+
+Based on the above two experiments, let's set the default batch size to 32 and
+the learning rate to 1e-4. tf32 didn't make a difference, let's turn it off
+for now.
+
+```bash
+
+for ldim in 64 128 256 512; do \
+    bsub -J "ldim${ldim}" -n 12 -gpu "num=1" -q gpu_a100 -o ldim${bs}.log python \
+        src/LatentEvolution/latent.py latent_dim_sweep \
+        --training.latent-dims $ldim \
+        --training.epochs 10000
+    done
+```
+
 ## Performance benchmark experiments
 
 Assess the performance impact of (GPU, compile?, tensor float32).
