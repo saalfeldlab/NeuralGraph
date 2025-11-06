@@ -63,41 +63,32 @@ def create_config():
     config.zarr.dx_um = 0.406
     return config
 
-def read_temporal_volume(center_frame_idx):
-    """Read 3 temporal frames from ZapBench Zarr store for 4D training"""
-    print(f"loading ZapBench temporal sequence centered on frame: {center_frame_idx}")
+def read_volume(frame_idx):
+    """Read 3D volume from ZapBench Zarr store and normalize to [0,1] - EXACTLY LIKE ORIGINAL"""
+    print(f"loading ZapBench volume from Google Cloud Zarr store, frame: {frame_idx}")
     
     # Create config and open Zarr dataset
     config = create_config()
     ds = open_gcs_zarr(config.zarr.store_fluo)
     
-    # Load 3 frames: 1 before, center, 1 after
-    frames = []
-    frame_indices = [center_frame_idx - 1, center_frame_idx, center_frame_idx + 1]
-    time_coords = [-1.0, 0.0, 1.0]
+    # Load the specified frame
+    print(f"  downloading frame {frame_idx}...")
+    vol_xyz = ds[..., frame_idx].read().result()
+    print(f"  original shape: {vol_xyz.shape}, dtype: {vol_xyz.dtype}")
+    print(f"  original value range: [{vol_xyz.min():.0f}, {vol_xyz.max():.0f}]")
     
-    for i, (frame_idx, t_coord) in enumerate(zip(frame_indices, time_coords)):
-        print(f"  downloading frame {frame_idx} (t={t_coord})...")
-        vol_xyz = ds[..., frame_idx].read().result()
-        
-        # Transpose to (Z,Y,X) format: (1328, 2048, 72) -> (72, 1328, 2048)
-        volume = vol_xyz.transpose(2, 0, 1).astype(np.float32)
-        
-        # Normalize to [0,1]
-        if volume.max() > 1.0:
-            volume = volume / volume.max()
-            
-        frames.append((volume, t_coord))
-        
-        if i == 0:  # Print details for first frame
-            print(f"  original shape: {vol_xyz.shape}, dtype: {vol_xyz.dtype}")
-            print(f"  original value range: [{vol_xyz.min():.0f}, {vol_xyz.max():.0f}]")
-            print(f"  transposed to ZYX: {volume.shape}")
-            print(f"  normalized value range: [{volume.min():.6f}, {volume.max():.6f}]")
-            print(f"  ZapBench physical dimensions: {volume.shape[0]*4.0:.1f}μm × {volume.shape[1]*0.406:.1f}μm × {volume.shape[2]*0.406:.1f}μm (Z×Y×X)")
+    # Transpose to (Z,Y,X) format: (1328, 2048, 72) -> (72, 1328, 2048)
+    volume = vol_xyz.transpose(2, 0, 1).astype(np.float32)
+    print(f"  transposed to ZYX: {volume.shape}")
     
-    print(f"loaded {len(frames)} temporal frames for 4D training")
-    return frames
+    # Normalize to [0,1] - EXACTLY LIKE ORIGINAL TIFF PROCESSING
+    if volume.max() > 1.0:
+        volume = volume / volume.max()
+    
+    print(f"normalized value range: [{volume.min():.6f}, {volume.max():.6f}]")
+    print(f"ZapBench physical dimensions: {volume.shape[0]*4.0:.1f}μm × {volume.shape[1]*0.406:.1f}μm × {volume.shape[2]*0.406:.1f}μm (Z×Y×X)")
+    
+    return volume
 
 def write_volume_tiff(filename, volume_array, physical_spacing=(4.0, 0.406, 0.406)):
     """Write 3D volume as TIFF file with ZapBench metadata"""
@@ -288,112 +279,56 @@ def reconstruct_upsampled_volume(model, depth, height, width, device, z_factor=8
 class ZapBenchVolume(torch.nn.Module):
     def __init__(self, filename, device):
         super(ZapBenchVolume, self).__init__()
-        # Load temporal frames for 4D training
-        self.temporal_frames = read_temporal_volume(filename)
-        
-        # Store all frames and their time coordinates
-        self.volumes = []
-        self.time_coords = []
-        for volume, t_coord in self.temporal_frames:
-            self.volumes.append(torch.from_numpy(volume).float().to(device))
-            self.time_coords.append(t_coord)
-        
-        self.shape = self.volumes[0].shape  # Expected: (72, 1328, 2048) - Z×Y×X
-        print(f"ZapBench temporal volumes loaded: {len(self.volumes)} frames, shape: {self.shape} (Z×Y×X)")
-        print(f"Time coordinates: {self.time_coords}")
-        
-        # Pre-compute scaling tensor for coordinate normalization (spatial only)
+        self.data = read_volume(filename)
+        self.shape = self.data.shape  # (Z, Y, X)
+        print(f"ZapBench volume loaded: {self.shape} (Z×Y×X)")
+        self.data = torch.from_numpy(self.data).float().to(device)
         depth, height, width = self.shape
         self.scale_tensor = torch.tensor([depth-1, height-1, width-1], device=device, dtype=torch.float32)
-        
-        # ZapBench-specific properties
         self.physical_spacing = (4.0, 0.406, 0.406)  # μm per voxel (dz, dy, dx)
         self.total_voxels = depth * height * width
-        print(f"Total voxels per frame: {self.total_voxels:,}")
+        print(f"Total voxels: {self.total_voxels:,}")
 
     def forward(self, coords):
-        """Trilinear interpolation with temporal nearest-neighbor for ZapBench volume"""
+        """
+        Trilinear interpolation for ZapBench volume.
+        Accepts Nx4 coordinates (z, y, x, t), but ignores time for now.
+        This enables training on a single frame at t=0.5.
+        """
         with torch.no_grad():
-            # coords is Nx4 with spatial values in [0,1] and time coordinate
-            spatial_coords = coords[:, :3]  # Extract spatial coordinates (z,y,x)
-            time_coords_batch = coords[:, 3]  # Extract time coordinates
-            
-            # Scale spatial coordinates to volume dimensions
+            # Accept Nx4 or Nx3 input. If Nx4, ignore time for now.
+            if coords.shape[1] == 4:
+                coords = coords[:, :3]
+            # ...existing code...
             depth, height, width = self.shape
-            scaled_coords = spatial_coords * self.scale_tensor
-            
-            # Get integer indices and interpolation weights
+            scaled_coords = coords * self.scale_tensor
             indices = scaled_coords.long()
             weights = scaled_coords - indices.float()
-
-            # Clamp indices to volume bounds
             z0 = indices[:, 0].clamp(min=0, max=depth-1)
             y0 = indices[:, 1].clamp(min=0, max=height-1)
             x0 = indices[:, 2].clamp(min=0, max=width-1)
             z1 = (z0 + 1).clamp(max=depth-1)
             y1 = (y0 + 1).clamp(max=height-1)
             x1 = (x0 + 1).clamp(max=width-1)
-
-            # Get interpolation weights
             wz = weights[:, 0:1]
             wy = weights[:, 1:2]
             wx = weights[:, 2:3]
-
-            # Temporal nearest-neighbor lookup: find closest frame for each sample
-            time_coords_tensor = torch.tensor(self.time_coords, device=coords.device, dtype=torch.float32)
-            time_diffs = torch.abs(time_coords_batch.unsqueeze(1) - time_coords_tensor.unsqueeze(0))
-            closest_frame_indices = torch.argmin(time_diffs, dim=1)
-            
-            # Initialize results tensor
-            results = torch.zeros(len(coords), 1, device=coords.device, dtype=torch.float32)
-            
-            # Process each frame group for efficiency
-            for frame_idx in range(len(self.volumes)):
-                # Get mask for samples using this frame
-                frame_mask = (closest_frame_indices == frame_idx)
-                if not frame_mask.any():
-                    continue
-                    
-                data = self.volumes[frame_idx]
-                
-                # Get indices and weights for this frame
-                z0_frame = z0[frame_mask]
-                y0_frame = y0[frame_mask]
-                x0_frame = x0[frame_mask]
-                z1_frame = z1[frame_mask]
-                y1_frame = y1[frame_mask]
-                x1_frame = x1[frame_mask]
-                wz_frame = wz[frame_mask]
-                wy_frame = wy[frame_mask]
-                wx_frame = wx[frame_mask]
-                
-                # Trilinear interpolation for this frame
-                c000 = data[z0_frame, y0_frame, x0_frame].unsqueeze(1)
-                c001 = data[z0_frame, y0_frame, x1_frame].unsqueeze(1)
-                c010 = data[z0_frame, y1_frame, x0_frame].unsqueeze(1)
-                c011 = data[z0_frame, y1_frame, x1_frame].unsqueeze(1)
-                c100 = data[z1_frame, y0_frame, x0_frame].unsqueeze(1)
-                c101 = data[z1_frame, y0_frame, x1_frame].unsqueeze(1)
-                c110 = data[z1_frame, y1_frame, x0_frame].unsqueeze(1)
-                c111 = data[z1_frame, y1_frame, x1_frame].unsqueeze(1)
-                
-                # Interpolate along x
-                c00 = c000 * (1 - wx_frame) + c001 * wx_frame
-                c01 = c010 * (1 - wx_frame) + c011 * wx_frame
-                c10 = c100 * (1 - wx_frame) + c101 * wx_frame
-                c11 = c110 * (1 - wx_frame) + c111 * wx_frame
-
-                # Interpolate along y
-                c0 = c00 * (1 - wy_frame) + c01 * wy_frame
-                c1 = c10 * (1 - wy_frame) + c11 * wy_frame
-
-                # Interpolate along z
-                frame_results = c0 * (1 - wz_frame) + c1 * wz_frame
-                
-                # Store results for this frame
-                results[frame_mask] = frame_results
-            
-            return results
+            c000 = self.data[z0, y0, x0].unsqueeze(1)
+            c001 = self.data[z0, y0, x1].unsqueeze(1)
+            c010 = self.data[z0, y1, x0].unsqueeze(1)
+            c011 = self.data[z0, y1, x1].unsqueeze(1)
+            c100 = self.data[z1, y0, x0].unsqueeze(1)
+            c101 = self.data[z1, y0, x1].unsqueeze(1)
+            c110 = self.data[z1, y1, x0].unsqueeze(1)
+            c111 = self.data[z1, y1, x1].unsqueeze(1)
+            c00 = c000 * (1 - wx) + c001 * wx
+            c01 = c010 * (1 - wx) + c011 * wx
+            c10 = c100 * (1 - wx) + c101 * wx
+            c11 = c110 * (1 - wx) + c111 * wx
+            c0 = c00 * (1 - wy) + c01 * wy
+            c1 = c10 * (1 - wy) + c11 * wy
+            result = c0 * (1 - wz) + c1 * wz
+            return result
 
 def get_args():
     parser = argparse.ArgumentParser(description="3D ZapBench volume reconstruction using InstantNGP from Zarr store.")
@@ -459,8 +394,8 @@ if __name__ == "__main__":
     
     zv, yv, xv = torch.meshgrid(z_coords, y_coords, x_coords, indexing='ij')
     
-    # Add time dimension: single frame at t=0.0 (center frame)
-    t_val = 0.0  # Normalized time coordinate for center frame
+    # Add time dimension: single frame at t=0.5 (middle of -3 to +4 range)
+    t_val = 0.5  # Normalized time coordinate for single frame
     tv = torch.full_like(zv, t_val, device=device)
     
     # Create 4D coordinates (z, y, x, t)
@@ -471,32 +406,23 @@ if __name__ == "__main__":
     middle_slice = depth // 2
 
     # batch size for 4d (smaller due to memory constraints)
-    batch_size = 2**20  # 262,144 - Adjusted for 4D volume
+    batch_size = 2**18  # 262,144 - Adjusted for 4D volume
     print(f"using batch size: {batch_size:,} samples")
 
     # Skip JIT tracing for temporal debugging - use regular volume sampling
     print("Using regular volume sampling (JIT tracing disabled for temporal debugging)")
     traced_volume = volume
 
-    print("\ntraining for 5000 iterations...")
+    print("\ntraining for 10000 iterations...")
     
     start_time = time.perf_counter()
     max_iterations = 5000
     
     for i in trange(max_iterations, desc="training", ncols=150):
-        # Generate random 4D coordinates (z, y, x, t) sampling from all 3 temporal frames
+        # Generate random 4D coordinates (z, y, x, t) where t=0.5 for single frame
         batch_3d = torch.rand([batch_size, 3], device=device, dtype=torch.float32)
-        # Randomly sample from all temporal frames: -1.0, 0.0, 1.0
-        time_options = torch.tensor([-1.0, 0.0, 1.0], device=device, dtype=torch.float32)
-        batch_t = time_options[torch.randint(0, 3, (batch_size,), device=device)].unsqueeze(1)
-        
-        # Add Z-dependent time correction for light sheet acquisition (1 second across 72 Z slices)
-        # Each Z slice is acquired ~13.9ms apart (1000ms / 72 slices)
-        z_coords = batch_3d[:, 0]  # Z coordinates in [0,1]
-        z_time_offset = (z_coords - 0.5) * (1.0 / 2.0)  # Map Z=[0,1] to time=[-0.5,+0.5] seconds
-        batch_t_corrected = batch_t.squeeze(1) + z_time_offset
-        
-        batch = torch.cat([batch_3d, batch_t_corrected.unsqueeze(1)], dim=1)
+        batch_t = torch.full([batch_size, 1], 0.5, device=device, dtype=torch.float32)
+        batch = torch.cat([batch_3d, batch_t], dim=1)
         
         # Get targets using 4D coordinates (but volume ignores time)
         targets = traced_volume(batch)
@@ -514,7 +440,7 @@ if __name__ == "__main__":
                 # Reconstruct volume for evaluation
                 pred_volume = reconstruct_full_volume_4d(model, xyzt, depth, height, width, device)
                 pred_slice = pred_volume[middle_slice]
-                target_slice = volume.volumes[1][middle_slice]  # Center frame (t=0.0)
+                target_slice = volume.data[middle_slice]
                 psnr_db = calculate_psnr(pred_slice, target_slice)
             
             print(f"iteration {i:5d}: loss = {loss.item():.6f}, psnr = {psnr_db:.2f} db")
@@ -527,7 +453,7 @@ if __name__ == "__main__":
     
     # Calculate final PSNR on original resolution
     final_slice = final_volume[middle_slice]
-    target_slice = volume.volumes[1][middle_slice]  # Center frame (t=0.0)
+    target_slice = volume.data[middle_slice]
     final_psnr = calculate_psnr(final_slice, target_slice)
     
     # Change output directory to instantngp_outputs to match request
@@ -535,7 +461,7 @@ if __name__ == "__main__":
     os.makedirs(output_dir, exist_ok=True)
     
     # Save original resolution volume (72 × 2048 × 1328)
-    original_volume_path = os.path.join(output_dir, f"zapbench_final_volume_original_frame_{frame_idx}.tif")
+    original_volume_path = os.path.join(output_dir, f"zapbench_reconstructed_volume_{frame_idx}.tif")
     write_volume_tiff(original_volume_path, final_volume.cpu().numpy(), volume.physical_spacing)
     print(f"original resolution volume saved: {original_volume_path}")
     
@@ -543,12 +469,6 @@ if __name__ == "__main__":
     print("skipping upsampled volume reconstruction (validation mode)")
     upsampled_volume_path = "skipped_for_validation"
     upsampled_spacing = (volume.physical_spacing[0] / 8, volume.physical_spacing[1] / 2, volume.physical_spacing[2] / 2)
-    
-    # save final full volume if requested
-    if args.result_filename:
-        result_path = os.path.join(script_dir, args.result_filename)
-        write_volume_tiff(result_path, final_volume.cpu().numpy(), volume.physical_spacing)
-        print(f"saved final reconstructed volume: {result_path}")
 
     print("\ntraining completed")
     print("================================================================")
