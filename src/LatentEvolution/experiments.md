@@ -96,68 +96,73 @@ for ldim in 64 128 256 512; do \
 
 #### Results (Analyzed 2025-11-06)
 
-All 4 runs completed successfully. This experiment swept latent dimensions across [64, 128, 256, 512] with fixed hyperparameters: batch size 512, learning rate 0.0001, and 10,000 training epochs on the fly_N9_62_1 dataset.
+All 4 runs completed successfully. The experiment swept latent dimensions across [64, 128, 256, 512] to determine optimal model capacity.
+
+**Summary from summarize.py:**
+
+```
+commit_hash='8d5dff2'
+shape: (4, 14)
+┌─────────────┬────────────────────────────┬─────────────────────────────┬─────────────┬─────────────────┬──────────────────┬────────────────┬───────────────────────┬───────────────────┬──────────────────────────┬─────────────────────┬───────────────────────────┬───────────────────────────┬─────────────────────────┐
+│ latent_dims ┆ avg_epoch_duration_seconds ┆ avg_gpu_utilization_percent ┆ commit_hash ┆ final_test_loss ┆ final_train_loss ┆ final_val_loss ┆ gpu_type              ┆ max_gpu_memory_mb ┆ test_loss_constant_model ┆ total_gpu_memory_mb ┆ train_loss_constant_model ┆ training_duration_seconds ┆ val_loss_constant_model │
+╞═════════════╪════════════════════════════╪═════════════════════════════╪═════════════╪═════════════════╪══════════════════╪════════════════╪═══════════════════════╪═══════════════════╪══════════════════════════╪═════════════════════╪═══════════════════════════╪═══════════════════════════╪═════════════════════════╡
+│ 64          ┆ 0.18                       ┆ 70.85                       ┆ 8d5dff2     ┆ 0.029239        ┆ 0.040809         ┆ 0.029809       ┆ NVIDIA A100-SXM4-80GB ┆ 8081.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2162.8                    ┆ 0.035517                │
+│ 256         ┆ 0.19                       ┆ 71.45                       ┆ 8d5dff2     ┆ 0.029331        ┆ 0.040539         ┆ 0.02991        ┆ NVIDIA A100-SXM4-80GB ┆ 8081.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2203.71                   ┆ 0.035517                │
+│ 512         ┆ 0.18                       ┆ 70.51                       ┆ 8d5dff2     ┆ 0.030826        ┆ 0.042445         ┆ 0.031853       ┆ NVIDIA A100-SXM4-80GB ┆ 8081.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2117.29                   ┆ 0.035517                │
+│ 128         ┆ 0.18                       ┆ 70.07                       ┆ 8d5dff2     ┆ 0.031625        ┆ 0.042666         ┆ 0.03291        ┆ NVIDIA A100-SXM4-80GB ┆ 8081.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2140.68                   ┆ 0.035517                │
+└─────────────┴────────────────────────────┴─────────────────────────────┴─────────────┴─────────────────┴──────────────────┴────────────────┴───────────────────────┴───────────────────┴──────────────────────────┴─────────────────────┴───────────────────────────┴───────────────────────────┴─────────────────────────┘
+Sorted by validation loss:  shape: (4, 4)
+┌─────────────┬──────────────────┬────────────────┬─────────────────┐
+│ latent_dims ┆ final_train_loss ┆ final_val_loss ┆ final_test_loss │
+╞═════════════╪══════════════════╪════════════════╪═════════════════╡
+│ 64          ┆ 0.040809         ┆ 0.029809       ┆ 0.029239        │
+│ 256         ┆ 0.040539         ┆ 0.02991        ┆ 0.029331        │
+│ 512         ┆ 0.042445         ┆ 0.031853       ┆ 0.030826        │
+│ 128         ┆ 0.042666         ┆ 0.03291        ┆ 0.031625        │
+└─────────────┴──────────────────┴────────────────┴─────────────────┘
+```
 
 ##### Run Overview
 
-| Latent Dims | Batch Size | Epochs | Learning Rate | Output Directory | Status |
-|-------------|------------|--------|---------------|------------------|--------|
-| 64 | 512 | 10000 | 0.0001 | runs/latent_dim_sweep/20251105_8d5dff2_fb768da5 | ✓ |
-| 128 | 512 | 10000 | 0.0001 | runs/latent_dim_sweep/20251105_8d5dff2_d1bb96ce | ✓ |
-| 256 | 512 | 10000 | 0.0001 | runs/latent_dim_sweep/20251105_8d5dff2_c0880554 | ✓ |
-| 512 | 512 | 10000 | 0.0001 | runs/latent_dim_sweep/20251105_8d5dff2_f1d10a3a | ✓ |
+| Latent Dims | Batch Size | Epochs | Output Directory                                                       | Status |
+| ----------- | ---------- | ------ | ---------------------------------------------------------------------- | ------ |
+| 64          | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_fb768da5                        | ✓      |
+| 128         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_d1bb96ce                        | ✓      |
+| 256         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_c0880554                        | ✓      |
+| 512         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_f1d10a3a                        | ✓      |
 
 ##### Performance Metrics
 
-| Latent Dims | Train Time (min) | Avg Epoch (s) | GPU Mem (GB) | GPU Util (%) | Train Loss | Val Loss | Test Loss |
-|-------------|------------------|---------------|--------------|--------------|------------|----------|-----------|
-| 64 | 36.7 | 0.19 | 8.1 | 71.45 | 0.040539 | 0.029910 | 0.029331 |
-| 128 | 35.7 | 0.18 | 8.1 | 70.07 | 0.042666 | 0.032910 | 0.031625 |
-| 256 | 36.0 | 0.18 | 8.1 | 70.85 | 0.040809 | 0.029809 | 0.029239 |
-| 512 | 36.7 | 0.19 | 8.1 | 71.45 | 0.040539 | 0.029910 | 0.029331 |
-
-**Baseline (constant model)**: Train loss 0.0355, Val loss 0.0355, Test loss 0.0364
+| Latent Dims | Train Time (min) | Avg Epoch (s) | GPU Util (%) | GPU Mem (GB) | Train Loss | Val Loss | Test Loss | Improvement vs Constant |
+| ----------- | ---------------- | ------------- | ------------ | ------------ | ---------- | -------- | --------- | ----------------------- |
+| 64          | 36.0             | 0.18          | 70.85        | 8.1          | 0.0408     | 0.0298   | 0.0292    | 19.5%                   |
+| 256         | 36.7             | 0.19          | 71.45        | 8.1          | 0.0405     | 0.0299   | 0.0293    | 19.3%                   |
+| 512         | 35.3             | 0.18          | 70.51        | 8.1          | 0.0424     | 0.0319   | 0.0308    | 15.2%                   |
+| 128         | 35.7             | 0.18          | 70.07        | 8.1          | 0.0427     | 0.0329   | 0.0316    | 13.0%                   |
 
 ##### Key Findings
 
 **Model Performance:**
-- **Best performance**: Latent dimensions 256 and 512 both achieved test loss of ~0.0293 (19.5% improvement over baseline)
-- **Worst performance**: Latent dimension 128 with test loss of 0.0316 (13.0% improvement over baseline)
-- Latent dimension 64 performs nearly identically to 256 and 512 (test loss 0.0293)
-- All models substantially outperform the constant baseline, indicating successful learning
+- Latent dimensions 64 and 256 achieve nearly identical performance (test loss ~0.029), representing the best results
+- Performance degrades with latent dim 128 (test loss 0.0316, 8.2% worse) and 512 (test loss 0.0308, 5.5% worse)
+- All configurations achieve 13-20% improvement over constant baseline model (test loss 0.0364)
 
-**Training Efficiency:**
-- Training time is nearly identical across all latent dimensions (36-37 minutes)
-- GPU memory usage is constant at ~8.1 GB regardless of latent dimension
-- GPU utilization is consistent at 70-71% across all configurations
-- **Insight**: Latent dimension does not impact computational cost in this architecture
+**Compute Performance:**
+- Training time is essentially constant across all latent dimensions (35-37 minutes for 10k epochs)
+- GPU memory usage is identical (~8.1 GB) regardless of latent dimension
+- GPU utilization remains consistent at 70-71% across all configurations
 
-**Convergence Behavior:**
-- All models converge smoothly from initial loss ~1.68 to final loss ~0.04
-- Final training losses show minimal overfitting (train loss ~0.041 vs test loss ~0.029-0.032)
-- Validation loss curves are stable, suggesting good generalization
-- Training continued for full 10,000 epochs without early stopping
-
-**Architecture Analysis:**
-- The constant model size (15MB) across all latent dimensions indicates the bottleneck is in the encoder/decoder/evolver networks (128 hidden units × 3 layers each)
-- The latent dimension primarily affects the bottleneck representation between encoder and evolver, not total parameter count
-- The architecture appears to be dominated by the fixed-size MLPs rather than latent-dependent layers
+**Training Dynamics:**
+- All runs converged smoothly over 10k epochs without instabilities
+- Initial losses start high (~1.7 train, ~0.66 val at epoch 1) and converge to final values
+- No evidence of overfitting - validation and test losses track closely
 
 ##### Recommendations
 
-1. **Optimal latent dimension**: Use **256** as the default latent dimension
-   - Achieves best test performance (0.029239)
-   - Provides good capacity without unnecessary overhead
-   - Matches well with the 13,741 neurons being modeled
-
-2. **Further experiments**:
-   - Test latent dimensions between 256-512 (e.g., 384) to confirm the performance plateau
-   - Test smaller latent dimensions (e.g., 32, 16) to find the lower performance boundary
-   - Consider increasing encoder/decoder/evolver hidden layer sizes (currently 128) which appear to be the architectural bottleneck
-
-3. **Model capacity**: The similarity in performance between 64, 256, and 512 suggests the encoder/decoder/evolver networks may be limiting model capacity more than latent dimension size
-
-4. **Training efficiency**: Since computational cost is identical across latent dimensions, there is no penalty for using larger latent spaces (256 or 512)
+- **Use latent dimension 64 or 256** as default - both achieve optimal performance with minimal difference
+- Latent dim 64 is preferable for slightly better test loss (0.0292 vs 0.0293) and represents the most parameter-efficient choice
+- The unexpected poor performance of latent dim 128 suggests a potential interaction with other hyperparameters or architecture constraints worth investigating
+- No computational benefit to reducing latent dimensions - consider capacity needs rather than speed when selecting
 
 ## Performance benchmark experiments
 
