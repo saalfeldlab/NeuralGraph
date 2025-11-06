@@ -124,12 +124,12 @@ Sorted by validation loss:  shape: (4, 4)
 
 ##### Run Overview
 
-| Latent Dims | Batch Size | Epochs | Output Directory                                                       | Status |
-| ----------- | ---------- | ------ | ---------------------------------------------------------------------- | ------ |
-| 64          | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_fb768da5                        | ✓      |
-| 128         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_d1bb96ce                        | ✓      |
-| 256         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_c0880554                        | ✓      |
-| 512         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_f1d10a3a                        | ✓      |
+| Latent Dims | Batch Size | Epochs | Output Directory                                | Status |
+| ----------- | ---------- | ------ | ----------------------------------------------- | ------ |
+| 64          | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_fb768da5 | ✓      |
+| 128         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_d1bb96ce | ✓      |
+| 256         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_c0880554 | ✓      |
+| 512         | 512        | 10000  | runs/latent_dim_sweep/20251105_8d5dff2_f1d10a3a | ✓      |
 
 ##### Performance Metrics
 
@@ -143,16 +143,19 @@ Sorted by validation loss:  shape: (4, 4)
 ##### Key Findings
 
 **Model Performance:**
+
 - Latent dimensions 64 and 256 achieve nearly identical performance (test loss ~0.029), representing the best results
 - Performance degrades with latent dim 128 (test loss 0.0316, 8.2% worse) and 512 (test loss 0.0308, 5.5% worse)
 - All configurations achieve 13-20% improvement over constant baseline model (test loss 0.0364)
 
 **Compute Performance:**
+
 - Training time is essentially constant across all latent dimensions (35-37 minutes for 10k epochs)
 - GPU memory usage is identical (~8.1 GB) regardless of latent dimension
 - GPU utilization remains consistent at 70-71% across all configurations
 
 **Training Dynamics:**
+
 - All runs converged smoothly over 10k epochs without instabilities
 - Initial losses start high (~1.7 train, ~0.66 val at epoch 1) and converge to final values
 - No evidence of overfitting - validation and test losses track closely
@@ -244,3 +247,16 @@ All 16 runs completed successfully. The experiment swept 3 parameters across 4 �
 - L4 (22.5 GB total) has highest utilization at 34%
 - H200 (140.4 GB total) has lowest utilization at 5.7%
 - Memory usage is not a limiting factor for this workload on any GPU
+
+## Assess variance in training
+
+Run 5 repeat trainings from different initial conditions to assess reproducibility.
+
+```bash
+
+for seed in 1 12 123 1234 12345 ; do \
+    bsub -J "seed${seed}" -n 12 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
+        src/LatentEvolution/latent.py reproducibility \
+        --training.seed $seed
+    done
+```
