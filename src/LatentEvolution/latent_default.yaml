@@ -1,20 +1,20 @@
 # Default configuration for the Latent Space Voltage Model
 
-latent_dims: 128 # Dimensionality of latent space
+latent_dims: 256 # Dimensionality of latent space
 num_neurons: 13741 # Number of observed neurons (input/output size)
 
 encoder_params:
   num_hidden_layers: 3 # Layers in the encoder MLP
-  num_hidden_units: 128 # Hidden units per layer
+  num_hidden_units: 256 # Hidden units per layer
 
 decoder_params:
   num_hidden_layers: 3 # Layers in the decoder MLP
-  num_hidden_units: 128 # Hidden units per layer
+  num_hidden_units: 256 # Hidden units per layer
 
 evolver_params:
   time_units: 1 # Number of time steps to evolve per forward pass
   num_hidden_layers: 3 # Hidden layers in the evolver network
-  num_hidden_units: 128 # Hidden units per layer in the evolver
+  num_hidden_units: 256 # Hidden units per layer in the evolver
 
 training:
   simulation_config: "fly_N9_62_1"
