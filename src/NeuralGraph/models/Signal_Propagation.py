@@ -66,6 +66,8 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.hidden_dim_excitation = model_config.hidden_dim_excitation
         self.input_size_excitation = model_config.input_size_excitation
 
+        self.n_excitatory_neurons = simulation_config.n_excitatory_neurons
+
 
         if self.model == 'PDE_N3':
             self.embedding_evolves = True
@@ -105,6 +107,9 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
         self.mask = torch.ones((int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=False, dtype=torch.float32)
         self.mask.fill_diagonal_(0)
+
+        if self.n_excitatory_neurons > 0:
+            self.excitation = nn.Parameter(torch.ones((self.n_frames, int(self.n_excitatory_neurons)), device=self.device, requires_grad=True,dtype=torch.float32))
 
     def get_interp_a(self, k, particle_id):
 

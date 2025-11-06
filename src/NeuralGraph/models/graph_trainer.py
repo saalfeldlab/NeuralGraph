@@ -14,6 +14,7 @@ import random
 import copy
 import tifffile
 import numpy as np
+from torch_geometric.utils import dense_to_sparse
 
 from NeuralGraph.models.utils import (
     choose_training_model,
@@ -138,6 +139,7 @@ def data_train_signal(config, erase, best_model, device):
     dataset_name = config.dataset
     n_frames = simulation_config.n_frames
     dimension = simulation_config.dimension
+
     data_augmentation_loop = train_config.data_augmentation_loop
     recurrent_loop = train_config.recurrent_loop
     recurrent_parameters = train_config.recurrent_parameters.copy()
@@ -151,6 +153,8 @@ def data_train_signal(config, erase, best_model, device):
     batch_ratio = train_config.batch_ratio
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
+
+    n_excitatory_neurons = simulation_config.n_excitatory_neurons
 
 
     field_type = model_config.field_type
@@ -209,6 +213,9 @@ def data_train_signal(config, erase, best_model, device):
     print(f'N neurons: {n_neurons}, xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
     logger.info(f'N neurons: {n_neurons}, xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
 
+    if n_excitatory_neurons > 0:
+        config.simulation.n_neurons = n_neurons + n_excitatory_neurons
+        n_neurons = n_neurons + n_excitatory_neurons
 
     print('create models ...')
     model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device)
@@ -315,7 +322,11 @@ def data_train_signal(config, erase, best_model, device):
     else:
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
-
+        if n_excitatory_neurons > 0:
+            # create full connectivity including excitatory neurons
+            adj_matrix = torch.ones((n_neurons + n_excitatory_neurons, n_neurons + n_excitatory_neurons), device=device)
+            edge_index, edge_attr = dense_to_sparse(adj_matrix)
+            
     if train_config.coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
@@ -402,6 +413,13 @@ def data_train_signal(config, erase, best_model, device):
                 k = np.random.randint(n_frames - 4 - time_step)
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+
+                if n_excitatory_neurons > 0:
+                    excitation_values = model.excitation[k, :]
+                    x = torch.cat((x, torch.zeros((n_excitatory_neurons, x.shape[1]), device=device)), dim=0)
+                    x[-1, 6] = excitation_values
+                    x[-1, 0] = n_neurons
+
                 ids = torch.argwhere(x[:, 6] != baseline_value)
                 ids = to_numpy(ids.squeeze())
 
@@ -452,7 +470,7 @@ def data_train_signal(config, erase, best_model, device):
                     if coeff_W_L1 > 0:
                         loss = loss + model_W[:n_neurons, :n_neurons].norm(1) * coeff_W_L1
                     # regularisation lin_edge
-                    in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons,device)
+                    in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device)
                     if coeff_edge_diff > 0:
                         if model_config.lin_edge_positive:
                             msg0 = model.lin_edge(in_features[ids].clone().detach()) ** 2
@@ -515,7 +533,10 @@ def data_train_signal(config, erase, best_model, device):
                         mask = torch.isin(edges[1, :], torch.tensor(ids, device=device))
                         edges = edges[:, mask]
 
-                    if recurrent_loop > 1:
+                    if n_excitatory_neurons > 0:
+                        y = torch.tensor(y_list[run][k + recurrent_loop], device=device) / ynorm
+                        y = torch.cat((y, torch.zeros((1,1), dtype=torch.float32, device=device)), dim=0)
+                    elif recurrent_loop > 1:
                         y = torch.tensor(y_list[run][k + recurrent_loop], device=device) / ynorm
                     elif time_step == 1:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm

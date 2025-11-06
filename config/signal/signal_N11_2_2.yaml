@@ -1,5 +1,5 @@
-description: 'RNN chaotic oscillation_max_amplitude: 3.0'
-dataset: 'signal_N11_2_1'
+description: 'RNN chaotic oscillation_max_amplitude: 10.0'
+dataset: 'signal_N11_2_2'
 
 simulation:
     connectivity_type: 'chaotic'
@@ -16,7 +16,7 @@ simulation:
     start_frame: 0
 
     visual_input_type: 'oscillatory'  
-    oscillation_max_amplitude: 3.0
+    oscillation_max_amplitude: 10.0
     oscillation_frequency: 10.0
 
     n_excitatory_neurons: 1
