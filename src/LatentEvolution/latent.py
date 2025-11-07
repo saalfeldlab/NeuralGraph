@@ -57,12 +57,16 @@ class EncoderParams(BaseModel):
     num_hidden_layers: int
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
+class StimulusEncoderParams(BaseModel):
+    num_input_dims: int
+    num_hidden_layers: int
+    num_hidden_units: int
+    num_output_dims: int
 
 class DecoderParams(BaseModel):
     num_hidden_units: int
     num_hidden_layers: int
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
 
 class DataSplit(BaseModel):
     """Split the time series into train/validation/test."""
@@ -124,6 +128,7 @@ class ModelParams(BaseModel):
     encoder_params: EncoderParams
     decoder_params: DecoderParams
     evolver_params: EvolverParams
+    stimulus_encoder_params: StimulusEncoderParams
     training: TrainingConfig
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -164,12 +169,13 @@ class Evolver(nn.Module):
     def __init__(self, params: ModelParams):
         super().__init__()
         self.time_units = params.evolver_params.time_units
+        dim = params.latent_dims + params.stimulus_encoder_params.num_output_dims
         self.evolver = MLP(
             MLPParams(
-                num_input_dims=params.latent_dims,
+                num_input_dims=dim,
                 num_hidden_layers=params.evolver_params.num_hidden_layers,
                 num_hidden_units=params.evolver_params.num_hidden_units,
-                num_output_dims=params.latent_dims,
+                num_output_dims=dim,
                 use_batch_norm=params.use_batch_norm,
             )
         )
@@ -201,12 +207,22 @@ class LatentModel(nn.Module):
                 use_batch_norm=params.use_batch_norm,
             )
         )
+        self.stimulus_encoder = MLP(
+            MLPParams(
+                num_input_dims=params.stimulus_encoder_params.num_input_dims,
+                num_hidden_units=params.stimulus_encoder_params.num_hidden_units,
+                num_hidden_layers=params.stimulus_encoder_params.num_hidden_layers,
+                num_output_dims=params.stimulus_encoder_params.num_output_dims,
+                use_batch_norm=False,
+            )
+        )
         self.evolver = Evolver(params)
 
-    def forward(self, x_t):
+    def forward(self, x_t, stim_t):
         proj_t = self.encoder(x_t)
-        proj_t_next = self.evolver(proj_t)
-        x_t_next = self.decoder(proj_t_next)
+        proj_stim_t = self.stimulus_encoder(stim_t)
+        proj_t_next = self.evolver(torch.concatenate([proj_t, proj_stim_t], dim=1))
+        x_t_next = self.decoder(proj_t_next[:, :-proj_stim_t.shape[1]])
         return x_t_next
 
 
@@ -221,8 +237,8 @@ def load_column_data(path: str, column: FlyVisSim) -> torch.Tensor:
 
 
 def make_batches_random(
-    data: torch.Tensor, batch_size: int, time_units: int
-) -> Iterator[tuple[torch.Tensor, torch.Tensor]]:
+    data: torch.Tensor, stim: torch.Tensor, batch_size: int, time_units: int
+) -> Iterator[tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]]:
     total_time = data.shape[0]
     if total_time <= time_units:
         raise ValueError(
@@ -233,8 +249,10 @@ def make_batches_random(
             low=0, high=total_time - time_units, size=(batch_size,), device=data.device
         )
         x_t = data[start_indices]
+        stim_t = stim[start_indices]
+
         x_t_plus = data[start_indices + time_units]
-        yield x_t, x_t_plus
+        yield (x_t, stim_t), x_t_plus
 
 
 # -------------------------------------------------------------------
@@ -288,9 +306,9 @@ def get_device() -> torch.device:
         return torch.device("cpu")
 
 
-def train_step_nocompile(model, x_t, x_t_plus):
+def train_step_nocompile(model, x_t, stim_t, x_t_plus):
     # evolution loss
-    output = model(x_t)
+    output = model(x_t, stim_t)
     evolve_loss = torch.nn.functional.mse_loss(output, x_t_plus)
 
     # reconstruction loss
@@ -360,6 +378,15 @@ def train(cfg: ModelParams, run_dir: Path):
         val_data = data[split.validation_start : split.validation_end]
         test_data = data[split.test_start : split.test_end]
 
+        # Load stimulus
+        stim = load_column_data(
+            data_path, FlyVisSim.STIMULUS
+        ).to(device)
+        # HACK: first 1736 entries are the stimulus
+        train_stim = stim[split.train_start : split.train_end, :cfg.stimulus_encoder_params.num_input_dims]
+        val_stim = stim[split.validation_start : split.validation_end, :cfg.stimulus_encoder_params.num_input_dims]
+        test_stim = stim[split.test_start : split.test_end, :cfg.stimulus_encoder_params.num_input_dims]
+
         print(
             f"Data split: train {train_data.shape}, "
             f"val {val_data.shape}, test {test_data.shape}"
@@ -382,7 +409,7 @@ def train(cfg: ModelParams, run_dir: Path):
         num_time_points = train_data.shape[0]
         batches_per_epoch = max(1, num_time_points // cfg.training.batch_size)
         batch_iter = make_batches_random(
-            train_data, cfg.training.batch_size, cfg.evolver_params.time_units
+            train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
         )
 
         # --- Log file ---
@@ -409,8 +436,8 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
-                x_t, x_t_plus = next(batch_iter)
-                (loss, _recon_loss, _evolve_loss) = train_step_fn(model, x_t, x_t_plus)
+                (x_t, stim_t), x_t_plus = next(batch_iter)
+                (loss, _recon_loss, _evolve_loss) = train_step_fn(model, x_t, stim_t, x_t_plus)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.detach().item()
@@ -421,9 +448,10 @@ def train(cfg: ModelParams, run_dir: Path):
             model.eval()
             with torch.no_grad():
                 val_x_t = val_data[: -cfg.evolver_params.time_units]
+                val_stim_t = val_stim[: -cfg.evolver_params.time_units]
                 val_x_t_plus = val_data[cfg.evolver_params.time_units :]
                 val_loss = torch.nn.functional.mse_loss(
-                    model(val_x_t), val_x_t_plus
+                    model(val_x_t, val_stim_t), val_x_t_plus
                 ).item()
             model.train()
 
@@ -447,9 +475,10 @@ def train(cfg: ModelParams, run_dir: Path):
         model.eval()
         with torch.no_grad():
             test_x_t = test_data[: -cfg.evolver_params.time_units]
+            test_stim_t = test_stim[: -cfg.evolver_params.time_units]
             test_x_t_plus = test_data[cfg.evolver_params.time_units :]
             test_loss = torch.nn.functional.mse_loss(
-                model(test_x_t), test_x_t_plus
+                model(test_x_t, test_stim_t), test_x_t_plus
             ).item()
 
         print(f"Final Test Loss: {test_loss:.4e}")

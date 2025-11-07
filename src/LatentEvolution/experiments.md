@@ -544,6 +544,8 @@ done
 
 ```
 
+![Training loss curves show 512, 1e-6 is a good one.](figures/batch_and_lr_wo_bn_fig1.png.png)
+
 ### Results (Analyzed 2025-11-07)
 
 All 16 runs completed successfully (4 batch sizes × 4 learning rates = 16 configurations). This experiment systematically explored the interaction between batch size and learning rate without batch normalization, building on the finding that disabling batch norm significantly improves performance.
@@ -689,3 +691,19 @@ bsub -J latent1d -n 12 -gpu "num=1" -q gpu_a100 -o latent1d.log python \
     --training.learning-rate 0.00001 \
     --evolver-params.num-hidden-layers 0
 ```
+
+This completely fails and is worse than the constant model.
+
+```
+val_loss_constant_model: 0.035516854375600815
+train_loss_constant_model: 0.035541076213121414
+test_loss_constant_model: 0.03636092692613602
+final_train_loss: 0.1026361520434248
+final_val_loss: 0.05704919993877411
+final_test_loss: 0.058455243706703186
+```
+
+## Add the stimulus
+
+This is important since the stimulus drives the retinal neurons that go on to
+drive the network. Without this it would be impossible to actually predict.
