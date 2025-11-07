@@ -1,3 +1,50 @@
+def plot_comparison_panel(target_hr, input_sr, bicubic_up, classical_sr, neural_sr, loss_history, psnr_history, epoch=None, dark_style=True):
+    if dark_style:
+        plt.style.use('dark_background')
+    fig = plt.figure(figsize=(15, 10))
+    # Panel 1: Original HR
+    plt.subplot(2, 3, 1)
+    plt.imshow(target_hr, cmap='gray')
+    plt.title('Original High-Resolution')
+    plt.axis('off')
+    # Panel 2: Low-Resolution
+    plt.subplot(2, 3, 2)
+    plt.imshow(input_sr, cmap='gray')
+    plt.title('Low-Resolution')
+    plt.axis('off')
+    # Panel 3: Bicubic Upsampling
+    plt.subplot(2, 3, 3)
+    plt.imshow(bicubic_up, cmap='gray')
+    plt.title('Bicubic Upsampling')
+    plt.axis('off')
+    # Panel 4: Classical Pixel SR
+    plt.subplot(2, 3, 4)
+    plt.imshow(classical_sr, cmap='gray')
+    plt.title('Classical Pixel SR')
+    plt.axis('off')
+    # Panel 5: Neural SR
+    plt.subplot(2, 3, 5)
+    plt.imshow(neural_sr, cmap='gray')
+    plt.title('Neural SR')
+    plt.axis('off')
+    # Panel 6: Loss and PSNR history
+    ax = plt.subplot(2, 3, 6)
+    loss_val = loss_history[-1] if len(loss_history) > 0 else None
+    psnr_val = psnr_history[-1] if len(psnr_history) > 0 else None
+    loss_label = f'Loss (final: {loss_val:.4f})' if loss_val is not None else 'Loss'
+    psnr_label = f'PSNR (final: {psnr_val:.2f} dB)' if psnr_val is not None else 'PSNR'
+    ax.plot(loss_history, label=loss_label)
+    ax.plot(psnr_history, label=psnr_label)
+    ax.set_title('Training History')
+    ax.set_xlabel('Epoch')
+    ax.legend()
+    # Remove all ticks
+    ax.set_xticks([])
+    ax.set_yticks([])
+    if epoch is not None:
+        plt.suptitle(f'Epoch {epoch}')
+    plt.tight_layout()
+    return fig
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -190,14 +237,24 @@ def neural_sr_refinement(classical_sr_result, original_hr, downscale_factor=4, d
         loss_history.append(loss.item())
         psnr_history.append(current_psnr)
         
-        # Save frame for video every 20 epochs
+        # Save 3x2 comparison panel for video every 20 epochs using the refactored function
         if (epoch + 1) % 20 == 0 or epoch == num_epochs - 1:
-            fig, ax = plt.subplots(figsize=(6, 4))
-            ax.plot(loss_history)
-            ax.set_title(f'Epoch {epoch+1} Loss')
-            ax.set_xlabel('Epoch')
-            ax.set_ylabel('Loss')
-            fig.tight_layout()
+            with torch.no_grad():
+                current_refined = model(input_sr)
+            bicubic_up = torch.nn.functional.interpolate(
+                input_sr, scale_factor=downscale_factor, mode='bicubic'
+            ).squeeze().cpu().numpy()
+            fig = plot_comparison_panel(
+                target_hr.squeeze().cpu().numpy(),
+                input_sr.squeeze().cpu().numpy(),
+                bicubic_up,
+                input_sr.squeeze().cpu().numpy(),  # classical_sr placeholder
+                current_refined.squeeze().cpu().numpy(),
+                loss_history,
+                psnr_history,
+                epoch=epoch+1,
+                dark_style=True
+            )
             fig.canvas.draw()
             frame = np.asarray(fig.canvas.buffer_rgba())[..., :3]
             video_frames.append(frame)
@@ -235,12 +292,54 @@ def neural_sr_refinement(classical_sr_result, original_hr, downscale_factor=4, d
     plt.tight_layout()
     plt.savefig(f'{output_dir}/training_history.png')
     
-    # Return the final refined output and video frames
-    return refined.squeeze().cpu(), best_psnr, video_frames
+    # Return the final refined output, video frames, and histories
+    return refined.squeeze().cpu(), best_psnr, video_frames, loss_history, psnr_history
 
 
 def main():
-    """Main function to run the neural SR refinement experiment"""
+    output_dir = 'sr_outputs'
+    os.makedirs(output_dir, exist_ok=True)
+    # Parameters
+    downscale_factor = 4  # Using 4x as you mentioned
+    num_shifts = 128      # Use 128 images for neural super-resolution
+    # Load the boat image
+    hr_image = tiff.imread('pics_boat.tif')
+    hr_image = torch.tensor(hr_image, dtype=torch.float32)
+    hr_image = hr_image / hr_image.max()
+    # Generate low-resolution shifted images
+    lr_images, shifts = generate_shifted_downsampled_images(hr_image, downscale_factor, num_shifts)
+
+    # Apply classical pixel super-resolution
+    print("Running classical SR algorithm...")
+    classical_sr_result = classical_pixel_sr(lr_images, shifts, downscale_factor)
+    # ...existing code before training...
+
+    # Apply neural refinement
+    print("Applying neural network refinement...")
+    neural_sr_result, neural_psnr, video_frames, loss_history, psnr_history = neural_sr_refinement(
+        classical_sr_result, hr_image, downscale_factor
+    )
+
+    # Save training progress video (pixel_NSTM.py strategy)
+    video_path = os.path.join(output_dir, 'neural_sr_training_progress.mp4')
+    video_frames_uint8 = []
+    for frame in video_frames:
+        # If frame is RGBA, drop alpha
+        if frame.ndim == 3 and frame.shape[-1] == 4:
+            frame = frame[..., :3]
+        # If grayscale, convert to RGB
+        if frame.ndim == 2:
+            frame = np.stack([frame]*3, axis=-1)
+        frame = np.clip(frame, 0, 255).astype(np.uint8)
+        video_frames_uint8.append(frame)
+    if len(video_frames_uint8) == 0:
+        print("Warning: No frames to save in video!")
+    else:
+        print(f"First frame shape: {video_frames_uint8[0].shape}, dtype: {video_frames_uint8[0].dtype}")
+        print(f"Saving video to: {video_path}")
+        import imageio.v2 as imageio
+        imageio.mimsave(video_path, video_frames_uint8, fps=10)
+    """Main function to run the Neural SR experiment"""
     # Create output directory
     output_dir = 'sr_outputs'
     os.makedirs(output_dir, exist_ok=True)
@@ -275,24 +374,29 @@ def main():
     print("Running classical SR algorithm...")
     classical_sr_result = classical_pixel_sr(lr_images, shifts, downscale_factor)
     
-    # First training run
-    print("Applying neural network refinement (Run 1)...")
-    neural_sr_result1, neural_psnr1, video_frames1 = neural_sr_refinement(
+    # Single training run with double epochs
+    print("Applying neural network refinement...")
+    neural_sr_result, neural_psnr, video_frames, loss_history, psnr_history = neural_sr_refinement(
         classical_sr_result, hr_image, downscale_factor
     )
 
-    # Second training run (start from previous result)
-    print("Applying neural network refinement (Run 2)...")
-    neural_sr_result2, neural_psnr2, video_frames2 = neural_sr_refinement(
-        neural_sr_result1, hr_image, downscale_factor
-    )
-
-    # Combine video frames from both runs
-    all_video_frames = video_frames1 + video_frames2
+    # Save training progress video (MP4)
     video_path = os.path.join(output_dir, 'neural_sr_training_progress.mp4')
     print(f"Saving training progress video to: {video_path}")
     import imageio
-    imageio.mimsave(video_path, all_video_frames, fps=10)
+    # Convert frames to uint8 RGB for MP4
+    video_frames_uint8 = []
+    for frame in video_frames:
+        # If frame is RGBA, drop alpha
+        if frame.shape[-1] == 4:
+            frame = frame[..., :3]
+        # If grayscale, convert to RGB
+        if frame.ndim == 2:
+            frame = np.stack([frame]*3, axis=-1)
+        frame = np.clip(frame, 0, 255).astype(np.uint8)
+        video_frames_uint8.append(frame)
+    import imageio
+    imageio.mimsave(video_path, video_frames_uint8, fps=10)
     print(f"Progress video saved to '{video_path}'")
     
     # Calculate metrics
@@ -301,50 +405,32 @@ def main():
     psnr_classical = psnr(hr_image.numpy(), classical_sr_result.numpy())
     ssim_bicubic = ssim(hr_image.numpy(), single_lr_upscaled.numpy(), data_range=data_range)
     ssim_classical = ssim(hr_image.numpy(), classical_sr_result.numpy(), data_range=data_range)
-    ssim_neural = ssim(hr_image.numpy(), neural_sr_result2.numpy(), data_range=data_range)
+    ssim_neural = ssim(hr_image.numpy(), neural_sr_result.numpy(), data_range=data_range)
     
     # Print metrics
     print("\nMetrics vs. ground truth:")
     print(f"Bicubic upscaling - PSNR: {psnr_bicubic:.2f} dB, SSIM: {ssim_bicubic:.4f}")
     print(f"Classical SR - PSNR: {psnr_classical:.2f} dB, SSIM: {ssim_classical:.4f}")
-    print(f"Neural SR - PSNR: {neural_psnr2:.2f} dB, SSIM: {ssim_neural:.4f}")
-    print(f"Improvement over Classical - PSNR: {neural_psnr2 - psnr_classical:.2f} dB, SSIM: {ssim_neural - ssim_classical:.4f}")
+    print(f"Neural SR - PSNR: {neural_psnr:.2f} dB, SSIM: {ssim_neural:.4f}")
+    print(f"Improvement over Classical - PSNR: {neural_psnr - psnr_classical:.2f} dB, SSIM: {ssim_neural - ssim_classical:.4f}")
     
-    # Create visualization images - Extended comparison
-    plt.figure(figsize=(15, 15))
-    
-    # First row
-    plt.subplot(3, 2, 1)
-    plt.imshow(hr_image, cmap='gray')
-    plt.title('Original High-Resolution Image')
-    
-    plt.subplot(3, 2, 2)
-    plt.imshow(single_lr, cmap='gray')  # Added downsampled image
-    plt.title(f'Low-Resolution Image (1/{downscale_factor}x)')
-    
-    # Second row
-    plt.subplot(3, 2, 3)
-    plt.imshow(single_lr_upscaled, cmap='gray')
-    plt.title(f'Bicubic Upsampling\nPSNR: {psnr_bicubic:.2f} dB')
-    
-    plt.subplot(3, 2, 4)
-    plt.imshow(classical_sr_result, cmap='gray')
-    plt.title(f'Classical Pixel SR\nPSNR: {psnr_classical:.2f} dB')
-    
-    # Third row
-    plt.subplot(3, 2, 5)
-    plt.imshow(neural_sr_result2, cmap='gray')
-    plt.title(f'Neural SR Refinement\nPSNR: {neural_psnr2:.2f} dB')
-    
-    # Error map for neural SR
-    plt.subplot(3, 2, 6)
-    error_map = np.abs(hr_image.numpy() - neural_sr_result2.numpy())
-    plt.imshow(error_map, cmap='hot', vmax=0.1)
-    plt.colorbar()
-    plt.title('Neural SR Error Map')
-    
-    plt.tight_layout()
-    plt.savefig(f'{output_dir}/neural_sr_comparison.png', dpi=300)
+    # Create visualization images - Extended comparison using the refactored function
+    bicubic_up = torch.nn.functional.interpolate(
+        single_lr.unsqueeze(0).unsqueeze(0), scale_factor=downscale_factor, mode='bicubic'
+    ).squeeze().cpu().numpy()
+    fig = plot_comparison_panel(
+        hr_image.cpu().numpy(),
+        single_lr.cpu().numpy(),
+        bicubic_up,
+        classical_sr_result.cpu().numpy(),
+        neural_sr_result.cpu().numpy(),
+        loss_history,
+        psnr_history,
+        epoch=None,
+        dark_style=True
+    )
+    fig.savefig(f'{output_dir}/neural_sr_comparison.png', dpi=300)
+    plt.close(fig)
     
     # Save zoomed comparison of a detail region
     # Find a good region with details (e.g., around the mast of the boat)
@@ -375,12 +461,12 @@ def main():
     
     # Third row - our method and error map
     plt.subplot(3, 2, 5)
-    plt.imshow(neural_sr_result2[region_y:region_y+region_size, region_x:region_x+region_size], cmap='gray')
-    plt.title(f'Neural SR (Detail)\nPSNR: {neural_psnr2:.2f} dB')
+    plt.imshow(neural_sr_result[region_y:region_y+region_size, region_x:region_x+region_size], cmap='gray')
+    plt.title(f'Neural SR (Detail)\nPSNR: {neural_psnr:.2f} dB')
     
     plt.subplot(3, 2, 6)
     error_detail = np.abs(hr_image[region_y:region_y+region_size, region_x:region_x+region_size].numpy() - 
-                         neural_sr_result2[region_y:region_y+region_size, region_x:region_x+region_size].numpy())
+                         neural_sr_result[region_y:region_y+region_size, region_x:region_x+region_size].numpy())
     plt.imshow(error_detail, cmap='hot', vmax=0.1)
     plt.colorbar()
     plt.title('Neural SR Error (Detail)')
@@ -414,14 +500,14 @@ def main():
     
     # Neural SR
     plt.subplot(5, 1, 4)
-    plt.imshow(neural_sr_result2[strip_y:strip_y+strip_height, :], cmap='gray')
-    plt.title(f'Neural SR (PSNR: {neural_psnr2:.2f} dB)')
+    plt.imshow(neural_sr_result[strip_y:strip_y+strip_height, :], cmap='gray')
+    plt.title(f'Neural SR (PSNR: {neural_psnr:.2f} dB)')
     plt.axis('off')
     
     # Error map
     plt.subplot(5, 1, 5)
     strip_error = np.abs(hr_image[strip_y:strip_y+strip_height, :].numpy() - 
-                        neural_sr_result2[strip_y:strip_y+strip_height, :].numpy())
+                        neural_sr_result[strip_y:strip_y+strip_height, :].numpy())
     plt.imshow(strip_error, cmap='hot', vmax=0.1)
     plt.colorbar()
     plt.title('Neural SR Error Map')
@@ -431,7 +517,7 @@ def main():
     plt.savefig(f'{output_dir}/neural_sr_strip_comparison.png', dpi=300)
     
     # Save all results for further analysis
-    tiff.imwrite(f'{output_dir}/neural_sr_result.tif', neural_sr_result2.numpy())
+    tiff.imwrite(f'{output_dir}/neural_sr_result.tif', neural_sr_result.numpy())
     
     print(f"All comparison images saved to '{output_dir}'")
 
