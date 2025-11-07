@@ -289,7 +289,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="3D ZapBench volume reconstruction using InstantNGP from Zarr store.")
     
     parser.add_argument("volume", nargs="?", default="3739", help="ZapBench frame index to reconstruct (e.g., 3739)")
-    parser.add_argument("config", nargs="?", default="config_hash_zarr_4d.json", help="JSON config for tiny-cuda-nn")
+    parser.add_argument("config", nargs="?", default="config_hash_zarr.json", help="JSON config for tiny-cuda-nn")
     parser.add_argument("n_steps", nargs="?", type=int, default=10000000, help="Number of training steps")
     parser.add_argument("result_filename", nargs="?", default="", help="Output volume filename")
     parser.add_argument("--extract_features", action="store_true", help="Run downstream feature extraction after training")
@@ -346,26 +346,22 @@ if __name__ == "__main__":
     x_coords = torch.linspace(0.5/width, 1-0.5/width, width, device=device)
     zv, yv, xv = torch.meshgrid(z_coords, y_coords, x_coords, indexing='ij')
 
-    # For validation, reconstruct at t=0.0, t=0.5, t=1.0 (normalized time)
-    t_vals = [0.0, 0.5, 1.0]
-    xyzt_list = []
-    for t_val in t_vals:
-        tv = torch.full_like(zv, t_val, device=device)
-        xyzt = torch.stack((zv.flatten(), yv.flatten(), xv.flatten(), tv.flatten())).t()
-        xyzt_list.append(xyzt)
+    # For validation: reconstruct at t=0.5 (normalized) = 1.5 sec absolute
+    # This is temporally ALIGNED middle frame (all slices at same time)
+    t_eval = 0.5
+    tv_eval = torch.full_like(zv, t_eval, device=device)
+    xyzt_eval = torch.stack((zv.flatten(), yv.flatten(), xv.flatten(), tv_eval.flatten())).t()
 
     middle_slice = depth // 2
-    batch_size = 2**22
+    batch_size = 2**18
     print(f"using batch size: {batch_size:,} samples")
 
     print("\ntraining for 10000 iterations...")
     print("⚠️  LIGHT-SHEET: Frame i acquired from t=i to t=i+1 sec, slice z at t=i+z")
-
-    output_dir = os.path.join(script_dir, "instantngp_outputs")
-    os.makedirs(output_dir, exist_ok=True)
+    print("    Evaluating at t=0.5 (aligned middle frame)")
     
     start_time = time.perf_counter()
-    max_iterations = 50000
+    max_iterations = 5000
     for i in trange(max_iterations, desc="training", ncols=150):
         # Generate random spatial coordinates
         batch_3d = torch.rand([batch_size, 3], device=device, dtype=torch.float32)
@@ -391,31 +387,47 @@ if __name__ == "__main__":
         
         if i % max(1, max_iterations//10) == 0:
             with torch.no_grad():
-                for idx, t_val in enumerate(t_vals):
-                    xyzt = xyzt_list[idx]
-                    pred_volume = reconstruct_full_volume_4d(model, xyzt, depth, height, width, device)
-                    target_slice = volume.frames[idx, middle_slice]
-                    pred_slice = pred_volume[middle_slice]
-                    psnr_db = calculate_psnr(pred_slice, target_slice)
-                    print(f"iteration {i:5d} t={t_val:.2f}: loss = {loss.item():.6f}, psnr = {psnr_db:.2f} db")
-                    volume_path = os.path.join(output_dir, f"zapbench_reconstructed_volume_{frame_indices[idx]}.tif")
-                    write_volume_tiff(volume_path, pred_volume.cpu().numpy(), volume.physical_spacing)
+                # Evaluate at aligned time t=0.5
+                pred_volume = reconstruct_full_volume_4d(model, xyzt_eval, depth, height, width, device)
+                target_slice = volume.frames[1, middle_slice]  # Middle frame ground truth
+                pred_slice = pred_volume[middle_slice]
+                psnr_db = calculate_psnr(pred_slice, target_slice)
+                print(f"iteration {i:5d}: loss = {loss.item():.6f}, psnr = {psnr_db:.2f} db")
 
+    total_wall_time = time.perf_counter() - start_time
+    
+    print("reconstructing final volume at t=0.5 (aligned time)...")
+    final_volume = reconstruct_full_volume_4d(model, xyzt_eval, depth, height, width, device)
+    final_slice = final_volume[middle_slice]
+    target_slice = volume.frames[1, middle_slice]
+    final_psnr = calculate_psnr(final_slice, target_slice)
+    output_dir = os.path.join(script_dir, "instantngp_outputs")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Save only the aligned middle frame reconstruction
+    original_volume_path = os.path.join(output_dir, f"zapbench_reconstructed_volume_{frame_indices[1]}_aligned.tif")
+    write_volume_tiff(original_volume_path, final_volume.cpu().numpy(), volume.physical_spacing)
+    print(f"aligned volume (t=0.5) saved: {original_volume_path}")
+    
     print("\ntraining completed")
     print("================================================================")
+    print(f"wall time: {total_wall_time:.3f}s")
     print(f"total iterations: {max_iterations}")
+    print(f"final psnr (middle slice, t=0.5): {final_psnr:.2f} db")
     print(f"original dimensions: {depth}×{height}×{width} voxels")
-    print("upsampled volume: skipped for validation")
     print("================================================================")
+    
     model_path = os.path.join(output_dir, "zapbench_trained_model.pth")
     torch.save({
         'model_state_dict': model.state_dict(),
         'config': config,
         'volume_shape': (depth, height, width),
         'physical_spacing': volume.physical_spacing,
+        'final_psnr': final_psnr,
         'dataset': 'ZapBench',
         'frame_indices': frame_indices,
-        'total_iterations': max_iterations
+        'total_iterations': max_iterations,
+        'eval_time': 0.5  # Aligned time used for evaluation
     }, model_path)
     print(f"Model saved to: {model_path}")
     tcnn.free_temporary_memory()
