@@ -2,6 +2,7 @@
 
 latent_dims: 256 # Dimensionality of latent space
 num_neurons: 13741 # Number of observed neurons (input/output size)
+use_batch_norm: False
 
 encoder_params:
   num_hidden_layers: 3 # Layers in the encoder MLP
