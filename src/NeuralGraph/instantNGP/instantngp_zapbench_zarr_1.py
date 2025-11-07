@@ -139,7 +139,7 @@ def print_hash_table_analysis(config, volume_shape=None):
     
     print("-" * 90)
     print(f"total encoding parameters: {total_parameters:.2e}")
-    print(f"highest resolution voxels: {resolution**3:.2e} ({resolution}³)")
+    # print(f"highest resolution voxels: {resolution**3:.2e} ({resolution}³)")
     
     # Add network parameters estimate
     network_config = config["network"]

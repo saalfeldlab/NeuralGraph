@@ -9,6 +9,7 @@ from scipy.ndimage import map_coordinates
 import cv2
 import matplotlib
 matplotlib.use('Agg')  # Use non-interactive backend
+from skimage.metrics import peak_signal_noise_ratio as psnr
 
 # Check for CUDA
 if not torch.cuda.is_available():

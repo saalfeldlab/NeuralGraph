@@ -192,3 +192,4 @@ nohup*.out
 instantNGP/*.tif
 **/*.pth
 **/*.npy
+instantNGP/imageio_ffmpeg
