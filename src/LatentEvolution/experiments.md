@@ -528,3 +528,164 @@ Sorted by validation loss:  shape: (2, 4)
 - Training for 10000 epochs is appropriate - WITHOUT batch norm continues improving through epoch 10000
 - This finding suggests that batch normalization may be harmful for latent evolution models on this neural dynamics task
 - Future experiments should use use_batch_norm: false as the default configuration
+
+## Sweep batch size and learning rate with batch norm turned off
+
+```bash
+
+for bs in 32 128 512 2048; do \
+    for lr in 0.001 0.0001 0.00001 0.000001 ; do \
+        bsub -J "b${bs}_${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o batch${bs}_lr${lr}.log python \
+            src/LatentEvolution/latent.py batch_and_lr_wo_bn \
+            --training.batch-size $bs \
+            --training.learning-rate $lr
+    done
+done
+
+```
+
+### Results (Analyzed 2025-11-07)
+
+All 16 runs completed successfully (4 batch sizes × 4 learning rates = 16 configurations). This experiment systematically explored the interaction between batch size and learning rate without batch normalization, building on the finding that disabling batch norm significantly improves performance.
+
+**Summary from summarize.py:**
+
+```
+commit_hash='e8fa080'
+shape: (16, 15)
+┌─────────────────────┬────────────────────────┬────────────────────────────┬─────────────────────────────┬─────────────┬─────────────────┬──────────────────┬────────────────┬───────────────────────┬───────────────────┬──────────────────────────┬─────────────────────┬───────────────────────────┬───────────────────────────┬─────────────────────────┐
+│ training.batch_size ┆ training.learning_rate ┆ avg_epoch_duration_seconds ┆ avg_gpu_utilization_percent ┆ commit_hash ┆ final_test_loss ┆ final_train_loss ┆ final_val_loss ┆ gpu_type              ┆ max_gpu_memory_mb ┆ test_loss_constant_model ┆ total_gpu_memory_mb ┆ train_loss_constant_model ┆ training_duration_seconds ┆ val_loss_constant_model │
+╞═════════════════════╪════════════════════════╪════════════════════════════╪═════════════════════════════╪═════════════╪═════════════════╪══════════════════╪════════════════╪═══════════════════════╪═══════════════════╪══════════════════════════╪═════════════════════╪═══════════════════════════╪═══════════════════════════╪═════════════════════════╡
+│ 512                 ┆ 0.000001               ┆ 0.47                       ┆ 84.8                        ┆ e8fa080     ┆ 0.018725        ┆ 0.035416         ┆ 0.019255       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 5093.78                   ┆ 0.035517                │
+│ 128                 ┆ 0.0001                 ┆ 1.36                       ┆ 80.53                       ┆ e8fa080     ┆ 0.018655        ┆ 0.033617         ┆ 0.019311       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 13956.4                   ┆ 0.035517                │
+│ 32                  ┆ 0.0001                 ┆ 1.38                       ┆ 78.88                       ┆ e8fa080     ┆ 0.019624        ┆ 0.034907         ┆ 0.020315       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 14158.3                   ┆ 0.035517                │
+│ 2048                ┆ 0.00001                ┆ 0.47                       ┆ 84.95                       ┆ e8fa080     ┆ 0.019779        ┆ 0.035632         ┆ 0.020472       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 5051.09                   ┆ 0.035517                │
+│ 512                 ┆ 0.00001                ┆ 0.25                       ┆ 76.22                       ┆ e8fa080     ┆ 0.0199          ┆ 0.037291         ┆ 0.020586       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2887.94                   ┆ 0.035517                │
+│ 2048                ┆ 0.000001               ┆ 0.25                       ┆ 76.33                       ┆ e8fa080     ┆ 0.020486        ┆ 0.039806         ┆ 0.020798       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2894.19                   ┆ 0.035517                │
+│ 2048                ┆ 0.001                  ┆ 1.36                       ┆ 80.71                       ┆ e8fa080     ┆ 0.02057         ┆ 0.040165         ┆ 0.020906       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 14033.78                  ┆ 0.035517                │
+│ 128                 ┆ 0.000001               ┆ 0.18                       ┆ 74.45                       ┆ e8fa080     ┆ 0.020528        ┆ 0.040017         ┆ 0.021155       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2216.51                   ┆ 0.035517                │
+│ 512                 ┆ 0.001                  ┆ 0.47                       ┆ 84.91                       ┆ e8fa080     ┆ 0.02098         ┆ 0.038842         ┆ 0.021582       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 5069.84                   ┆ 0.035517                │
+│ 128                 ┆ 0.001                  ┆ 0.47                       ┆ 85.24                       ┆ e8fa080     ┆ 0.023886        ┆ 0.047086         ┆ 0.024209       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 5052.03                   ┆ 0.035517                │
+│ 512                 ┆ 0.0001                 ┆ 0.18                       ┆ 74.1                        ┆ e8fa080     ┆ 0.024265        ┆ 0.047592         ┆ 0.024531       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2214.45                   ┆ 0.035517                │
+│ 32                  ┆ 0.000001               ┆ 0.18                       ┆ 74.07                       ┆ e8fa080     ┆ 0.02654         ┆ 0.049609         ┆ 0.028279       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2215.54                   ┆ 0.035517                │
+│ 2048                ┆ 0.0001                 ┆ 0.25                       ┆ 76.85                       ┆ e8fa080     ┆ 0.028558        ┆ 0.056237         ┆ 0.02875        ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2875.88                   ┆ 0.035517                │
+│ 128                 ┆ 0.00001                ┆ 0.25                       ┆ 77.25                       ┆ e8fa080     ┆ 0.030413        ┆ 0.052533         ┆ 0.032875       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2855.39                   ┆ 0.035517                │
+│ 32                  ┆ 0.00001                ┆ 0.18                       ┆ 75.63                       ┆ e8fa080     ┆ 0.034778        ┆ 0.068585         ┆ 0.034701       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2181.59                   ┆ 0.035517                │
+│ 32                  ┆ 0.001                  ┆ 1.37                       ┆ 79.4                        ┆ e8fa080     ┆ 0.05404         ┆ 0.098394         ┆ 0.053462       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 14088.01                  ┆ 0.035517                │
+└─────────────────────┴────────────────────────┴────────────────────────────┴─────────────────────────────┴─────────────┴─────────────────┴──────────────────┴────────────────┴───────────────────────┴───────────────────┴──────────────────────────┴─────────────────────┴───────────────────────────┴───────────────────────────┴─────────────────────────┘
+Sorted by validation loss:  shape: (16, 5)
+┌─────────────────────┬────────────────────────┬──────────────────┬────────────────┬─────────────────┐
+│ training.batch_size ┆ training.learning_rate ┆ final_train_loss ┆ final_val_loss ┆ final_test_loss │
+╞═════════════════════╪════════════════════════╪══════════════════╪════════════════╪═════════════════╡
+│ 512                 ┆ 0.000001               ┆ 0.035416         ┆ 0.019255       ┆ 0.018725        │
+│ 128                 ┆ 0.0001                 ┆ 0.033617         ┆ 0.019311       ┆ 0.018655        │
+│ 32                  ┆ 0.0001                 ┆ 0.034907         ┆ 0.020315       ┆ 0.019624        │
+│ 2048                ┆ 0.00001                ┆ 0.035632         ┆ 0.020472       ┆ 0.019779        │
+│ 512                 ┆ 0.00001                ┆ 0.037291         ┆ 0.020586       ┆ 0.0199          │
+│ 2048                ┆ 0.000001               ┆ 0.039806         ┆ 0.020798       ┆ 0.020486        │
+│ 2048                ┆ 0.001                  ┆ 0.040165         ┆ 0.020906       ┆ 0.02057         │
+│ 128                 ┆ 0.000001               ┆ 0.040017         ┆ 0.021155       ┆ 0.020528        │
+│ 512                 ┆ 0.001                  ┆ 0.038842         ┆ 0.021582       ┆ 0.02098         │
+│ 128                 ┆ 0.001                  ┆ 0.047086         ┆ 0.024209       ┆ 0.023886        │
+│ 512                 ┆ 0.0001                 ┆ 0.047592         ┆ 0.024531       ┆ 0.024265        │
+│ 32                  ┆ 0.000001               ┆ 0.049609         ┆ 0.028279       ┆ 0.02654         │
+│ 2048                ┆ 0.0001                 ┆ 0.056237         ┆ 0.02875        ┆ 0.028558        │
+│ 128                 ┆ 0.00001                ┆ 0.052533         ┆ 0.032875       ┆ 0.030413        │
+│ 32                  ┆ 0.00001                ┆ 0.068585         ┆ 0.034701       ┆ 0.034778        │
+│ 32                  ┆ 0.001                  ┆ 0.098394         ┆ 0.053462       ┆ 0.05404         │
+└─────────────────────┴────────────────────────┴──────────────────┴────────────────┴─────────────────┘
+```
+
+#### Run Overview
+
+| Batch Size | Learning Rate | Epochs | Output Directory                                  | Status |
+| ---------- | ------------- | ------ | ------------------------------------------------- | ------ |
+| 32         | 0.001         | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_fa0ee8f1 | ✓      |
+| 32         | 0.0001        | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_3630f542 | ✓      |
+| 32         | 0.00001       | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_de48ccf1 | ✓      |
+| 32         | 0.000001      | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_ce7a630e | ✓      |
+| 128        | 0.001         | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_c56cb6aa | ✓      |
+| 128        | 0.0001        | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_8cef6dc0 | ✓      |
+| 128        | 0.00001       | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_a557c479 | ✓      |
+| 128        | 0.000001      | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_9ad14699 | ✓      |
+| 512        | 0.001         | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_a32c404f | ✓      |
+| 512        | 0.0001        | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_46362bcd | ✓      |
+| 512        | 0.00001       | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_2eb98067 | ✓      |
+| 512        | 0.000001      | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_9bdf9215 | ✓      |
+| 2048       | 0.001         | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_293a0813 | ✓      |
+| 2048       | 0.0001        | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_8b789640 | ✓      |
+| 2048       | 0.00001       | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_a61406d7 | ✓      |
+| 2048       | 0.000001      | 10000  | runs/batch_and_lr_wo_bn/20251107_e8fa080_da110847 | ✓      |
+
+#### Performance Metrics
+
+| Batch Size | Learning Rate | Train Time (min) | Avg Epoch (s) | GPU Util (%) | Train Loss | Val Loss | Test Loss | Improvement vs Constant |
+| ---------- | ------------- | ---------------- | ------------- | ------------ | ---------- | -------- | --------- | ----------------------- |
+| 32         | 0.001         | 234.8            | 1.37          | 79.40        | 0.0984     | 0.0535   | 0.0540    | -48.6%                  |
+| 32         | 0.0001        | 236.0            | 1.38          | 78.88        | 0.0349     | 0.0203   | 0.0196    | 46.0%                   |
+| 32         | 0.00001       | 36.4             | 0.18          | 75.63        | 0.0686     | 0.0347   | 0.0348    | 4.3%                    |
+| 32         | 0.000001      | 36.9             | 0.18          | 74.07        | 0.0496     | 0.0283   | 0.0265    | 27.0%                   |
+| 128        | 0.001         | 84.2             | 0.47          | 85.24        | 0.0471     | 0.0242   | 0.0239    | 34.3%                   |
+| 128        | 0.0001        | 232.6            | 1.36          | 80.53        | 0.0336     | 0.0193   | 0.0187    | 48.7%                   |
+| 128        | 0.00001       | 47.6             | 0.25          | 77.25        | 0.0525     | 0.0329   | 0.0304    | 16.4%                   |
+| 128        | 0.000001      | 36.9             | 0.18          | 74.45        | 0.0400     | 0.0212   | 0.0205    | 43.6%                   |
+| 512        | 0.001         | 84.5             | 0.47          | 84.91        | 0.0388     | 0.0216   | 0.0210    | 42.3%                   |
+| 512        | 0.0001        | 36.9             | 0.18          | 74.10        | 0.0476     | 0.0245   | 0.0243    | 33.2%                   |
+| 512        | 0.00001       | 48.1             | 0.25          | 76.22        | 0.0373     | 0.0206   | 0.0199    | 45.3%                   |
+| 512        | 0.000001      | 84.9             | 0.47          | 84.80        | 0.0354     | 0.0193   | 0.0187    | 48.5%                   |
+| 2048       | 0.001         | 234.0            | 1.36          | 80.71        | 0.0402     | 0.0209   | 0.0206    | 43.4%                   |
+| 2048       | 0.0001        | 47.9             | 0.25          | 76.85        | 0.0562     | 0.0288   | 0.0286    | 21.4%                   |
+| 2048       | 0.00001       | 84.2             | 0.47          | 84.95        | 0.0356     | 0.0205   | 0.0198    | 45.6%                   |
+| 2048       | 0.000001      | 48.2             | 0.25          | 76.33        | 0.0398     | 0.0208   | 0.0205    | 43.6%                   |
+
+#### Key Findings
+
+**Model Performance:**
+
+- BEST CONFIGURATIONS achieve test loss ~0.0187 (48.7% improvement over constant baseline):
+  - Batch size 128 + LR 0.0001: Test loss 0.0187 (48.7% improvement)
+  - Batch size 512 + LR 0.000001: Test loss 0.0187 (48.5% improvement)
+- Second tier achieves test loss ~0.0196-0.0210 (42-46% improvement):
+  - Batch size 32 + LR 0.0001: Test loss 0.0196 (46.0% improvement)
+  - Multiple configs in 0.0199-0.0210 range
+- Strong interaction effect between batch size and learning rate - each batch size has a different optimal LR
+- Batch size 32 + LR 0.001 catastrophically fails (test loss 0.054, 48.6% WORSE than baseline)
+
+**Optimal Learning Rate by Batch Size:**
+
+- Batch size 32: LR 0.0001 is optimal
+- Batch size 128: LR 0.0001 is optimal (best overall performance)
+- Batch size 512: LR 0.000001 is optimal (tied for best overall)
+- Batch size 2048: LR 0.00001 is optimal
+
+**Compute Performance:**
+
+- Training time varies dramatically with batch size and learning rate configuration
+- Fastest configurations: 36-48 minutes (batch sizes 32/128/512/2048 with LRs 0.000001/0.00001/0.0001)
+- Slowest configurations: 232-236 minutes (batch sizes 32/128 with LR 0.0001, batch size 2048 with LR 0.001)
+- The 6-7x training time variation appears correlated with convergence behavior rather than computational overhead
+
+#### Recommendations
+
+- RECOMMENDED CONFIGURATION: Batch size 128 + LR 0.0001 for optimal model performance (test loss 0.0187)
+  - Alternative: Batch size 512 + LR 0.000001 achieves equivalent performance
+- This represents a 48.7% improvement over the constant baseline model
+- The batch size-learning rate interaction is critical - each batch size requires a specific learning rate
+- AVOID: Batch size 32 with high learning rates (LR >= 0.001) - causes training failure
+- Without batch normalization, lower learning rates generally perform better than previously observed with batch norm
+
+## Make latent dim 1
+
+Increase the complexity of encoder/decoder, but make the latent space 1-dimensional. The idea here
+is that the network is learning to solve the differential equation and project to a time-like
+coordinate.
+
+```bash
+
+bsub -J latent1d -n 12 -gpu "num=1" -q gpu_a100 -o latent1d.log python \
+    src/LatentEvolution/latent.py latent1d \
+    --latent-dims 1 \
+    --training.batch-size 512 \
+    --training.learning-rate 0.00001 \
+    --evolver-params.num-hidden-layers 0
+```
