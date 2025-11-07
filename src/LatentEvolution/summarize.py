@@ -1,3 +1,4 @@
+import argparse
 import glob
 from pathlib import Path
 import polars as pl
@@ -17,12 +18,10 @@ def flatten_dict(
             items.append((new_key, v))
     return dict(items)
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument("expt_code")
-# args = parser.parse_args()
-# expt_code = args.expt_code
-
-expt_code = "latent_dim_sweep"
+parser = argparse.ArgumentParser()
+parser.add_argument("expt_code")
+args = parser.parse_args()
+expt_code = args.expt_code
 
 run_dir_base = Path("/groups/saalfeld/home/kumarv4/repos/NeuralGraph/runs") / expt_code
 assert run_dir_base.exists()

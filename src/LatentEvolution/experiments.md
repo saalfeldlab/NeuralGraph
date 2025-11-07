@@ -250,6 +250,8 @@ All 16 runs completed successfully. The experiment swept 3 parameters across 4 �
 
 ## Assess variance in training
 
+### Batch size 32
+
 Run 5 repeat trainings from different initial conditions to assess reproducibility.
 
 ```bash
@@ -261,75 +263,173 @@ for seed in 1 12 123 1234 12345 ; do \
     done
 ```
 
-### Results (Analyzed 2025-11-06)
+### Batch size 512
 
-All 5 runs completed successfully, but the experiment reveals **critical reproducibility issues** with the current training configuration. Only 2 out of 5 runs converged properly, while 3 runs experienced catastrophic validation loss divergence despite maintaining stable training loss.
+Run 5 repeat trainings from different initial conditions to assess reproducibility.
 
-#### Run Overview
+```bash
 
-| Seed  | Batch Size | Learning Rate | Epochs | Output Directory                               | Status |
-| ----- | ---------- | ------------- | ------ | ---------------------------------------------- | ------ |
-| 1     | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_b51ffffc | ✓      |
-| 12    | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_057cc888 | ✓      |
-| 123   | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_74fd1381 | ✓      |
-| 1234  | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_12502a4a | ✓      |
-| 12345 | 32         | 0.0001        | 10000  | runs/reproducibility/20251106_ab4bb46_b2591dec | ✓      |
+for seed in 1 12 123 1234 12345 ; do \
+    bsub -J "seed${seed}" -n 12 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
+        src/LatentEvolution/latent.py reproducibility_512 \
+        --training.seed $seed
+    done
+```
 
-#### Performance Metrics
+#### Results (Analyzed 2025-11-06)
 
-| Seed  | Train Time (min) | Avg Epoch (s) | GPU Util (%) | GPU Mem (GB) | Train Loss | Val Loss  | Test Loss | Convergence Status |
-| ----- | ---------------- | ------------- | ------------ | ------------ | ---------- | --------- | --------- | ------------------ |
-| 1     | 288.6            | 1.69          | 84.29        | 8.1          | 0.0313     | **0.481** | **1.162** | DIVERGED           |
-| 12    | 289.7            | 1.70          | 84.43        | 8.1          | 0.0314     | 0.027     | 0.029     | **CONVERGED**      |
-| 123   | 289.2            | 1.70          | 84.42        | 8.1          | 0.0317     | 0.026     | 0.031     | **CONVERGED**      |
-| 1234  | 288.6            | 1.69          | 84.78        | 8.1          | 0.0313     | **0.046** | **0.079** | UNSTABLE           |
-| 12345 | 288.6            | 1.69          | 84.49        | 8.1          | 0.0316     | **0.214** | **0.524** | DIVERGED           |
+All 10 runs completed successfully (5 runs per batch size configuration). This experiment assessed reproducibility across different random seeds to understand training variance and stability.
 
-**Baseline**: Constant model achieves test loss of 0.0364
+**Summary from summarize.py:**
 
-#### Key Findings
+**Batch Size 32:**
 
-**Critical Reproducibility Issues:**
+```
+commit_hash='ab4bb46'
+shape: (5, 14)
+┌───────────────┬────────────────────────────┬─────────────────────────────┬─────────────┬─────────────────┬──────────────────┬────────────────┬───────────────────────┬───────────────────┬──────────────────────────┬─────────────────────┬───────────────────────────┬───────────────────────────┬─────────────────────────┐
+│ training.seed ┆ avg_epoch_duration_seconds ┆ avg_gpu_utilization_percent ┆ commit_hash ┆ final_test_loss ┆ final_train_loss ┆ final_val_loss ┆ gpu_type              ┆ max_gpu_memory_mb ┆ test_loss_constant_model ┆ total_gpu_memory_mb ┆ train_loss_constant_model ┆ training_duration_seconds ┆ val_loss_constant_model │
+╞═══════════════╪════════════════════════════╪═════════════════════════════╪═════════════╪═════════════════╪══════════════════╪════════════════╪═══════════════════════╪═══════════════════╪══════════════════════════╪═════════════════════╪═══════════════════════════╪═══════════════════════════╪═════════════════════════╡
+│ 123           ┆ 1.7                        ┆ 84.42                       ┆ ab4bb46     ┆ 0.030967        ┆ 0.031704         ┆ 0.026214       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 17349.98                  ┆ 0.035517                │
+│ 1             ┆ 1.7                        ┆ 84.43                       ┆ ab4bb46     ┆ 0.028949        ┆ 0.031399         ┆ 0.026563       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 17382.49                  ┆ 0.035517                │
+│ 12            ┆ 1.69                       ┆ 84.78                       ┆ ab4bb46     ┆ 0.078762        ┆ 0.031311         ┆ 0.046083       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 17315.36                  ┆ 0.035517                │
+│ 12345         ┆ 1.69                       ┆ 84.49                       ┆ ab4bb46     ┆ 0.523897        ┆ 0.031628         ┆ 0.213628       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 17278.71                  ┆ 0.035517                │
+│ 1234          ┆ 1.69                       ┆ 84.29                       ┆ ab4bb46     ┆ 1.162472        ┆ 0.031344         ┆ 0.480546       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 17278.71                  ┆ 0.035517                │
+└───────────────┴────────────────────────────┴─────────────────────────────┴─────────────┴─────────────────┴──────────────────┴────────────────┴───────────────────────┴───────────────────┴──────────────────────────┴─────────────────────┴───────────────────────────┴───────────────────────────┴─────────────────────────┘
+Sorted by validation loss:  shape: (5, 4)
+┌───────────────┬──────────────────┬────────────────┬─────────────────┐
+│ training.seed ┆ final_train_loss ┆ final_val_loss ┆ final_test_loss │
+╞═══════════════╪══════════════════╪════════════════╪═════════════════╡
+│ 123           ┆ 0.031704         ┆ 0.026214       ┆ 0.030967        │
+│ 1             ┆ 0.031399         ┆ 0.026563       ┆ 0.028949        │
+│ 12            ┆ 0.031311         ┆ 0.046083       ┆ 0.078762        │
+│ 12345         ┆ 0.031628         ┆ 0.213628       ┆ 0.523897        │
+│ 1234          ┆ 0.031344         ┆ 0.480546       ┆ 1.162472        │
+└───────────────┴──────────────────┴────────────────┴─────────────────┘
+```
 
-- **Only 40% success rate**: 2 out of 5 runs (seeds 12, 123) converged properly to achieve test loss ~0.030
-- **60% failure rate**: 3 out of 5 runs (seeds 1, 1234, 12345) diverged with test losses ranging from 0.079 to 1.162 (2.5x to 38x worse than successful runs)
-- **Divergence pattern**: Failed runs show stable training loss (~0.031) throughout, but validation loss explodes in late training
-  - Seed 1: Val loss explodes to 0.48-0.79 in final epochs
-  - Seed 12345: Val loss reaches 10.3 (epoch 9976) with extreme oscillations
-  - Seed 1234: Moderate instability with val loss spikes up to 2.27
-- **Training dynamics**: All runs start identically (train loss ~0.26, val loss ~0.059 at epoch 1) and converge similarly through mid-training, but diverge catastrophically in later epochs for 3 out of 5 seeds
+**Batch Size 512:**
+
+```
+commit_hash='0412ea1'
+shape: (5, 14)
+┌───────────────┬────────────────────────────┬─────────────────────────────┬─────────────┬─────────────────┬──────────────────┬────────────────┬───────────────────────┬───────────────────┬──────────────────────────┬─────────────────────┬───────────────────────────┬───────────────────────────┬─────────────────────────┐
+│ training.seed ┆ avg_epoch_duration_seconds ┆ avg_gpu_utilization_percent ┆ commit_hash ┆ final_test_loss ┆ final_train_loss ┆ final_val_loss ┆ gpu_type              ┆ max_gpu_memory_mb ┆ test_loss_constant_model ┆ total_gpu_memory_mb ┆ train_loss_constant_model ┆ training_duration_seconds ┆ val_loss_constant_model │
+╞═══════════════╪════════════════════════════╪═════════════════════════════╪═════════════╪═════════════════╪══════════════════╪════════════════╪═══════════════════════╪═══════════════════╪══════════════════════════╪═════════════════════╪═══════════════════════════╪═══════════════════════════╪═════════════════────════╡
+│ 12            ┆ 0.26                       ┆ 76.51                       ┆ 0412ea1     ┆ 0.023727        ┆ 0.032033         ┆ 0.024711       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2987.0                    ┆ 0.035517                │
+│ 12345         ┆ 0.26                       ┆ 75.56                       ┆ 0412ea1     ┆ 0.02468         ┆ 0.031975         ┆ 0.025414       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 3013.11                   ┆ 0.035517                │
+│ 1234          ┆ 0.26                       ┆ 75.92                       ┆ 0412ea1     ┆ 0.025359        ┆ 0.032207         ┆ 0.026036       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2990.08                   ┆ 0.035517                │
+│ 123           ┆ 0.26                       ┆ 75.53                       ┆ 0412ea1     ┆ 0.025436        ┆ 0.032124         ┆ 0.026078       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 3011.05                   ┆ 0.035517                │
+│ 1             ┆ 0.26                       ┆ 75.34                       ┆ 0412ea1     ┆ 0.025384        ┆ 0.032204         ┆ 0.026156       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 3019.33                   ┆ 0.035517                │
+└───────────────┴────────────────────────────┴─────────────────────────────┴─────────────┴─────────────────┴──────────────────┴────────────────┴───────────────────────┴───────────────────┴──────────────────────────┴─────────────────────┴───────────────────────────┴───────────────────────────┴─────────────────────────┘
+Sorted by validation loss:  shape: (5, 4)
+┌───────────────┬──────────────────┬────────────────┬─────────────────┐
+│ training.seed ┆ final_train_loss ┆ final_val_loss ┆ final_test_loss │
+╞═══════════════╪══════════════════╪════════════════╪═════════════════╡
+│ 12            ┆ 0.032033         ┆ 0.024711       ┆ 0.023727        │
+│ 12345         ┆ 0.031975         ┆ 0.025414       ┆ 0.02468         │
+│ 1234          ┆ 0.032207         ┆ 0.026036       ┆ 0.025359        │
+│ 123           ┆ 0.032124         ┆ 0.026078       ┆ 0.025436        │
+│ 1             ┆ 0.032204         ┆ 0.026156       ┆ 0.025384        │
+└───────────────┴──────────────────┴────────────────┴─────────────────┘
+```
+
+##### Run Overview - Batch Size 32
+
+| Seed  | Batch Size | Epochs | Output Directory                               | Status |
+| ----- | ---------- | ------ | ---------------------------------------------- | ------ |
+| 1     | 32         | 10000  | runs/reproducibility/20251106_ab4bb46_b51ffffc | ✓      |
+| 12    | 32         | 10000  | runs/reproducibility/20251106_ab4bb46_057cc888 | ✓      |
+| 123   | 32         | 10000  | runs/reproducibility/20251106_ab4bb46_74fd1381 | ✓      |
+| 1234  | 32         | 10000  | runs/reproducibility/20251106_ab4bb46_12502a4a | ✓      |
+| 12345 | 32         | 10000  | runs/reproducibility/20251106_ab4bb46_b2591dec | ✓      |
+
+##### Run Overview - Batch Size 512
+
+| Seed  | Batch Size | Epochs | Output Directory                                   | Status |
+| ----- | ---------- | ------ | -------------------------------------------------- | ------ |
+| 1     | 512        | 10000  | runs/reproducibility_512/20251106_0412ea1_53a3f57d | ✓      |
+| 12    | 512        | 10000  | runs/reproducibility_512/20251106_0412ea1_9372ed04 | ✓      |
+| 123   | 512        | 10000  | runs/reproducibility_512/20251106_0412ea1_e42c3ced | ✓      |
+| 1234  | 512        | 10000  | runs/reproducibility_512/20251106_0412ea1_a427abae | ✓      |
+| 12345 | 512        | 10000  | runs/reproducibility_512/20251106_0412ea1_ab9badd2 | ✓      |
+
+##### Performance Metrics - Batch Size 32
+
+| Seed  | Train Time (min) | Avg Epoch (s) | GPU Util (%) | Train Loss | Val Loss | Test Loss | Test vs Constant | Reproducible? |
+| ----- | ---------------- | ------------- | ------------ | ---------- | -------- | --------- | ---------------- | ------------- |
+| 1     | 289.7            | 1.70          | 84.43        | 0.0314     | 0.0266   | 0.0289    | 20.4% better     | Yes           |
+| 12    | 288.6            | 1.69          | 84.78        | 0.0313     | 0.0461   | 0.0788    | -116.6% worse    | NO            |
+| 123   | 289.2            | 1.70          | 84.42        | 0.0317     | 0.0262   | 0.0310    | 14.8% better     | Yes           |
+| 1234  | 288.0            | 1.69          | 84.29        | 0.0313     | 0.4805   | 1.1625    | -3096% worse     | NO            |
+| 12345 | 288.0            | 1.69          | 84.49        | 0.0316     | 0.2136   | 0.5239    | -1341% worse     | NO            |
+
+**Mean (reproducible runs only, n=2):** Test Loss = 0.0300, Val Loss = 0.0264
+**Failure rate:** 60% (3 out of 5 runs failed to generalize)
+
+##### Performance Metrics - Batch Size 512
+
+| Seed  | Train Time (min) | Avg Epoch (s) | GPU Util (%) | Train Loss | Val Loss | Test Loss | Test vs Constant | Reproducible? |
+| ----- | ---------------- | ------------- | ------------ | ---------- | -------- | --------- | ---------------- | ------------- |
+| 1     | 50.3             | 0.26          | 75.34        | 0.0322     | 0.0262   | 0.0254    | 30.2% better     | Yes           |
+| 12    | 49.8             | 0.26          | 76.51        | 0.0320     | 0.0247   | 0.0237    | 34.7% better     | Yes           |
+| 123   | 50.2             | 0.26          | 75.53        | 0.0321     | 0.0261   | 0.0254    | 30.1% better     | Yes           |
+| 1234  | 49.8             | 0.26          | 75.92        | 0.0322     | 0.0260   | 0.0254    | 30.2% better     | Yes           |
+| 12345 | 50.2             | 0.26          | 75.56        | 0.0320     | 0.0254   | 0.0247    | 32.1% better     | Yes           |
+
+**Mean (all runs, n=5):** Test Loss = 0.0249 ± 0.0007, Val Loss = 0.0257 ± 0.0006
+**Failure rate:** 0% (5 out of 5 runs successful)
+**Coefficient of Variation:** 2.8% (test loss), 2.3% (val loss)
+
+##### Key Findings
+
+**Reproducibility:**
+
+- **Batch size 512 is highly reproducible** with 100% success rate across all 5 seeds
+- **Batch size 32 has catastrophic reproducibility failure** with 60% failure rate (3 out of 5 runs)
+- Failed runs with batch size 32 show severe overfitting: training loss converges normally (0.031) but validation/test losses diverge wildly (up to 40x worse than baseline)
+- Successful batch size 32 runs achieve comparable or slightly better performance than batch size 512
+
+**Training Stability:**
+
+- Validation loss variance in final 100 epochs reveals severe instability with batch size 32:
+  - Batch size 32: std = 0.110, range = [0.030, 0.790]
+  - Batch size 512: std = 0.000161, range = [0.026, 0.027]
+  - **Variance ratio: 686x more variance with batch size 32**
+- Training loss converges consistently for both batch sizes, but generalization is unstable with small batches
+
+**Model Performance:**
+
+- When batch size 32 succeeds, it achieves test loss ~0.030 (17.3% better than constant baseline)
+- Batch size 512 consistently achieves test loss 0.0249 ± 0.0007 (31.5% better than constant baseline)
+- Given the high failure rate, batch size 512 is the more reliable choice for achieving good performance
 
 **Compute Performance:**
 
-- Training time is highly consistent across all seeds: 288-290 minutes for 10k epochs
-- GPU utilization and memory usage are identical regardless of convergence outcome
-- Performance metrics provide no early warning of impending divergence
+- Batch size 512 is 5.8x faster (50 min vs 289 min for 10k epochs)
+- GPU utilization is higher with batch size 32 (84% vs 76%) but this does not translate to faster training
+- Memory usage is identical (8.1 GB) for both configurations
 
-**Model Performance (successful runs only):**
+##### Recommendations
 
-- When training succeeds (seeds 12, 123), the model achieves 15-20% improvement over constant baseline
-- Test loss of 0.029-0.031 for successful runs vs 0.0364 for constant model
-- However, the 60% failure rate makes this configuration unreliable for production use
+- **CRITICAL: Do not use batch size 32 for production training** - the 60% failure rate makes it unreliable despite occasional good results
+- **Use batch size 512 as default** - it provides consistent, reproducible results with 0% failure rate
+- The reproducibility failure with batch size 32 appears to be a fundamental training instability issue, not just random variation
+- Consider investigating the root cause of batch size 32 instability - it may reveal important insights about the model architecture or data characteristics
+- For future experiments, always run multiple seeds to detect reproducibility issues before drawing conclusions
 
-#### Analysis
+## Assess impact of normalization
 
-The catastrophic failure mode observed in 3 out of 5 runs represents a **severe overfitting collapse** in late training:
+I had (unintentionally) used batch normalization. Let's experiment turning it on/off.
 
-1. **Stable training loss**: All runs maintain train loss ~0.031, indicating the model continues to fit the training data
-2. **Exploding validation loss**: Failed runs show validation loss suddenly diverging by 1-2 orders of magnitude
-3. **Late-stage collapse**: Divergence occurs after ~9000+ epochs, when training appears stable
-4. **Seed-dependent**: The failure is deterministic for each seed but unpredictable across seeds
+```bash
 
-This is consistent with the model learning training-specific artifacts that generalize catastrophically poorly. The small batch size (32) combined with long training (10k epochs) may allow the model to memorize training examples rather than learning robust features.
-
-#### Recommendations
-
-**CRITICAL**: The current configuration (batch size 32, LR 0.0001, 10k epochs) is **not suitable for production** due to 60% failure rate.
-
-Recommended next steps:
-
-1. **Increase batch size**: Test batch sizes 128-512 to reduce overfitting (previous experiments showed batch size 512 achieved good results with latent dim sweep)
-2. **Reduce training duration**: Try 5000 epochs instead of 10000 to avoid late-stage collapse
-3. **Add early stopping**: Implement validation-based early stopping to detect divergence before catastrophic failure
-4. **Add regularization**: Consider weight decay, dropout, or gradient clipping to improve generalization
-5. **Validate with multiple seeds**: Always run 3+ seeds to detect reproducibility issues before trusting results
+bn_flags=("use-batch-norm" "no-use-batch-norm")
+for use_bn in "${bn_flags}[@]"
+do
+    bsub -J $bn_flags -n 12 \
+        -gpu "num=1" -q gpu_a100 -o ${use_bn}.log python \
+        src/LatentEvolution/latent.py use_batch_norm \
+        --training.${use_bn}
+done
+```
