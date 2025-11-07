@@ -150,6 +150,9 @@ class NeuralSpaceTimeModel:
         return fixed_scene
 
 def train_model(num_training_steps=3000):
+    # For video: store fixed scene frames at intervals
+    video_frames = []
+    video_interval = max(1, num_training_steps // 100)  # Save 100 frames over training
     """Train the neural space-time model and visualize results"""
     # Load image
     print("Loading image...")
@@ -275,58 +278,35 @@ def train_model(num_training_steps=3000):
         # Save checkpoints and visualize
         if (step+1) % 300 == 0 or step == 0 or step == num_training_steps-1:  # Show progress every 300 steps
             print(f"Step {step+1}, Loss: {loss.item():.6f}")
-            
-            # Create visualization
+            # ...existing visualization code...
             with torch.no_grad():
-                # Get image at t=0
-                img_t0 = model.get_image_at_time(0.0)
-                
-                # Get image at t=1
-                img_t1 = model.get_image_at_time(1.0)
-                
-                # Get motion field
-                motion_x, motion_y = model.get_motion_field_at_time(0.0, scale=5.0)
-                
-                # Get fixed scene
                 fixed_scene = model.get_fixed_scene()
-            
-            # Create visualization
-            plt.figure(figsize=(16, 12))
-            
-            plt.subplot(2, 2, 1)
-            plt.imshow(scaled_original, cmap='gray')
-            plt.title('Original Image')
-            
-            plt.subplot(2, 2, 2)
-            plt.imshow(img_t0, cmap='gray')
-            curr_psnr = psnr(scaled_original, img_t0)
-            plt.title(f'Reconstructed (t=0)\nPSNR: {curr_psnr:.2f} dB')
-            
-            plt.subplot(2, 2, 3)
-            plt.imshow(fixed_scene, cmap='gray')
-            fixed_psnr = psnr(scaled_original, fixed_scene)
-            plt.title(f'Fixed Scene\nPSNR: {fixed_psnr:.2f} dB')
-            
-            plt.subplot(2, 2, 4)
-            plt.imshow(img_t0, cmap='gray')
-            
-            # Create motion field visualization grid
-            y_vis, x_vis = np.meshgrid(
-                np.linspace(0, 1, res),
-                np.linspace(0, 1, res),
-                indexing='ij'
-            )
-            
-            # Skip some vectors for clarity
-            step_size = max(1, res // 16)
-            plt.quiver(x_vis[::step_size, ::step_size], y_vis[::step_size, ::step_size],
-                      motion_x[::step_size, ::step_size], motion_y[::step_size, ::step_size],
-                      color='r', scale=25)
-            plt.title('Motion Field (t=0)')
-            
-            plt.tight_layout()
-            plt.savefig(f'{output_dir}/progress_step_{step+1:04d}.png')
-            plt.close()
+            # Save frame for video at regular intervals
+            if (step+1) % video_interval == 0 or step == 0 or step == num_training_steps-1:
+                fig, ax = plt.subplots(figsize=(6, 6))
+                im = ax.imshow(fixed_scene, cmap='gray', vmin=0, vmax=1)
+                ax.set_title(f'Fixed Scene\nStep {step+1}')
+                ax.axis('off')
+                fig.tight_layout()
+                fig.canvas.draw()
+        fig.canvas.draw()
+        rgba_buffer = np.asarray(fig.canvas.buffer_rgba())
+        frame = rgba_buffer[..., :3]
+        video_frames.append(frame)
+        plt.close(fig)
+    # After training, save video
+    import imageio.v2 as imageio
+    video_path = f'{output_dir}/fixed_scene_progress.mp4'
+    if video_frames:
+        print(f"Saving video to: {video_path}")
+        ext = video_path.lower().split('.')[-1]
+        if ext in ('mp4', 'gif'):
+            imageio.mimsave(video_path, video_frames, fps=10)
+        else:
+            imageio.mimsave(video_path, video_frames)
+        print(f"Fixed scene progress video saved: {video_path}")
+    else:
+        print("No video frames were generated for fixed scene progress.")
     
     # Plot loss history
     plt.figure(figsize=(8, 6))
@@ -507,18 +487,18 @@ def main():
     try:
         # Train the model
         model, original_image, motion_frames, res = train_model(num_training_steps=3000)
-        
+
         # Save fixed scene to TIFF
         fixed_scene = model.get_fixed_scene()
         tiff.imwrite(f'{output_dir}/fixed_scene.tif', fixed_scene)
-        
+
         # Create quad-panel video with motion field visualization and fixed scene
         video_path = create_quad_panel_video(model, original_image, motion_frames, res, num_frames=90)
-        
         print("All processing completed successfully!")
         print(f"Video saved to: {video_path}")
         print(f"Fixed scene saved to: {output_dir}/fixed_scene.tif")
-        
+        print(f"Fixed scene progress video saved to: {output_dir}/fixed_scene_progress.mp4")
+
     except Exception as e:
         print(f"Error: {e}")
         import traceback
