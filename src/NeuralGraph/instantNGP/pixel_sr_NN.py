@@ -12,11 +12,23 @@ def plot_comparison_panel(target_hr, input_sr, bicubic_up, classical_sr, neural_
     plt.imshow(input_sr, cmap='gray')
     plt.title('Low-Resolution')
     plt.axis('off')
-    # Panel 3: Bicubic Upsampling
-    plt.subplot(2, 3, 3)
-    plt.imshow(bicubic_up, cmap='gray')
-    plt.title('Bicubic Upsampling')
-    plt.axis('off')
+    # Panel 3: Bilinear Upsampling (upsample low-res by x4 and show PSNR)
+    ax3 = plt.subplot(2, 3, 3)
+    # Compute PSNR between bilinear upsample and target_hr
+    try:
+        # Ensure both arrays are float32 and same shape
+        arr_hr = np.asarray(target_hr, dtype=np.float32)
+        arr_bilinear = np.asarray(bicubic_up, dtype=np.float32)
+        if arr_hr.shape == arr_bilinear.shape:
+            psnr_bilinear = psnr(arr_hr, arr_bilinear)
+            title_bilinear = f'Bilinear Upsampling\nPSNR: {psnr_bilinear:.2f} dB'
+        else:
+            title_bilinear = 'Bilinear Upsampling\nPSNR: N/A'
+    except Exception:
+        title_bilinear = 'Bilinear Upsampling\nPSNR: N/A'
+    ax3.imshow(arr_bilinear, cmap='gray')
+    ax3.set_title(title_bilinear)
+    ax3.axis('off')
     # Panel 4: Classical Pixel SR
     plt.subplot(2, 3, 4)
     plt.imshow(classical_sr, cmap='gray')
@@ -241,13 +253,13 @@ def neural_sr_refinement(classical_sr_result, original_hr, downscale_factor=4, d
         if (epoch + 1) % 20 == 0 or epoch == num_epochs - 1:
             with torch.no_grad():
                 current_refined = model(input_sr)
-            bicubic_up = torch.nn.functional.interpolate(
-                input_sr, scale_factor=downscale_factor, mode='bicubic'
+            bilinear_up = torch.nn.functional.interpolate(
+                input_sr, scale_factor=downscale_factor, mode='bilinear'
             ).squeeze().cpu().numpy()
             fig = plot_comparison_panel(
                 target_hr.squeeze().cpu().numpy(),
                 input_sr.squeeze().cpu().numpy(),
-                bicubic_up,
+                bilinear_up,
                 input_sr.squeeze().cpu().numpy(),  # classical_sr placeholder
                 current_refined.squeeze().cpu().numpy(),
                 loss_history,
@@ -367,7 +379,7 @@ def main():
     single_lr_upscaled = torch.nn.functional.interpolate(
         single_lr.unsqueeze(0).unsqueeze(0), 
         scale_factor=downscale_factor, 
-        mode='bicubic'
+        mode='bilinear'
     ).squeeze()
     
     # Apply classical pixel super-resolution
@@ -401,27 +413,27 @@ def main():
     
     # Calculate metrics
     data_range = 1.0  # Images are normalized to [0,1]
-    psnr_bicubic = psnr(hr_image.numpy(), single_lr_upscaled.numpy())
+    psnr_bilinear = psnr(hr_image.numpy(), single_lr_upscaled.numpy())
     psnr_classical = psnr(hr_image.numpy(), classical_sr_result.numpy())
-    ssim_bicubic = ssim(hr_image.numpy(), single_lr_upscaled.numpy(), data_range=data_range)
+    ssim_bilinear = ssim(hr_image.numpy(), single_lr_upscaled.numpy(), data_range=data_range)
     ssim_classical = ssim(hr_image.numpy(), classical_sr_result.numpy(), data_range=data_range)
     ssim_neural = ssim(hr_image.numpy(), neural_sr_result.numpy(), data_range=data_range)
     
     # Print metrics
     print("\nMetrics vs. ground truth:")
-    print(f"Bicubic upscaling - PSNR: {psnr_bicubic:.2f} dB, SSIM: {ssim_bicubic:.4f}")
+    print(f"Bilinear upscaling - PSNR: {psnr_bilinear:.2f} dB, SSIM: {ssim_bilinear:.4f}")
     print(f"Classical SR - PSNR: {psnr_classical:.2f} dB, SSIM: {ssim_classical:.4f}")
     print(f"Neural SR - PSNR: {neural_psnr:.2f} dB, SSIM: {ssim_neural:.4f}")
     print(f"Improvement over Classical - PSNR: {neural_psnr - psnr_classical:.2f} dB, SSIM: {ssim_neural - ssim_classical:.4f}")
     
     # Create visualization images - Extended comparison using the refactored function
-    bicubic_up = torch.nn.functional.interpolate(
-        single_lr.unsqueeze(0).unsqueeze(0), scale_factor=downscale_factor, mode='bicubic'
+    bilinear_up = torch.nn.functional.interpolate(
+        single_lr.unsqueeze(0).unsqueeze(0), scale_factor=downscale_factor, mode='bilinear'
     ).squeeze().cpu().numpy()
     fig = plot_comparison_panel(
         hr_image.cpu().numpy(),
         single_lr.cpu().numpy(),
-        bicubic_up,
+        bilinear_up,
         classical_sr_result.cpu().numpy(),
         neural_sr_result.cpu().numpy(),
         loss_history,
@@ -432,94 +444,41 @@ def main():
     fig.savefig(f'{output_dir}/neural_sr_comparison.png', dpi=300)
     plt.close(fig)
     
-    # Save zoomed comparison of a detail region
-    # Find a good region with details (e.g., around the mast of the boat)
+    # Save zoomed comparison of a detail region using the same template as sr_comparison
     region_y, region_x = 100, 150  # Adjust this based on your image
     region_size = 64
+
+    # Crop detail regions for each method, ensuring low-res is shown and no black panel
+    hr_detail = hr_image[region_y:region_y+region_size, region_x:region_x+region_size].cpu().numpy()
+    # For low-res, crop from the original HR then downsample to match detail size
+    lr_detail_full = hr_image[region_y:region_y+region_size, region_x:region_x+region_size].unsqueeze(0).unsqueeze(0)
+    lr_detail = torch.nn.functional.interpolate(lr_detail_full, scale_factor=1/downscale_factor, mode='bilinear').squeeze().cpu().numpy()
+    # For upsampled, classical, neural, crop as before
+    bilinear_detail = single_lr_upscaled.cpu().numpy()[region_y:region_y+region_size, region_x:region_x+region_size]
+    classical_detail = classical_sr_result.cpu().numpy()[region_y:region_y+region_size, region_x:region_x+region_size]
+    neural_detail = neural_sr_result.cpu().numpy()[region_y:region_y+region_size, region_x:region_x+region_size]
+
+    # Use the same panel logic for both PNG and MP4
+    fig_detail = plot_comparison_panel(
+        hr_detail,
+        lr_detail,
+        bilinear_detail,
+        classical_detail,
+        neural_detail,
+        loss_history,
+        psnr_history,
+        epoch=None,
+        dark_style=True
+    )
+    fig_detail.savefig(f'{output_dir}/neural_sr_detail_comparison.png', dpi=300)
+    plt.close(fig_detail)
     
-    plt.figure(figsize=(15, 15))
-    
-    # First row - originals
-    plt.subplot(3, 2, 1)
-    plt.imshow(hr_image, cmap='gray')
-    plt.title('Original HR (Full Image)')
-    plt.gca().add_patch(plt.Rectangle((region_x, region_y), region_size, region_size, 
-                                     edgecolor='red', facecolor='none', linewidth=2))
-    
-    plt.subplot(3, 2, 2)
-    plt.imshow(hr_image[region_y:region_y+region_size, region_x:region_x+region_size], cmap='gray')
-    plt.title('Original HR (Detail)')
-    
-    # Second row - comparison methods
-    plt.subplot(3, 2, 3)
-    plt.imshow(single_lr_upscaled[region_y:region_y+region_size, region_x:region_x+region_size], cmap='gray')
-    plt.title(f'Bicubic Upscaling (Detail)\nPSNR: {psnr_bicubic:.2f} dB')
-    
-    plt.subplot(3, 2, 4)
-    plt.imshow(classical_sr_result[region_y:region_y+region_size, region_x:region_x+region_size], cmap='gray')
-    plt.title(f'Classical SR (Detail)\nPSNR: {psnr_classical:.2f} dB')
-    
-    # Third row - our method and error map
-    plt.subplot(3, 2, 5)
-    plt.imshow(neural_sr_result[region_y:region_y+region_size, region_x:region_x+region_size], cmap='gray')
-    plt.title(f'Neural SR (Detail)\nPSNR: {neural_psnr:.2f} dB')
-    
-    plt.subplot(3, 2, 6)
-    error_detail = np.abs(hr_image[region_y:region_y+region_size, region_x:region_x+region_size].numpy() - 
-                         neural_sr_result[region_y:region_y+region_size, region_x:region_x+region_size].numpy())
-    plt.imshow(error_detail, cmap='hot', vmax=0.1)
-    plt.colorbar()
-    plt.title('Neural SR Error (Detail)')
-    
-    plt.tight_layout()
-    plt.savefig(f'{output_dir}/neural_sr_detail_comparison.png', dpi=300)
-    
-    # Create horizontal strip comparison
-    strip_y = 128  # Adjust this for a good horizontal slice
-    strip_height = 32
-    
-    plt.figure(figsize=(16, 10))
-    
-    # Original HR
-    plt.subplot(5, 1, 1)
-    plt.imshow(hr_image[strip_y:strip_y+strip_height, :], cmap='gray')
-    plt.title('Original HR')
-    plt.axis('off')
-    
-    # Low-res upscaled
-    plt.subplot(5, 1, 2)
-    plt.imshow(single_lr_upscaled[strip_y:strip_y+strip_height, :], cmap='gray')
-    plt.title(f'Bicubic Upsampling (PSNR: {psnr_bicubic:.2f} dB)')
-    plt.axis('off')
-    
-    # Classical SR
-    plt.subplot(5, 1, 3)
-    plt.imshow(classical_sr_result[strip_y:strip_y+strip_height, :], cmap='gray')
-    plt.title(f'Classical SR (PSNR: {psnr_classical:.2f} dB)')
-    plt.axis('off')
-    
-    # Neural SR
-    plt.subplot(5, 1, 4)
-    plt.imshow(neural_sr_result[strip_y:strip_y+strip_height, :], cmap='gray')
-    plt.title(f'Neural SR (PSNR: {neural_psnr:.2f} dB)')
-    plt.axis('off')
-    
-    # Error map
-    plt.subplot(5, 1, 5)
-    strip_error = np.abs(hr_image[strip_y:strip_y+strip_height, :].numpy() - 
-                        neural_sr_result[strip_y:strip_y+strip_height, :].numpy())
-    plt.imshow(strip_error, cmap='hot', vmax=0.1)
-    plt.colorbar()
-    plt.title('Neural SR Error Map')
-    plt.axis('off')
-    
-    plt.tight_layout()
-    plt.savefig(f'{output_dir}/neural_sr_strip_comparison.png', dpi=300)
     
     # Save all results for further analysis
     tiff.imwrite(f'{output_dir}/neural_sr_result.tif', neural_sr_result.numpy())
     
     print(f"All comparison images saved to '{output_dir}'")
+
 
 if __name__ == "__main__":
     main()

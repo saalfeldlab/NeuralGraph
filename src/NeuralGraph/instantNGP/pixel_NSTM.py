@@ -19,7 +19,7 @@ DEVICE = torch.device("cuda:0")
 DTYPE = torch.float16  # Critical: Use half precision consistently
 
 # Create output directory
-output_dir = 'nst_outputs'
+output_dir = 'NSTM_outputs'
 os.makedirs(output_dir, exist_ok=True)
 
 def generate_motion_frames(image, num_frames=16, motion_intensity=0.015):
@@ -291,6 +291,13 @@ def train_model(num_training_steps=3000):
         fig.canvas.draw()
         rgba_buffer = np.asarray(fig.canvas.buffer_rgba())
         frame = rgba_buffer[..., :3]
+        # Compute PSNR for this frame (assuming scaled_original and scaled_images are available)
+        if 'scaled_original' in locals() and 'scaled_images' in locals():
+            # Use the current frame index to get the corresponding image
+            frame_idx = len(video_frames)
+            if frame_idx < len(scaled_images):
+                frame_psnr = psnr(scaled_original, scaled_images[frame_idx])
+                print(f"Frame {frame_idx}: PSNR = {frame_psnr:.2f} dB")
         video_frames.append(frame)
         plt.close(fig)
     # After training, save video
@@ -299,8 +306,12 @@ def train_model(num_training_steps=3000):
     if video_frames:
         print(f"Saving video to: {video_path}")
         ext = video_path.lower().split('.')[-1]
+        # Increase FPS for faster playback
         if ext in ('mp4', 'gif'):
-            imageio.mimsave(video_path, video_frames, fps=10)
+            # Set FPS so video duration is 10 seconds
+            target_duration = 10.0
+            fps = max(1, int(len(video_frames) / target_duration))
+            imageio.mimsave(video_path, video_frames, fps=fps)
         else:
             imageio.mimsave(video_path, video_frames)
         print(f"Fixed scene progress video saved: {video_path}")
@@ -438,7 +449,7 @@ def create_quad_panel_video(model, original_image, motion_frames, res, num_frame
         cv2.imwrite(f"{temp_dir}/frame_{i:04d}.png", combined)
 
     # Create video with ffmpeg
-    video_path = f'{output_dir}/neural_field_comparison.mp4'
+    video_path = f'{output_dir}/neural_field_motion.mp4'
     fps = 30
 
     print("Creating video from frames...")
