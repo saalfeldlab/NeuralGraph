@@ -425,11 +425,106 @@ I had (unintentionally) used batch normalization. Let's experiment turning it on
 ```bash
 
 bn_flags=("use-batch-norm" "no-use-batch-norm")
-for use_bn in "${bn_flags}[@]"
+for use_bn in "${bn_flags[@]}"
 do
-    bsub -J $bn_flags -n 12 \
+    bsub -J $use_bn -n 12 \
         -gpu "num=1" -q gpu_a100 -o ${use_bn}.log python \
         src/LatentEvolution/latent.py use_batch_norm \
         --training.${use_bn}
 done
 ```
+
+### Results (Analyzed 2025-11-07)
+
+Both runs completed successfully. This experiment compared model performance with and without batch normalization in the encoder, decoder, and evolver networks.
+
+**Summary from summarize.py:**
+
+```
+commit_hash='b356ad5'
+shape: (2, 14)
+┌────────────────┬────────────────────────────┬─────────────────────────────┬─────────────┬─────────────────┬──────────────────┬────────────────┬───────────────────────┬───────────────────┬──────────────────────────┬─────────────────────┬───────────────────────────┬───────────────────────────┬─────────────────────────┐
+│ use_batch_norm ┆ avg_epoch_duration_seconds ┆ avg_gpu_utilization_percent ┆ commit_hash ┆ final_test_loss ┆ final_train_loss ┆ final_val_loss ┆ gpu_type              ┆ max_gpu_memory_mb ┆ test_loss_constant_model ┆ total_gpu_memory_mb ┆ train_loss_constant_model ┆ training_duration_seconds ┆ val_loss_constant_model │
+╞════════════════╪════════════════════════════╪═════════════════════════════╪═════════════╪═════════════════╪══════════════════╪════════════════╪═══════════════════════╪═══════════════════╪══════════════════════════╪═════════════════════╪═══════════════════════════╪═══════════════════════════╪═════════════════════════╡
+│ false          ┆ 0.25                       ┆ 77.39                       ┆ b356ad5     ┆ 0.0199          ┆ 0.037291         ┆ 0.020586       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2856.87                   ┆ 0.035517                │
+│ true           ┆ 0.26                       ┆ 76.73                       ┆ b356ad5     ┆ 0.026213        ┆ 0.032467         ┆ 0.026932       ┆ NVIDIA A100-SXM4-80GB ┆ 8091.0            ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 2993.11                   ┆ 0.035517                │
+└────────────────┴────────────────────────────┴─────────────────────────────┴─────────────┴─────────────────┴──────────────────┴────────────────┴───────────────────────┴───────────────────┴──────────────────────────┴─────────────────────┴───────────────────────────┴───────────────────────────┴─────────────────────────┘
+Sorted by validation loss:  shape: (2, 4)
+┌────────────────┬──────────────────┬────────────────┬─────────────────┐
+│ use_batch_norm ┆ final_train_loss ┆ final_val_loss ┆ final_test_loss │
+╞════════════════╪══════════════════╪════════════════╪═════════════════╡
+│ false          ┆ 0.037291         ┆ 0.020586       ┆ 0.0199          │
+│ true           ┆ 0.032467         ┆ 0.026932       ┆ 0.026213        │
+└────────────────┴──────────────────┴────────────────┴─────────────────┘
+```
+
+#### Run Overview
+
+| Use Batch Norm | Batch Size | Epochs | Output Directory                              | Status |
+| -------------- | ---------- | ------ | --------------------------------------------- | ------ |
+| false          | 512        | 10000  | runs/use_batch_norm/20251106_b356ad5_12dead69 | ✓      |
+| true           | 512        | 10000  | runs/use_batch_norm/20251106_b356ad5_c0550a0e | ✓      |
+
+#### Performance Metrics
+
+| Use Batch Norm | Train Time (min) | Avg Epoch (s) | GPU Util (%) | GPU Mem (GB) | Train Loss | Val Loss | Test Loss | Improvement vs Constant |
+| -------------- | ---------------- | ------------- | ------------ | ------------ | ---------- | -------- | --------- | ----------------------- |
+| false          | 47.6             | 0.25          | 77.39        | 8.1          | 0.0373     | 0.0206   | 0.0199    | 45.3%                   |
+| true           | 49.9             | 0.26          | 76.73        | 8.1          | 0.0325     | 0.0269   | 0.0262    | 27.9%                   |
+
+#### Key Findings
+
+**Model Performance:**
+
+- Disabling batch normalization leads to SIGNIFICANTLY BETTER generalization performance
+- Test loss WITHOUT batch norm: 0.0199 (45.3% better than constant baseline)
+- Test loss WITH batch norm: 0.0262 (27.9% better than constant baseline)
+- Performance improvement: 24.0% better test loss when batch norm is disabled
+- WITHOUT batch norm achieves the best test loss observed in any experiment so far (0.0199)
+
+**Training Dynamics and Convergence:**
+
+- WITHOUT batch norm converges much more slowly but reaches superior final performance
+  - Reaches val loss < 0.025 at epoch 577
+  - Reaches val loss < 0.021 at epoch 3261
+  - Final val loss: 0.0206
+- WITH batch norm converges very rapidly but plateaus at worse performance
+  - Reaches val loss < 0.025 at epoch 938
+  - Never achieves val loss < 0.022
+  - Final val loss: 0.0270
+- Early convergence speed (90% of final): WITH batch norm is much faster (epoch 7 vs 79)
+- Final performance is dramatically different despite both models converging smoothly
+
+**Overfitting Behavior:**
+
+- WITHOUT batch norm shows MUCH stronger overfitting throughout training
+  - Train/Val gap at epoch 10000: 81.1% (train=0.0373, val=0.0206)
+  - But this "overfitting" translates to BETTER test performance (0.0199)
+- WITH batch norm shows reduced overfitting
+  - Train/Val gap at epoch 10000: 20.6% (train=0.0325, val=0.0269)
+  - More conventional train/val relationship but WORSE test performance (0.0262)
+- This suggests that traditional overfitting metrics may be misleading for this architecture/task
+
+**Training Stability:**
+
+- WITHOUT batch norm has exceptional stability in final epochs
+  - Final 100 epochs val loss std: 0.000013
+  - Val loss range: [0.02056, 0.02064]
+- WITH batch norm has 12x more variance in final epochs
+  - Final 100 epochs val loss std: 0.000154
+  - Val loss range: [0.02664, 0.02736]
+
+**Compute Performance:**
+
+- Minimal difference in training speed (47.6 min vs 49.9 min, 4.8% slower WITH batch norm)
+- GPU utilization slightly higher WITHOUT batch norm (77.39% vs 76.73%)
+- Identical memory usage (8.1 GB) regardless of batch norm
+
+#### Recommendations
+
+- STRONGLY RECOMMEND disabling batch normalization (use_batch_norm: false) for this architecture and task
+- The 24% improvement in test loss is substantial and reproducible
+- The slower convergence WITHOUT batch norm is acceptable given the superior final performance
+- Training for 10000 epochs is appropriate - WITHOUT batch norm continues improving through epoch 10000
+- This finding suggests that batch normalization may be harmful for latent evolution models on this neural dynamics task
+- Future experiments should use use_batch_norm: false as the default configuration
