@@ -2,7 +2,6 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import tifffile as tiff
-from skimage.metrics import peak_signal_noise_ratio as psnr
 import os
 from tqdm import trange
 import tinycudann as tcnn

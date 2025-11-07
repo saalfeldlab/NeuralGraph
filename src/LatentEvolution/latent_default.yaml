@@ -17,6 +17,12 @@ evolver_params:
   num_hidden_layers: 3 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
 
+stimulus_encoder_params:
+  num_input_dims: 1736
+  num_hidden_layers: 3
+  num_hidden_units: 64
+  num_output_dims: 64
+
 training:
   simulation_config: "fly_N9_62_1"
   epochs: 10000 # Total number of epochs
