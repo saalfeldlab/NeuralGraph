@@ -34,7 +34,7 @@ class MLPParams(BaseModel):
     num_hidden_layers: int
     num_hidden_units: int
     activation: str = Field("ReLU", description="Activation function from torch.nn")
-
+    use_batch_norm: bool = True
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("activation")
@@ -120,6 +120,7 @@ class TrainingConfig(BaseModel):
 class ModelParams(BaseModel):
     latent_dims: int
     num_neurons: int
+    use_batch_norm: bool = True
     encoder_params: EncoderParams
     decoder_params: DecoderParams
     evolver_params: EvolverParams
@@ -141,7 +142,8 @@ class MLP(nn.Module):
 
         for _ in range(params.num_hidden_layers):
             self.layers.append(nn.Linear(input_dims, params.num_hidden_units))
-            self.layers.append(nn.BatchNorm1d(params.num_hidden_units))
+            if params.use_batch_norm:
+                self.layers.append(nn.BatchNorm1d(params.num_hidden_units))
             self.layers.append(getattr(nn, params.activation)())
             input_dims = params.num_hidden_units
 
@@ -168,6 +170,7 @@ class Evolver(nn.Module):
                 num_hidden_layers=params.evolver_params.num_hidden_layers,
                 num_hidden_units=params.evolver_params.num_hidden_units,
                 num_output_dims=params.latent_dims,
+                use_batch_norm=params.use_batch_norm,
             )
         )
 
@@ -186,6 +189,7 @@ class LatentModel(nn.Module):
                 num_hidden_layers=params.encoder_params.num_hidden_layers,
                 num_hidden_units=params.encoder_params.num_hidden_units,
                 num_output_dims=params.latent_dims,
+                use_batch_norm=params.use_batch_norm,
             )
         )
         self.decoder = MLP(
@@ -194,6 +198,7 @@ class LatentModel(nn.Module):
                 num_hidden_layers=params.decoder_params.num_hidden_layers,
                 num_hidden_units=params.decoder_params.num_hidden_units,
                 num_output_dims=params.num_neurons,
+                use_batch_norm=params.use_batch_norm,
             )
         )
         self.evolver = Evolver(params)
