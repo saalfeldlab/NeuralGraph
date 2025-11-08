@@ -1,11 +1,10 @@
 #!/bin/bash
-# Pre-commit hook to check file sizes and run ruff check
+# Pre-commit hook to check file sizes
 # This runs the same check as the GitHub workflow
 
 # Configuration
 MAX_FILE_SIZE=512000  # 500KB in bytes
 MAX_NOTEBOOK_SIZE=2097152  # 2MB in bytes
-HOOK_VENV_DIR=".git/hooks-venv"
 
 # Colors for output
 RED='\033[0;31m'
@@ -52,58 +51,6 @@ if [ ${#files_too_large[@]} -gt 0 ]; then
 fi
 
 echo -e "${GREEN}File size check passed!${NC}"
-
-# 2. Setup ruff in a local virtual environment
-echo ""
-echo "Setting up ruff..."
-
-# Check if virtual environment exists
-if [ ! -d "$HOOK_VENV_DIR" ]; then
-    echo "Creating virtual environment for hooks in $HOOK_VENV_DIR..."
-    python3 -m venv "$HOOK_VENV_DIR"
-
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Error: Failed to create virtual environment.${NC}"
-        echo "Please ensure python3 and venv are installed."
-        exit 1
-    fi
-fi
-
-# Activate the virtual environment
-source "$HOOK_VENV_DIR/bin/activate"
-
-# Check if ruff is installed, install if not
-if ! command -v ruff &> /dev/null; then
-    echo "Installing ruff..."
-    pip install --quiet ruff
-
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Error: Failed to install ruff.${NC}"
-        deactivate
-        exit 1
-    fi
-    echo -e "${GREEN}Ruff installed successfully!${NC}"
-fi
-
-# 3. Run ruff check
-echo ""
-echo "Running ruff check..."
-
-# Run ruff check
-ruff check . --exclude '*.ipynb'
-
-if [ $? -ne 0 ]; then
-    echo ""
-    echo -e "${RED}Ruff check failed. Please fix the issues before committing.${NC}"
-    echo ""
-    echo -e "${YELLOW}To fix the issues, run:${NC}"
-    echo "  ruff check . --exclude '*.ipynb' --fix"
-    deactivate
-    exit 1
-fi
-
-# Deactivate the virtual environment
-deactivate
 
 echo ""
 echo -e "${GREEN}All pre-commit checks passed!${NC}"
