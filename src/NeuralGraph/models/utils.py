@@ -473,8 +473,8 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
     plt.close()
 
     if config.simulation.n_excitatory_neurons > 0:
-        gt_weight = gt_weight[-1,:]
-        pred_weight = pred_weight[-1,:]
+        gt_weight = gt_weight[:,-1]
+        pred_weight = pred_weight[:,-1]
 
         fig = plt.figure(figsize=(8, 8))
         fig, ax = fig_init()
