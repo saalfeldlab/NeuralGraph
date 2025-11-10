@@ -1,7 +1,10 @@
 import torch
 import torch.nn as nn
 import torch_geometric as pyg
+import numpy as np
 from NeuralGraph.models.MLP import MLP
+from NeuralGraph.models.Siren_Network import Siren
+
 
 class Signal_Propagation(pyg.nn.MessagePassing):
     """Interaction Network as proposed in this paper:
@@ -81,6 +84,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
                             hidden_size=self.hidden_dim_update, activation=self.MLP_activation, device=self.device)
 
         if 'excitation' in self.update_type:
+
             self.lin_exc = MLP(input_size=self.input_size_excitation, output_size= 1, nlayers=self.n_layers_excitation, hidden_size=self.hidden_dim_excitation, activation=self.MLP_activation, device=self.device)
 
         if self.embedding_trial:
@@ -109,7 +113,17 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.mask.fill_diagonal_(0)
 
         if self.n_excitatory_neurons > 0:
-            self.excitation = nn.Parameter(torch.ones((self.n_frames, int(self.n_excitatory_neurons)), device=self.device, requires_grad=True,dtype=torch.float32))
+
+            # self.excitation = nn.Parameter(torch.ones((self.n_frames, int(self.n_excitatory_neurons)), device=self.device, requires_grad=True,dtype=torch.float32))
+
+            self.NNR_f = Siren(in_features=model_config.input_size_nnr_f, out_features=model_config.output_size_nnr_f,
+                hidden_features=model_config.hidden_dim_nnr_f,
+                hidden_layers=model_config.n_layers_nnr_f, first_omega_0=model_config.omega_f,
+                hidden_omega_0=model_config.omega_f,
+                outermost_linear=model_config.outermost_linear_nnr_f)
+            self.NNR_f.to(self.device)
+
+            self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
 
     def get_interp_a(self, k, particle_id):
 
@@ -117,6 +131,17 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         alpha = (k % self.embedding_step) / self.embedding_step
 
         return alpha * self.a[id.squeeze()+1, :] + (1 - alpha) * self.a[id.squeeze(), :]
+    
+
+    def forward_excitation(self,  k = []):
+
+
+        kk = torch.full((1, 1), float(k), device=self.device, dtype=torch.float32)
+
+        in_features = torch.tensor(kk / self.NNR_f_T_period, dtype=torch.float32, device=self.device)
+        excitation_field = self.NNR_f(in_features)
+
+        return excitation_field
 
 
     def forward(self, data=[], data_id=[], k = [], return_all=False):

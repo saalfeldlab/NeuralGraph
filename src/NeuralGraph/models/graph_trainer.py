@@ -290,8 +290,12 @@ def data_train_signal(config, erase, best_model, device):
     lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
     lr_modulation = train_config.learning_rate_modulation_start
+    learning_rate_NNR = train_config.learning_rate_NNR
+    learning_rate_NNR_f = train_config.learning_rate_NNR_f
+
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                        lr_update=lr_update, lr_W=lr_W, lr_modulation=lr_modulation)
+                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    model.train()
 
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
     logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
@@ -433,9 +437,9 @@ def data_train_signal(config, erase, best_model, device):
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 
                 if n_excitatory_neurons > 0:
-                    excitation_values = model.excitation[k, :]
+                    excitation_values = model.forward_excitation(k)
                     x = torch.cat((x, torch.zeros((n_excitatory_neurons, x.shape[1]), device=device)), dim=0)
-                    x[-1, 6] = excitation_values
+                    x[-1, 6] = excitation_values.squeeze()
                     x[-1, 0] = n_neurons-1
 
                 ids = torch.argwhere(x[:, 6] != baseline_value)

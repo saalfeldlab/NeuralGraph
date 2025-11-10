@@ -488,7 +488,11 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
 
         fig = plt.figure(figsize=(16, 8))
         ax = fig.add_subplot(121)
-        excitation=to_numpy(model.excitation)
+
+        with torch.no_grad():
+            kk = torch.arange(0, config.simulation.n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
+            excitation_field = model.NNR_f(kk[:,None])
+        excitation=to_numpy(excitation_field.squeeze())
         frame_ = np.arange(0, len(excitation)) / len(excitation)
         gt_excitation=np.cos((2*np.pi)*config.simulation.oscillation_frequency*frame_)
         plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
