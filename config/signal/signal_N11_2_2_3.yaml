@@ -1,5 +1,5 @@
-description: 'RNN chaotic oscillation_max_amplitude: 3.0'
-dataset: 'signal_N11_2_1'
+description: 'RNN chaotic oscillation_max_amplitude: 10.0  learning_rate_embedding_start: 1E-16'
+dataset: 'signal_N11_2_2'
 
 simulation:
     connectivity_type: 'chaotic'
@@ -16,7 +16,7 @@ simulation:
     start_frame: 0
 
     visual_input_type: 'oscillatory'  
-    oscillation_max_amplitude: 3.0
+    oscillation_max_amplitude: 10.0
     oscillation_frequency: 10.0
 
     n_excitatory_neurons: 1
@@ -49,7 +49,7 @@ training:
     device: 'auto'
 
     recurrent_loop: 1
-    batch_size: 1
+    batch_size: 8
     small_init_batch_size: False
 
     seed: 24
@@ -60,7 +60,7 @@ training:
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
-    learning_rate_embedding_start: 5.0E-3
+    learning_rate_embedding_start: 1.0E-16
 
     coeff_W_L1: 1.0E-5
     coeff_edge_norm: 0.0

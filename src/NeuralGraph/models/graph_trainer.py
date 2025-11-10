@@ -323,6 +323,9 @@ def data_train_signal(config, erase, best_model, device):
 
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
+
+
+
         if n_excitatory_neurons > 0:
             # create full connectivity including excitatory neurons
 
@@ -334,10 +337,11 @@ def data_train_signal(config, erase, best_model, device):
             N = connectivity.shape[0]
             expanded = torch.zeros((n_neurons, n_neurons), device=device)
             expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
-            expanded[-1, :n_neurons-n_excitatory_neurons] = model_e.t().squeeze()
+            expanded[:n_neurons-n_excitatory_neurons, -1] = model_e.t().squeeze()
             connectivity = expanded.clone().detach()
 
-            type_list  = torch.cat((type_list, torch.zeros((n_excitatory_neurons, 1), device=device)), dim=0)
+
+            type_list  = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device)) * (simulation_config.n_neuron_types + 1), dim=0)
 
   
 
