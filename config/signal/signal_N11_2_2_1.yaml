@@ -1,5 +1,5 @@
-description: 'RNN chaotic oscillation_max_amplitude: 30.0'
-dataset: 'signal_N11_2_3'
+description: 'RNN chaotic oscillation_max_amplitude: 10.0  no extra neurons'
+dataset: 'signal_N11_2_2'
 
 simulation:
     connectivity_type: 'chaotic'
@@ -16,10 +16,10 @@ simulation:
     start_frame: 0
 
     visual_input_type: 'oscillatory'  
-    oscillation_max_amplitude: 30.0
+    oscillation_max_amplitude: 10.0
     oscillation_frequency: 10.0
-    
-    n_excitatory_neurons: 1
+
+    n_excitatory_neurons: 0
 
 graph_model:
     signal_model_name: 'PDE_N11'
@@ -54,7 +54,7 @@ training:
 
     seed: 24
 
-    data_augmentation_loop: 50
+    data_augmentation_loop: 200
 
     sparsity: 'none'
 

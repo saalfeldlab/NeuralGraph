@@ -311,6 +311,10 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
     else:
         pred_weight = to_numpy(model.W[:n_neurons, :n_neurons].clone().detach())
 
+    if config.simulation.n_excitatory_neurons > 0:
+         gt_weight = gt_weight[:-1,:-1]
+         pred_weight = pred_weight[:-1,:-1]
+
     if n_neurons<1000:
         fig = plt.figure(figsize=(16, 8))
         ax = fig.add_subplot(121)
@@ -328,25 +332,25 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         plt.xlabel('presynaptic', fontsize=16)
         plt.title('predicted weight matrix', fontsize=16)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=50)
+        plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=50)
         plt.close()
+
+    fig = plt.figure(figsize=(8, 8))
+    fig, ax = fig_init()
+    if n_neurons<1000:
+        plt.scatter(gt_weight, pred_weight / 10, s=1.0, c='k', alpha=1.0)
     else:
-        fig = plt.figure(figsize=(8, 8))
-        fig, ax = fig_init()
-        if n_neurons<1000:
-            plt.scatter(gt_weight, pred_weight / 10, s=1.0, c='k', alpha=1.0)
-        else:
-            plt.scatter(gt_weight, pred_weight / 10, s=0.1, c='k', alpha=0.1)
-        plt.xlabel(r'true $W_{ij}$', fontsize=48)
-        plt.ylabel(r'learned $W_{ij}$', fontsize=48)
-        if n_neurons == 8000:
-            plt.xlim([-0.05, 0.05])
-        else:
-            plt.ylim([-0.2, 0.2])
-            plt.xlim([-0.2, 0.2])
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
-        plt.close()
+        plt.scatter(gt_weight, pred_weight / 10, s=0.1, c='k', alpha=0.1)
+    plt.xlabel(r'true $W_{ij}$', fontsize=48)
+    plt.ylabel(r'learned $W_{ij}$', fontsize=48)
+    if n_neurons == 8000:
+        plt.xlim([-0.05, 0.05])
+    else:
+        plt.ylim([-0.2, 0.2])
+        plt.xlim([-0.2, 0.2])
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
+    plt.close()
 
     if ('PDE_N8' in config.graph_model.signal_model_name):
         os.makedirs(f"./{log_dir}/tmp_training/matrix/larynx", exist_ok=True)
@@ -467,6 +471,39 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
+
+    if config.simulation.n_excitatory_neurons > 0:
+        gt_weight = gt_weight[-1,:]
+        pred_weight = pred_weight[-1,:]
+
+        fig = plt.figure(figsize=(8, 8))
+        fig, ax = fig_init()
+        plt.scatter(gt_weight, pred_weight, s=10, c='k')
+        plt.xlabel(r'true $W_{ij}$', fontsize=48)
+        plt.ylabel(r'learned $W_{ij}$', fontsize=48)
+        plt.title('Excitatory neuron weights', fontsize=24)
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_exc_{epoch}_{N}.tif", dpi=87)
+        plt.close()
+
+        fig = plt.figure(figsize=(16, 8))
+        ax = fig.add_subplot(121)
+        excitation=to_numpy(model.excitation)
+        plt.plot(excitation, c='k', linewidth=1)
+        plt.xlabel('time', fontsize=48)
+        plt.ylabel('excitation', fontsize=48)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        ax = fig.add_subplot(122)
+        plt.plot(excitation, c='k', linewidth=1)
+        plt.xlabel('time', fontsize=48)
+        plt.ylabel('excitation', fontsize=48)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.xlim([0, 2000])
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/tmp_training/field/excitation_{epoch}_{N}.tif", dpi=87)
+        plt.close()
 
 def plot_training_signal_field(x, n_nodes, recurrent_loop, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):
     if recurrent_loop > 1:

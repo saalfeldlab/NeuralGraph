@@ -320,13 +320,26 @@ def data_train_signal(config, erase, best_model, device):
             else:
                 model.W.copy_(model.W * model.mask)
     else:
+
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
         if n_excitatory_neurons > 0:
             # create full connectivity including excitatory neurons
-            adj_matrix = torch.ones((n_neurons + n_excitatory_neurons-1, n_neurons + n_excitatory_neurons-1), device=device)
+
+            adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
             edges, edge_attr = dense_to_sparse(adj_matrix)
             edges_all = edges.clone().detach()
+
+            model_e = torch.load(f"graphs_data/{dataset_name}/model_e.pt", map_location=device)
+            N = connectivity.shape[0]
+            expanded = torch.zeros((n_neurons, n_neurons), device=device)
+            expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
+            expanded[-1, :n_neurons-n_excitatory_neurons] = model_e.t().squeeze()
+            connectivity = expanded.clone().detach()
+
+            type_list  = torch.cat((type_list, torch.zeros((n_excitatory_neurons, 1), device=device)), dim=0)
+
+  
 
     if train_config.coeff_W_sign > 0:
         index_weight = []
@@ -394,7 +407,7 @@ def data_train_signal(config, erase, best_model, device):
         k = 0
 
         time.sleep(1.0)
-        for N in trange(Niter):
+        for N in trange(Niter, ncols=150):
 
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
