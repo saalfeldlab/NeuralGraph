@@ -117,18 +117,25 @@ def launch_napari_full(recon_vol):
     angle_step = 10 / n_frames  # Very little rotation
     snapshots = []
     import time
+    # Interpolate between two user-provided camera settings (angles and zoom)
+    start_angles = (89.0271295532099, -5.419609461280512, 89.81645701900237)
+    end_angles = (75.23359711543982, -83.20579293011538, 102.32384993301791)
+    start_zoom = 1.7184141700000002
+    end_zoom = 3.3487030779613054
+    center = (142.0, 415.541, 269.381)
     for i in range(n_frames):
-        # Camera trajectory: minimal rotation, strong zoom
-        z_angle = 112.593 + i * angle_step  # minimal rotation
-        y_angle = -12.926  # fixed Y
-        zoom = 1.0 + 2.0 * np.sin(2 * np.pi * i / n_frames)  # much more zoom, little dezoom
-        viewer.camera.angles = (
-            z_angle,
-            y_angle,
-            81.064
+        t = i / (n_frames - 1)
+        angles = tuple(
+            (1 - t) * s + t * e for s, e in zip(start_angles, end_angles)
         )
+        zoom = (1 - t) * start_zoom + t * end_zoom
+        zoom = max(0.2, min(zoom, 8.0))  # Clamp zoom
+        viewer.camera.center = center
+        viewer.camera.angles = angles
         viewer.camera.zoom = zoom
+        viewer.camera.perspective = 0.0
         viewer.window._qt_window.repaint()  # Force redraw
+        import time
         time.sleep(0.07)  # Smooth video
         screenshot = viewer.screenshot(canvas_only=True)
         snapshots.append(screenshot)
@@ -137,7 +144,7 @@ def launch_napari_full(recon_vol):
     output_dir = "instantngp_outputs"
     os.makedirs(output_dir, exist_ok=True)
     mp4_path = os.path.join(output_dir, "recons_rotation.mp4")
-    imageio.mimsave(mp4_path, snapshots, fps=12)  # Slower playback
+    imageio.mimsave(mp4_path, snapshots, fps=24)  # Twice as fast playback
     print(f"Saved rotation MP4 to {mp4_path}")
 
     napari.run()

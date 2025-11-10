@@ -49,7 +49,7 @@ training:
     device: 'auto'
 
     recurrent_loop: 1
-    batch_size: 8
+    batch_size: 1
     small_init_batch_size: False
 
     seed: 24

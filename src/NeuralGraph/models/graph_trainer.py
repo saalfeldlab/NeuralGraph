@@ -185,7 +185,7 @@ def data_train_signal(config, erase, best_model, device):
 
     x_list = []
     y_list = []
-    for run in trange(0,n_runs):
+    for run in trange(0,n_runs, ncols=80):
         x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
         x_list.append(x)
@@ -325,8 +325,9 @@ def data_train_signal(config, erase, best_model, device):
         if n_excitatory_neurons > 0:
             # create full connectivity including excitatory neurons
             adj_matrix = torch.ones((n_neurons + n_excitatory_neurons, n_neurons + n_excitatory_neurons), device=device)
-            edge_index, edge_attr = dense_to_sparse(adj_matrix)
-            
+            edges, edge_attr = dense_to_sparse(adj_matrix)
+            edges_all = edges.clone().detach()
+
     if train_config.coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
@@ -418,7 +419,7 @@ def data_train_signal(config, erase, best_model, device):
                     excitation_values = model.excitation[k, :]
                     x = torch.cat((x, torch.zeros((n_excitatory_neurons, x.shape[1]), device=device)), dim=0)
                     x[-1, 6] = excitation_values
-                    x[-1, 0] = n_neurons
+                    x[-1, 0] = n_neurons-1
 
                 ids = torch.argwhere(x[:, 6] != baseline_value)
                 ids = to_numpy(ids.squeeze())

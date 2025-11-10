@@ -1401,10 +1401,6 @@ def data_generate_synaptic(
             with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
                 fdst.write(fsrc.read())
 
-            generate_lossless_video_ffv1(output_dir=f"./graphs_data/{dataset_name}", run=run,
-                                         config_indices=config_indices, framerate=20)
-            generate_lossless_video_libx264(output_dir=f"./graphs_data/{dataset_name}", run=run,
-                                            config_indices=config_indices, framerate=20)
             generate_compressed_video_mp4(output_dir=f"./graphs_data/{dataset_name}", run=run,
                                           config_indices=config_indices, framerate=20)
 

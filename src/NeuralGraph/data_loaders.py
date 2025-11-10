@@ -8,7 +8,7 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pyvista as pv
+# import pyvista as pv
 import torch
 from astropy.units import Unit
 from tqdm import tqdm, trange
