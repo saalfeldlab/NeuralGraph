@@ -135,7 +135,6 @@ def launch_napari_full(recon_vol):
         viewer.camera.zoom = zoom
         viewer.camera.perspective = 0.0
         viewer.window._qt_window.repaint()  # Force redraw
-        import time
         time.sleep(0.07)  # Smooth video
         screenshot = viewer.screenshot(canvas_only=True)
         snapshots.append(screenshot)

@@ -58,7 +58,6 @@ for col in config_df.columns:
     if config_df[col].unique().shape[0] > 1:
         config_cols.append(col)
 config_cols.sort(key=lambda k: k.count("."))
-config_df = config_df.sort(config_cols)
 
 metrics_df = pl.DataFrame(metrics, schema=metric_keys)
 
