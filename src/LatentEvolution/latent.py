@@ -327,8 +327,8 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     recon = model.decoder(model.encoder(x_t))
     recon_loss = torch.nn.functional.mse_loss(recon, x_t)
 
-    loss = evolve_loss + recon_loss
-    return (loss, recon_loss, evolve_loss)
+    loss = evolve_loss + recon_loss + reg_loss
+    return (loss, recon_loss, evolve_loss, reg_loss)
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
@@ -449,7 +449,7 @@ def train(cfg: ModelParams, run_dir: Path):
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 (x_t, stim_t), x_t_plus = next(batch_iter)
-                (loss, _recon_loss, _evolve_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
+                (loss, _recon_loss, _evolve_loss, _reg_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.detach().item()
