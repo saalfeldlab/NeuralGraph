@@ -49,12 +49,14 @@ class EvolverParams(BaseModel):
     time_units: int
     num_hidden_units: int
     num_hidden_layers: int
+    l1_reg_loss: float = 0.0
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
 class EncoderParams(BaseModel):
     num_hidden_units: int
     num_hidden_layers: int
+    l1_reg_loss: float = 0.0
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 class StimulusEncoderParams(BaseModel):
@@ -66,6 +68,7 @@ class StimulusEncoderParams(BaseModel):
 class DecoderParams(BaseModel):
     num_hidden_units: int
     num_hidden_layers: int
+    l1_reg_loss: float = 0.0
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 class DataSplit(BaseModel):
@@ -306,7 +309,16 @@ def get_device() -> torch.device:
         return torch.device("cpu")
 
 
-def train_step_nocompile(model, x_t, stim_t, x_t_plus):
+def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelParams):
+    # regularization loss
+    reg_loss = 0.0
+    for p in model.encoder.parameters():
+        reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
+    for p in model.decoder.parameters():
+        reg_loss += torch.abs(p).mean()*cfg.decoder_params.l1_reg_loss
+    for p in model.evolver.parameters():
+        reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
+
     # evolution loss
     output = model(x_t, stim_t)
     evolve_loss = torch.nn.functional.mse_loss(output, x_t_plus)
@@ -437,7 +449,7 @@ def train(cfg: ModelParams, run_dir: Path):
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 (x_t, stim_t), x_t_plus = next(batch_iter)
-                (loss, _recon_loss, _evolve_loss) = train_step_fn(model, x_t, stim_t, x_t_plus)
+                (loss, _recon_loss, _evolve_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.detach().item()
