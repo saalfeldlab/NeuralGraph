@@ -8,7 +8,10 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-# import pyvista as pv
+try:
+    import pyvista as pv
+except ImportError:
+    pass
 import torch
 from astropy.units import Unit
 from tqdm import tqdm, trange
@@ -751,7 +754,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
     positions_swapped[:, 0] *= -1
     positions[:,0] *= delta_x
     positions[:,1] *= delta_y
-    positions[:,2] *= delta_z  
+    positions[:,2] *= delta_z
 
     print(f"min position: {np.min(positions, axis=0)}  max position: {np.max(positions, axis=0)}, ")
     print(f"number of frames: {n_frames}, number of neurons: {n_neurons}")
@@ -808,8 +811,8 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
 
         if (visual_input_type=='') | (visual_input_type==condition_names[int(conditions[n])]):
             x_list.append(x.copy())
-            
-        if n == 0: 
+
+        if n == 0:
             vmin, vmax = np.percentile(traces[n], [2, 98])
 
         if n < n_frames - 1:
@@ -859,7 +862,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
                 activity = np.where(finite, activity, med)
 
             # robust color limits (ignore extremes)
-            if id_fig == 0: 
+            if id_fig == 0:
                 vmin, vmax = np.percentile(activity, [2, 98])
 
             cloud = pv.PolyData(positions_swapped)
@@ -879,7 +882,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
             )
             condition_id = conditions[id_fig]
             label = f"frame: {id_fig} \n{condition_names[int(condition_id)]}  "
-            plotter.add_text(   
+            plotter.add_text(
                 label,
                 position="upper_left",   # or "upper_right", "lower_left", "lower_right"
                 font_size=12,
@@ -894,7 +897,7 @@ def load_zebrafish_data(config, device=None, visualize=None, step=None, cmap=Non
             num = f"{id_fig:06}"
             plotter.screenshot(f'./graphs_data/{dataset_name}/Fig/xy_{num}.png')
             plotter.close()
-        
+
             plotter = pv.Plotter(off_screen=True, window_size=(800, 500))
             plotter.set_background('black')
             plotter.add_points(
