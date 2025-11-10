@@ -807,36 +807,36 @@ Sorted by validation loss:  shape: (28, 6)
 
 #### Run Overview
 
-| Batch Size | Learning Rate | Seed  | Output Directory                                 | Status |
-| ---------- | ------------- | ----- | ------------------------------------------------ | ------ |
-| 256        | 0.001         | 1234  | runs/add_stimulus_lr/20251107_573c815_86379079   | ✓      |
-| 256        | 0.001         | 12345 | runs/add_stimulus_lr/20251107_573c815_a727b619   | ✓      |
-| 256        | 0.0001        | 1234  | runs/add_stimulus_lr/20251107_573c815_6a78f43d   | ✓      |
-| 256        | 0.0001        | 12345 | runs/add_stimulus_lr/20251107_573c815_c2d8c1ce   | ✓      |
-| 256        | 0.00001       | 1234  | runs/add_stimulus_lr/20251107_573c815_9e43e67e   | ✓      |
-| 256        | 0.00001       | 12345 | runs/add_stimulus_lr/20251107_573c815_995e630c   | ✓      |
-| 256        | 0.000001      | 1234  | runs/add_stimulus_lr/20251107_573c815_f2c42585   | ✓      |
-| 256        | 0.000001      | 12345 | runs/add_stimulus_lr/20251107_573c815_ec81b2ee   | ✓      |
-| 512        | 0.001         | 42    | runs/add_stimulus_lr/20251107_573c815_ca43bf43   | ✓      |
-| 512        | 0.001         | 1234  | runs/add_stimulus_lr/20251107_573c815_80a2a4e6   | ✓      |
-| 512        | 0.001         | 12345 | runs/add_stimulus_lr/20251107_573c815_53ba5b28   | ✓      |
-| 512        | 0.0001        | 42    | runs/add_stimulus_lr/20251107_573c815_1fc5e659   | ✓      |
-| 512        | 0.0001        | 1234  | runs/add_stimulus_lr/20251107_573c815_a0198c78   | ✓      |
-| 512        | 0.0001        | 12345 | runs/add_stimulus_lr/20251107_573c815_987de65c   | ✓      |
-| 512        | 0.00001       | 42    | runs/add_stimulus_lr/20251107_573c815_74a18082   | ✓      |
-| 512        | 0.00001       | 1234  | runs/add_stimulus_lr/20251107_573c815_d2631bf7   | ✓      |
-| 512        | 0.00001       | 12345 | runs/add_stimulus_lr/20251107_573c815_f3592c41   | ✓      |
-| 512        | 0.000001      | 42    | runs/add_stimulus_lr/20251107_573c815_35a1b7e6   | ✓      |
-| 512        | 0.000001      | 1234  | runs/add_stimulus_lr/20251107_573c815_369dfae4   | ✓      |
-| 512        | 0.000001      | 12345 | runs/add_stimulus_lr/20251107_573c815_b6dd42dd   | ✓      |
-| 1024       | 0.001         | 1234  | runs/add_stimulus_lr/20251107_573c815_6bf23038   | ✓      |
-| 1024       | 0.001         | 12345 | runs/add_stimulus_lr/20251107_573c815_2abb736b   | ✓      |
-| 1024       | 0.0001        | 1234  | runs/add_stimulus_lr/20251107_573c815_16ea400e   | ✓      |
-| 1024       | 0.0001        | 12345 | runs/add_stimulus_lr/20251107_573c815_1a393d29   | ✓      |
-| 1024       | 0.00001       | 1234  | runs/add_stimulus_lr/20251107_573c815_5949422b   | ✓      |
-| 1024       | 0.00001       | 12345 | runs/add_stimulus_lr/20251107_573c815_a4bf64bd   | ✓      |
-| 1024       | 0.000001      | 1234  | runs/add_stimulus_lr/20251107_573c815_c2316e07   | ✓      |
-| 1024       | 0.000001      | 12345 | runs/add_stimulus_lr/20251107_573c815_1b19e15f   | ✓      |
+| Batch Size | Learning Rate | Seed  | Output Directory                               | Status |
+| ---------- | ------------- | ----- | ---------------------------------------------- | ------ |
+| 256        | 0.001         | 1234  | runs/add_stimulus_lr/20251107_573c815_86379079 | ✓      |
+| 256        | 0.001         | 12345 | runs/add_stimulus_lr/20251107_573c815_a727b619 | ✓      |
+| 256        | 0.0001        | 1234  | runs/add_stimulus_lr/20251107_573c815_6a78f43d | ✓      |
+| 256        | 0.0001        | 12345 | runs/add_stimulus_lr/20251107_573c815_c2d8c1ce | ✓      |
+| 256        | 0.00001       | 1234  | runs/add_stimulus_lr/20251107_573c815_9e43e67e | ✓      |
+| 256        | 0.00001       | 12345 | runs/add_stimulus_lr/20251107_573c815_995e630c | ✓      |
+| 256        | 0.000001      | 1234  | runs/add_stimulus_lr/20251107_573c815_f2c42585 | ✓      |
+| 256        | 0.000001      | 12345 | runs/add_stimulus_lr/20251107_573c815_ec81b2ee | ✓      |
+| 512        | 0.001         | 42    | runs/add_stimulus_lr/20251107_573c815_ca43bf43 | ✓      |
+| 512        | 0.001         | 1234  | runs/add_stimulus_lr/20251107_573c815_80a2a4e6 | ✓      |
+| 512        | 0.001         | 12345 | runs/add_stimulus_lr/20251107_573c815_53ba5b28 | ✓      |
+| 512        | 0.0001        | 42    | runs/add_stimulus_lr/20251107_573c815_1fc5e659 | ✓      |
+| 512        | 0.0001        | 1234  | runs/add_stimulus_lr/20251107_573c815_a0198c78 | ✓      |
+| 512        | 0.0001        | 12345 | runs/add_stimulus_lr/20251107_573c815_987de65c | ✓      |
+| 512        | 0.00001       | 42    | runs/add_stimulus_lr/20251107_573c815_74a18082 | ✓      |
+| 512        | 0.00001       | 1234  | runs/add_stimulus_lr/20251107_573c815_d2631bf7 | ✓      |
+| 512        | 0.00001       | 12345 | runs/add_stimulus_lr/20251107_573c815_f3592c41 | ✓      |
+| 512        | 0.000001      | 42    | runs/add_stimulus_lr/20251107_573c815_35a1b7e6 | ✓      |
+| 512        | 0.000001      | 1234  | runs/add_stimulus_lr/20251107_573c815_369dfae4 | ✓      |
+| 512        | 0.000001      | 12345 | runs/add_stimulus_lr/20251107_573c815_b6dd42dd | ✓      |
+| 1024       | 0.001         | 1234  | runs/add_stimulus_lr/20251107_573c815_6bf23038 | ✓      |
+| 1024       | 0.001         | 12345 | runs/add_stimulus_lr/20251107_573c815_2abb736b | ✓      |
+| 1024       | 0.0001        | 1234  | runs/add_stimulus_lr/20251107_573c815_16ea400e | ✓      |
+| 1024       | 0.0001        | 12345 | runs/add_stimulus_lr/20251107_573c815_1a393d29 | ✓      |
+| 1024       | 0.00001       | 1234  | runs/add_stimulus_lr/20251107_573c815_5949422b | ✓      |
+| 1024       | 0.00001       | 12345 | runs/add_stimulus_lr/20251107_573c815_a4bf64bd | ✓      |
+| 1024       | 0.000001      | 1234  | runs/add_stimulus_lr/20251107_573c815_c2316e07 | ✓      |
+| 1024       | 0.000001      | 12345 | runs/add_stimulus_lr/20251107_573c815_1b19e15f | ✓      |
 
 #### Performance Metrics
 
@@ -905,3 +905,18 @@ Sorted by validation loss:  shape: (28, 6)
 - Adding stimulus encoding is CRITICAL for achieving state-of-the-art performance - it enables the model to leverage retinal input information
 - The stimulus encoder architecture (64 hidden units, 3 hidden layers, 64 output dims) effectively integrates stimulus information into the latent dynamics
 - Avoid learning rates at the extremes (0.000001 too low, 0.001 too high for most batch sizes)
+
+## Add regularization loss
+
+To encourage interpretability we experiment with adding an L1 loss. Initially we will only
+add this loss to the encoder/decoder.
+
+```bash
+
+for l1 in 0.0 0.1 0.01 0.001 0.0001 0.00001 0.000001 ; do \
+    bsub -J "stim_${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o stim_lr${lr}.log python \
+        src/LatentEvolution/latent.py l1_reg \
+        --encoder_params.l1_reg_loss $l1 \
+        --decoder_params.l1_reg_loss $l1
+done
+```
