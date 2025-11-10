@@ -33,6 +33,9 @@ runs/
 !assets/*.gif
 !assets/*.svg
 
+# Exception: allow PNG figures in LatentEvolution
+!src/LatentEvolution/**/*.png
+
 # IDE files
 *.iml
 .idea/
