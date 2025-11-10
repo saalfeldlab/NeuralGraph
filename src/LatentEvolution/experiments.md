@@ -914,8 +914,8 @@ add this loss to the encoder/decoder.
 ```bash
 
 for l1 in 0.0 0.1 0.01 0.001 0.0001 0.00001 0.000001 ; do \
-    bsub -J "stim_${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o stim_lr${lr}.log python \
-        src/LatentEvolution/latent.py l1_reg \
+    bsub -J "l1${l1}" -n 12 -gpu "num=1" -q gpu_a100 -o l1${l1}.log python \
+        src/LatentEvolution/latent.py l1_reg_encoder_decoder_only \
         --encoder_params.l1_reg_loss $l1 \
         --decoder_params.l1_reg_loss $l1
 done
