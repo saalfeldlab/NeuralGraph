@@ -10,6 +10,8 @@ select = [
     "F",      # Pyflakes: NameError, ImportError, UnboundLocalError, unused variables, etc.
     "E9",     # Syntax errors that cause immediate failure
     "PLE",    # Pylint Error rules (actual runtime errors)
+    "B",      # flake8-bugbear: Catches subtle bugs and design problems
+    "PLW",    # Pylint Warning rules (code smells, potential bugs)
 ]
 
 # No ignores - we want to catch unused variables (F841) in this directory
