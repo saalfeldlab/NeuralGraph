@@ -44,6 +44,8 @@ if __name__ == "__main__":
 
         config_list = ['signal_N11_2_1', 'signal_N11_2_2', 'signal_N11_2_3']
 
+        # config_list = ['signal_N2_1']
+
 
     for config_file_ in config_list:
         print(" ")

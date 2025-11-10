@@ -324,7 +324,7 @@ def data_train_signal(config, erase, best_model, device):
         edges_all = edges.clone().detach()
         if n_excitatory_neurons > 0:
             # create full connectivity including excitatory neurons
-            adj_matrix = torch.ones((n_neurons + n_excitatory_neurons, n_neurons + n_excitatory_neurons), device=device)
+            adj_matrix = torch.ones((n_neurons + n_excitatory_neurons-1, n_neurons + n_excitatory_neurons-1), device=device)
             edges, edge_attr = dense_to_sparse(adj_matrix)
             edges_all = edges.clone().detach()
 
