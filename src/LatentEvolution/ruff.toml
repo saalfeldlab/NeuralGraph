@@ -1,0 +1,19 @@
+# Strict ruff configuration for src/LatentEvolution
+# This overrides the global configuration in pyproject.toml
+
+# Exclude notebook files from linting
+exclude = ["*.ipynb"]
+
+[lint]
+# Enable rules that catch runtime errors and unused variables
+select = [
+    "F",      # Pyflakes: NameError, ImportError, UnboundLocalError, unused variables, etc.
+    "E9",     # Syntax errors that cause immediate failure
+    "PLE",    # Pylint Error rules (actual runtime errors)
+]
+
+# No ignores - we want to catch unused variables (F841) in this directory
+ignore = []
+
+[lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]  # Allow unused imports and star imports in __init__.py files
