@@ -94,8 +94,8 @@ import imageio
 
 
 def data_train(config=None, erase=False, best_model=None, device=None):
-    # plt.rcParams['text.usetex'] = True
-    # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+    # plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
+    # rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman', 'DejaVu Serif', 'serif']})
     # matplotlib.rcParams['savefig.pad_inches'] = 0
 
     seed = config.training.seed
@@ -2276,8 +2276,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     if 'latex' in style:
         print('latex style...')
-        plt.rcParams['text.usetex'] = True
-        rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+        plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
+        rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman', 'DejaVu Serif', 'serif']})
     if 'black' in style:
         plt.style.use('dark_background')
         mc = 'w'
@@ -2805,8 +2805,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
                     plt.figure(figsize=(20, 10))
                     if 'latex' in style:
-                        plt.rcParams['text.usetex'] = True
-                        rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+                        plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
+                        rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman', 'DejaVu Serif', 'serif']})
 
                     ax = plt.subplot(122)
                     plt.scatter(to_numpy(modulation_gt_list_[-1, :]), to_numpy(modulation_pred_list_[-1, :]), s=10,
@@ -2860,7 +2860,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // (n_neurons-n_excitatory_neurons), (n_neurons-n_excitatory_neurons)))
 
             mpl.rcParams.update({
-                "text.usetex": True,
+                "text.usetex": False,  # Disabled LaTeX
                 "font.family": "serif",
                 "font.size": 12,           # Base font size
                 "axes.labelsize": 14,      # Axis labels
@@ -3716,8 +3716,8 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
                     if (it>0) & (it<100) & (it % step == 0) & visualize & (not training_selected_neurons):
                         if "latex" in style:
-                            plt.rcParams["text.usetex"] = True
-                            rc("font", **{"family": "serif", "serif": ["Palatino"]})
+                            plt.rcParams["text.usetex"] = False  # Disabled due to font issues
+                            rc("font", **{"family": "serif", "serif": ["Computer Modern Roman", "DejaVu Serif", "serif"]})
 
                         mpl.rcParams["savefig.pad_inches"] = 0
                         num = f"{id_fig:06}"
@@ -4147,8 +4147,8 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     if 'latex' in style:
         print('latex style...')
-        plt.rcParams['text.usetex'] = True
-        rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+        plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
+        rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman', 'DejaVu Serif', 'serif']})
     if 'black' in style:
         plt.style.use('dark_background')
     else:
