@@ -23,12 +23,12 @@ for run_dir in run_dirs:
         raw = yaml.safe_load(fin)
     config = ModelParams.model_validate(raw)
     raw_flat = config.flatten()
-    configs.append(raw_flat)
 
     metrics_file = run_dir / "final_metrics.yaml"
     if not metrics_file.exists():
         metrics.append({})
         continue
+    configs.append(raw_flat)
     with open(metrics_file) as fin:
         raw = yaml.safe_load(fin)
         metrics.append(raw)
