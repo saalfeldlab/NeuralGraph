@@ -2276,17 +2276,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     if 'latex' in style:
         print('latex style...')
-        # plt.rcParams['text.usetex'] = True
-        # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-        # mpl.rcParams.update({
-        #     "text.usetex": True,                    # use LaTeX for all text
-        #     "font.family": "serif",                 # tell mpl to prefer serifs
-        #     "text.latex.preamble": r"""
-        #         \usepackage[T1]{fontenc}
-        #         \usepackage[sc]{mathpazo} % Palatino text + math
-        #         \linespread{1.05}         % optional: Palatino needs a bit more leading
-        #     """,
-        # })
         plt.rcParams['text.usetex'] = True
         rc('font', **{'family': 'serif', 'serif': ['Palatino']})
     if 'black' in style:
@@ -2319,11 +2308,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         best_model = filename
         print(f'best model: {best_model}')
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
-
-    first_cell_id_particles = []
-    for n in range(n_neuron_types):
-        index = np.arange(n_neurons * n // n_neuron_types, n_neurons * (n + 1) // n_neuron_types)
-        first_cell_id_particles.append(index)
 
     print('load data...')
 
@@ -2369,6 +2353,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     else:
         edge_index = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
 
+    edge_index_generated = edge_index.clone().detach()
+
+
     if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
         print('load b_i movie ...')
         im = imread(f"graphs_data/{simulation_config.node_value_map}")
@@ -2395,13 +2382,18 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             X_msg = X_msg[perm]
             torch.save(X_msg, f'./graphs_data/{dataset_name}/X_msg.pt')
 
-        n_excitatory_neurons = simulation_config.n_excitatory_neurons
+    model_generator, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
+
+
     if n_excitatory_neurons > 0:
         config.simulation.n_neurons = n_neurons + n_excitatory_neurons
         n_neurons = n_neurons + n_excitatory_neurons
+        # create full connectivity including excitatory neurons
+        adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
+        edge_index, edge_attr = dense_to_sparse(adj_matrix)
 
 
-    model_generator, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
+
 
     model, bc_pos, bc_dpos = choose_training_model(config, device)
     model.ynorm = ynorm
@@ -2478,16 +2470,20 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     x = x_list[0][start_it].clone().detach()
     x_generated = x_list[0][start_it].clone().detach()
 
+    if n_excitatory_neurons > 0:
+        x_excitatory = torch.zeros((n_excitatory_neurons, x.shape[1]), dtype=torch.float32, device=device)
+        x = torch.cat((x, x_excitatory), dim=0)
+
     if 'test_ablation' in test_mode:
-        #  test_mode="test_ablation_100"
+        #  test_mode="test_ablation_0 by default
         ablation_ratio = int(test_mode.split('_')[-1]) / 100
         if ablation_ratio > 0:
             print(f'\033[93mtest ablation ratio {ablation_ratio} \033[0m')
-        n_ablation = int(n_neurons * ablation_ratio)
-        index_ablation = np.random.choice(np.arange(n_neurons), n_ablation, replace=False)
-        with torch.no_grad():
-            model.W[index_ablation, :] = 0
-            model_generator.W[index_ablation, :] = 0
+            n_ablation = int(n_neurons * ablation_ratio)
+            index_ablation = np.random.choice(np.arange(n_neurons), n_ablation, replace=False)
+            with torch.no_grad():
+                model.W[index_ablation, :] = 0
+                model_generator.W[index_ablation, :] = 0
     else:
         ablation_ratio = 0
 
@@ -2656,6 +2652,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     neuron_gt_list = []
     neuron_pred_list = []
     neuron_generated_list = []
+    R2_list = []
     it_list = []
     id_fig = 0
 
@@ -2668,15 +2665,14 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         if has_excitation:
             x[:, 10: 10 + model_config.excitation_dim] = x0[:, 10: 10 + model_config.excitation_dim]
 
-        # error calculations
         x0[:, 6] = torch.where(torch.isnan(x0[:, 6]), baseline_value, x0[:, 6])
         x[:, 6]  = torch.where(torch.isnan(x[:, 6]),  baseline_value, x[:, 6])
         x_generated[:, 6] = torch.where(torch.isnan(x_generated[:, 6]), baseline_value, x_generated[:, 6])
 
-        if 'ablation' in test_mode:
+        if ablation_ratio > 0:
             rmserr = torch.sqrt(torch.mean((x_generated[:n_neurons, 6] - x0[:, 6]) ** 2))
         else:
-            rmserr = torch.sqrt(torch.mean((x[:n_neurons, 6] - x0[:, 6]) ** 2))
+            rmserr = torch.sqrt(torch.mean((x[:n_neurons-n_excitatory_neurons, 6] - x0[:, 6]) ** 2))
         neuron_gt_list.append(x0[:, 6:7])
         neuron_pred_list.append(x[:n_neurons, 6:7].clone().detach())
         neuron_generated_list.append(x_generated[:n_neurons, 6:7].clone().detach())
@@ -2697,6 +2693,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             x[n_nodes:n_neurons, 8:9] = 1
         elif n_excitatory_neurons > 0:
             excitation_values = model.forward_excitation(it)
+            x[-1,6] = excitation_values
+            x[-1, 0] = n_neurons-1
+
         elif 'learnable_short_term_plasticity' in field_type:
             alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 8] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
@@ -2718,8 +2717,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             dataset = pyg_Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
             pred = model(dataset, data_id=data_id, k=it)
             y = pred
-            dataset = pyg_Data(x=x_generated, pos=x[:, 1:3], edge_index=edge_index)
-            pred_generator = model_generator(dataset, data_id=data_id)
+            dataset = pyg_Data(x=x_generated, pos=x[:, 1:3], edge_index=edge_index_generated)
+            pred_generator = model_generator(dataset, data_id=data_id, frame=it)
 
         # signal update
         x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
@@ -2846,8 +2845,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             num = f"{id_fig:06}"
             id_fig += 1
 
-            if n_neurons <= 100:
-                n = np.arange(0,n_neurons,4)
+            if n_neurons <= 101:
+                n = np.arange(0,n_neurons-n_excitatory_neurons,4)
             elif 'CElegans' in dataset_name:
                 n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
             else:
@@ -2856,9 +2855,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             neuron_gt_list_ = torch.cat(neuron_gt_list, 0)
             neuron_pred_list_ = torch.cat(neuron_pred_list, 0)
             neuron_generated_list_ = torch.cat(neuron_generated_list, 0)
-            neuron_gt_list_ = torch.reshape(neuron_gt_list_, (neuron_gt_list_.shape[0] // n_neurons, n_neurons))
+            neuron_gt_list_ = torch.reshape(neuron_gt_list_, (neuron_gt_list_.shape[0] // (n_neurons-n_excitatory_neurons), n_neurons-n_excitatory_neurons))
             neuron_pred_list_ = torch.reshape(neuron_pred_list_, (neuron_pred_list_.shape[0] // n_neurons, n_neurons))
-            neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // n_neurons, n_neurons))
+            neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // (n_neurons-n_excitatory_neurons), (n_neurons-n_excitatory_neurons)))
 
             mpl.rcParams.update({
                 "text.usetex": True,
@@ -2919,7 +2918,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             ax = plt.subplot(222)
             x_data = to_numpy(neuron_generated_list_[-1, :])
-            y_data = to_numpy(neuron_pred_list_[-1, :])
+            if n_excitatory_neurons> 0 :
+                y_data = to_numpy(neuron_pred_list_[-1, :-n_excitatory_neurons])
+            else:
+                y_data = to_numpy(neuron_pred_list_[-1, :])
 
             # print(f"x: [{x_data.min():.2e}, {x_data.max():.2e}]")
             # print(f"y: [{y_data.min():.2e}, {y_data.max():.2e}], std={y_data.std():.2e}")
@@ -2957,6 +2959,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 plt.scatter(x_data, np.clip(y_data, lim[0], lim[1]), s=100, c=mc, alpha=0.8, edgecolors='k', linewidths=0.5)
                 plt.text(0.5, 0.5, 'collapsed' if severe_collapse else 'explosion',
                         ha='center', fontsize=48, color='red', alpha=0.3, transform=plt.gca().transAxes)
+                r2 = 0
 
             plt.xlim([-20,20])
             plt.ylim([-20,20])
@@ -2965,18 +2968,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
 
-            # Compute R2 for this frame and append to global R2_list
-            if 'R2_list' not in globals():
-                global R2_list
-                R2_list = []
-            x_data = to_numpy(neuron_generated_list_[-1, :])
-            y_data = to_numpy(neuron_pred_list_[-1, :])
-            if np.std(x_data) > 0:
-                ss_res = np.sum((y_data - x_data) ** 2)
-                ss_tot = np.sum((y_data - np.mean(x_data)) ** 2)
-                r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
-            else:
-                r2 = 0
+
             R2_list.append(r2)
             it_list.append(it)
 
