@@ -551,7 +551,7 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
     return edge_index, connectivity, mask
 
 
-def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=".mp4", config_indices=None, crf=23):
+def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=None, crf=23):
     """
     Generate a compressed video using ffmpeg's libx264 codec in MP4 format.
     Automatically handles odd dimensions by scaling to even dimensions.
@@ -568,7 +568,7 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name="
 
     fig_dir = os.path.join(output_dir, "Fig")
     input_pattern = os.path.join(fig_dir, f"Fig_{run}_%06d.png")
-    output_path = os.path.join(output_dir, f"input_{config_indices}{output_name}")
+    output_path = os.path.join(output_dir, f"{output_name}.mp4")
 
     # Video filter to ensure even dimensions (required for yuv420p)
     # This scales the video so both width and height are divisible by 2

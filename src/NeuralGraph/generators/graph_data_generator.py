@@ -932,14 +932,14 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     if visualize & (run == run_vizualized):
         print('generating lossless video ...')
 
-        config_indices = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
+        output_name = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
         src = f"./graphs_data/{dataset_name}/Fig/Fig_0_000000.png"
-        dst = f"./graphs_data/{dataset_name}/input_{config_indices}.png"
+        dst = f"./graphs_data/{dataset_name}/input_{output_name}.png"
         with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
             fdst.write(fsrc.read())
 
         generate_compressed_video_mp4(output_dir=f"./graphs_data/{dataset_name}", run=run,
-                                      config_indices=config_indices,framerate=20)
+                                      output_name=output_name,framerate=20)
 
         files = glob.glob(f'./graphs_data/{dataset_name}/Fig/*')
         for f in files:
@@ -1393,14 +1393,14 @@ def data_generate_synaptic(
         if visualize & (run == run_vizualized):
             print('generating lossless video ...')
 
-            config_indices = dataset_name.split('signal_')[1] if 'signal_' in dataset_name else 'no_id'
+            output_name = dataset_name.split('signal_')[1] if 'signal_' in dataset_name else 'no_id'
             src = f"./graphs_data/{dataset_name}/Fig/Fig_0_000000.png"
-            dst = f"./graphs_data/{dataset_name}/input_{config_indices}.png"
+            dst = f"./graphs_data/{dataset_name}/input_{output_name}.png"
             with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
                 fdst.write(fsrc.read())
 
             generate_compressed_video_mp4(output_dir=f"./graphs_data/{dataset_name}", run=run,
-                                          config_indices=config_indices, framerate=20)
+                                          output_name=output_name, framerate=20)
 
             files = glob.glob(f'./graphs_data/{dataset_name}/Fig/*')
             for f in files:

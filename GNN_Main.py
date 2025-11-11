@@ -36,7 +36,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = 'None' 
-        task = 'generate'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['fly_N9_64_1_1']  # for quick test
         
@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
         # config_list = ['signal_N11_2_4_1', 'signal_N11_2_5_1', 'signal_N11_2_6_1', 'signal_N11_2_7_1']
 
-        config_list = ['signal_N11_1_4', 'signal_N11_1_5', 'signal_N11_1_6', 'signal_N11_1_7']
+        config_list = ['signal_N11_1_3', 'signal_N11_1_4', 'signal_N11_1_5', 'signal_N11_1_6', 'signal_N11_1_7']
 
 
     for config_file_ in config_list:

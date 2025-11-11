@@ -2999,7 +2999,18 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     if run ==0:
         dataset_name_ = dataset_name.split('/')[-1]
-        generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, config_indices=dataset_name_, framerate=20)
+        generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
+
+    # Copy the last PNG file before erasing Fig folder
+    files = glob.glob(f'./{log_dir}/results/Fig/*.png')
+    if files:
+        files.sort()  # Sort to get the last file
+        last_file = files[-1]
+        dataset_name_ = dataset_name.split('/')[-1]
+        dst_file = f"./{log_dir}/results/{dataset_name_}.png"
+        import shutil
+        shutil.copy(last_file, dst_file)
+        print(f"Saved last frame: {dst_file}")
 
     files = glob.glob(f'./{log_dir}/results/Fig/*')
     for f in files:
@@ -3877,14 +3888,14 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     if (False):
         print('generating lossless video ...')
 
-        config_indices = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
+        output_name = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
         src = f"./{log_dir}/tmp_recons/Fig_0_000000.png"
-        dst = f"./{log_dir}/results/input_{config_indices}.png"
+        dst = f"./{log_dir}/results/input_{output_name}.png"
         with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
             fdst.write(fsrc.read())
 
         generate_compressed_video_mp4(output_dir=f"./{log_dir}/results", run=run,
-                                        config_indices=config_indices,framerate=20)
+                                        output_name=output_name,framerate=20)
 
         # files = glob.glob(f'./{log_dir}/tmp_recons/*')
         # for f in files:
@@ -4281,7 +4292,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
         generate_compressed_video_mp4(
             output_dir=f"./{log_dir}/results",
             run=0,
-            config_indices="zebra",
+            output_name="zebra",
             framerate=40
         )
         print(f"video saved to {log_dir}/results/")

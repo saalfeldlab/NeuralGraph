@@ -325,7 +325,7 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         plt.xlabel('presynaptic', fontsize=16)
         plt.title('true weight matrix', fontsize=16)
         ax = fig.add_subplot(122)
-        ax = sns.heatmap(pred_weight, center=0, square=True, cmap='bwr', vmin=-1, vmax=1, cbar_kws={'fraction': 0.046})
+        ax = sns.heatmap(pred_weight / 10, center=0, square=True, cmap='bwr', vmin=-1, vmax=1, cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)
