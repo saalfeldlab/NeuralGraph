@@ -7,7 +7,7 @@ import torch_geometric as pyg
 from matplotlib import rc
 from NeuralGraph.generators.davis import AugmentedDavis
 from NeuralGraph.generators.graph_data_generator import assign_columns_from_uv as _assign_columns_from_uv, mseq_bits as _mseq_bits
-from NeuralGraph.generators.utils import generate_lossless_video_ffv1, generate_lossless_video_libx264, generate_compressed_video_mp4
+from NeuralGraph.generators.utils import generate_compressed_video_mp4
 from NeuralGraph.data_loaders import (
     data_generate_synaptic,
     data_generate_particle,
@@ -717,9 +717,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
             fdst.write(fsrc.read())
 
-        generate_lossless_video_ffv1(output_dir=f"./graphs_data/{dataset_name}", run=run, config_indices=config_indices,framerate=20)
-        generate_lossless_video_libx264(output_dir=f"./graphs_data/{dataset_name}", run=run,
-                                        config_indices=config_indices,framerate=20)
+
         generate_compressed_video_mp4(output_dir=f"./graphs_data/{dataset_name}", run=run,
                                       config_indices=config_indices,framerate=20)
 

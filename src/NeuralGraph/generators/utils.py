@@ -551,69 +551,6 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
     return edge_index, connectivity, mask
 
 
-def generate_lossless_video_ffv1(output_dir, run=0, framerate=10, output_name="_ffv1.mkv", config_indices=None):
-    """
-    Generate a truly lossless compressed video using ffmpeg's FFV1 codec.
-
-    Parameters:
-        output_dir (str): Path to directory containing Fig/Fig_*.png.
-        run (int): Run index to use in filename pattern.
-        framerate (int): Desired video framerate.
-        output_name (str): Name of output .mkv file.
-    """
-    fig_dir = os.path.join(output_dir, "Fig")
-    input_pattern = os.path.join(fig_dir, f"Fig_{run}_%06d.png")
-    output_path = os.path.join(output_dir, f"input_{config_indices}{output_name}")
-
-    ffmpeg_cmd = [
-        "ffmpeg",
-        "-y",
-        "-loglevel", "error",  # Suppress verbose output
-        "-framerate", str(framerate),
-        "-i", input_pattern,
-        "-c:v", "ffv1",
-        "-level", "3",
-        "-g", "1",  # No GOP (intra-frame only)
-        output_path,
-    ]
-
-    # print(f"Generating lossless video (FFV1): {' '.join(ffmpeg_cmd)}")
-    subprocess.run(ffmpeg_cmd, check=True)
-    print(f"lossless video (FFV1) saved to: {output_path}")
-
-
-def generate_lossless_video_libx264(output_dir, run=0, framerate=10, output_name="_libx264.mkv", config_indices=None):
-    """
-    Generate a lossless H.264 video using libx264 from a sequence of PNG images.
-
-    Parameters:
-        output_dir (str): Path to directory containing Fig/Fig_*.png.
-        run (int): Run index to use in filename pattern.
-        framerate (int): Desired video framerate.
-        output_name (str): Output video file name (.mkv recommended).
-    """
-    fig_dir = os.path.join(output_dir, "Fig")
-    input_pattern = os.path.join(fig_dir, f"Fig_{run}_%06d.png")
-    output_path = os.path.join(output_dir, f"input_{config_indices}{output_name}")
-
-    command = [
-        "ffmpeg",
-        "-y",
-        "-loglevel", "error",  # Suppress verbose output
-        "-framerate", str(framerate),
-        "-i", input_pattern,
-        "-c:v", "libx264",
-        "-preset", "veryslow",
-        "-crf", "0",  # lossless mode
-        "-pix_fmt", "yuv444p",  # preserve full chroma info
-        output_path
-    ]
-
-    # print(f"Generating lossless video (libx264): {' '.join(command)}")
-    subprocess.run(command, check=True)
-    print(f"lossless video (libx264) saved to: {output_path}")
-
-
 def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=".mp4", config_indices=None, crf=23):
     """
     Generate a compressed video using ffmpeg's libx264 codec in MP4 format.

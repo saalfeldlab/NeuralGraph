@@ -2301,9 +2301,12 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     if field_type != '':
         n_nodes = simulation_config.n_nodes
         n_nodes_per_axis = int(np.sqrt(n_nodes))
-
     log_dir = 'log/' + config.config_file
     files = glob.glob(f"./{log_dir}/tmp_recons/*")
+    for f in files:
+        os.remove(f)
+    os.makedirs(f'./{log_dir}/results/Fig', exist_ok=True)
+    files = glob.glob(f"./{log_dir}/results/Fig/*")
     for f in files:
         os.remove(f)
 
@@ -2470,7 +2473,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         start_it = 0
         n_frames - 1
 
-    start_it = 12
+    start_it = 0
 
     x = x_list[0][start_it].clone().detach()
     x_generated = x_list[0][start_it].clone().detach()
@@ -2653,8 +2656,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     neuron_gt_list = []
     neuron_pred_list = []
     neuron_generated_list = []
+    it_list = []
+    id_fig = 0
 
-    for it in trange(start_it,start_it+4000):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
+    for it in trange(start_it,start_it+1000, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
@@ -2714,7 +2719,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             pred = model(dataset, data_id=data_id, k=it)
             y = pred
             dataset = pyg_Data(x=x_generated, pos=x[:, 1:3], edge_index=edge_index)
-            pred_generator = model_generator(dataset, data_id=data_id, k=it)
+            pred_generator = model_generator(dataset, data_id=data_id)
 
         # signal update
         x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
@@ -2836,10 +2841,13 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     plt.ylim([0, 2])
                     # plt.text(40, 26, f'time: {it}', fontsize=34)
 
-        if (it % 200 == 0) & (it > 0) & (it <=4000):
+        if (it % 2 == 0) & (it > 0) & (it <=300):
+
+            num = f"{id_fig:06}"
+            id_fig += 1
 
             if n_neurons <= 100:
-                n = np.arange(0,n_neurons,2)
+                n = np.arange(0,n_neurons,4)
             elif 'CElegans' in dataset_name:
                 n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
             else:
@@ -2867,7 +2875,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 """,
             })
 
-            plt.figure(figsize=(20, 20))
+            plt.figure(figsize=(20, 10))
 
             ax = plt.subplot(121)
             # Plot ground truth with distinct gray color, visible in legend
@@ -2936,13 +2944,13 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 margin = (all_data.max() - all_data.min()) * 0.1
                 lim = [all_data.min() - margin, all_data.max() + margin]
 
-                plt.scatter(x_data, y_data, s=100, c=mc, alpha=0.8, edgecolors='k', linewidths=0.5)
+                plt.scatter(x_data, y_data, s=20, c=mc, alpha=0.8, edgecolors='none', linewidths=0.5)
                 if mask.sum() > 10:
                     x_line = np.array(lim)
                     plt.plot(x_line, linear_model(x_line, slope, intercept), 'r--', linewidth=2)
                 plt.plot(lim, lim, 'k--', alpha=0.3, linewidth=1)
                 plt.text(0.05, 0.95, f'$R^2$: {r2:.3f}\nslope: {slope:.3f}',
-                        transform=plt.gca().transAxes, fontsize=34, va='top')
+                        transform=plt.gca().transAxes, fontsize=24, va='top')
             else:
                 # Severe collapse/explosion
                 lim = [x_data.min()*1.1, 0]
@@ -2950,29 +2958,38 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 plt.text(0.5, 0.5, 'collapsed' if severe_collapse else 'explosion',
                         ha='center', fontsize=48, color='red', alpha=0.3, transform=plt.gca().transAxes)
 
-            plt.xlim(lim)
-            plt.ylim(lim)
+            plt.xlim([-20,20])
+            plt.ylim([-20,20])
             plt.xlabel('true $x_i$', fontsize=48)
             plt.ylabel('learned $x_i$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
 
+            # Compute R2 for this frame and append to global R2_list
+            if 'R2_list' not in globals():
+                global R2_list
+                R2_list = []
+            x_data = to_numpy(neuron_generated_list_[-1, :])
+            y_data = to_numpy(neuron_pred_list_[-1, :])
+            if np.std(x_data) > 0:
+                ss_res = np.sum((y_data - x_data) ** 2)
+                ss_tot = np.sum((y_data - np.mean(x_data)) ** 2)
+                r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+            else:
+                r2 = 0
+            R2_list.append(r2)
+            it_list.append(it)
+
+
             ax = plt.subplot(224)
-            corrs = []
-            for i in range(n_neurons):
-                r, _ = scipy.stats.pearsonr(
-                    to_numpy(neuron_generated_list_[:, i]),
-                    to_numpy(neuron_pred_list_[:, i])
-                )
-                corrs.append(r)
-            plt.hist(corrs, bins=30, edgecolor='black')
-            plt.xlim([0, 1])
-            plt.xlabel('Pearson $r$', fontsize=48)
-            plt.ylabel('count', fontsize=48)
+            plt.scatter(it_list, R2_list, s=20, c=mc)
+            plt.xlim([0, 300])
+            plt.ylim([0, 1])
+            plt.axhline(1, color='green', linestyle='--', linewidth=2)
+            plt.xlabel('frame', fontsize=48)
+            plt.ylabel('$R^2$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
-            plt.text(0.05, plt.ylim()[1]*0.9, f'mean: {np.mean(corrs):.3f}', fontsize=34)
-
             plt.tight_layout()
 
             if ablation_ratio>0:
@@ -2984,9 +3001,17 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             else:
                 filename = f'comparison_vi_{it}.png'
 
-            plt.savefig(f'./{log_dir}/results/{filename}', dpi=80)
+            plt.savefig(f'./{log_dir}/results/Fig/Fig_{run}_{num}.png', dpi=80)
             plt.close()
             # print(f'saved figure ./log/{log_dir}/results/{filename}')
+
+    if run ==0:
+        dataset_name_ = dataset_name.split('/')[-1]
+        generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, config_indices=dataset_name_, framerate=20)
+
+    files = glob.glob(f'./{log_dir}/results/Fig/*')
+    for f in files:
+        os.remove(f)
 
 
     if 'inference' in test_mode:
@@ -3866,9 +3891,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
             fdst.write(fsrc.read())
 
-        # generate_lossless_video_ffv1(output_dir=f"./{log_dir}/results", run=run, config_indices=config_indices,framerate=20)
-        # generate_lossless_video_libx264(output_dir=f"./{log_dir}/results", run=run,
-        #                                 config_indices=config_indices,framerate=20)
         generate_compressed_video_mp4(output_dir=f"./{log_dir}/results", run=run,
                                         config_indices=config_indices,framerate=20)
 
