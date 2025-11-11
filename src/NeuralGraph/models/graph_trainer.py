@@ -287,11 +287,18 @@ def data_train_signal(config, erase, best_model, device):
         lr_update = train_config.learning_rate_start
     else:
         lr_update = train_config.learning_rate_update_start
-    lr_embedding = train_config.learning_rate_embedding_start
+    if train_config.init_training_single_type:
+        lr_embedding = 1.0E-16
+    else:
+        lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
     lr_modulation = train_config.learning_rate_modulation_start
+    learning_rate_NNR = train_config.learning_rate_NNR
+    learning_rate_NNR_f = train_config.learning_rate_NNR_f
+
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                        lr_update=lr_update, lr_W=lr_W, lr_modulation=lr_modulation)
+                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    model.train()
 
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
     logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
@@ -320,13 +327,30 @@ def data_train_signal(config, erase, best_model, device):
             else:
                 model.W.copy_(model.W * model.mask)
     else:
+
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
+
+
+
         if n_excitatory_neurons > 0:
             # create full connectivity including excitatory neurons
-            adj_matrix = torch.ones((n_neurons + n_excitatory_neurons, n_neurons + n_excitatory_neurons), device=device)
+
+            adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
             edges, edge_attr = dense_to_sparse(adj_matrix)
             edges_all = edges.clone().detach()
+
+            model_e = torch.load(f"graphs_data/{dataset_name}/model_e.pt", map_location=device)
+            N = connectivity.shape[0]
+            expanded = torch.zeros((n_neurons, n_neurons), device=device)
+            expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
+            expanded[:n_neurons-n_excitatory_neurons, -1] = model_e.t().squeeze()
+            connectivity = expanded.clone().detach()
+
+
+            type_list  = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device)) * (simulation_config.n_neuron_types + 1), dim=0)
+
+  
 
     if train_config.coeff_W_sign > 0:
         index_weight = []
@@ -371,11 +395,18 @@ def data_train_signal(config, erase, best_model, device):
                 model.a.copy_(model.a * 0)
             logger.info(f'reset W model.a at epoch : {epoch}')
             print(f'reset W model.a at epoch : {epoch}')
+        
         if epoch == train_config.n_epochs_init:
             coeff_edge_diff = coeff_update_diff / 100
             coeff_update_diff = coeff_update_diff / 100
             logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
             print(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
+
+        if (epoch == 1) & (train_config.init_training_single_type):
+                lr_embedding = train_config.learning_rate_embedding_start
+                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+                model.train()
+
 
         batch_size = get_batch_size(epoch)
         logger.info(f'batch_size: {batch_size}')
@@ -394,7 +425,7 @@ def data_train_signal(config, erase, best_model, device):
         k = 0
 
         time.sleep(1.0)
-        for N in trange(Niter):
+        for N in trange(Niter, ncols=150):
 
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
@@ -416,9 +447,9 @@ def data_train_signal(config, erase, best_model, device):
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 
                 if n_excitatory_neurons > 0:
-                    excitation_values = model.excitation[k, :]
+                    excitation_values = model.forward_excitation(k)
                     x = torch.cat((x, torch.zeros((n_excitatory_neurons, x.shape[1]), device=device)), dim=0)
-                    x[-1, 6] = excitation_values
+                    x[-1, 6] = excitation_values.squeeze()
                     x[-1, 0] = n_neurons-1
 
                 ids = torch.argwhere(x[:, 6] != baseline_value)
@@ -2224,6 +2255,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     n_neuron_types = simulation_config.n_neuron_types
     n_neurons = simulation_config.n_neurons
+    n_excitatory_neurons = simulation_config.n_excitatory_neurons
     n_nodes = simulation_config.n_nodes
     n_runs = training_config.n_runs
     n_frames = simulation_config.n_frames
@@ -2285,7 +2317,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         print(f'best model: {best_model}')
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
 
-    n_neurons // n_neuron_types
     first_cell_id_particles = []
     for n in range(n_neuron_types):
         index = np.arange(n_neurons * n // n_neuron_types, n_neurons * (n + 1) // n_neuron_types)
@@ -2325,6 +2356,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         vnorm = ynorm
 
 
+
     connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
     if training_config.with_connectivity_mask:
         model_mask = (connectivity > 0) * 1.0
@@ -2359,6 +2391,12 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             perm = torch.randperm(X_msg.size(0))
             X_msg = X_msg[perm]
             torch.save(X_msg, f'./graphs_data/{dataset_name}/X_msg.pt')
+
+        n_excitatory_neurons = simulation_config.n_excitatory_neurons
+    if n_excitatory_neurons > 0:
+        config.simulation.n_neurons = n_neurons + n_excitatory_neurons
+        n_neurons = n_neurons + n_excitatory_neurons
+
 
     model_generator, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
 
@@ -2611,7 +2649,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.savefig(f'./{log_dir}/results/new_neuron_type_histogram.png', dpi=300)
         plt.close()
 
-    n_neurons = x.shape[0]
+    # n_neurons = x.shape[0]
     neuron_gt_list = []
     neuron_pred_list = []
     neuron_generated_list = []
@@ -2629,7 +2667,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         x0[:, 6] = torch.where(torch.isnan(x0[:, 6]), baseline_value, x0[:, 6])
         x[:, 6]  = torch.where(torch.isnan(x[:, 6]),  baseline_value, x[:, 6])
         x_generated[:, 6] = torch.where(torch.isnan(x_generated[:, 6]), baseline_value, x_generated[:, 6])
-
 
         if 'ablation' in test_mode:
             rmserr = torch.sqrt(torch.mean((x_generated[:n_neurons, 6] - x0[:, 6]) ** 2))
@@ -2653,6 +2690,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         if 'visual' in field_type:
             x[:n_nodes, 8:9] = model_f(time=it / n_frames) ** 2
             x[n_nodes:n_neurons, 8:9] = 1
+        elif n_excitatory_neurons > 0:
+            excitation_values = model.forward_excitation(it)
         elif 'learnable_short_term_plasticity' in field_type:
             alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 8] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
@@ -2672,10 +2711,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
         with torch.no_grad():
             dataset = pyg_Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
-            pred = model(dataset, data_id=data_id)
+            pred = model(dataset, data_id=data_id, k=it)
             y = pred
             dataset = pyg_Data(x=x_generated, pos=x[:, 1:3], edge_index=edge_index)
-            pred_generator = model_generator(dataset, data_id=data_id)
+            pred_generator = model_generator(dataset, data_id=data_id, k=it)
 
         # signal update
         x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t

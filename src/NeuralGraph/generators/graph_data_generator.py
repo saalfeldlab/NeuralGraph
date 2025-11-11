@@ -1431,6 +1431,9 @@ def data_generate_synaptic(
             np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
             torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
+            if simulation_config.n_excitatory_neurons> 0:
+                torch.save(model.e, f"graphs_data/{dataset_name}/model_e.pt")
+
             if has_particle_dropout:
                 torch.save(
                     x_removed_list,

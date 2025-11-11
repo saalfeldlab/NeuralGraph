@@ -1,5 +1,5 @@
-description: 'RNN chaotic  learning_rate_embedding_start: 1E-16 hidden_dim 128'
-dataset: 'signal_N11_1'
+description: 'RNN chaotic oscillation_max_amplitude: 10.0  no extra neurons'
+dataset: 'signal_N11_2_2'
 
 simulation:
     connectivity_type: 'chaotic'
@@ -15,18 +15,24 @@ simulation:
     boundary: 'no'
     start_frame: 0
 
+    visual_input_type: 'oscillatory'  
+    oscillation_max_amplitude: 10.0
+    oscillation_frequency: 10.0
+
+    n_excitatory_neurons: 0
+
 graph_model:
     signal_model_name: 'PDE_N11'
     prediction: 'first_derivative'
 
     input_size: 3
     output_size: 1
-    hidden_dim: 128
+    hidden_dim: 64
     n_layers: 3
 
     input_size_update: 3
     n_layers_update: 3
-    hidden_dim_update: 128
+    hidden_dim_update: 64
 
     aggr_type: 'add'
     embedding_dim: 2
@@ -48,13 +54,13 @@ training:
 
     seed: 24
 
-    data_augmentation_loop: 50
+    data_augmentation_loop: 200
 
     sparsity: 'none'
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
-    learning_rate_embedding_start: 1.0E-16
+    learning_rate_embedding_start: 5.0E-3
 
     coeff_W_L1: 1.0E-5
     coeff_edge_norm: 0.0

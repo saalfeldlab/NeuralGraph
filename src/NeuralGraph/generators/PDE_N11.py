@@ -30,8 +30,11 @@ class PDE_N11(pyg.nn.MessagePassing):
 
         self.device = device
         self.n_neurons = config.simulation.n_neurons
+
         self.A = config.simulation.oscillation_max_amplitude
+
         self.e = self.A * (torch.rand((self.n_neurons,1), device = self.device) * 2 -1)
+        
         self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device = self.device)
 
         self.has_oscillations = (config.simulation.visual_input_type == 'oscillatory')

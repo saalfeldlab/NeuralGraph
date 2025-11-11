@@ -37,6 +37,17 @@ graph_model:
     aggr_type: 'add'
     embedding_dim: 2
 
+
+    input_size_nnr_f: 1
+    hidden_dim_nnr_f: 128
+    n_layers_nnr_f: 3
+
+    outermost_linear_nnr_f: True
+    output_size_nnr_f: 1
+
+    nnr_f_T_period: 10000
+    omega_f: 30
+
 plotting:
     colormap: 'tab10'
     arrow_length: 1
@@ -54,13 +65,14 @@ training:
 
     seed: 24
 
-    data_augmentation_loop: 50
+    data_augmentation_loop: 200
 
     sparsity: 'none'
 
     learning_rate_W_start: 1.0E-3
     learning_rate_start: 5.0E-4
     learning_rate_embedding_start: 5.0E-3
+    learning_rate_NNR_f: 1.0E-6
 
     coeff_W_L1: 1.0E-5
     coeff_edge_norm: 0.0
