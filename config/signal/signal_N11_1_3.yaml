@@ -1,4 +1,4 @@
-description: 'RNN chaotic  learning_rate_embedding_start: 1E-16'
+description: 'RNN chaotic   learning_rate_embedding_start: 1.0E-16'
 dataset: 'signal_N11_1'
 
 simulation:
@@ -58,4 +58,7 @@ training:
 
     coeff_W_L1: 1.0E-5
     coeff_edge_norm: 0.0
+
+
+    init_training_single_type: True
 

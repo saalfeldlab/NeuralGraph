@@ -1,4 +1,4 @@
-description: 'RNN chaotic oscillation_max_amplitude: 30.0   learning_rate_embedding_start: 1E-16'
+description: 'RNN chaotic oscillation_max_amplitude: 30.0   init_training_single_type'
 dataset: 'signal_N11_2_3'
 
 simulation:
@@ -76,4 +76,6 @@ training:
 
     coeff_W_L1: 1.0E-5
     coeff_edge_norm: 0.0
+
+    init_training_single_type: True
 
