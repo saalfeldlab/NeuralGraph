@@ -7,15 +7,18 @@ use_batch_norm: False
 encoder_params:
   num_hidden_layers: 3 # Layers in the encoder MLP
   num_hidden_units: 256 # Hidden units per layer
+  l1_reg_loss: 1e-4
 
 decoder_params:
   num_hidden_layers: 3 # Layers in the decoder MLP
   num_hidden_units: 256 # Hidden units per layer
+  l1_reg_loss: 1e-4
 
 evolver_params:
   time_units: 1 # Number of time steps to evolve per forward pass
   num_hidden_layers: 3 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
+  l1_reg_loss: 1e-4
 
 stimulus_encoder_params:
   num_input_dims: 1736
