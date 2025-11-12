@@ -1,21 +1,27 @@
 {
+  // === Python environment ===
   "python-envs.defaultEnvManager": "ms-python.python:conda",
   "python-envs.defaultPackageManager": "ms-python.python:conda",
-  "files.autoSave": "afterDelay",
-  "files.autoSaveDelay": 500,
   "python-envs.pythonProjects": [],
   "python.defaultInterpreterPath": "/workspace/.conda_envs/neural-graph-linux/bin/python",
   "python.condaPath": "/opt/conda/bin/conda",
   "python.terminal.activateEnvironment": true,
-  "python.analysis.extraPaths": [
-    "${workspaceFolder}/src"
-  ],
-  "python.autoComplete.extraPaths": [
-    "${workspaceFolder}/src"
-  ],
+  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+  "python.autoComplete.extraPaths": ["${workspaceFolder}/src"],
   "python.languageServer": "Pylance",
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "workspace",
-  "jupyter.inlinePlotSize.width": 600,
-  "jupyter.inlinePlotSize.height": 400
+
+  // === Autosave ===
+  "files.autoSave": "onFocusChange",
+
+  // Make sure nothing is excluded from watch
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.hg/store/**": true,
+    "**/log/**": true,
+    "**/logs/**": true,
+    "**/graphsdata/**": true
+  }
 }

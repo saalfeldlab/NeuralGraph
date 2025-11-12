@@ -866,7 +866,6 @@ def data_train_signal(config, erase, best_model, device):
 
 
 
-
 def data_train_flyvis(config, erase, best_model, device):
     simulation_config = config.simulation
     train_config = config.training
@@ -1122,50 +1121,24 @@ def data_train_flyvis(config, erase, best_model, device):
             run = np.random.randint(n_runs)
 
             if batch_ratio < 1:
-                # Sample core neurons
+                # use percent neurons
                 n_core = int(n_neurons * batch_ratio)
-                core_ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
-
-                # Determine which neurons we need based on training mode
-                if recurrent_training and recurrent_loop > 0:
-                    # For recurrent: need n-hop neighborhood (compute ONCE)
-
-
-                    verbose = (N == 0) & (epoch==0)  # Print only on first iteration
-                    # or: verbose = (N % 100 == 0)  # Print every 100 iterations
-                    # or: verbose = False  # Never print
-
-                    required_ids = get_n_hop_neighborhood_with_stats(
-                        core_ids, edges_all, recurrent_loop, verbose=verbose
-                    )
-
-                else:
-                    # For non-recurrent: just core neurons
-                    required_ids = core_ids
-
-                # Get edges ONCE for all timesteps
-                mask = torch.isin(edges_all[1, :], torch.tensor(required_ids, device=device))
+                ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
+                mask = torch.isin(edges_all[1, :], torch.tensor(ids, device=device))
                 edges = edges_all[:, mask]
                 mask = torch.arange(edges_all.shape[1], device=device)[mask]
-
-                # Store core_ids for loss computation
-                ids = core_ids
 
             else:
                 # use all neurons
                 edges = edges_all.clone().detach()
                 mask = torch.arange(edges_all.shape[1])
                 ids = np.arange(n_neurons)
-                core_ids = ids  # All neurons are "core" when batch_ratio = 1
+
 
 
             for batch in range(batch_size):
 
-                if prediction == 'next_activity':
-                    k = np.random.randint(n_frames - 4 - time_step)
-                    k = k - k%time_step
-                else:
-                    k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
+                k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
                 ids = np.arange(n_neurons)
@@ -1192,7 +1165,6 @@ def data_train_flyvis(config, erase, best_model, device):
                     if (coeff_phi_weight_L1+coeff_phi_weight_L2)>0:
                         for param in model.lin_phi.parameters():
                             loss = loss + param.norm(2) * coeff_phi_weight_L1 + param.norm(2) * coeff_phi_weight_L2
-
                     # regularisation lin_edge
                     in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons,device)
                     if coeff_edge_diff > 0:
@@ -1224,13 +1196,14 @@ def data_train_flyvis(config, erase, best_model, device):
                     #     if loss_contribs:
                     #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
 
-                    if prediction == 'next_activity':
-                        y = torch.tensor(x_list[run][k+time_step,:,3:4], dtype=torch.float32, device=device).detach()
+                    if recurrent_training:
+                        y = torch.tensor(x_list[run][k+1,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
+                    elif test_neural_field:
+                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)  # loss on current excitation
                     else:
-                        y = torch.tensor(y_list[run][k], device=device) / ynorm
+                        y = torch.tensor(y_list[run][k], device=device) / ynorm     # loss on activity derivative
 
-                    if test_neural_field:
-                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)
+                    
                     if loss_noise_level>0:
                         y = y + torch.randn(y.shape, device=device) * loss_noise_level
 
@@ -1266,36 +1239,37 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss_regul += loss.item()
 
 
+
+                
+
                 if test_neural_field:
                     loss = loss + (visual_input_batch - y_batch).norm(2)
+                
+                
+                
                 elif 'MLP_ODE' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                    
+                    if recurrent_training:
+                        pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
+                        loss = loss + (pred_x - y_batch[ids_batch]).norm(2)
+                    else:
+                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+
+
+
                 elif 'MLP' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
-
-                elif prediction == 'next_activity':
-
-                    for n_loop in range(time_step):
-                        batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
-                        for batch in batch_loader:
-                            pred = model(batch, data_id=data_id, mask=mask_batch, return_all=False)
-                        for batch in range(batch_size):
-                            dataset_batch[batch].x[:, 3:4] += delta_t * pred[batch*n_neurons:(batch+1)*n_neurons]
-
-                    pred_x = []
-                    for batch in range(batch_size):
-                        pred_x_ = dataset_batch[batch].x[:, 3:4]
-                        pred_x.append(pred_x_)
-                    pred_x = torch.cat(pred_x, dim=0)
-
-                    loss = loss + (pred_x[ids_batch] - y_batch[ids_batch]).norm(2)
-
+                    
+                    if recurrent_training:
+                        pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
+                        loss = loss + (pred_x - y_batch[ids_batch]).norm(2)
+                    else:
+                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
                 else:
@@ -1323,9 +1297,21 @@ def data_train_flyvis(config, erase, best_model, device):
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                    
+                    if recurrent_training:
+                        pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
+                        loss = loss + (pred_x - y_batch[ids_batch]).norm(2)
+                    else:
+                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
-                if recurrent_training:
+
+
+
+
+
+
+
+                if recurrent_training & (recurrent_loop==100):
 
                     for n_loop in range(recurrent_loop):
 
@@ -1357,14 +1343,14 @@ def data_train_flyvis(config, erase, best_model, device):
                         y_batch_list = []
                         for batch in range(batch_size):
                             k = k_batch[batch * n_neurons] + n_loop + 1
-                            y = torch.tensor(y_list[run][k.item(), core_ids], device=device) / ynorm
+                            y = torch.tensor(y_list[run][k.item(), ids], device=device) / ynorm
                             y_batch_list.append(y)
 
                         y_batch = torch.cat(y_batch_list, dim=0)
 
                         # Indices for loss (core neurons across all batches)
                         ids_batch = np.concatenate([
-                            core_ids + batch * n_neurons for batch in range(batch_size)
+                            ids + batch * n_neurons for batch in range(batch_size)
                         ])
 
                         # Loss only on core neurons
@@ -4378,3 +4364,5 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
 
 
+# watcher-test Wed Nov 12 07:52:16 PST 2025
+# watcher-test Wed Nov 12 07:53:26 PST 2025
