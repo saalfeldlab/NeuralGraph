@@ -536,6 +536,23 @@ def train(cfg: ModelParams, run_dir: Path):
                 }
         )
         metrics.update(gpu_metrics)
+
+        # --- Save final model ---
+        model_path = run_dir / "model_final.pt"
+        torch.save(model.state_dict(), model_path)
+        print(f"Saved final model to {model_path}")
+
+        # --- Run post-training diagnostics ---
+        post_run_metrics = post_training_diagnostics(
+            run_dir=run_dir,
+            val_data=val_data,
+            neuron_data=sim_data.neuron_data,
+            val_stim=val_stim,
+            model=model,
+            config=cfg,
+        )
+        metrics.update(post_run_metrics)
+
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
         with open(metrics_path, "w") as f:
@@ -546,21 +563,6 @@ def train(cfg: ModelParams, run_dir: Path):
                 indent=2,
             )
         print(f"Saved metrics to {metrics_path}")
-
-        # --- Save final model ---
-        model_path = run_dir / "model_final.pt"
-        torch.save(model.state_dict(), model_path)
-        print(f"Saved final model to {model_path}")
-
-        # --- Run post-training diagnostics ---
-        post_training_diagnostics(
-            run_dir=run_dir,
-            val_data=val_data,
-            neuron_data=sim_data.neuron_data,
-            val_stim=val_stim,
-            model=model,
-            config=cfg,
-        )
 
 
 # -------------------------------------------------------------------

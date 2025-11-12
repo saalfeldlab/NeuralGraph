@@ -22,7 +22,7 @@ def plot_neuron_reconstruction(true_trace: np.ndarray, recon_trace: np.ndarray, 
 
     rng = np.random.default_rng(seed=0)
 
-    fig, ax = plt.subplots(ntypes, 1, sharex=True, figsize=(16, 3*ntypes))
+    fig, ax = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3*ntypes))
 
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
         ix = rng.choice(neuron_data.indices_per_type[itype])
@@ -51,6 +51,7 @@ def plot_recon_error(true_trace, recon_trace):
         ax[i].set_xlabel("Raw variance")
         ax[i].set_ylabel("Unexplained variance")
         ax[i].set_title("Variance across " + ["time", "neurons"][i])
+    fig.tight_layout()
     return fig
 
 
@@ -78,18 +79,31 @@ def evolve_many_time_steps(model: LatentModel, val_data, val_stim, tmax: int):
 
 def plot_mses(val_data: torch.Tensor, recons: torch.Tensor):
     tmax = recons.shape[0]
-    mses = torch.zeros(tmax, device=recons.device)
+    model_mses = torch.zeros(tmax, device=recons.device)
     for dt in range(tmax):
-        mses[dt] = torch.nn.functional.mse_loss(recons[dt], val_data[dt:-(tmax-dt)])
-    mses = mses.detach().cpu().numpy()
+        model_mses[dt] = torch.nn.functional.mse_loss(recons[dt], val_data[dt:-(tmax-dt)])
+    model_mses = model_mses.detach().cpu().numpy()
+
+    # constant model serves as a null here
+    null_mses = torch.zeros(tmax, device=recons.device)
+    for dt in range(tmax):
+        null_mses[dt] = torch.nn.functional.mse_loss(val_data[:-tmax], val_data[dt:-(tmax-dt)])
+    null_mses = null_mses.detach().cpu().numpy()
 
     fig = plt.figure()
-    plt.plot(np.arange(tmax), mses)
+    plt.plot(np.arange(tmax), model_mses, label="latent model")
+    plt.plot(np.arange(tmax), null_mses, ls="dashed", label="constant model (null)")
+    plt.legend()
     plt.xticks(np.arange(tmax))
     plt.grid(True)
     plt.xlabel("Time steps evolved")
     plt.ylabel("MSE")
-    return fig
+    fig.tight_layout()
+    mse_metrics = {f"model_mse_evolve_{i}_steps": float(model_mses[i]) for i in range(tmax)}
+    mse_metrics.update(
+        {f"null_mse_evolve_{i}_steps": float(null_mses[i]) for i in range(tmax)}
+    )
+    return fig, mse_metrics
 
 
 
@@ -101,7 +115,7 @@ def post_training_diagnostics(
     val_stim: torch.Tensor,
     model: LatentModel,
     config: ModelParams,
-) -> None:
+) -> dict[str, float|int]:
     """
     Perform post-training diagnostics on the trained model.
 
@@ -127,7 +141,7 @@ def post_training_diagnostics(
     print(f"  Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     model.eval()
-
+    metrics = {}
     true_trace = val_data.detach().cpu().numpy()
     recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
 
@@ -140,7 +154,9 @@ def post_training_diagnostics(
     fig.savefig(run_dir / "reconstruction_variance.jpg", dpi=100)
 
     recons = evolve_many_time_steps(model, val_data, val_stim, tmax=10)
-    fig = plot_mses(val_data, recons)
+    fig, mse_metrics = plot_mses(val_data, recons)
+    metrics.update(mse_metrics)
     fig.savefig(run_dir / "mses_by_time_steps.jpg", dpi=100)
 
     print("Post-training diagnostics complete.")
+    return metrics
