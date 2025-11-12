@@ -137,6 +137,35 @@ class ModelParams(BaseModel):
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
+    def flatten(self, sep: str = ".") -> dict[str, int | float | str | bool]:
+        """
+        Flatten the ModelParams into a single-level dictionary.
+
+        Args:
+            sep: Separator to use for nested keys (default: ".")
+
+        Returns:
+            A flat dictionary with nested keys joined by the separator.
+
+        Example:
+            >>> params.flatten()
+            {'latent_dims': 10, 'encoder_params.num_hidden_units': 64, ...}
+        """
+        def _flatten_dict(
+            d: dict[str, int | float | str | bool | dict],
+            parent_key: str = "",
+        ) -> dict[str, int | float | str | bool]:
+            items: list[tuple[str, int | float | str | bool]] = []
+            for k, v in d.items():
+                new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                if isinstance(v, dict):
+                    items.extend(_flatten_dict(v, new_key).items())
+                else:
+                    items.append((new_key, v))
+            return dict(items)
+
+        return _flatten_dict(self.model_dump())
+
 
 # -------------------------------------------------------------------
 # PyTorch Models

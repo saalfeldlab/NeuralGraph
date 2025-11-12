@@ -4,19 +4,6 @@ from pathlib import Path
 import polars as pl
 import yaml
 from LatentEvolution.latent import ModelParams
-from typing import Any, Dict, List, MutableMapping, Tuple
-
-def flatten_dict(
-    d: MutableMapping[str, Any], parent_key: str = "", sep: str = "."
-) -> Dict[str, Any]:
-    items: List[Tuple[str, Any]] = []
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-        if isinstance(v, MutableMapping):
-            items.extend(flatten_dict(v, new_key, sep=sep).items())
-        else:
-            items.append((new_key, v))
-    return dict(items)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("expt_code")
@@ -34,8 +21,8 @@ metric_keys = None
 for run_dir in run_dirs:
     with open(run_dir / "config.yaml") as fin:
         raw = yaml.safe_load(fin)
-    _config = ModelParams.model_validate(raw)
-    raw_flat = flatten_dict(raw)
+    config = ModelParams.model_validate(raw)
+    raw_flat = config.flatten()
     configs.append(raw_flat)
 
     metrics_file = run_dir / "final_metrics.yaml"
