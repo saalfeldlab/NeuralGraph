@@ -1053,8 +1053,8 @@ shape: (7, 6)
 
 #### Run Overview
 
-| L1 Reg (All) | Output Directory                                                                       | Status   |
-|--------------|----------------------------------------------------------------------------------------|----------|
+| L1 Reg (All) | Output Directory                                                                          | Status   |
+| ------------ | ----------------------------------------------------------------------------------------- | -------- |
 | 0.000001     | /groups/saalfeld/home/kumarv4/repos/NeuralGraph/runs/l1_reg_all/20251111_6c55ba9_0a63d4b6 | Complete |
 | 0.0001       | /groups/saalfeld/home/kumarv4/repos/NeuralGraph/runs/l1_reg_all/20251111_6c55ba9_34f6e68c | Complete |
 | 0.0          | /groups/saalfeld/home/kumarv4/repos/NeuralGraph/runs/l1_reg_all/20251111_6c55ba9_47465a0f | Complete |
@@ -1067,24 +1067,26 @@ All 7 runs completed successfully.
 
 #### Performance Metrics
 
-| L1 Reg | Train Time (s) | Avg Epoch (s) | GPU Util (%) | GPU Mem (MB) | Train Loss | Val Loss | Test Loss | Improvement vs Baseline |
-|--------|----------------|---------------|--------------|--------------|------------|----------|-----------|-------------------------|
-| 0.0001 | 3952.54        | 0.36          | 77.70        | 11447        | 0.036091   | 0.018694 | 0.018437  | 1.24% better            |
-| 0.00001| 3951.36        | 0.36          | 77.64        | 11447        | 0.035983   | 0.018704 | 0.018387  | 1.51% better            |
-| 0.000001| 3952.03       | 0.36          | 77.86        | 11447        | 0.036555   | 0.018976 | 0.018621  | 0.25% better            |
-| 0.0    | 4004.12        | 0.37          | 79.13        | 11447        | 0.036732   | 0.019042 | 0.018668  | baseline                |
-| 0.001  | 3990.27        | 0.36          | 77.61        | 11447        | 0.037753   | 0.019398 | 0.019112  | 2.38% worse             |
-| 0.01   | 3985.92        | 0.36          | 77.38        | 11447        | 0.040682   | 0.020355 | 0.020036  | 7.33% worse             |
-| 0.1    | 3961.30        | 0.36          | 78.24        | 11447        | 0.062997   | 0.031469 | 0.030798  | 64.96% worse            |
+| L1 Reg   | Train Time (s) | Avg Epoch (s) | GPU Util (%) | GPU Mem (MB) | Train Loss | Val Loss | Test Loss | Improvement vs Baseline |
+| -------- | -------------- | ------------- | ------------ | ------------ | ---------- | -------- | --------- | ----------------------- |
+| 0.0001   | 3952.54        | 0.36          | 77.70        | 11447        | 0.036091   | 0.018694 | 0.018437  | 1.24% better            |
+| 0.00001  | 3951.36        | 0.36          | 77.64        | 11447        | 0.035983   | 0.018704 | 0.018387  | 1.51% better            |
+| 0.000001 | 3952.03        | 0.36          | 77.86        | 11447        | 0.036555   | 0.018976 | 0.018621  | 0.25% better            |
+| 0.0      | 4004.12        | 0.37          | 79.13        | 11447        | 0.036732   | 0.019042 | 0.018668  | baseline                |
+| 0.001    | 3990.27        | 0.36          | 77.61        | 11447        | 0.037753   | 0.019398 | 0.019112  | 2.38% worse             |
+| 0.01     | 3985.92        | 0.36          | 77.38        | 11447        | 0.040682   | 0.020355 | 0.020036  | 7.33% worse             |
+| 0.1      | 3961.30        | 0.36          | 78.24        | 11447        | 0.062997   | 0.031469 | 0.030798  | 64.96% worse            |
 
 #### Key Findings
 
 **Model Performance:**
+
 - **Optimal L1 regularization strength: 0.00001-0.0001** - Both values achieve modest but consistent improvements (1.24-1.51%) in test loss compared to no regularization
 - **Strong regularization severely degrades performance** - L1 >= 0.01 causes significant performance degradation (7-65% worse test loss), with L1=0.1 being catastrophically bad (64.96% worse)
 - **Weak regularization is ineffective** - L1=0.000001 provides minimal benefit (0.25% improvement), suggesting insufficient sparsity induction
 
 **Compute Performance:**
+
 - Training time slightly reduced with regularization (3951-3990s) compared to baseline (4004s), likely due to faster convergence with better-conditioned models
 - GPU utilization remains consistent across all runs (77-79%), indicating regularization does not create computational bottlenecks
 - Memory footprint unchanged across all configurations (11447 MB), as expected since L1 regularization does not affect model architecture
@@ -1095,3 +1097,38 @@ All 7 runs completed successfully.
 - **Avoid strong regularization (L1 >= 0.01)** as it severely degrades model quality without providing computational benefits
 - The sweet spot appears to be L1=0.00001, providing the best test loss (0.018387) while maintaining training stability
 - This experiment confirms that applying L1 regularization uniformly across all model components is beneficial, unlike encoder-only regularization which showed more modest gains
+
+# Summary of observations
+
+These observations are about using a low-dimensional latent space to predict next time step
+voltages in flyvis data.
+
+We find that when we add L1 regularization to the weights of the encoder/decoder/evolver modules
+there is an intriguing structure that appears in the latent space.
+
+We first encode the voltages and stimuli across neurons into a smaller space - 256D for neurons,
+64D for stimuli:
+
+```
+l[a, t] = encoder_a(v[i, t])
+ls[a', t] = stimulus_encoder_a'(s[i', t])
+```
+
+Here `a` and `a'` denote latent space indices, while `i` denotes neurons and `i'` denote the
+stimuli.
+
+```
+l[a, t+1] = evolver(l[a, t], ls[a', t])
+v[i, t+1] = decoder_i(l[a, t+1])
+```
+
+This implies an end-end transformation from `t->t+1`:
+
+```
+v[i, t+1] = decoder(evolver(encoder(v[i, t]), stimulus_encoder(s[i, t])))
+          = f_i(v, s)
+```
+
+We compute the jacobian of `f_i` w.r.t `(v_j, s_j')` and this matrix shows a structure that's not
+quite the connectivity matrix, but has a similar feedforward structure. See plotting code in
+notebook. This structure only appears when you regularize but not otherwise.
