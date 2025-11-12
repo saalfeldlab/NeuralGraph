@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim
 from LatentEvolution.gpu_stats import GPUMonitor
-from LatentEvolution.post_run_diagnostics import post_training_diagnostics
+from LatentEvolution.diagnostics import post_training_diagnostics
 
 
 # -------------------------------------------------------------------
