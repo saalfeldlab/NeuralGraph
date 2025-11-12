@@ -7450,7 +7450,7 @@ def plot_loss_curves(log_dir, ylim=None):
 def data_plot(config, config_file, epoch_list, style, extended, device):
 
     # plt.rcParams['text.usetex'] = False  # LaTeX disabled
-    # rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman', 'DejaVu Serif', 'serif']})
+    # rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
     # matplotlib.rcParams['savefig.pad_inches'] = 0
 
     if 'black' in style:
@@ -7462,7 +7462,7 @@ def data_plot(config, config_file, epoch_list, style, extended, device):
 
     if 'latex' in style:
         plt.rcParams['text.usetex'] = False  # LaTeX disabled
-        rc('font', **{'family': 'serif', 'serif': ['Computer Modern Roman', 'DejaVu Serif', 'serif']})
+        rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
 
     matplotlib.rcParams['savefig.pad_inches'] = 0
 
