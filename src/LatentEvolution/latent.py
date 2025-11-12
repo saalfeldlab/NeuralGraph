@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim
 from LatentEvolution.gpu_stats import GPUMonitor
+from LatentEvolution.post_run_diagnostics import post_training_diagnostics
 
 
 # -------------------------------------------------------------------
@@ -529,6 +530,18 @@ def train(cfg: ModelParams, run_dir: Path):
         model_path = run_dir / "model_final.pt"
         torch.save(model.state_dict(), model_path)
         print(f"Saved final model to {model_path}")
+
+        # --- Run post-training diagnostics ---
+        post_training_diagnostics(
+            train_data=train_data,
+            val_data=val_data,
+            test_data=test_data,
+            train_stim=train_stim,
+            val_stim=val_stim,
+            test_stim=test_stim,
+            model=model,
+            config=cfg,
+        )
 
 
 # -------------------------------------------------------------------

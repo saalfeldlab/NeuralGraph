@@ -563,8 +563,6 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=N
         output_name (str): Name of output .mp4 file.
         crf (int): Constant Rate Factor for quality (0-51, lower = better quality, 23 is default).
     """
-    import os
-    import subprocess
 
     fig_dir = os.path.join(output_dir, "Fig")
     input_pattern = os.path.join(fig_dir, f"Fig_{run}_%06d.png")
