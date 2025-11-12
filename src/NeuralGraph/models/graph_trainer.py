@@ -1198,7 +1198,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
 
                     if recurrent_training:
-                        y = torch.tensor(x_list[run][k+1,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
+                        y = torch.tensor(x_list[run][k + time_step,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
                     elif test_neural_field:
                         y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)  # loss on current excitation
                     else:
@@ -1252,12 +1252,8 @@ def data_train_flyvis(config, erase, best_model, device):
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
-                    
-                    if recurrent_training:
-                        pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
-                        loss = loss + ((pred_x - y_batch[ids_batch]) / delta_t).norm(2)
-                    else:
-                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
 
@@ -1265,15 +1261,13 @@ def data_train_flyvis(config, erase, best_model, device):
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
-                    
-                    if recurrent_training:
-                        pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
-                        loss = loss + ((pred_x - y_batch[ids_batch]) / delta_t).norm(2)
-                    else:
-                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
                 else:
+
+                    
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         if (coeff_update_msg_diff > 0) | (coeff_update_u_diff > 0) | (coeff_update_msg_sign>0):
@@ -1300,8 +1294,37 @@ def data_train_flyvis(config, erase, best_model, device):
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
                     
                     if recurrent_training:
+
                         pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
-                        loss = loss + ((pred_x - y_batch[ids_batch]) / delta_t).norm(2)
+
+                        if time_step > 1:
+                            # Autoregressive rollout for time_step-1 additional steps
+                            for step in range(time_step - 1):
+                                # Update activity in dataset_batch for each batch element
+                                for b in range(batch_size):
+                                    start_idx = b * n_neurons
+                                    end_idx = (b + 1) * n_neurons
+                                    # Update activity (column 3) with integrated prediction
+                                    dataset_batch[b].x[:, 3:4] = x_batch[start_idx:end_idx, 0:1] + delta_t * pred[start_idx:end_idx]
+
+                                # Update x_batch with new activity values
+                                for b in range(batch_size):
+                                    start_idx = b * n_neurons
+                                    end_idx = (b + 1) * n_neurons
+                                    x_batch[start_idx:end_idx, 0:1] = dataset_batch[b].x[:, 3:4]
+
+                                # Run forward pass with updated states
+                                batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+                                for batch in batch_loader:
+                                    pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
+
+                                # Update pred_x with new prediction
+                                pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
+
+                        loss = loss + ((pred_x - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
+
+
+
                     else:
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
