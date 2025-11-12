@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from LatentEvolution.latent import ModelParams, LatentModel
     from LatentEvolution.load_flyvis import NeuronData
 
-def plot_neuron_reconstruction(true_trace: np.ndarray, recon_trace: np.ndarray, neuron_data: NeuronData):
+def plot_neuron_reconstruction(true_trace: np.ndarray, recon_trace: np.ndarray, neuron_data: NeuronData, xlim: tuple[int, int] | None = None):
     ntypes = len(neuron_data.TYPE_NAMES)
 
     rng = np.random.default_rng(seed=0)
@@ -35,7 +35,8 @@ def plot_neuron_reconstruction(true_trace: np.ndarray, recon_trace: np.ndarray, 
         ax[itype].plot(recon_trace[:, ix], color=p[-1].get_color())
         ax[itype].set_ylim(*ylim)
         ax[itype].set_title(title)
-
+    if xlim is not None:
+        ax[-1].set_xlim(*xlim)
     ax[-1].set_xlabel("Time steps")
     fig.tight_layout()
     return fig
@@ -140,14 +141,17 @@ def post_training_diagnostics(
     print(f"  Val data shape: {val_data.shape}")
     print(f"  Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
-    model.eval()
     metrics = {}
     true_trace = val_data.detach().cpu().numpy()
     recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
 
-    # Neuron traces
-    fig = plot_neuron_reconstruction(true_trace, recon_trace, neuron_data)
+    # Neuron traces (full trace)
+    fig = plot_neuron_reconstruction(true_trace, recon_trace, neuron_data, xlim=None)
     fig.savefig(run_dir / "neuron_traces.jpg", dpi=100)
+
+    # Neuron traces (full trace)
+    fig = plot_neuron_reconstruction(true_trace, recon_trace, neuron_data, xlim=(100, 1100))
+    fig.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
 
     # Reconstruction error stratified
     fig = plot_recon_error(true_trace, recon_trace)
