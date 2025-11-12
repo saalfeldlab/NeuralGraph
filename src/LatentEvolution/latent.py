@@ -263,12 +263,6 @@ class LatentModel(nn.Module):
 # Data + Batching
 # -------------------------------------------------------------------
 
-
-def load_column_data(path: str, column: FlyVisSim) -> torch.Tensor:
-    sim = SimulationResults.load(path)
-    return torch.from_numpy(sim[column]).float()  # (T, N)
-
-
 def make_batches_random(
     data: torch.Tensor, stim: torch.Tensor, batch_size: int, time_units: int
 ) -> Iterator[tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]]:
@@ -405,9 +399,8 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
-        data = load_column_data(
-            data_path, FlyVisSim[cfg.training.column_to_model]
-        ).to(device)
+        sim_data = SimulationResults.load(data_path)
+        data = torch.from_numpy(sim_data[FlyVisSim[cfg.training.column_to_model]]).to(device)
         split = cfg.training.data_split
 
         total_time_points = data.shape[0]
@@ -421,9 +414,8 @@ def train(cfg: ModelParams, run_dir: Path):
         test_data = data[split.test_start : split.test_end]
 
         # Load stimulus
-        stim = load_column_data(
-            data_path, FlyVisSim.STIMULUS
-        ).to(device)
+        stim = torch.from_numpy(sim_data[FlyVisSim.STIMULUS]).to(device)
+
         # HACK: first 1736 entries are the stimulus
         train_stim = stim[split.train_start : split.train_end, :cfg.stimulus_encoder_params.num_input_dims]
         val_stim = stim[split.validation_start : split.validation_end, :cfg.stimulus_encoder_params.num_input_dims]
@@ -562,12 +554,10 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Run post-training diagnostics ---
         post_training_diagnostics(
-            train_data=train_data,
+            run_dir=run_dir,
             val_data=val_data,
-            test_data=test_data,
-            train_stim=train_stim,
+            neuron_data=sim_data.neuron_data,
             val_stim=val_stim,
-            test_stim=test_stim,
             model=model,
             config=cfg,
         )

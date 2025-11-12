@@ -19,13 +19,37 @@ class FlyVisSim(IntEnum):
     FLUORESCENCE = 8
 
 
-class NeuronData(NamedTuple):
+class NeuronData:
     """Flyvis neuron info."""
 
-    ix: np.ndarray[tuple[int], np.dtype[np.int32]]
-    pos: np.ndarray[tuple[int, int], np.dtype[np.float32]]
-    group_type: np.ndarray[tuple[int], np.dtype[np.uint8]]
-    type: np.ndarray[tuple[int], np.dtype[np.uint8]]
+    TYPE_NAMES = [
+        "Am", "C2", "C3", "CT1(Lo1)", "CT1(M10)",
+        "L1", "L2", "L3", "L4", "L5", "Lawf1", "Lawf2",
+        "Mi1", "Mi10", "Mi11", "Mi12", "Mi13", "Mi14", "Mi15", "Mi2", "Mi3", "Mi4", "Mi9",
+        "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8",
+        "T1", "T2", "T2a", "T3", "T4a", "T4b", "T4c", "T4d", "T5a", "T5b", "T5c", "T5d",
+        "Tm1", "Tm16", "Tm2", "Tm20", "Tm28", "Tm3", "Tm30", "Tm4", "Tm5Y",
+        "Tm5a", "Tm5b", "Tm5c", "Tm9", "TmY10", "TmY13", "TmY14",
+        "TmY15", "TmY18", "TmY3", "TmY4", "TmY5a", "TmY9"
+    ]
+
+    def __init__(self, x:np.ndarray[tuple[int, int, int], np.dtype[np.float32]]):
+        self.ix=x[0, :, FlyVisSim.INDEX].astype(np.int32)
+        self.pos=x[0, :, [FlyVisSim.XPOS, FlyVisSim.YPOS]]
+        self.group_type=x[0, :, FlyVisSim.GROUP_TYPE].astype(np.uint8)
+        self.type=x[0, :, FlyVisSim.TYPE].astype(np.uint8)
+
+        # store indices for each neuron type
+        order = np.argsort(self.type)
+        uniq_types, start_index = np.unique(self.type[order], return_index=True)
+        num_neuron_types = len(uniq_types)
+        assert (uniq_types == np.arange(num_neuron_types)).all(), "breaks assumptions"
+        breaks = np.zeros(len(uniq_types)+1, dtype=np.int64)
+        breaks[:-1] = start_index
+        breaks[-1] = len(self.type)
+        self.indices_per_type = [
+            order[breaks[i]:breaks[i+1]] for i in range(num_neuron_types)
+        ]
 
 
 class SimulationResults(NamedTuple):
@@ -43,12 +67,7 @@ class SimulationResults(NamedTuple):
 
         # split off time-independent piece
         return SimulationResults(
-            neuron_data=NeuronData(
-                ix=x[0, :, FlyVisSim.INDEX].astype(np.int32),
-                pos=x[0, :, [FlyVisSim.XPOS, FlyVisSim.YPOS]],
-                group_type=x[0, :, FlyVisSim.GROUP_TYPE].astype(np.uint8),
-                type=x[0, :, FlyVisSim.TYPE].astype(np.uint8),
-            ),
+            neuron_data=NeuronData(x),
             data=x,
         )
 
