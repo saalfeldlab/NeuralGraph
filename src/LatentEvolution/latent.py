@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim
 from LatentEvolution.gpu_stats import GPUMonitor
+from LatentEvolution.diagnostics import post_training_diagnostics
 
 
 # -------------------------------------------------------------------
@@ -136,6 +137,35 @@ class ModelParams(BaseModel):
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
+    def flatten(self, sep: str = ".") -> dict[str, int | float | str | bool]:
+        """
+        Flatten the ModelParams into a single-level dictionary.
+
+        Args:
+            sep: Separator to use for nested keys (default: ".")
+
+        Returns:
+            A flat dictionary with nested keys joined by the separator.
+
+        Example:
+            >>> params.flatten()
+            {'latent_dims': 10, 'encoder_params.num_hidden_units': 64, ...}
+        """
+        def _flatten_dict(
+            d: dict[str, int | float | str | bool | dict],
+            parent_key: str = "",
+        ) -> dict[str, int | float | str | bool]:
+            items: list[tuple[str, int | float | str | bool]] = []
+            for k, v in d.items():
+                new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                if isinstance(v, dict):
+                    items.extend(_flatten_dict(v, new_key).items())
+                else:
+                    items.append((new_key, v))
+            return dict(items)
+
+        return _flatten_dict(self.model_dump())
+
 
 # -------------------------------------------------------------------
 # PyTorch Models
@@ -232,12 +262,6 @@ class LatentModel(nn.Module):
 # -------------------------------------------------------------------
 # Data + Batching
 # -------------------------------------------------------------------
-
-
-def load_column_data(path: str, column: FlyVisSim) -> torch.Tensor:
-    sim = SimulationResults.load(path)
-    return torch.from_numpy(sim[column]).float()  # (T, N)
-
 
 def make_batches_random(
     data: torch.Tensor, stim: torch.Tensor, batch_size: int, time_units: int
@@ -375,9 +399,8 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
-        data = load_column_data(
-            data_path, FlyVisSim[cfg.training.column_to_model]
-        ).to(device)
+        sim_data = SimulationResults.load(data_path)
+        data = torch.from_numpy(sim_data[FlyVisSim[cfg.training.column_to_model]]).to(device)
         split = cfg.training.data_split
 
         total_time_points = data.shape[0]
@@ -391,9 +414,8 @@ def train(cfg: ModelParams, run_dir: Path):
         test_data = data[split.test_start : split.test_end]
 
         # Load stimulus
-        stim = load_column_data(
-            data_path, FlyVisSim.STIMULUS
-        ).to(device)
+        stim = torch.from_numpy(sim_data[FlyVisSim.STIMULUS]).to(device)
+
         # HACK: first 1736 entries are the stimulus
         train_stim = stim[split.train_start : split.train_end, :cfg.stimulus_encoder_params.num_input_dims]
         val_stim = stim[split.validation_start : split.validation_end, :cfg.stimulus_encoder_params.num_input_dims]
@@ -514,6 +536,23 @@ def train(cfg: ModelParams, run_dir: Path):
                 }
         )
         metrics.update(gpu_metrics)
+
+        # --- Save final model ---
+        model_path = run_dir / "model_final.pt"
+        torch.save(model.state_dict(), model_path)
+        print(f"Saved final model to {model_path}")
+
+        # --- Run post-training diagnostics ---
+        post_run_metrics = post_training_diagnostics(
+            run_dir=run_dir,
+            val_data=val_data,
+            neuron_data=sim_data.neuron_data,
+            val_stim=val_stim,
+            model=model,
+            config=cfg,
+        )
+        metrics.update(post_run_metrics)
+
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
         with open(metrics_path, "w") as f:
@@ -524,11 +563,6 @@ def train(cfg: ModelParams, run_dir: Path):
                 indent=2,
             )
         print(f"Saved metrics to {metrics_path}")
-
-        # --- Save final model ---
-        model_path = run_dir / "model_final.pt"
-        torch.save(model.state_dict(), model_path)
-        print(f"Saved final model to {model_path}")
 
 
 # -------------------------------------------------------------------

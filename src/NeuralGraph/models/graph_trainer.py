@@ -88,7 +88,6 @@ import napari
 from collections import deque
 from tqdm import tqdm, trange
 import networkx as nx
-import scipy
 from prettytable import PrettyTable
 import imageio
 
