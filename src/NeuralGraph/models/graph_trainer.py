@@ -1302,28 +1302,41 @@ def data_train_flyvis(config, erase, best_model, device):
                         if time_step > 1:
                             # Autoregressive rollout for time_step-1 additional steps
                             for step in range(time_step - 1):
-                                # Update activity in dataset_batch for each batch element
-                                for b in range(batch_size):
-                                    start_idx = b * n_neurons
-                                    end_idx = (b + 1) * n_neurons
-                                    # Update activity (column 3) with integrated prediction
-                                    dataset_batch[b].x[:, 3:4] = x_batch[start_idx:end_idx, 0:1] + delta_t * pred[start_idx:end_idx]
+                                # Create new dataset_batch with updated activity (maintaining gradients)
+                                dataset_batch_new = []
+                                x_features_new = []
 
-                                # Update x_batch with new activity values
                                 for b in range(batch_size):
                                     start_idx = b * n_neurons
                                     end_idx = (b + 1) * n_neurons
-                                    x_batch[start_idx:end_idx, 0:1] = dataset_batch[b].x[:, 3:4]
+
+                                    # Get current features and update activity column (maintaining gradient flow)
+                                    x_current = dataset_batch[b].x.clone()
+                                    x_current[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
+                                    x_features_new.append(x_current)
+
+                                    # Create new PyG Data object with updated features
+                                    dataset_new = pyg_Data(x=x_current, edge_index=dataset_batch[b].edge_index)
+                                    dataset_batch_new.append(dataset_new)
 
                                 # Run forward pass with updated states
-                                batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
+                                batch_loader = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
                                 for batch in batch_loader:
                                     pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
 
-                                # Update pred_x with new prediction
-                                pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
+                                # Compute next integrated prediction (maintaining gradient flow)
+                                pred_x_list = []
+                                for b in range(batch_size):
+                                    start_idx = b * n_neurons
+                                    end_idx = (b + 1) * n_neurons
+                                    current_activity = x_features_new[b][:, 3:4]
+                                    pred_x_batch = current_activity + delta_t * pred[start_idx:end_idx]
+                                    pred_x_list.append(pred_x_batch)
 
-                        loss = loss + ((pred_x - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
+                                pred_x = torch.cat(pred_x_list, dim=0)
+                                dataset_batch = dataset_batch_new  # Update for next iteration
+
+                        loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
 
 

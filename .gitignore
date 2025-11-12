@@ -28,6 +28,14 @@ runs/
 *.ijm
 *.bkup
 
+# Experiment documentation in config folders
+config/fly/**/*.md
+config/fly/**/*.html
+config/signal/**/*.md
+config/signal/**/*.html
+config/zebrafish/**/*.md
+config/zebrafish/**/*.html
+
 # Exception: allow assets folder images
 !assets/*.png
 !assets/*.jpg
