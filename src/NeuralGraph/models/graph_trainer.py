@@ -1267,7 +1267,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 else:
 
-                    
+
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         if (coeff_update_msg_diff > 0) | (coeff_update_u_diff > 0) | (coeff_update_msg_sign>0):
@@ -1292,6 +1292,8 @@ def data_train_flyvis(config, erase, best_model, device):
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
+                    
+
                     
                     if recurrent_training:
 
@@ -1326,6 +1328,9 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                     else:
+
+
+
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
