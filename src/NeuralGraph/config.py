@@ -391,7 +391,7 @@ class TrainingConfig(BaseModel):
     recurrent_training: bool = False
     recurrent_training_start_epoch: int = 0
     recurrent_loop: int = 0
-    coeff_loop: list[float] = [2, 4, 8, 16, 32, 64]
+
     time_step: int = 1
     recurrent_sequence: str = ""
     recurrent_parameters: list[float] = [0, 0]

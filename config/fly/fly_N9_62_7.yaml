@@ -60,7 +60,6 @@ training:
     device: 'auto'
 
     recurrent_training: False
-    recurrent_loop: 1
     batch_size: 32
     batch_ratio: 1
 

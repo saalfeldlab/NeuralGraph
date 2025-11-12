@@ -141,7 +141,6 @@ def data_train_signal(config, erase, best_model, device):
     dimension = simulation_config.dimension
 
     data_augmentation_loop = train_config.data_augmentation_loop
-    recurrent_loop = train_config.recurrent_loop
     recurrent_parameters = train_config.recurrent_parameters.copy()
     target_batch_size = train_config.batch_size
     delta_t = simulation_config.delta_t
@@ -414,7 +413,7 @@ def data_train_signal(config, erase, best_model, device):
         if batch_ratio < 1:
             Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio * 0.2)
         else:
-            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recurrent_loop, 1))
+            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 )
 
         plot_frequency = int(Niter // 5)
         print(f'{Niter} iterations per epoch, {plot_frequency} iterations per plot')
@@ -452,8 +451,7 @@ def data_train_signal(config, erase, best_model, device):
                     x[-1, 6] = excitation_values.squeeze()
                     x[-1, 0] = n_neurons-1
 
-                ids = torch.argwhere(x[:, 6] != baseline_value)
-                ids = to_numpy(ids.squeeze())
+                ids = np.arange(n_neurons-n_excitatory_neurons)
 
                 if not (torch.isnan(x).any()):
                     if has_missing_activity:
@@ -566,10 +564,8 @@ def data_train_signal(config, erase, best_model, device):
                         edges = edges[:, mask]
 
                     if n_excitatory_neurons > 0:
-                        y = torch.tensor(y_list[run][k + recurrent_loop], device=device) / ynorm
+                        y = torch.tensor(y_list[run][k], device=device) / ynorm
                         y = torch.cat((y, torch.zeros((1,1), dtype=torch.float32, device=device)), dim=0)
-                    elif recurrent_loop > 1:
-                        y = torch.tensor(y_list[run][k + recurrent_loop], device=device) / ynorm
                     elif time_step == 1:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
                     elif time_step > 1:
@@ -632,23 +628,28 @@ def data_train_signal(config, erase, best_model, device):
                     else:
                         pred = model(batch, data_id=data_id, k=k_batch)
 
-                if time_step == 1:
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                
+                loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
-                elif time_step > 1:
-                    loss = loss + (x_batch[ids_batch] + pred[ids_batch] * delta_t * time_step - y_batch[ids_batch]).norm(2)
 
                 if 'PDE_N3' in model_config.signal_model_name:
                     loss = loss + train_config.coeff_model_a * (model.a[ind_a + 1] - model.a[ind_a]).norm(2)
 
+
+
                 loss.backward()
                 optimizer.step()
+
+
+
                 if has_missing_activity:
                     optimizer_missing_activity.step()
                 if has_neural_field:
                     optimizer_f.step()
 
+
                 total_loss += loss.item()
+
 
                 if ((N % plot_frequency == 0) | (N == 0)):
                     plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap,
@@ -690,7 +691,7 @@ def data_train_signal(config, erase, best_model, device):
 
                     if has_neural_field:
                         with torch.no_grad():
-                            plot_training_signal_field(x, n_nodes, recurrent_loop, k, time_step,
+                            plot_training_signal_field(x, n_nodes, k, time_step,
                                                        x_list, run, model, field_type, model_f,
                                                        edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N,
                                                        recurrent_parameters, modulation, device)
@@ -886,7 +887,6 @@ def data_train_flyvis(config, erase, best_model, device):
 
     data_augmentation_loop = train_config.data_augmentation_loop
     recurrent_training = train_config.recurrent_training
-    recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     time_window = train_config.time_window
@@ -904,9 +904,6 @@ def data_train_flyvis(config, erase, best_model, device):
     coeff_update_msg_sign = train_config.coeff_update_msg_sign
     coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
     coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
-    coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
-    if coeff_loop.numel() < train_config.recurrent_loop:
-        coeff_loop = torch.linspace(coeff_loop[0], coeff_loop[-1], train_config.recurrent_loop, device=device)
 
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
@@ -1140,7 +1137,11 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
 
+                if recurrent_training & (time_step>1):
+                    k = k - k % time_step
+
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+
                 ids = np.arange(n_neurons)
 
                 if time_window > 0:
@@ -1254,7 +1255,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     
                     if recurrent_training:
                         pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
-                        loss = loss + (pred_x - y_batch[ids_batch]).norm(2)
+                        loss = loss + ((pred_x - y_batch[ids_batch]) / delta_t).norm(2)
                     else:
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
@@ -1267,7 +1268,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     
                     if recurrent_training:
                         pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
-                        loss = loss + (pred_x - y_batch[ids_batch]).norm(2)
+                        loss = loss + ((pred_x - y_batch[ids_batch]) / delta_t).norm(2)
                     else:
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
@@ -1300,7 +1301,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     
                     if recurrent_training:
                         pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
-                        loss = loss + (pred_x - y_batch[ids_batch]).norm(2)
+                        loss = loss + ((pred_x - y_batch[ids_batch]) / delta_t).norm(2)
                     else:
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
@@ -1310,60 +1311,15 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
 
-
-                if recurrent_training & (recurrent_loop==100):
-
-                    for n_loop in range(recurrent_loop):
-
-                        for batch in range(batch_size):
-                            k = k_batch[batch * n_neurons] + n_loop + 1
-
-                            # Update only required neurons (not all)
-                            if batch_ratio < 1:
-                                update_indices = required_ids
-                            else:
-                                update_indices = np.arange(n_neurons)
-
-                            # Apply state update
-                            dataset_batch[batch].x[update_indices, 3:4] += (
-                                delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][update_indices] * ynorm
-                            )
-
-                            # Update external input
-                            dataset_batch[batch].x[update_indices, 4:5] = torch.tensor(
-                                x_list[run][k.item(), update_indices, 4:5], device=device
-                            )
-
-                        # Forward pass with SAME edges/mask
-                        batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
-                        for batch in batch_loader:
-                            pred = model(batch, data_id=data_id, mask=mask_batch, return_all=False)
-
-                        # Loss computation on core neurons only
-                        y_batch_list = []
-                        for batch in range(batch_size):
-                            k = k_batch[batch * n_neurons] + n_loop + 1
-                            y = torch.tensor(y_list[run][k.item(), ids], device=device) / ynorm
-                            y_batch_list.append(y)
-
-                        y_batch = torch.cat(y_batch_list, dim=0)
-
-                        # Indices for loss (core neurons across all batches)
-                        ids_batch = np.concatenate([
-                            ids + batch * n_neurons for batch in range(batch_size)
-                        ])
-
-                        # Loss only on core neurons
-                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
-
-
-
                 loss.backward()
 
                 optimizer.step()
 
 
                 total_loss += loss.item()
+
+
+
 
                 if ((N % plot_frequency == 0) & (N > 0)):
                     if has_visual_field:
@@ -1800,8 +1756,6 @@ def data_train_zebra(config, erase, best_model, device):
 
     CustomColorMap(config=config)
     plt.style.use('dark_background')
-
-    torch.tensor(train_config.coeff_loop, device = device)
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading graph files N: {n_runs} ...')

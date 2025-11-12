@@ -55,7 +55,6 @@ plotting:
 training:
     n_epochs: 20
 
-    recurrent_loop: 2
     time_step: 4
     recurrent_parameters: [0.1, 0.1]
 

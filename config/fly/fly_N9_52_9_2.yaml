@@ -49,7 +49,6 @@ training:
 
     seed: 17
 
-    recurrent_loop: 1
     batch_size: 1
     batch_ratio: 1
 

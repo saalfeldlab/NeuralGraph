@@ -63,7 +63,6 @@ training:
     n_runs: 2
     device: 'auto'
 
-    recurrent_loop: 1
     batch_size: 5
     small_init_batch_size: True
 

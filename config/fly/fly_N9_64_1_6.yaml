@@ -48,7 +48,6 @@ training:
     training_selected_neurons: True
     selected_neuron_ids: [0, 4193, 3976, 1736]
 
-    recurrent_loop: 0
     batch_size: 1
     batch_ratio: 1
 

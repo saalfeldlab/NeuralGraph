@@ -62,7 +62,6 @@ training:
     epoch_reset: 1
 
     n_epochs_init: 5
-    recurrent_loop: 16
     time_step: 16
     batch_size: 1
     small_init_batch_size: True

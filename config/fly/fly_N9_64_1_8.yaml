@@ -55,7 +55,6 @@ training:
        10486, 10703, 12656, 12873, 13090, 13307, 13524, 11788, 12005,
        12222, 12439]
 
-    recurrent_loop: 0
     batch_size: 1
     batch_ratio: 1
 

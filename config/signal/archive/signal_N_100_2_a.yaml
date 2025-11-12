@@ -37,7 +37,6 @@ plotting:
 
 training:
     n_epochs: 20
-    recurrent_loop: 2
     batch_size: 1
     small_init_batch_size: False
     n_runs: 100
