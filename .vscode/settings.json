@@ -7,12 +7,8 @@
   "python.defaultInterpreterPath": "/workspace/.conda_envs/neural-graph-linux/bin/python",
   "python.condaPath": "/opt/conda/bin/conda",
   "python.terminal.activateEnvironment": true,
-  "python.analysis.extraPaths": [
-    "${workspaceFolder}/src"
-  ],
-  "python.autoComplete.extraPaths": [
-    "${workspaceFolder}/src"
-  ],
+  "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+  "python.autoComplete.extraPaths": ["${workspaceFolder}/src"],
   "python.languageServer": "Pylance",
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "workspace",
