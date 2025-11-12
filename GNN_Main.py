@@ -38,13 +38,13 @@ if __name__ == "__main__":
         best_model = 'None' 
         task = 'train'  # 'generate', 'train', 'test'
 
-        config_list = ['fly_N9_62_5_2']  # for quick test
+        # config_list = ['fly_N9_62_5_2']  # for quick test
         
         # config_list = ['zebra_N10_34_1'] 
 
-        # config_list = ['signal_N11_2_4_1', 'signal_N11_2_5_1', 'signal_N11_2_6_1', 'signal_N11_2_7_1']
-
-        # config_list = ['signal_N11_1_3', 'signal_N11_1_4', 'signal_N11_1_5', 'signal_N11_1_6', 'signal_N11_1_7']
+        config_list = ['signal_N11_2_1_2', 'signal_N11_2_1_3', 'signal_N11_2_1_4', 'signal_N11_2_1_5', 'signal_N11_2_1_6'
+                    'signal_N11_2_2_2', 'signal_N11_2_2_3', 'signal_N11_2_2_4'
+                    'signal_N11_2_3_2', 'signal_N11_2_3_3', 'signal_N11_2_3_4']
 
 
     for config_file_ in config_list:

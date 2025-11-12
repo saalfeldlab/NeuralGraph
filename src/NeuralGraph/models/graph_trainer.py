@@ -1297,7 +1297,8 @@ def data_train_flyvis(config, erase, best_model, device):
                     
                     if recurrent_training:
 
-                        pred_x = x_batch[ids_batch, 0:1] + delta_t * pred[ids_batch]
+                        # Compute initial integrated prediction for ALL neurons (needed for autoregressive loop)
+                        pred_x = x_batch[:, 0:1] + delta_t * pred
 
                         if time_step > 1:
                             # Autoregressive rollout for time_step-1 additional steps
