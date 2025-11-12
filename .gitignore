@@ -11,6 +11,7 @@ archive/
 src/models/data/
 src/NeuralGraph/scripts/tmp/
 runs/
+.claude/
 
 # Media and data files
 *.png
@@ -187,6 +188,7 @@ cython_debug/
 
 # claude local settings
 .claude/settings.local.json
+.claude.md
 
 # nohup logs
 nohup*.out
