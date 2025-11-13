@@ -419,7 +419,6 @@ def data_train_signal(config, erase, best_model, device):
 
         total_loss = 0
         total_loss_regul = 0
-        k = 0
 
         time.sleep(1.0)
         for N in trange(Niter, ncols=150):
@@ -496,7 +495,7 @@ def data_train_signal(config, erase, best_model, device):
                         loss = loss + func_phi.norm(2) * coeff_lin_phi_zero
                     # regularisation sparsity on Wij
                     if coeff_W_L1 > 0:
-                        loss = loss + model_W[:n_neurons, :n_neurons].norm(1) * coeff_W_L1
+                        loss = loss + model_W[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons].norm(1) * coeff_W_L1
                     # regularisation lin_edge
                     in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device)
                     if coeff_edge_diff > 0:
