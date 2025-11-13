@@ -295,26 +295,23 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
         sim_data = SimulationResults.load(data_path)
-        data = torch.from_numpy(sim_data[FlyVisSim[cfg.training.column_to_model]]).to(device)
         split = cfg.training.data_split
 
-        total_time_points = data.shape[0]
-        assert split.train_end <= total_time_points
-        assert split.validation_end <= total_time_points
-        assert split.test_end <= total_time_points
+        # Extract subsets using split_column method
+        train_data_np, val_data_np, test_data_np = sim_data.split_column(
+            FlyVisSim[cfg.training.column_to_model], split
+        )
+        train_data = torch.from_numpy(train_data_np).to(device)
+        val_data = torch.from_numpy(val_data_np).to(device)
+        test_data = torch.from_numpy(test_data_np).to(device)
 
-        # Extract subsets
-        train_data = data[split.train_start : split.train_end]
-        val_data = data[split.validation_start : split.validation_end]
-        test_data = data[split.test_start : split.test_end]
-
-        # Load stimulus
-        stim = torch.from_numpy(sim_data[FlyVisSim.STIMULUS]).to(device)
-
-        # HACK: first 1736 entries are the stimulus
-        train_stim = stim[split.train_start : split.train_end, :cfg.stimulus_encoder_params.num_input_dims]
-        val_stim = stim[split.validation_start : split.validation_end, :cfg.stimulus_encoder_params.num_input_dims]
-        test_stim = stim[split.test_start : split.test_end, :cfg.stimulus_encoder_params.num_input_dims]
+        # Load stimulus (keep only first num_input_dims features)
+        train_stim_np, val_stim_np, test_stim_np = sim_data.split_column(
+            FlyVisSim.STIMULUS, split, keep_first_n_limit=cfg.stimulus_encoder_params.num_input_dims
+        )
+        train_stim = torch.from_numpy(train_stim_np).to(device)
+        val_stim = torch.from_numpy(val_stim_np).to(device)
+        test_stim = torch.from_numpy(test_stim_np).to(device)
 
         print(
             f"Data split: train {train_data.shape}, "
