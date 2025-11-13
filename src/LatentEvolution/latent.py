@@ -56,6 +56,12 @@ class TrainingConfig(BaseModel):
     diagnostics_freq_epochs: int = Field(
         0, description="Run validation diagnostics every N epochs (0 = only at end of training)"
     )
+    save_checkpoint_every_n_epochs: int = Field(
+        10, description="Save model checkpoint every N epochs (0 = disabled)"
+    )
+    save_best_checkpoint: bool = Field(
+        True, description="Save checkpoint when validation loss improves"
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -256,6 +262,78 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
 # -------------------------------------------------------------------
+# Model Loading
+# -------------------------------------------------------------------
+
+
+def load_model_from_checkpoint(
+    checkpoint_path: Path | str,
+    config_path: Path | str | None = None,
+    device: torch.device | None = None,
+) -> LatentModel:
+    """
+    Load a model from a checkpoint file.
+
+    Args:
+        checkpoint_path: Path to the checkpoint file (e.g., "runs/my_exp/run_id/checkpoints/checkpoint_best.pt")
+        config_path: Optional path to config.yaml. If None, looks for config.yaml in run directory.
+        device: Device to load model onto. If None, uses get_device().
+
+    Returns:
+        Loaded LatentModel instance in eval mode
+
+    Example:
+        >>> from pathlib import Path
+        >>> model = load_model_from_checkpoint(
+        ...     "runs/my_experiment/20251105_abc123_def456/checkpoints/checkpoint_best.pt"
+        ... )
+        >>> # Use model for inference
+        >>> model.eval()
+        >>> with torch.no_grad():
+        ...     output = model(x, stim)
+    """
+    checkpoint_path = Path(checkpoint_path)
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+    # Infer config path if not provided
+    if config_path is None:
+        # Assume checkpoint is in: run_dir/checkpoints/checkpoint_*.pt
+        run_dir = checkpoint_path.parent.parent
+        config_path = run_dir / "config.yaml"
+
+    config_path = Path(config_path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    # Load config
+    with open(config_path, "r") as f:
+        config_dict = yaml.safe_load(f)
+    cfg = ModelParams(**config_dict)
+
+    # Get device
+    if device is None:
+        device = get_device()
+
+    # Create model
+    model = LatentModel(cfg).to(device)
+
+    # Load checkpoint
+    state_dict = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(state_dict)
+
+    # Set to eval mode
+    model.eval()
+
+    print(f"Loaded model from {checkpoint_path}")
+    print(f"  Config: {config_path}")
+    print(f"  Device: {device}")
+    print(f"  Parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    return model
+
+
+# -------------------------------------------------------------------
 # Training
 # -------------------------------------------------------------------
 
@@ -365,6 +443,11 @@ def train(cfg: ModelParams, run_dir: Path):
         training_start = datetime.now()
         epoch_durations = []
 
+        # --- Checkpoint setup ---
+        checkpoint_dir = run_dir / "checkpoints"
+        checkpoint_dir.mkdir(exist_ok=True)
+        best_val_loss = float('inf')
+
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
@@ -439,6 +522,20 @@ def train(cfg: ModelParams, run_dir: Path):
                 print(f"  Diagnostics completed in {diagnostics_duration:.2f}s")
 
                 model.train()
+
+            # --- Checkpointing ---
+            # Save best checkpoint
+            if cfg.training.save_best_checkpoint and val_loss < best_val_loss:
+                best_val_loss = val_loss
+                checkpoint_path = checkpoint_dir / "checkpoint_best.pt"
+                torch.save(model.state_dict(), checkpoint_path)
+                print(f"  → Saved best checkpoint (val_loss: {val_loss:.4e})")
+
+            # Save periodic checkpoint
+            if cfg.training.save_checkpoint_every_n_epochs > 0 and (epoch + 1) % cfg.training.save_checkpoint_every_n_epochs == 0:
+                checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch+1:04d}.pt"
+                torch.save(model.state_dict(), checkpoint_path)
+                print(f"  → Saved periodic checkpoint at epoch {epoch+1}")
 
         # --- Final test evaluation ---
         model.eval()
