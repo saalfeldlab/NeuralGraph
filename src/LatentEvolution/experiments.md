@@ -1132,3 +1132,17 @@ v[i, t+1] = decoder(evolver(encoder(v[i, t]), stimulus_encoder(s[i, t])))
 We compute the jacobian of `f_i` w.r.t `(v_j, s_j')` and this matrix shows a structure that's not
 quite the connectivity matrix, but has a similar feedforward structure. See plotting code in
 notebook. This structure only appears when you regularize but not otherwise.
+
+## Checkpoint models
+
+Train for a really long time. Resample the data 100x to define one epoch as 100
+passes over the data. This allows one epoch ~ 1min as opposed to < 1s.
+
+```
+for seed in 188726 8172361 ; do \
+    bsub -J "seeds" -n 1 -gpu "num=1" -q gpu_a100 -o checkpoint.log python \
+        src/LatentEvolution/latent.py 20251112 \
+        --training.epochs 50000 \
+        --training.seed $seed
+done
+```

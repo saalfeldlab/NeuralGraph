@@ -114,7 +114,7 @@ class TrainingConfig(BaseModel):
     )
     seed: int = 42
     data_split: DataSplit
-
+    data_passes_per_epoch: int = 1
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -441,7 +441,11 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
-        batches_per_epoch = max(1, num_time_points // cfg.training.batch_size)
+        # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
+        # resampling data points.
+        batches_per_epoch = (
+            max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
+        )
         batch_iter = make_batches_random(
             train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
         )
