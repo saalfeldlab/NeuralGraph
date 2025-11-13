@@ -61,7 +61,6 @@ training:
     device: 'auto'
 
     n_epochs_init: 5
-    recurrent_loop: 1
     batch_size: 10
     small_init_batch_size: True
 

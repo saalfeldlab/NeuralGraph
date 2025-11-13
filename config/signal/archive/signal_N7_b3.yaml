@@ -53,7 +53,6 @@ plotting:
 training:
     n_epochs: 20
 
-    recurrent_loop: 1
     recurrent_parameters: [0.1, 0.1]
 
     batch_size: 1

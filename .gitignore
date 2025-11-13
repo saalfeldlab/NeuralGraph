@@ -11,6 +11,7 @@ archive/
 src/models/data/
 src/NeuralGraph/scripts/tmp/
 runs/
+.claude/
 
 # Media and data files
 *.png
@@ -26,6 +27,11 @@ runs/
 *.csv
 *.ijm
 *.bkup
+*.html
+
+# Experiment documentation in config folders
+config/fly/**/*.md
+config/zebrafish/**/*.md
 
 # Exception: allow assets folder images
 !assets/*.png
@@ -187,6 +193,7 @@ cython_debug/
 
 # claude local settings
 .claude/settings.local.json
+.claude.md
 
 # nohup logs
 nohup*.out

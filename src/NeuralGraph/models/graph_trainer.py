@@ -24,7 +24,6 @@ from NeuralGraph.models.utils import (
     get_in_features_update,
     get_in_features_lin_edge,
     analyze_edge_function,
-    get_n_hop_neighborhood_with_stats,
     plot_training_signal,
     plot_training_signal_field,
     plot_training_signal_missing_activity,
@@ -140,7 +139,6 @@ def data_train_signal(config, erase, best_model, device):
     dimension = simulation_config.dimension
 
     data_augmentation_loop = train_config.data_augmentation_loop
-    recurrent_loop = train_config.recurrent_loop
     recurrent_parameters = train_config.recurrent_parameters.copy()
     target_batch_size = train_config.batch_size
     delta_t = simulation_config.delta_t
@@ -413,7 +411,7 @@ def data_train_signal(config, erase, best_model, device):
         if batch_ratio < 1:
             Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio * 0.2)
         else:
-            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 // max(recurrent_loop, 1))
+            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 )
 
         plot_frequency = int(Niter // 5)
         print(f'{Niter} iterations per epoch, {plot_frequency} iterations per plot')
@@ -451,8 +449,7 @@ def data_train_signal(config, erase, best_model, device):
                     x[-1, 6] = excitation_values.squeeze()
                     x[-1, 0] = n_neurons-1
 
-                ids = torch.argwhere(x[:, 6] != baseline_value)
-                ids = to_numpy(ids.squeeze())
+                ids = np.arange(n_neurons-n_excitatory_neurons)
 
                 if not (torch.isnan(x).any()):
                     if has_missing_activity:
@@ -565,10 +562,8 @@ def data_train_signal(config, erase, best_model, device):
                         edges = edges[:, mask]
 
                     if n_excitatory_neurons > 0:
-                        y = torch.tensor(y_list[run][k + recurrent_loop], device=device) / ynorm
+                        y = torch.tensor(y_list[run][k], device=device) / ynorm
                         y = torch.cat((y, torch.zeros((1,1), dtype=torch.float32, device=device)), dim=0)
-                    elif recurrent_loop > 1:
-                        y = torch.tensor(y_list[run][k + recurrent_loop], device=device) / ynorm
                     elif time_step == 1:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
                     elif time_step > 1:
@@ -631,23 +626,28 @@ def data_train_signal(config, erase, best_model, device):
                     else:
                         pred = model(batch, data_id=data_id, k=k_batch)
 
-                if time_step == 1:
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                
+                loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
-                elif time_step > 1:
-                    loss = loss + (x_batch[ids_batch] + pred[ids_batch] * delta_t * time_step - y_batch[ids_batch]).norm(2)
 
                 if 'PDE_N3' in model_config.signal_model_name:
                     loss = loss + train_config.coeff_model_a * (model.a[ind_a + 1] - model.a[ind_a]).norm(2)
 
+
+
                 loss.backward()
                 optimizer.step()
+
+
+
                 if has_missing_activity:
                     optimizer_missing_activity.step()
                 if has_neural_field:
                     optimizer_f.step()
 
+
                 total_loss += loss.item()
+
 
                 if ((N % plot_frequency == 0) | (N == 0)):
                     plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap,
@@ -689,7 +689,7 @@ def data_train_signal(config, erase, best_model, device):
 
                     if has_neural_field:
                         with torch.no_grad():
-                            plot_training_signal_field(x, n_nodes, recurrent_loop, k, time_step,
+                            plot_training_signal_field(x, n_nodes, k, time_step,
                                                        x_list, run, model, field_type, model_f,
                                                        edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N,
                                                        recurrent_parameters, modulation, device)
@@ -865,7 +865,6 @@ def data_train_signal(config, erase, best_model, device):
 
 
 
-
 def data_train_flyvis(config, erase, best_model, device):
     simulation_config = config.simulation
     train_config = config.training
@@ -886,7 +885,6 @@ def data_train_flyvis(config, erase, best_model, device):
 
     data_augmentation_loop = train_config.data_augmentation_loop
     recurrent_training = train_config.recurrent_training
-    recurrent_loop = train_config.recurrent_loop
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     time_window = train_config.time_window
@@ -904,9 +902,6 @@ def data_train_flyvis(config, erase, best_model, device):
     coeff_update_msg_sign = train_config.coeff_update_msg_sign
     coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
     coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
-    coeff_loop = torch.tensor(train_config.coeff_loop, device = device)
-    if coeff_loop.numel() < train_config.recurrent_loop:
-        coeff_loop = torch.linspace(coeff_loop[0], coeff_loop[-1], train_config.recurrent_loop, device=device)
 
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
@@ -1121,52 +1116,30 @@ def data_train_flyvis(config, erase, best_model, device):
             run = np.random.randint(n_runs)
 
             if batch_ratio < 1:
-                # Sample core neurons
+                # use percent neurons
                 n_core = int(n_neurons * batch_ratio)
-                core_ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
-
-                # Determine which neurons we need based on training mode
-                if recurrent_training and recurrent_loop > 0:
-                    # For recurrent: need n-hop neighborhood (compute ONCE)
-
-
-                    verbose = (N == 0) & (epoch==0)  # Print only on first iteration
-                    # or: verbose = (N % 100 == 0)  # Print every 100 iterations
-                    # or: verbose = False  # Never print
-
-                    required_ids = get_n_hop_neighborhood_with_stats(
-                        core_ids, edges_all, recurrent_loop, verbose=verbose
-                    )
-
-                else:
-                    # For non-recurrent: just core neurons
-                    required_ids = core_ids
-
-                # Get edges ONCE for all timesteps
-                mask = torch.isin(edges_all[1, :], torch.tensor(required_ids, device=device))
+                ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
+                mask = torch.isin(edges_all[1, :], torch.tensor(ids, device=device))
                 edges = edges_all[:, mask]
                 mask = torch.arange(edges_all.shape[1], device=device)[mask]
-
-                # Store core_ids for loss computation
-                ids = core_ids
 
             else:
                 # use all neurons
                 edges = edges_all.clone().detach()
                 mask = torch.arange(edges_all.shape[1])
                 ids = np.arange(n_neurons)
-                core_ids = ids  # All neurons are "core" when batch_ratio = 1
+
 
 
             for batch in range(batch_size):
 
-                if prediction == 'next_activity':
-                    k = np.random.randint(n_frames - 4 - time_step)
-                    k = k - k%time_step
-                else:
-                    k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
+                k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
+
+                if recurrent_training & (time_step>1):
+                    k = k - k % time_step
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+
                 ids = np.arange(n_neurons)
 
                 if time_window > 0:
@@ -1191,7 +1164,6 @@ def data_train_flyvis(config, erase, best_model, device):
                     if (coeff_phi_weight_L1+coeff_phi_weight_L2)>0:
                         for param in model.lin_phi.parameters():
                             loss = loss + param.norm(2) * coeff_phi_weight_L1 + param.norm(2) * coeff_phi_weight_L2
-
                     # regularisation lin_edge
                     in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons,device)
                     if coeff_edge_diff > 0:
@@ -1223,13 +1195,14 @@ def data_train_flyvis(config, erase, best_model, device):
                     #     if loss_contribs:
                     #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
 
-                    if prediction == 'next_activity':
-                        y = torch.tensor(x_list[run][k+time_step,:,3:4], dtype=torch.float32, device=device).detach()
+                    if recurrent_training:
+                        y = torch.tensor(x_list[run][k + time_step,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
+                    elif test_neural_field:
+                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)  # loss on current excitation
                     else:
-                        y = torch.tensor(y_list[run][k], device=device) / ynorm
+                        y = torch.tensor(y_list[run][k], device=device) / ynorm     # loss on activity derivative
 
-                    if test_neural_field:
-                        y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)
+                    
                     if loss_noise_level>0:
                         y = y + torch.randn(y.shape, device=device) * loss_noise_level
 
@@ -1265,39 +1238,34 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss_regul += loss.item()
 
 
+
+                
+
                 if test_neural_field:
                     loss = loss + (visual_input_batch - y_batch).norm(2)
+                
+                
+                
                 elif 'MLP_ODE' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
+
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+
+
+
                 elif 'MLP' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
+
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
-
-                elif prediction == 'next_activity':
-
-                    for n_loop in range(time_step):
-                        batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
-                        for batch in batch_loader:
-                            pred = model(batch, data_id=data_id, mask=mask_batch, return_all=False)
-                        for batch in range(batch_size):
-                            dataset_batch[batch].x[:, 3:4] += delta_t * pred[batch*n_neurons:(batch+1)*n_neurons]
-
-                    pred_x = []
-                    for batch in range(batch_size):
-                        pred_x_ = dataset_batch[batch].x[:, 3:4]
-                        pred_x.append(pred_x_)
-                    pred_x = torch.cat(pred_x, dim=0)
-
-                    loss = loss + (pred_x[ids_batch] - y_batch[ids_batch]).norm(2)
-
 
 
                 else:
+
+
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         if (coeff_update_msg_diff > 0) | (coeff_update_u_diff > 0) | (coeff_update_msg_sign>0):
@@ -1322,52 +1290,64 @@ def data_train_flyvis(config, erase, best_model, device):
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                    
 
-                if recurrent_training:
+                    
+                    if recurrent_training:
 
-                    for n_loop in range(recurrent_loop):
+                        # Compute initial integrated prediction for ALL neurons (needed for autoregressive loop)
+                        pred_x = x_batch[:, 0:1] + delta_t * pred
 
-                        for batch in range(batch_size):
-                            k = k_batch[batch * n_neurons] + n_loop + 1
+                        if time_step > 1:
+                            # Autoregressive rollout for time_step-1 additional steps
+                            for step in range(time_step - 1):
+                                # Create new dataset_batch with updated activity (maintaining gradients)
+                                dataset_batch_new = []
+                                x_features_new = []
 
-                            # Update only required neurons (not all)
-                            if batch_ratio < 1:
-                                update_indices = required_ids
-                            else:
-                                update_indices = np.arange(n_neurons)
+                                for b in range(batch_size):
+                                    start_idx = b * n_neurons
+                                    end_idx = (b + 1) * n_neurons
 
-                            # Apply state update
-                            dataset_batch[batch].x[update_indices, 3:4] += (
-                                delta_t * pred[batch*n_neurons:(batch+1)*n_neurons][update_indices] * ynorm
-                            )
+                                    # Get current features and update activity column (maintaining gradient flow)
+                                    x_current = dataset_batch[b].x.clone()
+                                    x_current[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
+                                    x_features_new.append(x_current)
 
-                            # Update external input
-                            dataset_batch[batch].x[update_indices, 4:5] = torch.tensor(
-                                x_list[run][k.item(), update_indices, 4:5], device=device
-                            )
+                                    # Create new PyG Data object with updated features
+                                    dataset_new = pyg_Data(x=x_current, edge_index=dataset_batch[b].edge_index)
+                                    dataset_batch_new.append(dataset_new)
 
-                        # Forward pass with SAME edges/mask
-                        batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
-                        for batch in batch_loader:
-                            pred = model(batch, data_id=data_id, mask=mask_batch, return_all=False)
+                                # Run forward pass with updated states
+                                batch_loader = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
+                                for batch in batch_loader:
+                                    pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
 
-                        # Loss computation on core neurons only
-                        y_batch_list = []
-                        for batch in range(batch_size):
-                            k = k_batch[batch * n_neurons] + n_loop + 1
-                            y = torch.tensor(y_list[run][k.item(), core_ids], device=device) / ynorm
-                            y_batch_list.append(y)
+                                # Compute next integrated prediction (maintaining gradient flow)
+                                pred_x_list = []
+                                for b in range(batch_size):
+                                    start_idx = b * n_neurons
+                                    end_idx = (b + 1) * n_neurons
+                                    current_activity = x_features_new[b][:, 3:4]
+                                    pred_x_batch = current_activity + delta_t * pred[start_idx:end_idx]
+                                    pred_x_list.append(pred_x_batch)
 
-                        y_batch = torch.cat(y_batch_list, dim=0)
+                                pred_x = torch.cat(pred_x_list, dim=0)
+                                dataset_batch = dataset_batch_new  # Update for next iteration
 
-                        # Indices for loss (core neurons across all batches)
-                        ids_batch = np.concatenate([
-                            core_ids + batch * n_neurons for batch in range(batch_size)
-                        ])
+                        loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
-                        # Loss only on core neurons
-                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2) / coeff_loop[n_loop]
+
+
+                    else:
+
+
+
+                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+
+
+
+
 
 
 
@@ -1377,6 +1357,9 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                 total_loss += loss.item()
+
+
+
 
                 if ((N % plot_frequency == 0) & (N > 0)):
                     if has_visual_field:
@@ -1813,8 +1796,6 @@ def data_train_zebra(config, erase, best_model, device):
 
     CustomColorMap(config=config)
     plt.style.use('dark_background')
-
-    torch.tensor(train_config.coeff_loop, device = device)
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading graph files N: {n_runs} ...')
@@ -2391,6 +2372,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
         edge_index, edge_attr = dense_to_sparse(adj_matrix)
 
+        e = torch.load(f'./graphs_data/{dataset_name}/model_e.pt', map_location=device)
+        model_generator.e = torch.nn.Parameter(e)   
 
 
 
@@ -2655,7 +2638,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     it_list = []
     id_fig = 0
 
-    for it in trange(start_it,start_it+1000, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
+    for it in trange(start_it,start_it+2000, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
@@ -2668,10 +2651,18 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         x[:, 6]  = torch.where(torch.isnan(x[:, 6]),  baseline_value, x[:, 6])
         x_generated[:, 6] = torch.where(torch.isnan(x_generated[:, 6]), baseline_value, x_generated[:, 6])
 
+        if 'inference' in test_mode:
+            x_inference_list.append(x[:, 6:7].clone().detach())
+
+        if (n_excitatory_neurons > 0) & (it<200):
+            x[:n_neurons - n_excitatory_neurons, 6] = x0[:, 6].clone().detach()
+
+
         if ablation_ratio > 0:
             rmserr = torch.sqrt(torch.mean((x_generated[:n_neurons, 6] - x0[:, 6]) ** 2))
         else:
             rmserr = torch.sqrt(torch.mean((x[:n_neurons-n_excitatory_neurons, 6] - x0[:, 6]) ** 2))
+        
         neuron_gt_list.append(x0[:, 6:7])
         neuron_pred_list.append(x[:n_neurons, 6:7].clone().detach())
         neuron_generated_list.append(x_generated[:n_neurons, 6:7].clone().detach())
@@ -2692,7 +2683,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             x[n_nodes:n_neurons, 8:9] = 1
         elif n_excitatory_neurons > 0:
             excitation_values = model.forward_excitation(it)
-            x[-1,6] = excitation_values
+            x[-1, 6] = excitation_values
             x[-1, 0] = n_neurons-1
 
         elif 'learnable_short_term_plasticity' in field_type:
@@ -2720,8 +2711,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             pred_generator = model_generator(dataset, data_id=data_id, frame=it)
 
         # signal update
-        x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
-        x_generated[:n_neurons, 6:7] = x_generated[:n_neurons, 6:7] + pred_generator[:n_neurons] * delta_t
+        # x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
+        # x_generated[:n_neurons, 6:7] = x_generated[:n_neurons, 6:7] + pred_generator[:n_neurons] * delta_t
 
         if 'test_inactivity' in test_mode:
             x[index_inactivity, 6:7] = 0
@@ -2839,7 +2830,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     plt.ylim([0, 2])
                     # plt.text(40, 26, f'time: {it}', fontsize=34)
 
-        if (it % 2 == 0) & (it > 0) & (it <=300):
+        if (it % 4 == 0) & (it > 0) & (it <=1000):
 
             num = f"{id_fig:06}"
             id_fig += 1
@@ -2900,7 +2891,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             plt.xlim([0, len(neuron_gt_list_)])
 
             # Auto ylim from ground truth range (ignore predictions if exploded)
-            y_gt = np.concatenate([neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
+            y_gt = np.concatenate([neuron_gt_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
             y_pred = np.concatenate([neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
 
             if np.abs(y_pred).max() > 10 * np.abs(y_gt).max():  # Explosion
@@ -2910,6 +2901,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 margin = (y_all.max() - y_all.min()) * 0.05
                 ylim = [y_all.min() - margin, y_all.max() + margin]
 
+            plt.xlim([0, 1000])
             plt.ylim(ylim)
             plt.xlabel('time-points', fontsize=48)
             plt.ylabel('neurons', fontsize=48)
@@ -2975,7 +2967,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             ax = plt.subplot(224)
             plt.scatter(it_list, R2_list, s=20, c=mc)
-            plt.xlim([0, 300])
+            plt.xlim([0, 1000])
             plt.ylim([0, 1])
             plt.axhline(1, color='green', linestyle='--', linewidth=2)
             plt.xlabel('frame', fontsize=48)
@@ -2997,6 +2989,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             plt.close()
             # print(f'saved figure ./log/{log_dir}/results/{filename}')
 
+
+
+
     if run ==0:
         dataset_name_ = dataset_name.split('/')[-1]
         generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
@@ -3016,6 +3011,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     for f in files:
         os.remove(f)
 
+
+    x_inference_list = torch.cat(x_inference_list, 1)
 
     if 'inference' in test_mode:
         torch.save(x_inference_list, f"./{log_dir}/x_inference_list_{run}.pt")
@@ -4377,3 +4374,5 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
 
 
+# watcher-test Wed Nov 12 07:52:16 PST 2025
+# watcher-test Wed Nov 12 07:53:26 PST 2025

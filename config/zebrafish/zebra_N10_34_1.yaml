@@ -71,7 +71,6 @@ training:
     n_runs: 1
     device: 'auto'
 
-    recurrent_loop: 1
     batch_size: 8
     batch_ratio: 0.15
 
