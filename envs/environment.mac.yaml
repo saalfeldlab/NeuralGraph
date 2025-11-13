@@ -24,6 +24,7 @@ dependencies:
   - prettytable
   - pyyaml
   - tqdm
+  - tensorboard
   - imageio
   - tifffile
   - shapely
