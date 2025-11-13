@@ -76,16 +76,15 @@ import time
 from sklearn import metrics
 from tifffile import imread
 
-
+import subprocess
 import matplotlib.ticker as ticker
 import shutil
 
 # Optional dependency
-# try:
-# from pysr import PySRRegressor
-
-# except ImportError:
-#     PySRRegressor = None
+try:
+    from pysr import PySRRegressor
+except (ImportError, subprocess.CalledProcessError):
+    PySRRegressor = None
 
 
 def get_training_files(log_dir, n_runs):
