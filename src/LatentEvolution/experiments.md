@@ -1138,11 +1138,48 @@ notebook. This structure only appears when you regularize but not otherwise.
 Train for a really long time. Resample the data 100x to define one epoch as 100
 passes over the data. This allows one epoch ~ 1min as opposed to < 1s.
 
-```
+```bash
 for seed in 188726 8172361 ; do \
     bsub -J "seeds" -n 1 -gpu "num=1" -q gpu_a100 -o checkpoint.log python \
         src/LatentEvolution/latent.py 20251112 \
         --training.epochs 500 \
         --training.seed $seed
 done
+```
+
+Looking at the results I see a major issue: we are completely failing to capture
+the time evolution of certain classes of traces, e.g., Mi12.
+=> turn off regularization.
+Cedric suggests dropping the batch size, adding in a linear matrix to the
+evolution.
+
+## Rerun with no regularization
+
+```bash
+bsub -J "noreg" -n 1 -gpu "num=1" -q gpu_a100 -o noreg.log python \
+    src/LatentEvolution/latent.py noreg \
+    --training.epochs 500 \
+    --encoder_params.l1_reg_loss 0.0 \
+    --decoder_params.l1_reg_loss 0.0 \
+    --evolver_params.l1_reg_loss 0.0
+```
+
+## Sweep batch size without regularization.
+
+Note that batch sizes smaller than 64 take a really long time to run. So let's
+run (64, 128, 256) and sweep learning rates with regularization off. We've also
+turned on tensorboard logging so let's see how that goes.
+
+```bash
+
+for bs in 64 128 256; do \
+    for lr in 0.0001 0.00001 0.000001 ; do \
+        bsub -J "b${bs}_${lr}" -n 1 -gpu "num=1" -q gpu_a100 -o batch${bs}_lr${lr}.log python \
+            src/LatentEvolution/latent.py batch_and_lr_no_reg \
+            --training.batch-size $bs \
+            --training.learning-rate $lr \
+            --training.epochs 200
+    done
+done
+
 ```
