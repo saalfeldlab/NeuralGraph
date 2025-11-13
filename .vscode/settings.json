@@ -22,6 +22,10 @@
     "**/.hg/store/**": true,
     "**/log/**": true,
     "**/logs/**": true,
+    "**/graphsdata/**": true,
+    "**/log/**": true,
+    "**/logs/**": true,
     "**/graphsdata/**": true
+    "**/.conda_envs/**": true
   }
 }

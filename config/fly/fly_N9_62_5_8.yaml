@@ -1,4 +1,4 @@
-description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective   recurrent_training: True  time_step: 5  batch_size: 8"
+description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective   recurrent_training: True  time_step: 4  20 epochs   fast LR   batch 8"
 dataset: "fly_N9_62_1"
 
 simulation:
@@ -42,12 +42,12 @@ plotting:
   ylim: [-100, 100]
 
 training:
-  n_epochs: 3
+  n_epochs: 20
   n_runs: 1
   device: "auto"
 
   recurrent_training: True
-  time_step: 5
+  time_step: 4
 
   batch_size: 8
   batch_ratio: 1
@@ -56,9 +56,9 @@ training:
   rotation_augmentation: False
   data_augmentation_loop: 25
 
-  learning_rate_W_start: 1.0E-3
-  learning_rate_start: 5.0E-4
-  learning_rate_embedding_start: 1.0E-3
+  learning_rate_W_start: 5.0E-2
+  learning_rate_start: 1.0E-3
+  learning_rate_embedding_start: 5.0E-2
 
   noise_model_level: 0.05
 

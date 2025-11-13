@@ -2374,6 +2374,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
         edge_index, edge_attr = dense_to_sparse(adj_matrix)
 
+        e = torch.load(f'./graphs_data/{dataset_name}/model_e.pt', map_location=device)
+        model_generator.e = torch.nn.Parameter(e)   
 
 
 
@@ -2638,7 +2640,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     it_list = []
     id_fig = 0
 
-    for it in trange(start_it,start_it+1000, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
+    for it in trange(start_it,start_it+2000, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
@@ -2651,10 +2653,18 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         x[:, 6]  = torch.where(torch.isnan(x[:, 6]),  baseline_value, x[:, 6])
         x_generated[:, 6] = torch.where(torch.isnan(x_generated[:, 6]), baseline_value, x_generated[:, 6])
 
+        if 'inference' in test_mode:
+            x_inference_list.append(x[:, 6:7].clone().detach())
+
+        if (n_excitatory_neurons > 0) & (it<200):
+            x[:n_neurons - n_excitatory_neurons, 6] = x0[:, 6].clone().detach()
+
+
         if ablation_ratio > 0:
             rmserr = torch.sqrt(torch.mean((x_generated[:n_neurons, 6] - x0[:, 6]) ** 2))
         else:
             rmserr = torch.sqrt(torch.mean((x[:n_neurons-n_excitatory_neurons, 6] - x0[:, 6]) ** 2))
+        
         neuron_gt_list.append(x0[:, 6:7])
         neuron_pred_list.append(x[:n_neurons, 6:7].clone().detach())
         neuron_generated_list.append(x_generated[:n_neurons, 6:7].clone().detach())
@@ -2675,7 +2685,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             x[n_nodes:n_neurons, 8:9] = 1
         elif n_excitatory_neurons > 0:
             excitation_values = model.forward_excitation(it)
-            x[-1,6] = excitation_values
+            x[-1, 6] = excitation_values
             x[-1, 0] = n_neurons-1
 
         elif 'learnable_short_term_plasticity' in field_type:
@@ -2703,8 +2713,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             pred_generator = model_generator(dataset, data_id=data_id, frame=it)
 
         # signal update
-        x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
-        x_generated[:n_neurons, 6:7] = x_generated[:n_neurons, 6:7] + pred_generator[:n_neurons] * delta_t
+        # x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
+        # x_generated[:n_neurons, 6:7] = x_generated[:n_neurons, 6:7] + pred_generator[:n_neurons] * delta_t
 
         if 'test_inactivity' in test_mode:
             x[index_inactivity, 6:7] = 0
@@ -2822,7 +2832,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     plt.ylim([0, 2])
                     # plt.text(40, 26, f'time: {it}', fontsize=34)
 
-        if (it % 2 == 0) & (it > 0) & (it <=300):
+        if (it % 4 == 0) & (it > 0) & (it <=1000):
 
             num = f"{id_fig:06}"
             id_fig += 1
@@ -2883,7 +2893,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             plt.xlim([0, len(neuron_gt_list_)])
 
             # Auto ylim from ground truth range (ignore predictions if exploded)
-            y_gt = np.concatenate([neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
+            y_gt = np.concatenate([neuron_gt_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
             y_pred = np.concatenate([neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
 
             if np.abs(y_pred).max() > 10 * np.abs(y_gt).max():  # Explosion
@@ -2893,6 +2903,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 margin = (y_all.max() - y_all.min()) * 0.05
                 ylim = [y_all.min() - margin, y_all.max() + margin]
 
+            plt.xlim([0, 1000])
             plt.ylim(ylim)
             plt.xlabel('time-points', fontsize=48)
             plt.ylabel('neurons', fontsize=48)
@@ -2958,7 +2969,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             ax = plt.subplot(224)
             plt.scatter(it_list, R2_list, s=20, c=mc)
-            plt.xlim([0, 300])
+            plt.xlim([0, 1000])
             plt.ylim([0, 1])
             plt.axhline(1, color='green', linestyle='--', linewidth=2)
             plt.xlabel('frame', fontsize=48)
@@ -2980,6 +2991,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             plt.close()
             # print(f'saved figure ./log/{log_dir}/results/{filename}')
 
+
+
+
     if run ==0:
         dataset_name_ = dataset_name.split('/')[-1]
         generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
@@ -2999,6 +3013,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     for f in files:
         os.remove(f)
 
+
+    x_inference_list = torch.cat(x_inference_list, 1)
 
     if 'inference' in test_mode:
         torch.save(x_inference_list, f"./{log_dir}/x_inference_list_{run}.pt")
