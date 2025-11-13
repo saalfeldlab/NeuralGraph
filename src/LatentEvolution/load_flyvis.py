@@ -3,6 +3,7 @@
 from enum import IntEnum
 from typing import NamedTuple
 import numpy as np
+from pydantic import BaseModel, field_validator, ConfigDict
 
 
 class FlyVisSim(IntEnum):
@@ -76,3 +77,32 @@ class SimulationResults(NamedTuple):
     ) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
         """Access underlying simulation data"""
         return self.data[:, :, col]
+
+
+class DataSplit(BaseModel):
+    """Split the time series into train/validation/test."""
+
+    train_start: int
+    train_end: int
+    validation_start: int
+    validation_end: int
+    test_start: int
+    test_end: int
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("*")
+    @classmethod
+    def check_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("Indices in data_split must be non-negative.")
+        return v
+
+    @field_validator("train_end")
+    @classmethod
+    def check_order(cls, v, info):
+        # very basic ordering sanity check
+        d = info.data
+        if "train_start" in d and v <= d["train_start"]:
+            raise ValueError("train_end must be greater than train_start.")
+        return v
