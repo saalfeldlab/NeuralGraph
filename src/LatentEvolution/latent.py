@@ -14,6 +14,7 @@ import re
 
 import torch
 import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
 import yaml
 import tyro
 import numpy as np
@@ -292,6 +293,10 @@ def train(cfg: ModelParams, run_dir: Path):
         optimizer = OptimizerClass(model.parameters(), lr=cfg.training.learning_rate)
         train_step_fn: Callable = globals()[cfg.training.train_step]
 
+        # --- TensorBoard setup ---
+        writer = SummaryWriter(log_dir=run_dir)
+        print(f"TensorBoard logs will be saved to {run_dir}")
+
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
         sim_data = SimulationResults.load(data_path)
@@ -331,6 +336,11 @@ def train(cfg: ModelParams, run_dir: Path):
         }
         print(f"Constant model loss: {metrics}")
 
+        # Log baseline metrics to TensorBoard
+        writer.add_scalar("Baseline/train_loss_constant_model", metrics["train_loss_constant_model"], 0)
+        writer.add_scalar("Baseline/val_loss_constant_model", metrics["val_loss_constant_model"], 0)
+        writer.add_scalar("Baseline/test_loss_constant_model", metrics["test_loss_constant_model"], 0)
+
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
@@ -341,11 +351,6 @@ def train(cfg: ModelParams, run_dir: Path):
         batch_iter = make_batches_random(
             train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
         )
-
-        # --- Log file ---
-        log_path = run_dir / "training_log.csv"
-        with open(log_path, "w") as f:
-            f.write("epoch,train_loss,val_loss\n")
 
         # --- Initialize GPU monitoring ---
         gpu_monitor = GPUMonitor()
@@ -397,9 +402,11 @@ def train(cfg: ModelParams, run_dir: Path):
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
-            # Log to CSV
-            with open(log_path, "a") as f:
-                f.write(f"{epoch+1},{mean_train_loss:.6f},{val_loss:.6f}\n")
+            # Log to TensorBoard
+            writer.add_scalar("Loss/train", mean_train_loss, epoch)
+            writer.add_scalar("Loss/val", val_loss, epoch)
+            writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
+            writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
         # --- Final test evaluation ---
         model.eval()
@@ -412,6 +419,9 @@ def train(cfg: ModelParams, run_dir: Path):
             ).item()
 
         print(f"Final Test Loss: {test_loss:.4e}")
+
+        # Log final test loss to TensorBoard
+        writer.add_scalar("Loss/test", test_loss, cfg.training.epochs)
 
         # Calculate training statistics
         training_end = datetime.now()
@@ -459,6 +469,10 @@ def train(cfg: ModelParams, run_dir: Path):
                 indent=2,
             )
         print(f"Saved metrics to {metrics_path}")
+
+        # Close TensorBoard writer
+        writer.close()
+        print("TensorBoard logging completed")
 
 
 # -------------------------------------------------------------------
