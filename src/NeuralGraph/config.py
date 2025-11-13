@@ -61,7 +61,7 @@ class SimulationConfig(BaseModel):
     connectivity_file: str = ""
     connectivity_init: list[float] = [-1]
     connectivity_filling_factor: float = 1
-    connectivity_type: Literal["none", "distance", "voronoi", "k_nearest", 'chaotic', 'ring attractor', 'rank 1', 'successor'] = "none"
+    connectivity_type: Literal["none", "distance", "voronoi", "k_nearest", 'chaotic', 'ring attractor', 'rank 1', 'successor', 'null'] = "none"
     connectivity_parameter: float = 1.0
     connectivity_distribution: str = "Gaussian"
     connectivity_distribution_params: float = 1

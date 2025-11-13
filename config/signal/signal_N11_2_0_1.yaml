@@ -1,8 +1,8 @@
-description: "RNN chaotic oscillation_max_amplitude: 10.0  init_training_single_type"
-dataset: "signal_N11_2_2"
+description: "RNN chaotic oscillation_max_amplitude: 3.0   no extra neurons"
+dataset: "signal_N11_2_0"
 
 simulation:
-  connectivity_type: "chaotic"
+  connectivity_type: "null"
   connectivity_init: [0, 0.1]
   connectivity_distribution: "Gaussian"
   params: [[7.0, 1.0], [1.0, 1.0], [1.0, 1.0], [1.0, 1.0]]
@@ -16,10 +16,10 @@ simulation:
   start_frame: 0
 
   visual_input_type: "oscillatory"
-  oscillation_max_amplitude: 10.0
+  oscillation_max_amplitude: 3.0
   oscillation_frequency: 10.0
 
-  n_excitatory_neurons: 1
+  n_excitatory_neurons: 0
 
 graph_model:
   signal_model_name: "PDE_N11"
@@ -37,16 +37,6 @@ graph_model:
   aggr_type: "add"
   embedding_dim: 2
 
-  input_size_nnr_f: 1
-  hidden_dim_nnr_f: 128
-  n_layers_nnr_f: 3
-
-  outermost_linear_nnr_f: True
-  output_size_nnr_f: 1
-
-  nnr_f_T_period: 10000
-  omega_f: 30
-
 plotting:
   colormap: "tab10"
   arrow_length: 1
@@ -58,21 +48,18 @@ training:
   n_runs: 2
   device: "auto"
 
-  batch_size: 8
+  batch_size: 1
   small_init_batch_size: False
 
   seed: 24
 
-  data_augmentation_loop: 50
+  data_augmentation_loop: 200
 
   sparsity: "none"
 
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
-  learning_rate_NNR_f: 1.0E-6
 
   coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0
-
-  init_training_single_type: True

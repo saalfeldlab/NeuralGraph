@@ -397,7 +397,9 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             T = np.eye(n_neurons, k=1)
             gamma = 0.98
             connectivity = np.linalg.inv(np.eye(n_neurons) - gamma*T)
-        
+        elif 'null' in connectivity_type:
+            connectivity = np.zeros((n_neurons, n_neurons))
+
         connectivity = torch.tensor(connectivity, dtype=torch.float32, device=device)
         # make sure diagonal is zeros
         i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)

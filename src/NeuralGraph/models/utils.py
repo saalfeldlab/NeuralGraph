@@ -282,7 +282,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
-def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neurons, type_list, cmap, device):
+def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, device):
 
     if 'PDE_N3' in config.graph_model.signal_model_name:
 
@@ -304,7 +304,7 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
     plt.savefig(f"./{log_dir}/tmp_training/embedding/{epoch}_{N}.tif", dpi=87)
     plt.close()
 
-    gt_weight = to_numpy(adjacency)
+    gt_weight = to_numpy(connectivity)
 
     if config.training.multi_connectivity:
         pred_weight = to_numpy(model.W[0, :n_neurons, :n_neurons].clone().detach())
@@ -325,7 +325,7 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         plt.xlabel('presynaptic', fontsize=16)
         plt.title('true weight matrix', fontsize=16)
         ax = fig.add_subplot(122)
-        ax = sns.heatmap(pred_weight / 10, center=0, square=True, cmap='bwr', vmin=-1, vmax=1, cbar_kws={'fraction': 0.046})
+        ax = sns.heatmap(pred_weight, center=0, square=True, cmap='bwr', vmin=-1, vmax=1, cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)
@@ -473,17 +473,16 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
     plt.close()
 
     if config.simulation.n_excitatory_neurons > 0:
-        gt_weight = gt_weight[:,-1]
-        pred_weight = pred_weight[:,-1]
+        gt_weight = to_numpy(connectivity[:-1,-1])
+        pred_weight = to_numpy(model.W[:-1,-1])
 
         fig = plt.figure(figsize=(8, 8))
         fig, ax = fig_init()
         plt.scatter(gt_weight, pred_weight, s=10, c='k')
-        plt.xlabel(r'true $W_{ij}$', fontsize=48)
-        plt.ylabel(r'learned $W_{ij}$', fontsize=48)
-        plt.title('Excitatory neuron weights', fontsize=24)
+        plt.xlabel(r'true $e_i$', fontsize=48)
+        plt.ylabel(r'learned $e_i$', fontsize=48)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_exc_{epoch}_{N}.tif", dpi=87)
+        plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_ei_{epoch}_{N}.tif", dpi=87)
         plt.close()
 
         fig = plt.figure(figsize=(16, 8))
@@ -492,7 +491,13 @@ def plot_training_signal(config, model, x, adjacency, log_dir, epoch, N, n_neuro
         with torch.no_grad():
             kk = torch.arange(0, config.simulation.n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
             excitation_field = model.NNR_f(kk[:,None])
-        excitation=to_numpy(excitation_field.squeeze())
+            model_a = model.a[-1] * torch.ones((10000,1), device=device)
+            in_features = torch.cat([excitation_field, model_a], dim=1)
+            msg = model.lin_edge(in_features)
+
+        excitation=to_numpy(msg.squeeze())
+
+
         frame_ = np.arange(0, len(excitation)) / len(excitation)
         gt_excitation=np.cos((2*np.pi)*config.simulation.oscillation_frequency*frame_)
         plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)

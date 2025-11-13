@@ -413,7 +413,7 @@ def data_train_signal(config, erase, best_model, device):
         else:
             Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 )
 
-        plot_frequency = int(Niter // 5)
+        plot_frequency = int(Niter // 10)
         print(f'{Niter} iterations per epoch, {plot_frequency} iterations per plot')
         logger.info(f'{Niter} iterations per epoch')
 
@@ -2652,8 +2652,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         x[:, 6]  = torch.where(torch.isnan(x[:, 6]),  baseline_value, x[:, 6])
         x_generated[:, 6] = torch.where(torch.isnan(x_generated[:, 6]), baseline_value, x_generated[:, 6])
 
-        if 'inference' in test_mode:
-            x_inference_list.append(x[:, 6:7].clone().detach())
+
+        x_inference_list.append(x[:, 6:7].clone().detach())
+        x_generated_list.append(x_generated[:, 6:7].clone().detach())
 
         if (n_excitatory_neurons > 0) & (it<200):
             x[:n_neurons - n_excitatory_neurons, 6] = x0[:, 6].clone().detach()
@@ -2879,14 +2880,14 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     label = f'true permutation {permutation_ratio}' if i == 0 else None
                 else:
                     label = 'true' if i == 0 else None
-                plt.plot(neuron_gt_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i * 25,
                         c='gray', linewidth=8, alpha=0.5, label=label)
 
             # Plot predictions with colored lines
             colors = plt.cm.tab10(np.linspace(0, 1, 10))
             for i in range(len(n)):
                 label = 'learned' if i == 0 else None
-                plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i * 25,
                         linewidth=3, c=colors[i%10], label=label)
 
             plt.xlim([0, len(neuron_gt_list_)])
@@ -2993,9 +2994,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
 
-    if run ==0:
-        dataset_name_ = dataset_name.split('/')[-1]
-        generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
+
+    dataset_name_ = dataset_name.split('/')[-1]
+    generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
 
     # Copy the last PNG file before erasing Fig folder
     files = glob.glob(f'./{log_dir}/results/Fig/*.png')
@@ -3019,18 +3020,16 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     print('plot activity ...')
-    activity = x_list[:, :, 6:7]
-    activity = activity.squeeze()
-    activity = activity.T
-    activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
-    plt.figure(figsize=(10, 20))
+    activity = to_numpy(x_generated_list)
+    activity = activity - 10 * np.arange(n_neurons-n_excitatory_neurons)[:, None] + 200
+    plt.figure(figsize=(30, 20))
+    plt.subplot(121)
     plt.plot(activity.T, linewidth=2)
-
-    for i in range(0, n_neurons, 5):
-        plt.text(-100, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
+    for i in range(0, n_neurons-n_excitatory_neurons, 5):
+        plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
-    ax.text(-1500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    ax.text(-200, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
     plt.xlabel("time", fontsize=32)
     plt.xticks(fontsize=24)
     ax.spines['left'].set_visible(False)
@@ -3038,100 +3037,88 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     ax.yaxis.set_ticks_position('right')
     ax.set_yticks([0, 20, 40])
     ax.set_yticklabels(['0', '20', '40'], fontsize=20)
-    ax.text(n_frames * 1.2, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
+    ax.text(x_inference_list.shape[1] * 1.1, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
+
+    plt.subplot(122)
+    activity = to_numpy(x_inference_list)
+    activity = activity[:n_neurons-n_excitatory_neurons]
+    activity = activity - 10 * np.arange(n_neurons-n_excitatory_neurons)[:, None] + 200
+    plt.plot(activity.T, linewidth=2)
+    for i in range(0, n_neurons-n_excitatory_neurons, 5):
+        plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
+
+    ax = plt.gca()
+    ax.text(-200, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    plt.xlabel("time", fontsize=32)
+    plt.xticks(fontsize=24)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.yaxis.set_ticks_position('right')
+    ax.set_yticks([0, 20, 40])
+    ax.set_yticklabels(['0', '20', '40'], fontsize=20)
+    ax.text(x_inference_list.shape[1] * 1.1, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
+
+
+
     plt.tight_layout()
-    plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
+    plt.savefig(f"./{log_dir}/results/{dataset_name_}_activity_1000.png", dpi=300)
+    plt.close()
+    print('saved')
+
+
+
+    fig = plt.figure(figsize=(16, 8))
+    ax = fig.add_subplot(121)
+
+    with torch.no_grad():
+        kk = torch.arange(0, config.simulation.n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
+        excitation_field = model.NNR_f(kk[:,None])
+        model_a = model.a[-1] * torch.ones((10000,1), device=device)
+        in_features = torch.cat([excitation_field, model_a], dim=1)
+        msg = model.lin_edge(in_features)
+
+    excitation=to_numpy(msg.squeeze())
+
+    frame_ = np.arange(0, len(excitation)) / len(excitation)
+    gt_excitation=np.cos((2*np.pi)*config.simulation.oscillation_frequency*frame_)
+    plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
+    plt.plot(excitation, c=mc, linewidth=1)
+    plt.xlabel('time', fontsize=48)
+    plt.ylabel('excitation', fontsize=48)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    ax = fig.add_subplot(122)
+    plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
+    plt.plot(excitation, c=mc, linewidth=1)
+    plt.xlabel('time', fontsize=48)
+    plt.ylabel('excitation', fontsize=48)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    plt.xlim([0, 2000])
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/excitation.tif", dpi=87)
+    plt.close()
+
+    gt_weight = to_numpy(model_generator.e.squeeze())
+    pred_weight = to_numpy(model.W[:,-1][:n_neurons - n_excitatory_neurons])
+
+    fig = plt.figure(figsize=(8, 8))
+    fig, ax = fig_init()
+    plt.scatter(gt_weight, pred_weight, s=10, c=mc)
+    plt.xlabel(r'true $W_{ij}$', fontsize=48)
+    plt.ylabel(r'learned $W_{ij}$', fontsize=48)
+    plt.title('Excitatory neuron weights', fontsize=24)
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/comparison_exc.tif", dpi=87)
     plt.close()
 
 
 
 
-
-
-    # print('average rollout RMSE {:.3e}+/-{:.3e}'.format(np.mean(rmserr_list), np.std(rmserr_list)))
-
     if 'PDE_N' in model_config.signal_model_name:
-
         torch.save(neuron_gt_list, f"./{log_dir}/neuron_gt_list.pt")
         torch.save(neuron_pred_list, f"./{log_dir}/neuron_pred_list.pt")
 
-    else:
-        if False:
-            # geomloss_list == []:
-            geomloss_list = [0, 0]
-            r = [np.mean(rmserr_list), np.std(rmserr_list), np.mean(geomloss_list), np.std(geomloss_list)]
-            print('average rollout Sinkhorn div. {:.3e}+/-{:.3e}'.format(np.mean(geomloss_list), np.std(geomloss_list)))
-            np.save(f"./{log_dir}/rmserr_geomloss_{config_file}.npy", r)
-
-        if False:
-            rmserr_list = np.array(rmserr_list)
-            fig, ax = fig_init(formatx='%.1f', formaty='%.1f')
-            x_ = np.arange(len(rmserr_list))
-            y_ = rmserr_list
-            plt.scatter(x_, y_, c=mc)
-            plt.xticks(fontsize=48)
-            plt.yticks(fontsize=48)
-            plt.xlabel(r'$Epochs$', fontsize=78)
-            plt.ylabel(r'$RMSE$', fontsize=78)
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/rmserr_{config_file}_plot.tif", dpi=170.7)
-
-        if False:
-            x0_next = x_list[0][it].clone().detach()
-            fig = plt.figure(figsize=(12, 12))
-            ax = fig.add_subplot(1, 1, 1)
-            temp1 = torch.cat((x, x0_next), 0)
-            temp2 = torch.tensor(np.arange(n_neurons), device=device)
-            temp3 = torch.tensor(np.arange(n_neurons) + n_neurons, device=device)
-            temp4 = torch.concatenate((temp2[:, None], temp3[:, None]), 1)
-            temp4 = torch.t(temp4)
-            distance4 = torch.sqrt(torch.sum((x[:, 1:3] - x0_next[:, 1:3]) ** 2, 1))
-            p = torch.argwhere(distance4 < 0.3)
-
-            temp1_ = temp1[:, [2, 1]].clone().detach()
-            pos = dict(enumerate(np.array((temp1_).detach().cpu()), 0))
-            dataset = pyg_Data(x=temp1_, edge_index=torch.squeeze(temp4[:, p]))
-            vis = to_networkx(dataset, remove_self_loops=True, to_undirected=True)
-            nx.draw_networkx(vis, pos=pos, node_size=0, linewidths=0, with_labels=False, ax=ax, edge_color='r', width=4)
-            for n in range(n_neuron_types):
-                plt.scatter(x[index_particles[n], 2].detach().cpu().numpy(),
-                            x[index_particles[n], 1].detach().cpu().numpy(), s=100, color=cmap.color(n))
-            plt.xlim([0, 1])
-            plt.ylim([0, 1])
-            plt.xlabel(r'$x$', fontsize=78)
-            plt.ylabel(r'$y$', fontsize=78)
-            formatx = '%.1f'
-            formaty = '%.1f'
-            ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True, axis='both', which='major', pad=15)
-            ax.xaxis.set_major_locator(plt.MaxNLocator(3))
-            ax.yaxis.set_major_locator(plt.MaxNLocator(3))
-            ax.xaxis.set_major_formatter(FormatStrFormatter(formatx))
-            ax.yaxis.set_major_formatter(FormatStrFormatter(formaty))
-            plt.xticks(fontsize=48.0)
-            plt.yticks(fontsize=48.0)
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/rmserr_{config_file}_{it}.tif", dpi=170.7)
-            plt.close()
-
-            fig = plt.figure(figsize=(12, 12))
-            for n in range(n_neuron_types):
-                plt.scatter(x0_next[index_particles[n], 2].detach().cpu().numpy(),
-                            x0_next[index_particles[n], 1].detach().cpu().numpy(), s=50, color=cmap.color(n))
-            plt.xlim([0, 1])
-            plt.ylim([0, 1])
-            plt.xlabel(r'$x$', fontsize=78)
-            plt.ylabel(r'$y$', fontsize=78)
-            formatx = '%.2f'
-            formaty = '%.2f'
-            ax.xaxis.set_major_locator(plt.MaxNLocator(3))
-            ax.yaxis.set_major_locator(plt.MaxNLocator(3))
-            ax.xaxis.set_major_formatter(FormatStrFormatter(formatx))
-            ax.yaxis.set_major_formatter(FormatStrFormatter(formaty))
-            plt.xticks(fontsize=48.0)
-            plt.yticks(fontsize=48.0)
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/GT_{config_file}_{it}.tif", dpi=170.7)
-            plt.close()
 
     if len(angle_list) > 0:
         angle = torch.stack(angle_list)

@@ -36,7 +36,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'test'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
         # config_list = ['fly_N9_62_5_2']  # for quick test
 
