@@ -17,29 +17,84 @@ if TYPE_CHECKING:
     from LatentEvolution.latent import ModelParams, LatentModel
     from LatentEvolution.load_flyvis import NeuronData
 
-def plot_neuron_reconstruction(true_trace: np.ndarray, recon_trace: np.ndarray, neuron_data: NeuronData, xlim: tuple[int, int] | None = None):
-    ntypes = len(neuron_data.TYPE_NAMES)
+def plot_neuron_reconstruction(
+    true_trace: np.ndarray,
+    recon_trace: np.ndarray,
+    neuron_data: NeuronData,
+    xlim: tuple[int, int] | None = None,
+    separate_per_type: bool = False,
+    target_height_px: int = 250,
+):
+    """
+    Plot neuron reconstruction traces.
 
+    Args:
+        true_trace: Ground truth neuron traces
+        recon_trace: Reconstructed neuron traces
+        neuron_data: NeuronData instance with type information
+        xlim: Optional x-axis limits
+        separate_per_type: If True, return dict of figures (one per neuron type).
+                          If False, return single combined figure.
+        target_height_px: Target height in pixels for separate per-type figures (default: 250)
+
+    Returns:
+        If separate_per_type=False: single matplotlib Figure
+        If separate_per_type=True: dict mapping neuron type name to Figure
+    """
+    ntypes = len(neuron_data.TYPE_NAMES)
     rng = np.random.default_rng(seed=0)
 
-    fig, ax = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3*ntypes))
+    if separate_per_type:
+        # Return one figure per neuron type
+        # Calculate figsize based on target height in pixels
+        dpi = 100
+        fig_height_inches = target_height_px / dpi
+        fig_width_inches = fig_height_inches * 4  # Maintain 4:1 aspect ratio
 
-    for itype, tname in enumerate(neuron_data.TYPE_NAMES):
-        ix = rng.choice(neuron_data.indices_per_type[itype])
-        title = f"{tname}: ix={int(ix)}"
-        p = ax[itype].plot(true_trace[:, ix], lw=3, alpha=0.5)
-        # fix the range based on the true trace
-        ylim = ax[itype].get_ylim()
+        figures = {}
+        for itype, tname in enumerate(neuron_data.TYPE_NAMES):
+            ix = rng.choice(neuron_data.indices_per_type[itype])
 
-        # reconstructed trace
-        ax[itype].plot(recon_trace[:, ix], color=p[-1].get_color())
-        ax[itype].set_ylim(*ylim)
-        ax[itype].set_title(title)
-    if xlim is not None:
-        ax[-1].set_xlim(*xlim)
-    ax[-1].set_xlabel("Time steps")
-    fig.tight_layout()
-    return fig
+            fig, ax = plt.subplots(1, 1, figsize=(fig_width_inches, fig_height_inches), dpi=dpi)
+
+            # Plot true trace
+            p = ax.plot(true_trace[:, ix], lw=3, alpha=0.5, label="True")
+            ylim = ax.get_ylim()
+
+            # Plot reconstructed trace
+            ax.plot(recon_trace[:, ix], color=p[-1].get_color(), label="Reconstructed")
+            ax.set_ylim(*ylim)
+            ax.set_title(f"{tname}: ix={int(ix)}")
+            ax.set_xlabel("Time steps")
+            ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+            if xlim is not None:
+                ax.set_xlim(*xlim)
+
+            fig.tight_layout()
+            figures[tname] = fig
+
+        return figures
+    else:
+        # Return single combined figure (original behavior)
+        fig, ax = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3*ntypes))
+
+        for itype, tname in enumerate(neuron_data.TYPE_NAMES):
+            ix = rng.choice(neuron_data.indices_per_type[itype])
+            title = f"{tname}: ix={int(ix)}"
+            p = ax[itype].plot(true_trace[:, ix], lw=3, alpha=0.5)
+            # fix the range based on the true trace
+            ylim = ax[itype].get_ylim()
+
+            # reconstructed trace
+            ax[itype].plot(recon_trace[:, ix], color=p[-1].get_color())
+            ax[itype].set_ylim(*ylim)
+            ax[itype].set_title(title)
+        if xlim is not None:
+            ax[-1].set_xlim(*xlim)
+        ax[-1].set_xlabel("Time steps")
+        fig.tight_layout()
+        return fig
 
 def plot_recon_error(true_trace, recon_trace):
     fig, ax = plt.subplots(1, 2, figsize=(8, 3))
@@ -117,6 +172,7 @@ def run_validation_diagnostics(
     model: LatentModel,
     config: ModelParams,
     save_figures: bool = False,
+    target_height_px: int = 250,
 ) -> tuple[dict[str, float|int], dict[str, plt.Figure]]:
     """
     Perform validation diagnostics on the trained model.
@@ -129,6 +185,7 @@ def run_validation_diagnostics(
         model: The trained LatentModel instance
         config: ModelParams configuration object
         save_figures: Whether to save figures to disk (default: False)
+        target_height_px: Target height in pixels for TensorBoard neuron trace figures (default: 250)
 
     Returns:
         metrics: Dictionary of scalar metrics
@@ -145,18 +202,36 @@ def run_validation_diagnostics(
     recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
 
     # Neuron traces (full trace)
-    fig = plot_neuron_reconstruction(true_trace, recon_trace, neuron_data, xlim=None)
-    figures["neuron_traces"] = fig
+    # For TensorBoard (save_figures=False), create separate figures per neuron type
+    # For disk save (save_figures=True), create combined figure
+    fig_or_figs = plot_neuron_reconstruction(
+        true_trace, recon_trace, neuron_data, xlim=None, separate_per_type=not save_figures,
+        target_height_px=target_height_px
+    )
     if save_figures:
-        fig.savefig(run_dir / "neuron_traces.jpg", dpi=100)
-        plt.close(fig)
+        # Combined figure for disk save
+        figures["neuron_traces"] = fig_or_figs
+        fig_or_figs.savefig(run_dir / "neuron_traces.jpg", dpi=100)
+        plt.close(fig_or_figs)
+    else:
+        # Separate figures per neuron type for TensorBoard
+        for neuron_type, fig in fig_or_figs.items():
+            figures[f"neuron_traces/{neuron_type}"] = fig
 
     # Neuron traces (zoomed)
-    fig = plot_neuron_reconstruction(true_trace, recon_trace, neuron_data, xlim=(100, 1100))
-    figures["neuron_traces_zoom"] = fig
+    fig_or_figs = plot_neuron_reconstruction(
+        true_trace, recon_trace, neuron_data, xlim=(100, 1100), separate_per_type=not save_figures,
+        target_height_px=target_height_px
+    )
     if save_figures:
-        fig.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
-        plt.close(fig)
+        # Combined figure for disk save
+        figures["neuron_traces_zoom"] = fig_or_figs
+        fig_or_figs.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
+        plt.close(fig_or_figs)
+    else:
+        # Separate figures per neuron type for TensorBoard
+        for neuron_type, fig in fig_or_figs.items():
+            figures[f"neuron_traces_zoom/{neuron_type}"] = fig
 
     # Reconstruction error stratified
     fig = plot_recon_error(true_trace, recon_trace)
