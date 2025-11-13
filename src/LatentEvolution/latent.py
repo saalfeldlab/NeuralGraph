@@ -453,17 +453,26 @@ def train(cfg: ModelParams, run_dir: Path):
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
             running_loss = 0.0
+            running_recon_loss = 0.0
+            running_evolve_loss = 0.0
+            running_reg_loss = 0.0
 
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 (x_t, stim_t), x_t_plus = next(batch_iter)
-                (loss, _recon_loss, _evolve_loss, _reg_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
+                (loss, recon_loss, evolve_loss, reg_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.detach().item()
+                running_recon_loss += recon_loss.detach().item()
+                running_evolve_loss += evolve_loss.detach().item()
+                running_reg_loss += reg_loss.detach().item()
 
             mean_train_loss = running_loss / batches_per_epoch
+            mean_recon_loss = running_recon_loss / batches_per_epoch
+            mean_evolve_loss = running_evolve_loss / batches_per_epoch
+            mean_reg_loss = running_reg_loss / batches_per_epoch
 
             # ---- Validation phase ----
             model.eval()
@@ -491,6 +500,9 @@ def train(cfg: ModelParams, run_dir: Path):
             # Log to TensorBoard
             writer.add_scalar("Loss/train", mean_train_loss, epoch)
             writer.add_scalar("Loss/val", val_loss, epoch)
+            writer.add_scalar("Loss/train_recon", mean_recon_loss, epoch)
+            writer.add_scalar("Loss/train_evolve", mean_evolve_loss, epoch)
+            writer.add_scalar("Loss/train_reg", mean_reg_loss, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
