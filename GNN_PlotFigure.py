@@ -82,7 +82,7 @@ import shutil
 
 # Optional dependency
 # try:
-#     from pysr import PySRRegressor
+# from pysr import PySRRegressor
 
 # except ImportError:
 #     PySRRegressor = None

@@ -204,6 +204,10 @@ def apply_pairwise_knobs_torch(code_pm1: torch.Tensor,
 
     return out
 
+
+
+
+
 def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="color", erase=False, step=5, device=None,
                               bSave=True):
     if "black" in style:
@@ -1125,7 +1129,7 @@ def data_generate_synaptic(
         )
 
         time.sleep(0.5)
-        for it in trange(simulation_config.start_frame, n_frames + 1):
+        for it in trange(simulation_config.start_frame, n_frames + 1, ncols=150):
             # calculate type change
             with torch.no_grad():
                 if ("modulation" in field_type) & (it >= 0):
@@ -1430,10 +1434,6 @@ def data_generate_synaptic(
         else:
             np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-            torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
-            if simulation_config.n_excitatory_neurons> 0:
-                torch.save(model.e, f"graphs_data/{dataset_name}/model_e.pt")
-
             if has_particle_dropout:
                 torch.save(
                     x_removed_list,
@@ -1447,6 +1447,11 @@ def data_generate_synaptic(
                     f"graphs_data/{dataset_name}/inv_particle_dropout_mask.npy",
                     inv_particle_dropout_mask,
                 )
+
+        torch.save(model.p, f"graphs_data/{dataset_name}/model_p_{run}.pt")
+        if simulation_config.n_excitatory_neurons> 0:
+            torch.save(model.e, f"graphs_data/{dataset_name}/model_e_{run}.pt")
+
         print("data saved ...")
 
 

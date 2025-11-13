@@ -337,7 +337,7 @@ def data_train_signal(config, erase, best_model, device):
             edges, edge_attr = dense_to_sparse(adj_matrix)
             edges_all = edges.clone().detach()
 
-            model_e = torch.load(f"graphs_data/{dataset_name}/model_e.pt", map_location=device)
+            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_{run}.pt", map_location=device)
             N = connectivity.shape[0]
             expanded = torch.zeros((n_neurons, n_neurons), device=device)
             expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
@@ -2205,11 +2205,8 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
 
 
-
-
-
 def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15,
-              ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
+              ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
 
     dataset_name = config.dataset
     print(f"\033[92mdataset_name: {dataset_name}\033[0m")
@@ -2227,7 +2224,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         data_test_signal(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 
 
-def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, ratio=1, run=1, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
+def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
     dataset_name = config.dataset
     simulation_config = config.simulation
     model_config = config.graph_model
@@ -2249,7 +2246,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     has_missing_activity = training_config.has_missing_activity
     has_excitation = ('excitation' in model_config.update_type)
     baseline_value = simulation_config.baseline_value
-    x_inference_list = []  # Initialize for inference test mode
+ # Initialize for inference test mode
 
     torch.random.fork_rng(devices=device)
     torch.random.manual_seed(simulation_config.seed)
@@ -2372,7 +2369,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
         edge_index, edge_attr = dense_to_sparse(adj_matrix)
 
-        e = torch.load(f'./graphs_data/{dataset_name}/model_e.pt', map_location=device)
+        e = torch.load(f'./graphs_data/{dataset_name}/model_e_{run}.pt', map_location=device)
         model_generator.e = torch.nn.Parameter(e)   
 
 
@@ -2634,6 +2631,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     neuron_gt_list = []
     neuron_pred_list = []
     neuron_generated_list = []
+
+    x_inference_list = [] 
+    x_generated_list = []
+
     R2_list = []
     it_list = []
     id_fig = 0
@@ -2711,8 +2712,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             pred_generator = model_generator(dataset, data_id=data_id, frame=it)
 
         # signal update
-        # x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
-        # x_generated[:n_neurons, 6:7] = x_generated[:n_neurons, 6:7] + pred_generator[:n_neurons] * delta_t
+        x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
+        x_generated[:n_neurons, 6:7] = x_generated[:n_neurons, 6:7] + pred_generator[:n_neurons] * delta_t
 
         if 'test_inactivity' in test_mode:
             x[index_inactivity, 6:7] = 0
@@ -2878,14 +2879,14 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     label = f'true permutation {permutation_ratio}' if i == 0 else None
                 else:
                     label = 'true' if i == 0 else None
-                plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                plt.plot(neuron_gt_list_[:, n[i]].detach().cpu().numpy() + i * 25,
                         c='gray', linewidth=8, alpha=0.5, label=label)
 
             # Plot predictions with colored lines
             colors = plt.cm.tab10(np.linspace(0, 1, 10))
             for i in range(len(n)):
                 label = 'learned' if i == 0 else None
-                plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i * 25,
                         linewidth=3, c=colors[i%10], label=label)
 
             plt.xlim([0, len(neuron_gt_list_)])
@@ -3013,9 +3014,39 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     x_inference_list = torch.cat(x_inference_list, 1)
+    x_generated_list = torch.cat(x_generated_list, 1)
 
-    if 'inference' in test_mode:
-        torch.save(x_inference_list, f"./{log_dir}/x_inference_list_{run}.pt")
+
+
+    print('plot activity ...')
+    activity = x_list[:, :, 6:7]
+    activity = activity.squeeze()
+    activity = activity.T
+    activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
+    plt.figure(figsize=(10, 20))
+    plt.plot(activity.T, linewidth=2)
+
+    for i in range(0, n_neurons, 5):
+        plt.text(-100, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
+
+    ax = plt.gca()
+    ax.text(-1500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    plt.xlabel("time", fontsize=32)
+    plt.xticks(fontsize=24)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.yaxis.set_ticks_position('right')
+    ax.set_yticks([0, 20, 40])
+    ax.set_yticklabels(['0', '20', '40'], fontsize=20)
+    ax.text(n_frames * 1.2, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
+    plt.close()
+
+
+
+
+
 
     # print('average rollout RMSE {:.3e}+/-{:.3e}'.format(np.mean(rmserr_list), np.std(rmserr_list)))
 
