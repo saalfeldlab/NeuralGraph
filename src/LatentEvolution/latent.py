@@ -19,86 +19,23 @@ import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 
-from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim
+from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import post_training_diagnostics
+from LatentEvolution.eed_model import (
+    MLP,
+    MLPParams,
+    Evolver,
+    EvolverParams,
+    EncoderParams,
+    DecoderParams,
+    StimulusEncoderParams,
+)
 
 
 # -------------------------------------------------------------------
 # Pydantic Config Classes
 # -------------------------------------------------------------------
-
-
-class MLPParams(BaseModel):
-    num_input_dims: int
-    num_output_dims: int
-    num_hidden_layers: int
-    num_hidden_units: int
-    activation: str = Field("ReLU", description="Activation function from torch.nn")
-    use_batch_norm: bool = True
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-    @field_validator("activation")
-    @classmethod
-    def validate_activation(cls, v: str) -> str:
-        if not hasattr(nn, v):
-            raise ValueError(f"Unknown activation '{v}' in torch.nn")
-        return v
-
-
-class EvolverParams(BaseModel):
-    time_units: int
-    num_hidden_units: int
-    num_hidden_layers: int
-    l1_reg_loss: float = 0.0
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-
-class EncoderParams(BaseModel):
-    num_hidden_units: int
-    num_hidden_layers: int
-    l1_reg_loss: float = 0.0
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-class StimulusEncoderParams(BaseModel):
-    num_input_dims: int
-    num_hidden_layers: int
-    num_hidden_units: int
-    num_output_dims: int
-
-class DecoderParams(BaseModel):
-    num_hidden_units: int
-    num_hidden_layers: int
-    l1_reg_loss: float = 0.0
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-class DataSplit(BaseModel):
-    """Split the time series into train/validation/test."""
-
-    train_start: int
-    train_end: int
-    validation_start: int
-    validation_end: int
-    test_start: int
-    test_end: int
-
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-    @field_validator("*")
-    @classmethod
-    def check_non_negative(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("Indices in data_split must be non-negative.")
-        return v
-
-    @field_validator("train_end")
-    @classmethod
-    def check_order(cls, v, info):
-        # very basic ordering sanity check
-        d = info.data
-        if "train_start" in d and v <= d["train_start"]:
-            raise ValueError("train_end must be greater than train_start.")
-        return v
 
 
 class TrainingConfig(BaseModel):
@@ -172,53 +109,6 @@ class ModelParams(BaseModel):
 # -------------------------------------------------------------------
 
 
-class MLP(nn.Module):
-    def __init__(self, params: MLPParams):
-        super().__init__()
-        self.layers = nn.ModuleList()
-        input_dims = params.num_input_dims
-
-        for _ in range(params.num_hidden_layers):
-            self.layers.append(nn.Linear(input_dims, params.num_hidden_units))
-            if params.use_batch_norm:
-                self.layers.append(nn.BatchNorm1d(params.num_hidden_units))
-            self.layers.append(getattr(nn, params.activation)())
-            input_dims = params.num_hidden_units
-
-        if params.num_hidden_layers:
-            self.layers.append(
-                nn.Linear(params.num_hidden_units, params.num_output_dims)
-            )
-        else:
-            self.layers.append(nn.Linear(params.num_input_dims, params.num_output_dims))
-
-    def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
-
-
-class Evolver(nn.Module):
-    def __init__(self, params: ModelParams):
-        super().__init__()
-        self.time_units = params.evolver_params.time_units
-        dim = params.latent_dims + params.stimulus_encoder_params.num_output_dims
-        self.evolver = MLP(
-            MLPParams(
-                num_input_dims=dim,
-                num_hidden_layers=params.evolver_params.num_hidden_layers,
-                num_hidden_units=params.evolver_params.num_hidden_units,
-                num_output_dims=dim,
-                use_batch_norm=params.use_batch_norm,
-            )
-        )
-
-    def forward(self, x):
-        for _ in range(self.time_units):
-            x = x + self.evolver(x)
-        return x
-
-
 class LatentModel(nn.Module):
     def __init__(self, params: ModelParams):
         super().__init__()
@@ -249,7 +139,12 @@ class LatentModel(nn.Module):
                 use_batch_norm=False,
             )
         )
-        self.evolver = Evolver(params)
+        self.evolver = Evolver(
+            latent_dims=params.latent_dims,
+            stim_dims=params.stimulus_encoder_params.num_output_dims,
+            evolver_params=params.evolver_params,
+            use_batch_norm=params.use_batch_norm,
+        )
 
     def forward(self, x_t, stim_t):
         proj_t = self.encoder(x_t)
@@ -400,26 +295,23 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
         sim_data = SimulationResults.load(data_path)
-        data = torch.from_numpy(sim_data[FlyVisSim[cfg.training.column_to_model]]).to(device)
         split = cfg.training.data_split
 
-        total_time_points = data.shape[0]
-        assert split.train_end <= total_time_points
-        assert split.validation_end <= total_time_points
-        assert split.test_end <= total_time_points
+        # Extract subsets using split_column method
+        train_data_np, val_data_np, test_data_np = sim_data.split_column(
+            FlyVisSim[cfg.training.column_to_model], split
+        )
+        train_data = torch.from_numpy(train_data_np).to(device)
+        val_data = torch.from_numpy(val_data_np).to(device)
+        test_data = torch.from_numpy(test_data_np).to(device)
 
-        # Extract subsets
-        train_data = data[split.train_start : split.train_end]
-        val_data = data[split.validation_start : split.validation_end]
-        test_data = data[split.test_start : split.test_end]
-
-        # Load stimulus
-        stim = torch.from_numpy(sim_data[FlyVisSim.STIMULUS]).to(device)
-
-        # HACK: first 1736 entries are the stimulus
-        train_stim = stim[split.train_start : split.train_end, :cfg.stimulus_encoder_params.num_input_dims]
-        val_stim = stim[split.validation_start : split.validation_end, :cfg.stimulus_encoder_params.num_input_dims]
-        test_stim = stim[split.test_start : split.test_end, :cfg.stimulus_encoder_params.num_input_dims]
+        # Load stimulus (keep only first num_input_dims features)
+        train_stim_np, val_stim_np, test_stim_np = sim_data.split_column(
+            FlyVisSim.STIMULUS, split, keep_first_n_limit=cfg.stimulus_encoder_params.num_input_dims
+        )
+        train_stim = torch.from_numpy(train_stim_np).to(device)
+        val_stim = torch.from_numpy(val_stim_np).to(device)
+        test_stim = torch.from_numpy(test_stim_np).to(device)
 
         print(
             f"Data split: train {train_data.shape}, "

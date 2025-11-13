@@ -3,6 +3,7 @@
 from enum import IntEnum
 from typing import NamedTuple
 import numpy as np
+from pydantic import BaseModel, field_validator, ConfigDict
 
 
 class FlyVisSim(IntEnum):
@@ -76,3 +77,82 @@ class SimulationResults(NamedTuple):
     ) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
         """Access underlying simulation data"""
         return self.data[:, :, col]
+
+    def split_column(
+        self,
+        column: FlyVisSim,
+        split: "DataSplit",
+        keep_first_n_limit: int | None = None,
+    ) -> tuple[
+        np.ndarray[tuple[int, int], np.dtype[np.float32]],
+        np.ndarray[tuple[int, int], np.dtype[np.float32]],
+        np.ndarray[tuple[int, int], np.dtype[np.float32]],
+    ]:
+        """
+        Split a column by time into train/validation/test sets.
+
+        Args:
+            column: The column to extract and split
+            split: The DataSplit configuration specifying time ranges
+            keep_first_n_limit: Optional limit on the feature dimension (for stimulus)
+
+        Returns:
+            Tuple of (train, val, test) numpy arrays
+
+        Raises:
+            AssertionError: If split ranges exceed available time points
+        """
+        data = self[column]
+
+        # Validate split ranges
+        total_time_points = data.shape[0]
+        assert split.train_end <= total_time_points, (
+            f"train_end ({split.train_end}) exceeds available time points ({total_time_points})"
+        )
+        assert split.validation_end <= total_time_points, (
+            f"validation_end ({split.validation_end}) exceeds available time points ({total_time_points})"
+        )
+        assert split.test_end <= total_time_points, (
+            f"test_end ({split.test_end}) exceeds available time points ({total_time_points})"
+        )
+
+        # Extract subsets
+        if keep_first_n_limit is not None:
+            train = data[split.train_start : split.train_end, :keep_first_n_limit]
+            val = data[split.validation_start : split.validation_end, :keep_first_n_limit]
+            test = data[split.test_start : split.test_end, :keep_first_n_limit]
+        else:
+            train = data[split.train_start : split.train_end]
+            val = data[split.validation_start : split.validation_end]
+            test = data[split.test_start : split.test_end]
+
+        return train, val, test
+
+
+class DataSplit(BaseModel):
+    """Split the time series into train/validation/test."""
+
+    train_start: int
+    train_end: int
+    validation_start: int
+    validation_end: int
+    test_start: int
+    test_end: int
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("*")
+    @classmethod
+    def check_non_negative(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("Indices in data_split must be non-negative.")
+        return v
+
+    @field_validator("train_end")
+    @classmethod
+    def check_order(cls, v, info):
+        # very basic ordering sanity check
+        d = info.data
+        if "train_start" in d and v <= d["train_start"]:
+            raise ValueError("train_end must be greater than train_start.")
+        return v
