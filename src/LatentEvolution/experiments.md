@@ -1142,7 +1142,7 @@ passes over the data. This allows one epoch ~ 1min as opposed to < 1s.
 for seed in 188726 8172361 ; do \
     bsub -J "seeds" -n 1 -gpu "num=1" -q gpu_a100 -o checkpoint.log python \
         src/LatentEvolution/latent.py 20251112 \
-        --training.epochs 50000 \
+        --training.epochs 500 \
         --training.seed $seed
 done
 ```
