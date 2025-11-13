@@ -109,58 +109,70 @@ def plot_mses(val_data: torch.Tensor, recons: torch.Tensor):
 
 
 
-def post_training_diagnostics(
+def run_validation_diagnostics(
     run_dir: Path,
     val_data: torch.Tensor,
     neuron_data: NeuronData,
     val_stim: torch.Tensor,
     model: LatentModel,
     config: ModelParams,
-) -> dict[str, float|int]:
+    save_figures: bool = False,
+) -> tuple[dict[str, float|int], dict[str, plt.Figure]]:
     """
-    Perform post-training diagnostics on the trained model.
+    Perform validation diagnostics on the trained model.
 
     Args:
-        train_data: Training data tensor of shape (T_train, N)
+        run_dir: Directory to save diagnostic figures
         val_data: Validation data tensor of shape (T_val, N)
-        test_data: Test data tensor of shape (T_test, N)
-        train_stim: Training stimulus tensor of shape (T_train, S)
+        neuron_data: NeuronData instance with neuron type information
         val_stim: Validation stimulus tensor of shape (T_val, S)
-        test_stim: Test stimulus tensor of shape (T_test, S)
         model: The trained LatentModel instance
         config: ModelParams configuration object
-    """
-    # TODO: Implement diagnostic analyses
-    # - Latent space visualization
-    # - Reconstruction quality analysis
-    # - Temporal prediction accuracy
-    # - Model capacity metrics
-    # - Generalization analysis
+        save_figures: Whether to save figures to disk (default: False)
 
-    print("Running post-training diagnostics...")
+    Returns:
+        metrics: Dictionary of scalar metrics
+        figures: Dictionary of matplotlib figures
+    """
+    print("Running validation diagnostics...")
     print(f"  Val data shape: {val_data.shape}")
     print(f"  Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     metrics = {}
+    figures = {}
+
     true_trace = val_data.detach().cpu().numpy()
     recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
 
     # Neuron traces (full trace)
     fig = plot_neuron_reconstruction(true_trace, recon_trace, neuron_data, xlim=None)
-    fig.savefig(run_dir / "neuron_traces.jpg", dpi=100)
+    figures["neuron_traces"] = fig
+    if save_figures:
+        fig.savefig(run_dir / "neuron_traces.jpg", dpi=100)
+        plt.close(fig)
 
-    # Neuron traces (full trace)
+    # Neuron traces (zoomed)
     fig = plot_neuron_reconstruction(true_trace, recon_trace, neuron_data, xlim=(100, 1100))
-    fig.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
+    figures["neuron_traces_zoom"] = fig
+    if save_figures:
+        fig.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
+        plt.close(fig)
 
     # Reconstruction error stratified
     fig = plot_recon_error(true_trace, recon_trace)
-    fig.savefig(run_dir / "reconstruction_variance.jpg", dpi=100)
+    figures["reconstruction_variance"] = fig
+    if save_figures:
+        fig.savefig(run_dir / "reconstruction_variance.jpg", dpi=100)
+        plt.close(fig)
 
+    # MSE evolution over time steps
     recons = evolve_many_time_steps(model, val_data, val_stim, tmax=10)
     fig, mse_metrics = plot_mses(val_data, recons)
     metrics.update(mse_metrics)
-    fig.savefig(run_dir / "mses_by_time_steps.jpg", dpi=100)
+    figures["mses_by_time_steps"] = fig
+    if save_figures:
+        fig.savefig(run_dir / "mses_by_time_steps.jpg", dpi=100)
+        plt.close(fig)
 
-    print("Post-training diagnostics complete.")
-    return metrics
+    print("Validation diagnostics complete.")
+    return metrics, figures

@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
-from LatentEvolution.diagnostics import post_training_diagnostics
+from LatentEvolution.diagnostics import run_validation_diagnostics
 from LatentEvolution.eed_model import (
     MLP,
     MLPParams,
@@ -53,6 +53,9 @@ class TrainingConfig(BaseModel):
     seed: int = 42
     data_split: DataSplit
     data_passes_per_epoch: int = 1
+    diagnostics_freq_epochs: int = Field(
+        0, description="Run validation diagnostics every N epochs (0 = only at end of training)"
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -408,6 +411,35 @@ def train(cfg: ModelParams, run_dir: Path):
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
+            # Run periodic diagnostics
+            if cfg.training.diagnostics_freq_epochs > 0 and (epoch + 1) % cfg.training.diagnostics_freq_epochs == 0:
+                model.eval()
+                diagnostics_start = datetime.now()
+                diagnostic_metrics, diagnostic_figures = run_validation_diagnostics(
+                    run_dir=run_dir,
+                    val_data=val_data,
+                    neuron_data=sim_data.neuron_data,
+                    val_stim=val_stim,
+                    model=model,
+                    config=cfg,
+                    save_figures=False,
+                )
+                diagnostics_duration = (datetime.now() - diagnostics_start).total_seconds()
+
+                # Log diagnostic metrics to TensorBoard
+                for metric_name, metric_value in diagnostic_metrics.items():
+                    writer.add_scalar(f"Diagnostics/{metric_name}", metric_value, epoch)
+
+                # Log diagnostic figures to TensorBoard
+                for fig_name, fig in diagnostic_figures.items():
+                    writer.add_figure(f"Diagnostics/{fig_name}", fig, epoch)
+
+                # Log diagnostics duration
+                writer.add_scalar("Time/diagnostics_duration", diagnostics_duration, epoch)
+                print(f"  Diagnostics completed in {diagnostics_duration:.2f}s")
+
+                model.train()
+
         # --- Final test evaluation ---
         model.eval()
         with torch.no_grad():
@@ -448,16 +480,26 @@ def train(cfg: ModelParams, run_dir: Path):
         torch.save(model.state_dict(), model_path)
         print(f"Saved final model to {model_path}")
 
-        # --- Run post-training diagnostics ---
-        post_run_metrics = post_training_diagnostics(
+        # --- Run final diagnostics ---
+        diagnostics_start = datetime.now()
+        post_run_metrics, final_figures = run_validation_diagnostics(
             run_dir=run_dir,
             val_data=val_data,
             neuron_data=sim_data.neuron_data,
             val_stim=val_stim,
             model=model,
             config=cfg,
+            save_figures=True,
         )
+        diagnostics_duration = (datetime.now() - diagnostics_start).total_seconds()
         metrics.update(post_run_metrics)
+        metrics["final_diagnostics_duration_seconds"] = round(diagnostics_duration, 2)
+
+        # Log final diagnostic figures to TensorBoard
+        for fig_name, fig in final_figures.items():
+            writer.add_figure(f"Diagnostics/{fig_name}", fig, cfg.training.epochs)
+
+        print(f"Final diagnostics completed in {diagnostics_duration:.2f}s")
 
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
