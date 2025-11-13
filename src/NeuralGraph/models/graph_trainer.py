@@ -24,7 +24,6 @@ from NeuralGraph.models.utils import (
     get_in_features_update,
     get_in_features_lin_edge,
     analyze_edge_function,
-    get_n_hop_neighborhood_with_stats,
     plot_training_signal,
     plot_training_signal_field,
     plot_training_signal_missing_activity,
@@ -88,7 +87,6 @@ import napari
 from collections import deque
 from tqdm import tqdm, trange
 import networkx as nx
-import scipy
 from prettytable import PrettyTable
 import imageio
 
