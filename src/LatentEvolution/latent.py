@@ -14,6 +14,7 @@ import re
 
 import torch
 import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
 import yaml
 import tyro
 import numpy as np
@@ -21,7 +22,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
-from LatentEvolution.diagnostics import post_training_diagnostics
+from LatentEvolution.diagnostics import run_validation_diagnostics
 from LatentEvolution.eed_model import (
     MLP,
     MLPParams,
@@ -52,6 +53,15 @@ class TrainingConfig(BaseModel):
     seed: int = 42
     data_split: DataSplit
     data_passes_per_epoch: int = 1
+    diagnostics_freq_epochs: int = Field(
+        0, description="Run validation diagnostics every N epochs (0 = only at end of training)"
+    )
+    save_checkpoint_every_n_epochs: int = Field(
+        10, description="Save model checkpoint every N epochs (0 = disabled)"
+    )
+    save_best_checkpoint: bool = Field(
+        True, description="Save checkpoint when validation loss improves"
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -252,6 +262,78 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
 # -------------------------------------------------------------------
+# Model Loading
+# -------------------------------------------------------------------
+
+
+def load_model_from_checkpoint(
+    checkpoint_path: Path | str,
+    config_path: Path | str | None = None,
+    device: torch.device | None = None,
+) -> LatentModel:
+    """
+    Load a model from a checkpoint file.
+
+    Args:
+        checkpoint_path: Path to the checkpoint file (e.g., "runs/my_exp/run_id/checkpoints/checkpoint_best.pt")
+        config_path: Optional path to config.yaml. If None, looks for config.yaml in run directory.
+        device: Device to load model onto. If None, uses get_device().
+
+    Returns:
+        Loaded LatentModel instance in eval mode
+
+    Example:
+        >>> from pathlib import Path
+        >>> model = load_model_from_checkpoint(
+        ...     "runs/my_experiment/20251105_abc123_def456/checkpoints/checkpoint_best.pt"
+        ... )
+        >>> # Use model for inference
+        >>> model.eval()
+        >>> with torch.no_grad():
+        ...     output = model(x, stim)
+    """
+    checkpoint_path = Path(checkpoint_path)
+    if not checkpoint_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
+    # Infer config path if not provided
+    if config_path is None:
+        # Assume checkpoint is in: run_dir/checkpoints/checkpoint_*.pt
+        run_dir = checkpoint_path.parent.parent
+        config_path = run_dir / "config.yaml"
+
+    config_path = Path(config_path)
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    # Load config
+    with open(config_path, "r") as f:
+        config_dict = yaml.safe_load(f)
+    cfg = ModelParams(**config_dict)
+
+    # Get device
+    if device is None:
+        device = get_device()
+
+    # Create model
+    model = LatentModel(cfg).to(device)
+
+    # Load checkpoint
+    state_dict = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(state_dict)
+
+    # Set to eval mode
+    model.eval()
+
+    print(f"Loaded model from {checkpoint_path}")
+    print(f"  Config: {config_path}")
+    print(f"  Device: {device}")
+    print(f"  Parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+    return model
+
+
+# -------------------------------------------------------------------
 # Training
 # -------------------------------------------------------------------
 
@@ -292,6 +374,10 @@ def train(cfg: ModelParams, run_dir: Path):
         optimizer = OptimizerClass(model.parameters(), lr=cfg.training.learning_rate)
         train_step_fn: Callable = globals()[cfg.training.train_step]
 
+        # --- TensorBoard setup ---
+        writer = SummaryWriter(log_dir=run_dir)
+        print(f"TensorBoard logs will be saved to {run_dir}")
+
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
         sim_data = SimulationResults.load(data_path)
@@ -331,6 +417,11 @@ def train(cfg: ModelParams, run_dir: Path):
         }
         print(f"Constant model loss: {metrics}")
 
+        # Log baseline metrics to TensorBoard
+        writer.add_scalar("Baseline/train_loss_constant_model", metrics["train_loss_constant_model"], 0)
+        writer.add_scalar("Baseline/val_loss_constant_model", metrics["val_loss_constant_model"], 0)
+        writer.add_scalar("Baseline/test_loss_constant_model", metrics["test_loss_constant_model"], 0)
+
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
@@ -342,11 +433,6 @@ def train(cfg: ModelParams, run_dir: Path):
             train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
         )
 
-        # --- Log file ---
-        log_path = run_dir / "training_log.csv"
-        with open(log_path, "w") as f:
-            f.write("epoch,train_loss,val_loss\n")
-
         # --- Initialize GPU monitoring ---
         gpu_monitor = GPUMonitor()
         if gpu_monitor.enabled:
@@ -357,22 +443,36 @@ def train(cfg: ModelParams, run_dir: Path):
         training_start = datetime.now()
         epoch_durations = []
 
+        # --- Checkpoint setup ---
+        checkpoint_dir = run_dir / "checkpoints"
+        checkpoint_dir.mkdir(exist_ok=True)
+        best_val_loss = float('inf')
+
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
             running_loss = 0.0
+            running_recon_loss = 0.0
+            running_evolve_loss = 0.0
+            running_reg_loss = 0.0
 
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 (x_t, stim_t), x_t_plus = next(batch_iter)
-                (loss, _recon_loss, _evolve_loss, _reg_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
+                (loss, recon_loss, evolve_loss, reg_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
                 loss.backward()
                 optimizer.step()
                 running_loss += loss.detach().item()
+                running_recon_loss += recon_loss.detach().item()
+                running_evolve_loss += evolve_loss.detach().item()
+                running_reg_loss += reg_loss.detach().item()
 
             mean_train_loss = running_loss / batches_per_epoch
+            mean_recon_loss = running_recon_loss / batches_per_epoch
+            mean_evolve_loss = running_evolve_loss / batches_per_epoch
+            mean_reg_loss = running_reg_loss / batches_per_epoch
 
             # ---- Validation phase ----
             model.eval()
@@ -397,9 +497,57 @@ def train(cfg: ModelParams, run_dir: Path):
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
-            # Log to CSV
-            with open(log_path, "a") as f:
-                f.write(f"{epoch+1},{mean_train_loss:.6f},{val_loss:.6f}\n")
+            # Log to TensorBoard
+            writer.add_scalar("Loss/train", mean_train_loss, epoch)
+            writer.add_scalar("Loss/val", val_loss, epoch)
+            writer.add_scalar("Loss/train_recon", mean_recon_loss, epoch)
+            writer.add_scalar("Loss/train_evolve", mean_evolve_loss, epoch)
+            writer.add_scalar("Loss/train_reg", mean_reg_loss, epoch)
+            writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
+            writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
+
+            # Run periodic diagnostics
+            if cfg.training.diagnostics_freq_epochs > 0 and (epoch + 1) % cfg.training.diagnostics_freq_epochs == 0:
+                model.eval()
+                diagnostics_start = datetime.now()
+                diagnostic_metrics, diagnostic_figures = run_validation_diagnostics(
+                    run_dir=run_dir,
+                    val_data=val_data,
+                    neuron_data=sim_data.neuron_data,
+                    val_stim=val_stim,
+                    model=model,
+                    config=cfg,
+                    save_figures=False,
+                )
+                diagnostics_duration = (datetime.now() - diagnostics_start).total_seconds()
+
+                # Log diagnostic metrics to TensorBoard
+                for metric_name, metric_value in diagnostic_metrics.items():
+                    writer.add_scalar(f"Diagnostics/{metric_name}", metric_value, epoch)
+
+                # Log diagnostic figures to TensorBoard
+                for fig_name, fig in diagnostic_figures.items():
+                    writer.add_figure(f"Diagnostics/{fig_name}", fig, epoch)
+
+                # Log diagnostics duration
+                writer.add_scalar("Time/diagnostics_duration", diagnostics_duration, epoch)
+                print(f"  Diagnostics completed in {diagnostics_duration:.2f}s")
+
+                model.train()
+
+            # --- Checkpointing ---
+            # Save best checkpoint
+            if cfg.training.save_best_checkpoint and val_loss < best_val_loss:
+                best_val_loss = val_loss
+                checkpoint_path = checkpoint_dir / "checkpoint_best.pt"
+                torch.save(model.state_dict(), checkpoint_path)
+                print(f"  → Saved best checkpoint (val_loss: {val_loss:.4e})")
+
+            # Save periodic checkpoint
+            if cfg.training.save_checkpoint_every_n_epochs > 0 and (epoch + 1) % cfg.training.save_checkpoint_every_n_epochs == 0:
+                checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch+1:04d}.pt"
+                torch.save(model.state_dict(), checkpoint_path)
+                print(f"  → Saved periodic checkpoint at epoch {epoch+1}")
 
         # --- Final test evaluation ---
         model.eval()
@@ -412,6 +560,9 @@ def train(cfg: ModelParams, run_dir: Path):
             ).item()
 
         print(f"Final Test Loss: {test_loss:.4e}")
+
+        # Log final test loss to TensorBoard
+        writer.add_scalar("Loss/test", test_loss, cfg.training.epochs)
 
         # Calculate training statistics
         training_end = datetime.now()
@@ -438,16 +589,26 @@ def train(cfg: ModelParams, run_dir: Path):
         torch.save(model.state_dict(), model_path)
         print(f"Saved final model to {model_path}")
 
-        # --- Run post-training diagnostics ---
-        post_run_metrics = post_training_diagnostics(
+        # --- Run final diagnostics ---
+        diagnostics_start = datetime.now()
+        post_run_metrics, final_figures = run_validation_diagnostics(
             run_dir=run_dir,
             val_data=val_data,
             neuron_data=sim_data.neuron_data,
             val_stim=val_stim,
             model=model,
             config=cfg,
+            save_figures=True,
         )
+        diagnostics_duration = (datetime.now() - diagnostics_start).total_seconds()
         metrics.update(post_run_metrics)
+        metrics["final_diagnostics_duration_seconds"] = round(diagnostics_duration, 2)
+
+        # Log final diagnostic figures to TensorBoard
+        for fig_name, fig in final_figures.items():
+            writer.add_figure(f"Diagnostics/{fig_name}", fig, cfg.training.epochs)
+
+        print(f"Final diagnostics completed in {diagnostics_duration:.2f}s")
 
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
@@ -459,6 +620,10 @@ def train(cfg: ModelParams, run_dir: Path):
                 indent=2,
             )
         print(f"Saved metrics to {metrics_path}")
+
+        # Close TensorBoard writer
+        writer.close()
+        print("TensorBoard logging completed")
 
 
 # -------------------------------------------------------------------
