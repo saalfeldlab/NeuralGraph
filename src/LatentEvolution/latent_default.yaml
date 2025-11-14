@@ -3,22 +3,26 @@
 latent_dims: 256 # Dimensionality of latent space
 num_neurons: 13741 # Number of observed neurons (input/output size)
 use_batch_norm: False
+# Activation function from torch.nn (e.g., ReLU, GELU, Tanh, Mish)
+activation: ReLU
 
 encoder_params:
   num_hidden_layers: 3 # Layers in the encoder MLP
   num_hidden_units: 256 # Hidden units per layer
-  l1_reg_loss: 1e-4
+  l1_reg_loss: 0.0
 
 decoder_params:
   num_hidden_layers: 3 # Layers in the decoder MLP
   num_hidden_units: 256 # Hidden units per layer
-  l1_reg_loss: 1e-4
+  l1_reg_loss: 0.0
 
 evolver_params:
   time_units: 1 # Number of time steps to evolve per forward pass
   num_hidden_layers: 3 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
-  l1_reg_loss: 1e-4
+  l1_reg_loss: 0.0
+  # Use learnable diagonal matrix (x -> Ax + mlp(x)) for per-dimension residual control
+  learnable_diagonal: false
 
 stimulus_encoder_params:
   num_input_dims: 1736
@@ -40,6 +44,8 @@ training:
   column_to_model: "VOLTAGE" # Options: CALCIUM, VOLTAGE, FLUORESCENCE, STIMULUS
   use_tf32_matmul: false
   seed: 42
+  # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
+  loss_function: mse_loss
 
   data_split:
     train_start: 4000 # Exclude burn-in

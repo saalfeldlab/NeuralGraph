@@ -62,6 +62,9 @@ class TrainingConfig(BaseModel):
     save_best_checkpoint: bool = Field(
         True, description="Save checkpoint when validation loss improves"
     )
+    loss_function: str = Field(
+        "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -71,11 +74,19 @@ class TrainingConfig(BaseModel):
             raise ValueError(f"Unknown optimizer '{v}' in torch.optim")
         return v
 
+    @field_validator("loss_function")
+    @classmethod
+    def validate_loss_function(cls, v: str) -> str:
+        if not hasattr(torch.nn.functional, v):
+            raise ValueError(f"Unknown loss function '{v}' in torch.nn.functional")
+        return v
+
 
 class ModelParams(BaseModel):
     latent_dims: int = Field(..., json_schema_extra={"short_name": "ld"})
     num_neurons: int
     use_batch_norm: bool = True
+    activation: str = Field("ReLU", description="Activation function from torch.nn")
     encoder_params: EncoderParams
     decoder_params: DecoderParams
     evolver_params: EvolverParams
@@ -83,6 +94,13 @@ class ModelParams(BaseModel):
     training: TrainingConfig
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("activation")
+    @classmethod
+    def validate_activation(cls, v: str) -> str:
+        if not hasattr(nn, v):
+            raise ValueError(f"Unknown activation '{v}' in torch.nn")
+        return v
 
     def flatten(self, sep: str = ".") -> dict[str, int | float | str | bool]:
         """
@@ -129,6 +147,7 @@ class LatentModel(nn.Module):
                 num_hidden_units=params.encoder_params.num_hidden_units,
                 num_output_dims=params.latent_dims,
                 use_batch_norm=params.use_batch_norm,
+                activation=params.activation,
             )
         )
         self.decoder = MLP(
@@ -138,6 +157,7 @@ class LatentModel(nn.Module):
                 num_hidden_units=params.decoder_params.num_hidden_units,
                 num_output_dims=params.num_neurons,
                 use_batch_norm=params.use_batch_norm,
+                activation=params.activation,
             )
         )
         self.stimulus_encoder = MLP(
@@ -147,6 +167,7 @@ class LatentModel(nn.Module):
                 num_hidden_layers=params.stimulus_encoder_params.num_hidden_layers,
                 num_output_dims=params.stimulus_encoder_params.num_output_dims,
                 use_batch_norm=False,
+                activation=params.activation,
             )
         )
         self.evolver = Evolver(
@@ -154,6 +175,7 @@ class LatentModel(nn.Module):
             stim_dims=params.stimulus_encoder_params.num_output_dims,
             evolver_params=params.evolver_params,
             use_batch_norm=params.use_batch_norm,
+            activation=params.activation,
         )
 
     def forward(self, x_t, stim_t):
@@ -239,6 +261,9 @@ def get_device() -> torch.device:
 
 
 def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelParams):
+    # Get loss function from config
+    loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
+
     # regularization loss
     reg_loss = 0.0
     for p in model.encoder.parameters():
@@ -250,11 +275,11 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
 
     # evolution loss
     output = model(x_t, stim_t)
-    evolve_loss = torch.nn.functional.mse_loss(output, x_t_plus)
+    evolve_loss = loss_fn(output, x_t_plus)
 
     # reconstruction loss
     recon = model.decoder(model.encoder(x_t))
-    recon_loss = torch.nn.functional.mse_loss(recon, x_t)
+    recon_loss = loss_fn(recon, x_t)
 
     loss = evolve_loss + recon_loss + reg_loss
     return (loss, recon_loss, evolve_loss, reg_loss)
