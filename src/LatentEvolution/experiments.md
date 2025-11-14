@@ -1189,3 +1189,24 @@ reducing batch size from default.
 
 None of these solve the main issue that we completely fail at reproducing the dynamics of certain
 cell types.
+
+## Try huber/mse, gelu/relu, addition of matrix
+
+Test some modifications to better fit jumpier neurons.
+
+```bash
+
+for loss in mse_loss huber_loss; do \
+      for activation in ReLU GELU; do \
+          for diag in learnable-diagonal no-learnable-diagonal; do \
+              bsub -J "${loss}_${activation}_${diag}" -n 12 -gpu "num=1" -q gpu_a100 -o
+  "${loss}_${activation}_${diag}.log" python \
+                  src/LatentEvolution/latent.py jumpy_sweep \
+                  --training.loss-function $loss \
+                  --activation $activation \
+                  --evolver-params.${diag} \
+                  --training.epochs 200
+          done
+      done
+  done
+```
