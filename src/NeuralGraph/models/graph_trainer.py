@@ -140,6 +140,7 @@ def data_train_signal(config, erase, best_model, device):
 
     data_augmentation_loop = train_config.data_augmentation_loop
     recurrent_training = train_config.recurrent_training
+    noise_recurrent_level = train_config.noise_recurrent_level
     recurrent_parameters = train_config.recurrent_parameters.copy()
     target_batch_size = train_config.batch_size
     delta_t = simulation_config.delta_t
@@ -629,8 +630,8 @@ def data_train_signal(config, erase, best_model, device):
 
                 if recurrent_training:
                     # Multi-step training with loss at each step
-                    # Initial prediction
-                    pred_x = x_batch + delta_t * pred
+                    # Initial prediction with noise
+                    pred_x = x_batch + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
                     # Compute loss for first step
                     if (n_excitatory_neurons > 0) & (batch_size>1):
@@ -654,8 +655,8 @@ def data_train_signal(config, erase, best_model, device):
                             for batch in batch_loader_recur:
                                 pred = model(batch, data_id=data_id, k=k_batch + step)
 
-                            # Integrate prediction
-                            pred_x = pred_x + delta_t * pred
+                            # Integrate prediction with noise
+                            pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
                             # Get target for this step
                             if (n_excitatory_neurons > 0) & (batch_size>1):
