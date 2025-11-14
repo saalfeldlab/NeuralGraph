@@ -42,8 +42,9 @@ if __name__ == "__main__":
 
         # config_list = ['zebra_N10_34_1']
 
-        config_list = ['signal_N11_2_1_4']
-
+        # config_list = ['signal_N11_2_4_1', 'signal_N11_2_0_2', 'signal_N11_2_1_2', 'signal_N11_2_1_3', 'signal_N11_2_1_4', 
+        config_list = ['signal_N11_2_1_2', 'signal_N11_4_1_1', 'signal_N11_4_1_4', 'signal_N11_4_1_5', 'signal_N11_4_1_6'] 
+        
 
     for config_file_ in config_list:
         print(" ")
@@ -84,7 +85,7 @@ if __name__ == "__main__":
                 verbose=False,
                 best_model='best',
                 run=0,
-                test_mode="",
+                test_mode="test",
                 sample_embedding=False,
                 step=10,
                 device=device,

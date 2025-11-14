@@ -203,3 +203,9 @@ instantNGP/*.tif
 **/*.pth
 **/*.npy
 instantNGP/imageio_ffmpeg
+julia_env/
+.julia/
+**/julia_env/
+**/.julia/
+**/.nfs*
+

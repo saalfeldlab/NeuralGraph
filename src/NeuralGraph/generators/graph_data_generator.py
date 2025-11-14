@@ -1205,9 +1205,6 @@ def data_generate_synaptic(
                 if noise_model_level > 0:
                     H1[:, 0] = (H1[:, 0]+ torch.randn(n_neurons, device=device) * noise_model_level)
 
-            # print(f"Total allocated memory: {torch.cuda.memory_allocated(device) / 1024 ** 3:.2f} GB")
-            # print(f"Total reserved memory:  {torch.cuda.memory_reserved(device) / 1024 ** 3:.2f} GB")
-
             # output plots
             if visualize & (run == run_vizualized) & (it % step == 0) & (it >= 0):
                 if "latex" in style:
@@ -1519,10 +1516,5 @@ def data_generate_synaptic(
         #     plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
         #     plt.close()
 
-        # torch.cuda.memory_allocated(device)
-        # gc.collect()
-        # torch.cuda.empty_cache()
-        # print(f"Total allocated memory: {torch.cuda.memory_allocated(device) / 1024 ** 3:.2f} GB")
-        # print(f"Total reserved memory:  {torch.cuda.memory_reserved(device) / 1024 ** 3:.2f} GB")
 
 

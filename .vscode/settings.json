@@ -25,7 +25,7 @@
     "**/graphsdata/**": true,
     "**/log/**": true,
     "**/logs/**": true,
-    "**/graphsdata/**": true
+    "**/graphsdata/**": true,
     "**/.conda_envs/**": true
   }
 }

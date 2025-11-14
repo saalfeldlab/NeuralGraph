@@ -18,6 +18,7 @@ import scipy
 import logging
 import re
 import matplotlib
+from torch_geometric.utils import dense_to_sparse
 
 # os.environ["PATH"] += os.pathsep + '/usr/local/texlive/2023/bin/x86_64-linux'
 
@@ -184,10 +185,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
     train_config = config.training
     model_config = config.graph_model
+    simulation_config = config.simulation
 
     n_frames = config.simulation.n_frames
     n_runs = config.training.n_runs
     n_neuron_types = config.simulation.n_neuron_types
+    n_excitatory_neurons = simulation_config.n_excitatory_neurons
     delta_t = config.simulation.delta_t
     p = config.simulation.params
     omega = model_config.omega
@@ -232,6 +235,11 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     print('update variables ...')
     x = x_list[0][n_frames - 5]
     n_neurons = x.shape[0]
+
+    if n_excitatory_neurons > 0:
+        config.simulation.n_neurons = n_neurons + n_excitatory_neurons
+        n_neurons = n_neurons + n_excitatory_neurons
+
     print(f'N neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons = n_neurons
@@ -494,6 +502,27 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.close()
 
                 connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+
+
+                if n_excitatory_neurons > 0:
+                    # update to full connectivity including excitatory neurons
+
+                    adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
+                    edges, edge_attr = dense_to_sparse(adj_matrix)
+                    edges_all = edges.clone().detach()
+
+                    model_e = torch.load(f"graphs_data/{dataset_name}/model_e_{run}.pt", map_location=device)
+                    N = connectivity.shape[0]
+                    expanded = torch.zeros((n_neurons, n_neurons), device=device)
+                    expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
+                    expanded[:n_neurons-n_excitatory_neurons, -1] = model_e.t().squeeze()
+                    connectivity = expanded.clone().detach()
+
+
+                    type_list = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device) * (simulation_config.n_neuron_types + 1)), dim=0)
+                    n_neuron_types = n_neuron_types + n_excitatory_neurons
+
+
 
                 adjacency = connectivity.t().clone().detach()
                 adj_t = torch.abs(adjacency) > 0
@@ -850,6 +879,26 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
         connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
 
+        if n_excitatory_neurons > 0:
+            # update to full connectivity including excitatory neurons
+
+            adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
+            edges, edge_attr = dense_to_sparse(adj_matrix)
+            edges_all = edges.clone().detach()
+
+            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_{run}.pt", map_location=device)
+            N = connectivity.shape[0]
+            expanded = torch.zeros((n_neurons, n_neurons), device=device)
+            expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
+            expanded[:n_neurons-n_excitatory_neurons, -1] = model_e.t().squeeze()
+            connectivity = expanded.clone().detach()
+
+            type_list = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device) * (simulation_config.n_neuron_types + 1)), dim=0)
+            n_neuron_types = n_neuron_types + n_excitatory_neurons
+
+
+
+
         adjacency = connectivity.t().clone().detach()
         adj_t = torch.abs(adjacency) > 0
         edge_index = adj_t.nonzero().t().contiguous()
@@ -894,9 +943,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 activity_neuron_list = json.load(file)
             map_larynx_matrix, n = map_matrix(larynx_neuron_list, activity_neuron_list, adjacency)
         else:
-            n = np.random.randint(0, n_neurons, 50)
+            n = np.random.randint(0, n_neurons-n_excitatory_neurons, 50)
         for i in range(len(n)):
-            plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=1)
+            plt.plot(to_numpy(activity[n[i].astype(int), :]) + 20*i, linewidth=1)
         plt.xlabel('time', fontsize=64)
         plt.ylabel('$x_{i}$', fontsize=64)
         plt.xlim([0,n_frames])
@@ -8479,8 +8528,10 @@ if __name__ == '__main__':
     # compare_experiments(config_list,'training.noise_model_level')
 
     # config_list = ['fly_N9_44_24']
-    # config_list = ['fly_N9_51_2']
-    config_list = ['fly_N9_62_5_1','fly_N9_62_5_2']
+
+    config_list = ['fly_N9_62_5_7', 'fly_N9_62_5_8']
+    
+    # config_list = ['signal_N11_2_1_2']             
 
     for config_file_ in config_list:
         print(' ')

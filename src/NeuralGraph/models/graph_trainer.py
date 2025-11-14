@@ -335,7 +335,7 @@ def data_train_signal(config, erase, best_model, device):
 
 
         if n_excitatory_neurons > 0:
-            # create full connectivity including excitatory neurons
+            # update to full connectivity including excitatory neurons
 
             adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
             edges, edge_attr = dense_to_sparse(adj_matrix)
@@ -2245,7 +2245,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     has_missing_activity = training_config.has_missing_activity
     has_excitation = ('excitation' in model_config.update_type)
     baseline_value = simulation_config.baseline_value
- # Initialize for inference test mode
 
     torch.random.fork_rng(devices=device)
     torch.random.manual_seed(simulation_config.seed)
@@ -2364,10 +2363,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     if n_excitatory_neurons > 0:
         config.simulation.n_neurons = n_neurons + n_excitatory_neurons
         n_neurons = n_neurons + n_excitatory_neurons
-        # create full connectivity including excitatory neurons
         adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
         edge_index, edge_attr = dense_to_sparse(adj_matrix)
-
         e = torch.load(f'./graphs_data/{dataset_name}/model_e_{run}.pt', map_location=device)
         model_generator.e = torch.nn.Parameter(e)   
 
@@ -2893,7 +2890,11 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             # Auto ylim from ground truth range (ignore predictions if exploded)
             y_gt = np.concatenate([neuron_gt_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
-            y_pred = np.concatenate([neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
+
+            if 'test' in test_mode:
+                y_pred = np.concatenate([neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
+            else:
+                y_pred = np.concatenate([neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
 
             if np.abs(y_pred).max() > 10 * np.abs(y_gt).max():  # Explosion
                 ylim = [y_gt.min() - 10, y_gt.max() + 10]
