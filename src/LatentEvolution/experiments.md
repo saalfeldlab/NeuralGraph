@@ -1183,3 +1183,9 @@ for bs in 64 128 256; do \
 done
 
 ```
+
+Best config = lr of 1e-5. All batch sizes 62, 128, 256 work equally well. No gain to be had by
+reducing batch size from default.
+
+None of these solve the main issue that we completely fail at reproducing the dynamics of certain
+cell types.
