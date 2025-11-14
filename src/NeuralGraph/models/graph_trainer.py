@@ -5,7 +5,6 @@ import glob
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib.animation import FFMpegWriter
-from matplotlib.ticker import FormatStrFormatter
 import matplotlib as mpl
 import torch
 import torch.nn as nn
@@ -63,7 +62,6 @@ from NeuralGraph.fitting_models import linear_model
 
 from scipy.optimize import curve_fit
 
-from torch_geometric.utils import to_networkx
 from torch_geometric.data import Data as pyg_Data
 from torch_geometric.loader import DataLoader
 import torch_geometric as pyg
@@ -86,7 +84,6 @@ import pandas as pd
 import napari
 from collections import deque
 from tqdm import tqdm, trange
-import networkx as nx
 from prettytable import PrettyTable
 import imageio
 

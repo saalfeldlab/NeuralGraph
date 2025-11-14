@@ -5,7 +5,6 @@ and reproducible training with run logging.
 
 from pathlib import Path
 from typing import Callable, Iterator
-from uuid import uuid4
 from datetime import datetime
 import random
 import sys
@@ -23,6 +22,7 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics
+from LatentEvolution.hparam_paths import create_run_directory
 from LatentEvolution.eed_model import (
     MLP,
     MLPParams,
@@ -40,17 +40,17 @@ from LatentEvolution.eed_model import (
 
 
 class TrainingConfig(BaseModel):
-    epochs: int = 10
-    batch_size: int = 32
-    learning_rate: float = 1e-3
-    optimizer: str = Field("Adam", description="Optimizer name from torch.optim")
+    epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
+    batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
+    learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
+    optimizer: str = Field("Adam", description="Optimizer name from torch.optim", json_schema_extra={"short_name": "opt"})
     train_step: str = Field("train_step", description="Compiled train step function")
     simulation_config: str
     column_to_model: str = "CALCIUM"
     use_tf32_matmul: bool = Field(
         False, description="Enable fast tf32 multiplication on certain NVIDIA GPUs"
     )
-    seed: int = 42
+    seed: int = Field(42, json_schema_extra={"short_name": "seed"})
     data_split: DataSplit
     data_passes_per_epoch: int = 1
     diagnostics_freq_epochs: int = Field(
@@ -73,7 +73,7 @@ class TrainingConfig(BaseModel):
 
 
 class ModelParams(BaseModel):
-    latent_dims: int
+    latent_dims: int = Field(..., json_schema_extra={"short_name": "ld"})
     num_neurons: int
     use_batch_norm: bool = True
     encoder_params: EncoderParams
@@ -621,6 +621,16 @@ def train(cfg: ModelParams, run_dir: Path):
             )
         print(f"Saved metrics to {metrics_path}")
 
+        # Log hyperparameters to TensorBoard for comparison across runs
+        hparams = cfg.flatten()
+        metric_dict = {
+            "hparam/final_train_loss": metrics["final_train_loss"],
+            "hparam/final_val_loss": metrics["final_val_loss"],
+            "hparam/final_test_loss": metrics["final_test_loss"],
+        }
+        writer.add_hparams(hparams, metric_dict)
+        print("Logged hyperparameters to TensorBoard")
+
         # Close TensorBoard writer
         writer.close()
         print("TensorBoard logging completed")
@@ -650,10 +660,13 @@ expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
 
     commit_hash = get_git_commit_hash()
 
-    # Make run dir with hierarchical structure: runs / expt_code / run_id
-    run_id = datetime.now().strftime("%Y%m%d") + "_" + commit_hash + "_" + str(uuid4())[:8]
-    run_dir = Path("runs") / expt_code / run_id
-    run_dir.mkdir(parents=True, exist_ok=True)
+    # Make run dir with hierarchical structure: runs / expt_code_date_hash / hparam1 / hparam2 / ... / uuid
+    run_dir = create_run_directory(
+        expt_code=expt_code,
+        tyro_args=tyro_args,
+        model_class=ModelParams,
+        commit_hash=commit_hash,
+    )
 
     # Log command line in run dir for tracking
     with open(run_dir / "command_line.txt", "w") as out:
