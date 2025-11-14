@@ -86,6 +86,7 @@ class ModelParams(BaseModel):
     latent_dims: int
     num_neurons: int
     use_batch_norm: bool = True
+    activation: str = Field("ReLU", description="Activation function from torch.nn")
     encoder_params: EncoderParams
     decoder_params: DecoderParams
     evolver_params: EvolverParams
@@ -93,6 +94,13 @@ class ModelParams(BaseModel):
     training: TrainingConfig
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("activation")
+    @classmethod
+    def validate_activation(cls, v: str) -> str:
+        if not hasattr(nn, v):
+            raise ValueError(f"Unknown activation '{v}' in torch.nn")
+        return v
 
     def flatten(self, sep: str = ".") -> dict[str, int | float | str | bool]:
         """
@@ -139,6 +147,7 @@ class LatentModel(nn.Module):
                 num_hidden_units=params.encoder_params.num_hidden_units,
                 num_output_dims=params.latent_dims,
                 use_batch_norm=params.use_batch_norm,
+                activation=params.activation,
             )
         )
         self.decoder = MLP(
@@ -148,6 +157,7 @@ class LatentModel(nn.Module):
                 num_hidden_units=params.decoder_params.num_hidden_units,
                 num_output_dims=params.num_neurons,
                 use_batch_norm=params.use_batch_norm,
+                activation=params.activation,
             )
         )
         self.stimulus_encoder = MLP(
@@ -157,6 +167,7 @@ class LatentModel(nn.Module):
                 num_hidden_layers=params.stimulus_encoder_params.num_hidden_layers,
                 num_output_dims=params.stimulus_encoder_params.num_output_dims,
                 use_batch_norm=False,
+                activation=params.activation,
             )
         )
         self.evolver = Evolver(
@@ -164,6 +175,7 @@ class LatentModel(nn.Module):
             stim_dims=params.stimulus_encoder_params.num_output_dims,
             evolver_params=params.evolver_params,
             use_batch_norm=params.use_batch_norm,
+            activation=params.activation,
         )
 
     def forward(self, x_t, stim_t):
