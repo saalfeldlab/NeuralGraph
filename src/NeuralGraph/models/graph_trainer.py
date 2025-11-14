@@ -187,6 +187,8 @@ def data_train_signal(config, erase, best_model, device):
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
         x_list.append(x)
         y_list.append(y)
+    
+    run = 0
     x = x_list[0][n_frames - 10]
     n_neurons = x.shape[0]
     config.simulation.n_neurons =n_neurons
@@ -437,7 +439,7 @@ def data_train_signal(config, erase, best_model, device):
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 
                 if n_excitatory_neurons > 0:
-                    excitation_values = model.forward_excitation(k) * 20
+                    excitation_values = model.forward_excitation(k)
                     x = torch.cat((x, torch.zeros((n_excitatory_neurons, x.shape[1]), device=device)), dim=0)
                     x[-1, 6] = excitation_values.squeeze()
                     x[-1, 0] = n_neurons-1
@@ -510,7 +512,7 @@ def data_train_signal(config, erase, best_model, device):
                         loss = loss + (msg-1).norm(2) * coeff_edge_norm                 # normalization lin_edge(xnorm) = 1 for all embedding values
                     # regularisation sign Wij
                     if (coeff_W_sign > 0):
-                        if and (N%4 == 0):
+                        if (N%4 == 0):
                             W_sign = torch.tanh(5 * model_W)
                             loss_contribs = []
                             for i in range(n_neurons):
@@ -619,8 +621,10 @@ def data_train_signal(config, erase, best_model, device):
                     else:
                         pred = model(batch, data_id=data_id, k=k_batch)
 
-                
-                loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                if (n_excitatory_neurons > 0) & (batch_size>1):
+                    loss = loss + (pred[ids_batch] - y_batch).norm(2)    
+                else:
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
 
@@ -3002,7 +3006,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         dst_file = f"./{log_dir}/results/{dataset_name_}.png"
         import shutil
         shutil.copy(last_file, dst_file)
-        print(f"Saved last frame: {dst_file}")
+        print(f"saved last frame: {dst_file}")
 
     files = glob.glob(f'./{log_dir}/results/Fig/*')
     for f in files:

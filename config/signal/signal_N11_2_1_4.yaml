@@ -1,4 +1,4 @@
-description: "RNN chaotic oscillation_max_amplitude: 3.0"
+description: "RNN chaotic oscillation_max_amplitude: 3.0   batch 4"
 dataset: "signal_N11_2_1"
 
 simulation:
@@ -34,8 +34,6 @@ graph_model:
   n_layers_update: 3
   hidden_dim_update: 64
 
-  update_type: "generic" 
-
   aggr_type: "add"
   embedding_dim: 2
 
@@ -60,7 +58,7 @@ training:
   n_runs: 2
   device: "auto"
 
-  batch_size: 1
+  batch_size: 4
   small_init_batch_size: False
 
   seed: 24

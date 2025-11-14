@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
         # config_list = ['zebra_N10_34_1']
 
-        config_list = ['signal_N11_2_1_1']
+        config_list = ['signal_N11_2_1_4']
 
 
     for config_file_ in config_list:
@@ -83,7 +83,7 @@ if __name__ == "__main__":
                 style="black color name continuous_slice",
                 verbose=False,
                 best_model='best',
-                run=1,
+                run=0,
                 test_mode="",
                 sample_embedding=False,
                 step=10,
