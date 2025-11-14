@@ -1302,37 +1302,19 @@ def data_train_flyvis(config, erase, best_model, device):
                             for step in range(time_step - 1):
                                 # Create new dataset_batch with updated activity (maintaining gradients)
                                 dataset_batch_new = []
-                                x_features_new = []
 
                                 for b in range(batch_size):
                                     start_idx = b * n_neurons
                                     end_idx = (b + 1) * n_neurons
-
-                                    # Get current features and update activity column (maintaining gradient flow)
-                                    x_current = dataset_batch[b].x.clone()
-                                    x_current[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
-                                    x_features_new.append(x_current)
-
-                                    # Create new PyG Data object with updated features
-                                    dataset_new = pyg_Data(x=x_current, edge_index=dataset_batch[b].edge_index)
-                                    dataset_batch_new.append(dataset_new)
+                                    dataset_batch[b].x[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
+                                    dataset_batch_new.append(dataset_batch[b])
 
                                 # Run forward pass with updated states
                                 batch_loader = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
                                 for batch in batch_loader:
                                     pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
 
-                                # Compute next integrated prediction (maintaining gradient flow)
-                                pred_x_list = []
-                                for b in range(batch_size):
-                                    start_idx = b * n_neurons
-                                    end_idx = (b + 1) * n_neurons
-                                    current_activity = x_features_new[b][:, 3:4]
-                                    pred_x_batch = current_activity + delta_t * pred[start_idx:end_idx]
-                                    pred_x_list.append(pred_x_batch)
-
-                                pred_x = torch.cat(pred_x_list, dim=0)
-                                dataset_batch = dataset_batch_new  # Update for next iteration
+                                pred_x = pred_x + delta_t * pred
 
                         loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
