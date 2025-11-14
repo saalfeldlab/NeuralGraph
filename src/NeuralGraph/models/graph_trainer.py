@@ -415,6 +415,12 @@ def data_train_signal(config, erase, best_model, device):
         total_loss = 0
         total_loss_regul = 0
 
+
+
+
+
+
+
         time.sleep(1.0)
         for N in trange(Niter, ncols=150):
 
@@ -656,10 +662,11 @@ def data_train_signal(config, erase, best_model, device):
                             pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
                             # Get target for this step
-                            if (n_excitatory_neurons > 0) & (batch_size>1):
+                            if batch_size > 1:
                                 y_target_batch = []
+                                neurons_per_sample = dataset_batch[0].x.shape[0]
                                 for b in range(batch_size):
-                                    k_val = int(k_batch[b * n_neurons].item())
+                                    k_val = int(k_batch[b * neurons_per_sample].item())
                                     y_target = torch.tensor(x_list[run][k_val + step + 1, :, 6:7], dtype=torch.float32, device=device).detach()
                                     if n_excitatory_neurons > 0:
                                         y_target = torch.cat((y_target, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
@@ -672,8 +679,11 @@ def data_train_signal(config, erase, best_model, device):
                                     y_target = torch.cat((y_target, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
                                 loss = loss + (pred_x[ids_batch] - y_target[ids_batch]).norm(2)
 
+
+
                 else:
-                    # Standard single-step training
+
+                    # standard single-step training
                     if (n_excitatory_neurons > 0) & (batch_size>1):
                         loss = loss + (pred[ids_batch] - y_batch).norm(2)
                     else:
@@ -763,6 +773,12 @@ def data_train_signal(config, erase, best_model, device):
                         os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
             # check_and_clear_memory(device=device, iteration_number=N, every_n_iterations=Niter // 50, memory_percentage_threshold=0.6)
+
+
+
+
+
+
 
         print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
         logger.info("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
@@ -1356,10 +1372,11 @@ def data_train_flyvis(config, erase, best_model, device):
                             for step in range(time_step - 1):
                                 # Create new dataset_batch with updated activity (maintaining gradients)
                                 dataset_batch_new = []
+                                neurons_per_sample = dataset_batch[0].x.shape[0]
 
                                 for b in range(batch_size):
-                                    start_idx = b * n_neurons
-                                    end_idx = (b + 1) * n_neurons
+                                    start_idx = b * neurons_per_sample
+                                    end_idx = (b + 1) * neurons_per_sample
                                     dataset_batch[b].x[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
                                     dataset_batch_new.append(dataset_batch[b])
 
@@ -2671,7 +2688,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     it_list = []
     id_fig = 0
 
-    for it in trange(start_it,start_it+2000, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
+
+    n_test_frames = 4000
+
+    for it in trange(start_it,start_it+n_test_frames * 2, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
@@ -2864,7 +2884,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     plt.ylim([0, 2])
                     # plt.text(40, 26, f'time: {it}', fontsize=34)
 
-        if (it % 4 == 0) & (it > 0) & (it <=1000):
+        if (it % 4 == 0) & (it > 0) & (it <=n_test_frames):
 
             num = f"{id_fig:06}"
             id_fig += 1
@@ -2920,10 +2940,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             for i in range(len(n)):
                 label = 'learned' if i == 0 else None
 
-                if 'test' in test_mode:
+                if 'test_generated' in test_mode:
                     plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i * 25,
                             linewidth=3, c=colors[i%10], label=label)
-
                 else:
                     plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i * 25,
                             linewidth=3, c=colors[i%10], label=label)
@@ -2941,7 +2960,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 margin = (y_all.max() - y_all.min()) * 0.05
                 ylim = [y_all.min() - margin, y_all.max() + margin]
 
-            plt.xlim([0, 1000])
+            plt.xlim([0, n_test_frames])
             plt.ylim(ylim)
             plt.xlabel('time-points', fontsize=48)
             plt.ylabel('neurons', fontsize=48)
@@ -2993,8 +3012,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                         ha='center', fontsize=48, color='red', alpha=0.3, transform=plt.gca().transAxes)
                 r2 = 0
 
-            plt.xlim([-20,20])
-            plt.ylim([-20,20])
+            # plt.xlim([-20,20])
+            # plt.ylim([-20,20])
             plt.xlabel('true $x_i$', fontsize=48)
             plt.ylabel('learned $x_i$', fontsize=48)
             plt.xticks(fontsize=24)
@@ -3007,7 +3026,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             ax = plt.subplot(224)
             plt.scatter(it_list, R2_list, s=20, c=mc)
-            plt.xlim([0, 1000])
+            plt.xlim([0, n_test_frames])
             plt.ylim([0, 1])
             plt.axhline(1, color='green', linestyle='--', linewidth=2)
             plt.xlabel('frame', fontsize=48)

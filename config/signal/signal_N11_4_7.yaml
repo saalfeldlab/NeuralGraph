@@ -1,4 +1,4 @@
-description: "RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4  recurrent_training 2"
+description: "RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4 MLP_activation  tanh"
 dataset: "signal_N11_4_1"
 
 simulation:
@@ -18,6 +18,8 @@ simulation:
 graph_model:
   signal_model_name: "PDE_N11"
   prediction: "first_derivative"
+
+  MLP_activation: "tanh"
 
   input_size: 3
   output_size: 1
@@ -42,12 +44,8 @@ training:
   n_runs: 2
   device: "auto"
 
-  batch_size: 1
+  batch_size: 8
   small_init_batch_size: False
-
-  recurrent_training: True
-  time_step: 2
-  noise_recurrent_level: 0.0
 
   seed: 24
 

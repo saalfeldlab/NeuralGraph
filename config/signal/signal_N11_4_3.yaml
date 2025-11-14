@@ -1,4 +1,4 @@
-description: "RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4  recurrent_training 2"
+description: "RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4  recurrent_training 2 + noise 0.1"
 dataset: "signal_N11_4_1"
 
 simulation:
@@ -47,7 +47,7 @@ training:
 
   recurrent_training: True
   time_step: 2
-  noise_recurrent_level: 0.0
+  noise_recurrent_level: 0.1
 
   seed: 24
 

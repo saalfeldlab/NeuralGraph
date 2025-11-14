@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
         # config_list = ['zebra_N10_34_1']
 
-        config_list = ['signal_N11_4_1']
+        config_list = ['signal_N11_2_2_2']
 
         
 
