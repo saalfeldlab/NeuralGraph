@@ -36,7 +36,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['fly_N9_62_5_2']  # for quick test
 
@@ -83,7 +83,7 @@ if __name__ == "__main__":
                 style="black color name continuous_slice",
                 verbose=False,
                 best_model='best',
-                run=1,
+                run=0,
                 test_mode="",
                 sample_embedding=False,
                 step=10,

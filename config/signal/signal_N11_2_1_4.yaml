@@ -1,4 +1,4 @@
-description: "RNN chaotic oscillation_max_amplitude: 3.0      coeff_W_L1: 0"
+description: "RNN chaotic oscillation_max_amplitude: 3.0   batch 4"
 dataset: "signal_N11_2_1"
 
 simulation:
@@ -58,7 +58,7 @@ training:
   n_runs: 2
   device: "auto"
 
-  batch_size: 1
+  batch_size: 4
   small_init_batch_size: False
 
   seed: 24
@@ -72,5 +72,5 @@ training:
   learning_rate_embedding_start: 5.0E-3
   learning_rate_NNR_f: 1.0E-6
 
-  coeff_W_L1: 0.0
+  coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0

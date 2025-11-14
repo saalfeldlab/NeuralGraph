@@ -187,6 +187,8 @@ def data_train_signal(config, erase, best_model, device):
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
         x_list.append(x)
         y_list.append(y)
+    
+    run = 0
     x = x_list[0][n_frames - 10]
     n_neurons = x.shape[0]
     config.simulation.n_neurons =n_neurons
@@ -293,6 +295,8 @@ def data_train_signal(config, erase, best_model, device):
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
+
+
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
@@ -356,7 +360,9 @@ def data_train_signal(config, erase, best_model, device):
 
     print(f'{edges.shape[1]} edges')
 
-    if 'PDE_N3' in model_config.signal_model_name:          # PDE_N3 is special, embedding changes over time
+
+     # PDE_N3 is special, embedding changes over time
+    if 'PDE_N3' in model_config.signal_model_name:         
         ind_a = torch.tensor(np.arange(1, n_neurons * 100), device=device)
         pos = torch.argwhere(ind_a % 100 != 99).squeeze()
         ind_a = ind_a[pos]
@@ -373,9 +379,6 @@ def data_train_signal(config, erase, best_model, device):
     coeff_edge_diff = train_config.coeff_edge_diff
     coeff_update_diff = train_config.coeff_update_diff
 
-    print(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
-    logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
-
     print("start training ...")
 
     check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
@@ -386,24 +389,17 @@ def data_train_signal(config, erase, best_model, device):
 
     for epoch in range(start_epoch, n_epochs + 1):
 
-        if (epoch == train_config.epoch_reset) | ((epoch > 0) & (epoch % train_config.epoch_reset_freq == 0)):
+        if (epoch == train_config.epoch_reset):
             with torch.no_grad():
                 model.W.copy_(model.W * 0)
                 model.a.copy_(model.a * 0)
             logger.info(f'reset W model.a at epoch : {epoch}')
             print(f'reset W model.a at epoch : {epoch}')
-        
-        if epoch == train_config.n_epochs_init:
-            coeff_edge_diff = coeff_update_diff / 100
-            coeff_update_diff = coeff_update_diff / 100
-            logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
-            print(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
 
         if (epoch == 1) & (train_config.init_training_single_type):
                 lr_embedding = train_config.learning_rate_embedding_start
                 optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
                 model.train()
-
 
         batch_size = get_batch_size(epoch)
         logger.info(f'batch_size: {batch_size}')
@@ -419,7 +415,6 @@ def data_train_signal(config, erase, best_model, device):
 
         total_loss = 0
         total_loss_regul = 0
-        k = 0
 
         time.sleep(1.0)
         for N in trange(Niter, ncols=150):
@@ -452,6 +447,7 @@ def data_train_signal(config, erase, best_model, device):
                 ids = np.arange(n_neurons-n_excitatory_neurons)
 
                 if not (torch.isnan(x).any()):
+                    
                     if has_missing_activity:
                         t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
                         missing_activity = baseline_value + model_missing_activity[run](t).squeeze()
@@ -496,7 +492,7 @@ def data_train_signal(config, erase, best_model, device):
                         loss = loss + func_phi.norm(2) * coeff_lin_phi_zero
                     # regularisation sparsity on Wij
                     if coeff_W_L1 > 0:
-                        loss = loss + model_W[:n_neurons, :n_neurons].norm(1) * coeff_W_L1
+                        loss = loss + model_W[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons].norm(1) * coeff_W_L1
                     # regularisation lin_edge
                     in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device)
                     if coeff_edge_diff > 0:
@@ -515,17 +511,18 @@ def data_train_signal(config, erase, best_model, device):
                             msg = model.lin_edge(in_features[ids].clone().detach())
                         loss = loss + (msg-1).norm(2) * coeff_edge_norm                 # normalization lin_edge(xnorm) = 1 for all embedding values
                     # regularisation sign Wij
-                    if (coeff_W_sign > 0) and (N%4 == 0):
-                        W_sign = torch.tanh(5 * model_W)
-                        loss_contribs = []
-                        for i in range(n_neurons):
-                            indices = index_weight[int(i)]
-                            if indices.numel() > 0:
-                                values = W_sign[indices,i]
-                                std = torch.std(values, unbiased=False)
-                                loss_contribs.append(std)
-                        if loss_contribs:
-                            loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
+                    if (coeff_W_sign > 0):
+                        if (N%4 == 0):
+                            W_sign = torch.tanh(5 * model_W)
+                            loss_contribs = []
+                            for i in range(n_neurons):
+                                indices = index_weight[int(i)]
+                                if indices.numel() > 0:
+                                    values = W_sign[indices,i]
+                                    std = torch.std(values, unbiased=False)
+                                    loss_contribs.append(std)
+                            if loss_contribs:
+                                loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
                     # miscalleneous regularisations
                     if (model.update_type == 'generic') & (coeff_update_diff > 0):
                         in_feature_update = torch.cat((torch.zeros((n_neurons, 1), device=device),
@@ -564,10 +561,8 @@ def data_train_signal(config, erase, best_model, device):
                     if n_excitatory_neurons > 0:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
                         y = torch.cat((y, torch.zeros((1,1), dtype=torch.float32, device=device)), dim=0)
-                    elif time_step == 1:
-                        y = torch.tensor(y_list[run][k], device=device) / ynorm
-                    elif time_step > 1:
-                        y = torch.tensor(x_list[run][k + time_step, :, 6:7], device=device).clone().detach()
+                    
+                    y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                     if not (torch.isnan(y).any()):
 
@@ -626,10 +621,14 @@ def data_train_signal(config, erase, best_model, device):
                     else:
                         pred = model(batch, data_id=data_id, k=k_batch)
 
-                
-                loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                if (n_excitatory_neurons > 0) & (batch_size>1):
+                    loss = loss + (pred[ids_batch] - y_batch).norm(2)    
+                else:
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
+
+                 # PDE_N3 is special, embedding changes over time
                 if 'PDE_N3' in model_config.signal_model_name:
                     loss = loss + train_config.coeff_model_a * (model.a[ind_a + 1] - model.a[ind_a]).norm(2)
 
@@ -3007,7 +3006,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         dst_file = f"./{log_dir}/results/{dataset_name_}.png"
         import shutil
         shutil.copy(last_file, dst_file)
-        print(f"Saved last frame: {dst_file}")
+        print(f"saved last frame: {dst_file}")
 
     files = glob.glob(f'./{log_dir}/results/Fig/*')
     for f in files:
