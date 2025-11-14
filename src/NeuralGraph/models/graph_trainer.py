@@ -139,6 +139,7 @@ def data_train_signal(config, erase, best_model, device):
     dimension = simulation_config.dimension
 
     data_augmentation_loop = train_config.data_augmentation_loop
+    recurrent_training = train_config.recurrent_training
     recurrent_parameters = train_config.recurrent_parameters.copy()
     target_batch_size = train_config.batch_size
     delta_t = simulation_config.delta_t
@@ -558,11 +559,16 @@ def data_train_signal(config, erase, best_model, device):
                         mask = torch.isin(edges[1, :], torch.tensor(ids, device=device))
                         edges = edges[:, mask]
 
-                    if n_excitatory_neurons > 0:
+                    if recurrent_training:
+                        y = torch.tensor(x_list[run][k + 1, :, 6:7], dtype=torch.float32, device=device).detach()
+                        if n_excitatory_neurons > 0:
+                            y = torch.cat((y, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
+                    else:
+                        if n_excitatory_neurons > 0:
+                            y = torch.tensor(y_list[run][k], device=device) / ynorm
+                            y = torch.cat((y, torch.zeros((1,1), dtype=torch.float32, device=device)), dim=0)
+
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
-                        y = torch.cat((y, torch.zeros((1,1), dtype=torch.float32, device=device)), dim=0)
-                    
-                    y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                     if not (torch.isnan(y).any()):
 
@@ -621,10 +627,59 @@ def data_train_signal(config, erase, best_model, device):
                     else:
                         pred = model(batch, data_id=data_id, k=k_batch)
 
-                if (n_excitatory_neurons > 0) & (batch_size>1):
-                    loss = loss + (pred[ids_batch] - y_batch).norm(2)    
+                if recurrent_training:
+                    # Multi-step training with loss at each step
+                    # Initial prediction
+                    pred_x = x_batch + delta_t * pred
+
+                    # Compute loss for first step
+                    if (n_excitatory_neurons > 0) & (batch_size>1):
+                        loss = loss + (pred_x - y_batch).norm(2)
+                    else:
+                        loss = loss + (pred_x[ids_batch] - y_batch[ids_batch]).norm(2)
+
+                    # Rollout for remaining steps
+                    if time_step > 1:
+                        for step in range(1, time_step):
+                            # Update dataset_batch with predicted activity
+                            dataset_batch_new = []
+                            for b in range(batch_size):
+                                start_idx = b * n_neurons
+                                end_idx = (b + 1) * n_neurons
+                                dataset_batch[b].x[:, 6:7] = pred_x[start_idx:end_idx].reshape(-1, 1)
+                                dataset_batch_new.append(dataset_batch[b])
+
+                            # Forward pass with updated states
+                            batch_loader_recur = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
+                            for batch in batch_loader_recur:
+                                pred = model(batch, data_id=data_id, k=k_batch + step)
+
+                            # Integrate prediction
+                            pred_x = pred_x + delta_t * pred
+
+                            # Get target for this step
+                            if (n_excitatory_neurons > 0) & (batch_size>1):
+                                y_target_batch = []
+                                for b in range(batch_size):
+                                    k_val = int(k_batch[b * n_neurons].item())
+                                    y_target = torch.tensor(x_list[run][k_val + step + 1, :, 6:7], dtype=torch.float32, device=device).detach()
+                                    if n_excitatory_neurons > 0:
+                                        y_target = torch.cat((y_target, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
+                                    y_target_batch.append(y_target)
+                                y_target_batch = torch.cat(y_target_batch, dim=0)
+                                loss = loss + (pred_x - y_target_batch).norm(2)
+                            else:
+                                y_target = torch.tensor(x_list[run][int(k_batch[0].item()) + step + 1, :, 6:7], dtype=torch.float32, device=device).detach()
+                                if n_excitatory_neurons > 0:
+                                    y_target = torch.cat((y_target, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
+                                loss = loss + (pred_x[ids_batch] - y_target[ids_batch]).norm(2)
+
                 else:
-                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                    # Standard single-step training
+                    if (n_excitatory_neurons > 0) & (batch_size>1):
+                        loss = loss + (pred[ids_batch] - y_batch).norm(2)
+                    else:
+                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
 
@@ -884,6 +939,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
     data_augmentation_loop = train_config.data_augmentation_loop
     recurrent_training = train_config.recurrent_training
+    noise_recurrent_level = train_config.noise_recurrent_level
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     time_window = train_config.time_window
@@ -1295,7 +1351,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     if recurrent_training:
 
                         # Compute initial integrated prediction for ALL neurons (needed for autoregressive loop)
-                        pred_x = x_batch[:, 0:1] + delta_t * pred
+                        pred_x = x_batch[:, 0:1] + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)  
 
                         if time_step > 1:
                             # Autoregressive rollout for time_step-1 additional steps
@@ -1314,7 +1370,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                 for batch in batch_loader:
                                     pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
 
-                                pred_x = pred_x + delta_t * pred
+                                pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)  
 
                         loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
@@ -2865,18 +2921,20 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             colors = plt.cm.tab10(np.linspace(0, 1, 10))
             for i in range(len(n)):
                 label = 'learned' if i == 0 else None
-                plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i * 25,
-                        linewidth=3, c=colors[i%10], label=label)
+
+                if 'test' in test_mode:
+                    plt.plot(neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                            linewidth=3, c=colors[i%10], label=label)
+
+                else:
+                    plt.plot(neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i * 25,
+                            linewidth=3, c=colors[i%10], label=label)
 
             plt.xlim([0, len(neuron_gt_list_)])
 
             # Auto ylim from ground truth range (ignore predictions if exploded)
             y_gt = np.concatenate([neuron_gt_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
-
-            if 'test' in test_mode:
-                y_pred = np.concatenate([neuron_generated_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
-            else:
-                y_pred = np.concatenate([neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
+            y_pred = np.concatenate([neuron_pred_list_[:, n[i]].detach().cpu().numpy() + i*25 for i in range(len(n))])
 
             if np.abs(y_pred).max() > 10 * np.abs(y_gt).max():  # Explosion
                 ylim = [y_gt.min() - 10, y_gt.max() + 10]
