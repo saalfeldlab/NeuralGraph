@@ -391,6 +391,7 @@ class TrainingConfig(BaseModel):
     recurrent_training: bool = False
     recurrent_training_start_epoch: int = 0
     recurrent_loop: int = 0
+    noise_recurrent_level: float = 0.0
 
     time_step: int = 1
     recurrent_sequence: str = ""
