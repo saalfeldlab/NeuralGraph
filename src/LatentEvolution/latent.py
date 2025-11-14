@@ -62,6 +62,9 @@ class TrainingConfig(BaseModel):
     save_best_checkpoint: bool = Field(
         True, description="Save checkpoint when validation loss improves"
     )
+    loss_function: str = Field(
+        "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -69,6 +72,13 @@ class TrainingConfig(BaseModel):
     def validate_optimizer(cls, v: str) -> str:
         if not hasattr(torch.optim, v):
             raise ValueError(f"Unknown optimizer '{v}' in torch.optim")
+        return v
+
+    @field_validator("loss_function")
+    @classmethod
+    def validate_loss_function(cls, v: str) -> str:
+        if not hasattr(torch.nn.functional, v):
+            raise ValueError(f"Unknown loss function '{v}' in torch.nn.functional")
         return v
 
 
@@ -239,6 +249,9 @@ def get_device() -> torch.device:
 
 
 def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelParams):
+    # Get loss function from config
+    loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
+
     # regularization loss
     reg_loss = 0.0
     for p in model.encoder.parameters():
@@ -250,11 +263,11 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
 
     # evolution loss
     output = model(x_t, stim_t)
-    evolve_loss = torch.nn.functional.mse_loss(output, x_t_plus)
+    evolve_loss = loss_fn(output, x_t_plus)
 
     # reconstruction loss
     recon = model.decoder(model.encoder(x_t))
-    recon_loss = torch.nn.functional.mse_loss(recon, x_t)
+    recon_loss = loss_fn(recon, x_t)
 
     loss = evolve_loss + recon_loss + reg_loss
     return (loss, recon_loss, evolve_loss, reg_loss)

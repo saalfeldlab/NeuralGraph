@@ -40,6 +40,8 @@ training:
   column_to_model: "VOLTAGE" # Options: CALCIUM, VOLTAGE, FLUORESCENCE, STIMULUS
   use_tf32_matmul: false
   seed: 42
+  # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
+  loss_function: mse_loss
 
   data_split:
     train_start: 4000 # Exclude burn-in
