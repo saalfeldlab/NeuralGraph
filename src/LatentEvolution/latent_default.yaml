@@ -21,6 +21,8 @@ evolver_params:
   num_hidden_layers: 3 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
   l1_reg_loss: 0.0
+  # Use learnable diagonal matrix (x -> Ax + mlp(x)) for per-dimension residual control
+  learnable_diagonal: false
 
 stimulus_encoder_params:
   num_input_dims: 1736
