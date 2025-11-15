@@ -10,11 +10,13 @@ encoder_params:
   num_hidden_layers: 3 # Layers in the encoder MLP
   num_hidden_units: 256 # Hidden units per layer
   l1_reg_loss: 0.0
+  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 decoder_params:
   num_hidden_layers: 3 # Layers in the decoder MLP
   num_hidden_units: 256 # Hidden units per layer
   l1_reg_loss: 0.0
+  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 evolver_params:
   time_units: 1 # Number of time steps to evolve per forward pass
@@ -29,6 +31,7 @@ stimulus_encoder_params:
   num_hidden_layers: 3
   num_hidden_units: 64
   num_output_dims: 64
+  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 training:
   simulation_config: "fly_N9_62_1"
