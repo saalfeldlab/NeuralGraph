@@ -6,6 +6,31 @@ from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 from pydantic import BaseModel
+import subprocess
+
+
+def get_git_commit_hash() -> str:
+    """Get the short git commit hash, with -dirty suffix if working tree has changes."""
+    try:
+        # Get short commit hash
+        commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        # Check if working tree is dirty
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        if status:
+            commit_hash += "-dirty"
+
+        return commit_hash
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If git is not available or not a git repo, return a placeholder
+        return "unknown"
 
 
 def parse_tyro_overrides(tyro_args: list[str]) -> list[tuple[str, str]]:
@@ -17,19 +42,35 @@ def parse_tyro_overrides(tyro_args: list[str]) -> list[tuple[str, str]]:
 
     Returns:
         List of (param_name, value) tuples in order, with hyphens converted to underscores.
+        Boolean flags are handled as follows:
+            --param-name        -> ('param_name', 'True')
+            --no-param-name     -> ('param_name', 'False')
+            --param-name True   -> ('param_name', 'True')
         Example: [('training.learning_rate', '0.001'), ('latent_dims', '64')]
     """
     overrides = []
     i = 0
     while i < len(tyro_args):
         if tyro_args[i].startswith('--'):
-            param_name = tyro_args[i][2:].replace('-', '_')
-            if i + 1 < len(tyro_args) and not tyro_args[i + 1].startswith('--'):
+            # Remove the '--' prefix
+            arg = tyro_args[i][2:]
+
+            # Check if this is a negated boolean flag (--no-param-name)
+            if arg.startswith('no-'):
+                # Remove 'no-' prefix and convert hyphens to underscores
+                param_name = arg[3:].replace('-', '_')
+                overrides.append((param_name, 'False'))
+                i += 1
+            elif i + 1 < len(tyro_args) and not tyro_args[i + 1].startswith('--'):
+                # Has an explicit value
+                param_name = arg.replace('-', '_')
                 value = tyro_args[i + 1]
                 overrides.append((param_name, value))
                 i += 2
             else:
-                # Flag without value, skip it
+                # Flag without value - treat as boolean True
+                param_name = arg.replace('-', '_')
+                overrides.append((param_name, 'True'))
                 i += 1
         else:
             i += 1

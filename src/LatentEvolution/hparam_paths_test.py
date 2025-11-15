@@ -20,11 +20,13 @@ class NestedConfig(BaseModel):
     batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
     epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
     optimizer: str = "Adam"  # No short name
+    use_tf32_matmul: bool = Field(False, json_schema_extra={"short_name": "tf32"})
 
 
 class TestModel(BaseModel):
     latent_dims: int = Field(64, json_schema_extra={"short_name": "ld"})
     hidden_units: int = 128  # No short name
+    use_batch_norm: bool = True  # Boolean without short name
     training: NestedConfig
 
 
@@ -44,8 +46,8 @@ class TestParseTypoOverrides(unittest.TestCase):
     def test_mixed_args_with_flags(self):
         args = ['--learning-rate', '0.001', '--verbose', '--batch-size', '32']
         result = parse_tyro_overrides(args)
-        # Flags without values should be skipped
-        self.assertEqual(result, [('learning_rate', '0.001'), ('batch_size', '32')])
+        # Flags without values are now treated as boolean True
+        self.assertEqual(result, [('learning_rate', '0.001'), ('verbose', 'True'), ('batch_size', '32')])
 
     def test_empty_args(self):
         args = []
@@ -55,12 +57,45 @@ class TestParseTypoOverrides(unittest.TestCase):
     def test_no_overrides(self):
         args = ['--help']
         result = parse_tyro_overrides(args)
-        self.assertEqual(result, [])
+        # --help is now treated as a boolean flag
+        self.assertEqual(result, [('help', 'True')])
 
     def test_preserves_order(self):
         args = ['--z', '1', '--a', '2', '--m', '3']
         result = parse_tyro_overrides(args)
         self.assertEqual(result, [('z', '1'), ('a', '2'), ('m', '3')])
+
+    def test_boolean_flag_true(self):
+        """Test that boolean flags (--param) are captured as 'True'."""
+        args = ['--use-batch-norm', '--latent-dims', '128']
+        result = parse_tyro_overrides(args)
+        # This should capture the boolean flag
+        self.assertEqual(result, [('use_batch_norm', 'True'), ('latent_dims', '128')])
+
+    def test_boolean_flag_false(self):
+        """Test that negated boolean flags (--no-param) are captured as 'False'."""
+        args = ['--no-use-batch-norm', '--latent-dims', '128']
+        result = parse_tyro_overrides(args)
+        # This should capture the negated boolean flag
+        self.assertEqual(result, [('use_batch_norm', 'False'), ('latent_dims', '128')])
+
+    def test_boolean_nested_flag_true(self):
+        """Test that nested boolean flags work correctly."""
+        args = ['--training.use-tf32-matmul', '--training.learning-rate', '0.001']
+        result = parse_tyro_overrides(args)
+        self.assertEqual(result, [('training.use_tf32_matmul', 'True'), ('training.learning_rate', '0.001')])
+
+    def test_boolean_nested_flag_false(self):
+        """Test that nested negated boolean flags work correctly."""
+        args = ['--no-training.use-tf32-matmul', '--training.learning-rate', '0.001']
+        result = parse_tyro_overrides(args)
+        self.assertEqual(result, [('training.use_tf32_matmul', 'False'), ('training.learning_rate', '0.001')])
+
+    def test_boolean_explicit_value(self):
+        """Test that boolean flags with explicit values still work."""
+        args = ['--use-batch-norm', 'True', '--latent-dims', '128']
+        result = parse_tyro_overrides(args)
+        self.assertEqual(result, [('use_batch_norm', 'True'), ('latent_dims', '128')])
 
 
 class TestGetShortNameForField(unittest.TestCase):
@@ -123,6 +158,24 @@ class TestBuildHparamPath(unittest.TestCase):
         args = ['--training.batch-size', '64', '--latent-dims', '128', '--training.learning-rate', '0.001']
         result = build_hparam_path(args, TestModel)
         self.assertEqual(result, Path('bs64/ld128/lr0.001'))
+
+    def test_boolean_flag_in_path_with_short_name(self):
+        """Test that boolean flags with short names appear in directory path."""
+        args = ['--training.use-tf32-matmul', '--training.learning-rate', '0.001']
+        result = build_hparam_path(args, TestModel)
+        self.assertEqual(result, Path('tf32True/lr0.001'))
+
+    def test_boolean_flag_in_path_without_short_name(self):
+        """Test that boolean flags without short names appear in directory path."""
+        args = ['--use-batch-norm', '--latent-dims', '128']
+        result = build_hparam_path(args, TestModel)
+        self.assertEqual(result, Path('use_batch_normTrue/ld128'))
+
+    def test_boolean_negated_flag_in_path(self):
+        """Test that negated boolean flags appear correctly in directory path."""
+        args = ['--no-training.use-tf32-matmul', '--training.learning-rate', '0.001']
+        result = build_hparam_path(args, TestModel)
+        self.assertEqual(result, Path('tf32False/lr0.001'))
 
 
 class TestCreateRunDirectory(unittest.TestCase):
