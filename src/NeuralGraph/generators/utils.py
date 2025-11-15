@@ -588,7 +588,8 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=N
     ]
 
     # print(f"Generating compressed video (libx264): {' '.join(ffmpeg_cmd)}")
-    subprocess.run(ffmpeg_cmd, check=True)
+    
+    
     print(f"compressed video (libx264) saved to: {output_path}")
 
 

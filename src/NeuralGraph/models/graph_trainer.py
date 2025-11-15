@@ -416,11 +416,6 @@ def data_train_signal(config, erase, best_model, device):
         total_loss_regul = 0
 
 
-
-
-
-
-
         time.sleep(1.0)
         for N in trange(Niter, ncols=150):
 
@@ -773,10 +768,6 @@ def data_train_signal(config, erase, best_model, device):
                         os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
             # check_and_clear_memory(device=device, iteration_number=N, every_n_iterations=Niter // 50, memory_percentage_threshold=0.6)
-
-
-
-
 
 
 
@@ -2689,7 +2680,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     id_fig = 0
 
 
-    n_test_frames = 2000
+    n_test_frames = 3000
+    it_step = 50
 
     for it in trange(start_it,start_it+n_test_frames * 2, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
@@ -2884,7 +2876,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     plt.ylim([0, 2])
                     # plt.text(40, 26, f'time: {it}', fontsize=34)
 
-        if (it % 4 == 0) & (it > 0) & (it <=n_test_frames):
+        if (it % it_step == 0) & (it > 0) & (it <=n_test_frames):
 
             num = f"{id_fig:06}"
             id_fig += 1
@@ -3177,6 +3169,95 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         torch.save(neuron_gt_list, f"./{log_dir}/neuron_gt_list.pt")
         torch.save(neuron_pred_list, f"./{log_dir}/neuron_pred_list.pt")
 
+    # Comprehensive R² analysis
+    if len(R2_list) > 0:
+        R2_array = np.array(R2_list)
+        it_array = np.array(it_list)
+
+        # Basic statistics
+        r2_mean = np.mean(R2_array)
+        r2_std = np.std(R2_array)
+        r2_min = np.min(R2_array)
+        r2_max = np.max(R2_array)
+        r2_median = np.median(R2_array)
+
+        # High R² analysis (R² > 0.9)
+        high_r2_mask = R2_array > 0.9
+        n_frames_high_r2 = np.sum(high_r2_mask)
+        pct_frames_high_r2 = 100.0 * n_frames_high_r2 / len(R2_array)
+
+        # Find longest consecutive run of R² > 0.9
+        high_r2_runs = []
+        current_run_start = None
+        current_run_length = 0
+
+        for i, (r2_val, frame_idx) in enumerate(zip(R2_array, it_array)):
+            if r2_val > 0.9:
+                if current_run_start is None:
+                    current_run_start = frame_idx
+                    current_run_length = 1
+                else:
+                    current_run_length += 1
+            else:
+                if current_run_start is not None:
+                    high_r2_runs.append((current_run_start, current_run_length))
+                    current_run_start = None
+                    current_run_length = 0
+
+        # Don't forget the last run if it extends to the end
+        if current_run_start is not None:
+            high_r2_runs.append((current_run_start, current_run_length))
+
+        if high_r2_runs:
+            longest_run_start, longest_run_length = max(high_r2_runs, key=lambda x: x[1])
+        else:
+            longest_run_start, longest_run_length = 0, 0
+
+        # Write results to log file
+        log_file_path = f"./{log_dir}/results.log"
+        with open(log_file_path, 'a') as f:
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            f.write(f"\n{'='*80}\n")
+            f.write(f"Rollout R² Analysis - {timestamp}\n")
+            f.write(f"{'='*80}\n\n")
+
+            f.write(f"Dataset: {dataset_name}\n")
+            f.write(f"Model: {net}\n")
+            f.write(f"Total frames analyzed: {len(R2_array)}\n\n")
+
+            f.write(f"R² Statistics:\n")
+            f.write(f"  Mean:   {r2_mean:.4f}\n")
+            f.write(f"  Std:    {r2_std:.4f}\n")
+            f.write(f"  Median: {r2_median:.4f}\n")
+            f.write(f"  Min:    {r2_min:.4f}\n")
+            f.write(f"  Max:    {r2_max:.4f}\n\n")
+
+            f.write(f"High Performance Analysis (R² > 0.9):\n")
+            f.write(f"  Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)\n")
+            f.write(f"  Number of high-R² runs: {len(high_r2_runs)}\n")
+            if high_r2_runs:
+                f.write(f"  Longest consecutive run: {longest_run_length} frames (starting at frame {longest_run_start})\n")
+                f.write(f"  All high-R² runs: {high_r2_runs[:10]}")  # Show first 10 runs
+                if len(high_r2_runs) > 10:
+                    f.write(f" ... ({len(high_r2_runs)-10} more)")
+                f.write("\n")
+            else:
+                f.write(f"  No frames achieved R² > 0.9\n")
+
+            f.write(f"\n")
+
+        print(f"\n{'='*80}")
+        print(f"R² Analysis Summary:")
+        print(f"{'='*80}")
+        print(f"Mean R²: {r2_mean:.4f} ± {r2_std:.4f}")
+        print(f"Range: [{r2_min:.4f}, {r2_max:.4f}]")
+        print(f"Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)")
+        if high_r2_runs:
+            print(f"Longest high-R² run: {longest_run_length} frames")
+        print(f"Results saved to: {log_file_path}")
+        print(f"{'='*80}\n")
 
     if len(angle_list) > 0:
         angle = torch.stack(angle_list)
