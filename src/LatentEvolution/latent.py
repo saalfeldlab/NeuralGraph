@@ -337,6 +337,12 @@ def train(cfg: ModelParams, run_dir: Path):
         writer = SummaryWriter(log_dir=run_dir)
         print(f"TensorBoard logs will be saved to {run_dir}")
 
+        # Log model graph to TensorBoard
+        dummy_x_t = torch.randn(cfg.training.batch_size, cfg.num_neurons).to(device)
+        dummy_stim_t = torch.randn(cfg.training.batch_size, cfg.stimulus_encoder_params.num_input_dims).to(device)
+        writer.add_graph(model, (dummy_x_t, dummy_stim_t))
+        print("Logged model graph to TensorBoard")
+
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
         sim_data = SimulationResults.load(data_path)
