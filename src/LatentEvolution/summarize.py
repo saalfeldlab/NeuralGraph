@@ -1,5 +1,4 @@
 import argparse
-import glob
 from pathlib import Path
 import polars as pl
 import yaml
@@ -10,11 +9,29 @@ parser.add_argument("expt_code")
 args = parser.parse_args()
 expt_code = args.expt_code
 
-run_dir_base = Path("/groups/saalfeld/home/kumarv4/repos/NeuralGraph/runs") / expt_code
-assert run_dir_base.exists()
+runs_base = Path("/groups/saalfeld/home/kumarv4/repos/NeuralGraph/runs")
 
+# Find all experiment directories matching the expt_code
+# New structure: runs/expt_code_YYYYMMDD_hash/param1/param2/.../uuid/
+# Old structure: runs/expt_code/uuid/
+expt_dirs = list(runs_base.glob(f"{expt_code}_*"))
+if not expt_dirs:
+    # Fallback to old flat structure
+    expt_dirs = [runs_base / expt_code]
 
-run_dirs = [Path(p) for p in glob.glob(f"{run_dir_base}/*")]
+assert expt_dirs, f"No experiment directories found for {expt_code}"
+
+# Find all run directories (directories containing config.yaml)
+run_dirs = []
+for expt_dir in expt_dirs:
+    if not expt_dir.exists():
+        continue
+    # Recursively find all directories containing config.yaml
+    for config_file in expt_dir.rglob("config.yaml"):
+        run_dirs.append(config_file.parent)
+
+assert run_dirs, f"No run directories found in {expt_dirs}"
+
 configs = []
 metrics = []
 metric_keys = None
