@@ -1199,7 +1199,7 @@ Test some modifications to better fit jumpier neurons.
 for loss in mse_loss huber_loss; do \
       for activation in ReLU GELU; do \
           for diag in learnable-diagonal no-learnable-diagonal; do \
-              bsub -J "${loss}_${activation}_${diag}" -n 12 -gpu "num=1" -q gpu_a100 -o
+              bsub -J "${loss}_${activation}_${diag}" -n 1 -gpu "num=1" -q gpu_a100 -o
   "${loss}_${activation}_${diag}.log" python \
                   src/LatentEvolution/latent.py jumpy_sweep \
                   --training.loss-function $loss \
@@ -1208,5 +1208,30 @@ for loss in mse_loss huber_loss; do \
                   --training.epochs 200
           done
       done
+  done
+```
+
+None of these interventions help solve the Mi12 issue. Gelu makes the multi
+step rollout even worse than before. Interestingly, the huber loss makes the
+training & validation losses more numerically similar. Since the number of
+training time points is much greater than validation we encounter more spikes
+there which makes the mse worse for training.
+
+## Add linear skip connections to encoder/decoder
+
+This will allow us to retrieve any key information from input neurons/stimuli.
+
+```bash
+
+for skips in input-skips no-input-skips; do \
+    for diag in learnable-diagonal no-learnable-diagonal; do \
+      bsub -J "${skips}_${diag}" -n 1 -gpu "num=1" -q gpu_a100 -o "${skips}_${diag}.log" python \
+        src/LatentEvolution/latent.py input_skips_sweep \
+        --encoder-params.${skips} \
+        --decoder-params.${skips} \
+        --stimulus-encoder-params.${skips} \
+        --evolver-params.${diag} \
+        --training.epochs 200
+    done
   done
 ```
