@@ -6,6 +6,31 @@ from pathlib import Path
 from datetime import datetime
 from uuid import uuid4
 from pydantic import BaseModel
+import subprocess
+
+
+def get_git_commit_hash() -> str:
+    """Get the short git commit hash, with -dirty suffix if working tree has changes."""
+    try:
+        # Get short commit hash
+        commit_hash = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        # Check if working tree is dirty
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            stderr=subprocess.DEVNULL,
+        ).decode().strip()
+
+        if status:
+            commit_hash += "-dirty"
+
+        return commit_hash
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # If git is not available or not a git repo, return a placeholder
+        return "unknown"
 
 
 def parse_tyro_overrides(tyro_args: list[str]) -> list[tuple[str, str]]:
