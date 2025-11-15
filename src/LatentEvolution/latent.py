@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 import yaml
 import tyro
 import numpy as np
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
@@ -24,6 +24,7 @@ from LatentEvolution.diagnostics import run_validation_diagnostics
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
 from LatentEvolution.eed_model import (
     MLP,
+    MLPWithSkips,
     MLPParams,
     Evolver,
     EvolverParams,
@@ -101,6 +102,26 @@ class ModelParams(BaseModel):
             raise ValueError(f"Unknown activation '{v}' in torch.nn")
         return v
 
+    @model_validator(mode='after')
+    def validate_encoder_decoder_symmetry(self):
+        """Ensure encoder and decoder have symmetric MLP parameters."""
+        if self.encoder_params.num_hidden_units != self.decoder_params.num_hidden_units:
+            raise ValueError(
+                f"Encoder and decoder must have the same num_hidden_units. "
+                f"Got encoder={self.encoder_params.num_hidden_units}, decoder={self.decoder_params.num_hidden_units}"
+            )
+        if self.encoder_params.num_hidden_layers != self.decoder_params.num_hidden_layers:
+            raise ValueError(
+                f"Encoder and decoder must have the same num_hidden_layers. "
+                f"Got encoder={self.encoder_params.num_hidden_layers}, decoder={self.decoder_params.num_hidden_layers}"
+            )
+        if self.encoder_params.use_input_skips != self.decoder_params.use_input_skips:
+            raise ValueError(
+                f"Encoder and decoder must have the same use_input_skips setting. "
+                f"Got encoder={self.encoder_params.use_input_skips}, decoder={self.decoder_params.use_input_skips}"
+            )
+        return self
+
     def flatten(self, sep: str = ".") -> dict[str, int | float | str | bool]:
         """
         Flatten the ModelParams into a single-level dictionary.
@@ -139,7 +160,10 @@ class ModelParams(BaseModel):
 class LatentModel(nn.Module):
     def __init__(self, params: ModelParams):
         super().__init__()
-        self.encoder = MLP(
+
+        # Encoder: use MLPWithSkips if flag is set
+        encoder_cls = MLPWithSkips if params.encoder_params.use_input_skips else MLP
+        self.encoder = encoder_cls(
             MLPParams(
                 num_input_dims=params.num_neurons,
                 num_hidden_layers=params.encoder_params.num_hidden_layers,
@@ -149,7 +173,10 @@ class LatentModel(nn.Module):
                 activation=params.activation,
             )
         )
-        self.decoder = MLP(
+
+        # Decoder: use MLPWithSkips if flag is set
+        decoder_cls = MLPWithSkips if params.decoder_params.use_input_skips else MLP
+        self.decoder = decoder_cls(
             MLPParams(
                 num_input_dims=params.latent_dims,
                 num_hidden_layers=params.decoder_params.num_hidden_layers,
@@ -159,7 +186,10 @@ class LatentModel(nn.Module):
                 activation=params.activation,
             )
         )
-        self.stimulus_encoder = MLP(
+
+        # Stimulus encoder: use MLPWithSkips if flag is set
+        stimulus_encoder_cls = MLPWithSkips if params.stimulus_encoder_params.use_input_skips else MLP
+        self.stimulus_encoder = stimulus_encoder_cls(
             MLPParams(
                 num_input_dims=params.stimulus_encoder_params.num_input_dims,
                 num_hidden_units=params.stimulus_encoder_params.num_hidden_units,
@@ -169,6 +199,7 @@ class LatentModel(nn.Module):
                 activation=params.activation,
             )
         )
+
         self.evolver = Evolver(
             latent_dims=params.latent_dims,
             stim_dims=params.stimulus_encoder_params.num_output_dims,
@@ -305,6 +336,12 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- TensorBoard setup ---
         writer = SummaryWriter(log_dir=run_dir)
         print(f"TensorBoard logs will be saved to {run_dir}")
+
+        # Log model graph to TensorBoard
+        dummy_x_t = torch.randn(cfg.training.batch_size, cfg.num_neurons).to(device)
+        dummy_stim_t = torch.randn(cfg.training.batch_size, cfg.stimulus_encoder_params.num_input_dims).to(device)
+        writer.add_graph(model, (dummy_x_t, dummy_stim_t))
+        print("Logged model graph to TensorBoard")
 
         # --- Load data ---
         data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
