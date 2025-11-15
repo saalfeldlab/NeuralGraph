@@ -82,10 +82,10 @@ import matplotlib.ticker as ticker
 import shutil
 
 # Optional dependency
-try:
-    from pysr import PySRRegressor
-except (ImportError, subprocess.CalledProcessError):
-    PySRRegressor = None
+# try:
+#     from pysr import PySRRegressor
+# except (ImportError, subprocess.CalledProcessError):
+#     PySRRegressor = None
 
 
 def get_training_files(log_dir, n_runs):
@@ -5497,7 +5497,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             }
 
             # cluster learned
-            print('\nclustering learned features...')
+            print('clustering learned features...')
             learned_results = {}
             for name, feat_array in learned_combos.items():
                 result = clustering_gmm(feat_array, type_list, n_components=75)
@@ -5505,7 +5505,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 print(f"{name}: {result['accuracy']:.3f}")
 
             # Cluster true
-            print('\nclustering true features...')
+            print('clustering true features...')
             true_results = {}
             for name, feat_array in true_combos.items():
                 result = clustering_gmm(feat_array, type_list, n_components=75)
@@ -5548,7 +5548,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest,
                                     w_in_mean_learned, w_in_std_learned, w_out_mean_learned, w_out_std_learned])
-            print('\nGMM learned a tau V_rest weights W:')
+            print('\GMM learned a tau V_rest weights W:')
 
             best_acc = 0
             best_n = 0
@@ -8528,7 +8528,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_24']
 
-    config_list = ['fly_N9_62_5_7', 'fly_N9_62_5_8']
+    config_list = ['fly_N9_62_5_9', 'fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14']
     
     # config_list = ['signal_N11_2_1_2']             
 

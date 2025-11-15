@@ -2689,7 +2689,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     id_fig = 0
 
 
-    n_test_frames = 4000
+    n_test_frames = 2000
 
     for it in trange(start_it,start_it+n_test_frames * 2, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
@@ -3123,51 +3123,52 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     print('saved')
 
 
+    if n_excitatory_neurons > 0:
 
-    fig = plt.figure(figsize=(16, 8))
-    ax = fig.add_subplot(121)
+        fig = plt.figure(figsize=(16, 8))
+        ax = fig.add_subplot(121)
 
-    with torch.no_grad():
-        kk = torch.arange(0, config.simulation.n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
-        excitation_field = model.NNR_f(kk[:,None])
-        model_a = model.a[-1] * torch.ones((10000,1), device=device)
-        in_features = torch.cat([excitation_field, model_a], dim=1)
-        msg = model.lin_edge(in_features)
+        with torch.no_grad():
+            kk = torch.arange(0, config.simulation.n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
+            excitation_field = model.NNR_f(kk[:,None])
+            model_a = model.a[-1] * torch.ones((10000,1), device=device)
+            in_features = torch.cat([excitation_field, model_a], dim=1)
+            msg = model.lin_edge(in_features)
 
-    excitation=to_numpy(msg.squeeze())
+        excitation=to_numpy(msg.squeeze())
 
-    frame_ = np.arange(0, len(excitation)) / len(excitation)
-    gt_excitation=np.cos((2*np.pi)*config.simulation.oscillation_frequency*frame_)
-    plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
-    plt.plot(excitation, c=mc, linewidth=1)
-    plt.xlabel('time', fontsize=48)
-    plt.ylabel('excitation', fontsize=48)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    ax = fig.add_subplot(122)
-    plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
-    plt.plot(excitation, c=mc, linewidth=1)
-    plt.xlabel('time', fontsize=48)
-    plt.ylabel('excitation', fontsize=48)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.xlim([0, 2000])
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/excitation.tif", dpi=87)
-    plt.close()
+        frame_ = np.arange(0, len(excitation)) / len(excitation)
+        gt_excitation=np.cos((2*np.pi)*config.simulation.oscillation_frequency*frame_)
+        plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
+        plt.plot(excitation, c=mc, linewidth=1)
+        plt.xlabel('time', fontsize=48)
+        plt.ylabel('excitation', fontsize=48)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        ax = fig.add_subplot(122)
+        plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
+        plt.plot(excitation, c=mc, linewidth=1)
+        plt.xlabel('time', fontsize=48)
+        plt.ylabel('excitation', fontsize=48)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.xlim([0, 2000])
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/results/excitation.tif", dpi=87)
+        plt.close()
 
-    gt_weight = to_numpy(model_generator.e.squeeze())
-    pred_weight = to_numpy(model.W[:,-1][:n_neurons - n_excitatory_neurons])
+        gt_weight = to_numpy(model_generator.e.squeeze())
+        pred_weight = to_numpy(model.W[:,-1][:n_neurons - n_excitatory_neurons])
 
-    fig = plt.figure(figsize=(8, 8))
-    fig, ax = fig_init()
-    plt.scatter(gt_weight, pred_weight, s=10, c=mc)
-    plt.xlabel(r'true $W_{ij}$', fontsize=48)
-    plt.ylabel(r'learned $W_{ij}$', fontsize=48)
-    plt.title('Excitatory neuron weights', fontsize=24)
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/comparison_exc.tif", dpi=87)
-    plt.close()
+        fig = plt.figure(figsize=(8, 8))
+        fig, ax = fig_init()
+        plt.scatter(gt_weight, pred_weight, s=10, c=mc)
+        plt.xlabel(r'true $W_{ij}$', fontsize=48)
+        plt.ylabel(r'learned $W_{ij}$', fontsize=48)
+        plt.title('Excitatory neuron weights', fontsize=24)
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/results/comparison_exc.tif", dpi=87)
+        plt.close()
 
 
 
