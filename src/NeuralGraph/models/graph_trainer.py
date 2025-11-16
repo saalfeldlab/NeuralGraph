@@ -1449,7 +1449,6 @@ def data_train_flyvis(config, erase, best_model, device):
                         loss = loss + regul_term
                         track_regul(regul_term, 'edge_grad')
 
-                    # Gradient penalty for MLP smoothness (update function)
                     if (train_config.coeff_phi_gradient_penalty > 0):
                         in_features_phi = get_in_features_update(rr=None, model=model, device=device)
                         in_features_phi_sample = in_features_phi[ids].clone()
@@ -3838,7 +3837,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):
-            for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="processing stimulus data", ncols=150)):
+            for data_idx, data in enumerate(tqdm(stimulus_dataset, desc="processing stimulus data", ncols=100)):
 
                 sequences = data["lum"]
                 # Sample flash parameters for each subsequence if flash stimulus is requested

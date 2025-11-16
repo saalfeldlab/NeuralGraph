@@ -77,6 +77,7 @@ if __name__ == "__main__":
         if "test" in task:
 
             config.training.noise_model_level = 0.0
+            config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'  #  'optical_flow'
 
             data_test(
                 config=config,
