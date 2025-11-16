@@ -1,4 +1,4 @@
-description: "RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4  recurrent_training 4 + noise 0.1"
+description: "RNN successor learning_rate_embedding_start: 1.0E-16 coeff_W_L1: 1.0E-4  recurrent_training 2 + noise 0.1 + MLP_activation soft_relu"
 dataset: "signal_N11_4_1"
 
 simulation:
@@ -31,6 +31,8 @@ graph_model:
   aggr_type: "add"
   embedding_dim: 2
 
+  MLP_activation: "soft_relu"
+
 plotting:
   colormap: "tab10"
   arrow_length: 1
@@ -46,7 +48,7 @@ training:
   small_init_batch_size: False
 
   recurrent_training: True
-  time_step: 4
+  time_step: 2
   noise_recurrent_level: 0.1
 
   seed: 24
@@ -60,3 +62,7 @@ training:
   learning_rate_embedding_start: 1.0E-16
 
   coeff_W_L1: 1.0E-4
+
+  # Gradient penalty for MLP smoothness
+  coeff_edge_gradient_penalty: 0
+  coeff_phi_gradient_penalty: 0

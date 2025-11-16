@@ -365,6 +365,9 @@ class TrainingConfig(BaseModel):
     coeff_edge_weight_L2: float = 0
     coeff_phi_weight_L2: float = 0
 
+    coeff_edge_gradient_penalty: float = 0
+    coeff_phi_gradient_penalty: float = 0
+
     coeff_Jp_norm: float = 0
     coeff_F_norm: float = 0
     coeff_det_F: float = 1
