@@ -831,8 +831,9 @@ def data_train_signal(config, erase, best_model, device):
                     plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap,
                                          device)
 
+                    # Pass per-neuron normalized values to debug (to match dictionary values)
                     plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=True,
-                                   current_loss=current_loss, current_regul=regul_total_this_iter,
+                                   current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
 
                     if time_step > 1:
@@ -1628,8 +1629,9 @@ def data_train_flyvis(config, erase, best_model, device):
                                 'edge_norm', 'edge_weight', 'phi_weight', 'W_sign']:
                         loss_components[key].append(regul_tracker[key] / n_neurons)
 
-                    plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=True,
-                                   current_loss=current_loss, current_regul=regul_total_this_iter,
+                    # Pass per-neuron normalized values to debug (to match dictionary values)
+                    plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=False,
+                                   current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
 
 
