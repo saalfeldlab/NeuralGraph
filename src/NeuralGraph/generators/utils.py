@@ -588,8 +588,145 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=N
     ]
 
     # print(f"Generating compressed video (libx264): {' '.join(ffmpeg_cmd)}")
-    
-    
+
+
     print(f"compressed video (libx264) saved to: {output_path}")
 
+
+def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
+                     current_loss=None, current_regul=None, total_loss=None,
+                     total_loss_regul=None):
+    """
+    Plot stratified loss components over training iterations.
+
+    Creates a two-panel figure showing loss and regularization terms in both
+    linear and log scale. Saves to {log_dir}/tmp_training/loss.tif.
+
+    Parameters:
+    -----------
+    loss_dict : dict
+        Dictionary containing loss component lists with keys:
+        - 'loss': Loss without regularization
+        - 'regul_total': Total regularization loss
+        - 'W_L1': W L1 sparsity penalty
+        - 'edge_grad': Edge gradient penalty
+        - 'phi_grad': Phi gradient penalty
+        - 'edge_diff': Edge monotonicity penalty
+        - 'phi_zero': Phi zero constraint
+        - 'edge_norm': Edge normalization
+        - 'edge_weight': Edge MLP weight regularization
+        - 'phi_weight': Phi MLP weight regularization
+        - 'W_sign': W sign consistency penalty
+    log_dir : str
+        Directory to save the figure
+    epoch : int, optional
+        Current epoch number
+    Niter : int, optional
+        Number of iterations per epoch
+    debug : bool, optional
+        If True, print debug information about loss components
+    current_loss : float, optional
+        Current iteration total loss (for debug)
+    current_regul : float, optional
+        Current iteration regularization (for debug)
+    total_loss : float, optional
+        Accumulated total loss (for debug)
+    total_loss_regul : float, optional
+        Accumulated regularization loss (for debug)
+    """
+    if len(loss_dict['loss']) == 0:
+        return
+
+    # Debug output if requested
+    if debug and current_loss is not None and current_regul is not None:
+        current_pred_loss = current_loss - current_regul
+
+        # Get current iteration component values (last element in each list)
+        comp_sum = (loss_dict['W_L1'][-1] + loss_dict['edge_grad'][-1] +
+                   loss_dict['phi_grad'][-1] + loss_dict['edge_diff'][-1] +
+                   loss_dict['phi_zero'][-1] + loss_dict['edge_norm'][-1] +
+                   loss_dict['edge_weight'][-1] + loss_dict['phi_weight'][-1] +
+                   loss_dict['W_sign'][-1])
+
+        print(f"\n=== DEBUG Loss Components (Epoch {epoch}, Iter {Niter}) ===")
+        print(f"Current iteration:")
+        print(f"  loss.item() (total): {current_loss:.6f}")
+        print(f"  regul_this_iter: {current_regul:.6f}")
+        print(f"  prediction_loss (loss - regul): {current_pred_loss:.6f}")
+        print(f"\nRegularization breakdown:")
+        print(f"  W_L1: {loss_dict['W_L1'][-1]:.6f}")
+        print(f"  edge_grad: {loss_dict['edge_grad'][-1]:.6f}")
+        print(f"  phi_grad: {loss_dict['phi_grad'][-1]:.6f}")
+        print(f"  edge_diff: {loss_dict['edge_diff'][-1]:.6f}")
+        print(f"  phi_zero: {loss_dict['phi_zero'][-1]:.6f}")
+        print(f"  edge_norm: {loss_dict['edge_norm'][-1]:.6f}")
+        print(f"  edge_weight: {loss_dict['edge_weight'][-1]:.6f}")
+        print(f"  phi_weight: {loss_dict['phi_weight'][-1]:.6f}")
+        print(f"  W_sign: {loss_dict['W_sign'][-1]:.6f}")
+        print(f"  Sum of components: {comp_sum:.6f}")
+        if total_loss is not None and total_loss_regul is not None:
+            print(f"\nAccumulated (for reference):")
+            print(f"  total_loss (accumulated): {total_loss:.6f}")
+            print(f"  total_loss_regul (accumulated): {total_loss_regul:.6f}")
+        if current_loss > 0:
+            print(f"\nRatio: regul / loss (current iter) = {current_regul / current_loss:.4f}")
+        if current_pred_loss < 0:
+            print(f"\n⚠️  WARNING: Negative prediction loss! regul > total loss")
+        print("="*60)
+
+    fig_loss, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+
+    # Add epoch and iteration info as text annotation
+    info_text = ""
+    if epoch is not None:
+        info_text += f"Epoch: {epoch}"
+    if Niter is not None:
+        if info_text:
+            info_text += f" | "
+        info_text += f"Iterations/epoch: {Niter}"
+    if info_text:
+        fig_loss.suptitle(info_text, fontsize=20, y=0.995)
+
+    # Linear scale
+    ax1.plot(loss_dict['loss'], color='b', linewidth=2, label='Loss (no regul)', alpha=0.8)
+    ax1.plot(loss_dict['regul_total'], color='k', linewidth=2, label='Total Regularization', alpha=0.8)
+    ax1.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 Sparsity', alpha=0.7)
+    ax1.plot(loss_dict['edge_grad'], color='g', linewidth=1.5, label='Edge Gradient Penalty', alpha=0.7)
+    ax1.plot(loss_dict['phi_grad'], color='m', linewidth=1.5, label='Phi Gradient Penalty', alpha=0.7)
+    ax1.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='Edge Monotonicity', alpha=0.7)
+    ax1.plot(loss_dict['phi_zero'], color='cyan', linewidth=1.5, label='Phi Zero', alpha=0.7)
+    ax1.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='Edge Norm', alpha=0.7)
+    ax1.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='Edge Weight Regul', alpha=0.7)
+    ax1.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='Phi Weight Regul', alpha=0.7)
+    ax1.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W Sign', alpha=0.7)
+    ax1.set_xlabel('Iteration', fontsize=16)
+    ax1.set_ylabel('Loss', fontsize=16)
+    ax1.set_title('Loss vs Iteration (Linear Scale)', fontsize=18)
+    ax1.legend(fontsize=10, loc='best', ncol=2)
+    ax1.grid(True, alpha=0.3)
+    ax1.tick_params(labelsize=14)
+
+    # Log scale
+    ax2.plot(loss_dict['loss'], color='b', linewidth=2, label='Loss (no regul)', alpha=0.8)
+    ax2.plot(loss_dict['regul_total'], color='k', linewidth=2, label='Total Regularization', alpha=0.8)
+    ax2.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 Sparsity', alpha=0.7)
+    ax2.plot(loss_dict['edge_grad'], color='g', linewidth=1.5, label='Edge Gradient Penalty', alpha=0.7)
+    ax2.plot(loss_dict['phi_grad'], color='m', linewidth=1.5, label='Phi Gradient Penalty', alpha=0.7)
+    ax2.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='Edge Monotonicity', alpha=0.7)
+    ax2.plot(loss_dict['phi_zero'], color='cyan', linewidth=1.5, label='Phi Zero', alpha=0.7)
+    ax2.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='Edge Norm', alpha=0.7)
+    ax2.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='Edge Weight Regul', alpha=0.7)
+    ax2.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='Phi Weight Regul', alpha=0.7)
+    ax2.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W Sign', alpha=0.7)
+    ax2.set_xlabel('Iteration', fontsize=16)
+    ax2.set_ylabel('Loss', fontsize=16)
+    ax2.set_yscale('log')
+    ax2.set_title('Loss vs Iteration (Log Scale)', fontsize=18)
+    ax2.legend(fontsize=10, loc='best', ncol=2)
+    ax2.grid(True, alpha=0.3, which='both')
+    ax2.tick_params(labelsize=14)
+
+    plt.tight_layout()
+    plt.savefig(f'{log_dir}/tmp_training/loss.tif', dpi=150)
+    plt.close()
 

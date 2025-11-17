@@ -212,7 +212,8 @@ if __name__ == '__main__':
     device = set_device('auto')
     print(f'device  {device}')
 
-    config_root = "/groups/saalfeld/home/allierc/Py/NeuralGraph/src/NeuralGraph/ODEs/config/"
+    # config_root = "/groups/saalfeld/home/allierc/Py/NeuralGraph/src/NeuralGraph/ODEs/config/"
+    config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
     config_file = "default"
 
     # config_file_list = ['noise_1', 'noise_2', 'noise_3', 'noise_4', 'noise_5']
@@ -317,7 +318,7 @@ if __name__ == '__main__':
             v[i + 1] = v[i] + dt * dv + noise_level * np.random.randn()
             w[i + 1] = w[i] + dt * dw + noise_level * np.random.randn()
 
-        plt.style.use('default')
+        plt.style.use('dark_background')
 
         v_true = torch.tensor(v, dtype=torch.float32, device=device)
         w_true = torch.tensor(w, dtype=torch.float32, device=device)
@@ -377,7 +378,7 @@ if __name__ == '__main__':
             lambda_jac_max = 1.0  # max weight for Jacobian penalty
             warmup_iters = int(0.15 * n_iter)  # 15% of total iterations for warm-up
 
-            for iter in trange(n_iter):
+            for iter in trange(n_iter, ncols=150):
                 idx = torch.randint(1, n_steps - 8, (batch_size,))
                 idx = torch.unique(idx)
                 t_batch = t_full[idx]

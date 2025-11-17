@@ -4778,8 +4778,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
     else:
         xnorm = torch.tensor([5], device=device)
 
-    print(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
-    logger.info(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
+    print(f'xnorm: {to_numpy(xnorm):0.3f}, ynorm: {to_numpy(ynorm):0.3f}')
+    logger.info(f'xnorm: {to_numpy(xnorm):0.3f}, ynorm: {to_numpy(ynorm):0.3f}')
 
     # Load data with new format
     # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
@@ -5548,7 +5548,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             a_aug = np.column_stack([to_numpy(model.a), learned_tau, learned_V_rest,
                                     w_in_mean_learned, w_in_std_learned, w_out_mean_learned, w_out_std_learned])
-            print('\GMM learned a tau V_rest weights W:')
+            print('GMM learned a tau V_rest weights W:')
 
             best_acc = 0
             best_n = 0
@@ -8528,7 +8528,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_24']
 
-    config_list = ['fly_N9_62_5_9', 'fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14']
+    config_list = ['fly_N9_62_20']
     
     # config_list = ['signal_N11_2_1_2']             
 

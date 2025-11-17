@@ -1,4 +1,4 @@
-description: "no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark MLP_ODE  training on 10 neurons 64000 frames"
+description: "no extra null edges, noise_model_level: 0  coeff_edge_diff: 0 coeff_edge_norm: 0  training seed: 24   benchmark LSTM  training on all neurons 64000 frames"
 dataset: "fly_N9_62_1"
 
 simulation:
@@ -7,8 +7,8 @@ simulation:
 
   params: [[1.0, 1.0, 1.0, 1.0]]
 
-  n_neurons: 10
-  n_input_neurons: 10
+  n_neurons: 13741
+  n_input_neurons: 1736
   n_neuron_types: 65
   n_edges: 434112
   n_frames: 64000
@@ -18,11 +18,11 @@ simulation:
   visual_input_type: "DAVIS"
 
 graph_model:
-  signal_model_name: "PDE_N9_MLP_ODE"
+  signal_model_name: "PDE_N9_LSTM"
   prediction: "first_derivative"
 
-  input_size: 20
-  output_size: 10
+  input_size: 15477
+  output_size: 13741
   hidden_dim: 256
   n_layers: 3
   MLP_activation: "relu"
@@ -44,10 +44,6 @@ training:
   n_runs: 1
   device: "auto"
   seed: 241
-
-  training_selected_neurons: True
-  selected_neuron_ids:
-    [10703, 9618, 8967, 8099, 7231, 6363, 0, 4193, 3976, 1736]
 
   batch_size: 1
   batch_ratio: 1
