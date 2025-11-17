@@ -17,10 +17,11 @@ import yaml
 import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+import tensorstore as ts
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
-from LatentEvolution.diagnostics import run_validation_diagnostics
+from LatentEvolution.diagnostics import run_validation_diagnostics, compute_per_neuron_mse
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
 from LatentEvolution.eed_model import (
     MLP,
@@ -387,6 +388,39 @@ def train(cfg: ModelParams, run_dir: Path):
         writer.add_scalar("Baseline/val_loss_constant_model", metrics["val_loss_constant_model"], 0)
         writer.add_scalar("Baseline/test_loss_constant_model", metrics["test_loss_constant_model"], 0)
 
+        # --- TensorStore setup for per-neuron MSE logging ---
+        tensorstore_dir = run_dir / "per_neuron_mse"
+        tensorstore_dir.mkdir(exist_ok=True)
+        print(f"TensorStore per-neuron MSE logs will be saved to {tensorstore_dir}")
+
+        # Create TensorStore datasets for train and validation MSE per neuron
+        train_mse_store = ts.open({
+            'driver': 'zarr',
+            'kvstore': {'driver': 'file', 'path': str(tensorstore_dir / 'train_mse_per_neuron.zarr')},
+            'metadata': {
+                'compressor': {'id': 'blosc', 'cname': 'lz4', 'clevel': 5, 'shuffle': 1},
+                'dtype': '<f4',  # float32
+                'shape': [cfg.training.epochs, cfg.num_neurons],
+                'chunks': [1, cfg.num_neurons],  # One epoch per chunk
+            },
+            'create': True,
+            'delete_existing': True,
+        }).result()
+
+        val_mse_store = ts.open({
+            'driver': 'zarr',
+            'kvstore': {'driver': 'file', 'path': str(tensorstore_dir / 'val_mse_per_neuron.zarr')},
+            'metadata': {
+                'compressor': {'id': 'blosc', 'cname': 'lz4', 'clevel': 5, 'shuffle': 1},
+                'dtype': '<f4',  # float32
+                'shape': [cfg.training.epochs, cfg.num_neurons],
+                'chunks': [1, cfg.num_neurons],  # One epoch per chunk
+            },
+            'create': True,
+            'delete_existing': True,
+        }).result()
+        print("TensorStore datasets created for per-neuron MSE logging")
+
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
@@ -448,6 +482,19 @@ def train(cfg: ModelParams, run_dir: Path):
                 val_loss = torch.nn.functional.mse_loss(
                     model(val_x_t, val_stim_t), val_x_t_plus
                 ).item()
+
+                # Compute per-neuron MSE for train and validation
+                train_mse_per_neuron = compute_per_neuron_mse(
+                    model, train_data, train_stim, cfg.evolver_params.time_units
+                )
+                val_mse_per_neuron = compute_per_neuron_mse(
+                    model, val_data, val_stim, cfg.evolver_params.time_units
+                )
+
+                # Log to TensorStore (async, non-blocking)
+                train_mse_store[epoch] = train_mse_per_neuron
+                val_mse_store[epoch] = val_mse_per_neuron
+
             model.train()
 
             epoch_end = datetime.now()
