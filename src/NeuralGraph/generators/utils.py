@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import scipy
-import subprocess
 import torch
 import torch_geometric.data as data
 import xarray as xr
@@ -649,11 +648,11 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
                    loss_dict['W_sign'][-1])
 
         print(f"\n=== DEBUG Loss Components (Epoch {epoch}, Iter {Niter}) ===")
-        print(f"Current iteration:")
+        print("Current iteration:")
         print(f"  loss.item() (total): {current_loss:.6f}")
         print(f"  regul_this_iter: {current_regul:.6f}")
         print(f"  prediction_loss (loss - regul): {current_pred_loss:.6f}")
-        print(f"\nRegularization breakdown:")
+        print("\nRegularization breakdown:")
         print(f"  W_L1: {loss_dict['W_L1'][-1]:.6f}")
         print(f"  edge_grad: {loss_dict['edge_grad'][-1]:.6f}")
         print(f"  phi_grad: {loss_dict['phi_grad'][-1]:.6f}")
@@ -665,13 +664,13 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
         print(f"  W_sign: {loss_dict['W_sign'][-1]:.6f}")
         print(f"  Sum of components: {comp_sum:.6f}")
         if total_loss is not None and total_loss_regul is not None:
-            print(f"\nAccumulated (for reference):")
+            print("\nAccumulated (for reference):")
             print(f"  total_loss (accumulated): {total_loss:.6f}")
             print(f"  total_loss_regul (accumulated): {total_loss_regul:.6f}")
         if current_loss > 0:
             print(f"\nRatio: regul / loss (current iter) = {current_regul / current_loss:.4f}")
         if current_pred_loss < 0:
-            print(f"\n⚠️  WARNING: Negative prediction loss! regul > total loss")
+            print("\n⚠️  WARNING: Negative prediction loss! regul > total loss")
         print("="*60)
 
     fig_loss, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
@@ -682,7 +681,7 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
         info_text += f"Epoch: {epoch}"
     if Niter is not None:
         if info_text:
-            info_text += f" | "
+            info_text += " | "
         info_text += f"Iterations/epoch: {Niter}"
     if info_text:
         fig_loss.suptitle(info_text, fontsize=20, y=0.995)

@@ -79,7 +79,6 @@ from NeuralGraph.generators.graph_data_generator import (
     mseq_bits,
 )
 from NeuralGraph.generators.davis import AugmentedDavis
-from scipy.stats import pearsonr
 import pandas as pd
 import napari
 from collections import deque
@@ -3466,14 +3465,14 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             f.write(f"Model: {net}\n")
             f.write(f"Total frames analyzed: {len(R2_array)}\n\n")
 
-            f.write(f"R² Statistics:\n")
+            f.write("R² Statistics:\n")
             f.write(f"  Mean:   {r2_mean:.4f}\n")
             f.write(f"  Std:    {r2_std:.4f}\n")
             f.write(f"  Median: {r2_median:.4f}\n")
             f.write(f"  Min:    {r2_min:.4f}\n")
             f.write(f"  Max:    {r2_max:.4f}\n\n")
 
-            f.write(f"High Performance Analysis (R² > 0.9):\n")
+            f.write("High Performance Analysis (R² > 0.9):\n")
             f.write(f"  Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)\n")
             f.write(f"  Number of high-R² runs: {len(high_r2_runs)}\n")
             if high_r2_runs:
@@ -3483,12 +3482,12 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                     f.write(f" ... ({len(high_r2_runs)-10} more)")
                 f.write("\n")
             else:
-                f.write(f"  No frames achieved R² > 0.9\n")
+                f.write("  No frames achieved R² > 0.9\n")
 
-            f.write(f"\n")
+            f.write("\n")
 
         print(f"\n{'='*80}")
-        print(f"R² Analysis Summary:")
+        print("R² Analysis Summary:")
         print(f"{'='*80}")
         print(f"mean R²: {r2_mean:.4f} ± {r2_std:.4f}")
         print(f"range: [{r2_min:.4f}, {r2_max:.4f}]")

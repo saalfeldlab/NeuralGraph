@@ -77,7 +77,6 @@ import time
 from sklearn import metrics
 from tifffile import imread
 
-import subprocess
 import matplotlib.ticker as ticker
 import shutil
 
@@ -1037,7 +1036,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.savefig(f"./{log_dir}/results/plasticity_map.png", dpi=80)
                     plt.close()
 
-                    model_pysrr = PySRRegressor(
+                    model_pysrr = PySRRegressor( #noqa: F821
                         niterations=30,  # < Increase me for better results
                         binary_operators=["+", "-", "*", "/"],
                         random_state=0,
@@ -1853,7 +1852,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 text_trap = StringIO()
                 sys.stdout = text_trap
 
-                model_pysrr = PySRRegressor(
+                model_pysrr = PySRRegressor( #noqa: F821
                     niterations=30,  # < Increase me for better results
                     binary_operators=["+", "*"],
                     unary_operators=[
@@ -1918,7 +1917,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                     return model_pysrr.sympy
 
-                model_pysrr = PySRRegressor(
+                model_pysrr = PySRRegressor( # noqa: F821
                     niterations=30,  # < Increase me for better results
                     binary_operators=["+", "*"],
                     unary_operators=[
@@ -8529,8 +8528,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_44_24']
 
     config_list = ['fly_N9_62_20']
-    
-    # config_list = ['signal_N11_2_1_2']             
+
+    # config_list = ['signal_N11_2_1_2']
 
     for config_file_ in config_list:
         print(' ')
