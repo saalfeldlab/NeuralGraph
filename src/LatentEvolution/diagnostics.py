@@ -164,6 +164,36 @@ def plot_mses(val_data: torch.Tensor, recons: torch.Tensor):
 
 
 
+def compute_per_neuron_mse(
+    model: LatentModel,
+    data: torch.Tensor,
+    stim: torch.Tensor,
+    time_units: int,
+) -> np.ndarray:
+    """
+    Compute per-neuron MSE between model predictions and targets.
+
+    Args:
+        model: The trained LatentModel instance
+        data: Data tensor of shape (T, N) where N is number of neurons
+        stim: Stimulus tensor of shape (T, S)
+        time_units: Number of time steps to evolve
+
+    Returns:
+        per_neuron_mse: Array of shape (N,) with MSE for each neuron
+    """
+    with torch.no_grad():
+        x_t = data[:-time_units]
+        stim_t = stim[:-time_units]
+        x_t_plus = data[time_units:]
+        predictions = model(x_t, stim_t)
+
+        # Compute MSE per neuron (average over time dimension)
+        per_neuron_mse = ((predictions - x_t_plus) ** 2).mean(dim=0).cpu().numpy()
+
+    return per_neuron_mse
+
+
 def run_validation_diagnostics(
     run_dir: Path,
     val_data: torch.Tensor,
