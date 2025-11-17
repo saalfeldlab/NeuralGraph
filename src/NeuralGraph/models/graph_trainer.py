@@ -29,6 +29,7 @@ from NeuralGraph.models.utils import (
     plot_training_flyvis,
     plot_weight_comparison,
     get_index_particles,
+    check_dales_law,
 )
 from NeuralGraph.utils import (
     to_numpy,
@@ -612,21 +613,39 @@ def data_train_signal(config, erase, best_model, device):
                         loss = loss + regul_term
                         track_regul(regul_term, 'phi_grad')
 
-                    # regularisation sign Wij
+                    # regularisation sign Wij (Dale's Law)
                     if (coeff_W_sign > 0):
                         if (N%4 == 0):
-                            W_sign = torch.tanh(5 * model_W)
-                            loss_contribs = []
-                            for i in range(n_neurons):
-                                indices = index_weight[int(i)]
-                                if indices.numel() > 0:
-                                    values = W_sign[indices,i]
-                                    std = torch.std(values, unbiased=False)
-                                    loss_contribs.append(std)
-                            if loss_contribs:
-                                regul_term = torch.stack(loss_contribs).norm(2) * coeff_W_sign
-                                loss = loss + regul_term
-                                track_regul(regul_term, 'W_sign')
+                            # Fully vectorized Dale's Law regularization
+                            # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
+                            # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
+                            weights = model_W.squeeze() if model_W.dim() > 1 else model_W
+
+                            # Get target neurons for each edge
+                            target_neurons = edges[1]
+
+                            # Count positive and negative weights per neuron using scatter_add
+                            n_pos = torch.zeros(n_neurons, device=device)
+                            n_neg = torch.zeros(n_neurons, device=device)
+                            n_total = torch.zeros(n_neurons, device=device)
+
+                            pos_mask = (weights > 0).float()
+                            neg_mask = (weights < 0).float()
+
+                            n_pos.scatter_add_(0, target_neurons, pos_mask)
+                            n_neg.scatter_add_(0, target_neurons, neg_mask)
+                            n_total.scatter_add_(0, target_neurons, torch.ones_like(weights))
+
+                            # Compute violation for each neuron: (n_pos/n_total) * (n_neg/n_total)
+                            # Avoid division by zero for neurons with no incoming edges
+                            violation = torch.where(n_total > 0,
+                                                   (n_pos / n_total) * (n_neg / n_total),
+                                                   torch.zeros_like(n_total))
+
+                            loss_W_sign = violation.sum()
+                            regul_term = loss_W_sign * coeff_W_sign
+                            loss = loss + regul_term
+                            track_regul(regul_term, 'W_sign')
                     # miscalleneous regularisations
                     if (model.update_type == 'generic') & (coeff_update_diff > 0):
                         in_feature_update = torch.cat((torch.zeros((n_neurons, 1), device=device),
@@ -1233,6 +1252,16 @@ def data_train_flyvis(config, erase, best_model, device):
     print(f'{edges.shape[1]} edges')
 
 
+    # print("\n=== checking Dale's law in ground truth weights ===")
+    # dale_results_gt = check_dales_law(
+    #     edges=edges,
+    #     weights=gt_weights,
+    #     type_list=type_list,
+    #     n_neurons=n_neurons,
+    #     verbose=True,
+    #     logger=logger
+    # )
+
     # res = analyze_type_neighbors(
     #     type_name="Mi1",
     #     edges_all=edges_all,
@@ -1253,9 +1282,12 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
     if coeff_W_sign > 0:
+        # Build index_weight: for each target neuron, find all incoming edge indices
         index_weight = []
         for i in range(n_neurons):
-            index_weight.append(torch.argwhere(model.mask[:, i] > 0).squeeze())
+            edge_indices = torch.where(edges[1] == i)[0]
+            index_weight.append(edge_indices)
+
     coeff_W_L1 = train_config.coeff_W_L1
     coeff_edge_diff = train_config.coeff_edge_diff
     coeff_update_diff = train_config.coeff_update_diff
@@ -1366,6 +1398,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 track_components = ((N % plot_frequency == 0) | (N == 0))
                 regul_total_this_iter = 0
+
                 if track_components:
                     regul_tracker = {
                         'W_L1': 0,
@@ -1468,18 +1501,38 @@ def data_train_flyvis(config, erase, best_model, device):
                         loss = loss + regul_term
                         track_regul(regul_term, 'phi_grad')
 
-                    # # regularisation sign Wij
-                    # if (coeff_W_sign > 0) and (N%4 == 0):
-                    #     W_sign = torch.tanh(5 * model_W)
-                    #     loss_contribs = []
-                    #     for i in range(n_neurons):
-                    #         indices = index_weight[int(i)]
-                    #         if indices.numel() > 0:
-                    #             values = W_sign[indices,i]
-                    #             std = torch.std(values, unbiased=False)
-                    #             loss_contribs.append(std)
-                    #     if loss_contribs:
-                    #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
+                    # regularisation sign Wij (Dale's Law)
+                    if (coeff_W_sign > 0) and (N%4 == 0):
+                        # Fully vectorized Dale's Law regularization
+                        # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
+                        # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
+                        weights = model.W.squeeze() if model.W.dim() > 1 else model.W
+
+                        # Get target neurons for each edge
+                        target_neurons = edges[1]
+
+                        # Count positive and negative weights per neuron using scatter_add
+                        n_pos = torch.zeros(n_neurons, device=device)
+                        n_neg = torch.zeros(n_neurons, device=device)
+                        n_total = torch.zeros(n_neurons, device=device)
+
+                        pos_mask = (weights > 0).float()
+                        neg_mask = (weights < 0).float()
+
+                        n_pos.scatter_add_(0, target_neurons, pos_mask)
+                        n_neg.scatter_add_(0, target_neurons, neg_mask)
+                        n_total.scatter_add_(0, target_neurons, torch.ones_like(weights))
+
+                        # Compute violation for each neuron: (n_pos/n_total) * (n_neg/n_total)
+                        # Avoid division by zero for neurons with no incoming edges
+                        violation = torch.where(n_total > 0,
+                                               (n_pos / n_total) * (n_neg / n_total),
+                                               torch.zeros_like(n_total))
+
+                        loss_W_sign = violation.sum()
+                        regul_term = loss_W_sign * coeff_W_sign
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_sign')
 
                     if recurrent_training:
                         y = torch.tensor(x_list[run][k + time_step,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
@@ -1518,6 +1571,8 @@ def data_train_flyvis(config, erase, best_model, device):
 
                         ids_index += x.shape[0]
                         mask_index += edges_all.shape[1]
+
+
 
             if not (dataset_batch == []):
 
@@ -1634,118 +1689,118 @@ def data_train_flyvis(config, erase, best_model, device):
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
 
 
-                    if has_visual_field:
-                        with torch.no_grad():
-                            plt.style.use('dark_background')
+                if has_visual_field:
+                    with torch.no_grad():
+                        plt.style.use('dark_background')
 
-                            # Static XY locations (take from first frame of this run)
-                            X1 = to_numpy(x_list[run][0][:n_input_neurons, 1:3])
+                        # Static XY locations (take from first frame of this run)
+                        X1 = to_numpy(x_list[run][0][:n_input_neurons, 1:3])
 
-                            # group-based selection of 10 traces
-                            groups = 217
-                            group_size = n_input_neurons // groups  # expect 8
-                            assert groups * group_size == n_input_neurons, "Unexpected packing of input neurons"
-                            picked_groups = np.linspace(0, groups - 1, 10, dtype=int)
-                            member_in_group = group_size // 2
-                            trace_ids = (picked_groups * group_size + member_in_group).astype(int)
+                        # group-based selection of 10 traces
+                        groups = 217
+                        group_size = n_input_neurons // groups  # expect 8
+                        assert groups * group_size == n_input_neurons, "Unexpected packing of input neurons"
+                        picked_groups = np.linspace(0, groups - 1, 10, dtype=int)
+                        member_in_group = group_size // 2
+                        trace_ids = (picked_groups * group_size + member_in_group).astype(int)
 
-                            # MP4 writer setup
-                            fps = 10
-                            metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
-                            writer = FFMpegWriter(fps=fps, metadata=metadata)
-                            fig = plt.figure(figsize=(12, 4))
+                        # MP4 writer setup
+                        fps = 10
+                        metadata = dict(title='Field Evolution', artist='Matplotlib', comment='NN Reconstruction over time')
+                        writer = FFMpegWriter(fps=fps, metadata=metadata)
+                        fig = plt.figure(figsize=(12, 4))
 
-                            out_dir = f"./{log_dir}/tmp_training/field"
-                            os.makedirs(out_dir, exist_ok=True)
-                            out_path = f"{out_dir}/field_movie_{epoch}_{N}.mp4"
-                            if os.path.exists(out_path):
-                                os.remove(out_path)
+                        out_dir = f"./{log_dir}/tmp_training/field"
+                        os.makedirs(out_dir, exist_ok=True)
+                        out_path = f"{out_dir}/field_movie_{epoch}_{N}.mp4"
+                        if os.path.exists(out_path):
+                            os.remove(out_path)
 
-                            # rolling buffers
-                            win = 200
-                            offset = 1.25
-                            hist_t = deque(maxlen=win)
-                            hist_gt = {i: deque(maxlen=win) for i in trace_ids}
-                            hist_pred = {i: deque(maxlen=win) for i in trace_ids}
+                        # rolling buffers
+                        win = 200
+                        offset = 1.25
+                        hist_t = deque(maxlen=win)
+                        hist_gt = {i: deque(maxlen=win) for i in trace_ids}
+                        hist_pred = {i: deque(maxlen=win) for i in trace_ids}
 
-                            step_video = 2
+                        step_video = 2
 
-                            with writer.saving(fig, out_path, dpi=200):
-                                error_list = []
+                        with writer.saving(fig, out_path, dpi=200):
+                            error_list = []
 
-                                for k in trange(0, 800, step_video):
-                                    # inputs and predictions
-                                    x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
-                                    pred = to_numpy(model.forward_visual(x, k))
-                                    pred_vec = np.asarray(pred).squeeze()  # (n_input_neurons,)
+                            for k in trange(0, 800, step_video):
+                                # inputs and predictions
+                                x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+                                pred = to_numpy(model.forward_visual(x, k))
+                                pred_vec = np.asarray(pred).squeeze()  # (n_input_neurons,)
 
-                                    if k==0:
-                                        pred_vec.min()
-                                        pred_vec.max()
+                                if k==0:
+                                    pred_vec.min()
+                                    pred_vec.max()
 
-                                    gt_field = x_list[0][k, :n_input_neurons, 4:5]
-                                    gt_vec = to_numpy(gt_field).squeeze()  # (n_input_neurons,)
+                                gt_field = x_list[0][k, :n_input_neurons, 4:5]
+                                gt_vec = to_numpy(gt_field).squeeze()  # (n_input_neurons,)
 
-                                    # update rolling traces
-                                    hist_t.append(k)
-                                    for i in trace_ids:
-                                        hist_gt[i].append(gt_vec[i])
-                                        hist_pred[i].append(pred_vec[i])
+                                # update rolling traces
+                                hist_t.append(k)
+                                for i in trace_ids:
+                                    hist_gt[i].append(gt_vec[i])
+                                    hist_pred[i].append(pred_vec[i])
 
-                                    # draw three panels
-                                    fig.clf()
+                                # draw three panels
+                                fig.clf()
 
-                                    # Traces
+                                # Traces
 
-                                    rmse_frame = float(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
-                                    float(np.mean(np.abs(pred_vec - gt_vec)))
-                                    running_rmse = float(np.mean(error_list + [rmse_frame])) if len(error_list) else rmse_frame
+                                rmse_frame = float(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
+                                float(np.mean(np.abs(pred_vec - gt_vec)))
+                                running_rmse = float(np.mean(error_list + [rmse_frame])) if len(error_list) else rmse_frame
 
 
-                                    ax3 = fig.add_subplot(1, 3, 3)
-                                    ax3.set_axis_off()
-                                    ax3.set_facecolor("black")
+                                ax3 = fig.add_subplot(1, 3, 3)
+                                ax3.set_axis_off()
+                                ax3.set_facecolor("black")
 
-                                    t = np.arange(len(hist_t))
-                                    for j, i in enumerate(trace_ids):
-                                        y0 = j * offset
+                                t = np.arange(len(hist_t))
+                                for j, i in enumerate(trace_ids):
+                                    y0 = j * offset
 
-                                        # correction = 1/(vmax+1E-8)   #
-                                        correction = np.mean(np.array(hist_gt[i]) / (np.array(hist_pred[i])+1E-16))
+                                    # correction = 1/(vmax+1E-8)   #
+                                    correction = np.mean(np.array(hist_gt[i]) / (np.array(hist_pred[i])+1E-16))
 
-                                        ax3.plot(t, np.array(hist_gt[i])   + y0, color='lime',  lw=1.6, alpha=0.95)
-                                        ax3.plot(t, np.array(hist_pred[i])*correction + y0, color='white', lw=1.2, alpha=0.95)
+                                    ax3.plot(t, np.array(hist_gt[i])   + y0, color='lime',  lw=1.6, alpha=0.95)
+                                    ax3.plot(t, np.array(hist_pred[i])*correction + y0, color='white', lw=1.2, alpha=0.95)
 
-                                    ax3.set_xlim(max(0, len(t) - win), len(t))
-                                    ax3.set_ylim(-offset * 0.5, offset * (len(trace_ids) + 0.5))
-                                    ax3.text(
-                                        0.02, 0.98,
-                                        f"frame: {k}   RMSE: {rmse_frame:.3f}   avg RMSE: {running_rmse:.3f}",
-                                        transform=ax3.transAxes,
-                                        va='top', ha='left',
-                                        fontsize=10, color='white')
+                                ax3.set_xlim(max(0, len(t) - win), len(t))
+                                ax3.set_ylim(-offset * 0.5, offset * (len(trace_ids) + 0.5))
+                                ax3.text(
+                                    0.02, 0.98,
+                                    f"frame: {k}   RMSE: {rmse_frame:.3f}   avg RMSE: {running_rmse:.3f}",
+                                    transform=ax3.transAxes,
+                                    va='top', ha='left',
+                                    fontsize=10, color='white')
 
-                                                                        # GT field
+                                                                    # GT field
 
-                                    ax1 = fig.add_subplot(1, 3, 1)
-                                    ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
-                                    ax1.set_axis_off()
-                                    ax1.set_title('ground truth', fontsize=12)
+                                ax1 = fig.add_subplot(1, 3, 1)
+                                ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
+                                ax1.set_axis_off()
+                                ax1.set_title('ground truth', fontsize=12)
 
-                                    # Predicted field
-                                    ax2 = fig.add_subplot(1, 3, 2)
-                                    ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred_vec, cmap="viridis", marker='h', vmin=0, vmax=1/correction)
-                                    ax2.set_axis_off()
-                                    ax2.set_title('prediction', fontsize=12)
+                                # Predicted field
+                                ax2 = fig.add_subplot(1, 3, 2)
+                                ax2.scatter(X1[:, 0], X1[:, 1], s=256, c=pred_vec, cmap="viridis", marker='h', vmin=0, vmax=1/correction)
+                                ax2.set_axis_off()
+                                ax2.set_title('prediction', fontsize=12)
 
-                                    plt.tight_layout()
-                                    writer.grab_frame()
+                                plt.tight_layout()
+                                writer.grab_frame()
 
-                                    # RMSE for this frame
-                                    error_list.append(np.sqrt(((pred_vec * correction - gt_vec) ** 2).mean()))
-                    if (not(test_neural_field)) & (not('MLP' in signal_model_name)):
-                        plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
-                    torch.save(
+                                # RMSE for this frame
+                                error_list.append(np.sqrt(((pred_vec * correction - gt_vec) ** 2).mean()))
+                if (not(test_neural_field)) & (not('MLP' in signal_model_name)):
+                    plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, edges, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
+                torch.save(
                         {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
                         os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 

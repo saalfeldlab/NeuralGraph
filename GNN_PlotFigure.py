@@ -34,6 +34,7 @@ from NeuralGraph.models.utils import (
     get_index_particles,
     analyze_odor_responses_by_neuron,
     plot_odor_heatmaps,
+    check_dales_law,
 )
 from NeuralGraph.models.plot_utils import (
     analyze_mlp_edge_lines,
@@ -5185,6 +5186,16 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
             # Plot 4: Weight comparison using model.W and gt_weights
+            # Check Dale's Law for learned weights
+            dale_results = check_dales_law(
+                edges=edges,
+                weights=model.W,
+                type_list=type_list,
+                n_neurons=n_neurons,
+                verbose=False,
+                logger=None
+            )
+
             fig = plt.figure(figsize=(10, 9))
             learned_weights = to_numpy(model.W.squeeze())
             true_weights = to_numpy(gt_weights)
@@ -5196,6 +5207,17 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
+
+            # Add Dale's Law statistics
+            dale_text = (f"Excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+                         f"Inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+                         f"Mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
+                     verticalalignment='bottom', fontsize=10)
+
             plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
             plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}$', fontsize=48)
             plt.xticks(fontsize = 24)
@@ -5379,6 +5401,17 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.text(0.05, 0.95,
                      f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
+
+            # Add Dale's Law statistics (reusing dale_results from earlier)
+            dale_text = (f"Excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+                         f"Inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+                         f"Mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
+                     verticalalignment='bottom', fontsize=10)
+
             plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
             # plt.ylabel(r'learned -$\widehat{\mathbf{W}}_{ij} \, g_i r_j \, \widehat{\tau}_i$', fontsize=48)
             plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}^*$', fontsize=48)
@@ -5401,6 +5434,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
             else:
                 print('outliers: 0  (no outliers detected)')
+
+            # Print Dale's Law check results
+            print(f"\Dale's Law Check:")
+            print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
+            print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
+            print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} ({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            logger.info(f"Dale's Law - Excitatory: {dale_results['n_excitatory']}, Inhibitory: {dale_results['n_inhibitory']}, Mixed/Violations: \033[92m{dale_results['n_mixed']}\033[0m")
 
 
 
