@@ -3516,8 +3516,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     if "black" in style:
         plt.style.use("dark_background")
+        mc = 'white'
     else:
         plt.style.use("default")
+        mc = 'black'
 
     simulation_config = config.simulation
     training_config = config.training
@@ -4278,7 +4280,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                 break
     print(f"generated {len(x_list)} frames total")
 
-    if (False):
+
+
+    if visualize:
         print('generating lossless video ...')
 
         output_name = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
@@ -4293,6 +4297,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         # files = glob.glob(f'./{log_dir}/tmp_recons/*')
         # for f in files:
         #     os.remove(f)
+
 
     x_list = np.array(x_list)
     x_generated_list = np.array(x_generated_list)
@@ -4316,202 +4321,154 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     end_frame = target_frames
 
 
-    if training_selected_neurons:
+    if training_selected_neurons:           # MLP, RNN and ODE are trained on limted number of neurons
+
         print(f"evaluating on selected neurons only: {selected_neuron_ids}")
         x_generated_list = x_generated_list[:, selected_neuron_ids, :]
         x_generated_modified_list = x_generated_modified_list[:, selected_neuron_ids, :]
         neuron_types = neuron_types[selected_neuron_ids]
 
-        plt.style.use('default')
-
-        fig, ax = plt.subplots(1, 1, figsize=(12, 18))
-
         true_slice = activity_true[selected_neuron_ids, start_frame:end_frame]
         visual_input_slice = visual_input_true[selected_neuron_ids, start_frame:end_frame]
         pred_slice = activity_pred[start_frame:end_frame]
+
+        rmse_all, pearson_all, feve_all = compute_trace_metrics(true_slice, pred_slice, "selected neurons")
+
         if len(selected_neuron_ids)==1:
             pred_slice = pred_slice[None,:]
-        step_v = 2.5
-        lw = 4
 
-        # Plot ground truth (green, thick)
-        for i in trange(len(selected_neuron_ids),ncols=50):
-            baseline = np.mean(true_slice[i])
-            ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.5,
-                    label='ground truth' if i == 0 else None)
-            if visual_input_slice[i].mean() > 0:
-                ax.plot(visual_input_slice[i] - baseline + i * step_v, linewidth=2, c='blue', alpha=0.5,
-                        label='visual input' if i == 0 else None)
-            ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
-                    label='prediction' if i == 0 else None)
+        filename_ = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
 
-        # Add neuron type labels on left
-        for i in range(len(selected_neuron_ids)):
-            type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())
-            ax.text(-50, i * step_v, f'{index_to_name[type_idx]}',
-                    fontsize=18, va='bottom', ha='right')
+        # Determine which figures to create
+        if len(selected_neuron_ids) > 50:
+            # Create sample: take the last 10 neurons from selected_neuron_ids
+            sample_indices = list(range(len(selected_neuron_ids) - 10, len(selected_neuron_ids)))
 
-            if len(selected_neuron_ids) <= 20:
-                ax.text(-50, i * step_v - 0.3, f'{selected_neuron_ids[i]}',
-                        fontsize=12, va='top', ha='right', color='black')
-
-        ax.set_ylim([-step_v, len(selected_neuron_ids) * step_v])
-        ax.set_yticks([])
-        ax.set_xlabel('frame', fontsize=20)
-
-
-        # Remove unnecessary spines
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        ax.spines['left'].set_visible(False)
-
-        # Add legend
-        ax.legend(loc='upper right', fontsize=14)
-
-        for i in range(len(selected_neuron_ids)):
-            # Calculate metrics for this neuron
-            true_i = true_slice[i]
-            pred_i = pred_slice[i]
-
-            # Remove NaNs for correlation
-            valid_mask = ~(np.isnan(true_i) | np.isnan(pred_i))
-            if valid_mask.sum() > 1:
-                rmse = np.sqrt(np.mean((true_i[valid_mask] - pred_i[valid_mask])**2))
-                pearson_r, _ = pearsonr(true_i[valid_mask], pred_i[valid_mask])
-            else:
-                rmse = np.nan
-                pearson_r = np.nan
-
-            # Add text on the right side
-            ax.text(end_frame - start_frame + 10, i * step_v,
-                    f'RMSE: {rmse:.3f}\nr: {pearson_r:.3f}',
-                    fontsize=10, va='center', ha='left',
-                    color='black')
-
-        # Adjust x-axis limit to make room for metrics
-        ax.set_xlim([0, end_frame - start_frame + 100])
-
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/rollout_traces_selected_neurons.png", dpi=80, bbox_inches='tight')
-
-        plt.close()
-
-        rmse_sel, pearson_sel, _ = compute_trace_metrics(true_slice, pred_slice, "Selected Neurons")
-        np.save(f"./{log_dir}/results/rmse_selected_neurons.npy", rmse_sel)
-        np.save(f"./{log_dir}/results/pearson_selected_neurons.npy", pearson_sel)
-
-
-        return
-
-    rmse_all, pearson_all, _ = compute_trace_metrics(activity_true, activity_pred, "All Neurons")
-    np.save(f"./{log_dir}/results/rmse_per_neuron.npy", rmse_all)
-    np.save(f"./{log_dir}/results/pearson_per_neuron.npy", pearson_all)
-
-
-    if 'full' in test_mode:
-
-        print('computing overall activity range statistics...')
-        activity_range_per_neuron = np.max(activity_true, axis=1) - np.min(activity_true, axis=1)
-
-        activity_mean = np.mean(activity_true)
-        activity_std = np.std(activity_true)
-        activity_min = np.min(activity_true)
-        activity_max = np.max(activity_true)
-        activity_range_mean = np.mean(activity_range_per_neuron)
-        activity_range_std = np.std(activity_range_per_neuron)
-
-        print("overall activity statistics:")
-        print(f"  mean: {activity_mean:.6f}")
-        print(f"  std: {activity_std:.6f}")
-        print(f"  min: {activity_min:.6f}")
-        print(f"  max: {activity_max:.6f}")
-        print(f"  global range: {activity_max - activity_min:.6f}")
-        print(f"  per-neuron range - mean: {activity_range_mean:.6f}, std: {activity_range_std:.6f}")
-
-
-
-    # Add at the end of data_test_flyvis, after the 5x4 panel plot
-
-    print('plot rollout traces for selected neuron types...')
-
-    # Define selected neuron types and their indices
-    selected_types = [55, 50, 43, 39, 35, 31, 23, 19, 12, 5]  # L1, Mi1, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
-    neuron_indices = []
-    for stype in selected_types:
-        indices = np.where(neuron_types == stype)[0]
-        if len(indices) > 0:
-            neuron_indices.append(indices[0])
-
-    plt.style.use('default')
-    fig, ax = plt.subplots(1, 1, figsize=(12, 18))
-
-    true_slice = activity_true[neuron_indices, start_frame:end_frame]
-    pred_slice = activity_pred[neuron_indices, start_frame:end_frame]
-    step_v = 2.5
-    lw = 4
-
-    # Plot ground truth (green, thick)
-    for i in range(len(neuron_indices)):
-        baseline = np.mean(true_slice[i])
-        ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.5,
-                label='ground truth' if i == 0 else None)
-        ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=2, c='black',
-                label='prediction' if i == 0 else None)
-
-    # Add neuron type labels on left
-    for i in range(len(neuron_indices)):
-        type_idx = selected_types[i]
-        ax.text(-50, i * step_v, f'{index_to_name[type_idx]}',
-                fontsize=18, va='bottom', ha='right')
-        ax.text(-50, i * step_v - 0.3, f'{neuron_indices[i]}',
-                fontsize=12, va='top', ha='right', color='black')
-
-        # Calculate and add metrics on right
-        true_i = true_slice[i]
-        pred_i = pred_slice[i]
-
-        # Remove NaNs for correlation
-        valid_mask = ~(np.isnan(true_i) | np.isnan(pred_i))
-        if valid_mask.sum() > 1:
-            rmse = np.sqrt(np.mean((true_i[valid_mask] - pred_i[valid_mask])**2))
-            pearson_r, _ = pearsonr(true_i[valid_mask], pred_i[valid_mask])
+            figure_configs = [
+                ("all", list(range(len(selected_neuron_ids)))),
+                ("sample", sample_indices)
+            ]
         else:
-            rmse = np.nan
-            pearson_r = np.nan
+            figure_configs = [("", list(range(len(selected_neuron_ids))))]
 
-        # Add metrics text on the right
-        ax.text(end_frame - start_frame + 10, i * step_v,
-                f'RMSE: {rmse:.3f}\nr: {pearson_r:.3f}',
-                fontsize=10, va='center', ha='left',
-                color='black')
+        for fig_suffix, neuron_plot_indices in figure_configs:
+            fig, ax = plt.subplots(1, 1, figsize=(15, 10))
 
-    ax.set_ylim([-step_v, len(neuron_indices) * step_v])
-    ax.set_yticks([])
-    ax.set_xticks([0, (end_frame - start_frame) // 2, end_frame - start_frame])
-    ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
-    ax.set_xlabel('frame', fontsize=20)
+            step_v = 2.5
+            lw = 6
 
-    # Adjust x-axis limit to make room for metrics
-    ax.set_xlim([-50, end_frame - start_frame + 100])
+            # Adjust fontsize based on number of neurons being plotted
+            name_fontsize = 10 if len(neuron_plot_indices) > 50 else 18
 
-    # Remove unnecessary spines
-    ax.spines['top'].set_visible(False)
-    ax.spines['right'].set_visible(False)
-    ax.spines['left'].set_visible(False)
+            # Plot ground truth (green, thick)
+            for plot_idx, i in enumerate(trange(len(neuron_plot_indices), ncols=50, desc=f"Plotting {fig_suffix}")):
+                neuron_idx = neuron_plot_indices[i]
+                baseline = np.mean(true_slice[neuron_idx])
+                ax.plot(true_slice[neuron_idx] - baseline + plot_idx * step_v, linewidth=lw, c='green', alpha=0.9,
+                        label='ground truth' if plot_idx == 0 else None)
+                # Plot visual input only for neuron_id = 0
+                if ((selected_neuron_ids[neuron_idx] == 0) | (len(neuron_plot_indices) < 50)) and visual_input_slice[neuron_idx].mean() > 0:
+                    ax.plot(visual_input_slice[neuron_idx] - baseline + plot_idx * step_v, linewidth=1, c='yellow', alpha=0.9,
+                            linestyle='--', label='visual input')
+                ax.plot(pred_slice[neuron_idx] - baseline + plot_idx * step_v, linewidth=1, c=mc,
+                        label='prediction' if plot_idx == 0 else None)
 
-    # Add legend
-    ax.legend(loc='upper right', fontsize=14)
+            for plot_idx, i in enumerate(neuron_plot_indices):
+                type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())
+                # Color code FEVE: red if <0.5, orange if <0.8, white otherwise
+                feve_color = 'red' if feve_all[i] < 0.5 else ('orange' if feve_all[i] < 0.8 else 'white')
+                ax.text(-50, plot_idx * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=feve_color)
+                ax.text(end_frame - start_frame + 20, plot_idx * step_v, f'FEVE: {feve_all[i]:.2f}', fontsize=10, va='center', ha='left', color=feve_color)
+                if len(neuron_plot_indices) <= 20:
+                    ax.text(-50, plot_idx * step_v - 0.3, f'{selected_neuron_ids[i]}',
+                            fontsize=12, va='top', ha='right', color='black')
 
-    plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/rollout_traces_selected_types.png", dpi=300, bbox_inches='tight')
-    plt.close()
+            ax.set_ylim([-step_v, len(neuron_plot_indices) * (step_v + 0.25 + 0.15 * (len(neuron_plot_indices)//50))])
+            ax.set_yticks([])
+            ax.set_xlabel('frame', fontsize=20)
+            ax.set_xticks([0, (end_frame - start_frame) // 2, end_frame - start_frame])
+            ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
 
-    if ('test_ablation' in test_mode) or ('test_inactivity' in test_mode):
-        np.save(f"./{log_dir}/results/activity_modified.npy", activity_true_modified)
-        np.save(f"./{log_dir}/results/activity_modified_pred.npy", activity_pred)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+
+            ax.legend(loc='upper right', fontsize=14)
+            ax.set_xlim([0, end_frame - start_frame + 100])
+
+            plt.tight_layout()
+            save_suffix = f"_{fig_suffix}" if fig_suffix else ""
+            plt.savefig(f"./{log_dir}/results/rollout_{filename_}_{simulation_config.visual_input_type}{save_suffix}.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
     else:
-        np.save(f"./{log_dir}/results/activity_true.npy", activity_true)
-        np.save(f"./{log_dir}/results/activity_pred.npy", activity_pred)
+
+        rmse_all, pearson_all, feve_all = compute_trace_metrics(activity_true, activity_pred, "all neurons")
+
+        filename_ = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
+
+        # Create two figures with different neuron type selections
+        for fig_name, selected_types in [
+            ("selected", [55, 50, 43, 39, 35, 31, 23, 19, 12, 5]),  # L1, Mi1, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
+            ("all", np.arange(0, n_neuron_types))
+        ]:
+            neuron_indices = []
+            for stype in selected_types:
+                indices = np.where(neuron_types == stype)[0]
+                if len(indices) > 0:
+                    neuron_indices.append(indices[0])
+
+            fig, ax = plt.subplots(1, 1, figsize=(15, 10))
+
+            true_slice = activity_true[neuron_indices, start_frame:end_frame]
+            visual_input_slice = visual_input_true[neuron_indices, start_frame:end_frame]
+            pred_slice = activity_pred[neuron_indices, start_frame:end_frame]
+            step_v = 2.5
+            lw = 6
+
+            # Adjust fontsize based on number of neurons
+            name_fontsize = 10 if len(selected_types) > 50 else 18
+
+            for i in range(len(neuron_indices)):
+                baseline = np.mean(true_slice[i])
+                ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.9,
+                        label='ground truth' if i == 0 else None)
+                # Plot visual input for neuron 0 OR when fewer than 50 neurons
+                if ((neuron_indices[i] == 0) | (len(neuron_indices) < 50)) and visual_input_slice[i].mean() > 0:
+                    ax.plot(visual_input_slice[i] - baseline + i * step_v, linewidth=1, c='yellow', alpha=0.9,
+                            linestyle='--', label='visual input')
+                ax.plot(pred_slice[i] - baseline + i * step_v, linewidth=1, label='prediction' if i == 0 else None, c=mc)
+
+
+            for i in range(len(neuron_indices)):
+                type_idx = selected_types[i]
+                # Color code FEVE: red if <0.5, orange if <0.8, white otherwise
+                feve_color = 'red' if feve_all[neuron_indices[i]] < 0.5 else ('orange' if feve_all[neuron_indices[i]] < 0.8 else 'white')
+                ax.text(-50, i * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=feve_color)
+                ax.text(end_frame - start_frame + 20, i * step_v, f'FEVE: {feve_all[neuron_indices[i]]:.2f}', fontsize=10, va='center', ha='left', color=feve_color)
+
+            ax.set_ylim([-step_v, len(neuron_indices) * (step_v + 0.25 + 0.15 * (len(neuron_indices)//50))])
+            ax.set_yticks([])
+            ax.set_xticks([0, (end_frame - start_frame) // 2, end_frame - start_frame])
+            ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
+            ax.set_xlabel('frame', fontsize=20)
+            ax.set_xlim([-50, end_frame - start_frame + 100])
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+
+            ax.legend(loc='upper right', fontsize=14)
+
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/rollout_{filename_}_{simulation_config.visual_input_type}_{fig_name}.png", dpi=300, bbox_inches='tight')
+            plt.close()
+
+        if ('test_ablation' in test_mode) or ('test_inactivity' in test_mode):
+            np.save(f"./{log_dir}/results/activity_modified.npy", activity_true_modified)
+            np.save(f"./{log_dir}/results/activity_modified_pred.npy", activity_pred)
+        else:
+            np.save(f"./{log_dir}/results/activity_true.npy", activity_true)
+            np.save(f"./{log_dir}/results/activity_pred.npy", activity_pred)
 
 
 def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device):

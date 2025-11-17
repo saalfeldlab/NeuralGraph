@@ -36,13 +36,17 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'test'  # 'generate', 'train', 'test'
+        task = 'train'  # 'generate', 'train', 'test'
 
-        # config_list = ['fly_N9_62_5_9']  # for quick test
+        config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
+                       'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
+                       'fly_N9_64_3_1', 'fly_N9_64_3_2', 'fly_N9_64_3_3', 'fly_N9_64_3_4',
+                       'fly_N9_64_4_1', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_4'
+                       ]  # for quick test
 
         # config_list = ['zebra_N10_34_1']
 
-        config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
+        # config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
 
         
 
@@ -77,7 +81,7 @@ if __name__ == "__main__":
         if "test" in task:
 
             config.training.noise_model_level = 0.0
-            config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'  #  'optical_flow'
+            config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'  
 
             data_test(
                 config=config,

@@ -10,6 +10,8 @@ vis*/
 archive/
 src/models/data/
 src/NeuralGraph/scripts/tmp/
+src/NeuralGraph/ODEs/logs/
+src/NeuralGraph/ODEs/config/
 runs/
 .claude/
 
