@@ -1314,9 +1314,11 @@ Computational Performance:
 
 ## How many hidden
 
+Let's use skip connections with a linear matrix.
+
 ```bash
 
-for hidden in 1 2 3 ; do \
+for hidden in 0 1 2 3 ; do \
   bsub -J "h${hidden}" -n 1 -gpu "num=1" -q gpu_a100 -o "h${hidden}.log" python \
     src/LatentEvolution/latent.py hidden_with_skips \
     --encoder-params.num-hidden-layers ${hidden} \
@@ -1325,3 +1327,30 @@ for hidden in 1 2 3 ; do \
     --training.epochs 200
 done
 ```
+
+Surprising (preliminary) result:
+
+- validation loss doesn't change much => go down to 1 layer
+- the mse does not explode when doing the roll out. Interestingly, the roll out did explode in the
+  previous trial => there is some kind of instability.
+- hidden layers = 0 (linear matrices) show the exploding mse trend
+- note that we used tensor float32's to speed up the training.
+
+### Check reproducibility of hidden 1
+
+```bash
+
+for seed in 654321 54321 4321 321 21 ; do \
+  bsub -J "seed${seed}" -n 1 -gpu "num=1" -q gpu_a100 -o "seed${seed}.log" python \
+    src/LatentEvolution/latent.py hidden1_repro \
+    --encoder-params.num-hidden-layers 1 \
+    --decoder-params.num-hidden-layers 1 \
+    --stimulus-encoder-params.num-hidden-layers 1 \
+    --training.epochs 200
+done
+```
+
+Next experiments:
+
+- [ ] check stability of training, perhaps sweep lr and batch size again
+- [ ] add mlp with Ax, x
