@@ -1223,7 +1223,7 @@ This will allow us to retrieve any key information from input neurons/stimuli.
 
 ```bash
 
-for skips in input-skips no-input-skips; do \
+for skips in use-input-skips no-use-input-skips; do \
     for diag in learnable-diagonal no-learnable-diagonal; do \
       bsub -J "${skips}_${diag}" -n 1 -gpu "num=1" -q gpu_a100 -o "${skips}_${diag}.log" python \
         src/LatentEvolution/latent.py input_skips_sweep \
@@ -1234,4 +1234,94 @@ for skips in input-skips no-input-skips; do \
         --training.epochs 200
     done
   done
+```
+
+### Results (Analyzed 2025-11-17)
+
+```
+commit_hash='bd7c276'
+shape: (4, 38)
+┌────────────────────────────────┬────────────────────────────────┬─────────────────────────────────┬─────────────────────────────────┬────────────────────────────┬─────────────────────────────┬─────────────┬─────────────────────────────────┬─────────────────┬──────────────────┬────────────────┬───────────────────────┬───────────────────┬──────────────────────────┬──────────────────────────┬───┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬─────────────────────────┬──────────────────────────┬─────────────────────┬───────────────────────────┬───────────────────────────┬─────────────────────────┐
+│ encoder_params.use_input_skips ┆ decoder_params.use_input_skips ┆ evolver_params.learnable_diago… ┆ stimulus_encoder_params.use_in… ┆ avg_epoch_duration_seconds ┆ avg_gpu_utilization_percent ┆ commit_hash ┆ final_diagnostics_duration_sec… ┆ final_test_loss ┆ final_train_loss ┆ final_val_loss ┆ gpu_type              ┆ max_gpu_memory_mb ┆ model_mse_evolve_0_steps ┆ model_mse_evolve_1_steps ┆ … ┆ null_mse_evolve_0_steps ┆ null_mse_evolve_1_steps ┆ null_mse_evolve_2_steps ┆ null_mse_evolve_3_steps ┆ null_mse_evolve_4_steps ┆ null_mse_evolve_5_steps ┆ null_mse_evolve_6_steps ┆ null_mse_evolve_7_steps ┆ null_mse_evolve_8_steps ┆ null_mse_evolve_9_steps ┆ test_loss_constant_model ┆ total_gpu_memory_mb ┆ train_loss_constant_model ┆ training_duration_seconds ┆ val_loss_constant_model │
+╞════════════════════════════════╪════════════════════════════════╪═════════════════════════════════╪═════════════════════════════════╪════════════════════════════╪═════════════════════════════╪═════════════╪═════════════════════════════════╪═════════════════╪══════════════════╪════════════════╪═══════════════════════╪═══════════════════╪══════════════════════════╪══════════════════════════╪═══╪═════════════════════════╪═════════════════════════╪═════════════════════════╪═════════════════════════╪═════════════════════════╪═════════════════════════╪═════════════════════════╪═════════════════════════╪═════════════════════════╪═════════════════════════╪══════════════════════════╪═════════════════════╪═══════════════════════════╪═══════════════════════════╪═════════════════════════╡
+│ true                           ┆ true                           ┆ true                            ┆ true                            ┆ 82.82                      ┆ 67.17                       ┆ bd7c276     ┆ 14.99                           ┆ 0.013399        ┆ 0.023507         ┆ 0.013687       ┆ NVIDIA A100-SXM4-80GB ┆ 12583.0           ┆ 0.013158                 ┆ 0.013687                 ┆ … ┆ 0.0                     ┆ 0.035528                ┆ 0.068879                ┆ 0.088254                ┆ 0.096697                ┆ 0.100114                ┆ 0.103657                ┆ 0.108456                ┆ 0.112701                ┆ 0.115203                ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 16904.21                  ┆ 0.035517                │
+│ true                           ┆ true                           ┆ false                           ┆ true                            ┆ 83.27                      ┆ 79.2                        ┆ bd7c276     ┆ 14.89                           ┆ 0.013455        ┆ 0.023429         ┆ 0.013742       ┆ NVIDIA A100-SXM4-80GB ┆ 16869.0           ┆ 0.013192                 ┆ 0.013742                 ┆ … ┆ 0.0                     ┆ 0.035528                ┆ 0.068879                ┆ 0.088254                ┆ 0.096697                ┆ 0.100114                ┆ 0.103657                ┆ 0.108456                ┆ 0.112701                ┆ 0.115203                ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 16982.04                  ┆ 0.035517                │
+│ false                          ┆ false                          ┆ true                            ┆ false                           ┆ 34.41                      ┆ 83.03                       ┆ bd7c276     ┆ 14.94                           ┆ 0.017785        ┆ 0.03463          ┆ 0.018234       ┆ NVIDIA A100-SXM4-80GB ┆ 11947.0           ┆ 0.01853                  ┆ 0.018231                 ┆ … ┆ 0.0                     ┆ 0.035528                ┆ 0.068879                ┆ 0.088254                ┆ 0.096697                ┆ 0.100114                ┆ 0.103657                ┆ 0.108456                ┆ 0.112701                ┆ 0.115203                ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 7188.9                    ┆ 0.035517                │
+│ false                          ┆ false                          ┆ false                           ┆ false                           ┆ 34.42                      ┆ 83.47                       ┆ bd7c276     ┆ 15.06                           ┆ 0.017807        ┆ 0.034707         ┆ 0.018236       ┆ NVIDIA A100-SXM4-80GB ┆ 11945.0           ┆ 0.018533                 ┆ 0.018233                 ┆ … ┆ 0.0                     ┆ 0.035528                ┆ 0.068879                ┆ 0.088254                ┆ 0.096697                ┆ 0.100114                ┆ 0.103657                ┆ 0.108456                ┆ 0.112701                ┆ 0.115203                ┆ 0.036361                 ┆ 81920.0             ┆ 0.035541                  ┆ 7194.28                   ┆ 0.035517                │
+└────────────────────────────────┴────────────────────────────────┴─────────────────────────────────┴─────────────────────────────────┴────────────────────────────┴─────────────────────────────┴─────────────┴─────────────────────────────────┴─────────────────┴──────────────────┴────────────────┴───────────────────────┴───────────────────┴──────────────────────────┴──────────────────────────┴───┴─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴─────────────────────────┴──────────────────────────┴─────────────────────┴───────────────────────────┴───────────────────────────┴─────────────────────────┘
+
+Sorted by validation loss:  shape: (4, 7)
+┌────────────────────────────────┬────────────────────────────────┬─────────────────────────────────┬─────────────────────────────────┬──────────────────┬────────────────┬─────────────────┐
+│ encoder_params.use_input_skips ┆ decoder_params.use_input_skips ┆ evolver_params.learnable_diago… ┆ stimulus_encoder_params.use_in… ┆ final_train_loss ┆ final_val_loss ┆ final_test_loss │
+╞════════════════════════════════╪════════════════════════════════╪═════════════════════════════════╪═════════════════════════════════╪══════════════════╪════════════════╪═════════════════╡
+│ true                           ┆ true                           ┆ true                            ┆ true                            ┆ 0.023507         ┆ 0.013687       ┆ 0.013399        │
+│ true                           ┆ true                           ┆ false                           ┆ true                            ┆ 0.023429         ┆ 0.013742       ┆ 0.013455        │
+│ false                          ┆ false                          ┆ true                            ┆ false                           ┆ 0.03463          ┆ 0.018234       ┆ 0.017785        │
+│ false                          ┆ false                          ┆ false                           ┆ false                           ┆ 0.034707         ┆ 0.018236       ┆ 0.017807        │
+└────────────────────────────────┴────────────────────────────────┴─────────────────────────────────┴─────────────────────────────────┴──────────────────┴────────────────┴─────────────────┘
+```
+
+#### Run Overview
+
+| Input Skips | Learnable Diagonal | UUID   | Status |
+| ----------- | ------------------ | ------ | ------ |
+| True        | True               | a7309e | ✓      |
+| True        | False              | 67bb9c | ✓      |
+| False       | True               | 6228bb | ✓      |
+| False       | False              | d4ce48 | ✓      |
+
+#### Performance Metrics
+
+| Input Skips | Learnable Diag | Train Time (min) | Epoch Time (s) | GPU Mem (GB) | GPU Util (%) | Final Train Loss | Final Val Loss | Final Test Loss | Model MSE 1-step |
+| ----------- | -------------- | ---------------- | -------------- | ------------ | ------------ | ---------------- | -------------- | --------------- | ---------------- |
+| True        | True           | 282              | 82.82          | 12.3         | 67.2         | 0.02351          | 0.01369        | 0.01340         | 0.01369          |
+| True        | False          | 283              | 83.27          | 16.5         | 79.2         | 0.02343          | 0.01374        | 0.01346         | 0.01374          |
+| False       | True           | 120              | 34.41          | 11.7         | 83.0         | 0.03463          | 0.01823        | 0.01779         | 0.01823          |
+| False       | False          | 120              | 34.42          | 11.7         | 83.5         | 0.03471          | 0.01824        | 0.01781         | 0.01823          |
+
+#### Training Dynamics (from TensorBoard)
+
+Convergence patterns:
+
+- Input skips enabled: Initial val loss 0.032, converged to min 0.0136 by epoch 111, stable thereafter
+- Input skips disabled: Initial val loss 0.045, slower convergence to min 0.0182 by epoch 199
+- Training loss reduction: Skips True (0.101 → 0.024), Skips False (0.146 → 0.035)
+- Learnable diagonal had negligible impact on convergence speed or final performance
+
+#### Key Findings
+
+Model Performance:
+
+- Input skip connections reduce validation loss by 33% (0.0182 vs 0.0137)
+- Input skips improve 1-step evolution prediction MSE by 25% (0.0182 vs 0.0137)
+- Learnable diagonal parameter has minimal impact on final performance (0.0005 difference)
+- Both input skip configurations achieve lower final loss than initial constant model baseline (0.0355)
+
+Computational Performance:
+
+- Input skips increase training time by 2.4x (120 min → 282 min per 200 epochs)
+- Epoch duration increases from 34s to 83s with input skips enabled
+- GPU memory usage increases by 5-40% with input skips (11.7 GB → 12.3-16.5 GB)
+- GPU utilization drops from 83% to 67-79% with input skips (bottleneck shifted from compute to memory/data transfer)
+
+#### Recommendations
+
+- Use input skip connections for production models: 33% performance gain justifies 2.4x training cost
+- Disable learnable diagonal parameter: No performance benefit, increases memory by 34% (12.3 GB → 16.5 GB)
+- Optimal configuration: encoder/decoder/stimulus input_skips=True, learnable_diagonal=True (12.3 GB memory)
+- Investigate GPU utilization drop with input skips: Memory bandwidth may be limiting factor
+- Consider gradient checkpointing or mixed precision training to reduce memory footprint of skip connections
+
+## How many hidden
+
+```bash
+
+for hidden in 1 2 3 ; do \
+  bsub -J "h${hidden}" -n 1 -gpu "num=1" -q gpu_a100 -o "h${hidden}.log" python \
+    src/LatentEvolution/latent.py hidden_with_skips \
+    --encoder-params.num-hidden-layers ${hidden} \
+    --decoder-params.num-hidden-layers ${hidden} \
+    --stimulus-encoder-params.num-hidden-layers ${hidden} \
+    --training.epochs 200
+done
 ```
