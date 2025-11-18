@@ -104,7 +104,7 @@ def plot_recon_error(true_trace, recon_trace, neuron_data: NeuronData):
         err = recon_trace - true_trace
         var_err = np.var(err, axis=i)
 
-        if i == 1:  # neuron variation - color by cell type
+        if i == 0:  # neuron variation - color by cell type
             # Create colormap with enough distinct colors for all cell types (65 types)
             # Use multiple colormaps combined for better distinction
             num_types = len(neuron_data.TYPE_NAMES)
@@ -117,7 +117,7 @@ def plot_recon_error(true_trace, recon_trace, neuron_data: NeuronData):
                 colors.append(cmap(color_idx / 20))
 
             # Plot each cell type with its own color
-            for type_idx, type_name in enumerate(neuron_data.TYPE_NAMES):
+            for type_idx, _type_name in enumerate(neuron_data.TYPE_NAMES):
                 neuron_indices = neuron_data.indices_per_type[type_idx]
                 ax[i].scatter(
                     var_trace[neuron_indices],
