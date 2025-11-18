@@ -1478,9 +1478,24 @@ Preliminary results suggest we can go down to one hidden layer with input skips.
 
 ```bash
 
-for lp in 0.0 1e-8 1e-6 1e-4 ; do \
+for lp in 0.0 1e-4 1e-2 1.0 100.0 ; do \
   bsub -J "lp${lp}" -n 1 -gpu "num=1" -q gpu_a100 -o "lp${lp}.log" python \
     src/LatentEvolution/latent.py lp_norm \
     --training.lp-norm-weight $lp
+done
+```
+
+This didn't solve the Mi12 problem.
+
+## Noise vs no noise
+
+Config `fly_N9_62_1` has noise of 0.05 added. See if this is impacting results.
+Create config `fly_N9_62_0` and compare results.
+
+```bash
+for cfg in fly_N9_62_0 fly_N9_62_1 ; do \
+  bsub -J $cfg -n 1 -gpu "num=1" -q gpu_a100 -o "${cfg}.log" python \
+    src/LatentEvolution/latent.py noise_test \
+    --training.simulation-config $cfg
 done
 ```
