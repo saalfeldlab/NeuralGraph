@@ -71,3 +71,8 @@ training:
 #   record_shapes: true      # Record tensor shapes (helpful for debugging)
 #   profile_memory: true     # Profile memory usage (GPU/CPU)
 #   with_stack: false        # Stack traces add significant overhead, disable by default
+
+# Cross-dataset validation (evaluates trained model on different datasets)
+cross_validation_configs:
+  - simulation_config: "fly_N9_62_0"
+    name: "no_noise"

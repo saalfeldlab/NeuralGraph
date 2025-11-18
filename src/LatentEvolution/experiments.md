@@ -1503,3 +1503,9 @@ for cfg in fly_N9_62_0 fly_N9_62_1 ; do \
     --training.simulation-config $cfg
 done
 ```
+
+This is very informative. It turns out that the `Mi12` trace is heavily impacted by
+the added noise (sigma ~ 0.05). That's why we were unable to fit it properly.
+
+In the absence of noise the overall mse goes down significantly and we can
+reconstruct the `Mi12` trace a lot better.
