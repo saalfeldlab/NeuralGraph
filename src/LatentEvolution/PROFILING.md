@@ -164,11 +164,42 @@ Based on profiling results, you can:
 
 ## Best Practices
 
-1. **Profile short runs**: Use 11-15 epochs max to keep trace files manageable (minimum 11 with defaults).
-2. **Disable diagnostics**: Set `diagnostics_freq_epochs: 0` during profiling runs.
-3. **Skip warmup**: Set `wait: 3` to skip the first few epochs (torch.compile and model warmup).
-4. **Start simple**: Keep `with_stack: false` (default) to minimize overhead.
-5. **Profile on target hardware**: Profile on the same GPU type you'll use for full training.
+1. **Disable torch.compile**: Use `--training.train_step train_step_nocompile` to see detailed operations.
+2. **Profile 1 active epoch**: Use `--profiling.active 1` to keep trace files small (~50-100MB).
+3. **Disable diagnostics**: Set `diagnostics_freq_epochs: 0` during profiling runs.
+4. **Skip warmup**: Set `wait: 3` to skip the first few epochs (model warmup).
+5. **Start simple**: Keep `with_stack: false` (default) to minimize overhead.
+6. **Profile on target hardware**: Profile on the same GPU type you'll use for full training.
+
+## Important: torch.compile and Profiling
+
+**⚠️ torch.compile hides profiling details!**
+
+By default, the training uses `train_step="train_step"` which is a torch.compile'd function. This appears as opaque compiled blocks in the profiler, hiding all the individual GPU operations.
+
+**To see detailed operations, disable torch.compile for profiling:**
+
+```bash
+python src/LatentEvolution/latent.py my_profiling_run \
+  --training.epochs 11 \
+  --training.train_step train_step_nocompile \  # Use uncompiled version!
+  profiling:profile-config \
+  --profiling.wait 3 \
+  --profiling.active 1
+```
+
+Or in YAML:
+```yaml
+training:
+  train_step: train_step_nocompile  # Instead of train_step
+  epochs: 11
+
+profiling:
+  wait: 3
+  active: 1  # Just 1 epoch for detailed profiling
+```
+
+**Trade-off**: Uncompiled code is slower but shows every operation. Profile with `train_step_nocompile` to identify bottlenecks, then optimize, then use `train_step` for production.
 
 ## Platform Support
 
@@ -195,15 +226,32 @@ Based on profiling results, you can:
 - Ensure operations are inside the training loop
 - Check that `profiler.step()` is called after each epoch
 
+### Trace shows very little detail / appears trivial
+
+This is usually because **torch.compile hides the details**:
+- Compiled code appears as single opaque blocks
+- Solution: Use `--training.train_step train_step_nocompile`
+- You should see hundreds/thousands of GPU kernels per epoch when using uncompiled code
+- In Chrome tracing, zoom in and look at the CUDA stream rows at the bottom
+
+### Chrome trace viewer is blank
+
+- **File too large**: 500MB+ files can hang Chrome. Reduce to 1 active epoch.
+- **Wrong file**: Open the `.pt.trace.json` file (not `.gz`)
+- **Use TensorBoard instead**: `tensorboard --logdir=runs/your_run/profiler_traces`
+
 ## Example Workflow
 
-1. Run a short profiling session:
+1. Run a short profiling session (with torch.compile disabled for detail):
    ```bash
    python src/LatentEvolution/latent.py profile_test \
      --training.epochs 11 \
+     --training.train_step train_step_nocompile \
      profiling:profile-config \
      --profiling.wait 3 \
-     --profiling.active 3
+     --profiling.active 1 \
+     --profiling.repeat 0 \
+     --profiling.no-record-shapes
    ```
 
 2. Load trace in Chrome at `chrome://tracing`
