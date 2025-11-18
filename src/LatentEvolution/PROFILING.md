@@ -79,11 +79,12 @@ profiling:
 
 ### Option 3: Override via CLI
 
-Override the profiling config directly from the command line:
+Override the profiling config directly from the command line. **Important**: You must include `profiling:profile-config` as a positional argument to enable profiling:
 
 ```bash
 python latent.py my_profiling_run \
   --training.epochs 11 \
+  profiling:profile-config \
   --profiling.wait 3 \
   --profiling.warmup 1 \
   --profiling.active 3 \
@@ -92,6 +93,12 @@ python latent.py my_profiling_run \
   --profiling.profile_memory True \
   --profiling.with_stack False
 ```
+
+To disable profiling (default), use `profiling:None` or omit the profiling argument entirely.
+
+**Why `profiling:profile-config`?** Since `profiling` is an optional field (can be `None`), tyro treats it as a union type. You must explicitly select which variant to use: `profiling:profile-config` to enable it, or `profiling:None` to disable it.
+
+**Tip**: Run `python latent.py my_run --help` to see all available profiling options and the correct syntax.
 
 ## Viewing the Results
 
@@ -184,7 +191,7 @@ Based on profiling results, you can:
 
 1. Run a short profiling session:
    ```bash
-   python latent.py profile_test --training.epochs 11 --profiling.wait 3 --profiling.active 3
+   python latent.py profile_test --training.epochs 11 profiling:profile-config --profiling.wait 3 --profiling.active 3
    ```
 
 2. Load trace in Chrome at `chrome://tracing`
