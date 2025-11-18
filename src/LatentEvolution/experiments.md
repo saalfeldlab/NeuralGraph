@@ -1471,3 +1471,17 @@ for hidden in 0 1 2 3 ; do \
     --evolver-params.use-input-skips
 done
 ```
+
+Preliminary results suggest we can go down to one hidden layer with input skips.
+
+### test lp norm
+
+```bash
+
+# input skips with varying numbers of hidden layers
+for reg in 0.0 1e-8 1e-6 1e-4 ; do \
+  bsub -J "reg${reg}" -n 1 -gpu "num=1" -q gpu_a100 -o "reg${reg}.log" python \
+    src/LatentEvolution/latent.py lp_norm \
+    --training.lp-norm-weight $reg
+done
+```

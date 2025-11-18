@@ -339,13 +339,17 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss
+
     reg_loss = 0.0
-    for p in model.encoder.parameters():
-        reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
-    for p in model.decoder.parameters():
-        reg_loss += torch.abs(p).mean()*cfg.decoder_params.l1_reg_loss
-    for p in model.evolver.parameters():
-        reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
+    if cfg.encoder_params.l1_reg_loss > 0.:
+        for p in model.encoder.parameters():
+            reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
+    if cfg.decoder_params.l1_reg_loss > 0.:
+        for p in model.decoder.parameters():
+            reg_loss += torch.abs(p).mean()*cfg.decoder_params.l1_reg_loss
+    if cfg.evolver_params.l1_reg_loss > 0.:
+        for p in model.evolver.parameters():
+            reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
 
     # evolution loss
     output = model(x_t, stim_t)
@@ -356,9 +360,11 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     recon_loss = loss_fn(recon, x_t)
 
     # LP norm penalty on prediction errors (for outlier control)
-    lp_norm_evolve = torch.norm(output - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
-    lp_norm_recon = torch.norm(recon - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
-    lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
+    lp_norm_loss = 0.0
+    if cfg.training.lp_norm_weight > 0.:
+        lp_norm_evolve = torch.norm(output - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_recon = torch.norm(recon - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
 
     loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
     return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss)
