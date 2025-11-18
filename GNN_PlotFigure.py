@@ -82,10 +82,10 @@ import matplotlib.ticker as ticker
 import shutil
 
 # Optional dependency
-# try:
-#     from pysr import PySRRegressor
-# except (ImportError, subprocess.CalledProcessError):
-#     PySRRegressor = None
+try:
+    from pysr import PySRRegressor
+except (ImportError, subprocess.CalledProcessError):
+    PySRRegressor = None
 
 
 def get_training_files(log_dir, n_runs):
@@ -5208,11 +5208,11 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
 
             # Add Dale's Law statistics
-            dale_text = (f"Excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
                          f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
-                         f"Inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
                          f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
-                         f"Mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
                          f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
             plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
                      verticalalignment='bottom', fontsize=10)
@@ -5402,11 +5402,11 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
 
             # Add Dale's Law statistics (reusing dale_results from earlier)
-            dale_text = (f"Excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
                          f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
-                         f"Inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
                          f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
-                         f"Mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
                          f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
             plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
                      verticalalignment='bottom', fontsize=10)
@@ -5435,11 +5435,11 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 print('outliers: 0  (no outliers detected)')
 
             # Print Dale's Law check results
-            print(f"Dale's Law Check:")
+            print(f"Dale's law check:")
             print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
             print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
-            print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} ({100*dale_results['n_mixed']/n_neurons:.1f}%)")
-            logger.info(f"Dale's Law - Excitatory: {dale_results['n_excitatory']}, Inhibitory: {dale_results['n_inhibitory']}, Mixed/Violations: \033[92m{dale_results['n_mixed']}\033[0m")
+            print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} (\033[92m{100*dale_results['n_mixed']/n_neurons:.1f}%\033[0m)")
+            logger.info(f"Dale's Law - Excitatory: {dale_results['n_excitatory']}, Inhibitory: {dale_results['n_inhibitory']}, Mixed/Violations: {dale_results['n_mixed']}")
 
 
 
@@ -8567,7 +8567,7 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_24']
 
-    config_list = ['fly_N9_62_1']
+    config_list = ['fly_N9_62_22_10']
     
     # config_list = ['signal_N11_2_1_2']             
 

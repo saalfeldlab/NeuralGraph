@@ -453,6 +453,7 @@ def data_train_signal(config, erase, best_model, device):
             if track_components:
                 regul_tracker = {
                     'W_L1': 0,
+                    'W_L2': 0,
                     'edge_grad': 0,
                     'phi_grad': 0,
                     'edge_diff': 0,
@@ -1379,6 +1380,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 if track_components:
                     regul_tracker = {
                         'W_L1': 0,
+                        'W_L2': 0,
                         'edge_grad': 0,
                         'phi_grad': 0,
                         'edge_diff': 0,
@@ -1485,7 +1487,6 @@ def data_train_flyvis(config, erase, best_model, device):
 
                     # regularisation sign Wij (Dale's Law: all outgoing weights should have same sign)
                     if (coeff_W_sign > 0) & (epoch==1):
-                        # Fully vectorized Dale's Law regularization with smooth, differentiable approximation
                         # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
                         # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
 
@@ -4374,7 +4375,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         visual_input_slice = visual_input_true[selected_neuron_ids, start_frame:end_frame]
         pred_slice = activity_pred[start_frame:end_frame]
 
-        rmse_all, pearson_all, feve_all = compute_trace_metrics(true_slice, pred_slice, "selected neurons")
+        rmse_all, pearson_all, feve_all, r2_all = compute_trace_metrics(true_slice, pred_slice, "selected neurons")
 
         if len(selected_neuron_ids)==1:
             pred_slice = pred_slice[None,:]
@@ -4417,10 +4418,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
             for plot_idx, i in enumerate(neuron_plot_indices):
                 type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())
-                # Color code FEVE: red if <0.5, orange if <0.8, white otherwise
-                feve_color = 'red' if feve_all[i] < 0.5 else ('orange' if feve_all[i] < 0.8 else 'white')
-                ax.text(-50, plot_idx * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=feve_color)
-                ax.text(end_frame - start_frame + 20, plot_idx * step_v, f'FEVE: {feve_all[i]:.2f}', fontsize=10, va='center', ha='left', color=feve_color)
+                # Color code R²: red if <0.5, orange if <0.8, white otherwise
+                r2_color = 'red' if r2_all[i] < 0.5 else ('orange' if r2_all[i] < 0.8 else 'white')
+                ax.text(-50, plot_idx * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=r2_color)
+                ax.text(end_frame - start_frame + 20, plot_idx * step_v, f'$R^2$: {r2_all[i]:.2f}', fontsize=10, va='center', ha='left', color=r2_color)
                 if len(neuron_plot_indices) <= 20:
                     ax.text(-50, plot_idx * step_v - 0.3, f'{selected_neuron_ids[i]}',
                             fontsize=12, va='top', ha='right', color='black')
@@ -4445,13 +4446,13 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     else:
 
-        rmse_all, pearson_all, feve_all = compute_trace_metrics(activity_true, activity_pred, "all neurons")
+        rmse_all, pearson_all, feve_all, r2_all = compute_trace_metrics(activity_true, activity_pred, "all neurons")
 
         filename_ = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
 
         # Create two figures with different neuron type selections
         for fig_name, selected_types in [
-            ("selected", [55, 50, 43, 39, 35, 31, 23, 19, 12, 5]),  # L1, Mi1, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
+            ("selected", [55, 15, 43, 39, 35, 31, 23, 19, 12, 5]),  # L1, Mi12, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
             ("all", np.arange(0, n_neuron_types))
         ]:
             neuron_indices = []
@@ -4484,10 +4485,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
             for i in range(len(neuron_indices)):
                 type_idx = selected_types[i]
-                # Color code FEVE: red if <0.5, orange if <0.8, white otherwise
-                feve_color = 'red' if feve_all[neuron_indices[i]] < 0.5 else ('orange' if feve_all[neuron_indices[i]] < 0.8 else 'white')
-                ax.text(-50, i * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=feve_color)
-                ax.text(end_frame - start_frame + 20, i * step_v, f'FEVE: {feve_all[neuron_indices[i]]:.2f}', fontsize=10, va='center', ha='left', color=feve_color)
+                # Color code R²: red if <0.5, orange if <0.8, white otherwise
+                r2_color = 'red' if r2_all[neuron_indices[i]] < 0.5 else ('orange' if r2_all[neuron_indices[i]] < 0.8 else 'white')
+                ax.text(-50, i * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=r2_color)
+                ax.text(end_frame - start_frame + 20, i * step_v, f'$R^2$: {r2_all[neuron_indices[i]]:.2f}', fontsize=10, va='center', ha='left', color=r2_color)
 
             ax.set_ylim([-step_v, len(neuron_indices) * (step_v + 0.25 + 0.15 * (len(neuron_indices)//50))])
             ax.set_yticks([])

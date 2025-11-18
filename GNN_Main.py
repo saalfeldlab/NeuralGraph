@@ -36,7 +36,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'test'  # 'generate', 'train', 'test'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         #                'fly_N9_64_4_1', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_4'
         #                ]  
 
-        config_list = ['fly_N9_62_22']
+        config_list = ['fly_N9_62_1']
 
         # config_list = ['zebra_N10_34_1']
 
