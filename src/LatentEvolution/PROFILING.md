@@ -20,10 +20,11 @@ To enable profiling, add a `profiling` section at the top level of your configur
 # ... encoder_params, decoder_params, evolver_params, etc. ...
 
 training:
-  # ... training config ...
+  epochs: 11  # Minimum: wait + (warmup + active) * (repeat + 1) = 3 + (1+3)*2 = 11
+  # ... other training config ...
 
 profiling:
-  wait: 1              # Number of epochs to skip before profiling starts
+  wait: 3              # Number of epochs to skip before profiling starts
   warmup: 1            # Number of warmup epochs (not recorded)
   active: 3            # Number of epochs to actively profile
   repeat: 1            # Number of times to repeat the cycle
@@ -34,13 +35,15 @@ profiling:
 
 ### Configuration Parameters
 
-- **`wait`**: Skip this many epochs before starting the profiler. Useful to skip compilation warmup.
-- **`warmup`**: Number of epochs for profiler warmup (recorded but not saved).
-- **`active`**: Number of epochs to actively profile and save traces for.
-- **`repeat`**: How many times to repeat the wait-warmup-active cycle.
+- **`wait`**: Skip this many epochs before starting the profiler. Useful to skip compilation warmup. Default: 3 epochs.
+- **`warmup`**: Number of epochs for profiler warmup (recorded but not saved). Default: 1 epoch.
+- **`active`**: Number of epochs to actively profile and save traces for. Default: 3 epochs.
+- **`repeat`**: How many times to repeat the warmup-active cycle. With repeat=1, the cycle runs twice (once initially, then repeats once). Default: 1.
 - **`record_shapes`**: Record tensor shapes in the trace (helpful for debugging shape mismatches).
 - **`profile_memory`**: Profile memory usage including allocations and deallocations.
 - **`with_stack`**: Record Python stack traces (WARNING: adds significant overhead, use sparingly).
+
+**Note**: Ensure `training.epochs` is at least `wait + (warmup + active) * (repeat + 1)`. For defaults (wait=3, warmup=1, active=3, repeat=1): 3 + (1+3)*2 = **11 epochs minimum**.
 
 ## Running with Profiling
 
@@ -60,12 +63,12 @@ latent_dims: 256
 # ... other model params ...
 
 training:
-  epochs: 10  # Shorter run for profiling
+  epochs: 11  # Minimum: wait=3 + (warmup=1 + active=3) * (repeat+1=2) = 11
   diagnostics_freq_epochs: 0  # Disable diagnostics during profiling
   # ... other training params ...
 
 profiling:
-  wait: 1
+  wait: 3
   warmup: 1
   active: 3
   repeat: 1
@@ -80,7 +83,8 @@ Override the profiling config directly from the command line:
 
 ```bash
 python latent.py my_profiling_run \
-  --profiling.wait 1 \
+  --training.epochs 11 \
+  --profiling.wait 3 \
   --profiling.warmup 1 \
   --profiling.active 3 \
   --profiling.repeat 1 \
@@ -151,9 +155,9 @@ Based on profiling results, you can:
 
 ## Best Practices
 
-1. **Profile short runs**: Use 5-10 epochs max to keep trace files manageable.
+1. **Profile short runs**: Use 11-15 epochs max to keep trace files manageable (minimum 11 with defaults).
 2. **Disable diagnostics**: Set `diagnostics_freq_epochs: 0` during profiling runs.
-3. **Skip warmup**: Set `wait: 1` to skip the first epoch (torch.compile warmup).
+3. **Skip warmup**: Set `wait: 3` to skip the first few epochs (torch.compile and model warmup).
 4. **Start simple**: Begin with `with_stack: false` to minimize overhead.
 5. **Profile on target hardware**: Profile on the same GPU type you'll use for full training.
 
@@ -180,7 +184,7 @@ Based on profiling results, you can:
 
 1. Run a short profiling session:
    ```bash
-   python latent.py profile_test --training.epochs 10 --profiling.active 2
+   python latent.py profile_test --training.epochs 11 --profiling.wait 3 --profiling.active 3
    ```
 
 2. Load trace in Chrome at `chrome://tracing`

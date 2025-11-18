@@ -62,7 +62,7 @@ training:
 # Optional: Enable PyTorch profiler to generate Chrome trace files for performance analysis
 # Uncomment the following section to enable profiling:
 # profiling:
-#   wait: 1        # Skip first epoch (warmup for model compilation)
+#   wait: 3        # Skip first 3 epochs (warmup for model compilation)
 #   warmup: 1      # Warmup profiler for 1 epoch
 #   active: 3      # Actively profile for 3 epochs
 #   repeat: 1      # Do this cycle once
