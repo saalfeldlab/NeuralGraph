@@ -149,12 +149,14 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
 
     This creates a single plot showing variance across neurons, colored by cell type,
     with text labels at the centroid of each cell type's points.
+    Each point represents a neuron.
     """
     fig, ax = plt.subplots(1, 1, figsize=(14, 10))
 
-    var_trace = np.var(true_trace, axis=1)  # variance across neurons (axis=1)
+    # Compute variance across time for each neuron (axis=0 -> one value per neuron)
+    var_trace = np.var(true_trace, axis=0)
     err = recon_trace - true_trace
-    var_err = np.var(err, axis=1)
+    var_err = np.var(err, axis=0)
 
     # Create colormap with enough distinct colors for all cell types (65 types)
     num_types = len(neuron_data.TYPE_NAMES)
