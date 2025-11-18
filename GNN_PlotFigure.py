@@ -34,6 +34,7 @@ from NeuralGraph.models.utils import (
     get_index_particles,
     analyze_odor_responses_by_neuron,
     plot_odor_heatmaps,
+    check_dales_law,
 )
 from NeuralGraph.models.plot_utils import (
     analyze_mlp_edge_lines,
@@ -81,10 +82,10 @@ import matplotlib.ticker as ticker
 import shutil
 
 # Optional dependency
-# try:
-#     from pysr import PySRRegressor
-# except (ImportError, subprocess.CalledProcessError):
-#     PySRRegressor = None
+try:
+    from pysr import PySRRegressor
+except (ImportError, subprocess.CalledProcessError):
+    PySRRegressor = None
 
 
 def get_training_files(log_dir, n_runs):
@@ -1373,8 +1374,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
-            logger.info(f'R^2$: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
+            print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+            logger.info(f'R²: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
             second_correction = lin_fit[0]
             print(f'second_correction: {second_correction:0.2f}')
@@ -1709,7 +1710,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
-                    print(f'field R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    print(f'field R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
 
             if 'PDE_N6' in model_config.signal_model_name:
 
@@ -2570,7 +2571,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
-                    print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
                     slope_list.append(lin_fit[0])
 
                     fig, ax = fig_init()
@@ -2606,7 +2607,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 ss_res = np.sum(residuals ** 2)
                 ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot)
-                print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
 
             if model_config.embedding_dim == 4:
                 for k in range(n_neuron_types):
@@ -2800,8 +2801,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
-            logger.info(f'R^2$: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
+            print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+            logger.info(f'R²: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
             second_correction = lin_fit[0]
             print(f'second_correction: {second_correction:0.2f}')
@@ -4410,7 +4411,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
-                    print(f'field R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    print(f'field R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
 
             # if 'PDE_N6' in model_config.signal_model_name:
             #
@@ -5184,6 +5185,16 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
             # Plot 4: Weight comparison using model.W and gt_weights
+            # Check Dale's Law for learned weights
+            dale_results = check_dales_law(
+                edges=edges,
+                weights=model.W,
+                type_list=type_list,
+                n_neurons=n_neurons,
+                verbose=False,
+                logger=None
+            )
+
             fig = plt.figure(figsize=(10, 9))
             learned_weights = to_numpy(model.W.squeeze())
             true_weights = to_numpy(gt_weights)
@@ -5195,6 +5206,17 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             r_squared = 1 - (ss_res / ss_tot)
             plt.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
+
+            # Add Dale's Law statistics
+            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
+                     verticalalignment='bottom', fontsize=10)
+
             plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
             plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}$', fontsize=48)
             plt.xticks(fontsize = 24)
@@ -5378,6 +5400,17 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.text(0.05, 0.95,
                      f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
+
+            # Add Dale's Law statistics (reusing dale_results from earlier)
+            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
+                     verticalalignment='bottom', fontsize=10)
+
             plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
             # plt.ylabel(r'learned -$\widehat{\mathbf{W}}_{ij} \, g_i r_j \, \widehat{\tau}_i$', fontsize=48)
             plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}^*$', fontsize=48)
@@ -5400,6 +5433,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
             else:
                 print('outliers: 0  (no outliers detected)')
+
+            # Print Dale's Law check results
+            print(f"Dale's law check:")
+            print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
+            print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
+            print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} (\033[92m{100*dale_results['n_mixed']/n_neurons:.1f}%\033[0m)")
+            logger.info(f"Dale's Law - Excitatory: {dale_results['n_excitatory']}, Inhibitory: {dale_results['n_inhibitory']}, Mixed/Violations: {dale_results['n_mixed']}")
 
 
 
@@ -8527,7 +8567,9 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_24']
 
-    config_list = ['fly_N9_62_20']
+    config_list = ['fly_N9_62_22_10']
+    
+    # config_list = ['signal_N11_2_1_2']             
 
     # config_list = ['signal_N11_2_1_2']
 

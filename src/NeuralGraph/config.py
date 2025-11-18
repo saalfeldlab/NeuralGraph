@@ -337,7 +337,9 @@ class TrainingConfig(BaseModel):
     coeff_W_L1: float = 0.0
     coeff_W_L1_rate: float = 0.5
     coeff_W_L1_ghost: float = 0
+    coeff_W_L2: float = 0.0
     coeff_W_sign: float = 0
+    W_sign_temperature: float = 10.0
 
     coeff_lin_phi_zero: float = 1
     coeff_entropy_loss: float = 0

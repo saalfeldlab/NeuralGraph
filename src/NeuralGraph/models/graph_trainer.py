@@ -453,6 +453,7 @@ def data_train_signal(config, erase, best_model, device):
             if track_components:
                 regul_tracker = {
                     'W_L1': 0,
+                    'W_L2': 0,
                     'edge_grad': 0,
                     'phi_grad': 0,
                     'edge_diff': 0,
@@ -547,6 +548,11 @@ def data_train_signal(config, erase, best_model, device):
                         regul_term = model_W[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons].norm(1) * coeff_W_L1
                         loss = loss + regul_term
                         track_regul(regul_term, 'W_L1')
+                    # regularisation L2 on Wij
+                    if coeff_W_L2 > 0:
+                        regul_term = model_W[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons].norm(2) * coeff_W_L2
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_L2')
                     # regularisation lin_edge
                     in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device)
                     if coeff_edge_diff > 0:
@@ -1088,6 +1094,7 @@ def data_train_flyvis(config, erase, best_model, device):
     time_step = train_config.time_step
 
     coeff_W_sign = train_config.coeff_W_sign
+    W_sign_temperature = train_config.W_sign_temperature
     coeff_update_msg_diff = train_config.coeff_update_msg_diff
     coeff_update_u_diff = train_config.coeff_update_u_diff
     coeff_edge_norm = train_config.coeff_edge_norm
@@ -1254,7 +1261,10 @@ def data_train_flyvis(config, erase, best_model, device):
     if coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
-            index_weight.append(torch.argwhere(model.mask[:, i] > 0).squeeze())
+            # Get source neurons that connect to neuron i
+            mask = edges[1] == i
+            index_weight.append(edges[0][mask])
+
     coeff_W_L1 = train_config.coeff_W_L1
     coeff_edge_diff = train_config.coeff_edge_diff
     coeff_update_diff = train_config.coeff_update_diff
@@ -1307,6 +1317,7 @@ def data_train_flyvis(config, erase, best_model, device):
         coeff_edge_weight_L1= train_config.coeff_edge_weight_L1 * (1 - np.exp(-train_config.coeff_edge_weight_L1_rate**epoch))
         coeff_phi_weight_L1 = train_config.coeff_phi_weight_L1 * (1 - np.exp(-train_config.coeff_phi_weight_L1_rate*epoch))
         coeff_W_L1 = train_config.coeff_W_L1 * (1 - np.exp(-train_config.coeff_W_L1_rate * epoch))
+        coeff_W_L2 = train_config.coeff_W_L2
 
 
 
@@ -1365,9 +1376,11 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 track_components = ((N % plot_frequency == 0) | (N == 0))
                 regul_total_this_iter = 0
+
                 if track_components:
                     regul_tracker = {
                         'W_L1': 0,
+                        'W_L2': 0,
                         'edge_grad': 0,
                         'phi_grad': 0,
                         'edge_diff': 0,
@@ -1393,6 +1406,11 @@ def data_train_flyvis(config, erase, best_model, device):
                         regul_term = model.W.norm(1) * coeff_W_L1
                         loss = loss + regul_term
                         track_regul(regul_term, 'W_L1')
+                    # regularisation L2 on Wij
+                    if coeff_W_L2>0:
+                        regul_term = model.W.norm(2) * coeff_W_L2
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_L2')
                     # regularisation sparsity on weights of model.lin_edge
                     if (coeff_edge_weight_L1+coeff_edge_weight_L2)>0:
                         for param in model.lin_edge.parameters():
@@ -1467,18 +1485,40 @@ def data_train_flyvis(config, erase, best_model, device):
                         loss = loss + regul_term
                         track_regul(regul_term, 'phi_grad')
 
-                    # # regularisation sign Wij
-                    # if (coeff_W_sign > 0) and (N%4 == 0):
-                    #     W_sign = torch.tanh(5 * model_W)
-                    #     loss_contribs = []
-                    #     for i in range(n_neurons):
-                    #         indices = index_weight[int(i)]
-                    #         if indices.numel() > 0:
-                    #             values = W_sign[indices,i]
-                    #             std = torch.std(values, unbiased=False)
-                    #             loss_contribs.append(std)
-                    #     if loss_contribs:
-                    #         loss = loss + torch.stack(loss_contribs).norm(2) * coeff_W_sign
+                    # regularisation sign Wij (Dale's Law: all outgoing weights should have same sign)
+                    if (coeff_W_sign > 0) & (epoch==1):
+                        # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
+                        # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
+
+                        # model.W has shape [n_edges, 1] - squeeze to [n_edges]
+                        weights = model.W.squeeze()
+
+                        # Get source neurons for each edge (Dale's Law applies to outgoing connections)
+                        source_neurons = edges[0]
+
+                        # Use smooth sigmoid approximation instead of hard threshold for differentiability
+                        # sigmoid(k*w) ≈ 1 for w >> 0, ≈ 0 for w << 0, with smooth gradients
+                        n_pos = torch.zeros(n_neurons, device=device)
+                        n_neg = torch.zeros(n_neurons, device=device)
+                        n_total = torch.zeros(n_neurons, device=device)
+
+                        pos_mask = torch.sigmoid(W_sign_temperature * weights)
+                        neg_mask = torch.sigmoid(-W_sign_temperature * weights)
+
+                        n_pos.scatter_add_(0, source_neurons, pos_mask)
+                        n_neg.scatter_add_(0, source_neurons, neg_mask)
+                        n_total.scatter_add_(0, source_neurons, torch.ones_like(weights))
+
+                        # Compute violation for each neuron: (n_pos/n_total) * (n_neg/n_total)
+                        # Avoid division by zero for neurons with no outgoing edges
+                        violation = torch.where(n_total > 0,
+                                               (n_pos / n_total) * (n_neg / n_total),
+                                               torch.zeros_like(n_total))
+
+                        loss_W_sign = violation.sum()
+                        regul_term = loss_W_sign * coeff_W_sign
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_sign')
 
                     if recurrent_training:
                         y = torch.tensor(x_list[run][k + time_step,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
@@ -1517,6 +1557,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                         ids_index += x.shape[0]
                         mask_index += edges_all.shape[1]
+
 
             if not (dataset_batch == []):
 
@@ -1742,8 +1783,9 @@ def data_train_flyvis(config, erase, best_model, device):
 
                                     # RMSE for this frame
                                     error_list.append(np.sqrt(((pred_vec * correction - gt_vec) ** 2).mean()))
+                    
                     if (not(test_neural_field)) & (not('MLP' in signal_model_name)):
-                        plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
+                        plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, edges, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
                     torch.save(
                         {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
                         os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
@@ -2178,7 +2220,9 @@ def data_train_zebra(config, erase, best_model, device):
     if coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
-            index_weight.append(torch.argwhere(model.mask[:, i] > 0).squeeze())
+            # Get source neurons that connect to neuron i
+            mask = edges[1] == i
+            index_weight.append(edges[0][mask])
 
     coeff_W_L1 = train_config.coeff_W_L1
     coeff_edge_diff = train_config.coeff_edge_diff
@@ -4331,7 +4375,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         visual_input_slice = visual_input_true[selected_neuron_ids, start_frame:end_frame]
         pred_slice = activity_pred[start_frame:end_frame]
 
-        rmse_all, pearson_all, feve_all = compute_trace_metrics(true_slice, pred_slice, "selected neurons")
+        rmse_all, pearson_all, feve_all, r2_all = compute_trace_metrics(true_slice, pred_slice, "selected neurons")
 
         if len(selected_neuron_ids)==1:
             pred_slice = pred_slice[None,:]
@@ -4374,10 +4418,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
             for plot_idx, i in enumerate(neuron_plot_indices):
                 type_idx = int(to_numpy(x[selected_neuron_ids[i], 6]).item())
-                # Color code FEVE: red if <0.5, orange if <0.8, white otherwise
-                feve_color = 'red' if feve_all[i] < 0.5 else ('orange' if feve_all[i] < 0.8 else 'white')
-                ax.text(-50, plot_idx * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=feve_color)
-                ax.text(end_frame - start_frame + 20, plot_idx * step_v, f'FEVE: {feve_all[i]:.2f}', fontsize=10, va='center', ha='left', color=feve_color)
+                # Color code R²: red if <0.5, orange if <0.8, white otherwise
+                r2_color = 'red' if r2_all[i] < 0.5 else ('orange' if r2_all[i] < 0.8 else 'white')
+                ax.text(-50, plot_idx * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=r2_color)
+                ax.text(end_frame - start_frame + 20, plot_idx * step_v, f'$R^2$: {r2_all[i]:.2f}', fontsize=10, va='center', ha='left', color=r2_color)
                 if len(neuron_plot_indices) <= 20:
                     ax.text(-50, plot_idx * step_v - 0.3, f'{selected_neuron_ids[i]}',
                             fontsize=12, va='top', ha='right', color='black')
@@ -4402,13 +4446,13 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     else:
 
-        rmse_all, pearson_all, feve_all = compute_trace_metrics(activity_true, activity_pred, "all neurons")
+        rmse_all, pearson_all, feve_all, r2_all = compute_trace_metrics(activity_true, activity_pred, "all neurons")
 
         filename_ = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
 
         # Create two figures with different neuron type selections
         for fig_name, selected_types in [
-            ("selected", [55, 50, 43, 39, 35, 31, 23, 19, 12, 5]),  # L1, Mi1, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
+            ("selected", [55, 15, 43, 39, 35, 31, 23, 19, 12, 5]),  # L1, Mi12, Mi2, R1, T1, T4a, T5a, Tm1, Tm4, Tm9
             ("all", np.arange(0, n_neuron_types))
         ]:
             neuron_indices = []
@@ -4441,10 +4485,10 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
             for i in range(len(neuron_indices)):
                 type_idx = selected_types[i]
-                # Color code FEVE: red if <0.5, orange if <0.8, white otherwise
-                feve_color = 'red' if feve_all[neuron_indices[i]] < 0.5 else ('orange' if feve_all[neuron_indices[i]] < 0.8 else 'white')
-                ax.text(-50, i * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=feve_color)
-                ax.text(end_frame - start_frame + 20, i * step_v, f'FEVE: {feve_all[neuron_indices[i]]:.2f}', fontsize=10, va='center', ha='left', color=feve_color)
+                # Color code R²: red if <0.5, orange if <0.8, white otherwise
+                r2_color = 'red' if r2_all[neuron_indices[i]] < 0.5 else ('orange' if r2_all[neuron_indices[i]] < 0.8 else 'white')
+                ax.text(-50, i * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=r2_color)
+                ax.text(end_frame - start_frame + 20, i * step_v, f'$R^2$: {r2_all[neuron_indices[i]]:.2f}', fontsize=10, va='center', ha='left', color=r2_color)
 
             ax.set_ylim([-step_v, len(neuron_indices) * (step_v + 0.25 + 0.15 * (len(neuron_indices)//50))])
             ax.set_yticks([])

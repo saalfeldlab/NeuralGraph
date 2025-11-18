@@ -192,7 +192,7 @@ def get_in_features(rr=None, embedding=None, model=[], model_name = [], max_radi
     return in_features
 
 def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list,
-                         gt_weights, n_neurons=None, n_neuron_types=None):
+                         gt_weights, edges, n_neurons=None, n_neuron_types=None):
     signal_model_name = config.graph_model.signal_model_name
 
     if n_neurons is None:
@@ -224,13 +224,35 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     # print(f'R^2$: {np.round(r_squared, 3)}  slope: {np.round(lin_fit[0], 2)}')
 
 
+    # Check Dale's Law for learned weights
+    dale_results = check_dales_law(
+        edges=edges,
+        weights=model.W,
+        type_list=type_list,
+        n_neurons=n_neurons,
+        verbose=False,
+        logger=None
+    )
+
     # Plot 2: Weight comparison scatter plot
     plt.figure(figsize=(8, 8))
 
     plt.scatter(to_numpy(gt_weights), to_numpy(model.W.squeeze()), s=0.1, c='k', alpha=0.01)
     plt.xlabel(r'true $W_{ij}$', fontsize=18)
     plt.ylabel(r'learned $W_{ij}$', fontsize=18)
-    plt.text(-0.9, 4.5, f'R^2: {np.round(r_squared, 3)}\nslope: {np.round(lin_fit[0], 2)}', fontsize=12)
+
+    # Add R² and slope
+    plt.text(-0.9, 4.5, f'$R^2$: {np.round(r_squared, 3)}\nslope: {np.round(lin_fit[0], 2)}', fontsize=12)
+
+    # Add Dale's Law statistics
+    dale_text = (f"Excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+                 f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+                 f"Inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+                 f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+                 f"Mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+                 f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+    plt.text(-0.9, -4.5, dale_text, fontsize=8, verticalalignment='bottom')
+
     plt.xlim([-1, 5])
     plt.ylim([-5, 5])
     plt.tight_layout()
@@ -1571,3 +1593,154 @@ def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', y
     plt.savefig(output_path, dpi=150)
     plt.close()
     return slope, r_squared
+
+
+def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True, logger=None):
+    """
+    Check if synaptic weights satisfy Dale's Law.
+
+    Dale's Law: Each neuron releases the same neurotransmitter at all synapses.
+    This means all outgoing weights from a neuron should have the same sign.
+
+    Parameters:
+    -----------
+    edges : torch.Tensor
+        Edge index tensor of shape [2, n_edges] where edges[0] are source neurons
+    weights : torch.Tensor
+        Weight tensor of shape [n_edges] or [n_edges, 1]
+    type_list : torch.Tensor, optional
+        Neuron type indices of shape [n_neurons] or [n_neurons, 1]
+    n_neurons : int, optional
+        Total number of neurons (inferred from edges if not provided)
+    verbose : bool, default=True
+        If True, print detailed statistics
+    logger : logging.Logger, optional
+        Logger for recording results
+
+    Returns:
+    --------
+    dict with keys:
+        - 'n_excitatory': Number of purely excitatory neurons (all W>0)
+        - 'n_inhibitory': Number of purely inhibitory neurons (all W<0)
+        - 'n_mixed': Number of mixed neurons (violates Dale's Law)
+        - 'n_violations': Number of Dale's Law violations
+        - 'violations': List of dicts with violation details
+        - 'neuron_signs': Dict mapping neuron_idx to sign (1=excitatory, -1=inhibitory, 0=mixed)
+    """
+    # Neuron type name mapping (from FlyVis connectome)
+    index_to_name = {
+        0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)',
+        5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
+        10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi15', 14: 'Mi4',
+        15: 'Mi9', 16: 'T1', 17: 'T2', 18: 'T2a', 19: 'T3',
+        20: 'T4a', 21: 'T4b', 22: 'T4c', 23: 'T4d', 24: 'T5a',
+        25: 'T5b', 26: 'T5c', 27: 'T5d', 28: 'Tm1', 29: 'Tm2',
+        30: 'Tm3', 31: 'Tm4', 32: 'Tm9', 33: 'TmY10', 34: 'TmY13',
+        35: 'TmY14', 36: 'TmY15', 37: 'TmY18', 38: 'TmY3',
+        39: 'TmY4', 40: 'TmY5a', 41: 'TmY9'
+    }
+
+    # Flatten weights if needed
+    if weights.dim() > 1:
+        weights = weights.squeeze()
+
+    # Infer n_neurons if not provided
+    if n_neurons is None:
+        n_neurons = int(edges.max().item()) + 1
+
+    # Check Dale's Law for each neuron
+    dale_violations = []
+    neuron_signs = {}
+
+    for neuron_idx in range(n_neurons):
+        # Find all outgoing edges from this neuron
+        outgoing_mask = edges[0, :] == neuron_idx
+        outgoing_weights = weights[outgoing_mask]
+
+        if len(outgoing_weights) > 0:
+            n_positive = (outgoing_weights > 0).sum().item()
+            n_negative = (outgoing_weights < 0).sum().item()
+            n_zero = (outgoing_weights == 0).sum().item()
+
+            # Dale's Law: all non-zero weights should have same sign
+            if n_positive > 0 and n_negative > 0:
+                violation_info = {
+                    'neuron': neuron_idx,
+                    'n_positive': n_positive,
+                    'n_negative': n_negative,
+                    'n_zero': n_zero
+                }
+
+                # Add type information if available
+                if type_list is not None:
+                    type_id = type_list[neuron_idx].item()
+                    type_name = index_to_name.get(type_id, f'Unknown_{type_id}')
+                    violation_info['type_id'] = type_id
+                    violation_info['type_name'] = type_name
+
+                dale_violations.append(violation_info)
+                neuron_signs[neuron_idx] = 0  # Mixed
+            elif n_positive > 0:
+                neuron_signs[neuron_idx] = 1  # Excitatory
+            elif n_negative > 0:
+                neuron_signs[neuron_idx] = -1  # Inhibitory
+            else:
+                neuron_signs[neuron_idx] = 0  # All zero
+
+    # Compute statistics
+    n_excitatory = sum(1 for s in neuron_signs.values() if s == 1)
+    n_inhibitory = sum(1 for s in neuron_signs.values() if s == -1)
+    n_mixed = sum(1 for s in neuron_signs.values() if s == 0)
+
+    # Print results if verbose
+    if verbose:
+        print("\n=== Dale's Law Check ===")
+        print(f"Total neurons: {n_neurons}")
+        print(f"Excitatory neurons (all W>0): {n_excitatory} ({100*n_excitatory/n_neurons:.1f}%)")
+        print(f"Inhibitory neurons (all W<0): {n_inhibitory} ({100*n_inhibitory/n_neurons:.1f}%)")
+        print(f"Mixed/zero neurons (violates Dale's Law): {n_mixed} ({100*n_mixed/n_neurons:.1f}%)")
+        print(f"Dale's Law violations: {len(dale_violations)}")
+
+        if logger:
+            logger.info("=== Dale's Law Check ===")
+            logger.info(f"Total neurons: {n_neurons}")
+            logger.info(f"Excitatory: {n_excitatory} ({100*n_excitatory/n_neurons:.1f}%)")
+            logger.info(f"Inhibitory: {n_inhibitory} ({100*n_inhibitory/n_neurons:.1f}%)")
+            logger.info(f"Violations: {len(dale_violations)}")
+
+        if len(dale_violations) > 0:
+            print(f"\nFirst 10 violations:")
+            for i, v in enumerate(dale_violations[:10]):
+                if 'type_name' in v:
+                    print(f"  Neuron {v['neuron']} ({v['type_name']}): "
+                          f"{v['n_positive']} positive, {v['n_negative']} negative, {v['n_zero']} zero weights")
+                    if logger:
+                        logger.info(f"  Neuron {v['neuron']} ({v['type_name']}): "
+                                    f"{v['n_positive']} positive, {v['n_negative']} negative")
+                else:
+                    print(f"  Neuron {v['neuron']}: "
+                          f"{v['n_positive']} positive, {v['n_negative']} negative, {v['n_zero']} zero weights")
+
+            # Group violations by neuron type if available
+            if type_list is not None and any('type_name' in v for v in dale_violations):
+                type_violations = Counter([v['type_name'] for v in dale_violations if 'type_name' in v])
+                print(f"\nViolations by neuron type:")
+                for type_name, count in sorted(type_violations.items(), key=lambda x: x[1], reverse=True):
+                    print(f"  {type_name}: {count} violations")
+                    if logger:
+                        logger.info(f"  {type_name}: {count} violations")
+        else:
+            print("✓ Weights perfectly satisfy Dale's Law!")
+            if logger:
+                logger.info("✓ Weights perfectly satisfy Dale's Law!")
+
+        print("=" * 60 + "\n")
+
+    return {
+        'n_excitatory': n_excitatory,
+        'n_inhibitory': n_inhibitory,
+        'n_mixed': n_mixed,
+        'n_violations': len(dale_violations),
+        'violations': dale_violations,
+        'neuron_signs': neuron_signs
+    }
