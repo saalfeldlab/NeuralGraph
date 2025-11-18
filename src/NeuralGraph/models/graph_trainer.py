@@ -389,6 +389,7 @@ def data_train_signal(config, erase, best_model, device):
     coeff_edge_norm = train_config.coeff_edge_norm
     coeff_update_msg_sign = train_config.coeff_update_msg_sign
     coeff_W_L1 = train_config.coeff_W_L1
+    coeff_W_L2 = train_config.coeff_W_L2
     coeff_edge_diff = train_config.coeff_edge_diff
     coeff_update_diff = train_config.coeff_update_diff
 
@@ -1183,6 +1184,14 @@ def data_train_flyvis(config, erase, best_model, device):
     else:
         model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
 
+    # Move model to device before loading state dict
+    model = model.to(device)
+    print(f'Model moved to device: {device}')
+
+    # Debug: Check device of model parameters
+    sample_param = next(model.parameters())
+    print(f'Sample parameter device: {sample_param.device}')
+
     # Count parameters
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
@@ -1192,19 +1201,28 @@ def data_train_flyvis(config, erase, best_model, device):
     list_loss = []
     if (best_model != None) & (best_model != '') & (best_model != '') & (best_model != 'None'):
         net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
-        print(f'load {net} ...')
+        print(f'Loading state_dict from {net} ...')
         state_dict = torch.load(net, map_location=device)
         model.load_state_dict(state_dict['model_state_dict'])
         start_epoch = int(best_model.split('_')[0])
-        print(f'best_model: {best_model}  start_epoch: {start_epoch}')
+        print(f'State_dict loaded: best_model={best_model}, start_epoch={start_epoch}')
         logger.info(f'best_model: {best_model}  start_epoch: {start_epoch}')
+        # Debug: Check device after loading
+        sample_param = next(model.parameters())
+        print(f'After loading state_dict, sample parameter device: {sample_param.device}')
         # list_loss = torch.load(f"{log_dir}/loss.pt")
     elif  train_config.pretrained_model !='':
         net = train_config.pretrained_model
-        print(f'load pretrained {net} ...')
+        print(f'Loading pretrained state_dict from {net} ...')
         state_dict = torch.load(net, map_location=device)
         model.load_state_dict(state_dict['model_state_dict'])
+        print('Pretrained state_dict loaded')
         logger.info(f'pretrained: {net}')
+        # Debug: Check device after loading
+        sample_param = next(model.parameters())
+        print(f'After loading pretrained state_dict, sample parameter device: {sample_param.device}')
+    else:
+        print('No state_dict loaded - using freshly initialized model')
 
     lr = train_config.learning_rate_start
     if train_config.learning_rate_update_start == 0:
@@ -1221,8 +1239,21 @@ def data_train_flyvis(config, erase, best_model, device):
     logger.info(
         f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
 
+    # Debug: Check all parameter devices before creating optimizer
+    print('checking all model parameter devices before optimizer creation:')
+    param_devices = set()
+    for name, param in model.named_parameters():
+        param_devices.add(str(param.device))
+    print(f'unique parameter devices: {param_devices}')
+    if len(param_devices) > 1:
+        print('warning: model has parameters on different devices!')
+        for name, param in model.named_parameters():
+            if str(param.device) != str(device):
+                print(f'  {name}: {param.device} (expected {device})')
+
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    print('Optimizer created successfully')
     model.train()
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
@@ -1257,7 +1288,6 @@ def data_train_flyvis(config, erase, best_model, device):
     # print("cumulative:", cumulative_by_hop)
     # print("total excl target:", total_excl_target)
 
-
     if coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
@@ -1283,14 +1313,14 @@ def data_train_flyvis(config, erase, best_model, device):
         'loss': [],
         'regul_total': [],
         'W_L1': [],
+        'W_L2': [],
+        'W_sign': [],
         'edge_grad': [],
         'phi_grad': [],
         'edge_diff': [],
-        'phi_zero': [],
         'edge_norm': [],
         'edge_weight': [],
-        'phi_weight': [],
-        'W_sign': []
+        'phi_weight': []
     }
 
     time.sleep(0.2)
@@ -1347,7 +1377,7 @@ def data_train_flyvis(config, erase, best_model, device):
             else:
                 # use all neurons
                 edges = edges_all.clone().detach()
-                mask = torch.arange(edges_all.shape[1])
+                mask = torch.arange(edges_all.shape[1], device=device)
                 ids = np.arange(n_neurons)
 
 
@@ -1381,14 +1411,14 @@ def data_train_flyvis(config, erase, best_model, device):
                     regul_tracker = {
                         'W_L1': 0,
                         'W_L2': 0,
+                        'W_sign': 0,
                         'edge_grad': 0,
                         'phi_grad': 0,
                         'edge_diff': 0,
                         'phi_zero': 0,
                         'edge_norm': 0,
                         'edge_weight': 0,
-                        'phi_weight': 0,
-                        'W_sign': 0
+                        'phi_weight': 0
                     }
 
                 def track_regul(regul_term, component_name):
@@ -1664,8 +1694,8 @@ def data_train_flyvis(config, erase, best_model, device):
                     current_loss = loss.item()
                     loss_components['loss'].append((current_loss - regul_total_this_iter) / n_neurons)
                     loss_components['regul_total'].append(regul_total_this_iter / n_neurons)
-                    for key in ['W_L1', 'edge_grad', 'phi_grad', 'edge_diff', 'phi_zero',
-                                'edge_norm', 'edge_weight', 'phi_weight', 'W_sign']:
+                    for key in ['W_L1', 'W_L2', 'W_sign', 'edge_grad', 'phi_grad', 'edge_diff',
+                                'edge_norm', 'edge_weight', 'phi_weight']:
                         loss_components[key].append(regul_tracker[key] / n_neurons)
 
                     # Pass per-neuron normalized values to debug (to match dictionary values)
@@ -2217,12 +2247,12 @@ def data_train_zebra(config, erase, best_model, device):
 
     # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
 
-    if coeff_W_sign > 0:
-        index_weight = []
-        for i in range(n_neurons):
-            # Get source neurons that connect to neuron i
-            mask = edges[1] == i
-            index_weight.append(edges[0][mask])
+    # if coeff_W_sign > 0:
+    #     index_weight = []
+    #     for i in range(n_neurons):
+    #         # Get source neurons that connect to neuron i
+    #         mask = edges[1] == i
+    #         index_weight.append(edges[0][mask])
 
     coeff_W_L1 = train_config.coeff_W_L1
     coeff_edge_diff = train_config.coeff_edge_diff
@@ -3495,7 +3525,28 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         else:
             longest_run_start, longest_run_length = 0, 0
 
-        # Write results to log file
+        # Write results to rollout log file
+        rollout_log_path = f"./{log_dir}/results_rollout.log"
+        with open(rollout_log_path, 'w') as f:
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+            f.write(f"Rollout R² Metrics - {timestamp}\n")
+            f.write("="*60 + "\n\n")
+
+            f.write(f"R² Mean: {r2_mean:.4f}\n")
+            f.write(f"R² Std: {r2_std:.4f}\n")
+            f.write(f"R² Median: {r2_median:.4f}\n")
+            f.write(f"R² Min: {r2_min:.4f}\n")
+            f.write(f"R² Max: {r2_max:.4f}\n\n")
+
+            f.write(f"Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)\n")
+            if high_r2_runs:
+                f.write(f"Longest high-R² run: {longest_run_length} frames\n")
+
+            f.write(f"\nTotal frames analyzed: {len(R2_array)}\n")
+
+        # Also write results to main log file
         log_file_path = f"./{log_dir}/results.log"
         with open(log_file_path, 'a') as f:
             from datetime import datetime
@@ -3734,7 +3785,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     from NeuralGraph.generators.utils import get_equidistant_points
     xc, yc = get_equidistant_points(n_points=n_neurons - x_coords.shape[0])
     pos = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
-    X1 = torch.cat((X1, pos[torch.randperm(pos.size(0))]), dim=0)
+    X1 = torch.cat((X1, pos[torch.randperm(pos.size(0), device=device)]), dim=0)
 
     state = net.steady_state(t_pre=2.0, dt=delta_t, batch_size=1)
     initial_state = state.nodes.activity.squeeze()
@@ -3746,7 +3797,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
     x = torch.zeros(n_neurons, 9, dtype=torch.float32, device=device)
     x[:, 1:3] = X1
-    x[:, 0] = torch.arange(n_neurons, dtype=torch.float32)
+    x[:, 0] = torch.arange(n_neurons, dtype=torch.float32, device=device)
     x[:, 3] = initial_state
     x[:, 4] = net.stimulus().squeeze()
     x[:, 5] = torch.tensor(grouped_types, dtype=torch.float32, device=device)
@@ -3760,7 +3811,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         selected_neuron_ids = np.array(selected_neuron_ids).astype(int)
         print(f'testing single neuron id {selected_neuron_ids} ...')
         x_selected[:, 1:3] = X1[selected_neuron_ids,:]
-        x_selected[:, 0] = torch.arange(1, dtype=torch.float32)
+        x_selected[:, 0] = torch.arange(1, dtype=torch.float32, device=device)
         x_selected[:, 3] = initial_state[selected_neuron_ids]
         x_selected[:, 4] = net.stimulus().squeeze()[selected_neuron_ids]
         x_selected[:, 5] = torch.tensor(grouped_types[selected_neuron_ids], dtype=torch.float32, device=device)
@@ -3835,7 +3886,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     tile_seed = simulation_config.seed
 
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
-    mask = torch.arange(edges.shape[1])
+    mask = torch.arange(edges.shape[1], device=device)
 
     if ('test_ablation' in test_mode) & (not('MLP' in signal_model_name)) & (not('RNN' in signal_model_name)) & (not('LSTM' in signal_model_name)):
         #  test_mode="test_ablation_100"
@@ -4377,6 +4428,17 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
 
         rmse_all, pearson_all, feve_all, r2_all = compute_trace_metrics(true_slice, pred_slice, "selected neurons")
 
+        # Log rollout metrics to file
+        rollout_log_path = f"./{log_dir}/results_rollout.log"
+        with open(rollout_log_path, 'w') as f:
+            f.write("Rollout Metrics for Selected Neurons\n")
+            f.write("="*60 + "\n")
+            f.write(f"RMSE: {np.mean(rmse_all):.4f} ± {np.std(rmse_all):.4f} [{np.min(rmse_all):.4f}, {np.max(rmse_all):.4f}]\n")
+            f.write(f"Pearson r: {np.nanmean(pearson_all):.3f} ± {np.nanstd(pearson_all):.3f} [{np.nanmin(pearson_all):.3f}, {np.nanmax(pearson_all):.3f}]\n")
+            f.write(f"R²: {np.nanmean(r2_all):.3f} ± {np.nanstd(r2_all):.3f} [{np.nanmin(r2_all):.3f}, {np.nanmax(r2_all):.3f}]\n")
+            f.write(f"FEVE: {np.mean(feve_all):.3f} ± {np.std(feve_all):.3f} [{np.min(feve_all):.3f}, {np.max(feve_all):.3f}]\n")
+            f.write(f"\nNumber of neurons evaluated: {len(selected_neuron_ids)}\n")
+
         if len(selected_neuron_ids)==1:
             pred_slice = pred_slice[None,:]
 
@@ -4447,6 +4509,18 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     else:
 
         rmse_all, pearson_all, feve_all, r2_all = compute_trace_metrics(activity_true, activity_pred, "all neurons")
+
+        # Log rollout metrics to file
+        rollout_log_path = f"./{log_dir}/results_rollout.log"
+        with open(rollout_log_path, 'w') as f:
+            f.write("Rollout Metrics for All Neurons\n")
+            f.write("="*60 + "\n")
+            f.write(f"RMSE: {np.mean(rmse_all):.4f} ± {np.std(rmse_all):.4f} [{np.min(rmse_all):.4f}, {np.max(rmse_all):.4f}]\n")
+            f.write(f"Pearson r: {np.nanmean(pearson_all):.3f} ± {np.nanstd(pearson_all):.3f} [{np.nanmin(pearson_all):.3f}, {np.nanmax(pearson_all):.3f}]\n")
+            f.write(f"R²: {np.nanmean(r2_all):.3f} ± {np.nanstd(r2_all):.3f} [{np.nanmin(r2_all):.3f}, {np.nanmax(r2_all):.3f}]\n")
+            f.write(f"FEVE: {np.mean(feve_all):.3f} ± {np.std(feve_all):.3f} [{np.min(feve_all):.3f}, {np.max(feve_all):.3f}]\n")
+            f.write(f"\nNumber of neurons evaluated: {len(activity_true)}\n")
+            f.write(f"Frames evaluated: {start_frame} to {end_frame}\n")
 
         filename_ = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
 

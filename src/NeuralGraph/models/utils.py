@@ -1709,7 +1709,7 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
             logger.info(f"Violations: {len(dale_violations)}")
 
         if len(dale_violations) > 0:
-            print(f"\nFirst 10 violations:")
+            print("\nFirst 10 violations:")
             for i, v in enumerate(dale_violations[:10]):
                 if 'type_name' in v:
                     print(f"  Neuron {v['neuron']} ({v['type_name']}): "
@@ -1724,7 +1724,7 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
             # Group violations by neuron type if available
             if type_list is not None and any('type_name' in v for v in dale_violations):
                 type_violations = Counter([v['type_name'] for v in dale_violations if 'type_name' in v])
-                print(f"\nViolations by neuron type:")
+                print("\nViolations by neuron type:")
                 for type_name, count in sorted(type_violations.items(), key=lambda x: x[1], reverse=True):
                     print(f"  {type_name}: {count} violations")
                     if logger:

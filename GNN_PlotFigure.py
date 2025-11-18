@@ -5436,7 +5436,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 print('outliers: 0  (no outliers detected)')
 
             # Print Dale's Law check results
-            print(f"Dale's law check:")
+            print("Dale's law check:")
             print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
             print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
             print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} (\033[92m{100*dale_results['n_mixed']/n_neurons:.1f}%\033[0m)")
