@@ -7,31 +7,32 @@ use_batch_norm: False
 activation: ReLU
 
 encoder_params:
-  num_hidden_layers: 3 # Layers in the encoder MLP
+  num_hidden_layers: 1 # Layers in the encoder MLP
   num_hidden_units: 256 # Hidden units per layer
   l1_reg_loss: 0.0
-  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 decoder_params:
-  num_hidden_layers: 3 # Layers in the decoder MLP
+  num_hidden_layers: 1 # Layers in the decoder MLP
   num_hidden_units: 256 # Hidden units per layer
   l1_reg_loss: 0.0
-  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 evolver_params:
   time_units: 1 # Number of time steps to evolve per forward pass
   num_hidden_layers: 3 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
   l1_reg_loss: 0.0
-  # Use learnable diagonal matrix (x -> Ax + mlp(x)) for per-dimension residual control
+  # RETIRED: learnable_diagonal was ineffective and is no longer supported (must be false)
   learnable_diagonal: false
+  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 stimulus_encoder_params:
   num_input_dims: 1736
   num_hidden_layers: 3
   num_hidden_units: 64
   num_output_dims: 64
-  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 training:
   simulation_config: "fly_N9_62_1"
@@ -45,7 +46,7 @@ training:
   optimizer: Adam # Optimizer name from torch.optim
   train_step: train_step
   column_to_model: "VOLTAGE" # Options: CALCIUM, VOLTAGE, FLUORESCENCE, STIMULUS
-  use_tf32_matmul: false
+  use_tf32_matmul: true
   seed: 42
   # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
   loss_function: mse_loss

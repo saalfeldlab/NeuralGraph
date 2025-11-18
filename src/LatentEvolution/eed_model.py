@@ -40,7 +40,15 @@ class EvolverParams(BaseModel):
     learnable_diagonal: bool = Field(
         False, description="Use learnable diagonal matrix for residual (x -> Ax + mlp(x) instead of x + mlp(x))"
     )
+    use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("learnable_diagonal")
+    @classmethod
+    def validate_learnable_diagonal(cls, v: bool) -> bool:
+        if v:
+            raise ValueError("`learnable_diagonal` is deprecated.")
+        return False
 
 
 class EncoderParams(BaseModel):
@@ -167,6 +175,10 @@ class Evolver(nn.Module):
     def __init__(self, latent_dims: int, stim_dims: int, evolver_params: EvolverParams, use_batch_norm: bool = True, activation: str = "ReLU"):
         super().__init__()
         self.time_units = evolver_params.time_units
+
+        # RETIRED: learnable_diagonal feature was ineffective and is no longer supported
+        assert not evolver_params.learnable_diagonal, \
+            "learnable_diagonal is retired because it was ineffective. Please set to False."
         self.use_learnable_diagonal = evolver_params.learnable_diagonal
         dim = latent_dims + stim_dims
 
@@ -174,7 +186,9 @@ class Evolver(nn.Module):
         if self.use_learnable_diagonal:
             self.diagonal = nn.Parameter(torch.ones(dim))
 
-        self.evolver = MLP(
+        # Use MLPWithSkips if flag is set, similar to encoder/decoder
+        evolver_cls = MLPWithSkips if evolver_params.use_input_skips else MLP
+        self.evolver = evolver_cls(
             MLPParams(
                 num_input_dims=dim,
                 num_hidden_layers=evolver_params.num_hidden_layers,
