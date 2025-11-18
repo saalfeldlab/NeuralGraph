@@ -1454,3 +1454,20 @@ Preliminary results suggest that it is stable, so let's lock on 1 hidden layer.
 We are also going to retire the learnable_diagonal feature in the evolver and
 instead implement the input_skips method. This serves to implement the Ax, x
 feature that Cedric had suggested.
+
+### Test input skips in evolver
+
+```bash
+
+# baseline
+bsub -J "base" -n 1 -gpu "num=1" -q gpu_a100 -o "base.log" python \
+    src/LatentEvolution/latent.py evolver_skips
+
+# input skips with varying numbers of hidden layers
+for hidden in 0 1 2 3 ; do \
+  bsub -J "eh${hidden}" -n 1 -gpu "num=1" -q gpu_a100 -o "eh${hidden}.log" python \
+    src/LatentEvolution/latent.py evolver_skips \
+    --evolver-params.num-hidden-layers ${hidden} \
+    --evolver-params.use-input-skips
+done
+```
