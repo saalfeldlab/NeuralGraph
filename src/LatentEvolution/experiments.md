@@ -1328,13 +1328,113 @@ for hidden in 0 1 2 3 ; do \
 done
 ```
 
-Surprising (preliminary) result:
+### Results (Analyzed 2025-11-17)
 
-- validation loss doesn't change much => go down to 1 layer
-- the mse does not explode when doing the roll out. Interestingly, the roll out did explode in the
-  previous trial => there is some kind of instability.
-- hidden layers = 0 (linear matrices) show the exploding mse trend
-- note that we used tensor float32's to speed up the training.
+Summary from summarize.py:
+
+```
+shape: (4, 37)
+┌─────────────────────────────────┬─────────────────────────────────┬─────────────────────────────────┬────────────────────────────┬─────────────────────────────┬─────────────┬─────────────────────────────────┬─────────────────┬──────────────────┬────────────────┬───────────────────────┬───────────────────┐
+│ encoder_params.num_hidden_laye… ┆ decoder_params.num_hidden_laye… ┆ stimulus_encoder_params.num_hi… ┆ avg_epoch_duration_seconds ┆ avg_gpu_utilization_percent ┆ commit_hash ┆ final_diagnostics_duration_sec… ┆ final_test_loss ┆ final_train_loss ┆ final_val_loss ┆ gpu_type              ┆ max_gpu_memory_mb │
+╞═════════════════════════════════╪═════════════════════════════════╪═════════════════════════════════╪════════════════════════════╪═════════════════════════════╪═════════════╪═════════════════════════════════╪═════════════════╪══════════════════╪════════════════╪═══════════════════════╪═══════════════════╡
+│ 2                               ┆ 2                               ┆ 2                               ┆ 44.47                      ┆ 85.58                       ┆ b530a1e     ┆ 15.0                            ┆ 0.013391        ┆ 0.023782         ┆ 0.013647       ┆ NVIDIA A100-SXM4-80GB ┆ 17243.0           │
+│ 1                               ┆ 1                               ┆ 1                               ┆ 35.61                      ┆ 86.85                       ┆ b530a1e     ┆ 14.55                           ┆ 0.013394        ┆ 0.02448          ┆ 0.013653       ┆ NVIDIA A100-SXM4-80GB ┆ 22007.0           │
+│ 3                               ┆ 3                               ┆ 3                               ┆ 50.67                      ┆ 68.2                        ┆ b530a1e     ┆ 14.96                           ┆ 0.013472        ┆ 0.023292         ┆ 0.013758       ┆ NVIDIA A100-SXM4-80GB ┆ 22135.0           │
+│ 0                               ┆ 0                               ┆ 0                               ┆ 18.76                      ┆ 62.0                        ┆ b530a1e     ┆ 15.37                           ┆ 0.013828        ┆ 0.025997         ┆ 0.013986       ┆ NVIDIA A100-SXM4-80GB ┆ 20887.0           │
+└─────────────────────────────────┴─────────────────────────────────┴─────────────────────────────────┴────────────────────────────┴─────────────────────────────┴─────────────┴─────────────────────────────────┴─────────────────┴──────────────────┴────────────────┴───────────────────────┴───────────────────┘
+
+Sorted by validation loss:
+┌─────────────────────────────────┬─────────────────────────────────┬─────────────────────────────────┬──────────────────┬────────────────┬─────────────────┐
+│ encoder_params.num_hidden_laye… ┆ decoder_params.num_hidden_laye… ┆ stimulus_encoder_params.num_hi… ┆ final_train_loss ┆ final_val_loss ┆ final_test_loss │
+╞═════════════════════════════════╪═════════════════════════════════╪═════════════════════════════════╪══════════════════╪════════════════╪═════════════════╡
+│ 2                               ┆ 2                               ┆ 2                               ┆ 0.023782         ┆ 0.013647       ┆ 0.013391        │
+│ 1                               ┆ 1                               ┆ 1                               ┆ 0.02448          ┆ 0.013653       ┆ 0.013394        │
+│ 3                               ┆ 3                               ┆ 3                               ┆ 0.023292         ┆ 0.013758       ┆ 0.013472        │
+│ 0                               ┆ 0                               ┆ 0                               ┆ 0.025997         ┆ 0.013986       ┆ 0.013828        │
+└─────────────────────────────────┴─────────────────────────────────┴─────────────────────────────────┴──────────────────┴────────────────┴─────────────────┘
+```
+
+#### Run Overview
+
+All 4 runs completed successfully.
+
+| Num Hidden Layers | Epochs | UUID   | Status |
+| ----------------- | ------ | ------ | ------ |
+| 0                 | 200    | f3d4d5 | ✓      |
+| 1                 | 200    | c5b08d | ✓      |
+| 2                 | 200    | 27ff60 | ✓      |
+| 3                 | 200    | a466f9 | ✓      |
+
+#### Performance Metrics
+
+| Hidden | Train Time (min) | Epoch (s) | GPU Util (%) | GPU Mem (GB) | Final Train Loss | Final Val Loss | Final Test Loss |
+| ------ | ---------------- | --------- | ------------ | ------------ | ---------------- | -------------- | --------------- |
+| 0      | 67.0             | 18.8      | 62.0         | 20.4         | 0.025997         | 0.013986       | 0.013828        |
+| 1      | 123.3            | 35.6      | 86.9         | 21.5         | 0.024480         | 0.013653       | 0.013394        |
+| 2      | 152.7            | 44.5      | 85.6         | 16.8         | 0.023782         | 0.013647       | 0.013391        |
+| 3      | 173.8            | 50.7      | 68.2         | 21.6         | 0.023292         | 0.013758       | 0.013472        |
+
+#### Training Dynamics
+
+Convergence patterns across different architectures:
+
+**Epoch 10:**
+
+- 0 hidden: Train 0.0367, Val 0.0190
+- 1 hidden: Train 0.0310, Val 0.0163
+- 2 hidden: Train 0.0310, Val 0.0162
+- 3 hidden: Train 0.0306, Val 0.0161
+
+**Epoch 50:**
+
+- 0 hidden: Train 0.0265, Val 0.0142
+- 1 hidden: Train 0.0260, Val 0.0140
+- 2 hidden: Train 0.0257, Val 0.0139
+- 3 hidden: Train 0.0254, Val 0.0138
+
+**Epoch 100:**
+
+- 0 hidden: Train 0.0261, Val 0.0140
+- 1 hidden: Train 0.0254, Val 0.0138
+- 2 hidden: Train 0.0247, Val 0.0137
+- 3 hidden: Train 0.0241, Val 0.0136
+
+**Final (Epoch 200):**
+
+- 0 hidden: Train 0.0260, Val 0.0140
+- 1 hidden: Train 0.0245, Val 0.0137
+- 2 hidden: Train 0.0238, Val 0.0136
+- 3 hidden: Train 0.0233, Val 0.0138
+
+#### Key Findings
+
+**Model Performance:**
+
+- Validation loss shows minimal variation (0.01365-0.01399, <2.5% range) across all architectures
+- Best performance: 2 hidden layers (val: 0.01365, test: 0.01339)
+- Worst performance: 0 hidden/linear (val: 0.01399, test: 0.01383)
+- 3 hidden layers shows slight overfitting (val increases from 0.01356 at epoch 100 to 0.01376 at epoch 200)
+
+**Compute Efficiency:**
+
+- Linear model (0 hidden) is 2.6x faster per epoch (18.8s vs 50.7s for 3 hidden)
+- GPU utilization drops significantly with depth (86.9% for 1 hidden to 68.2% for 3 hidden)
+- Total training time scales approximately linearly with depth (67min to 174min)
+
+**Convergence:**
+
+- All models converge rapidly in first 50 epochs
+- Deeper models (2-3 hidden) show continued improvement 50-200 epochs
+- Linear model plateaus after epoch 100
+
+#### Recommendations
+
+- **Use 1-2 hidden layers** for optimal performance/cost tradeoff
+  - 1 hidden: 123min training, 0.01365 val loss, high GPU utilization (86.9%)
+  - 2 hidden: 153min training, 0.01365 val loss, best test performance (0.01339)
+- **Avoid 0 hidden layers** - performance degradation (2.5% higher val loss) not justified by 2x speedup
+- **Avoid 3+ hidden layers** - shows early signs of overfitting with no performance gain
+- **Note**: Validation loss variation is minimal across 1-3 hidden layers, suggesting architecture capacity is not the limiting factor for this task
 
 ### Check reproducibility of hidden 1
 
@@ -1350,7 +1450,7 @@ for seed in 654321 54321 4321 321 21 ; do \
 done
 ```
 
-Next experiments:
-
-- [ ] check stability of training, perhaps sweep lr and batch size again
-- [ ] add mlp with Ax, x
+Preliminary results suggest that it is stable, so let's lock on 1 hidden layer.
+We are also going to retire the learnable_diagonal feature in the evolver and
+instead implement the input_skips method. This serves to implement the Ax, x
+feature that Cedric had suggested.
