@@ -49,10 +49,10 @@ class ProfileConfig(BaseModel):
         1, description="Number of epochs for profiler warmup"
     )
     active: int = Field(
-        2, description="Number of epochs to actively profile"
+        1, description="Number of epochs to actively profile"
     )
     repeat: int = Field(
-        1, description="Number of times to repeat the profiling cycle"
+        0, description="Number of times to repeat the profiling cycle"
     )
     record_shapes: bool = Field(
         True, description="Record tensor shapes in the trace"

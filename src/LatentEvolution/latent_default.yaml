@@ -58,14 +58,13 @@ training:
     validation_end: 50000
     test_start: 54000
     test_end: 64000
-
 # Optional: Enable PyTorch profiler to generate Chrome trace files for performance analysis
 # Uncomment the following section to enable profiling:
 # profiling:
 #   wait: 3        # Skip first 3 epochs (warmup for model compilation)
 #   warmup: 1      # Warmup profiler for 1 epoch
-#   active: 3      # Actively profile for 3 epochs
-#   repeat: 1      # Do this cycle once
+#   active: 1      # Actively profile for 3 epochs
+#   repeat: 0      # Do this cycle once
 #   record_shapes: true      # Record tensor shapes (helpful for debugging)
 #   profile_memory: true     # Profile memory usage (GPU/CPU)
 #   with_stack: false        # Stack traces add significant overhead, disable by default
