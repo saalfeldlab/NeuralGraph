@@ -96,17 +96,115 @@ def plot_neuron_reconstruction(
         fig.tight_layout()
         return fig
 
-def plot_recon_error(true_trace, recon_trace):
-    fig, ax = plt.subplots(1, 2, figsize=(8, 3))
+def plot_recon_error(true_trace, recon_trace, neuron_data: NeuronData):
+    fig, ax = plt.subplots(1, 2, figsize=(10, 4))
     # time variation, neuron variation
     for i in (0, 1):
         var_trace = np.var(true_trace, axis=i)
         err = recon_trace - true_trace
         var_err = np.var(err, axis=i)
-        ax[i].scatter(var_trace, var_err, marker=".", alpha=0.5)
+
+        if i == 0:  # neuron variation - color by cell type
+            # Create colormap with enough distinct colors for all cell types (65 types)
+            # Use multiple colormaps combined for better distinction
+            num_types = len(neuron_data.TYPE_NAMES)
+            cmap_names = ['tab20', 'tab20b', 'tab20c', 'Set3']
+            colors = []
+            for j in range(num_types):
+                cmap_idx = (j // 20) % len(cmap_names)
+                color_idx = j % 20
+                cmap = plt.cm.get_cmap(cmap_names[cmap_idx])
+                colors.append(cmap(color_idx / 20))
+
+            # Plot each cell type with its own color
+            for type_idx, _type_name in enumerate(neuron_data.TYPE_NAMES):
+                neuron_indices = neuron_data.indices_per_type[type_idx]
+                ax[i].scatter(
+                    var_trace[neuron_indices],
+                    var_err[neuron_indices],
+                    marker=".",
+                    alpha=0.6,
+                    color=colors[type_idx],
+                    s=20
+                )
+        else:  # time variation - no coloring
+            ax[i].scatter(var_trace, var_err, marker=".", alpha=0.5)
+
         ax[i].set_xlabel("Raw variance")
         ax[i].set_ylabel("Unexplained variance")
         ax[i].set_title("Variance across " + ["time", "neurons"][i])
+
+    # Skip legend due to 65 cell types - would be too large
+    # Instead add note that labeled version is available
+    ax[1].text(0.02, 0.98, f'{num_types} cell types (see labeled plot)',
+               transform=ax[1].transAxes, fontsize=8, va='top',
+               bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    fig.tight_layout()
+    return fig
+
+
+def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
+    """
+    Create a labeled plot of reconstruction error with text labels for each cell type.
+
+    This creates a single plot showing variance across neurons, colored by cell type,
+    with text labels at the centroid of each cell type's points.
+    Each point represents a neuron.
+    """
+    fig, ax = plt.subplots(1, 1, figsize=(14, 10))
+
+    # Compute variance across time for each neuron (axis=0 -> one value per neuron)
+    var_trace = np.var(true_trace, axis=0)
+    err = recon_trace - true_trace
+    var_err = np.var(err, axis=0)
+
+    # Create colormap with enough distinct colors for all cell types (65 types)
+    num_types = len(neuron_data.TYPE_NAMES)
+    cmap_names = ['tab20', 'tab20b', 'tab20c', 'Set3']
+    colors = []
+    for j in range(num_types):
+        cmap_idx = (j // 20) % len(cmap_names)
+        color_idx = j % 20
+        cmap = plt.cm.get_cmap(cmap_names[cmap_idx])
+        colors.append(cmap(color_idx / 20))
+
+    # Plot each cell type and compute centroids for labels
+    for type_idx, type_name in enumerate(neuron_data.TYPE_NAMES):
+        neuron_indices = neuron_data.indices_per_type[type_idx]
+        x_vals = var_trace[neuron_indices]
+        y_vals = var_err[neuron_indices]
+
+        # Scatter plot for this cell type
+        ax.scatter(
+            x_vals,
+            y_vals,
+            marker=".",
+            alpha=0.6,
+            color=colors[type_idx],
+            s=30
+        )
+
+        # Compute centroid for label placement
+        centroid_x = np.mean(x_vals)
+        centroid_y = np.mean(y_vals)
+
+        # Add text label at centroid with smaller font for 65 types
+        # Use smaller padding and no background box for less visual clutter
+        ax.text(
+            centroid_x,
+            centroid_y,
+            type_name,
+            fontsize=6,
+            fontweight='bold',
+            ha='center',
+            va='center',
+            color='black',
+            bbox=dict(boxstyle='round,pad=0.2', facecolor=colors[type_idx], alpha=0.8, edgecolor='black', linewidth=0.3)
+        )
+
+    ax.set_xlabel("Raw variance", fontsize=12)
+    ax.set_ylabel("Unexplained variance", fontsize=12)
+    ax.set_title(f"Variance across neurons (labeled by cell type, n={num_types} types)", fontsize=14)
     fig.tight_layout()
     return fig
 
@@ -263,12 +361,19 @@ def run_validation_diagnostics(
         for neuron_type, fig in fig_or_figs.items():
             figures[f"neuron_traces_zoom/{neuron_type}"] = fig
 
-    # Reconstruction error stratified
-    fig = plot_recon_error(true_trace, recon_trace)
+    # Reconstruction error stratified (colored by cell type)
+    fig = plot_recon_error(true_trace, recon_trace, neuron_data)
     figures["reconstruction_variance"] = fig
     if save_figures:
         fig.savefig(run_dir / "reconstruction_variance.jpg", dpi=100)
         plt.close(fig)
+
+    # Reconstruction error with cell type labels
+    fig_labeled = plot_recon_error_labeled(true_trace, recon_trace, neuron_data)
+    figures["reconstruction_variance_labeled"] = fig_labeled
+    if save_figures:
+        fig_labeled.savefig(run_dir / "reconstruction_variance_labeled.jpg", dpi=150)
+        plt.close(fig_labeled)
 
     # MSE evolution over time steps
     recons = evolve_many_time_steps(model, val_data, val_stim, tmax=10)
