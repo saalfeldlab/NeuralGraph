@@ -479,6 +479,11 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Profiler setup ---
         profiler = None
         if cfg.profiling is not None:
+            assert device.type != "mps", (
+                "PyTorch profiler is not supported on MPS (Apple Silicon). "
+                "Please disable profiling or use CUDA/CPU for profiling."
+            )
+
             print(f"PyTorch profiler enabled with config: {cfg.profiling.model_dump()}")
             profile_dir = run_dir / "profiler_traces"
             profile_dir.mkdir(exist_ok=True)

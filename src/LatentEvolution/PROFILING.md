@@ -170,6 +170,12 @@ Based on profiling results, you can:
 4. **Start simple**: Keep `with_stack: false` (default) to minimize overhead.
 5. **Profile on target hardware**: Profile on the same GPU type you'll use for full training.
 
+## Platform Support
+
+**Supported Devices**: CUDA (NVIDIA GPUs), CPU
+
+**Not Supported**: MPS (Apple Silicon) - PyTorch profiler is unstable on MPS and will cause crashes. If you enable profiling on a Mac with Apple Silicon, the script will fail with an assertion error. To profile your code, use a machine with NVIDIA GPU or CPU.
+
 ## Troubleshooting
 
 ### Trace files are too large
