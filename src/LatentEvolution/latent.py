@@ -748,6 +748,25 @@ expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
         commit_hash=commit_hash,
     )
 
+    # Create symlink: runs/expt_code_date_hash/latest -> hparam1/hparam2/.../uuid/
+    # Navigate up to find the expt_code_date_hash directory
+    expt_dir = run_dir.parent
+    while expt_dir.name != Path("runs").resolve() and not expt_dir.name.startswith(expt_code):
+        expt_dir = expt_dir.parent
+
+    # If we found the expt directory, create the symlink
+    if expt_dir.name.startswith(expt_code):
+        symlink_path = expt_dir / "latest"
+
+        # Remove old symlink if it exists
+        if symlink_path.is_symlink() or symlink_path.exists():
+            symlink_path.unlink()
+
+        # Create new symlink pointing to the nested run directory (relative path)
+        relative_path = run_dir.relative_to(expt_dir)
+        symlink_path.symlink_to(relative_path, target_is_directory=True)
+        print(f"Created symlink: {symlink_path} -> {relative_path}")
+
     # Log command line in run dir for tracking
     with open(run_dir / "command_line.txt", "w") as out:
         out.write("\n".join(sys.argv))
