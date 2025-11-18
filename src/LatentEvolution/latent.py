@@ -6,6 +6,7 @@ and reproducible training with run logging.
 from pathlib import Path
 from typing import Callable, Iterator
 from datetime import datetime
+from dataclasses import dataclass
 import random
 import sys
 import re
@@ -91,6 +92,12 @@ class TrainingConfig(BaseModel):
     )
     loss_function: str = Field(
         "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
+    )
+    lp_norm_weight: float = Field(
+        0.0, description="Weight for LP norm penalty on latent activations (for outlier control)", json_schema_extra={"short_name": "lp_w"}
+    )
+    lp_norm_p: int = Field(
+        8, description="P value for LP norm penalty (higher values penalize outliers more)", json_schema_extra={"short_name": "lp_p"}
     )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -274,6 +281,37 @@ def make_batches_random(
 # -------------------------------------------------------------------
 
 
+@dataclass
+class LossComponents:
+    """Accumulator for tracking loss components."""
+    total: float = 0.0
+    recon: float = 0.0
+    evolve: float = 0.0
+    reg: float = 0.0
+    lp_norm: float = 0.0
+    count: int = 0
+
+    def accumulate(self, *losses):
+        """Add losses from one batch (total, recon, evolve, reg, lp_norm)."""
+        self.total += losses[0].detach().item()
+        self.recon += losses[1].detach().item()
+        self.evolve += losses[2].detach().item()
+        self.reg += losses[3].detach().item()
+        self.lp_norm += losses[4].detach().item()
+        self.count += 1
+
+    def mean(self) -> 'LossComponents':
+        """Return a new LossComponents with mean values."""
+        return LossComponents(
+            total=self.total / self.count,
+            recon=self.recon / self.count,
+            evolve=self.evolve / self.count,
+            reg=self.reg / self.count,
+            lp_norm=self.lp_norm / self.count,
+            count=self.count,
+        )
+
+
 def seed_everything(seed: int):
     """Set all random seeds for reproducibility."""
     random.seed(seed)
@@ -317,8 +355,13 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     recon = model.decoder(model.encoder(x_t))
     recon_loss = loss_fn(recon, x_t)
 
-    loss = evolve_loss + recon_loss + reg_loss
-    return (loss, recon_loss, evolve_loss, reg_loss)
+    # LP norm penalty on prediction errors (for outlier control)
+    lp_norm_evolve = torch.norm(output - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+    lp_norm_recon = torch.norm(recon - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
+    lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
+
+    loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
+    return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss)
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
@@ -510,27 +553,18 @@ def train(cfg: ModelParams, run_dir: Path):
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
-            running_loss = 0.0
-            running_recon_loss = 0.0
-            running_evolve_loss = 0.0
-            running_reg_loss = 0.0
+            losses = LossComponents()
 
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 (x_t, stim_t), x_t_plus = next(batch_iter)
-                (loss, recon_loss, evolve_loss, reg_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
-                loss.backward()
+                loss_tuple = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
+                loss_tuple[0].backward()
                 optimizer.step()
-                running_loss += loss.detach().item()
-                running_recon_loss += recon_loss.detach().item()
-                running_evolve_loss += evolve_loss.detach().item()
-                running_reg_loss += reg_loss.detach().item()
+                losses.accumulate(*loss_tuple)
 
-            mean_train_loss = running_loss / batches_per_epoch
-            mean_recon_loss = running_recon_loss / batches_per_epoch
-            mean_evolve_loss = running_evolve_loss / batches_per_epoch
-            mean_reg_loss = running_reg_loss / batches_per_epoch
+            mean_losses = losses.mean()
 
             # ---- Validation phase ----
             model.eval()
@@ -564,16 +598,17 @@ def train(cfg: ModelParams, run_dir: Path):
 
             print(
                 f"Epoch {epoch+1}/{cfg.training.epochs} | "
-                f"Train Loss: {mean_train_loss:.4e} | Val Loss: {val_loss:.4e} | "
+                f"Train Loss: {mean_losses.total:.4e} | Val Loss: {val_loss:.4e} | "
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
             # Log to TensorBoard
-            writer.add_scalar("Loss/train", mean_train_loss, epoch)
+            writer.add_scalar("Loss/train", mean_losses.total, epoch)
             writer.add_scalar("Loss/val", val_loss, epoch)
-            writer.add_scalar("Loss/train_recon", mean_recon_loss, epoch)
-            writer.add_scalar("Loss/train_evolve", mean_evolve_loss, epoch)
-            writer.add_scalar("Loss/train_reg", mean_reg_loss, epoch)
+            writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
+            writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
+            writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
+            writer.add_scalar("Loss/train_lp_norm", mean_losses.lp_norm, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
@@ -654,7 +689,7 @@ def train(cfg: ModelParams, run_dir: Path):
 
         metrics.update(
             {
-                    "final_train_loss": mean_train_loss,
+                    "final_train_loss": mean_losses.total,
                     "final_val_loss": val_loss,
                     "final_test_loss": test_loss,
                     "commit_hash": commit_hash,
