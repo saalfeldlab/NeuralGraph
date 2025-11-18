@@ -82,23 +82,25 @@ profiling:
 Override the profiling config directly from the command line. **Important**: You must include `profiling:profile-config` as a positional argument to enable profiling:
 
 ```bash
-python latent.py my_profiling_run \
+python src/LatentEvolution/latent.py my_profiling_run \
   --training.epochs 11 \
   profiling:profile-config \
   --profiling.wait 3 \
   --profiling.warmup 1 \
   --profiling.active 3 \
   --profiling.repeat 1 \
-  --profiling.record_shapes True \
-  --profiling.profile_memory True \
-  --profiling.with_stack False
+  --profiling.record-shapes \
+  --profiling.profile-memory \
+  --profiling.no-with-stack
 ```
 
 To disable profiling (default), use `profiling:None` or omit the profiling argument entirely.
 
 **Why `profiling:profile-config`?** Since `profiling` is an optional field (can be `None`), tyro treats it as a union type. You must explicitly select which variant to use: `profiling:profile-config` to enable it, or `profiling:None` to disable it.
 
-**Tip**: Run `python latent.py my_run --help` to see all available profiling options and the correct syntax.
+**Tip**: Run `python src/LatentEvolution/latent.py my_run --help` to see all available profiling options and the correct syntax.
+
+**Boolean flags**: Use `--profiling.record-shapes` to enable or `--profiling.no-record-shapes` to disable. Don't use `True`/`False`.
 
 ## Viewing the Results
 
@@ -165,7 +167,7 @@ Based on profiling results, you can:
 1. **Profile short runs**: Use 11-15 epochs max to keep trace files manageable (minimum 11 with defaults).
 2. **Disable diagnostics**: Set `diagnostics_freq_epochs: 0` during profiling runs.
 3. **Skip warmup**: Set `wait: 3` to skip the first few epochs (torch.compile and model warmup).
-4. **Start simple**: Begin with `with_stack: false` to minimize overhead.
+4. **Start simple**: Keep `with_stack: false` (default) to minimize overhead.
 5. **Profile on target hardware**: Profile on the same GPU type you'll use for full training.
 
 ## Troubleshooting
@@ -173,13 +175,13 @@ Based on profiling results, you can:
 ### Trace files are too large
 
 - Reduce `active` epochs (1-2 is usually sufficient)
-- Set `record_shapes: false`
-- Set `with_stack: false`
+- Set `record_shapes: false` in YAML or use `--profiling.no-record-shapes` in CLI
+- Set `with_stack: false` in YAML (this is the default)
 
 ### Profiling adds too much overhead
 
 - Reduce `active` epochs
-- Disable `with_stack`
+- Ensure `with_stack: false` (default, or use `--profiling.no-with-stack`)
 - Use lower `repeat` count
 
 ### Missing operations in trace
@@ -191,7 +193,11 @@ Based on profiling results, you can:
 
 1. Run a short profiling session:
    ```bash
-   python latent.py profile_test --training.epochs 11 profiling:profile-config --profiling.wait 3 --profiling.active 3
+   python src/LatentEvolution/latent.py profile_test \
+     --training.epochs 11 \
+     profiling:profile-config \
+     --profiling.wait 3 \
+     --profiling.active 3
    ```
 
 2. Load trace in Chrome at `chrome://tracing`
