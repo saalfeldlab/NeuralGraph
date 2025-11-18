@@ -40,6 +40,32 @@ from LatentEvolution.eed_model import (
 # -------------------------------------------------------------------
 
 
+class ProfileConfig(BaseModel):
+    """Configuration for PyTorch profiler to generate Chrome traces."""
+    wait: int = Field(
+        1, description="Number of epochs to skip before starting profiler warmup"
+    )
+    warmup: int = Field(
+        1, description="Number of epochs for profiler warmup"
+    )
+    active: int = Field(
+        2, description="Number of epochs to actively profile"
+    )
+    repeat: int = Field(
+        1, description="Number of times to repeat the profiling cycle"
+    )
+    record_shapes: bool = Field(
+        True, description="Record tensor shapes in the trace"
+    )
+    profile_memory: bool = Field(
+        True, description="Profile memory usage"
+    )
+    with_stack: bool = Field(
+        False, description="Record source code stack traces (increases overhead)"
+    )
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+
 class TrainingConfig(BaseModel):
     epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
     batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
@@ -65,6 +91,9 @@ class TrainingConfig(BaseModel):
     )
     loss_function: str = Field(
         "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
+    )
+    profiling: ProfileConfig | None = Field(
+        None, description="Optional profiler configuration to generate Chrome traces for performance analysis"
     )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -447,6 +476,31 @@ def train(cfg: ModelParams, run_dir: Path):
         checkpoint_dir.mkdir(exist_ok=True)
         best_val_loss = float('inf')
 
+        # --- Profiler setup ---
+        profiler = None
+        if cfg.training.profiling is not None:
+            print(f"PyTorch profiler enabled with config: {cfg.training.profiling.model_dump()}")
+            profile_dir = run_dir / "profiler_traces"
+            profile_dir.mkdir(exist_ok=True)
+
+            profiler = torch.profiler.profile(
+                schedule=torch.profiler.schedule(
+                    wait=cfg.training.profiling.wait,
+                    warmup=cfg.training.profiling.warmup,
+                    active=cfg.training.profiling.active,
+                    repeat=cfg.training.profiling.repeat
+                ),
+                on_trace_ready=torch.profiler.tensorboard_trace_handler(str(profile_dir)),
+                record_shapes=cfg.training.profiling.record_shapes,
+                profile_memory=cfg.training.profiling.profile_memory,
+                with_stack=cfg.training.profiling.with_stack,
+                with_flops=True,
+            )
+            profiler.__enter__()
+            print(f"Profiler traces will be saved to {profile_dir}")
+        else:
+            print("PyTorch profiler disabled")
+
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
@@ -560,6 +614,15 @@ def train(cfg: ModelParams, run_dir: Path):
                 checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch+1:04d}.pt"
                 torch.save(model.state_dict(), checkpoint_path)
                 print(f"  → Saved periodic checkpoint at epoch {epoch+1}")
+
+            # Step profiler if enabled
+            if profiler is not None:
+                profiler.step()
+
+        # --- Cleanup profiler ---
+        if profiler is not None:
+            profiler.__exit__(None, None, None)
+            print("Profiler traces saved successfully")
 
         # --- Final test evaluation ---
         model.eval()
