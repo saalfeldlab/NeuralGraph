@@ -80,6 +80,7 @@ from tifffile import imread
 
 import matplotlib.ticker as ticker
 import shutil
+import subprocess
 
 # Optional dependency
 try:
@@ -8555,23 +8556,11 @@ if __name__ == '__main__':
     #     pass
 
 
-    # config_list = ['signal_N2_1', 'signal_N2_2'] #, 'signal_N2_3', 'signal_N2_4', 'signal_N2_5', 'signal_N2_6', 'signal_N2_7', 'signal_N2_8']
-
-    # config_list = ['fly_N9_55_1', 'fly_N9_55_2', 'fly_N9_55_3', 'fly_N9_55_4', 'fly_N9_55_5', 'fly_N9_55_6', 'fly_N9_55_7', 'fly_N9_55_8', 'fly_N9_55_9', 'fly_N9_55_10', 'fly_N9_55_11', 'fly_N9_55_12']
-    # compare_experiments(config_list, None)
-
-    #
-    #  #, 'fly_N9_22_11', 'fly_N9_22_12', 'fly_N9_22_13', 'fly_N9_22_14', 'fly_N9_22_15', 'fly_N9_22_16', 'fly_N9_22_17',
-    # config_list = ['fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
-    # compare_experiments(config_list,'training.noise_model_level')
-
     # config_list = ['fly_N9_44_24']
 
-    config_list = ['fly_N9_62_22_10']
+    config_list = ['fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18', 'fly_N9_62_5_19', 'fly_N9_62_5_20']
     
     # config_list = ['signal_N11_2_1_2']             
-
-    # config_list = ['signal_N11_2_1_2']
 
     for config_file_ in config_list:
         print(' ')

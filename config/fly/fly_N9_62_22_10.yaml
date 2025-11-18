@@ -1,4 +1,4 @@
-description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective coeff_edge_norm: 1  coeff_W_sign: 0.01"
+description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective coeff_edge_norm: 1  coeff_W_sign: 0.01  W_sign_temperature: 5.0"
 dataset: "fly_N9_62_1"
 
 simulation:
@@ -76,4 +76,4 @@ training:
   coeff_W_L1: 5.0E-5
   coeff_W_L1_rate: 0.5
   coeff_W_sign: 0.01
-  W_sign_temperature: 10.0
+  W_sign_temperature: 5.0
