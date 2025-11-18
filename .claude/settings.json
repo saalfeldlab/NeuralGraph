@@ -5,7 +5,23 @@
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(git diff:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(sleep:*)",
+      "Bash(ps:*)",
+      "Bash(pgrep:*)",
+      "Bash(tail:*)",
+      "Bash(head:*)",
+      "Bash(python GNN_Main.py:*)",
+      "Bash(python GNN_PlotFigure.py:*)",
+      "Bash(source:*)",
+      "Bash(conda activate:*)",
+      "Write(status.md)",
+      "Write(task.md)",
+      "Edit(status.md)",
+      "Edit(task.md)",
+      "Edit(config/fly/fly_N9_62_22_10.yaml)",
+      "Edit(src/NeuralGraph/models/graph_trainer.py)",
+      "Edit(GNN_PlotFigure.py)"
     ],
     "deny": ["Bash(rm:*)", "Bash(chmod:*)"]
   }

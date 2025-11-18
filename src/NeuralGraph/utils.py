@@ -2211,9 +2211,9 @@ def compute_feve(true, pred, n_repeats=None):
 
 
 def compute_trace_metrics(true, pred, label=""):
-    """compute RMSE, Pearson correlation metrics, FEVE."""
+    """compute RMSE, Pearson correlation metrics, FEVE, and R²."""
     n_samples = true.shape[0]
-    rmse_list, pearson_list = [], []
+    rmse_list, pearson_list, r2_list = [], [], []
 
     for i in range(n_samples):
         valid = ~(np.isnan(true[i]) | np.isnan(pred[i]))
@@ -2224,17 +2224,25 @@ def compute_trace_metrics(true, pred, label=""):
             else:
                 pearson_list.append(np.nan)
 
+            # Compute R²
+            ss_res = np.sum((true[i,valid] - pred[i,valid]) ** 2)
+            ss_tot = np.sum((true[i,valid] - np.mean(true[i,valid])) ** 2)
+            r2 = 1 - (ss_res / ss_tot) if ss_tot > 1e-8 else np.nan
+            r2_list.append(r2)
+
     rmse = np.array(rmse_list)
     pearson = np.array(pearson_list)
+    r2 = np.array(r2_list)
 
     print(f"RMSE: \033[92m{np.mean(rmse):.4f}\033[0m ± {np.std(rmse):.4f} [{np.min(rmse):.4f}, {np.max(rmse):.4f}]")
     print(f"Pearson r: \033[92m{np.nanmean(pearson):.3f}\033[0m ± {np.nanstd(pearson):.3f} [{np.nanmin(pearson):.3f}, {np.nanmax(pearson):.3f}]")
+    print(f"R²: \033[92m{np.nanmean(r2):.3f}\033[0m ± {np.nanstd(r2):.3f} [{np.nanmin(r2):.3f}, {np.nanmax(r2):.3f}]")
 
     feve = compute_feve(true, pred, None)
     print(f"FEVE: \033[92m{np.mean(feve):.3f}\033[0m ± {np.std(feve):.3f} [{np.min(feve):.3f}, {np.max(feve):.3f}]")
 
 
-    return rmse, pearson, feve
+    return rmse, pearson, feve, r2
 
 
 def get_datavis_root_dir() -> str:
