@@ -1493,6 +1493,10 @@ Config `fly_N9_62_1` has noise of 0.05 added. See if this is impacting results.
 Create config `fly_N9_62_0` and compare results.
 
 ```bash
+
+bsub -J gen -n 4 -gpu "num=1" -q gpu_a100 -o gen.log python \
+  GNN_Main.py -o generate fly_N9_62_0
+
 for cfg in fly_N9_62_0 fly_N9_62_1 ; do \
   bsub -J $cfg -n 1 -gpu "num=1" -q gpu_a100 -o "${cfg}.log" python \
     src/LatentEvolution/latent.py noise_test \
