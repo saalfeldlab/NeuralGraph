@@ -1374,8 +1374,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
-            logger.info(f'R^2$: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
+            print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+            logger.info(f'R²: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
             second_correction = lin_fit[0]
             print(f'second_correction: {second_correction:0.2f}')
@@ -1710,7 +1710,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
-                    print(f'field R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    print(f'field R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
 
             if 'PDE_N6' in model_config.signal_model_name:
 
@@ -2571,7 +2571,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
-                    print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
                     slope_list.append(lin_fit[0])
 
                     fig, ax = fig_init()
@@ -2607,7 +2607,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 ss_res = np.sum(residuals ** 2)
                 ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                 r_squared = 1 - (ss_res / ss_tot)
-                print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
 
             if model_config.embedding_dim == 4:
                 for k in range(n_neuron_types):
@@ -2801,8 +2801,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
-            logger.info(f'R^2$: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
+            print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+            logger.info(f'R²: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
             second_correction = lin_fit[0]
             print(f'second_correction: {second_correction:0.2f}')
@@ -4411,7 +4411,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
-                    print(f'field R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    print(f'field R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
 
             # if 'PDE_N6' in model_config.signal_model_name:
             #

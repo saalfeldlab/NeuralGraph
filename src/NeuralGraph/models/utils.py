@@ -242,7 +242,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.ylabel(r'learned $W_{ij}$', fontsize=18)
 
     # Add R² and slope
-    plt.text(-0.9, 4.5, f'R^2: {np.round(r_squared, 3)}\nslope: {np.round(lin_fit[0], 2)}', fontsize=12)
+    plt.text(-0.9, 4.5, f'$R^2$: {np.round(r_squared, 3)}\nslope: {np.round(lin_fit[0], 2)}', fontsize=12)
 
     # Add Dale's Law statistics
     dale_text = (f"Excitatory neurons (all W>0): {dale_results['n_excitatory']} "
