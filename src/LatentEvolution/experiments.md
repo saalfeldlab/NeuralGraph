@@ -1478,10 +1478,9 @@ Preliminary results suggest we can go down to one hidden layer with input skips.
 
 ```bash
 
-# input skips with varying numbers of hidden layers
-for reg in 0.0 1e-8 1e-6 1e-4 ; do \
-  bsub -J "reg${reg}" -n 1 -gpu "num=1" -q gpu_a100 -o "reg${reg}.log" python \
+for lp in 0.0 1e-8 1e-6 1e-4 ; do \
+  bsub -J "lp${lp}" -n 1 -gpu "num=1" -q gpu_a100 -o "lp${lp}.log" python \
     src/LatentEvolution/latent.py lp_norm \
-    --training.lp-norm-weight $reg
+    --training.lp-norm-weight $lp
 done
 ```
