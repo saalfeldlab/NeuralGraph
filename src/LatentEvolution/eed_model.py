@@ -43,6 +43,13 @@ class EvolverParams(BaseModel):
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
+    @field_validator("learnable_diagonal")
+    @classmethod
+    def validate_learnable_diagonal(cls, v: bool) -> bool:
+        if v:
+            raise ValueError("`learnable_diagonal` is deprecated.")
+        return False
+
 
 class EncoderParams(BaseModel):
     num_hidden_units: int
