@@ -548,6 +548,11 @@ def data_train_signal(config, erase, best_model, device):
                         regul_term = model_W[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons].norm(1) * coeff_W_L1
                         loss = loss + regul_term
                         track_regul(regul_term, 'W_L1')
+                    # regularisation L2 on Wij
+                    if coeff_W_L2 > 0:
+                        regul_term = model_W[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons].norm(2) * coeff_W_L2
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_L2')
                     # regularisation lin_edge
                     in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device)
                     if coeff_edge_diff > 0:
@@ -1089,6 +1094,7 @@ def data_train_flyvis(config, erase, best_model, device):
     time_step = train_config.time_step
 
     coeff_W_sign = train_config.coeff_W_sign
+    W_sign_temperature = train_config.W_sign_temperature
     coeff_update_msg_diff = train_config.coeff_update_msg_diff
     coeff_update_u_diff = train_config.coeff_update_u_diff
     coeff_edge_norm = train_config.coeff_edge_norm
@@ -1311,6 +1317,7 @@ def data_train_flyvis(config, erase, best_model, device):
         coeff_edge_weight_L1= train_config.coeff_edge_weight_L1 * (1 - np.exp(-train_config.coeff_edge_weight_L1_rate**epoch))
         coeff_phi_weight_L1 = train_config.coeff_phi_weight_L1 * (1 - np.exp(-train_config.coeff_phi_weight_L1_rate*epoch))
         coeff_W_L1 = train_config.coeff_W_L1 * (1 - np.exp(-train_config.coeff_W_L1_rate * epoch))
+        coeff_W_L2 = train_config.coeff_W_L2
 
 
 
@@ -1398,6 +1405,11 @@ def data_train_flyvis(config, erase, best_model, device):
                         regul_term = model.W.norm(1) * coeff_W_L1
                         loss = loss + regul_term
                         track_regul(regul_term, 'W_L1')
+                    # regularisation L2 on Wij
+                    if coeff_W_L2>0:
+                        regul_term = model.W.norm(2) * coeff_W_L2
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_L2')
                     # regularisation sparsity on weights of model.lin_edge
                     if (coeff_edge_weight_L1+coeff_edge_weight_L2)>0:
                         for param in model.lin_edge.parameters():
@@ -1473,22 +1485,38 @@ def data_train_flyvis(config, erase, best_model, device):
                         track_regul(regul_term, 'phi_grad')
 
                     # regularisation sign Wij (Dale's Law: all outgoing weights should have same sign)
-                    if (coeff_W_sign > 0) and (N%4 == 0):
+                    if (coeff_W_sign > 0) & (epoch==1):
+                        # Fully vectorized Dale's Law regularization with smooth, differentiable approximation
+                        # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
+                        # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
 
-                        for neuron_idx in range(n_neurons):
-                            # Find all outgoing edges from this neuron
-                            outgoing_mask = edges[0] == neuron_idx
-                            outgoing_weights = model.W[outgoing_mask]
+                        # model.W has shape [n_edges, 1] - squeeze to [n_edges]
+                        weights = model.W.squeeze()
 
-                            if outgoing_weights.numel() > 1:
-                                # Penalize variance in signs of outgoing weights
-                                # tanh squashes weights to [-1, 1] range to focus on sign
-                                signs = torch.tanh(5 * outgoing_weights)
-                                sign_variance = torch.var(signs, unbiased=False)
-                                loss_contribs.append(sign_variance)
+                        # Get source neurons for each edge (Dale's Law applies to outgoing connections)
+                        source_neurons = edges[0]
 
+                        # Use smooth sigmoid approximation instead of hard threshold for differentiability
+                        # sigmoid(k*w) ≈ 1 for w >> 0, ≈ 0 for w << 0, with smooth gradients
+                        n_pos = torch.zeros(n_neurons, device=device)
+                        n_neg = torch.zeros(n_neurons, device=device)
+                        n_total = torch.zeros(n_neurons, device=device)
 
-                        regul_term = torch.stack(loss_contribs).mean() * coeff_W_sign
+                        pos_mask = torch.sigmoid(W_sign_temperature * weights)
+                        neg_mask = torch.sigmoid(-W_sign_temperature * weights)
+
+                        n_pos.scatter_add_(0, source_neurons, pos_mask)
+                        n_neg.scatter_add_(0, source_neurons, neg_mask)
+                        n_total.scatter_add_(0, source_neurons, torch.ones_like(weights))
+
+                        # Compute violation for each neuron: (n_pos/n_total) * (n_neg/n_total)
+                        # Avoid division by zero for neurons with no outgoing edges
+                        violation = torch.where(n_total > 0,
+                                               (n_pos / n_total) * (n_neg / n_total),
+                                               torch.zeros_like(n_total))
+
+                        loss_W_sign = violation.sum()
+                        regul_term = loss_W_sign * coeff_W_sign
                         loss = loss + regul_term
                         track_regul(regul_term, 'W_sign')
 
