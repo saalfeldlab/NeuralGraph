@@ -92,9 +92,6 @@ class TrainingConfig(BaseModel):
     loss_function: str = Field(
         "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
     )
-    profiling: ProfileConfig | None = Field(
-        None, description="Optional profiler configuration to generate Chrome traces for performance analysis"
-    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -122,6 +119,9 @@ class ModelParams(BaseModel):
     evolver_params: EvolverParams
     stimulus_encoder_params: StimulusEncoderParams
     training: TrainingConfig
+    profiling: ProfileConfig | None = Field(
+        None, description="Optional profiler configuration to generate Chrome traces for performance analysis"
+    )
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -478,22 +478,22 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Profiler setup ---
         profiler = None
-        if cfg.training.profiling is not None:
-            print(f"PyTorch profiler enabled with config: {cfg.training.profiling.model_dump()}")
+        if cfg.profiling is not None:
+            print(f"PyTorch profiler enabled with config: {cfg.profiling.model_dump()}")
             profile_dir = run_dir / "profiler_traces"
             profile_dir.mkdir(exist_ok=True)
 
             profiler = torch.profiler.profile(
                 schedule=torch.profiler.schedule(
-                    wait=cfg.training.profiling.wait,
-                    warmup=cfg.training.profiling.warmup,
-                    active=cfg.training.profiling.active,
-                    repeat=cfg.training.profiling.repeat
+                    wait=cfg.profiling.wait,
+                    warmup=cfg.profiling.warmup,
+                    active=cfg.profiling.active,
+                    repeat=cfg.profiling.repeat
                 ),
                 on_trace_ready=torch.profiler.tensorboard_trace_handler(str(profile_dir)),
-                record_shapes=cfg.training.profiling.record_shapes,
-                profile_memory=cfg.training.profiling.profile_memory,
-                with_stack=cfg.training.profiling.with_stack,
+                record_shapes=cfg.profiling.record_shapes,
+                profile_memory=cfg.profiling.profile_memory,
+                with_stack=cfg.profiling.with_stack,
                 with_flops=True,
             )
             profiler.__enter__()

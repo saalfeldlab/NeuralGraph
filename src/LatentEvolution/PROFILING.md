@@ -14,20 +14,22 @@ The profiling feature captures detailed performance metrics including:
 
 ## Enabling Profiling
 
-To enable profiling, add a `profiling` section to your training configuration YAML file:
+To enable profiling, add a `profiling` section at the top level of your configuration YAML file (same level as `training`, `encoder_params`, etc.):
 
 ```yaml
-training:
-  # ... other training config ...
+# ... encoder_params, decoder_params, evolver_params, etc. ...
 
-  profiling:
-    wait: 1              # Number of epochs to skip before profiling starts
-    warmup: 1            # Number of warmup epochs (not recorded)
-    active: 3            # Number of epochs to actively profile
-    repeat: 1            # Number of times to repeat the cycle
-    record_shapes: true  # Record tensor shapes in traces
-    profile_memory: true # Profile memory allocations
-    with_stack: false    # Record source code stack traces (adds overhead)
+training:
+  # ... training config ...
+
+profiling:
+  wait: 1              # Number of epochs to skip before profiling starts
+  warmup: 1            # Number of warmup epochs (not recorded)
+  active: 3            # Number of epochs to actively profile
+  repeat: 1            # Number of times to repeat the cycle
+  record_shapes: true  # Record tensor shapes in traces
+  profile_memory: true # Profile memory allocations
+  with_stack: false    # Record source code stack traces (adds overhead)
 ```
 
 ### Configuration Parameters
@@ -53,22 +55,23 @@ Edit `latent_default.yaml` and uncomment the profiling section at the bottom.
 Create a new YAML file (e.g., `my_profiling_run.yaml`) with profiling enabled:
 
 ```yaml
-# Import defaults and override profiling
+# Copy settings from latent_default.yaml
 latent_dims: 256
-# ... copy other settings from latent_default.yaml ...
+# ... other model params ...
 
 training:
   epochs: 10  # Shorter run for profiling
   diagnostics_freq_epochs: 0  # Disable diagnostics during profiling
+  # ... other training params ...
 
-  profiling:
-    wait: 1
-    warmup: 1
-    active: 3
-    repeat: 1
-    record_shapes: true
-    profile_memory: true
-    with_stack: false
+profiling:
+  wait: 1
+  warmup: 1
+  active: 3
+  repeat: 1
+  record_shapes: true
+  profile_memory: true
+  with_stack: false
 ```
 
 ### Option 3: Override via CLI
@@ -77,13 +80,13 @@ Override the profiling config directly from the command line:
 
 ```bash
 python latent.py my_profiling_run \
-  --training.profiling.wait 1 \
-  --training.profiling.warmup 1 \
-  --training.profiling.active 3 \
-  --training.profiling.repeat 1 \
-  --training.profiling.record_shapes True \
-  --training.profiling.profile_memory True \
-  --training.profiling.with_stack False
+  --profiling.wait 1 \
+  --profiling.warmup 1 \
+  --profiling.active 3 \
+  --profiling.repeat 1 \
+  --profiling.record_shapes True \
+  --profiling.profile_memory True \
+  --profiling.with_stack False
 ```
 
 ## Viewing the Results
@@ -177,7 +180,7 @@ Based on profiling results, you can:
 
 1. Run a short profiling session:
    ```bash
-   python latent.py profile_test --training.epochs 10 --training.profiling.active 2
+   python latent.py profile_test --training.epochs 10 --profiling.active 2
    ```
 
 2. Load trace in Chrome at `chrome://tracing`
