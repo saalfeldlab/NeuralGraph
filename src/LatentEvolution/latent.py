@@ -830,6 +830,7 @@ def train(cfg: ModelParams, run_dir: Path):
 
                 # Run diagnostics on cross-validation dataset
                 cv_out_dir = run_dir / "cross_validation" / cv_name
+                cv_out_dir.mkdir(parents=True, exist_ok=True)
                 run_validation_diagnostics(
                     run_dir=cv_out_dir,
                     val_data=cv_val_data,

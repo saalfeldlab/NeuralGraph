@@ -1542,4 +1542,5 @@ for hidden in 1 2 3 ; do \
     --evolver-params.use-mlp-with-matrix \
     --evolver-params.no-use-input-skips \
     --evolver-params.num-hidden-layers $hidden
+done
 ```
