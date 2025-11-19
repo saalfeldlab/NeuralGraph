@@ -373,33 +373,40 @@ def run_validation_diagnostics(
         plt.close(fig)
 
     # Multi-step rollout evaluation - compute rollout once
+    print("  Starting multi-step rollout evaluation...")
     with torch.no_grad():
         real_segment, predicted_segment, mse_per_step, cumulative_mse = compute_rollout(
             model, val_data, val_stim, n_steps=2000, start_idx=100
         )
+    print("  Rollout computation complete")
 
     # Generate MSE figure (always)
+    print("  Generating rollout MSE figure...")
     rollout_mse_fig, rollout_metrics = plot_rollout_mse_from_results(
         mse_per_step, cumulative_mse
     )
     metrics.update(rollout_metrics)
     figures["rollout_mse"] = rollout_mse_fig
+    print("  Rollout MSE figure complete")
 
     # Generate neuron trace figure (only for post-training analysis)
     if not skip_neuron_traces:
+        print("  Generating rollout neuron trace figure...")
         rollout_traces_fig = plot_rollout_traces_from_results(
             real_segment, predicted_segment, neuron_data, start_idx=100
         )
         figures["rollout_traces"] = rollout_traces_fig
+        print("  Rollout trace figure complete")
         if save_figures:
+            print("  Saving rollout trace figure to disk...")
             rollout_traces_fig.savefig(run_dir / "rollout_traces.jpg", dpi=100)
             plt.close(rollout_traces_fig)
+            print("  Rollout trace figure saved")
 
     print("Validation diagnostics complete.")
     return metrics, figures
 
 
-@torch.compile(fullgraph=True, mode="reduce-overhead")
 def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
     """
     Evolve the model by n time steps using the predicted state at each step.
@@ -415,10 +422,13 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
     Returns:
         predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
     """
+    print(f"    Starting rollout for {n_steps} steps...")
     predicted_trace = []
     current_state = initial_state.unsqueeze(0)  # shape (1, neurons)
 
     for t in range(n_steps):
+        if t % 500 == 0:
+            print(f"    Rollout step {t}/{n_steps}...")
         # Get the stimulus for this time step
         current_stimulus = stimulus[t:t+1]  # shape (1, stimulus_dim)
 
@@ -430,6 +440,7 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
         # Use predicted state as input for next step
         current_state = next_state
 
+    print("    Rollout steps complete, stacking results...")
     return torch.stack(predicted_trace, dim=0)
 
 
@@ -458,6 +469,7 @@ def compute_rollout(
         mse_per_step: MSE at each time step, shape (n_steps,)
         cumulative_mse: Cumulative average MSE up to each time step, shape (n_steps,)
     """
+    print(f"    Preparing rollout data (n_steps={n_steps}, start_idx={start_idx})...")
     # Get initial state
     initial_state = real_trace[start_idx]
 
@@ -470,6 +482,7 @@ def compute_rollout(
     # Predict n steps (autoregressive rollout)
     predicted_segment = evolve_n_steps(model, initial_state, stimulus_segment, n_steps)
 
+    print("    Computing MSE metrics...")
     # Compute MSE per time step
     mse_per_step = torch.pow(predicted_segment - real_segment, 2).mean(dim=1)
 
@@ -547,10 +560,14 @@ def plot_rollout_traces_from_results(
     rng = np.random.default_rng(seed=0)
     ntypes = len(neuron_data.TYPE_NAMES)
 
+    print(f"    Creating figure with {ntypes} subplots, size=(24, {3 * ntypes})...")
     # Create one large figure
     fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
 
+    print(f"    Plotting {ntypes} neuron traces...")
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
+        if itype % 10 == 0:
+            print(f"      Plotting cell type {itype}/{ntypes}...")
         ix = rng.choice(neuron_data.indices_per_type[itype])
 
         real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
@@ -569,6 +586,8 @@ def plot_rollout_traces_from_results(
 
     axes[-1].set_xlabel("Rollout Time Steps")
     fig.suptitle(f"Multi-Step Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=0.995)
+
+    print("    Running tight_layout()...")
     fig.tight_layout()
 
     return fig
