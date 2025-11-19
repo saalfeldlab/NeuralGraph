@@ -1489,8 +1489,9 @@ This didn't solve the Mi12 problem.
 
 ## Noise vs no noise
 
-Config `fly_N9_62_1` has noise of 0.05 added. See if this is impacting results.
-Create config `fly_N9_62_0` and compare results.
+Config `fly_N9_62_1` has noise of 0.05 added to the input data. See if this is
+impacting results. Create config `fly_N9_62_0` where no noise is added and
+compare results.
 
 ```bash
 
@@ -1509,3 +1510,36 @@ the added noise (sigma ~ 0.05). That's why we were unable to fit it properly.
 
 In the absence of noise the overall mse goes down significantly and we can
 reconstruct the `Mi12` trace a lot better.
+
+This is an experiment that trains on `fly_N9_62_1` (with noise) and then
+assesses the trained network on the noise-less `fly_N9_62_0`.
+
+```bash
+bsub -J baseline -n 1 -gpu "num=1" -q gpu_a100 -o baseline.log python \
+  src/LatentEvolution/latent.py checkpoint_20251118
+```
+
+Observations re: training with noise vs without noise, on reconstruction of
+noiseless data.
+
+- the overall losses from training cannot be compared since the noise variance
+  is included in the mse
+- the reconstruction loss per cell type is slightly worse when you train on
+  noise. This is different from what we see in the GNN.
+- perhaps the model is more robust to generalization so we will continue to
+  train on `fly_N9_62_1` and predict on both noise & noise-less configs.
+
+## switch to mlp(x, Ax)?
+
+Compare the `MLPWithSkips` one-layer deep architecture with the `MLPWithMatrix`
+architecture. Keep the encoder/decoder unchanged.
+
+```bash
+
+for hidden in 1 2 3 ; do \
+  bsub -J h${hidden} -n 1 -gpu "num=1" -q gpu_a100 -o "h${hidden}.log" python \
+    src/LatentEvolution/latent.py mlp_with_matrix \
+    --evolver-params.use-mlp-with-matrix \
+    --evolver-params.no-use-input-skips \
+    --evolver-params.num-hidden-layers $hidden
+```
