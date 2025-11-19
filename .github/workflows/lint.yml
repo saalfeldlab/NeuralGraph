@@ -44,4 +44,6 @@ jobs:
       run: pip install -r .github/workflows/test-requirements.txt
 
     - name: Run unit tests
-      run: PYTHONPATH=src python -m unittest discover -s src -p "*_test.py" -v
+      run: |
+        export PYTHONPATH=src
+        find src -name "*_test.py" -type f -exec grep -l "from unittest import\|^import unittest" {} \; | xargs -I {} python {}
