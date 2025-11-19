@@ -41,6 +41,9 @@ class EvolverParams(BaseModel):
         False, description="Use learnable diagonal matrix for residual (x -> Ax + mlp(x) instead of x + mlp(x))"
     )
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
+    use_mlp_with_matrix: bool = Field(
+        False, description="If True, use architecture: x = MLP(concat[x, Ax]) where A is a learnable matrix"
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("learnable_diagonal")
@@ -175,6 +178,7 @@ class Evolver(nn.Module):
     def __init__(self, latent_dims: int, stim_dims: int, evolver_params: EvolverParams, use_batch_norm: bool = True, activation: str = "ReLU"):
         super().__init__()
         self.time_units = evolver_params.time_units
+        self.use_mlp_with_matrix = evolver_params.use_mlp_with_matrix
 
         # RETIRED: learnable_diagonal feature was ineffective and is no longer supported
         assert not evolver_params.learnable_diagonal, \
@@ -186,11 +190,19 @@ class Evolver(nn.Module):
         if self.use_learnable_diagonal:
             self.diagonal = nn.Parameter(torch.ones(dim))
 
+        # Learnable matrix for matrix concatenation architecture
+        if self.use_mlp_with_matrix:
+            self.matrix = nn.Parameter(torch.randn(dim, dim) * 0.01)
+
         # Use MLPWithSkips if flag is set, similar to encoder/decoder
         evolver_cls = MLPWithSkips if evolver_params.use_input_skips else MLP
+
+        # Adjust input dimensions based on architecture
+        mlp_input_dims = 2 * dim if self.use_mlp_with_matrix else dim
+
         self.evolver = evolver_cls(
             MLPParams(
-                num_input_dims=dim,
+                num_input_dims=mlp_input_dims,
                 num_hidden_layers=evolver_params.num_hidden_layers,
                 num_hidden_units=evolver_params.num_hidden_units,
                 num_output_dims=dim,
@@ -201,7 +213,12 @@ class Evolver(nn.Module):
 
     def forward(self, x):
         for _ in range(self.time_units):
-            if self.use_learnable_diagonal:
+            if self.use_mlp_with_matrix:
+                # New architecture: x = MLP(concat[x, Ax])
+                Ax = x @ self.matrix
+                concat = torch.cat([x, Ax], dim=-1)
+                x = self.evolver(concat)
+            elif self.use_learnable_diagonal:
                 x = self.diagonal * x + self.evolver(x)
             else:
                 x = x + self.evolver(x)
