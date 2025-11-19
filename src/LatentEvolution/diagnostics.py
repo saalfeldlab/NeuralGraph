@@ -57,12 +57,17 @@ def plot_neuron_reconstruction(
 
             fig, ax = plt.subplots(1, 1, figsize=(fig_width_inches, fig_height_inches), dpi=dpi)
 
-            # Plot true trace
-            p = ax.plot(true_trace[:, ix], lw=3, alpha=0.5, label="True")
+            # Real trace: black solid
+            ax.plot(true_trace[:, ix], lw=1, color='black', label="Real")
             ylim = ax.get_ylim()
 
-            # Plot reconstructed trace
-            ax.plot(recon_trace[:, ix], color=p[-1].get_color(), label="Reconstructed")
+            # Reconstructed trace: orange solid
+            ax.plot(recon_trace[:, ix], lw=1, color='#ff7f0e', label="Point-wise reconstruction")
+
+            # Error shading
+            time_steps = np.arange(len(true_trace[:, ix]))
+            ax.fill_between(time_steps, true_trace[:, ix], recon_trace[:, ix],
+                           alpha=0.2, color='#ff7f0e')
             ax.set_ylim(*ylim)
             ax.set_title(f"{tname}: ix={int(ix)}")
             ax.set_xlabel("Time steps")
@@ -82,14 +87,21 @@ def plot_neuron_reconstruction(
         for itype, tname in enumerate(neuron_data.TYPE_NAMES):
             ix = rng.choice(neuron_data.indices_per_type[itype])
             title = f"{tname}: ix={int(ix)}"
-            p = ax[itype].plot(true_trace[:, ix], lw=3, alpha=0.5)
+            # Real trace: black solid
+            ax[itype].plot(true_trace[:, ix], lw=1, color='black', label='Real')
             # fix the range based on the true trace
             ylim = ax[itype].get_ylim()
 
-            # reconstructed trace
-            ax[itype].plot(recon_trace[:, ix], color=p[-1].get_color())
+            # Reconstructed trace: orange solid
+            ax[itype].plot(recon_trace[:, ix], lw=1, color='#ff7f0e', label='Point-wise reconstruction')
+
+            # Error shading
+            time_steps = np.arange(len(true_trace[:, ix]))
+            ax[itype].fill_between(time_steps, true_trace[:, ix], recon_trace[:, ix],
+                                  alpha=0.2, color='#ff7f0e')
             ax[itype].set_ylim(*ylim)
             ax[itype].set_title(title)
+            ax[itype].legend(loc='upper right')
         if xlim is not None:
             ax[-1].set_xlim(*xlim)
         ax[-1].set_xlabel("Time steps")
@@ -300,7 +312,7 @@ def run_validation_diagnostics(
     model: LatentModel,
     config: ModelParams,
     save_figures: bool = False,
-    target_height_px: int = 250,
+    skip_neuron_traces: bool = False,
 ) -> tuple[dict[str, float|int], dict[str, plt.Figure]]:
     """
     Perform validation diagnostics on the trained model.
@@ -313,7 +325,7 @@ def run_validation_diagnostics(
         model: The trained LatentModel instance
         config: ModelParams configuration object
         save_figures: Whether to save figures to disk (default: False)
-        target_height_px: Target height in pixels for TensorBoard neuron trace figures (default: 250)
+        skip_neuron_traces: Skip generating neuron trace figures (default: False)
 
     Returns:
         metrics: Dictionary of scalar metrics
@@ -329,37 +341,25 @@ def run_validation_diagnostics(
     true_trace = val_data.detach().cpu().numpy()
     recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
 
-    # Neuron traces (full trace)
-    # For TensorBoard (save_figures=False), create separate figures per neuron type
-    # For disk save (save_figures=True), create combined figure
-    fig_or_figs = plot_neuron_reconstruction(
-        true_trace, recon_trace, neuron_data, xlim=None, separate_per_type=not save_figures,
-        target_height_px=target_height_px
-    )
-    if save_figures:
-        # Combined figure for disk save
-        figures["neuron_traces"] = fig_or_figs
-        fig_or_figs.savefig(run_dir / "neuron_traces.jpg", dpi=100)
-        plt.close(fig_or_figs)
-    else:
-        # Separate figures per neuron type for TensorBoard
-        for neuron_type, fig in fig_or_figs.items():
-            figures[f"neuron_traces/{neuron_type}"] = fig
+    # Neuron traces (full trace) - only generated for post-training analysis
+    if not skip_neuron_traces:
+        fig = plot_neuron_reconstruction(
+            true_trace, recon_trace, neuron_data, xlim=None, separate_per_type=False
+        )
+        figures["neuron_traces"] = fig
+        if save_figures:
+            fig.savefig(run_dir / "neuron_traces.jpg", dpi=100)
+            plt.close(fig)
 
-    # Neuron traces (zoomed)
-    fig_or_figs = plot_neuron_reconstruction(
-        true_trace, recon_trace, neuron_data, xlim=(100, 1100), separate_per_type=not save_figures,
-        target_height_px=target_height_px
-    )
-    if save_figures:
-        # Combined figure for disk save
-        figures["neuron_traces_zoom"] = fig_or_figs
-        fig_or_figs.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
-        plt.close(fig_or_figs)
-    else:
-        # Separate figures per neuron type for TensorBoard
-        for neuron_type, fig in fig_or_figs.items():
-            figures[f"neuron_traces_zoom/{neuron_type}"] = fig
+    # Neuron traces (zoomed) - only generated for post-training analysis
+    if not skip_neuron_traces:
+        fig = plot_neuron_reconstruction(
+            true_trace, recon_trace, neuron_data, xlim=(100, 1100), separate_per_type=False
+        )
+        figures["neuron_traces_zoom"] = fig
+        if save_figures:
+            fig.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
+            plt.close(fig)
 
     # Reconstruction error stratified (colored by cell type)
     fig = plot_recon_error(true_trace, recon_trace, neuron_data)
@@ -384,5 +384,227 @@ def run_validation_diagnostics(
         fig.savefig(run_dir / "mses_by_time_steps.jpg", dpi=100)
         plt.close(fig)
 
+    # Multi-step rollout evaluation - compute rollout once
+    print("  Starting multi-step rollout evaluation...")
+    with torch.no_grad():
+        real_segment, predicted_segment, mse_per_step, cumulative_mse = compute_rollout(
+            model, val_data, val_stim, n_steps=2000, start_idx=100
+        )
+    print("  Rollout computation complete")
+
+    # Generate MSE figure (always)
+    print("  Generating rollout MSE figure...")
+    rollout_mse_fig, rollout_metrics = plot_rollout_mse_from_results(
+        mse_per_step, cumulative_mse
+    )
+    metrics.update(rollout_metrics)
+    figures["rollout_mse"] = rollout_mse_fig
+    print("  Rollout MSE figure complete")
+
+    # Generate neuron trace figure (only for post-training analysis)
+    if not skip_neuron_traces:
+        print("  Generating rollout neuron trace figure...")
+        rollout_traces_fig = plot_rollout_traces_from_results(
+            real_segment, predicted_segment, neuron_data, start_idx=100
+        )
+        figures["rollout_traces"] = rollout_traces_fig
+        print("  Rollout trace figure complete")
+        if save_figures:
+            print("  Saving rollout trace figure to disk...")
+            rollout_traces_fig.savefig(run_dir / "rollout_traces.jpg", dpi=100)
+            plt.close(rollout_traces_fig)
+            print("  Rollout trace figure saved")
+
     print("Validation diagnostics complete.")
     return metrics, figures
+
+
+def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
+    """
+    Evolve the model by n time steps using the predicted state at each step.
+
+    This performs an autoregressive rollout starting from a single initial state.
+
+    Args:
+        model: The LatentModel to evolve
+        initial_state: Initial state tensor of shape (neurons,)
+        stimulus: Stimulus tensor of shape (T, stimulus_dim) where T >= n_steps
+        n_steps: Number of time steps to evolve
+
+    Returns:
+        predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
+    """
+    print(f"    Starting rollout for {n_steps} steps...")
+    predicted_trace = []
+    current_state = initial_state.unsqueeze(0)  # shape (1, neurons)
+
+    for t in range(n_steps):
+        if t % 500 == 0:
+            print(f"    Rollout step {t}/{n_steps}...")
+        # Get the stimulus for this time step
+        current_stimulus = stimulus[t:t+1]  # shape (1, stimulus_dim)
+
+        # Evolve by one step
+        next_state = model(current_state, current_stimulus)
+
+        predicted_trace.append(next_state.squeeze(0))
+
+        # Use predicted state as input for next step
+        current_state = next_state
+
+    print("    Rollout steps complete, stacking results...")
+    return torch.stack(predicted_trace, dim=0)
+
+
+def compute_rollout(
+    model: LatentModel,
+    real_trace: torch.Tensor,
+    stimulus: torch.Tensor,
+    n_steps: int,
+    start_idx: int = 0
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Compute multi-step rollout from a single starting point.
+
+    Performs autoregressive rollout and compares with ground truth.
+
+    Args:
+        model: The LatentModel to evolve
+        real_trace: Real state tensor of shape (T, neurons)
+        stimulus: Stimulus tensor of shape (T, stimulus_dim)
+        n_steps: Number of time steps to predict
+        start_idx: Starting index in the trace
+
+    Returns:
+        real_segment: Real trace segment of shape (n_steps, neurons)
+        predicted_segment: Predicted trace segment of shape (n_steps, neurons)
+        mse_per_step: MSE at each time step, shape (n_steps,)
+        cumulative_mse: Cumulative average MSE up to each time step, shape (n_steps,)
+    """
+    print(f"    Preparing rollout data (n_steps={n_steps}, start_idx={start_idx})...")
+    # Get initial state
+    initial_state = real_trace[start_idx]
+
+    # Get stimulus segment
+    stimulus_segment = stimulus[start_idx:start_idx + n_steps]
+
+    # Get real trace segment (ground truth for the next n_steps)
+    real_segment = real_trace[start_idx + 1:start_idx + n_steps + 1]
+
+    # Predict n steps (autoregressive rollout)
+    predicted_segment = evolve_n_steps(model, initial_state, stimulus_segment, n_steps)
+
+    print("    Computing MSE metrics...")
+    # Compute MSE per time step
+    mse_per_step = torch.pow(predicted_segment - real_segment, 2).mean(dim=1)
+
+    # Compute cumulative MSE
+    cumulative_mse = torch.cumsum(mse_per_step, dim=0) / torch.arange(1, n_steps + 1, device=mse_per_step.device)
+
+    return real_segment, predicted_segment, mse_per_step, cumulative_mse
+
+
+def plot_rollout_mse_from_results(
+    mse_per_step: torch.Tensor,
+    cumulative_mse: torch.Tensor,
+) -> tuple[plt.Figure, dict[str, float]]:
+    """
+    Plot MSE growth during multi-step rollout from precomputed results.
+
+    Args:
+        mse_per_step: MSE at each rollout step, shape (n_steps,)
+        cumulative_mse: Cumulative average MSE, shape (n_steps,)
+
+    Returns:
+        fig: Matplotlib figure with MSE plots
+        metrics: Dictionary with rollout MSE metrics
+    """
+    # Create figure
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Plot MSE per time step
+    axes[0].plot(mse_per_step.detach().cpu().numpy())
+    axes[0].set_xlabel('Rollout Time Step')
+    axes[0].set_ylabel('MSE (averaged over neurons)')
+    axes[0].set_title('MSE at Each Rollout Step\n(autoregressive from single start)')
+    axes[0].grid(True, alpha=0.3)
+
+    # Plot cumulative MSE
+    axes[1].plot(cumulative_mse.detach().cpu().numpy(), color='orange')
+    axes[1].set_xlabel('Rollout Time Step')
+    axes[1].set_ylabel('Cumulative Average MSE')
+    axes[1].set_title('Cumulative Average MSE During Rollout\n(autoregressive from single start)')
+    axes[1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    # Compute metrics
+    metrics = {
+        "rollout_final_mse": float(mse_per_step[-1].item()),
+        "rollout_cumulative_mse": float(cumulative_mse[-1].item()),
+        "rollout_mean_mse": float(mse_per_step.mean().item()),
+    }
+
+    return fig, metrics
+
+
+def plot_rollout_traces_from_results(
+    real_segment: torch.Tensor,
+    predicted_segment: torch.Tensor,
+    neuron_data: NeuronData,
+    start_idx: int = 100,
+) -> plt.Figure:
+    """
+    Plot neuron traces during multi-step rollout, one neuron per cell type.
+
+    Creates one large figure with traces for one randomly selected neuron from each cell type.
+
+    Args:
+        real_segment: Real trace segment of shape (n_steps, neurons)
+        predicted_segment: Predicted trace segment of shape (n_steps, neurons)
+        neuron_data: NeuronData instance
+        start_idx: Starting index used for the rollout (for labeling)
+
+    Returns:
+        Matplotlib figure with rollout traces
+    """
+    # Pick one neuron from each cell type (same approach as plot_neuron_reconstruction)
+    rng = np.random.default_rng(seed=0)
+    ntypes = len(neuron_data.TYPE_NAMES)
+
+    print(f"    Creating figure with {ntypes} subplots, size=(24, {3 * ntypes})...")
+    # Create one large figure
+    fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
+
+    print(f"    Plotting {ntypes} neuron traces...")
+    for itype, tname in enumerate(neuron_data.TYPE_NAMES):
+        if itype % 10 == 0:
+            print(f"      Plotting cell type {itype}/{ntypes}...")
+        ix = rng.choice(neuron_data.indices_per_type[itype])
+
+        real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
+        pred_trace_cpu = predicted_segment[:, ix].detach().cpu().numpy()
+
+        # Plot real trace: black solid
+        axes[itype].plot(real_trace_cpu, lw=1, color='black', label='Real')
+        ylim = axes[itype].get_ylim()
+
+        # Plot predicted trace: orange solid
+        axes[itype].plot(pred_trace_cpu, lw=1, color='#ff7f0e', label='Predicted (rollout)')
+
+        # Error shading
+        time_steps = np.arange(len(real_trace_cpu))
+        axes[itype].fill_between(time_steps, real_trace_cpu, pred_trace_cpu,
+                                alpha=0.2, color='#ff7f0e')
+        axes[itype].set_ylim(*ylim)
+        axes[itype].set_title(f"{tname}: ix={int(ix)} (autoregressive rollout from t={start_idx})")
+        axes[itype].legend(loc='upper right')
+        axes[itype].grid(True, alpha=0.3)
+
+    axes[-1].set_xlabel("Rollout Time Steps")
+    fig.suptitle(f"Multi-Step Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=0.995)
+
+    print("    Running tight_layout()...")
+    fig.tight_layout()
+
+    return fig
