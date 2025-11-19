@@ -57,12 +57,17 @@ def plot_neuron_reconstruction(
 
             fig, ax = plt.subplots(1, 1, figsize=(fig_width_inches, fig_height_inches), dpi=dpi)
 
-            # Plot true trace
-            p = ax.plot(true_trace[:, ix], lw=3, alpha=0.5, label="True")
+            # Real trace: black solid
+            ax.plot(true_trace[:, ix], lw=1, color='black', label="Real")
             ylim = ax.get_ylim()
 
-            # Plot reconstructed trace
-            ax.plot(recon_trace[:, ix], color=p[-1].get_color(), label="Reconstructed")
+            # Reconstructed trace: orange solid
+            ax.plot(recon_trace[:, ix], lw=1, color='#ff7f0e', label="Point-wise reconstruction")
+
+            # Error shading
+            time_steps = np.arange(len(true_trace[:, ix]))
+            ax.fill_between(time_steps, true_trace[:, ix], recon_trace[:, ix],
+                           alpha=0.2, color='#ff7f0e')
             ax.set_ylim(*ylim)
             ax.set_title(f"{tname}: ix={int(ix)}")
             ax.set_xlabel("Time steps")
@@ -82,14 +87,21 @@ def plot_neuron_reconstruction(
         for itype, tname in enumerate(neuron_data.TYPE_NAMES):
             ix = rng.choice(neuron_data.indices_per_type[itype])
             title = f"{tname}: ix={int(ix)}"
-            p = ax[itype].plot(true_trace[:, ix], lw=3, alpha=0.5)
+            # Real trace: black solid
+            ax[itype].plot(true_trace[:, ix], lw=1, color='black', label='Real')
             # fix the range based on the true trace
             ylim = ax[itype].get_ylim()
 
-            # reconstructed trace
-            ax[itype].plot(recon_trace[:, ix], color=p[-1].get_color())
+            # Reconstructed trace: orange solid
+            ax[itype].plot(recon_trace[:, ix], lw=1, color='#ff7f0e', label='Point-wise reconstruction')
+
+            # Error shading
+            time_steps = np.arange(len(true_trace[:, ix]))
+            ax[itype].fill_between(time_steps, true_trace[:, ix], recon_trace[:, ix],
+                                  alpha=0.2, color='#ff7f0e')
             ax[itype].set_ylim(*ylim)
             ax[itype].set_title(title)
+            ax[itype].legend(loc='upper right')
         if xlim is not None:
             ax[-1].set_xlim(*xlim)
         ax[-1].set_xlabel("Time steps")
@@ -573,12 +585,17 @@ def plot_rollout_traces_from_results(
         real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
         pred_trace_cpu = predicted_segment[:, ix].detach().cpu().numpy()
 
-        # Plot real trace
-        p = axes[itype].plot(real_trace_cpu, lw=3, alpha=0.5, label='Real')
+        # Plot real trace: black solid
+        axes[itype].plot(real_trace_cpu, lw=1, color='black', label='Real')
         ylim = axes[itype].get_ylim()
 
-        # Plot predicted trace
-        axes[itype].plot(pred_trace_cpu, color=p[-1].get_color(), label='Predicted (rollout)', linestyle='--')
+        # Plot predicted trace: orange solid
+        axes[itype].plot(pred_trace_cpu, lw=1, color='#ff7f0e', label='Predicted (rollout)')
+
+        # Error shading
+        time_steps = np.arange(len(real_trace_cpu))
+        axes[itype].fill_between(time_steps, real_trace_cpu, pred_trace_cpu,
+                                alpha=0.2, color='#ff7f0e')
         axes[itype].set_ylim(*ylim)
         axes[itype].set_title(f"{tname}: ix={int(ix)} (autoregressive rollout from t={start_idx})")
         axes[itype].legend(loc='upper right')
