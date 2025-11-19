@@ -24,3 +24,26 @@ jobs:
 
     - name: Run ruff check
       run: ruff check --exclude *.ipynb .
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+        cache-dependency-path: '.github/workflows/test-requirements.txt'
+
+    - name: Install test dependencies
+      run: pip install -r .github/workflows/test-requirements.txt
+
+    - name: Run unit tests
+      run: |
+        export PYTHONPATH=src
+        find src -name "*_test.py" -type f -exec grep -l "from unittest import\|^import unittest" {} \; | xargs -I {} python {}
