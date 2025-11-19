@@ -300,7 +300,7 @@ def run_validation_diagnostics(
     model: LatentModel,
     config: ModelParams,
     save_figures: bool = False,
-    target_height_px: int = 250,
+    skip_neuron_traces: bool = False,
 ) -> tuple[dict[str, float|int], dict[str, plt.Figure]]:
     """
     Perform validation diagnostics on the trained model.
@@ -313,7 +313,7 @@ def run_validation_diagnostics(
         model: The trained LatentModel instance
         config: ModelParams configuration object
         save_figures: Whether to save figures to disk (default: False)
-        target_height_px: Target height in pixels for TensorBoard neuron trace figures (default: 250)
+        skip_neuron_traces: Skip generating neuron trace figures (default: False)
 
     Returns:
         metrics: Dictionary of scalar metrics
@@ -329,37 +329,25 @@ def run_validation_diagnostics(
     true_trace = val_data.detach().cpu().numpy()
     recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
 
-    # Neuron traces (full trace)
-    # For TensorBoard (save_figures=False), create separate figures per neuron type
-    # For disk save (save_figures=True), create combined figure
-    fig_or_figs = plot_neuron_reconstruction(
-        true_trace, recon_trace, neuron_data, xlim=None, separate_per_type=not save_figures,
-        target_height_px=target_height_px
-    )
-    if save_figures:
-        # Combined figure for disk save
-        figures["neuron_traces"] = fig_or_figs
-        fig_or_figs.savefig(run_dir / "neuron_traces.jpg", dpi=100)
-        plt.close(fig_or_figs)
-    else:
-        # Separate figures per neuron type for TensorBoard
-        for neuron_type, fig in fig_or_figs.items():
-            figures[f"neuron_traces/{neuron_type}"] = fig
+    # Neuron traces (full trace) - only generated for post-training analysis
+    if not skip_neuron_traces:
+        fig = plot_neuron_reconstruction(
+            true_trace, recon_trace, neuron_data, xlim=None, separate_per_type=False
+        )
+        figures["neuron_traces"] = fig
+        if save_figures:
+            fig.savefig(run_dir / "neuron_traces.jpg", dpi=100)
+            plt.close(fig)
 
-    # Neuron traces (zoomed)
-    fig_or_figs = plot_neuron_reconstruction(
-        true_trace, recon_trace, neuron_data, xlim=(100, 1100), separate_per_type=not save_figures,
-        target_height_px=target_height_px
-    )
-    if save_figures:
-        # Combined figure for disk save
-        figures["neuron_traces_zoom"] = fig_or_figs
-        fig_or_figs.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
-        plt.close(fig_or_figs)
-    else:
-        # Separate figures per neuron type for TensorBoard
-        for neuron_type, fig in fig_or_figs.items():
-            figures[f"neuron_traces_zoom/{neuron_type}"] = fig
+    # Neuron traces (zoomed) - only generated for post-training analysis
+    if not skip_neuron_traces:
+        fig = plot_neuron_reconstruction(
+            true_trace, recon_trace, neuron_data, xlim=(100, 1100), separate_per_type=False
+        )
+        figures["neuron_traces_zoom"] = fig
+        if save_figures:
+            fig.savefig(run_dir / "neuron_traces_zoom.jpg", dpi=100)
+            plt.close(fig)
 
     # Reconstruction error stratified (colored by cell type)
     fig = plot_recon_error(true_trace, recon_trace, neuron_data)
