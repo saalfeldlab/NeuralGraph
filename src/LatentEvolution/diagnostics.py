@@ -341,6 +341,9 @@ def run_validation_diagnostics(
     true_trace = val_data.detach().cpu().numpy()
     recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
 
+    # make run dir if it doesn't exist
+    run_dir.mkdir(parents=True, exist_ok=True)
+
     # Neuron traces (full trace) - only generated for post-training analysis
     if not skip_neuron_traces:
         fig = plot_neuron_reconstruction(
