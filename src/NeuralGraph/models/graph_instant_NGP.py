@@ -74,12 +74,8 @@ def apply_sinusoidal_warp(image, frame_idx, num_frames, motion_intensity=0.015):
     return warped
 
 
-def create_network_config(anatomy=False):
-    """Create network configuration for NSTM
-
-    Args:
-        anatomy: If True, use Sigmoid output activation for anatomy network
-    """
+def create_network_config():
+    """Create network configuration for NSTM"""
     return {
         "encoding": {
             "otype": "HashGrid",
@@ -92,7 +88,7 @@ def create_network_config(anatomy=False):
         "network": {
             "otype": "FullyFusedMLP",
             "activation": "ReLU",
-            "output_activation": "Sigmoid" if anatomy else "None",
+            "output_activation": "None",
             "n_neurons": 32,
             "n_hidden_layers": 2
         }
@@ -156,23 +152,22 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
 
     # Create networks
     print("Creating networks...")
-    deformation_config = create_network_config(anatomy=False)
-    anatomy_config = create_network_config(anatomy=True)
+    config = create_network_config()
 
     # Deformation network: (x, y, t) -> (δx, δy)
     deformation_net = tcnn.NetworkWithInputEncoding(
         n_input_dims=3,  # x, y, t
         n_output_dims=2,  # δx, δy
-        encoding_config=deformation_config["encoding"],
-        network_config=deformation_config["network"]
+        encoding_config=config["encoding"],
+        network_config=config["network"]
     ).to(device)
 
-    # Anatomy network: (x, y) -> mask value in [0, 1] (sigmoid output)
+    # Anatomy network: (x, y) -> raw mask value
     anatomy_net = tcnn.NetworkWithInputEncoding(
         n_input_dims=2,  # x, y
         n_output_dims=1,  # mask value
-        encoding_config=anatomy_config["encoding"],
-        network_config=anatomy_config["network"]
+        encoding_config=config["encoding"],
+        network_config=config["network"]
     ).to(device)
 
     # Create coordinate grid (use float16 for tinycudann)
@@ -513,13 +508,41 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         f.write("="*60 + "\n")
     print(f"Saved metrics to {output_dir}/metrics.txt")
 
-    # Plot and save loss history
-    plt.figure(figsize=(10, 6))
-    plt.plot(loss_history)
-    plt.title('NSTM Training Loss')
-    plt.xlabel('Step')
-    plt.ylabel('Loss')
-    plt.grid(True)
+    # Plot and save loss history with regularization terms
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+
+    # Main reconstruction loss
+    axes[0, 0].plot(loss_history)
+    axes[0, 0].set_title('NSTM Reconstruction Loss', fontsize=12)
+    axes[0, 0].set_xlabel('Step')
+    axes[0, 0].set_ylabel('MSE Loss')
+    axes[0, 0].grid(True, alpha=0.3)
+
+    # Deformation regularization
+    axes[0, 1].plot(regularization_history['deformation'], color='orange')
+    axes[0, 1].set_title('Deformation Smoothness', fontsize=12)
+    axes[0, 1].set_xlabel('Step')
+    axes[0, 1].set_ylabel('L1 Deformation')
+    axes[0, 1].grid(True, alpha=0.3)
+
+    # Anatomy TV regularization
+    axes[1, 0].plot(regularization_history['anatomy_tv'], color='green')
+    axes[1, 0].set_title('Anatomy Total Variation (TV)', fontsize=12)
+    axes[1, 0].set_xlabel('Step')
+    axes[1, 0].set_ylabel('TV Loss')
+    axes[1, 0].grid(True, alpha=0.3)
+
+    # Combined view (log scale)
+    axes[1, 1].plot(loss_history, label='Reconstruction', alpha=0.7)
+    axes[1, 1].plot(regularization_history['deformation'], label='Deformation', alpha=0.7)
+    axes[1, 1].plot(regularization_history['anatomy_tv'], label='Anatomy TV', alpha=0.7)
+    axes[1, 1].set_title('All Loss Components', fontsize=12)
+    axes[1, 1].set_xlabel('Step')
+    axes[1, 1].set_ylabel('Loss (log scale)')
+    axes[1, 1].set_yscale('log')
+    axes[1, 1].legend()
+    axes[1, 1].grid(True, alpha=0.3)
+
     plt.tight_layout()
     plt.savefig(f'{output_dir}/loss_history.png', dpi=150)
     plt.close()
