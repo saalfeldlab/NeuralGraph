@@ -220,6 +220,7 @@ class LatentModel(nn.Module):
                 num_output_dims=params.latent_dims,
                 use_batch_norm=params.use_batch_norm,
                 activation=params.activation,
+                use_output_linear_proj=params.encoder_params.use_output_linear_proj,
             )
         )
 
@@ -233,6 +234,7 @@ class LatentModel(nn.Module):
                 num_output_dims=params.num_neurons,
                 use_batch_norm=params.use_batch_norm,
                 activation=params.activation,
+                use_output_linear_proj=params.decoder_params.use_output_linear_proj,
             )
         )
 
@@ -246,6 +248,7 @@ class LatentModel(nn.Module):
                 num_output_dims=params.stimulus_encoder_params.num_output_dims,
                 use_batch_norm=False,
                 activation=params.activation,
+                use_output_linear_proj=params.stimulus_encoder_params.use_output_linear_proj,
             )
         )
 
