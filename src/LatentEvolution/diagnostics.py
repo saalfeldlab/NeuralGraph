@@ -372,5 +372,203 @@ def run_validation_diagnostics(
         fig.savefig(run_dir / "mses_by_time_steps.jpg", dpi=100)
         plt.close(fig)
 
+    # Multi-step rollout evaluation - compute rollout once
+    with torch.no_grad():
+        real_segment, predicted_segment, mse_per_step, cumulative_mse = compute_rollout(
+            model, val_data, val_stim, n_steps=2000, start_idx=100
+        )
+
+    # Generate MSE figure (always)
+    rollout_mse_fig, rollout_metrics = plot_rollout_mse_from_results(
+        mse_per_step, cumulative_mse
+    )
+    metrics.update(rollout_metrics)
+    figures["rollout_mse"] = rollout_mse_fig
+
+    # Generate neuron trace figure (only for post-training analysis)
+    if not skip_neuron_traces:
+        rollout_traces_fig = plot_rollout_traces_from_results(
+            real_segment, predicted_segment, neuron_data, start_idx=100
+        )
+        figures["rollout_traces"] = rollout_traces_fig
+        if save_figures:
+            rollout_traces_fig.savefig(run_dir / "rollout_traces.jpg", dpi=100)
+            plt.close(rollout_traces_fig)
+
     print("Validation diagnostics complete.")
     return metrics, figures
+
+
+@torch.compile(fullgraph=True, mode="reduce-overhead")
+def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
+    """
+    Evolve the model by n time steps using the predicted state at each step.
+
+    This performs an autoregressive rollout starting from a single initial state.
+
+    Args:
+        model: The LatentModel to evolve
+        initial_state: Initial state tensor of shape (neurons,)
+        stimulus: Stimulus tensor of shape (T, stimulus_dim) where T >= n_steps
+        n_steps: Number of time steps to evolve
+
+    Returns:
+        predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
+    """
+    predicted_trace = []
+    current_state = initial_state.unsqueeze(0)  # shape (1, neurons)
+
+    for t in range(n_steps):
+        # Get the stimulus for this time step
+        current_stimulus = stimulus[t:t+1]  # shape (1, stimulus_dim)
+
+        # Evolve by one step
+        next_state = model(current_state, current_stimulus)
+
+        predicted_trace.append(next_state.squeeze(0))
+
+        # Use predicted state as input for next step
+        current_state = next_state
+
+    return torch.stack(predicted_trace, dim=0)
+
+
+def compute_rollout(
+    model: LatentModel,
+    real_trace: torch.Tensor,
+    stimulus: torch.Tensor,
+    n_steps: int,
+    start_idx: int = 0
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Compute multi-step rollout from a single starting point.
+
+    Performs autoregressive rollout and compares with ground truth.
+
+    Args:
+        model: The LatentModel to evolve
+        real_trace: Real state tensor of shape (T, neurons)
+        stimulus: Stimulus tensor of shape (T, stimulus_dim)
+        n_steps: Number of time steps to predict
+        start_idx: Starting index in the trace
+
+    Returns:
+        real_segment: Real trace segment of shape (n_steps, neurons)
+        predicted_segment: Predicted trace segment of shape (n_steps, neurons)
+        mse_per_step: MSE at each time step, shape (n_steps,)
+        cumulative_mse: Cumulative average MSE up to each time step, shape (n_steps,)
+    """
+    # Get initial state
+    initial_state = real_trace[start_idx]
+
+    # Get stimulus segment
+    stimulus_segment = stimulus[start_idx:start_idx + n_steps]
+
+    # Get real trace segment (ground truth for the next n_steps)
+    real_segment = real_trace[start_idx + 1:start_idx + n_steps + 1]
+
+    # Predict n steps (autoregressive rollout)
+    predicted_segment = evolve_n_steps(model, initial_state, stimulus_segment, n_steps)
+
+    # Compute MSE per time step
+    mse_per_step = torch.pow(predicted_segment - real_segment, 2).mean(dim=1)
+
+    # Compute cumulative MSE
+    cumulative_mse = torch.cumsum(mse_per_step, dim=0) / torch.arange(1, n_steps + 1, device=mse_per_step.device)
+
+    return real_segment, predicted_segment, mse_per_step, cumulative_mse
+
+
+def plot_rollout_mse_from_results(
+    mse_per_step: torch.Tensor,
+    cumulative_mse: torch.Tensor,
+) -> tuple[plt.Figure, dict[str, float]]:
+    """
+    Plot MSE growth during multi-step rollout from precomputed results.
+
+    Args:
+        mse_per_step: MSE at each rollout step, shape (n_steps,)
+        cumulative_mse: Cumulative average MSE, shape (n_steps,)
+
+    Returns:
+        fig: Matplotlib figure with MSE plots
+        metrics: Dictionary with rollout MSE metrics
+    """
+    # Create figure
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+    # Plot MSE per time step
+    axes[0].plot(mse_per_step.detach().cpu().numpy())
+    axes[0].set_xlabel('Rollout Time Step')
+    axes[0].set_ylabel('MSE (averaged over neurons)')
+    axes[0].set_title('MSE at Each Rollout Step\n(autoregressive from single start)')
+    axes[0].grid(True, alpha=0.3)
+
+    # Plot cumulative MSE
+    axes[1].plot(cumulative_mse.detach().cpu().numpy(), color='orange')
+    axes[1].set_xlabel('Rollout Time Step')
+    axes[1].set_ylabel('Cumulative Average MSE')
+    axes[1].set_title('Cumulative Average MSE During Rollout\n(autoregressive from single start)')
+    axes[1].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    # Compute metrics
+    metrics = {
+        "rollout_final_mse": float(mse_per_step[-1].item()),
+        "rollout_cumulative_mse": float(cumulative_mse[-1].item()),
+        "rollout_mean_mse": float(mse_per_step.mean().item()),
+    }
+
+    return fig, metrics
+
+
+def plot_rollout_traces_from_results(
+    real_segment: torch.Tensor,
+    predicted_segment: torch.Tensor,
+    neuron_data: NeuronData,
+    start_idx: int = 100,
+) -> plt.Figure:
+    """
+    Plot neuron traces during multi-step rollout, one neuron per cell type.
+
+    Creates one large figure with traces for one randomly selected neuron from each cell type.
+
+    Args:
+        real_segment: Real trace segment of shape (n_steps, neurons)
+        predicted_segment: Predicted trace segment of shape (n_steps, neurons)
+        neuron_data: NeuronData instance
+        start_idx: Starting index used for the rollout (for labeling)
+
+    Returns:
+        Matplotlib figure with rollout traces
+    """
+    # Pick one neuron from each cell type (same approach as plot_neuron_reconstruction)
+    rng = np.random.default_rng(seed=0)
+    ntypes = len(neuron_data.TYPE_NAMES)
+
+    # Create one large figure
+    fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
+
+    for itype, tname in enumerate(neuron_data.TYPE_NAMES):
+        ix = rng.choice(neuron_data.indices_per_type[itype])
+
+        real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
+        pred_trace_cpu = predicted_segment[:, ix].detach().cpu().numpy()
+
+        # Plot real trace
+        p = axes[itype].plot(real_trace_cpu, lw=3, alpha=0.5, label='Real')
+        ylim = axes[itype].get_ylim()
+
+        # Plot predicted trace
+        axes[itype].plot(pred_trace_cpu, color=p[-1].get_color(), label='Predicted (rollout)', linestyle='--')
+        axes[itype].set_ylim(*ylim)
+        axes[itype].set_title(f"{tname}: ix={int(ix)} (autoregressive rollout from t={start_idx})")
+        axes[itype].legend(loc='upper right')
+        axes[itype].grid(True, alpha=0.3)
+
+    axes[-1].set_xlabel("Rollout Time Steps")
+    fig.suptitle(f"Multi-Step Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=0.995)
+    fig.tight_layout()
+
+    return fig
