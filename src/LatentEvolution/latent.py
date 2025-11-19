@@ -6,6 +6,7 @@ and reproducible training with run logging.
 from pathlib import Path
 from typing import Callable, Iterator
 from datetime import datetime
+from dataclasses import dataclass
 import random
 import sys
 import re
@@ -92,6 +93,12 @@ class TrainingConfig(BaseModel):
     loss_function: str = Field(
         "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
     )
+    lp_norm_weight: float = Field(
+        0.0, description="Weight for LP norm penalty on latent activations (for outlier control)", json_schema_extra={"short_name": "lp_w"}
+    )
+    lp_norm_p: int = Field(
+        8, description="P value for LP norm penalty (higher values penalize outliers more)", json_schema_extra={"short_name": "lp_p"}
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -109,6 +116,14 @@ class TrainingConfig(BaseModel):
         return v
 
 
+class CrossValidationConfig(BaseModel):
+    """Configuration for cross-dataset validation."""
+    simulation_config: str
+    name: str | None = None  # Optional human-readable name
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+
 class ModelParams(BaseModel):
     latent_dims: int = Field(..., json_schema_extra={"short_name": "ld"})
     num_neurons: int
@@ -121,6 +136,10 @@ class ModelParams(BaseModel):
     training: TrainingConfig
     profiling: ProfileConfig | None = Field(
         None, description="Optional profiler configuration to generate Chrome traces for performance analysis"
+    )
+    cross_validation_configs: list[CrossValidationConfig] = Field(
+        default_factory=lambda: [CrossValidationConfig(simulation_config="fly_N9_62_0")],
+        description="List of datasets to validate on after training"
     )
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -274,6 +293,37 @@ def make_batches_random(
 # -------------------------------------------------------------------
 
 
+@dataclass
+class LossComponents:
+    """Accumulator for tracking loss components."""
+    total: float = 0.0
+    recon: float = 0.0
+    evolve: float = 0.0
+    reg: float = 0.0
+    lp_norm: float = 0.0
+    count: int = 0
+
+    def accumulate(self, *losses):
+        """Add losses from one batch (total, recon, evolve, reg, lp_norm)."""
+        self.total += losses[0].detach().item()
+        self.recon += losses[1].detach().item()
+        self.evolve += losses[2].detach().item()
+        self.reg += losses[3].detach().item()
+        self.lp_norm += losses[4].detach().item()
+        self.count += 1
+
+    def mean(self) -> 'LossComponents':
+        """Return a new LossComponents with mean values."""
+        return LossComponents(
+            total=self.total / self.count,
+            recon=self.recon / self.count,
+            evolve=self.evolve / self.count,
+            reg=self.reg / self.count,
+            lp_norm=self.lp_norm / self.count,
+            count=self.count,
+        )
+
+
 def seed_everything(seed: int):
     """Set all random seeds for reproducibility."""
     random.seed(seed)
@@ -301,13 +351,17 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss
-    reg_loss = 0.0
-    for p in model.encoder.parameters():
-        reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
-    for p in model.decoder.parameters():
-        reg_loss += torch.abs(p).mean()*cfg.decoder_params.l1_reg_loss
-    for p in model.evolver.parameters():
-        reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
+
+    reg_loss = torch.tensor(0.0)
+    if cfg.encoder_params.l1_reg_loss > 0.:
+        for p in model.encoder.parameters():
+            reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
+    if cfg.decoder_params.l1_reg_loss > 0.:
+        for p in model.decoder.parameters():
+            reg_loss += torch.abs(p).mean()*cfg.decoder_params.l1_reg_loss
+    if cfg.evolver_params.l1_reg_loss > 0.:
+        for p in model.evolver.parameters():
+            reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
 
     # evolution loss
     output = model(x_t, stim_t)
@@ -317,10 +371,102 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     recon = model.decoder(model.encoder(x_t))
     recon_loss = loss_fn(recon, x_t)
 
-    loss = evolve_loss + recon_loss + reg_loss
-    return (loss, recon_loss, evolve_loss, reg_loss)
+    # LP norm penalty on prediction errors (for outlier control)
+    lp_norm_loss = torch.tensor(0.0)
+    if cfg.training.lp_norm_weight > 0.:
+        lp_norm_evolve = torch.norm(output - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_recon = torch.norm(recon - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
+
+    loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
+    return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss)
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
+
+# -------------------------------------------------------------------
+# Data Loading and Evaluation
+# -------------------------------------------------------------------
+
+
+def load_dataset(
+    simulation_config: str,
+    column_to_model: str,
+    data_split: DataSplit,
+    num_input_dims: int,
+    device: torch.device
+):
+    """
+    Load and split a dataset.
+
+    Args:
+        simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
+        column_to_model: Column name to model (e.g., "VOLTAGE", "CALCIUM")
+        data_split: DataSplit object with train/val/test time ranges
+        num_input_dims: Number of stimulus input dimensions to keep
+        device: PyTorch device to load data onto
+
+    Returns:
+        Tuple of (train_data, val_data, test_data, train_stim, val_stim, test_stim, neuron_data)
+    """
+    data_path = f"graphs_data/fly/{simulation_config}/x_list_0.npy"
+    sim_data = SimulationResults.load(data_path)
+
+    # Extract subsets using split_column method
+    train_data_np, val_data_np, test_data_np = sim_data.split_column(
+        FlyVisSim[column_to_model], data_split
+    )
+    train_data = torch.from_numpy(train_data_np).to(device)
+    val_data = torch.from_numpy(val_data_np).to(device)
+    test_data = torch.from_numpy(test_data_np).to(device)
+
+    # Load stimulus (keep only first num_input_dims features)
+    train_stim_np, val_stim_np, test_stim_np = sim_data.split_column(
+        FlyVisSim.STIMULUS, data_split, keep_first_n_limit=num_input_dims
+    )
+    train_stim = torch.from_numpy(train_stim_np).to(device)
+    val_stim = torch.from_numpy(val_stim_np).to(device)
+    test_stim = torch.from_numpy(test_stim_np).to(device)
+
+    return train_data, val_data, test_data, train_stim, val_stim, test_stim, sim_data.neuron_data
+
+
+def evaluate_dataset(
+    model: LatentModel,
+    data: torch.Tensor,
+    stim: torch.Tensor,
+    time_units: int,
+) -> dict[str, float]:
+    """
+    Evaluate model on a dataset.
+
+    Args:
+        model: Trained LatentModel
+        data: Data tensor (time x neurons)
+        stim: Stimulus tensor (time x stimulus_dims)
+        time_units: Number of time steps to predict forward
+
+    Returns:
+        Dictionary with evaluation metrics
+    """
+    model.eval()
+    with torch.no_grad():
+        x_t = data[:-time_units]
+        stim_t = stim[:-time_units]
+        x_t_plus = data[time_units:]
+
+        predictions = model(x_t, stim_t)
+        mse_loss = torch.nn.functional.mse_loss(predictions, x_t_plus).item()
+
+        # Baseline: constant model (no change prediction)
+        constant_model_mse = torch.nn.functional.mse_loss(
+            data[:-time_units], data[time_units:]
+        ).item()
+
+    return {
+        "mse_loss": mse_loss,
+        "constant_model_mse": constant_model_mse,
+    }
+
 
 # -------------------------------------------------------------------
 # Training
@@ -374,25 +520,13 @@ def train(cfg: ModelParams, run_dir: Path):
         print("Logged model graph to TensorBoard")
 
         # --- Load data ---
-        data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0.npy"
-        sim_data = SimulationResults.load(data_path)
-        split = cfg.training.data_split
-
-        # Extract subsets using split_column method
-        train_data_np, val_data_np, test_data_np = sim_data.split_column(
-            FlyVisSim[cfg.training.column_to_model], split
+        train_data, val_data, test_data, train_stim, val_stim, test_stim, neuron_data = load_dataset(
+            simulation_config=cfg.training.simulation_config,
+            column_to_model=cfg.training.column_to_model,
+            data_split=cfg.training.data_split,
+            num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
+            device=device,
         )
-        train_data = torch.from_numpy(train_data_np).to(device)
-        val_data = torch.from_numpy(val_data_np).to(device)
-        test_data = torch.from_numpy(test_data_np).to(device)
-
-        # Load stimulus (keep only first num_input_dims features)
-        train_stim_np, val_stim_np, test_stim_np = sim_data.split_column(
-            FlyVisSim.STIMULUS, split, keep_first_n_limit=cfg.stimulus_encoder_params.num_input_dims
-        )
-        train_stim = torch.from_numpy(train_stim_np).to(device)
-        val_stim = torch.from_numpy(val_stim_np).to(device)
-        test_stim = torch.from_numpy(test_stim_np).to(device)
 
         print(
             f"Data split: train {train_data.shape}, "
@@ -510,27 +644,18 @@ def train(cfg: ModelParams, run_dir: Path):
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
-            running_loss = 0.0
-            running_recon_loss = 0.0
-            running_evolve_loss = 0.0
-            running_reg_loss = 0.0
+            losses = LossComponents()
 
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 (x_t, stim_t), x_t_plus = next(batch_iter)
-                (loss, recon_loss, evolve_loss, reg_loss) = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
-                loss.backward()
+                loss_tuple = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
+                loss_tuple[0].backward()
                 optimizer.step()
-                running_loss += loss.detach().item()
-                running_recon_loss += recon_loss.detach().item()
-                running_evolve_loss += evolve_loss.detach().item()
-                running_reg_loss += reg_loss.detach().item()
+                losses.accumulate(*loss_tuple)
 
-            mean_train_loss = running_loss / batches_per_epoch
-            mean_recon_loss = running_recon_loss / batches_per_epoch
-            mean_evolve_loss = running_evolve_loss / batches_per_epoch
-            mean_reg_loss = running_reg_loss / batches_per_epoch
+            mean_losses = losses.mean()
 
             # ---- Validation phase ----
             model.eval()
@@ -564,16 +689,17 @@ def train(cfg: ModelParams, run_dir: Path):
 
             print(
                 f"Epoch {epoch+1}/{cfg.training.epochs} | "
-                f"Train Loss: {mean_train_loss:.4e} | Val Loss: {val_loss:.4e} | "
+                f"Train Loss: {mean_losses.total:.4e} | Val Loss: {val_loss:.4e} | "
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
             # Log to TensorBoard
-            writer.add_scalar("Loss/train", mean_train_loss, epoch)
+            writer.add_scalar("Loss/train", mean_losses.total, epoch)
             writer.add_scalar("Loss/val", val_loss, epoch)
-            writer.add_scalar("Loss/train_recon", mean_recon_loss, epoch)
-            writer.add_scalar("Loss/train_evolve", mean_evolve_loss, epoch)
-            writer.add_scalar("Loss/train_reg", mean_reg_loss, epoch)
+            writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
+            writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
+            writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
+            writer.add_scalar("Loss/train_lp_norm", mean_losses.lp_norm, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
@@ -584,7 +710,7 @@ def train(cfg: ModelParams, run_dir: Path):
                 diagnostic_metrics, diagnostic_figures = run_validation_diagnostics(
                     run_dir=run_dir,
                     val_data=val_data,
-                    neuron_data=sim_data.neuron_data,
+                    neuron_data=neuron_data,
                     val_stim=val_stim,
                     model=model,
                     config=cfg,
@@ -654,7 +780,7 @@ def train(cfg: ModelParams, run_dir: Path):
 
         metrics.update(
             {
-                    "final_train_loss": mean_train_loss,
+                    "final_train_loss": mean_losses.total,
                     "final_val_loss": val_loss,
                     "final_test_loss": test_loss,
                     "commit_hash": commit_hash,
@@ -674,7 +800,7 @@ def train(cfg: ModelParams, run_dir: Path):
         post_run_metrics, final_figures = run_validation_diagnostics(
             run_dir=run_dir,
             val_data=val_data,
-            neuron_data=sim_data.neuron_data,
+            neuron_data=neuron_data,
             val_stim=val_stim,
             model=model,
             config=cfg,
@@ -690,6 +816,73 @@ def train(cfg: ModelParams, run_dir: Path):
 
         print(f"Final diagnostics completed in {diagnostics_duration:.2f}s")
 
+        # --- Cross-validation on different datasets ---
+        cross_val_results = {}
+        print("\n=== Running Cross-Dataset Validation ===")
+
+        for cv_config in cfg.cross_validation_configs:
+            cv_name = cv_config.name or cv_config.simulation_config
+            print(f"\nEvaluating on {cv_name} ({cv_config.simulation_config})...")
+
+            # Load cross-validation dataset (only need validation split)
+            _, cv_val_data, _, _, cv_val_stim, _, cv_neuron_data = load_dataset(
+                simulation_config=cv_config.simulation_config,
+                column_to_model=cfg.training.column_to_model,
+                data_split=cfg.training.data_split,  # Use same time ranges
+                num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
+                device=device,
+            )
+
+            # Evaluate on validation split only
+            val_metrics = evaluate_dataset(
+                model, cv_val_data, cv_val_stim, cfg.evolver_params.time_units
+            )
+
+            # Run diagnostics on cross-validation dataset
+            cv_run_dir = run_dir / "cross_validation" / cv_name
+            cv_run_dir.mkdir(parents=True, exist_ok=True)
+
+            cv_diagnostics, cv_figures = run_validation_diagnostics(
+                run_dir=cv_run_dir,
+                val_data=cv_val_data,
+                neuron_data=cv_neuron_data,
+                val_stim=cv_val_stim,
+                model=model,
+                config=cfg,
+                save_figures=True,
+            )
+
+            # Store results
+            cross_val_results[cv_name] = {
+                "simulation_config": cv_config.simulation_config,
+                "val_mse": val_metrics["mse_loss"],
+                "val_constant_model_mse": val_metrics["constant_model_mse"],
+                **cv_diagnostics,  # Include diagnostic metrics
+            }
+
+            # Log to TensorBoard
+            for metric_name, metric_value in cross_val_results[cv_name].items():
+                if isinstance(metric_value, (int, float)):
+                    writer.add_scalar(
+                        f"CrossVal/{cv_name}/{metric_name}",
+                        metric_value,
+                        cfg.training.epochs,
+                    )
+
+            # Log figures to TensorBoard
+            for fig_name, fig in cv_figures.items():
+                writer.add_figure(
+                    f"CrossVal/{cv_name}/{fig_name}", fig, cfg.training.epochs
+                )
+
+            print(f"  Val MSE: {val_metrics['mse_loss']:.4e}")
+
+        # Save cross-validation results
+        cv_results_path = run_dir / "cross_validation_results.yaml"
+        with open(cv_results_path, "w") as f:
+            yaml.dump(cross_val_results, f, sort_keys=False, indent=2)
+        print(f"\nSaved cross-validation results to {cv_results_path}")
+
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
         with open(metrics_path, "w") as f:
@@ -702,7 +895,12 @@ def train(cfg: ModelParams, run_dir: Path):
         print(f"Saved metrics to {metrics_path}")
 
         # Log hyperparameters to TensorBoard for comparison across runs
-        hparams = cfg.flatten()
+        # omit logging of profiling/cross-validation info
+        hparams = {
+            k: v for k, v in cfg.flatten().items() if not (
+                k.startswith("profiling") or k.startswith("cross_validation_configs")
+            )
+        }
         metric_dict = {
             "hparam/final_train_loss": metrics["final_train_loss"],
             "hparam/final_val_loss": metrics["final_val_loss"],

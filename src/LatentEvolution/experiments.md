@@ -1471,3 +1471,41 @@ for hidden in 0 1 2 3 ; do \
     --evolver-params.use-input-skips
 done
 ```
+
+Preliminary results suggest we can go down to one hidden layer with input skips.
+
+### test lp norm
+
+```bash
+
+for lp in 0.0 1e-4 1e-2 1.0 100.0 ; do \
+  bsub -J "lp${lp}" -n 1 -gpu "num=1" -q gpu_a100 -o "lp${lp}.log" python \
+    src/LatentEvolution/latent.py lp_norm \
+    --training.lp-norm-weight $lp
+done
+```
+
+This didn't solve the Mi12 problem.
+
+## Noise vs no noise
+
+Config `fly_N9_62_1` has noise of 0.05 added. See if this is impacting results.
+Create config `fly_N9_62_0` and compare results.
+
+```bash
+
+bsub -J gen -n 4 -gpu "num=1" -q gpu_a100 -o gen.log python \
+  GNN_Main.py -o generate fly_N9_62_0
+
+for cfg in fly_N9_62_0 fly_N9_62_1 ; do \
+  bsub -J $cfg -n 1 -gpu "num=1" -q gpu_a100 -o "${cfg}.log" python \
+    src/LatentEvolution/latent.py noise_test \
+    --training.simulation-config $cfg
+done
+```
+
+This is very informative. It turns out that the `Mi12` trace is heavily impacted by
+the added noise (sigma ~ 0.05). That's why we were unable to fit it properly.
+
+In the absence of noise the overall mse goes down significantly and we can
+reconstruct the `Mi12` trace a lot better.

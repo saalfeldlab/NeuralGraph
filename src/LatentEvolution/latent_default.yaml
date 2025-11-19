@@ -20,12 +20,12 @@ decoder_params:
 
 evolver_params:
   time_units: 1 # Number of time steps to evolve per forward pass
-  num_hidden_layers: 3 # Hidden layers in the evolver network
+  num_hidden_layers: 1 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
   l1_reg_loss: 0.0
   # RETIRED: learnable_diagonal was ineffective and is no longer supported (must be false)
   learnable_diagonal: false
-  use_input_skips: false # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 stimulus_encoder_params:
   num_input_dims: 1736
@@ -50,6 +50,9 @@ training:
   seed: 42
   # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
   loss_function: mse_loss
+  # LP norm penalty for outlier control
+  lp_norm_weight: 0.0 # Weight for LP norm penalty on prediction errors
+  lp_norm_p: 8 # P value for LP norm (higher values penalize outliers more)
 
   data_split:
     train_start: 4000 # Exclude burn-in
@@ -68,3 +71,8 @@ training:
 #   record_shapes: true      # Record tensor shapes (helpful for debugging)
 #   profile_memory: true     # Profile memory usage (GPU/CPU)
 #   with_stack: false        # Stack traces add significant overhead, disable by default
+
+# Cross-dataset validation (evaluates trained model on different datasets)
+cross_validation_configs:
+  - simulation_config: "fly_N9_62_0"
+    name: "no_noise"
