@@ -7,7 +7,7 @@ and their associated Pydantic parameter configuration classes.
 
 import torch
 import torch.nn as nn
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 
 # -------------------------------------------------------------------
@@ -52,6 +52,16 @@ class EvolverParams(BaseModel):
         if v:
             raise ValueError("`learnable_diagonal` is deprecated.")
         return False
+
+    @model_validator(mode='after')
+    def validate_mutually_exclusive_architectures(self):
+        """Ensure use_input_skips and use_mlp_with_matrix are mutually exclusive."""
+        if self.use_input_skips and self.use_mlp_with_matrix:
+            raise ValueError(
+                "use_input_skips and use_mlp_with_matrix are mutually exclusive architecture choices. "
+                "Only one can be True at a time."
+            )
+        return self
 
 
 class EncoderParams(BaseModel):
