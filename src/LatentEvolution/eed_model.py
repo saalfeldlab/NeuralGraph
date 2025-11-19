@@ -22,9 +22,6 @@ class MLPParams(BaseModel):
     num_hidden_units: int
     activation: str = Field("ReLU", description="Activation function from torch.nn")
     use_batch_norm: bool = True
-    use_output_linear_proj: bool = Field(
-        True, description="For MLPWithSkips: if True, use linear projection of input at output layer. If False, skip the projection."
-    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("activation")
@@ -44,7 +41,6 @@ class EvolverParams(BaseModel):
         False, description="Use learnable diagonal matrix for residual (x -> Ax + mlp(x) instead of x + mlp(x))"
     )
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
-    use_output_linear_proj: bool = Field(True, description="If True, use linear projection of input at output layer")
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("learnable_diagonal")
@@ -60,7 +56,6 @@ class EncoderParams(BaseModel):
     num_hidden_layers: int
     l1_reg_loss: float = 0.0
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
-    use_output_linear_proj: bool = Field(True, description="If True, use linear projection of input at output layer")
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
@@ -70,7 +65,6 @@ class StimulusEncoderParams(BaseModel):
     num_hidden_units: int
     num_output_dims: int
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
-    use_output_linear_proj: bool = Field(True, description="If True, use linear projection of input at output layer")
 
 
 class DecoderParams(BaseModel):
@@ -78,7 +72,6 @@ class DecoderParams(BaseModel):
     num_hidden_layers: int
     l1_reg_loss: float = 0.0
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
-    use_output_linear_proj: bool = Field(True, description="If True, use linear projection of input at output layer")
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
@@ -90,8 +83,6 @@ class DecoderParams(BaseModel):
 class MLP(nn.Module):
     def __init__(self, params: MLPParams):
         super().__init__()
-        self.use_output_linear_proj = params.use_output_linear_proj
-        self.num_hidden_layers = params.num_hidden_layers
         self.layers = nn.ModuleList()
         input_dims = params.num_input_dims
 
@@ -102,37 +93,17 @@ class MLP(nn.Module):
             self.layers.append(getattr(nn, params.activation)())
             input_dims = params.num_hidden_units
 
-        # Output layer: conditionally use input projection
         if params.num_hidden_layers:
-            if self.use_output_linear_proj:
-                # Add input projection for skip connection at output
-                self.input_projection_final = nn.Linear(params.num_input_dims, params.num_hidden_units)
-                self.output_layer = nn.Linear(params.num_hidden_units + params.num_hidden_units, params.num_output_dims)
-            else:
-                self.input_projection_final = None
-                self.output_layer = nn.Linear(params.num_hidden_units, params.num_output_dims)
+            self.layers.append(
+                nn.Linear(params.num_hidden_units, params.num_output_dims)
+            )
         else:
-            # No hidden layers - output projection doesn't make sense
-            self.input_projection_final = None
-            self.output_layer = nn.Linear(params.num_input_dims, params.num_output_dims)
+            self.layers.append(nn.Linear(params.num_input_dims, params.num_output_dims))
 
     def forward(self, x):
-        original_input = x
-
-        # Process hidden layers
         for layer in self.layers:
             x = layer(x)
-
-        # Output layer with optional input projection
-        if self.num_hidden_layers and self.use_output_linear_proj:
-            assert self.input_projection_final is not None
-            input_proj_final = self.input_projection_final(original_input)
-            concat_final = torch.cat([x, input_proj_final], dim=-1)
-            output = self.output_layer(concat_final)
-        else:
-            output = self.output_layer(x)
-
-        return output
+        return x
 
 
 class MLPWithSkips(nn.Module):
@@ -143,7 +114,6 @@ class MLPWithSkips(nn.Module):
     def __init__(self, params: MLPParams):
         super().__init__()
         self.num_hidden_layers = params.num_hidden_layers
-        self.use_output_linear_proj = params.use_output_linear_proj
 
         if self.num_hidden_layers == 0:
             # No hidden layers, just direct mapping
@@ -170,13 +140,9 @@ class MLPWithSkips(nn.Module):
             self.linear_layers.append(nn.Linear(layer_input_dims, params.num_hidden_units))
             self.activations.append(getattr(nn, params.activation)())
 
-        # Output layer: conditionally use input projection
-        if self.use_output_linear_proj:
-            self.input_projection_final = nn.Linear(params.num_input_dims, params.num_hidden_units)
-            self.output_layer = nn.Linear(params.num_hidden_units + params.num_hidden_units, params.num_output_dims)
-        else:
-            self.input_projection_final = None
-            self.output_layer = nn.Linear(params.num_hidden_units, params.num_output_dims)
+        # Output layer also gets concatenated input projection
+        self.input_projection_final = nn.Linear(params.num_input_dims, params.num_hidden_units)
+        self.output_layer = nn.Linear(params.num_hidden_units + params.num_hidden_units, params.num_output_dims)
 
     def forward(self, x):
         if self.num_hidden_layers == 0:
@@ -197,14 +163,10 @@ class MLPWithSkips(nn.Module):
             hidden = self.linear_layers[i](concat)
             hidden = self.activations[i](hidden)
 
-        # Final output layer with optional input projection
-        if self.use_output_linear_proj:
-            assert self.input_projection_final is not None
-            input_proj_final = self.input_projection_final(original_input)
-            concat_final = torch.cat([hidden, input_proj_final], dim=-1)
-            output = self.output_layer(concat_final)
-        else:
-            output = self.output_layer(hidden)
+        # Final output layer with input projection
+        input_proj_final = self.input_projection_final(original_input)
+        concat_final = torch.cat([hidden, input_proj_final], dim=-1)
+        output = self.output_layer(concat_final)
 
         return output
 
@@ -234,7 +196,6 @@ class Evolver(nn.Module):
                 num_output_dims=dim,
                 activation=activation,
                 use_batch_norm=use_batch_norm,
-                use_output_linear_proj=evolver_params.use_output_linear_proj,
             )
         )
 
