@@ -895,7 +895,12 @@ def train(cfg: ModelParams, run_dir: Path):
         print(f"Saved metrics to {metrics_path}")
 
         # Log hyperparameters to TensorBoard for comparison across runs
-        hparams = cfg.flatten()
+        # omit logging of profiling/cross-validation info
+        hparams = {
+            k: v for k, v in cfg.flatten().items() if not (
+                k.startswith("profiling") or k.startswith("cross_validation_configs")
+            )
+        }
         metric_dict = {
             "hparam/final_train_loss": metrics["final_train_loss"],
             "hparam/final_val_loss": metrics["final_val_loss"],
