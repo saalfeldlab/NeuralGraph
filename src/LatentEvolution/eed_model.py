@@ -7,7 +7,7 @@ and their associated Pydantic parameter configuration classes.
 
 import torch
 import torch.nn as nn
-from pydantic import BaseModel, Field, field_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 
 # -------------------------------------------------------------------
@@ -38,9 +38,12 @@ class EvolverParams(BaseModel):
     num_hidden_layers: int
     l1_reg_loss: float = 0.0
     learnable_diagonal: bool = Field(
-        False, description="Use learnable diagonal matrix for residual (x -> Ax + mlp(x) instead of x + mlp(x))"
+        False, description="DEPRECATED: This feature has been removed. Must be False."
     )
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
+    use_mlp_with_matrix: bool = Field(
+        False, description="If True, use architecture: x = MLP(concat[x, Ax]) where A is a learnable matrix"
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("learnable_diagonal")
@@ -49,6 +52,16 @@ class EvolverParams(BaseModel):
         if v:
             raise ValueError("`learnable_diagonal` is deprecated.")
         return False
+
+    @model_validator(mode='after')
+    def validate_mutually_exclusive_architectures(self):
+        """Ensure use_input_skips and use_mlp_with_matrix are mutually exclusive."""
+        if self.use_input_skips and self.use_mlp_with_matrix:
+            raise ValueError(
+                "use_input_skips and use_mlp_with_matrix are mutually exclusive architecture choices. "
+                "Only one can be True at a time."
+            )
+        return self
 
 
 class EncoderParams(BaseModel):
@@ -175,22 +188,22 @@ class Evolver(nn.Module):
     def __init__(self, latent_dims: int, stim_dims: int, evolver_params: EvolverParams, use_batch_norm: bool = True, activation: str = "ReLU"):
         super().__init__()
         self.time_units = evolver_params.time_units
-
-        # RETIRED: learnable_diagonal feature was ineffective and is no longer supported
-        assert not evolver_params.learnable_diagonal, \
-            "learnable_diagonal is retired because it was ineffective. Please set to False."
-        self.use_learnable_diagonal = evolver_params.learnable_diagonal
+        self.use_mlp_with_matrix = evolver_params.use_mlp_with_matrix
         dim = latent_dims + stim_dims
 
-        # Learnable diagonal matrix for residual connection
-        if self.use_learnable_diagonal:
-            self.diagonal = nn.Parameter(torch.ones(dim))
+        # Learnable matrix for matrix concatenation architecture
+        if self.use_mlp_with_matrix:
+            self.matrix = nn.Parameter(torch.randn(dim, dim) * 0.01)
 
         # Use MLPWithSkips if flag is set, similar to encoder/decoder
         evolver_cls = MLPWithSkips if evolver_params.use_input_skips else MLP
+
+        # Adjust input dimensions based on architecture
+        mlp_input_dims = 2 * dim if self.use_mlp_with_matrix else dim
+
         self.evolver = evolver_cls(
             MLPParams(
-                num_input_dims=dim,
+                num_input_dims=mlp_input_dims,
                 num_hidden_layers=evolver_params.num_hidden_layers,
                 num_hidden_units=evolver_params.num_hidden_units,
                 num_output_dims=dim,
@@ -201,8 +214,12 @@ class Evolver(nn.Module):
 
     def forward(self, x):
         for _ in range(self.time_units):
-            if self.use_learnable_diagonal:
-                x = self.diagonal * x + self.evolver(x)
+            if self.use_mlp_with_matrix:
+                # New architecture: x = MLP(concat[x, Ax])
+                Ax = x @ self.matrix
+                concat = torch.cat([x, Ax], dim=-1)
+                x = self.evolver(concat)
             else:
+                # Standard residual: x = x + MLP(x)
                 x = x + self.evolver(x)
         return x
