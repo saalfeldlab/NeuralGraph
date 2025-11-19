@@ -38,7 +38,7 @@ class EvolverParams(BaseModel):
     num_hidden_layers: int
     l1_reg_loss: float = 0.0
     learnable_diagonal: bool = Field(
-        False, description="Use learnable diagonal matrix for residual (x -> Ax + mlp(x) instead of x + mlp(x))"
+        False, description="DEPRECATED: This feature has been removed. Must be False."
     )
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
     use_mlp_with_matrix: bool = Field(
@@ -179,16 +179,7 @@ class Evolver(nn.Module):
         super().__init__()
         self.time_units = evolver_params.time_units
         self.use_mlp_with_matrix = evolver_params.use_mlp_with_matrix
-
-        # RETIRED: learnable_diagonal feature was ineffective and is no longer supported
-        assert not evolver_params.learnable_diagonal, \
-            "learnable_diagonal is retired because it was ineffective. Please set to False."
-        self.use_learnable_diagonal = evolver_params.learnable_diagonal
         dim = latent_dims + stim_dims
-
-        # Learnable diagonal matrix for residual connection
-        if self.use_learnable_diagonal:
-            self.diagonal = nn.Parameter(torch.ones(dim))
 
         # Learnable matrix for matrix concatenation architecture
         if self.use_mlp_with_matrix:
@@ -218,8 +209,7 @@ class Evolver(nn.Module):
                 Ax = x @ self.matrix
                 concat = torch.cat([x, Ax], dim=-1)
                 x = self.evolver(concat)
-            elif self.use_learnable_diagonal:
-                x = self.diagonal * x + self.evolver(x)
             else:
+                # Standard residual: x = x + MLP(x)
                 x = x + self.evolver(x)
         return x
