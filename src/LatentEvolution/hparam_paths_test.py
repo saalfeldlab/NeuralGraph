@@ -6,7 +6,7 @@ import unittest
 import tempfile
 from pathlib import Path
 from pydantic import BaseModel, Field
-from hparam_paths import (
+from LatentEvolution.hparam_paths import (
     parse_tyro_overrides,
     get_short_name_for_field,
     build_hparam_path,
