@@ -795,9 +795,11 @@ def train(cfg: ModelParams, run_dir: Path):
         torch.save(model.state_dict(), model_path)
         print(f"Saved final model to {model_path}")
 
-        # --- Run final diagnostics ---
-        diagnostics_start = datetime.now()
-        post_run_metrics, final_figures = run_validation_diagnostics(
+        # --- Run post-training analysis ---
+        print("\n=== Running post-training analysis ===")
+
+        # Run diagnostics on main validation dataset
+        run_validation_diagnostics(
             run_dir=run_dir,
             val_data=val_data,
             neuron_data=neuron_data,
@@ -806,82 +808,37 @@ def train(cfg: ModelParams, run_dir: Path):
             config=cfg,
             save_figures=True,
         )
-        diagnostics_duration = (datetime.now() - diagnostics_start).total_seconds()
-        metrics.update(post_run_metrics)
-        metrics["final_diagnostics_duration_seconds"] = round(diagnostics_duration, 2)
+        print(f"Saved main validation figures to {run_dir}")
 
-        # Log final diagnostic figures to TensorBoard
-        for fig_name, fig in final_figures.items():
-            writer.add_figure(f"Diagnostics/{fig_name}", fig, cfg.training.epochs)
+        # Run cross-validation diagnostics
+        if cfg.cross_validation_configs:
+            print("\n=== Running Cross-Dataset Validation ===")
 
-        print(f"Final diagnostics completed in {diagnostics_duration:.2f}s")
+            for cv_config in cfg.cross_validation_configs:
+                cv_name = cv_config.name or cv_config.simulation_config
+                print(f"\nEvaluating on {cv_name} ({cv_config.simulation_config})...")
 
-        # --- Cross-validation on different datasets ---
-        cross_val_results = {}
-        print("\n=== Running Cross-Dataset Validation ===")
-
-        for cv_config in cfg.cross_validation_configs:
-            cv_name = cv_config.name or cv_config.simulation_config
-            print(f"\nEvaluating on {cv_name} ({cv_config.simulation_config})...")
-
-            # Load cross-validation dataset (only need validation split)
-            _, cv_val_data, _, _, cv_val_stim, _, cv_neuron_data = load_dataset(
-                simulation_config=cv_config.simulation_config,
-                column_to_model=cfg.training.column_to_model,
-                data_split=cfg.training.data_split,  # Use same time ranges
-                num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
-                device=device,
-            )
-
-            # Evaluate on validation split only
-            val_metrics = evaluate_dataset(
-                model, cv_val_data, cv_val_stim, cfg.evolver_params.time_units
-            )
-
-            # Run diagnostics on cross-validation dataset
-            cv_run_dir = run_dir / "cross_validation" / cv_name
-            cv_run_dir.mkdir(parents=True, exist_ok=True)
-
-            cv_diagnostics, cv_figures = run_validation_diagnostics(
-                run_dir=cv_run_dir,
-                val_data=cv_val_data,
-                neuron_data=cv_neuron_data,
-                val_stim=cv_val_stim,
-                model=model,
-                config=cfg,
-                save_figures=True,
-            )
-
-            # Store results
-            cross_val_results[cv_name] = {
-                "simulation_config": cv_config.simulation_config,
-                "val_mse": val_metrics["mse_loss"],
-                "val_constant_model_mse": val_metrics["constant_model_mse"],
-                **cv_diagnostics,  # Include diagnostic metrics
-            }
-
-            # Log to TensorBoard
-            for metric_name, metric_value in cross_val_results[cv_name].items():
-                if isinstance(metric_value, (int, float)):
-                    writer.add_scalar(
-                        f"CrossVal/{cv_name}/{metric_name}",
-                        metric_value,
-                        cfg.training.epochs,
-                    )
-
-            # Log figures to TensorBoard
-            for fig_name, fig in cv_figures.items():
-                writer.add_figure(
-                    f"CrossVal/{cv_name}/{fig_name}", fig, cfg.training.epochs
+                # Load cross-validation dataset (only need validation split)
+                _, cv_val_data, _, _, cv_val_stim, _, cv_neuron_data = load_dataset(
+                    simulation_config=cv_config.simulation_config,
+                    column_to_model=cfg.training.column_to_model,
+                    data_split=cfg.training.data_split,  # Use same time ranges
+                    num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
+                    device=device,
                 )
 
-            print(f"  Val MSE: {val_metrics['mse_loss']:.4e}")
-
-        # Save cross-validation results
-        cv_results_path = run_dir / "cross_validation_results.yaml"
-        with open(cv_results_path, "w") as f:
-            yaml.dump(cross_val_results, f, sort_keys=False, indent=2)
-        print(f"\nSaved cross-validation results to {cv_results_path}")
+                # Run diagnostics on cross-validation dataset
+                cv_out_dir = run_dir / "cross_validation" / cv_name
+                run_validation_diagnostics(
+                    run_dir=cv_out_dir,
+                    val_data=cv_val_data,
+                    neuron_data=cv_neuron_data,
+                    val_stim=cv_val_stim,
+                    model=model,
+                    config=cfg,
+                    save_figures=True,
+                )
+                print(f"Saved cross-validation figures to {cv_out_dir}")
 
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
