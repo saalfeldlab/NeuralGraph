@@ -190,7 +190,7 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     # Training loop
     print(f"Training for {num_training_steps} steps...")
     loss_history = []
-    regularization_history = {'deformation': [], 'anatomy_tv': []}
+    regularization_history = {'deformation': []}
     batch_size = min(16384, res*res)
 
     pbar = trange(num_training_steps, ncols=150)
@@ -244,34 +244,11 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         # Main reconstruction loss
         loss = torch.nn.functional.mse_loss(reconstructed, target)
 
-        # Regularization 1: Deformation smoothness
+        # Regularization: Deformation smoothness
         deformation_smoothness = torch.mean(torch.abs(deformation))
 
-        # Regularization 2: Total Variation (TV) for anatomy
-        # Get full anatomy field for TV computation
-        with torch.no_grad():
-            # Only compute TV every N steps to save computation
-            compute_tv = (step % 10 == 0)
-
-        if compute_tv:
-            anatomy_full = anatomy_net(coords_2d).reshape(res, res)
-            # Compute gradients in x and y directions
-            tv_x = torch.mean(torch.abs(anatomy_full[:, 1:] - anatomy_full[:, :-1]))
-            tv_y = torch.mean(torch.abs(anatomy_full[1:, :] - anatomy_full[:-1, :]))
-            anatomy_tv = tv_x + tv_y
-        else:
-            # Use approximate TV from sampled batch (reshape to approximate 2D grid)
-            batch_size_sqrt = int(np.sqrt(batch_size))
-            if batch_size_sqrt * batch_size_sqrt == batch_size:
-                anatomy_2d = anatomy_mask.reshape(batch_size_sqrt, batch_size_sqrt)
-                tv_x = torch.mean(torch.abs(anatomy_2d[:, 1:] - anatomy_2d[:, :-1]))
-                tv_y = torch.mean(torch.abs(anatomy_2d[1:, :] - anatomy_2d[:-1, :]))
-                anatomy_tv = tv_x + tv_y
-            else:
-                anatomy_tv = torch.tensor(0.0, device=device, dtype=torch.float16)
-
         # Combined loss with regularization
-        total_loss = loss + 0.01 * deformation_smoothness + 0.005 * anatomy_tv
+        total_loss = loss + 0.01 * deformation_smoothness
 
         # Optimize
         optimizer.zero_grad()
@@ -284,12 +261,11 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         # Record losses
         loss_history.append(loss.item())
         regularization_history['deformation'].append(deformation_smoothness.item())
-        regularization_history['anatomy_tv'].append(anatomy_tv.item() if isinstance(anatomy_tv, torch.Tensor) else 0.0)
 
         # Update progress bar with losses
         pbar.set_postfix({
             'loss': f'{loss.item():.6f}',
-            'tv': f'{anatomy_tv.item() if isinstance(anatomy_tv, torch.Tensor) else 0.0:.4f}'
+            'def': f'{deformation_smoothness.item():.4f}'
         })
 
     print("Training complete!")
@@ -509,39 +485,21 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     print(f"Saved metrics to {output_dir}/metrics.txt")
 
     # Plot and save loss history with regularization terms
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
     # Main reconstruction loss
-    axes[0, 0].plot(loss_history)
-    axes[0, 0].set_title('NSTM Reconstruction Loss', fontsize=12)
-    axes[0, 0].set_xlabel('Step')
-    axes[0, 0].set_ylabel('MSE Loss')
-    axes[0, 0].grid(True, alpha=0.3)
+    axes[0].plot(loss_history)
+    axes[0].set_title('NSTM Reconstruction Loss', fontsize=12)
+    axes[0].set_xlabel('Step')
+    axes[0].set_ylabel('MSE Loss')
+    axes[0].grid(True, alpha=0.3)
 
     # Deformation regularization
-    axes[0, 1].plot(regularization_history['deformation'], color='orange')
-    axes[0, 1].set_title('Deformation Smoothness', fontsize=12)
-    axes[0, 1].set_xlabel('Step')
-    axes[0, 1].set_ylabel('L1 Deformation')
-    axes[0, 1].grid(True, alpha=0.3)
-
-    # Anatomy TV regularization
-    axes[1, 0].plot(regularization_history['anatomy_tv'], color='green')
-    axes[1, 0].set_title('Anatomy Total Variation (TV)', fontsize=12)
-    axes[1, 0].set_xlabel('Step')
-    axes[1, 0].set_ylabel('TV Loss')
-    axes[1, 0].grid(True, alpha=0.3)
-
-    # Combined view (log scale)
-    axes[1, 1].plot(loss_history, label='Reconstruction', alpha=0.7)
-    axes[1, 1].plot(regularization_history['deformation'], label='Deformation', alpha=0.7)
-    axes[1, 1].plot(regularization_history['anatomy_tv'], label='Anatomy TV', alpha=0.7)
-    axes[1, 1].set_title('All Loss Components', fontsize=12)
-    axes[1, 1].set_xlabel('Step')
-    axes[1, 1].set_ylabel('Loss (log scale)')
-    axes[1, 1].set_yscale('log')
-    axes[1, 1].legend()
-    axes[1, 1].grid(True, alpha=0.3)
+    axes[1].plot(regularization_history['deformation'], color='orange')
+    axes[1].set_title('Deformation Smoothness', fontsize=12)
+    axes[1].set_xlabel('Step')
+    axes[1].set_ylabel('L1 Deformation')
+    axes[1].grid(True, alpha=0.3)
 
     plt.tight_layout()
     plt.savefig(f'{output_dir}/loss_history.png', dpi=150)
