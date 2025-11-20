@@ -34,6 +34,31 @@ import shutil
 import torch_geometric as pyg
 
 
+def compute_gt_deformation_field(frame_idx, num_frames, res, motion_intensity=0.015):
+    """Compute ground truth deformation field for visualization
+
+    Returns:
+        dx, dy: Deformation fields of shape (res, res) in normalized coordinates [0, 1]
+    """
+    # Create coordinate grids in normalized space [0, 1]
+    y_grid, x_grid = np.meshgrid(
+        np.linspace(0, 1, res),
+        np.linspace(0, 1, res),
+        indexing='ij'
+    )
+
+    # Create displacement fields with time-varying frequency
+    t_norm = frame_idx / num_frames
+    freq_x = 2 + t_norm * 2
+    freq_y = 3 + t_norm * 1
+
+    # Compute normalized deformation (same as in apply_sinusoidal_warp)
+    dx = motion_intensity * np.sin(freq_x * np.pi * y_grid) * np.cos(freq_y * np.pi * x_grid)
+    dy = motion_intensity * np.cos(freq_x * np.pi * y_grid) * np.sin(freq_y * np.pi * x_grid)
+
+    return dx, dy
+
+
 def apply_sinusoidal_warp(image, frame_idx, num_frames, motion_intensity=0.015):
     """Apply sinusoidal warping to an image, similar to pixel_NSTM.py"""
     h, w = image.shape
@@ -119,19 +144,15 @@ class NeuralSpaceTimeModel:
 
 def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir, num_training_steps=3000):
     """Train Neural Space-Time Model with anatomy + activity decomposition"""
-    print(f"\n{'='*60}")
-    print("Starting NSTM Training with Anatomy Network")
-    print(f"{'='*60}")
-
     # Load motion frames
-    print("Loading motion frames...")
+    print("loading motion frames...")
     motion_images = []
     for i in range(n_frames):
         img = imread(f"{motion_frames_dir}/frame_{i:06d}.tif")
         motion_images.append(img)
 
     # Load original activity images
-    print("Loading original activity images...")
+    print("loading original activity images...")
     activity_images = []
     for i in range(n_frames):
         img = imread(f"{activity_dir}/frame_{i:06d}.tif")
@@ -141,17 +162,17 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     all_pixels = np.concatenate([img.flatten() for img in motion_images])
     data_min = all_pixels.min()
     data_max = all_pixels.max()
-    print(f"Input data range: [{data_min:.2f}, {data_max:.2f}]")
+    print(f"input data range: [{data_min:.2f}, {data_max:.2f}]")
 
     # Normalize to [0, 1] and convert to tensors (use float16 for tinycudann compatibility)
     # Keep both motion (warped) and activity (ground-truth) in GPU memory
     motion_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float16).to(device) for img in motion_images]
     activity_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float16).to(device) for img in activity_images]
 
-    print(f"Loaded {n_frames} frames into GPU memory")
+    print(f"loaded {n_frames} frames into gpu memory")
 
     # Create networks
-    print("Creating networks...")
+    print("creating networks...")
     config = create_network_config()
 
     # Deformation network: (x, y, t) -> (δx, δy)
@@ -178,7 +199,7 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
 
     # Create optimizer
     params = list(deformation_net.parameters()) + list(anatomy_net.parameters())
-    optimizer = torch.optim.Adam(params, lr=1e-3)
+    optimizer = torch.optim.Adam(params, lr=5e-4)  # Reduced from 1e-3
 
     # Learning rate schedule
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
@@ -188,7 +209,7 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     )
 
     # Training loop
-    print(f"Training for {num_training_steps} steps...")
+    print(f"training for {num_training_steps} steps...")
     loss_history = []
     regularization_history = {'deformation': []}
     batch_size = min(16384, res*res)
@@ -218,7 +239,7 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         source_coords = torch.clamp(source_coords, 0, 1)
 
         # Sample anatomy mask at source coordinates
-        anatomy_mask = anatomy_net(source_coords)
+        anatomy_mask = torch.sigmoid(anatomy_net(source_coords))
 
         # Sample ground-truth activity at source coordinates using grid_sample
         # Convert source_coords from [0,1] to [-1,1] for grid_sample
@@ -268,31 +289,24 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
             'def': f'{deformation_smoothness.item():.4f}'
         })
 
-    print("Training complete!")
+    print("training complete!")
 
     # Extract learned anatomy mask
-    print("Extracting learned anatomy mask...")
+    print("extracting learned anatomy mask...")
     with torch.no_grad():
-        anatomy_mask = anatomy_net(coords_2d)
+        anatomy_mask = torch.sigmoid(anatomy_net(coords_2d))
         anatomy_mask_img = anatomy_mask.reshape(res, res).cpu().numpy()
 
-    print(f"Learned anatomy range: [{anatomy_mask_img.min():.4f}, {anatomy_mask_img.max():.4f}]")
-
     # Compute average of original activity images
-    print("\nComputing average of original activity images...")
     activity_average = np.mean(activity_images, axis=0)
 
     # Create ground-truth mask from activity average (threshold at mean)
     threshold = activity_average.mean()
     ground_truth_mask = (activity_average > threshold).astype(np.float32)
     n_gt_pixels = ground_truth_mask.sum()
-    print(f"Ground-truth mask: {n_gt_pixels}/{ground_truth_mask.size} pixels above threshold")
 
     # Normalize anatomy mask for comparison
     anatomy_mask_norm = (anatomy_mask_img - anatomy_mask_img.min()) / (anatomy_mask_img.max() - anatomy_mask_img.min() + 1e-8)
-
-    print(f"\n🔍 DEBUG: Using TOP-N thresholding (fixed evaluation method)")
-    print(f"   Anatomy norm stats: min={anatomy_mask_norm.min():.4f}, max={anatomy_mask_norm.max():.4f}, mean={anatomy_mask_norm.mean():.4f}")
 
     # Threshold anatomy to match ground truth coverage (top N pixels)
     flat_anatomy = anatomy_mask_norm.flatten()
@@ -302,29 +316,17 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     anatomy_binary_flat[sorted_indices[:n_pixels_to_select]] = 1.0
     anatomy_binary = anatomy_binary_flat.reshape(anatomy_mask_norm.shape)
 
-    print(f"   Selecting top {n_pixels_to_select} pixels from {anatomy_binary.size} total")
-    print(f"Learned anatomy binary: {int(anatomy_binary.sum())}/{anatomy_binary.size} pixels (matched to GT coverage)")
-
     # Compute DICE score and IoU between learned anatomy and ground-truth mask
     intersection = np.sum(anatomy_binary * ground_truth_mask)
     union = np.sum(anatomy_binary) + np.sum(ground_truth_mask)
     dice_score = 2 * intersection / (union + 1e-8)
     iou_score = intersection / (union - intersection + 1e-8)
 
-    print(f"\n{'='*60}")
-    print("Anatomy Mask Evaluation")
-    print(f"{'='*60}")
-    print(f"DICE Score: {dice_score:.4f}")
-    print(f"IoU Score: {iou_score:.4f}")
-    print(f"{'='*60}\n")
-
     # Compute median of motion frames (warped frames) as baseline
-    print("Computing median of motion frames...")
     motion_median = np.median(motion_images, axis=0)
 
     # Reconstruct fixed scene: anatomy × activity_average
     fixed_scene_denorm = anatomy_mask_img * activity_average
-    print(f"Fixed scene range: [{fixed_scene_denorm.min():.2f}, {fixed_scene_denorm.max():.2f}]")
 
     # Compute RMSE between fixed scene and activity average
     rmse_activity = np.sqrt(np.mean((fixed_scene_denorm - activity_average) ** 2))
@@ -342,19 +344,11 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     motion_median_norm = (motion_median - motion_median.min()) / (motion_median.max() - motion_median.min() + 1e-8)
     ssim_baseline = ssim(activity_avg_norm, motion_median_norm, data_range=1.0)
 
-    print(f"{'='*60}")
-    print("NSTM Reconstruction Metrics")
-    print(f"{'='*60}")
-    print(f"Fixed Scene vs Activity Average:")
-    print(f"  RMSE: {rmse_activity:.4f}")
-    print(f"  SSIM: {ssim_activity:.4f}")
-    print(f"\nBaseline (Motion Median vs Activity Average):")
-    print(f"  RMSE: {rmse_baseline:.4f}")
-    print(f"  SSIM: {ssim_baseline:.4f}")
-    print(f"\nImprovement over baseline:")
-    print(f"  RMSE: {((rmse_baseline - rmse_activity) / rmse_baseline * 100):.2f}%")
-    print(f"  SSIM: {((ssim_activity - ssim_baseline) / (1.0 - ssim_baseline) * 100):.2f}%")
-    print(f"{'='*60}\n")
+    # Print simplified metrics (5 lines)
+    print(f"anatomy: range=[{anatomy_mask_img.min():.3f}, {anatomy_mask_img.max():.3f}] | dice={dice_score:.3f} | iou={iou_score:.3f}")
+    print(f"reconstruction: rmse={rmse_activity:.4f} | ssim={ssim_activity:.4f}")
+    print(f"baseline:       rmse={rmse_baseline:.4f} | ssim={ssim_baseline:.4f}")
+    print(f"improvement:    rmse={((rmse_baseline - rmse_activity) / rmse_baseline * 100):+.1f}% | ssim={((ssim_activity - ssim_baseline) / (1.0 - ssim_baseline) * 100):+.1f}%")
 
     # Save outputs
     os.makedirs(output_dir, exist_ok=True)
@@ -362,7 +356,6 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     # Save only anatomy masks (not all intermediate images)
     imwrite(f'{output_dir}/anatomy_learned.tif', anatomy_mask_img.astype(np.float32))
     imwrite(f'{output_dir}/anatomy_binary.tif', anatomy_binary.astype(np.float32))
-    print(f"Saved anatomy masks")
 
     # Create anatomy comparison figure
     fig, axes = plt.subplots(2, 2, figsize=(12, 12))
@@ -388,7 +381,6 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     plt.tight_layout()
     plt.savefig(f'{output_dir}/anatomy_comparison.png', dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"Saved anatomy comparison to {output_dir}/anatomy_comparison.png")
 
     # Create anatomy distribution histogram with metrics
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
@@ -416,40 +408,12 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     plt.tight_layout()
     plt.savefig(f'{output_dir}/anatomy_distribution.png', dpi=150, bbox_inches='tight')
     plt.close()
-    print(f"Saved anatomy distribution histogram to {output_dir}/anatomy_distribution.png")
-
-    # Compute and print distribution metrics
-    from scipy import stats
-    print(f"\n{'='*60}")
-    print("Anatomy Distribution Metrics")
-    print(f"{'='*60}")
-    print(f"Raw Anatomy Values:")
-    print(f"  Min: {anatomy_mask_img.min():.4f}")
-    print(f"  Max: {anatomy_mask_img.max():.4f}")
-    print(f"  Mean: {anatomy_mask_img.mean():.4f}")
-    print(f"  Median: {np.median(anatomy_mask_img):.4f}")
-    print(f"  Std: {anatomy_mask_img.std():.4f}")
-    print(f"  Skewness: {stats.skew(anatomy_mask_img.flatten()):.4f}")
-    print(f"  Kurtosis: {stats.kurtosis(anatomy_mask_img.flatten()):.4f}")
-
-    # Percentiles
-    p25, p50, p75, p95, p99 = np.percentile(anatomy_mask_img.flatten(), [25, 50, 75, 95, 99])
-    print(f"\nPercentiles:")
-    print(f"  25th: {p25:.4f}")
-    print(f"  50th: {p50:.4f}")
-    print(f"  75th: {p75:.4f}")
-    print(f"  95th: {p95:.4f}")
-    print(f"  99th: {p99:.4f}")
-
-    # Sparsity analysis
-    near_zero_count = np.sum(np.abs(anatomy_mask_img) < 0.01)
-    sparsity = near_zero_count / anatomy_mask_img.size * 100
-    print(f"\nSparsity Analysis:")
-    print(f"  Near-zero values (|x| < 0.01): {near_zero_count}/{anatomy_mask_img.size} ({sparsity:.2f}%)")
-    print(f"  Non-zero values: {anatomy_mask_img.size - near_zero_count}/{anatomy_mask_img.size} ({100-sparsity:.2f}%)")
-    print(f"{'='*60}\n")
 
     # Save metrics to file
+    from scipy import stats
+    near_zero_count = np.sum(np.abs(anatomy_mask_img) < 0.01)
+    sparsity = near_zero_count / anatomy_mask_img.size * 100
+
     with open(f'{output_dir}/metrics.txt', 'w') as f:
         f.write("NSTM Evaluation Metrics\n")
         f.write("="*60 + "\n\n")
@@ -482,7 +446,6 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         f.write(f"  75th Percentile: {np.percentile(anatomy_mask_img, 75):.4f}\n")
         f.write(f"  Sparsity (|x| < 0.01): {sparsity:.2f}%\n")
         f.write("="*60 + "\n")
-    print(f"Saved metrics to {output_dir}/metrics.txt")
 
     # Plot and save loss history with regularization terms
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -504,24 +467,25 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     plt.tight_layout()
     plt.savefig(f'{output_dir}/loss_history.png', dpi=150)
     plt.close()
-    print(f"Saved loss plot to {output_dir}/loss_history.png")
-
-    print(f"{'='*60}\n")
 
     return deformation_net, anatomy_net, loss_history
 
 
-def create_motion_field_visualization(base_image, motion_x, motion_y, res, step_size=16):
+def create_motion_field_visualization(base_image, motion_x, motion_y, res, step_size=16, black_background=False):
     """Create visualization of motion field with arrows"""
-    # Convert base image to RGB
-    base_uint8 = (np.clip(base_image, 0, 1) * 255).astype(np.uint8)
-    vis = np.stack([base_uint8, base_uint8, base_uint8], axis=2).copy()
+    if black_background:
+        # Black background
+        vis = np.zeros((res, res, 3), dtype=np.uint8)
+    else:
+        # Convert base image to RGB
+        base_uint8 = (np.clip(base_image, 0, 1) * 255).astype(np.uint8)
+        vis = np.stack([base_uint8, base_uint8, base_uint8], axis=2).copy()
 
     # Draw arrows
     for y in range(0, res, step_size):
         for x in range(0, res, step_size):
-            dx = motion_x[y, x] * res * 20  # Scale for visibility
-            dy = motion_y[y, x] * res * 20
+            dx = motion_x[y, x] * res * 5  # Scale for visibility (reduced from 10 to 5)
+            dy = motion_y[y, x] * res * 5  # Scale for visibility (reduced from 10 to 5)
 
             if abs(dx) > 0.5 or abs(dy) > 0.5:  # Only draw significant motion
                 pt1 = (int(x), int(y))
@@ -532,19 +496,21 @@ def create_motion_field_visualization(base_image, motion_x, motion_y, res, step_
 
 
 def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motion_images,
-                            data_min, data_max, res, device, output_dir, num_frames=90):
-    """Create a four-panel comparison video
+                            data_min, data_max, res, device, output_dir, num_frames=90, boat_anatomy=None):
+    """Create an 8-panel comparison video (4 columns x 2 rows)
 
-    Panels:
-    - Top left: Original activity frame
-    - Top right: Warped motion frame
-    - Bottom left: NSTM reconstruction (anatomy × activity with deformation)
-    - Bottom right: Anatomy + deformation visualization
+    Top row (Training Data):
+    - Col 1: Activity
+    - Col 2: Activity × Boat anatomy
+    - Col 3: Ground truth motion field (arrows on black)
+    - Col 4: Target (warped motion frames)
+
+    Bottom row (Learned):
+    - Col 1: Learned anatomy
+    - Col 2: Anatomy × Activity
+    - Col 3: Learned motion field (arrows on black)
+    - Col 4: NSTM Reconstruction
     """
-    print("\n" + "="*60)
-    print("Creating 4-panel comparison video...")
-    print("="*60)
-
     # Create temporary directory for frames
     temp_dir = f"{output_dir}/temp_frames"
     os.makedirs(temp_dir, exist_ok=True)
@@ -557,11 +523,19 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
 
     # Extract anatomy mask once
     with torch.no_grad():
-        anatomy_mask = anatomy_net(coords_2d)
+        anatomy_mask = torch.sigmoid(anatomy_net(coords_2d))
         anatomy_mask_img = anatomy_mask.reshape(res, res).cpu().numpy()
 
     # Normalize anatomy for visualization
     anatomy_norm = (anatomy_mask_img - anatomy_mask_img.min()) / (anatomy_mask_img.max() - anatomy_mask_img.min() + 1e-8)
+
+    # Prepare boat anatomy for visualization (if provided)
+    if boat_anatomy is not None:
+        boat_norm = (boat_anatomy - boat_anatomy.min()) / (boat_anatomy.max() - boat_anatomy.min() + 1e-8)
+        boat_uint8 = (np.clip(boat_norm, 0, 1) * 255).astype(np.uint8)
+        boat_rgb = np.stack([boat_uint8, boat_uint8, boat_uint8], axis=2)
+    else:
+        boat_rgb = np.zeros((res, res, 3), dtype=np.uint8)
 
     # Find original frames at evenly spaced time points
     n_activity_frames = len(activity_images)
@@ -569,24 +543,42 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
                         for i in range(num_frames)]
 
     # Generate frames for each time point
-    for i in trange(num_frames, desc="Creating video frames"), ncols=100:
+    for i in trange(num_frames, desc="Creating video frames", ncols=100):
         # Get normalized time
         t = i / (num_frames - 1)
         t_idx = original_indices[i]
 
-        # Panel 1: Original activity frame
+        # === TOP ROW: Training Data ===
+
+        # Top-1: Activity
         activity_frame = activity_images[t_idx]
         activity_norm = (activity_frame - data_min) / (data_max - data_min)
         activity_uint8 = (np.clip(activity_norm, 0, 1) * 255).astype(np.uint8)
         activity_rgb = np.stack([activity_uint8, activity_uint8, activity_uint8], axis=2)
 
-        # Panel 2: Warped motion frame
+        # Top-2: Activity × Boat anatomy (before warping)
+        if boat_anatomy is not None:
+            activity_times_boat = activity_frame * boat_anatomy
+            activity_boat_norm = (activity_times_boat - activity_times_boat.min()) / (activity_times_boat.max() - activity_times_boat.min() + 1e-8)
+            activity_boat_uint8 = (np.clip(activity_boat_norm, 0, 1) * 255).astype(np.uint8)
+            activity_boat_rgb = np.stack([activity_boat_uint8, activity_boat_uint8, activity_boat_uint8], axis=2)
+        else:
+            activity_boat_rgb = activity_rgb.copy()
+
+        # Top-3: Ground truth motion field (arrows on black background)
+        # Compute GT deformation at current frame
+        gt_dx, gt_dy = compute_gt_deformation_field(t_idx, len(activity_images), res, motion_intensity=0.015)
+        gt_motion_vis = create_motion_field_visualization(None, gt_dx, gt_dy, res, step_size=16, black_background=True)
+
+        # Top-4: Target (warped motion frame)
         motion_frame = motion_images[t_idx]
         motion_norm = (motion_frame - data_min) / (data_max - data_min)
         motion_uint8 = (np.clip(motion_norm, 0, 1) * 255).astype(np.uint8)
-        motion_rgb = np.stack([motion_uint8, motion_uint8, motion_uint8], axis=2)
+        target_rgb = np.stack([motion_uint8, motion_uint8, motion_uint8], axis=2)
 
-        # Panel 3: NSTM reconstruction (anatomy × activity with deformation)
+        # === BOTTOM ROW: Learned Components ===
+
+        # Compute learned components
         with torch.no_grad():
             # Create 3D coordinates for deformation
             t_tensor = torch.full((coords_2d.shape[0], 1), t, device=device, dtype=torch.float16)
@@ -600,7 +592,7 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
             source_coords = torch.clamp(source_coords, 0, 1)
 
             # Sample anatomy at source coords
-            anatomy_at_source = anatomy_net(source_coords)
+            anatomy_at_source = torch.sigmoid(anatomy_net(source_coords))
 
             # Sample activity at source coords
             activity_tensor = torch.tensor((activity_frame - data_min) / (data_max - data_min),
@@ -615,53 +607,68 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
 
             # Reconstruction
             recon = (anatomy_at_source * sampled_activity).reshape(res, res).cpu().numpy()
+            sampled_activity_img = sampled_activity.reshape(res, res).cpu().numpy()
 
-        # Denormalize and convert to uint8
+        # Bottom-1: Learned anatomy
+        anatomy_uint8 = (np.clip(anatomy_norm, 0, 1) * 255).astype(np.uint8)
+        learned_anatomy_rgb = np.stack([anatomy_uint8, anatomy_uint8, anatomy_uint8], axis=2)
+
+        # Bottom-2: Anatomy × Activity
+        anatomy_times_activity = anatomy_mask_img * activity_frame
+        anat_act_norm = (anatomy_times_activity - anatomy_times_activity.min()) / (anatomy_times_activity.max() - anatomy_times_activity.min() + 1e-8)
+        anat_act_uint8 = (np.clip(anat_act_norm, 0, 1) * 255).astype(np.uint8)
+        anatomy_activity_rgb = np.stack([anat_act_uint8, anat_act_uint8, anat_act_uint8], axis=2)
+
+        # Bottom-3: Learned motion field (arrows on black background)
+        deformation_2d = deformation.reshape(res, res, 2).cpu().numpy()
+        motion_x = deformation_2d[:, :, 0]
+        motion_y = deformation_2d[:, :, 1]
+        learned_motion_vis = create_motion_field_visualization(anatomy_norm, motion_x, motion_y, res, step_size=16, black_background=True)
+
+        # Bottom-4: NSTM Reconstruction
         recon_denorm = recon * (data_max - data_min) + data_min
         recon_norm = (recon_denorm - data_min) / (data_max - data_min)
         recon_uint8 = (np.clip(recon_norm, 0, 1) * 255).astype(np.uint8)
         recon_rgb = np.stack([recon_uint8, recon_uint8, recon_uint8], axis=2)
 
-        # Panel 4: Anatomy + deformation visualization
-        with torch.no_grad():
-            deformation_2d = deformation.reshape(res, res, 2).cpu().numpy()
-            motion_x = deformation_2d[:, :, 0]
-            motion_y = deformation_2d[:, :, 1]
-
-        anatomy_deform_vis = create_motion_field_visualization(anatomy_norm, motion_x, motion_y, res, step_size=16)
-
-        # Add text labels
+        # Add text labels - top-left position with larger font
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.5
-        thickness = 1
+        font_scale = 0.8  # Increased from 0.4
+        thickness = 2  # Increased from 1
         margin = 10
-        y_pos = res - margin
+        y_pos = margin + 25  # Top position (changed from bottom)
 
-        cv2.putText(activity_rgb, f"Activity t={t:.2f}", (margin, y_pos), font, font_scale, (0, 0, 0), thickness+1)
-        cv2.putText(activity_rgb, f"Activity t={t:.2f}", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+        # Top row labels - all white text
+        cv2.putText(activity_rgb, "Activity", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
-        cv2.putText(motion_rgb, f"Warped t={t:.2f}", (margin, y_pos), font, font_scale, (0, 0, 0), thickness+1)
-        cv2.putText(motion_rgb, f"Warped t={t:.2f}", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+        cv2.putText(activity_boat_rgb, "Activity x Boat", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
-        cv2.putText(recon_rgb, f"NSTM Recon t={t:.2f}", (margin, y_pos), font, font_scale, (0, 0, 0), thickness+1)
-        cv2.putText(recon_rgb, f"NSTM Recon t={t:.2f}", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+        cv2.putText(gt_motion_vis, "GT Motion", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
-        cv2.putText(anatomy_deform_vis, "Anatomy+Deformation", (margin, y_pos), font, font_scale, (0, 0, 0), thickness+1)
-        cv2.putText(anatomy_deform_vis, "Anatomy+Deformation", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+        cv2.putText(target_rgb, "Target", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
-        # Create 2x2 grid layout
-        top_row = np.hstack([activity_rgb, motion_rgb])
-        bottom_row = np.hstack([recon_rgb, anatomy_deform_vis])
+        # Bottom row labels - all white text
+        cv2.putText(learned_anatomy_rgb, "Learned Fixed Scene", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+
+        cv2.putText(anatomy_activity_rgb, "Fixed Scene x Activity", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+
+        cv2.putText(learned_motion_vis, "Learned Motion", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+
+        cv2.putText(recon_rgb, "Reconstruction", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+
+        # Create 4x2 grid layout
+        top_row = np.hstack([activity_rgb, activity_boat_rgb, gt_motion_vis, target_rgb])
+        bottom_row = np.hstack([learned_anatomy_rgb, anatomy_activity_rgb, learned_motion_vis, recon_rgb])
         combined = np.vstack([top_row, bottom_row])
 
         # Save frame
         cv2.imwrite(f"{temp_dir}/frame_{i:04d}.png", combined)
 
     # Create video with ffmpeg
-    video_path = f'{output_dir}/nstm_4panel.mp4'
+    video_path = f'{output_dir}/nstm_8panel.mp4'
     fps = 30
 
-    print("Creating video from frames...")
+    print("creating video from frames...")
     ffmpeg_cmd = [
         "ffmpeg", "-y", "-framerate", str(fps),
         "-pattern_type", "glob", "-i", f"{temp_dir}/frame_*.png",
@@ -671,14 +678,14 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
 
     try:
         subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(f"Video saved to {video_path}")
+        print(f"video saved to {video_path}")
     except (subprocess.SubprocessError, FileNotFoundError) as e:
-        print(f"Error creating video with ffmpeg: {e}")
-        print("Falling back to OpenCV video writer...")
+        print(f"error creating video with ffmpeg: {e}")
+        print("falling back to opencv video writer...")
 
         # Fallback to OpenCV
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        video = cv2.VideoWriter(video_path, fourcc, fps, (res*2, res*2))
+        video = cv2.VideoWriter(video_path, fourcc, fps, (res*4, res*2))  # 4 columns x 2 rows
 
         for j in range(num_frames):
             frame_path = f"{temp_dir}/frame_{j:04d}.png"
@@ -686,13 +693,12 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
             video.write(frame)
 
         video.release()
-        print(f"Video saved to {video_path}")
+        print(f"video saved to {video_path}")
 
     # Clean up temporary files
-    print("Cleaning up temporary files...")
+    print("cleaning up temporary files...")
     shutil.rmtree(temp_dir)
 
-    print(f"{'='*60}\n")
     return video_path
 
 
@@ -705,7 +711,7 @@ def data_instant_NGP(config=None, style=None, device=None):
 
 
     dataset_name = config.dataset
-    n_frames = 128
+    n_frames = 256
     delta_t = simulation_config.delta_t
     dimension = simulation_config.dimension
 
@@ -728,9 +734,9 @@ def data_instant_NGP(config=None, style=None, device=None):
     import os as os_module
     current_dir = os_module.path.dirname(os_module.path.abspath(__file__))
     boat_anatomy_path = os_module.path.join(current_dir, 'pics_boat_512.tif')
-    print(f"Loading boat anatomy from {boat_anatomy_path}")
+    print(f"loading boat anatomy from {boat_anatomy_path}")
     boat_anatomy = imread(boat_anatomy_path).astype(np.float32)
-    print(f"Boat anatomy shape: {boat_anatomy.shape}, range: [{boat_anatomy.min():.4f}, {boat_anatomy.max():.4f}]")
+    print(f"boat anatomy shape: {boat_anatomy.shape}, range: [{boat_anatomy.min():.4f}, {boat_anatomy.max():.4f}]")
 
 
     if "latex" in style:
@@ -830,9 +836,9 @@ def data_instant_NGP(config=None, style=None, device=None):
         )
         plt.close()
 
-    print(f"\nGenerated {n_frames} warped motion frames in {motion_frames_dir}/")
-    print(f"Frame format: 512x512, 32-bit float, single channel TIF")
-    print(f"Applied sinusoidal warping with motion_intensity=0.015")
+    print(f"generated {n_frames} warped motion frames in {motion_frames_dir}/")
+    print(f"frame format: 512x512, 32-bit float, single channel tif")
+    print(f"applied sinusoidal warping with motion_intensity=0.015")
 
     # Train NSTM on the generated frames
     nstm_output_dir = f'./graphs_data/{dataset_name}/NSTM_outputs'
@@ -843,11 +849,10 @@ def data_instant_NGP(config=None, style=None, device=None):
         res=512,
         device=device,
         output_dir=nstm_output_dir,
-        num_training_steps=5000
+        num_training_steps=20000  # Increased from 5000 (4x more)
     )
 
     # Load motion and activity images for video creation
-    print("\nLoading images for video creation...")
     motion_images_list = []
     activity_images_list = []
     for i in range(n_frames):
@@ -870,7 +875,9 @@ def data_instant_NGP(config=None, style=None, device=None):
         res=512,
         device=device,
         output_dir=nstm_output_dir,
-        num_frames=128  # Use all frames
+        num_frames=256,  # Use all frames
+        boat_anatomy=boat_anatomy  # Pass the boat anatomy for visualization
     )
-    print(f"4-panel video saved to: {video_path}")
+    print(f"8-panel video (4x2) saved to: {video_path}")
+    print("training completed.")
 
