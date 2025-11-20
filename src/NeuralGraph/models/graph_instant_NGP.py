@@ -27,6 +27,7 @@ import cv2
 import subprocess
 import shutil
 from NeuralGraph.models.Siren_Network import Siren
+from PIL import Image as PILImage
 
 # from fa2_modified import ForceAtlas2
 # import h5py as h5
@@ -143,172 +144,247 @@ class NeuralSpaceTimeModel:
         return fixed_scene
 
 
-def pretrain_siren_on_particles(x_list, n_frames, res, device, output_dir, siren_config, num_training_steps=5000):
-    """Pre-train SIREN activity network on discrete neuron data
+def pretrain_siren_image(activity_dir, device, output_dir, num_training_steps=5000,
+                          nnr_f_xy_period=1.0, nnr_f_T_period=10):
+    """Pre-train SIREN network on grayscale image from activity folder
 
     Args:
-        x_list: List of arrays with shape (n_frames, n_neurons, features)
-                where x[:, :, :2] are positions and x[:, :, 6] is activity
-        n_frames: Number of frames to use
-        res: Resolution for visualization (512)
+        activity_dir: Path to activity folder containing frame images
         device: torch device
         output_dir: Directory to save outputs
-        siren_config: SIREN configuration dict
         num_training_steps: Number of training steps
+        nnr_f_xy_period: Period for spatial coordinates (x,y will be scaled by 2π/period)
+        nnr_f_T_period: Period for temporal coordinate (t will be scaled by 2π/period)
 
     Returns:
-        activity_net: Pre-trained SIREN network
+        siren_net: Pre-trained SIREN network mapping (x,y,t) -> grayscale
+                   Coordinates are scaled by their respective periods
     """
-    print("pre-training siren activity network on discrete neuron data...")
+    import glob
 
-    # Extract neuron positions and activities
-    x_data = x_list[0][:n_frames]  # Use first run
-    n_neurons = x_data.shape[1]
+    print("pre-training SIREN network on first 32 activity frames...")
 
-    # Extract positions (x, y) and activity
-    positions = x_data[:, :, :2]  # (n_frames, n_neurons, 2)
-    activities = x_data[:, :, 6:7]  # (n_frames, n_neurons, 1)
+    # Find frames in activity folder (sorted by filename)
+    frame_files = sorted(glob.glob(f"{activity_dir}/frame_*.tif"))
+    if len(frame_files) == 0:
+        raise FileNotFoundError(f"No frames found in {activity_dir}")
 
-    print(f"neuron data: {n_frames} frames, {n_neurons} neurons")
-    print(f"position range: x=[{positions[:, :, 0].min():.3f}, {positions[:, :, 0].max():.3f}], y=[{positions[:, :, 1].min():.3f}, {positions[:, :, 1].max():.3f}]")
-    print(f"activity range: [{activities.min():.3f}, {activities.max():.3f}]")
+    # Load first 32 frames
+    n_train_frames = 32
+    frame_files = frame_files[:n_train_frames]
+    print(f"loading {len(frame_files)} frames...")
 
-    # Normalize positions to [0, 1]
-    pos_min = positions.min(axis=(0, 1))
-    pos_max = positions.max(axis=(0, 1))
-    positions_norm = (positions - pos_min) / (pos_max - pos_min + 1e-8)
+    # Load all frames
+    from tifffile import imread
+    images = []
+    for frame_path in frame_files:
+        img_array = imread(frame_path)
+        if img_array is None:
+            raise ValueError(f"Failed to load image from {frame_path}")
 
-    # Normalize activities to [0, 1]
-    act_min = activities.min()
-    act_max = activities.max()
-    activities_norm = (activities - act_min) / (act_max - act_min + 1e-8)
+        # Ensure float32 and normalize to [0, 1] if needed
+        img_array = img_array.astype(np.float32)
+        if img_array.max() > 1.0:
+            img_array = img_array / 255.0
+        images.append(img_array)
 
-    # Convert to torch tensors
-    positions_torch = torch.tensor(positions_norm, dtype=torch.float32, device=device)
-    activities_torch = torch.tensor(activities_norm, dtype=torch.float32, device=device)
+    height, width = images[0].shape
+    print(f"image shape: ({height}, {width}), n_frames: {len(images)}")
+    print(f"value range: [{min(img.min() for img in images):.4f}, {max(img.max() for img in images):.4f}]")
+    print(f"coordinate periods: xy_period={nnr_f_xy_period}, T_period={nnr_f_T_period}")
 
-    # Create SIREN network
-    activity_net = Siren(
+    # Create coordinate grid with periodic scaling
+    # Coordinates are scaled by 2π/period to match the periodic nature of SIREN
+    all_coords = []
+    all_targets = []
+
+    for t_idx, img in enumerate(images):
+        y_coords, x_coords = np.mgrid[0:height, 0:width]
+        # Normalize to [0, 1] then scale by 2π/period
+        x_coords = x_coords.astype(np.float32) / (width - 1) * (2 * np.pi / nnr_f_xy_period)
+        y_coords = y_coords.astype(np.float32) / (height - 1) * (2 * np.pi / nnr_f_xy_period)
+
+        # Time normalized to [0, 1] then scaled by 2π/period
+        t_value = t_idx / (len(images) - 1) if len(images) > 1 else 0.0
+        t_value = t_value * (2 * np.pi / nnr_f_T_period)
+        t_coords = np.full_like(x_coords, t_value, dtype=np.float32)
+
+        frame_coords = np.stack([x_coords.ravel(), y_coords.ravel(), t_coords.ravel()], axis=1)
+        all_coords.append(frame_coords)
+        all_targets.append(img.ravel())
+
+    # Concatenate all frames
+    coords = np.concatenate(all_coords, axis=0)
+    target_pixels = np.concatenate(all_targets, axis=0)
+
+    coords = torch.from_numpy(coords).to(device)
+    target_pixels = torch.from_numpy(target_pixels).unsqueeze(1).to(device)
+
+    print(f"coordinate grid shape: {coords.shape} (x, y, t)")
+    print(f"target pixels shape: {target_pixels.shape}")
+    print(f"spatial range: [0, {2*np.pi/nnr_f_xy_period:.4f}], temporal range: [0, {2*np.pi/nnr_f_T_period:.4f}]")
+    print(f"training on {len(images)} frames")
+
+    # Create SIREN network (x, y, t) -> grayscale
+    siren_net = Siren(
         in_features=3,  # x, y, t
-        hidden_features=siren_config['hidden_dim_nnr_f'],
-        hidden_layers=siren_config['n_layers_nnr_f'],
-        out_features=1,  # scalar activity
-        outermost_linear=siren_config['outermost_linear_nnr_f'],
-        first_omega_0=siren_config['omega_f'],
-        hidden_omega_0=siren_config['omega_f']
+        out_features=1,  # Grayscale output
+        hidden_features=256,
+        hidden_layers=4,
+        outermost_linear=True,
+        first_omega_0=60,
+        hidden_omega_0=30
     ).to(device)
 
-    # Period normalization factors
-    xy_period = siren_config['nnr_f_xy_period']
-    t_period = siren_config['nnr_f_T_period']
+    num_params = sum(p.numel() for p in siren_net.parameters())
+    print(f"model parameters: {num_params:,}")
 
-    # Optimizer
-    optimizer = torch.optim.Adam(activity_net.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(siren_net.parameters(), lr=3e-4)
 
-    # Training loop
-    print(f"training siren on neurons for {num_training_steps} steps...")
+    # Training parameters
+    batch_size = 50000  # Process in batches for memory efficiency
+    n_pixels = coords.shape[0]
+    n_batches = (n_pixels + batch_size - 1) // batch_size
+
+    print(f"training SIREN for {num_training_steps} steps...")
+    print(f"batch_size: {batch_size} pixels, n_batches: {n_batches}")
+
+    os.makedirs(output_dir, exist_ok=True)
     loss_history = []
 
     pbar = trange(num_training_steps, ncols=100)
     for step in pbar:
-        # Sample random frame
-        t_idx = np.random.randint(0, n_frames)
-        t_normalized = t_idx / (n_frames - 1)
-
-        # Get neuron data for this frame
-        pos_frame = positions_torch[t_idx]  # (n_neurons, 2)
-        act_frame = activities_torch[t_idx]  # (n_neurons, 1)
-
-        # Create 3D coordinates with period normalization
-        t_tensor = torch.full((n_neurons, 1), t_normalized / t_period, device=device, dtype=torch.float32)
-        coords_3d = torch.cat([pos_frame / xy_period, t_tensor], dim=1)
-
-        # Forward pass
-        predicted_activity = activity_net(coords_3d)
-
-        # Loss
-        loss = torch.nn.functional.mse_loss(predicted_activity, act_frame)
-
-        # Optimize
         optimizer.zero_grad()
-        loss.backward()
+        total_loss = 0.0
+
+        # Process in batches
+        for batch_idx in range(n_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min((batch_idx + 1) * batch_size, n_pixels)
+
+            batch_coords = coords[start_idx:end_idx]
+            batch_targets = target_pixels[start_idx:end_idx]
+
+            # Forward pass
+            batch_predicted = siren_net(batch_coords)
+
+            # Compute loss for this batch
+            batch_loss = torch.nn.functional.mse_loss(batch_predicted, batch_targets)
+
+            # Scale loss by batch proportion and accumulate
+            batch_weight = (end_idx - start_idx) / n_pixels
+            scaled_loss = batch_loss * batch_weight
+            scaled_loss.backward()
+
+            total_loss += batch_loss.item() * batch_weight
+
+        # Step optimizer after all batches
         optimizer.step()
 
-        loss_history.append(loss.item())
+        loss_history.append(total_loss)
 
         if step % 100 == 0:
-            pbar.set_postfix({'loss': f'{loss.item():.6f}'})
+            pbar.set_postfix({'loss': f'{total_loss:.6f}'})
 
-    print("siren pre-training complete!")
+    print("SIREN pre-training complete!")
 
-    # Generate visualization video
-    print("generating siren visualization video...")
-    video_dir = f"{output_dir}/siren_pretrain"
-    os.makedirs(video_dir, exist_ok=True)
+    # Clear GPU cache before reconstruction
+    torch.cuda.empty_cache()
 
-    # Create coordinate grid for visualization
-    y_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
-    x_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
-    yv, xv = torch.meshgrid(y_coords, x_coords, indexing='ij')
-    coords_2d = torch.stack([xv.flatten(), yv.flatten()], dim=1)
+    # Reconstruct all frames
+    print("reconstructing frames...")
+    siren_net.eval()
 
-    # Generate frames
-    temp_dir = f"{video_dir}/frames"
-    os.makedirs(temp_dir, exist_ok=True)
+    reconstructed_frames = []
+    psnr_values = []
 
-    activity_net.eval()
     with torch.no_grad():
-        for frame_idx in trange(n_frames, desc="Rendering frames", ncols=100):
-            t_norm = frame_idx / (n_frames - 1)
+        # Create spatial grid (same for all frames) with periodic scaling
+        y_grid, x_grid = np.mgrid[0:height, 0:width]
+        x_grid = x_grid.astype(np.float32) / (width - 1) * (2 * np.pi / nnr_f_xy_period)
+        y_grid = y_grid.astype(np.float32) / (height - 1) * (2 * np.pi / nnr_f_xy_period)
 
-            # Create 3D coordinates
-            t_tensor = torch.full((res*res, 1), t_norm / t_period, device=device, dtype=torch.float32)
-            coords_3d = torch.cat([coords_2d / xy_period, t_tensor], dim=1)
+        for t_idx in range(len(images)):
+            # Create time value for this frame with periodic scaling
+            t_value = t_idx / (len(images) - 1) if len(images) > 1 else 0.0
+            t_value = t_value * (2 * np.pi / nnr_f_T_period)
+            t_grid = np.full_like(x_grid, t_value, dtype=np.float32)
 
-            # Evaluate SIREN
-            activity_pred = activity_net(coords_3d)
-            activity_img = activity_pred.reshape(res, res).cpu().numpy()
+            # Create coordinates for this frame
+            frame_coords = np.stack([x_grid.ravel(), y_grid.ravel(), t_grid.ravel()], axis=1)
+            frame_coords = torch.from_numpy(frame_coords).to(device)
 
-            # Normalize to [0, 1] for visualization
-            activity_vis = (activity_img - activity_img.min()) / (activity_img.max() - activity_img.min() + 1e-8)
-            activity_uint8 = (np.clip(activity_vis, 0, 1) * 255).astype(np.uint8)
+            # Reconstruct in batches
+            predicted_pixels = []
+            n_pixels_per_frame = height * width
+            n_batches_frame = (n_pixels_per_frame + batch_size - 1) // batch_size
 
-            # Save frame
-            cv2.imwrite(f"{temp_dir}/frame_{frame_idx:06d}.png", activity_uint8)
+            for batch_idx in range(n_batches_frame):
+                start_idx = batch_idx * batch_size
+                end_idx = min((batch_idx + 1) * batch_size, n_pixels_per_frame)
+                batch_coords = frame_coords[start_idx:end_idx]
+                predicted_pixels.append(siren_net(batch_coords))
 
-    # Create video with ffmpeg
-    video_path = f'{video_dir}/siren_pretrained.mp4'
-    fps = 30
+            predicted_frame = torch.cat(predicted_pixels, dim=0).reshape(height, width).cpu().numpy()
+            predicted_frame = np.clip(predicted_frame, 0, 1)
+            reconstructed_frames.append(predicted_frame)
 
-    print("creating video from frames...")
+            # Calculate PSNR for this frame
+            mse = np.mean((images[t_idx] - predicted_frame) ** 2)
+            psnr = 20 * np.log10(1.0 / np.sqrt(mse)) if mse > 0 else float('inf')
+            psnr_values.append(psnr)
+
+    mean_psnr = np.mean(psnr_values)
+
+    # Save first frame as PNG
+    reconstructed_uint8 = (reconstructed_frames[0] * 255).astype(np.uint8)
+    reconstructed_pil = PILImage.fromarray(reconstructed_uint8, mode='L')
+    reconstructed_pil.save(f'{output_dir}/siren_reconstructed_frame0.png')
+
+    # Create video from reconstructed frames
+    print("creating mp4 video...")
+    video_temp_dir = f"{output_dir}/video_frames"
+    os.makedirs(video_temp_dir, exist_ok=True)
+
+    # Save all frames as PNG for video
+    for i, frame in enumerate(reconstructed_frames):
+        frame_uint8 = (frame * 255).astype(np.uint8)
+        frame_pil = PILImage.fromarray(frame_uint8, mode='L')
+        frame_pil.save(f"{video_temp_dir}/frame_{i:04d}.png")
+
+    # Create mp4 using ffmpeg
+    video_path = f"{output_dir}/siren_reconstructed.mp4"
     ffmpeg_cmd = [
-        "ffmpeg", "-y", "-framerate", str(fps),
-        "-i", f"{temp_dir}/frame_%06d.png",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "slow", "-crf", "22",
+        "ffmpeg", "-y", "-framerate", "2",  # 2 fps for 10 frames
+        "-i", f"{video_temp_dir}/frame_%04d.png",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-vf", "scale=512:512",
         video_path
     ]
+    subprocess.run(ffmpeg_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
 
-    try:
-        subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(f"siren visualization video saved to {video_path}")
-    except (subprocess.SubprocessError, FileNotFoundError) as e:
-        print(f"error creating video with ffmpeg: {e}")
-
-    # Clean up frames
-    shutil.rmtree(temp_dir)
+    # Clean up temp frames
+    shutil.rmtree(video_temp_dir)
 
     # Plot loss history
     plt.figure(figsize=(10, 4))
     plt.plot(loss_history)
-    plt.title('SIREN Pre-training Loss', fontsize=12)
-    plt.xlabel('Step')
-    plt.ylabel('MSE Loss')
+    plt.title('SIREN pre-training loss', fontsize=12)
+    plt.xlabel('step')
+    plt.ylabel('MSE loss')
     plt.grid(True, alpha=0.3)
-    plt.savefig(f'{video_dir}/pretrain_loss.png', dpi=150)
+    plt.savefig(f'{output_dir}/pretrain_loss.png', dpi=150)
     plt.close()
 
-    activity_net.train()
-    return activity_net
+    print(f"final loss: {loss_history[-1]:.6f}")
+    print(f"mean PSNR: {mean_psnr:.2f} dB")
+    print(f"PSNR range: [{min(psnr_values):.2f}, {max(psnr_values):.2f}] dB")
+
+
+
+
+    siren_net.train()
+    return siren_net
 
 
 def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir, num_training_steps=3000,
@@ -1008,18 +1084,20 @@ def data_instant_NGP(config=None, style=None, device=None):
 
 
     # Create motion_frames and activity directories
-    motion_frames_dir = f'./graphs_data/{dataset_name}/motion_frames'
-    activity_dir = f'./graphs_data/{dataset_name}/activity'
-    os.makedirs(motion_frames_dir, exist_ok=True)
-    os.makedirs(activity_dir, exist_ok=True)
+    motion_frames_dir = f'/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}/motion_frames'
+    activity_dir = f'/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}/activity'
+    # os.makedirs(motion_frames_dir, exist_ok=True)
+    # os.makedirs(activity_dir, exist_ok=True)
+
+    # print(f"generating {motion_frames_dir} motion frames with anatomy modulation and sinusoidal warping...")
 
     # Clear existing motion frames and activity frames
-    files = glob.glob(f'{motion_frames_dir}/*')
-    for f in files:
-        os.remove(f)
-    files = glob.glob(f'{activity_dir}/*')
-    for f in files:
-        os.remove(f)
+    # files = glob.glob(f'{motion_frames_dir}/*')
+    # for f in files:
+    #     os.remove(f)
+    # files = glob.glob(f'{activity_dir}/*')
+    # for f in files:
+    #     os.remove(f)
 
     # Load boat anatomy image
     import os as os_module
@@ -1056,83 +1134,84 @@ def data_instant_NGP(config=None, style=None, device=None):
     type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
     X1 = torch.tensor(x[:, 1 : 1 + dimension], device=device)
 
-    for it in trange(0, n_frames, ncols=100):
+    # COMMENTED OUT FOR FASTER TESTING - UNCOMMENT TO REGENERATE DATA
+    # for it in trange(0, n_frames, ncols=100):
 
-        x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
+    #     x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
 
-        num = f"{id_fig:06}"
-        id_fig += 1
+    #     num = f"{id_fig:06}"
+    #     id_fig += 1
 
 
-        plt.figure(figsize=(10, 10))
-        plt.axis("off")
-        # Create figure and render to get pixel data
-        fig = plt.figure(figsize=(512/80, 512/80), dpi=80)  # 512x512 pixels
-        plt.scatter(
-            to_numpy(X1[:, 0]),
-            to_numpy(X1[:, 1]),
-            s=700,
-            c=to_numpy(x[:, 6]),
-            cmap="viridis",
-            vmin=0,
-            vmax=20,
-        )
-        plt.axis("off")
-        plt.xticks([])
-        plt.yticks([])
-        plt.tight_layout()
+    #     plt.figure(figsize=(10, 10))
+    #     plt.axis("off")
+    #     # Create figure and render to get pixel data
+    #     fig = plt.figure(figsize=(512/80, 512/80), dpi=80)  # 512x512 pixels
+    #     plt.scatter(
+    #         to_numpy(X1[:, 0]),
+    #         to_numpy(X1[:, 1]),
+    #         s=700,
+    #         c=to_numpy(x[:, 6]),
+    #         cmap="viridis",
+    #         vmin=0,
+    #         vmax=20,
+    #     )
+    #     plt.axis("off")
+    #     plt.xticks([])
+    #     plt.yticks([])
+    #     plt.tight_layout()
 
-        # Render to canvas and extract grayscale data
-        fig.canvas.draw()
-        img_rgba = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
-        img_rgba = img_rgba.reshape(fig.canvas.get_width_height()[::-1] + (4,))
-        img_rgba = img_rgba[:, :, :3]  # Convert RGBA to RGB
+    #     # Render to canvas and extract grayscale data
+    #     fig.canvas.draw()
+    #     img_rgba = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
+    #     img_rgba = img_rgba.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+    #     img_rgba = img_rgba[:, :, :3]  # Convert RGBA to RGB
 
-        # Convert RGB to grayscale
-        img_gray = np.dot(img_rgba[...,:3], [0.2989, 0.5870, 0.1140])
+    #     # Convert RGB to grayscale
+    #     img_gray = np.dot(img_rgba[...,:3], [0.2989, 0.5870, 0.1140])
 
-        # Resize to exactly 512x512 if needed
-        from scipy.ndimage import zoom
-        if img_gray.shape != (512, 512):
-            zoom_factors = (512 / img_gray.shape[0], 512 / img_gray.shape[1])
-            img_gray = zoom(img_gray, zoom_factors, order=1)
+    #     # Resize to exactly 512x512 if needed
+    #     from scipy.ndimage import zoom
+    #     if img_gray.shape != (512, 512):
+    #         zoom_factors = (512 / img_gray.shape[0], 512 / img_gray.shape[1])
+    #         img_gray = zoom(img_gray, zoom_factors, order=1)
 
-        # Save activity image: dots at FIXED initial position with changing activity (x[:,6])
-        # Activity changes over time, so save each frame
-        img_activity_32bit = img_gray.astype(np.float32)
-        imwrite(
-            f"{activity_dir}/frame_{num}.tif",
-            img_activity_32bit,
-            photometric='minisblack',
-            dtype=np.float32
-        )
+    #     # Save activity image: dots at FIXED initial position with changing activity (x[:,6])
+    #     # Activity changes over time, so save each frame
+    #     img_activity_32bit = img_gray.astype(np.float32)
+    #     imwrite(
+    #         f"{activity_dir}/frame_{num}.tif",
+    #         img_activity_32bit,
+    #         photometric='minisblack',
+    #         dtype=np.float32
+    #     )
 
-        # For motion frames: multiply activity by boat anatomy, then warp
-        # Element-wise multiplication: activity × boat_anatomy
-        img_with_anatomy = img_gray * boat_anatomy
+    #     # For motion frames: multiply activity by boat anatomy, then warp
+    #     # Element-wise multiplication: activity × boat_anatomy
+    #     img_with_anatomy = img_gray * boat_anatomy
 
-        # Apply sinusoidal warping to the combined image
-        # The warped result contains both activity and anatomy information
-        img_warped = apply_sinusoidal_warp(img_with_anatomy, it, n_frames, motion_intensity=0.015)
+    #     # Apply sinusoidal warping to the combined image
+    #     # The warped result contains both activity and anatomy information
+    #     img_warped = apply_sinusoidal_warp(img_with_anatomy, it, n_frames, motion_intensity=0.015)
 
-        # Convert to 32-bit float (single channel)
-        img_32bit = img_warped.astype(np.float32)
+    #     # Convert to 32-bit float (single channel)
+    #     img_32bit = img_warped.astype(np.float32)
 
-        # Save as 32-bit single channel TIF to motion_frames directory
-        imwrite(
-            f"{motion_frames_dir}/frame_{num}.tif",
-            img_32bit,
-            photometric='minisblack',  # grayscale
-            dtype=np.float32
-        )
-        plt.close()
+    #     # Save as 32-bit single channel TIF to motion_frames directory
+    #     imwrite(
+    #         f"{motion_frames_dir}/frame_{num}.tif",
+    #         img_32bit,
+    #         photometric='minisblack',  # grayscale
+    #         dtype=np.float32
+    #     )
+    #     plt.close()
 
-    print(f"generated {n_frames} warped motion frames in {motion_frames_dir}/")
-    print(f"frame format: 512x512, 32-bit float, single channel tif")
-    print(f"applied sinusoidal warping with motion_intensity=0.015")
+    # print(f"generated {n_frames} warped motion frames in {motion_frames_dir}/")
+    # print(f"frame format: 512x512, 32-bit float, single channel tif")
+    # print(f"applied sinusoidal warping with motion_intensity=0.015")
 
     # Train NSTM on the generated frames
-    nstm_output_dir = f'./graphs_data/{dataset_name}/NSTM_outputs'
+    nstm_output_dir = f'/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}/NSTM_outputs'
 
     # Prepare SIREN config if available in model_config
     siren_config = None
@@ -1159,63 +1238,64 @@ def data_instant_NGP(config=None, style=None, device=None):
     if hasattr(training_config, 'learning_rate_NNR_f'):
         siren_lr = training_config.learning_rate_NNR_f
 
-    # Pre-train SIREN on neuron data if config available and use_siren=True
+    # Pre-train SIREN on first activity frame image
     pretrained_activity_net = None
     if siren_config is not None and use_siren:
-        print("pre-training siren network on discrete neuron data...")
-        pretrained_activity_net = pretrain_siren_on_particles(
-            x_list=x_list,
+        print("pre-training siren network on activity image...")
+        pretrained_activity_net = pretrain_siren_image(
+            activity_dir=activity_dir,
+            device=device,
+            output_dir=nstm_output_dir,
+            num_training_steps=200,
+            nnr_f_xy_period=siren_config['nnr_f_xy_period'],
+            nnr_f_T_period=siren_config['nnr_f_T_period']
+        )
+        
+    if False:
+
+        deformation_net, anatomy_net, activity_net, loss_history = train_nstm(
+            motion_frames_dir=motion_frames_dir,
+            activity_dir=activity_dir,
             n_frames=n_frames,
             res=512,
             device=device,
             output_dir=nstm_output_dir,
+            num_training_steps=10000,  # Increased from 5000 (4x more)
             siren_config=siren_config,
-            num_training_steps=5000
+            pretrained_activity_net=pretrained_activity_net,
+            x_list=x_list,
+            use_siren=use_siren,
+            siren_lr=siren_lr,
+            nstm_lr=nstm_lr,
+            siren_loss_weight=siren_loss_weight
         )
 
-    deformation_net, anatomy_net, activity_net, loss_history = train_nstm(
-        motion_frames_dir=motion_frames_dir,
-        activity_dir=activity_dir,
-        n_frames=n_frames,
-        res=512,
-        device=device,
-        output_dir=nstm_output_dir,
-        num_training_steps=10000,  # Increased from 5000 (4x more)
-        siren_config=siren_config,
-        pretrained_activity_net=pretrained_activity_net,
-        x_list=x_list,
-        use_siren=use_siren,
-        siren_lr=siren_lr,
-        nstm_lr=nstm_lr,
-        siren_loss_weight=siren_loss_weight
-    )
+        # Load motion and activity images for video creation
+        motion_images_list = []
+        activity_images_list = []
+        for i in range(n_frames):
+            motion_images_list.append(imread(f"{motion_frames_dir}/frame_{i:06d}.tif"))
+            activity_images_list.append(imread(f"{activity_dir}/frame_{i:06d}.tif"))
 
-    # Load motion and activity images for video creation
-    motion_images_list = []
-    activity_images_list = []
-    for i in range(n_frames):
-        motion_images_list.append(imread(f"{motion_frames_dir}/frame_{i:06d}.tif"))
-        activity_images_list.append(imread(f"{activity_dir}/frame_{i:06d}.tif"))
+        # Compute data range for normalization
+        all_pixels = np.concatenate([img.flatten() for img in motion_images_list])
+        data_min = all_pixels.min()
+        data_max = all_pixels.max()
 
-    # Compute data range for normalization
-    all_pixels = np.concatenate([img.flatten() for img in motion_images_list])
-    data_min = all_pixels.min()
-    data_max = all_pixels.max()
-
-    # Create 4-panel comparison video
-    video_path = create_quad_panel_video(
-        deformation_net=deformation_net,
-        anatomy_net=anatomy_net,
-        activity_images=activity_images_list,
-        motion_images=motion_images_list,
-        data_min=data_min,
-        data_max=data_max,
-        res=512,
-        device=device,
-        output_dir=nstm_output_dir,
-        num_frames=256,  # Use all frames
-        boat_anatomy=boat_anatomy  # Pass the boat anatomy for visualization
-    )
-    print(f"8-panel video (4x2) saved to: {video_path}")
-    print("training completed.")
+        # Create 4-panel comparison video
+        video_path = create_quad_panel_video(
+            deformation_net=deformation_net,
+            anatomy_net=anatomy_net,
+            activity_images=activity_images_list,
+            motion_images=motion_images_list,
+            data_min=data_min,
+            data_max=data_max,
+            res=512,
+            device=device,
+            output_dir=nstm_output_dir,
+            num_frames=256,  # Use all frames
+            boat_anatomy=boat_anatomy  # Pass the boat anatomy for visualization
+        )
+        print(f"8-panel video (4x2) saved to: {video_path}")
+        print("training completed.")
 
