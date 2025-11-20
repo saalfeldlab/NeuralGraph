@@ -128,6 +128,24 @@ The figures below are based on a separate `fly_N9_62_0[40_000, 50_000)` (no nois
   </tr>
 </table>
 
+# Experiments to further tune voltage baseline
+
+We have a working baseline now. The goal now is to make the models as small as possible
+while maintaining performance.
+
+## Latent space
+
+The size of the encoder/decoder hidden units drives the parameter count. See if we can reduce that.
+
+```bash
+for ldim in 64 128 256; do \
+  bsub -J "ldim${ldim}" -n 1 -gpu "num=1" -q gpu_a100 -o ldim${ldim}.log python \
+    src/LatentEvolution/latent.py encoder_decoder_hidden_units \
+    --encoder-params.num-hidden-units $ldim \
+    --decoder-params.num-hidden-units $ldim
+done
+```
+
 # History of experiments
 
 ## Baseline experiment
