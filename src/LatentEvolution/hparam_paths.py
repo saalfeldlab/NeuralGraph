@@ -172,9 +172,6 @@ def create_run_directory(
     Create hierarchical run directory with structure:
     <base_dir>/<expt_code>_<date>_<commit_hash>/<param1>/<param2>/.../<uuid>/
 
-    Also creates a symlink at <base_dir>/<expt_code>_<date>_<commit_hash>/latest
-    pointing to the newly created run directory for easy access.
-
     Args:
         expt_code: Experiment code/name
         tyro_args: Command line arguments from tyro
@@ -199,17 +196,5 @@ def create_run_directory(
 
     # Create directory
     run_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create symlink: <base_dir>/<expt_code>_<date>_<commit_hash>/latest -> <hparam_path>/<uuid>
-    expt_dir = base_dir / expt_dir_name
-    symlink_path = expt_dir / "latest"
-
-    # Remove old symlink if it exists
-    if symlink_path.is_symlink() or symlink_path.exists():
-        symlink_path.unlink()
-
-    # Create new symlink pointing to the nested run directory (relative path)
-    relative_path = run_dir.relative_to(expt_dir)
-    symlink_path.symlink_to(relative_path, target_is_directory=True)
 
     return run_dir
