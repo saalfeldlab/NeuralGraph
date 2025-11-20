@@ -43,24 +43,26 @@ fly_N9_62_22_10 (working config that will be modified each iteration)
 - Update status.md with new config parameters
 
 ### Step 2: Run training
-- Execute: `source /opt/conda/etc/profile.d/conda.sh && conda activate neural-graph-linux && python GNN_Main.py`
+- Execute: `source /opt/conda/etc/profile.d/conda.sh && conda activate neural-graph-linux && python GNN_Main.py -o training fly_N9_62_22_10`
 - Run in background, save bash_id
 - Update status.md with bash_id and "TRAINING IN PROGRESS"
+- **Verify training started**: Wait 20-30 seconds, check BashOutput for "start training" message
 
 ### Step 3: Monitor training completion
-**CRITICAL: Implement polling loop to detect completion**
-- Check BashOutput status every 30 minutes (sleep 1800)
-- Use BashOutput tool with bash_id to check status
-- Look for `<status>completed</status>` in the response
-- Check exit_code: 0 means success, non-zero means failure
-- When status="completed", immediately proceed to Step 4
-- Training takes ~1 hour, so 2-3 checks total
-- MUST verify status is actually "completed" not "running"
+**CRITICAL: Implement AUTONOMOUS polling loop to detect completion**
+- Check BashOutput status every 15 minutes (sleep 900)
+- Use BashOutput tool with bash_id to check for "training completed." message
+- Look for the literal string "training completed." in stdout
+- When "training completed." is found, immediately proceed to Step 4
+- Training takes ~1 hour, so 4-5 checks total
+- Loop continues AUTONOMOUSLY without user intervention
+- Can use filter parameter: `BashOutput(bash_id, filter="training completed")`
 
 ### Step 4: Analyze results
 - Execute: `source /opt/conda/etc/profile.d/conda.sh && conda activate neural-graph-linux && python GNN_PlotFigure.py`
-- Wait for completion
-- Read log/fly/fly_N9_62_22_10/results.log for metrics
+- Run in background, save bash_id
+- Monitor for "training completed." message in BashOutput (indicates analysis finished)
+- When "training completed." found, read log/fly/fly_N9_62_22_10/results.log for metrics
 
 ### Step 5: Evaluate improvements
 - Extract key metrics from results.log:
@@ -86,13 +88,15 @@ fly_N9_62_22_10 (working config that will be modified each iteration)
 - Go back to Step 1 with new parameters
 
 ## Monitoring Best Practices
-- Use BashOutput to check training status every 30 minutes
-- Training takes ~1 hour, check 2-3 times total
-- Parse the XML response for `<status>completed</status>` tag
-- Verify exit_code=0 for successful completion
-- If status is still "running", continue polling loop
-- Only proceed to analysis when status is definitively "completed"
+- Use BashOutput to check for "training completed." message every 15 minutes
+- Training takes ~1 hour, check 4-5 times total
+- Search for literal string "training completed." in stdout
+- Both GNN_Main.py and GNN_PlotFigure.py print this message when done
+- Use filter parameter for efficiency: `filter="training completed"`
+- If message not found, continue polling loop AUTONOMOUSLY
+- Only proceed to next step when "training completed." is found
 - Log progress periodically to status.md
+- **Loop runs completely autonomously without user intervention**
 
 ## Success Criteria
 - Mixed neurons: <10%

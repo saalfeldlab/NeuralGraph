@@ -116,6 +116,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     else:
         data_train_signal(config, erase, best_model, device)
 
+    print("training completed.")
 
 
 
@@ -1251,6 +1252,11 @@ def data_train_flyvis(config, erase, best_model, device):
             if str(param.device) != str(device):
                 print(f'  {name}: {param.device} (expected {device})')
 
+    # Ensure model.a (embedding) is on the correct device
+    if hasattr(model, 'a'):
+        model.a = model.a.to(device)
+        print(f'model.a moved to device: {device}')
+
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     print('Optimizer created successfully')
@@ -1661,7 +1667,24 @@ def data_train_flyvis(config, erase, best_model, device):
                                 for b in range(batch_size):
                                     start_idx = b * neurons_per_sample
                                     end_idx = (b + 1) * neurons_per_sample
+
+                                    # Update neural activity (column 3)
                                     dataset_batch[b].x[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
+
+                                    # Update visual input (column 4) for next time step
+                                    # Get k value for this batch sample from k_batch
+                                    k_current = k_batch[start_idx, 0].item() + step + 1  # Next time step
+
+                                    if has_visual_field:
+                                        # Get visual input for next time step
+                                        visual_input_next = model.forward_visual(dataset_batch[b].x, k_current)
+                                        dataset_batch[b].x[:model.n_input_neurons, 4:5] = visual_input_next
+                                        dataset_batch[b].x[model.n_input_neurons:, 4:5] = 0
+                                    else:
+                                        # Update from x_list for next time step
+                                        x_next = torch.tensor(x_list[run][k_current], dtype=torch.float32, device=device)
+                                        dataset_batch[b].x[:, 4:5] = x_next[:, 4:5]
+
                                     dataset_batch_new.append(dataset_batch[b])
 
                                 # Run forward pass with updated states

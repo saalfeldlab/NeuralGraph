@@ -9,6 +9,7 @@ from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test
 from NeuralGraph.utils import set_device, add_pre_folder
+from NeuralGraph.models.graph_instant_NGP import data_instant_NGP
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
@@ -36,7 +37,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'train'  # 'generate', 'train', 'test'
+        task = 'instant_NGP'  # 'generate', 'train', 'test', 'instant_NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -47,12 +48,14 @@ if __name__ == "__main__":
 
         # config_list = ['fly_N9_62_5_9', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18', 'fly_N9_62_5_19', 'fly_N9_62_5_20']
 
-        config_list = ['fly_N9_62_22_10']
+        # config_list = ['fly_N9_62_22_1', 'fly_N9_62_22_2', 'fly_N9_62_22_3', 'fly_N9_62_22_4', 'fly_N9_62_22_5', 'fly_N9_62_22_6', 'fly_N9_62_22_7', 'fly_N9_62_22_8', 'fly_N9_62_22_9', 'fly_N9_62_22_10']
         
         # config_list = ['zebra_N10_34_1']
 
         # config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
 
+
+        config_list = ['signal_N11_2_1_1']
         
 
     for config_file_ in config_list:
@@ -82,7 +85,7 @@ if __name__ == "__main__":
 
         if "train" in task:
             data_train(config=config, erase=False, best_model=best_model, device=device)
-            
+
         if "test" in task:
 
             config.training.noise_model_level = 0.0
@@ -101,6 +104,11 @@ if __name__ == "__main__":
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
-            )  
+            )
+
+        if 'instant_NGP' in task:
+            data_instant_NGP(config=config, style="black color", device=device)
+            
+                  
 
 
