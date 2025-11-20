@@ -1544,3 +1544,115 @@ for hidden in 1 2 3 ; do \
     --evolver-params.num-hidden-layers $hidden
 done
 ```
+
+Interestingly we observe that the mlp(x, Ax) architecture can rollout 2000 steps
+in activity space. But the latent space roll out is not as good. The MLPWithSkips
+architecture is able to roll out in the latent space alone. So we lock this for
+now.
+
+# Final summary
+
+We have a working latent space model for FlyVis voltage.
+
+```
+                  LatentModel Architecture
+                  ========================
+
+  Input at time t:
+  ┌─────────────────┐                    ┌─────────────────┐
+  │  Neural State   │                    │    Stimulus     │
+  │      x(t)       │                    │    stim(t)      │
+  └────────┬────────┘                    └────────┬────────┘
+           │                                      │
+           │                                      │
+           ▼                                      ▼
+  ┌─────────────────┐                    ┌─────────────────┐
+  │    Encoder      │                    │    Stimulus     │
+  │   (MLPSkips)    │                    │    Encoder      │
+  │ neurons→latent  │                    │   (MLPSkips)    │
+  └────────┬────────┘                    └────────┬────────┘
+           │                                      │
+           │                                      │
+           ▼                                      ▼
+    ┌──────────────┐                      ┌──────────────┐
+    │   proj(t)    │                      │ proj_stim(t) │
+    │ (latent_dims)│                      │ (stim_dims)  │
+    └──────┬───────┘                      └──────┬───────┘
+           │                                      │
+           └──────────────┬───────────────────────┘
+                          │
+                     concatenate
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │    Evolver    │
+                  │   (MLPSkips)  │
+                  │ latent evolve │
+                  └───────┬───────┘
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │  proj(t+Δt)   │
+                  │ + proj_stim   │
+                  └───────┬───────┘
+                          │
+                     split off
+                    stimulus part
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │    Decoder    │
+                  │   (MLPSkips)  │
+                  │ latent→neurons│
+                  └───────┬───────┘
+                          │
+                          ▼
+                  ┌───────────────┐
+                  │    x(t+Δt)    │
+                  │   (neurons)   │
+                  └───────────────┘
+
+```
+
+The model has four main components:
+
+- Encoder (MLPSkips): Maps neural activity x(t) → latent space
+- Stimulus Encoder (MLPSkips): Maps raw stimulus → latent stimulus representation
+- Evolver (MLPSkips): Evolves concatenated [latent state, latent stimulus] forward in time
+- Decoder (MLPSkips): Maps evolved latent state → predicted neural activity x(t+Δt)
+
+The model so far works for Voltage data with resolution Δt=20ms.
+
+The results are based on the experiment `checkpoint_20251118`.
+
+The model is trained on two losses - both measured using MSE.
+
+- reconstruction loss: encoder/decoder can translate activity reliably to/fro latent space.
+- evolution loss: one-step time evolution is accurate
+
+Training data split:
+
+```yaml
+# ...
+data_split:
+  train_start: 4000 # Exclude burn-in
+  train_end: 34000
+  validation_start: 40000
+  validation_end: 50000
+  test_start: 54000
+  test_end: 64000
+```
+
+The training is done on time points `fly_N9_62_1[4_000, 34_000)` (noise of 0.05).
+The figures below are based on a separate `fly_N9_62_0[40_000, 50_000)` (no noise).
+
+<table>
+  <tr>
+    <td><img src="assets/mses_by_time_steps_activity.jpg" width="300"/></td>
+    <td><img src="assets/mses_by_time_steps_latent.jpg" width="300"/></td>
+  </tr>
+  <tr>
+    <td align="center">MSE (mean squared error) for a rollout from an initial time point in activity space</td>
+    <td align="center">MSE (mean squared error) for a rollout from an initial time point in latent space</td>
+  </tr>
+</table>

@@ -42,7 +42,7 @@ config/zebrafish/**/*.md
 !assets/*.svg
 
 # Exception: allow PNG figures in LatentEvolution
-!src/LatentEvolution/**/*.png
+!src/LatentEvolution/**/*.jpg
 
 # IDE files
 *.iml
