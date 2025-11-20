@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from matplotlib import rc
-from NeuralGraph.utils import to_numpy
 from tifffile import imread, imwrite
 from tqdm import trange, tqdm
 import os
@@ -158,7 +157,6 @@ def pretrain_siren_image(activity_dir, device, output_dir, num_training_steps=50
         siren_net: Pre-trained SIREN network mapping (x,y,t) -> grayscale
                    Coordinates are scaled by their respective periods
     """
-    import glob
 
     print("pre-training SIREN network on first 10 activity frames...")
 

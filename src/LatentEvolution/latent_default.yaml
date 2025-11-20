@@ -35,7 +35,7 @@ stimulus_encoder_params:
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 training:
-  simulation_config: "fly_N9_62_1"
+  simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 100
   epochs: 200 # Total number of epochs
   save_best_checkpoint: True # Save model with lowest validation loss
@@ -74,5 +74,5 @@ training:
 
 # Cross-dataset validation (evaluates trained model on different datasets)
 cross_validation_configs:
-  - simulation_config: "fly_N9_62_0"
+  - simulation_config: "fly_N9_62_0_calcium"
     name: "no_noise"
