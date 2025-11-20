@@ -284,6 +284,7 @@ def data_train_signal(config, erase, best_model, device):
         'loss': [],
         'regul_total': [],
         'W_L1': [],
+        'W_L2': [],
         'edge_grad': [],
         'phi_grad': [],
         'edge_diff': [],
@@ -831,7 +832,7 @@ def data_train_signal(config, erase, best_model, device):
                     current_loss = loss.item()
                     loss_components['loss'].append((current_loss - regul_total_this_iter) / n_neurons)
                     loss_components['regul_total'].append(regul_total_this_iter / n_neurons)
-                    for key in ['W_L1', 'edge_grad', 'phi_grad', 'edge_diff', 'phi_zero',
+                    for key in ['W_L1', 'W_L2', 'edge_grad', 'phi_grad', 'edge_diff', 'phi_zero',
                                 'edge_norm', 'edge_weight', 'phi_weight', 'W_sign']:
                         loss_components[key].append(regul_tracker[key] / n_neurons)
 
