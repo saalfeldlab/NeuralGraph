@@ -569,7 +569,7 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
                         for i in range(num_frames)]
 
     # Generate frames for each time point
-    for i in trange(num_frames, desc="Creating video frames"):
+    for i in trange(num_frames, desc="Creating video frames"), ncols=100:
         # Get normalized time
         t = i / (num_frames - 1)
         t_idx = original_indices[i]
@@ -724,6 +724,14 @@ def data_instant_NGP(config=None, style=None, device=None):
     for f in files:
         os.remove(f)
 
+    # Load boat anatomy image
+    import os as os_module
+    current_dir = os_module.path.dirname(os_module.path.abspath(__file__))
+    boat_anatomy_path = os_module.path.join(current_dir, 'pics_boat_512.tif')
+    print(f"Loading boat anatomy from {boat_anatomy_path}")
+    boat_anatomy = imread(boat_anatomy_path).astype(np.float32)
+    print(f"Boat anatomy shape: {boat_anatomy.shape}, range: [{boat_anatomy.min():.4f}, {boat_anatomy.max():.4f}]")
+
 
     if "latex" in style:
         plt.rcParams["text.usetex"] = True
@@ -792,7 +800,8 @@ def data_instant_NGP(config=None, style=None, device=None):
             zoom_factors = (512 / img_gray.shape[0], 512 / img_gray.shape[1])
             img_gray = zoom(img_gray, zoom_factors, order=1)
 
-        # Save original (unwarped) activity image
+        # Save activity image: dots at FIXED initial position with changing activity (x[:,6])
+        # Activity changes over time, so save each frame
         img_activity_32bit = img_gray.astype(np.float32)
         imwrite(
             f"{activity_dir}/frame_{num}.tif",
@@ -801,8 +810,13 @@ def data_instant_NGP(config=None, style=None, device=None):
             dtype=np.float32
         )
 
-        # Apply sinusoidal warping to the grayscale image
-        img_warped = apply_sinusoidal_warp(img_gray, it, n_frames, motion_intensity=0.015)
+        # For motion frames: multiply activity by boat anatomy, then warp
+        # Element-wise multiplication: activity × boat_anatomy
+        img_with_anatomy = img_gray * boat_anatomy
+
+        # Apply sinusoidal warping to the combined image
+        # The warped result contains both activity and anatomy information
+        img_warped = apply_sinusoidal_warp(img_with_anatomy, it, n_frames, motion_intensity=0.015)
 
         # Convert to 32-bit float (single channel)
         img_32bit = img_warped.astype(np.float32)
