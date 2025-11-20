@@ -1,5 +1,5 @@
 description: "TEST: RNN chaotic oscillation_max_amplitude: 10.0  no extra neurons"
-dataset: "signal_N11_2_2"
+dataset: "signal_N11_2_2_test"
 
 simulation:
   connectivity_type: "chaotic"
