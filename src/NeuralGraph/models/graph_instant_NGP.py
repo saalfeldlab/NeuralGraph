@@ -2,23 +2,11 @@ import glob
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 import torch
-import torch_geometric.data as data
 from matplotlib import rc
-from NeuralGraph.data_loaders import load_wormvae_data, load_zebrafish_data
-from NeuralGraph.generators.davis import AugmentedDavis
-from NeuralGraph.generators.utils import (
-    choose_model,
-    init_neurons,
-    init_mesh,
-    generate_compressed_video_mp4,
-    init_connectivity,
-    get_equidistant_points,
-)
-from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
+from NeuralGraph.utils import to_numpy
 from tifffile import imread, imwrite
-from tqdm import tqdm, trange
+from tqdm import trange
 import os
 from scipy.ndimage import map_coordinates
 import tinycudann as tcnn
@@ -32,7 +20,6 @@ from NeuralGraph.models.Siren_Network import Siren
 # import h5py as h5
 # import zarr
 # import xarray as xr
-import torch_geometric as pyg
 
 
 def compute_gt_deformation_field(frame_idx, num_frames, res, motion_intensity=0.015):
@@ -1128,8 +1115,8 @@ def data_instant_NGP(config=None, style=None, device=None):
         plt.close()
 
     print(f"generated {n_frames} warped motion frames in {motion_frames_dir}/")
-    print(f"frame format: 512x512, 32-bit float, single channel tif")
-    print(f"applied sinusoidal warping with motion_intensity=0.015")
+    print("frame format: 512x512, 32-bit float, single channel tif")
+    print("applied sinusoidal warping with motion_intensity=0.015")
 
     # Train NSTM on the generated frames
     nstm_output_dir = f'./graphs_data/{dataset_name}/NSTM_outputs'
