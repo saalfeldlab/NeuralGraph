@@ -26,6 +26,7 @@ from skimage.metrics import structural_similarity as ssim
 import cv2
 import subprocess
 import shutil
+from NeuralGraph.models.Siren_Network import Siren
 
 # from fa2_modified import ForceAtlas2
 # import h5py as h5
@@ -142,8 +143,188 @@ class NeuralSpaceTimeModel:
         return fixed_scene
 
 
-def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir, num_training_steps=3000):
-    """Train Neural Space-Time Model with anatomy + activity decomposition"""
+def pretrain_siren_on_particles(x_list, n_frames, res, device, output_dir, siren_config, num_training_steps=5000):
+    """Pre-train SIREN activity network on discrete neuron data
+
+    Args:
+        x_list: List of arrays with shape (n_frames, n_neurons, features)
+                where x[:, :, :2] are positions and x[:, :, 6] is activity
+        n_frames: Number of frames to use
+        res: Resolution for visualization (512)
+        device: torch device
+        output_dir: Directory to save outputs
+        siren_config: SIREN configuration dict
+        num_training_steps: Number of training steps
+
+    Returns:
+        activity_net: Pre-trained SIREN network
+    """
+    print("pre-training siren activity network on discrete neuron data...")
+
+    # Extract neuron positions and activities
+    x_data = x_list[0][:n_frames]  # Use first run
+    n_neurons = x_data.shape[1]
+
+    # Extract positions (x, y) and activity
+    positions = x_data[:, :, :2]  # (n_frames, n_neurons, 2)
+    activities = x_data[:, :, 6:7]  # (n_frames, n_neurons, 1)
+
+    print(f"neuron data: {n_frames} frames, {n_neurons} neurons")
+    print(f"position range: x=[{positions[:, :, 0].min():.3f}, {positions[:, :, 0].max():.3f}], y=[{positions[:, :, 1].min():.3f}, {positions[:, :, 1].max():.3f}]")
+    print(f"activity range: [{activities.min():.3f}, {activities.max():.3f}]")
+
+    # Normalize positions to [0, 1]
+    pos_min = positions.min(axis=(0, 1))
+    pos_max = positions.max(axis=(0, 1))
+    positions_norm = (positions - pos_min) / (pos_max - pos_min + 1e-8)
+
+    # Normalize activities to [0, 1]
+    act_min = activities.min()
+    act_max = activities.max()
+    activities_norm = (activities - act_min) / (act_max - act_min + 1e-8)
+
+    # Convert to torch tensors
+    positions_torch = torch.tensor(positions_norm, dtype=torch.float32, device=device)
+    activities_torch = torch.tensor(activities_norm, dtype=torch.float32, device=device)
+
+    # Create SIREN network
+    activity_net = Siren(
+        in_features=3,  # x, y, t
+        hidden_features=siren_config['hidden_dim_nnr_f'],
+        hidden_layers=siren_config['n_layers_nnr_f'],
+        out_features=1,  # scalar activity
+        outermost_linear=siren_config['outermost_linear_nnr_f'],
+        first_omega_0=siren_config['omega_f'],
+        hidden_omega_0=siren_config['omega_f']
+    ).to(device)
+
+    # Period normalization factors
+    xy_period = siren_config['nnr_f_xy_period']
+    t_period = siren_config['nnr_f_T_period']
+
+    # Optimizer
+    optimizer = torch.optim.Adam(activity_net.parameters(), lr=1e-4)
+
+    # Training loop
+    print(f"training siren on neurons for {num_training_steps} steps...")
+    loss_history = []
+
+    pbar = trange(num_training_steps, ncols=100)
+    for step in pbar:
+        # Sample random frame
+        t_idx = np.random.randint(0, n_frames)
+        t_normalized = t_idx / (n_frames - 1)
+
+        # Get neuron data for this frame
+        pos_frame = positions_torch[t_idx]  # (n_neurons, 2)
+        act_frame = activities_torch[t_idx]  # (n_neurons, 1)
+
+        # Create 3D coordinates with period normalization
+        t_tensor = torch.full((n_neurons, 1), t_normalized / t_period, device=device, dtype=torch.float32)
+        coords_3d = torch.cat([pos_frame / xy_period, t_tensor], dim=1)
+
+        # Forward pass
+        predicted_activity = activity_net(coords_3d)
+
+        # Loss
+        loss = torch.nn.functional.mse_loss(predicted_activity, act_frame)
+
+        # Optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        loss_history.append(loss.item())
+
+        if step % 100 == 0:
+            pbar.set_postfix({'loss': f'{loss.item():.6f}'})
+
+    print("siren pre-training complete!")
+
+    # Generate visualization video
+    print("generating siren visualization video...")
+    video_dir = f"{output_dir}/siren_pretrain"
+    os.makedirs(video_dir, exist_ok=True)
+
+    # Create coordinate grid for visualization
+    y_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
+    x_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
+    yv, xv = torch.meshgrid(y_coords, x_coords, indexing='ij')
+    coords_2d = torch.stack([xv.flatten(), yv.flatten()], dim=1)
+
+    # Generate frames
+    temp_dir = f"{video_dir}/frames"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    activity_net.eval()
+    with torch.no_grad():
+        for frame_idx in trange(n_frames, desc="Rendering frames", ncols=100):
+            t_norm = frame_idx / (n_frames - 1)
+
+            # Create 3D coordinates
+            t_tensor = torch.full((res*res, 1), t_norm / t_period, device=device, dtype=torch.float32)
+            coords_3d = torch.cat([coords_2d / xy_period, t_tensor], dim=1)
+
+            # Evaluate SIREN
+            activity_pred = activity_net(coords_3d)
+            activity_img = activity_pred.reshape(res, res).cpu().numpy()
+
+            # Normalize to [0, 1] for visualization
+            activity_vis = (activity_img - activity_img.min()) / (activity_img.max() - activity_img.min() + 1e-8)
+            activity_uint8 = (np.clip(activity_vis, 0, 1) * 255).astype(np.uint8)
+
+            # Save frame
+            cv2.imwrite(f"{temp_dir}/frame_{frame_idx:06d}.png", activity_uint8)
+
+    # Create video with ffmpeg
+    video_path = f'{video_dir}/siren_pretrained.mp4'
+    fps = 30
+
+    print("creating video from frames...")
+    ffmpeg_cmd = [
+        "ffmpeg", "-y", "-framerate", str(fps),
+        "-i", f"{temp_dir}/frame_%06d.png",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "slow", "-crf", "22",
+        video_path
+    ]
+
+    try:
+        subprocess.run(ffmpeg_cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print(f"siren visualization video saved to {video_path}")
+    except (subprocess.SubprocessError, FileNotFoundError) as e:
+        print(f"error creating video with ffmpeg: {e}")
+
+    # Clean up frames
+    shutil.rmtree(temp_dir)
+
+    # Plot loss history
+    plt.figure(figsize=(10, 4))
+    plt.plot(loss_history)
+    plt.title('SIREN Pre-training Loss', fontsize=12)
+    plt.xlabel('Step')
+    plt.ylabel('MSE Loss')
+    plt.grid(True, alpha=0.3)
+    plt.savefig(f'{video_dir}/pretrain_loss.png', dpi=150)
+    plt.close()
+
+    activity_net.train()
+    return activity_net
+
+
+def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir, num_training_steps=3000,
+               siren_config=None, pretrained_activity_net=None, x_list=None,
+               use_siren=True, siren_lr=1e-4, nstm_lr=5e-4, siren_loss_weight=1.0):
+    """Train Neural Space-Time Model with anatomy + activity decomposition
+
+    Args:
+        siren_config: Dict with keys: hidden_dim_nnr_f, n_layers_nnr_f, omega_f,
+                      nnr_f_xy_period, nnr_f_T_period, outermost_linear_nnr_f
+        x_list: List of neuron data arrays for SIREN supervision (n_frames, n_neurons, features)
+        use_siren: Boolean to use SIREN network for activity (True) or grid_sample (False)
+        siren_lr: Learning rate for SIREN network
+        nstm_lr: Learning rate for deformation and anatomy networks
+        siren_loss_weight: Weight for SIREN supervision loss on discrete neurons
+    """
     # Load motion frames
     print("loading motion frames...")
     motion_images = []
@@ -164,10 +345,10 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     data_max = all_pixels.max()
     print(f"input data range: [{data_min:.2f}, {data_max:.2f}]")
 
-    # Normalize to [0, 1] and convert to tensors (use float16 for tinycudann compatibility)
+    # Normalize to [0, 1] and convert to tensors (use float32 for SIREN compatibility)
     # Keep both motion (warped) and activity (ground-truth) in GPU memory
-    motion_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float16).to(device) for img in motion_images]
-    activity_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float16).to(device) for img in activity_images]
+    motion_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float32).to(device) for img in motion_images]
+    activity_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float32).to(device) for img in activity_images]
 
     print(f"loaded {n_frames} frames into gpu memory")
 
@@ -191,22 +372,94 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         network_config=config["network"]
     ).to(device)
 
-    # Create coordinate grid (use float16 for tinycudann)
-    y_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float16)
-    x_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float16)
+    # Activity network: SIREN (x, y, t) -> activity value or grid_sample
+    if siren_config is not None and use_siren:
+        if pretrained_activity_net is not None:
+            print("using pre-trained siren activity network...")
+            activity_net = pretrained_activity_net
+        else:
+            print("creating siren activity network...")
+            activity_net = Siren(
+                in_features=3,  # x, y, t
+                hidden_features=siren_config['hidden_dim_nnr_f'],
+                hidden_layers=siren_config['n_layers_nnr_f'],
+                out_features=1,  # scalar activity
+                outermost_linear=siren_config['outermost_linear_nnr_f'],
+                first_omega_0=siren_config['omega_f'],
+                hidden_omega_0=siren_config['omega_f']
+            ).to(device)
+
+        # Period normalization factors
+        xy_period = siren_config['nnr_f_xy_period']
+        t_period = siren_config['nnr_f_T_period']
+        print(f"siren activity network: xy_period={xy_period}, t_period={t_period}, omega={siren_config['omega_f']}")
+    else:
+        activity_net = None
+        xy_period = 1.0
+        t_period = 1.0
+        if not use_siren:
+            print("using grid_sample for activity (use_siren=False)")
+
+    # Create coordinate grid (use float16 for tinycudann, float32 for coords)
+    y_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
+    x_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
     yv, xv = torch.meshgrid(y_coords, x_coords, indexing='ij')
     coords_2d = torch.stack([xv.flatten(), yv.flatten()], dim=1)
 
-    # Create optimizer
-    params = list(deformation_net.parameters()) + list(anatomy_net.parameters())
-    optimizer = torch.optim.Adam(params, lr=5e-4)  # Reduced from 1e-3
+    # Convert to float16 for tinycudann networks
+    coords_2d_f16 = coords_2d.to(torch.float16)
 
-    # Learning rate schedule
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(
-        optimizer,
+    # Create separate optimizers with different learning rates
+    nstm_params = list(deformation_net.parameters()) + list(anatomy_net.parameters())
+    optimizer_nstm = torch.optim.Adam(nstm_params, lr=nstm_lr)
+
+    if activity_net is not None:
+        optimizer_siren = torch.optim.Adam(activity_net.parameters(), lr=siren_lr)
+    else:
+        optimizer_siren = None
+
+    # Learning rate schedules
+    scheduler_nstm = torch.optim.lr_scheduler.MultiStepLR(
+        optimizer_nstm,
         milestones=[num_training_steps // 2, num_training_steps * 3 // 4],
         gamma=0.1
     )
+
+    if optimizer_siren is not None:
+        scheduler_siren = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer_siren,
+            milestones=[num_training_steps // 2, num_training_steps * 3 // 4],
+            gamma=0.1
+        )
+
+    # Prepare neuron data for SIREN supervision (if available)
+    neuron_data = None
+    if activity_net is not None and x_list is not None:
+        print("preparing neuron data for siren supervision...")
+        x_data = x_list[0][:n_frames]  # Use first run
+        n_neurons = x_data.shape[1]
+
+        # Extract positions (x, y) and activity
+        positions = x_data[:, :, :2]  # (n_frames, n_neurons, 2)
+        activities = x_data[:, :, 6:7]  # (n_frames, n_neurons, 1)
+
+        # Normalize positions to [0, 1]
+        pos_min = positions.min(axis=(0, 1))
+        pos_max = positions.max(axis=(0, 1))
+        positions_norm = (positions - pos_min) / (pos_max - pos_min + 1e-8)
+
+        # Normalize activities to [0, 1]
+        act_min = activities.min()
+        act_max = activities.max()
+        activities_norm = (activities - act_min) / (act_max - act_min + 1e-8)
+
+        # Convert to torch tensors
+        neuron_data = {
+            'positions': torch.tensor(positions_norm, dtype=torch.float32, device=device),
+            'activities': torch.tensor(activities_norm, dtype=torch.float32, device=device),
+            'n_neurons': n_neurons
+        }
+        print(f"neuron data: {n_frames} frames, {n_neurons} neurons")
 
     # Training loop
     print(f"training for {num_training_steps} steps...")
@@ -227,67 +480,105 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         # Target values from warped motion frames
         target = motion_tensors[t_idx].reshape(-1, 1)[indices]
 
-        # Create 3D coordinates for deformation network
+        # Create 3D coordinates for deformation network (convert to float16 for tcnn)
         t_tensor = torch.full_like(batch_coords[:, 0:1], t_normalized)
-        coords_3d = torch.cat([batch_coords, t_tensor], dim=1)
+        coords_3d = torch.cat([batch_coords, t_tensor], dim=1).to(torch.float16)
 
         # Forward pass - deformation network (backward warp)
-        deformation = deformation_net(coords_3d)
+        deformation = deformation_net(coords_3d).to(torch.float32)
 
         # Compute source coordinates (backward warp)
         source_coords = batch_coords - deformation  # Note: MINUS for backward warp
         source_coords = torch.clamp(source_coords, 0, 1)
 
-        # Sample anatomy mask at source coordinates
-        anatomy_mask = torch.sigmoid(anatomy_net(source_coords))
+        # Sample anatomy mask at source coordinates (convert to float16 for tcnn)
+        anatomy_mask = torch.sigmoid(anatomy_net(source_coords.to(torch.float16))).to(torch.float32)
 
-        # Sample ground-truth activity at source coordinates using grid_sample
-        # Convert source_coords from [0,1] to [-1,1] for grid_sample
-        source_coords_normalized = source_coords * 2 - 1
-        source_coords_grid = source_coords_normalized.reshape(1, 1, batch_size, 2)
-
-        # Reshape activity tensor for grid_sample: [1, 1, H, W]
-        activity_frame = activity_tensors[t_idx].reshape(1, 1, res, res)
-
-        # Sample using bilinear interpolation
-        sampled_activity = torch.nn.functional.grid_sample(
-            activity_frame,
-            source_coords_grid,
-            mode='bilinear',
-            padding_mode='border',
-            align_corners=True
-        )
-        sampled_activity = sampled_activity.reshape(-1, 1).to(torch.float16)
+        # Sample activity at source coordinates
+        if activity_net is not None:
+            # Use SIREN network with period-based normalization
+            # Create 3D coordinates: (x/xy_period, y/xy_period, t/t_period)
+            source_coords_3d = torch.cat([
+                source_coords / xy_period,
+                torch.full_like(source_coords[:, 0:1], t_normalized / t_period)
+            ], dim=1)
+            sampled_activity = activity_net(source_coords_3d)
+        else:
+            # Fallback: use grid_sample on ground-truth activity
+            source_coords_normalized = source_coords * 2 - 1
+            source_coords_grid = source_coords_normalized.reshape(1, 1, batch_size, 2)
+            activity_frame = activity_tensors[t_idx].reshape(1, 1, res, res)
+            sampled_activity = torch.nn.functional.grid_sample(
+                activity_frame,
+                source_coords_grid,
+                mode='bilinear',
+                padding_mode='border',
+                align_corners=True
+            ).reshape(-1, 1)
 
         # Reconstruction: anatomy × activity
         reconstructed = anatomy_mask * sampled_activity
 
         # Main reconstruction loss
-        loss = torch.nn.functional.mse_loss(reconstructed, target)
+        recon_loss = torch.nn.functional.mse_loss(reconstructed, target)
+
+        # Activity supervision loss using discrete neuron data (if using SIREN)
+        siren_loss = torch.tensor(0.0, device=device)
+        if activity_net is not None and neuron_data is not None:
+            # Get neuron positions and activities for this frame
+            pos_frame = neuron_data['positions'][t_idx]  # (n_neurons, 2)
+            act_frame = neuron_data['activities'][t_idx]  # (n_neurons, 1)
+
+            # Create 3D coordinates with period normalization for neurons
+            t_tensor = torch.full((neuron_data['n_neurons'], 1), t_normalized / t_period,
+                                 device=device, dtype=torch.float32)
+            neuron_coords_3d = torch.cat([pos_frame / xy_period, t_tensor], dim=1)
+
+            # Forward pass through SIREN
+            predicted_activity = activity_net(neuron_coords_3d)
+
+            # Compute loss on discrete neurons
+            siren_loss = torch.nn.functional.mse_loss(predicted_activity, act_frame)
 
         # Regularization: Deformation smoothness
         deformation_smoothness = torch.mean(torch.abs(deformation))
 
         # Combined loss with regularization
-        total_loss = loss + 0.01 * deformation_smoothness
+        total_loss_nstm = recon_loss + 0.01 * deformation_smoothness
 
-        # Optimize
-        optimizer.zero_grad()
-        total_loss.backward()
-        optimizer.step()
+        # Optimize NSTM networks (deformation + anatomy)
+        optimizer_nstm.zero_grad()
+        if optimizer_siren is not None and neuron_data is not None:
+            # Combined loss for backward pass
+            total_loss = total_loss_nstm + siren_loss_weight * siren_loss
+            total_loss.backward()
+            optimizer_nstm.step()
+            optimizer_siren.step()
+        else:
+            total_loss_nstm.backward()
+            optimizer_nstm.step()
 
-        # Update learning rate
-        scheduler.step()
+        # Update learning rates
+        scheduler_nstm.step()
+        if optimizer_siren is not None:
+            scheduler_siren.step()
 
         # Record losses
-        loss_history.append(loss.item())
+        loss_history.append(recon_loss.item())
         regularization_history['deformation'].append(deformation_smoothness.item())
 
         # Update progress bar with losses
-        pbar.set_postfix({
-            'loss': f'{loss.item():.6f}',
-            'def': f'{deformation_smoothness.item():.4f}'
-        })
+        if activity_net is not None and neuron_data is not None:
+            pbar.set_postfix({
+                'recon': f'{recon_loss.item():.6f}',
+                'def': f'{deformation_smoothness.item():.4f}',
+                'siren': f'{siren_loss.item():.6f}'
+            })
+        else:
+            pbar.set_postfix({
+                'recon': f'{recon_loss.item():.6f}',
+                'def': f'{deformation_smoothness.item():.4f}'
+            })
 
     print("training complete!")
 
@@ -468,7 +759,7 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     plt.savefig(f'{output_dir}/loss_history.png', dpi=150)
     plt.close()
 
-    return deformation_net, anatomy_net, loss_history
+    return deformation_net, anatomy_net, activity_net, loss_history
 
 
 def create_motion_field_visualization(base_image, motion_x, motion_y, res, step_size=16, black_background=False):
@@ -842,14 +1133,61 @@ def data_instant_NGP(config=None, style=None, device=None):
 
     # Train NSTM on the generated frames
     nstm_output_dir = f'./graphs_data/{dataset_name}/NSTM_outputs'
-    deformation_net, anatomy_net, loss_history = train_nstm(
+
+    # Prepare SIREN config if available in model_config
+    siren_config = None
+    if hasattr(model_config, 'hidden_dim_nnr_f'):
+        siren_config = {
+            'hidden_dim_nnr_f': model_config.hidden_dim_nnr_f,
+            'n_layers_nnr_f': model_config.n_layers_nnr_f,
+            'omega_f': model_config.omega_f,
+            'nnr_f_xy_period': model_config.nnr_f_xy_period,
+            'nnr_f_T_period': model_config.nnr_f_T_period,
+            'outermost_linear_nnr_f': model_config.outermost_linear_nnr_f
+        }
+        print(f"using siren activity network with config: {siren_config}")
+    else:
+        print("no siren config found, using grid_sample for activity")
+
+    # Hardcoded parameters
+    use_siren = True  # Set to False to use grid_sample instead of SIREN
+    siren_loss_weight = 1.0  # Weight for SIREN supervision loss on discrete neurons
+    nstm_lr = 5e-4  # Learning rate for deformation and anatomy networks
+
+    # Get SIREN learning rate from config if available
+    siren_lr = 1e-4  # Default
+    if hasattr(training_config, 'learning_rate_NNR_f'):
+        siren_lr = training_config.learning_rate_NNR_f
+
+    # Pre-train SIREN on neuron data if config available and use_siren=True
+    pretrained_activity_net = None
+    if siren_config is not None and use_siren:
+        print("pre-training siren network on discrete neuron data...")
+        pretrained_activity_net = pretrain_siren_on_particles(
+            x_list=x_list,
+            n_frames=n_frames,
+            res=512,
+            device=device,
+            output_dir=nstm_output_dir,
+            siren_config=siren_config,
+            num_training_steps=5000
+        )
+
+    deformation_net, anatomy_net, activity_net, loss_history = train_nstm(
         motion_frames_dir=motion_frames_dir,
         activity_dir=activity_dir,
         n_frames=n_frames,
         res=512,
         device=device,
         output_dir=nstm_output_dir,
-        num_training_steps=20000  # Increased from 5000 (4x more)
+        num_training_steps=10000,  # Increased from 5000 (4x more)
+        siren_config=siren_config,
+        pretrained_activity_net=pretrained_activity_net,
+        x_list=x_list,
+        use_siren=use_siren,
+        siren_lr=siren_lr,
+        nstm_lr=nstm_lr,
+        siren_loss_weight=siren_loss_weight
     )
 
     # Load motion and activity images for video creation
