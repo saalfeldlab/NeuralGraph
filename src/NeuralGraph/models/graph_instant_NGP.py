@@ -9,7 +9,6 @@ from tifffile import imread, imwrite
 from tqdm import trange
 import os
 from scipy.ndimage import map_coordinates
-import tinycudann as tcnn
 from skimage.metrics import structural_similarity as ssim
 import cv2
 import subprocess
@@ -22,6 +21,11 @@ from PIL import Image as PILImage
 # import zarr
 # import xarray as xr
 
+try:
+    import tinycudann as tcnn
+except ImportError:
+    tcnn = None
+    print("Warning: tinycudann not installed. Falling back to slow mode.")
 
 def compute_gt_deformation_field(frame_idx, num_frames, res, motion_intensity=0.015):
     """Compute ground truth deformation field for visualization
