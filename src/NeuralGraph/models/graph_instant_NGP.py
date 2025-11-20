@@ -9,6 +9,13 @@ from tifffile import imread, imwrite
 from tqdm import trange, tqdm
 import os
 from scipy.ndimage import map_coordinates
+<<<<<<< HEAD
+=======
+try:
+    import tinycudann as tcnn
+except ImportError:
+    tcnn = None
+>>>>>>> 4be5279 (calcium generation)
 from skimage.metrics import structural_similarity as ssim
 import cv2
 import subprocess
