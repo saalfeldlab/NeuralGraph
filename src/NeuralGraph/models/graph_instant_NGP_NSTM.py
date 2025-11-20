@@ -2,23 +2,11 @@ import glob
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 import torch
-import torch_geometric.data as data
 from matplotlib import rc
-from NeuralGraph.data_loaders import load_wormvae_data, load_zebrafish_data
-from NeuralGraph.generators.davis import AugmentedDavis
-from NeuralGraph.generators.utils import (
-    choose_model,
-    init_neurons,
-    init_mesh,
-    generate_compressed_video_mp4,
-    init_connectivity,
-    get_equidistant_points,
-)
-from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
+from NeuralGraph.utils import to_numpy
 from tifffile import imread, imwrite
-from tqdm import tqdm, trange
+from tqdm import trange
 import os
 from scipy.ndimage import map_coordinates
 import tinycudann as tcnn
@@ -28,7 +16,6 @@ from skimage.metrics import structural_similarity as ssim
 # import h5py as h5
 # import zarr
 # import xarray as xr
-import torch_geometric as pyg
 
 
 def apply_sinusoidal_warp(image, frame_idx, num_frames, motion_intensity=0.015):
@@ -265,13 +252,13 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     print(f"\n{'='*60}")
     print("NSTM Evaluation Metrics")
     print(f"{'='*60}")
-    print(f"Fixed Scene vs Activity Average:")
+    print("Fixed Scene vs Activity Average:")
     print(f"  RMSE: {rmse_activity:.4f}")
     print(f"  SSIM: {ssim_activity:.4f}")
-    print(f"\nBaseline (Motion Median vs Activity Average):")
+    print("\nBaseline (Motion Median vs Activity Average):")
     print(f"  RMSE: {rmse_baseline:.4f}")
     print(f"  SSIM: {ssim_baseline:.4f}")
-    print(f"\nImprovement over baseline:")
+    print("\nImprovement over baseline:")
     print(f"  RMSE: {((rmse_baseline - rmse_activity) / rmse_baseline * 100):.2f}%")
     print(f"  SSIM: {((ssim_activity - ssim_baseline) / (1.0 - ssim_baseline) * 100):.2f}%")
     print(f"{'='*60}\n")
@@ -445,8 +432,8 @@ def data_instant_NGP(config=None, style=None, device=None):
         plt.close()
 
     print(f"\nGenerated {n_frames} warped motion frames in {motion_frames_dir}/")
-    print(f"Frame format: 512x512, 32-bit float, single channel TIF")
-    print(f"Applied sinusoidal warping with motion_intensity=0.015")
+    print("Frame format: 512x512, 32-bit float, single channel TIF")
+    print("Applied sinusoidal warping with motion_intensity=0.015")
 
     # Train NSTM on the generated frames
     nstm_output_dir = f'./graphs_data/{dataset_name}/NSTM_outputs'
