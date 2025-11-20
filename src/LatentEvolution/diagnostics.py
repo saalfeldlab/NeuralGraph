@@ -222,28 +222,123 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
 
 
 @torch.compile(fullgraph=True, mode="reduce-overhead")
-def evolve_many_time_steps(model: LatentModel, val_data, val_stim, tmax: int):
+def evolve_many_time_steps_latent(model: LatentModel, val_data, val_stim, tmax: int):
+    """
+    Perform autoregressive rollout in latent space for multiple time horizons.
+
+    For each dt from 0 to tmax-1, predicts dt steps ahead from each time point
+    using autoregressive evolution in latent space (similar to evolve_n_steps
+    but for multiple starting points and time horizons simultaneously).
+
+    Args:
+        model: The LatentModel
+        val_data: Validation data of shape (T, neurons)
+        val_stim: Validation stimulus of shape (T, stim_dim)
+        tmax: Maximum number of steps to evolve
+
+    Returns:
+        recons: Reconstructed data of shape (tmax, T-tmax, neurons)
+                where recons[dt, t] is the prediction for time t+dt starting from time t
+    """
     with torch.no_grad():
+        # Encode all data and stimulus to latent space
         proj_t = model.encoder(val_data)
         latent_dim = proj_t.shape[1]
         proj_stim_t = model.stimulus_encoder(val_stim)
 
-        # time evolve by "0"
-        # drop the last tmax time steps, maybe off by 1 here?
-        results = [proj_t[:-tmax]]
+        num_time_points = proj_t.shape[0] - tmax
+        results = []
 
-        evolver_input = torch.concatenate([proj_t, proj_stim_t], dim=1)
-        for dt in range(1, tmax):
-            evolver_output = model.evolver(evolver_input)
-            results.append(evolver_output[:-tmax, :latent_dim])
-            evolver_input = evolver_output
-            evolver_input[:-dt, latent_dim:] = proj_stim_t[dt:, :]
+        for dt in range(tmax):
+            if dt == 0:
+                # 0-step prediction: just encode (no evolution)
+                results.append(proj_t[:num_time_points])
+            else:
+                # dt-step prediction: autoregressive rollout in latent space
+                # Start from ground truth latent state at each time point
+                current_latent = proj_t[:num_time_points].clone()
+
+                # Evolve dt steps forward autoregressively
+                for step in range(dt):
+                    # Get stimulus for current step (offset by step)
+                    current_stim = proj_stim_t[step:step+num_time_points]
+                    # Concatenate latent state and stimulus
+                    evolver_input = torch.cat([current_latent, current_stim], dim=1)
+                    # Evolve one step in latent space
+                    evolver_output = model.evolver(evolver_input)
+                    # Extract new latent state for next iteration
+                    current_latent = evolver_output[:, :latent_dim]
+
+                results.append(current_latent)
+
+        # Stack results: (tmax, num_time_points, latent_dim)
         results = torch.stack(results, dim=0)
-
-        recons = model.decoder(results.reshape((-1, latent_dim))).reshape((tmax, -1, val_data.shape[1]))
+        # Decode all latent states at once
+        recons = model.decoder(results.reshape((-1, latent_dim))).reshape((tmax, num_time_points, val_data.shape[1]))
     return recons
 
-def plot_mses(val_data: torch.Tensor, recons: torch.Tensor):
+
+@torch.compile(fullgraph=True, mode="reduce-overhead")
+def evolve_many_time_steps(model: LatentModel, val_data, val_stim, tmax: int):
+    """
+    Perform autoregressive rollout in activity space for multiple time horizons.
+
+    For each dt from 0 to tmax-1, predicts dt steps ahead from each time point
+    using autoregressive evolution in activity space (encoding and decoding at each step).
+    This is the activity space equivalent of evolve_many_time_steps_latent.
+
+    Args:
+        model: The LatentModel
+        val_data: Validation data of shape (T, neurons)
+        val_stim: Validation stimulus of shape (T, stim_dim)
+        tmax: Maximum number of steps to evolve
+
+    Returns:
+        recons: Reconstructed data of shape (tmax, T-tmax, neurons)
+                where recons[dt, t] is the prediction for time t+dt starting from time t
+    """
+    with torch.no_grad():
+        num_time_points = val_data.shape[0] - tmax
+        results = []
+
+        for dt in range(tmax):
+            if dt == 0:
+                # 0-step prediction: just reconstruct through encoder/decoder
+                recon = model.decoder(model.encoder(val_data[:num_time_points]))
+                results.append(recon)
+            else:
+                # dt-step prediction: autoregressive rollout in activity space
+                # Start from ground truth activity state at each time point
+                current_state = val_data[:num_time_points].clone()
+
+                # Evolve dt steps forward autoregressively (encode/decode at each step)
+                for step in range(dt):
+                    # Get stimulus for current step (offset by step)
+                    current_stim = val_stim[step:step+num_time_points]
+                    # Encode current state, evolve in latent, decode back to activity
+                    # This uses the model's forward pass which does: encode -> evolve -> decode
+                    current_state = model(current_state, current_stim)
+
+                results.append(current_state)
+
+        # Stack results: (tmax, num_time_points, neurons)
+        recons = torch.stack(results, dim=0)
+    return recons
+
+def plot_mses(val_data: torch.Tensor, recons: torch.Tensor, rollout_type: str = "latent"):
+    """
+    Plot MSE vs time steps for multi-step rollout.
+
+    Args:
+        val_data: Validation data tensor
+        recons: Reconstructed data from rollout
+        rollout_type: Type of rollout - "latent" for latent space rollout,
+                      "activity" for activity space rollout (encode/decode at each step)
+
+    Returns:
+        fig: Matplotlib figure
+        mse_metrics: Dictionary of MSE metrics
+    """
     tmax = recons.shape[0]
     model_mses = torch.zeros(tmax, device=recons.device)
     for dt in range(tmax):
@@ -256,16 +351,28 @@ def plot_mses(val_data: torch.Tensor, recons: torch.Tensor):
         null_mses[dt] = torch.nn.functional.mse_loss(val_data[:-tmax], val_data[dt:-(tmax-dt)])
     null_mses = null_mses.detach().cpu().numpy()
 
+    # Set labels and title based on rollout type
+    if rollout_type == "latent":
+        model_label = "latent space rollout"
+        title = "MSE vs Time Steps (Latent Space Rollout)\nAveraged over all starting points"
+        metric_prefix = "latent"
+    else:  # activity
+        model_label = "activity space rollout"
+        title = "MSE vs Time Steps (Activity Space Rollout)\nAveraged over all starting points"
+        metric_prefix = "activity"
+
     fig = plt.figure()
-    plt.plot(np.arange(tmax), model_mses, label="latent model")
-    plt.plot(np.arange(tmax), null_mses, ls="dashed", label="constant model (null)")
+    plt.plot(np.arange(tmax), model_mses, label=model_label)
+    plt.plot(np.arange(tmax), null_mses, ls="dashed", label="constant model: x(t+1)=x(t)")
     plt.legend()
     plt.xticks(np.arange(tmax))
     plt.grid(True)
     plt.xlabel("Time steps evolved")
     plt.ylabel("MSE")
+    plt.title(title)
     fig.tight_layout()
-    mse_metrics = {f"model_mse_evolve_{i}_steps": float(model_mses[i]) for i in range(tmax)}
+
+    mse_metrics = {f"model_mse_evolve_{i}_steps_{metric_prefix}": float(model_mses[i]) for i in range(tmax)}
     mse_metrics.update(
         {f"null_mse_evolve_{i}_steps": float(null_mses[i]) for i in range(tmax)}
     )
@@ -378,14 +485,33 @@ def run_validation_diagnostics(
         fig_labeled.savefig(run_dir / "reconstruction_variance_labeled.jpg", dpi=150)
         plt.close(fig_labeled)
 
-    # MSE evolution over time steps
-    recons = evolve_many_time_steps(model, val_data, val_stim, tmax=10)
-    fig, mse_metrics = plot_mses(val_data, recons)
-    metrics.update(mse_metrics)
-    figures["mses_by_time_steps"] = fig
+    # MSE evolution over time steps - Latent space rollout
+    recons_latent = evolve_many_time_steps_latent(model, val_data, val_stim, tmax=20)
+    fig_latent, mse_metrics_latent = plot_mses(val_data, recons_latent, rollout_type="latent")
+    metrics.update(mse_metrics_latent)
+    figures["mses_by_time_steps_latent"] = fig_latent
     if save_figures:
-        fig.savefig(run_dir / "mses_by_time_steps.jpg", dpi=100)
-        plt.close(fig)
+        fig_latent.savefig(run_dir / "mses_by_time_steps_latent.jpg", dpi=100)
+        plt.close(fig_latent)
+
+    # Free GPU memory from latent rollout (~10 GB)
+    del recons_latent
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    # MSE evolution over time steps - Activity space rollout
+    recons_activity = evolve_many_time_steps(model, val_data, val_stim, tmax=20)
+    fig_activity, mse_metrics_activity = plot_mses(val_data, recons_activity, rollout_type="activity")
+    metrics.update(mse_metrics_activity)
+    figures["mses_by_time_steps_activity"] = fig_activity
+    if save_figures:
+        fig_activity.savefig(run_dir / "mses_by_time_steps_activity.jpg", dpi=100)
+        plt.close(fig_activity)
+
+    # Free GPU memory from activity rollout (~10 GB)
+    del recons_activity
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     # Multi-step rollout evaluation - compute rollout once
     print("  Starting multi-step rollout evaluation...")
@@ -418,6 +544,28 @@ def run_validation_diagnostics(
             plt.close(rollout_traces_fig)
             print("  Rollout trace figure saved")
 
+    # Multi-step rollout evaluation in latent space
+    print("  Starting multi-step rollout evaluation in latent space...")
+    with torch.no_grad():
+        real_segment_latent, predicted_segment_latent, mse_per_step_latent, cumulative_mse_latent = compute_rollout_latent(
+            model, val_data, val_stim, n_steps=2000, start_idx=100
+        )
+    print("  Latent rollout computation complete")
+
+    # Generate neuron trace figure for latent rollout (only for post-training analysis)
+    if not skip_neuron_traces:
+        print("  Generating latent rollout neuron trace figure...")
+        rollout_latent_traces_fig = plot_rollout_traces_from_results(
+            real_segment_latent, predicted_segment_latent, neuron_data, start_idx=100
+        )
+        figures["rollout_latent_traces"] = rollout_latent_traces_fig
+        print("  Latent rollout trace figure complete")
+        if save_figures:
+            print("  Saving latent rollout trace figure to disk...")
+            rollout_latent_traces_fig.savefig(run_dir / "rollout_latent_traces.jpg", dpi=100)
+            plt.close(rollout_latent_traces_fig)
+            print("  Latent rollout trace figure saved")
+
     print("Validation diagnostics complete.")
     return metrics, figures
 
@@ -427,6 +575,7 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
     Evolve the model by n time steps using the predicted state at each step.
 
     This performs an autoregressive rollout starting from a single initial state.
+    At each step, encodes the current state, evolves in latent space, and decodes.
 
     Args:
         model: The LatentModel to evolve
@@ -447,7 +596,7 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
         # Get the stimulus for this time step
         current_stimulus = stimulus[t:t+1]  # shape (1, stimulus_dim)
 
-        # Evolve by one step
+        # Evolve by one step (encodes, evolves in latent, decodes)
         next_state = model(current_state, current_stimulus)
 
         predicted_trace.append(next_state.squeeze(0))
@@ -457,6 +606,62 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
 
     print("    Rollout steps complete, stacking results...")
     return torch.stack(predicted_trace, dim=0)
+
+
+def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
+    """
+    Evolve the model by n time steps entirely in latent space.
+
+    This performs an autoregressive rollout starting from a single initial state.
+    Encodes once, evolves in latent space for n steps, then decodes all states.
+
+    Args:
+        model: The LatentModel to evolve
+        initial_state: Initial state tensor of shape (neurons,)
+        stimulus: Stimulus tensor of shape (T, stimulus_dim) where T >= n_steps
+        n_steps: Number of time steps to evolve
+
+    Returns:
+        predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
+    """
+    print(f"    Starting latent rollout for {n_steps} steps...")
+
+    # Encode initial state to latent space
+    current_latent = model.encoder(initial_state.unsqueeze(0))  # shape (1, latent_dim)
+    latent_dim = current_latent.shape[1]
+
+    # Encode all stimulus
+    stimulus_latent = model.stimulus_encoder(stimulus)  # shape (n_steps, stim_latent_dim)
+
+    # Collect latent states
+    latent_trace = []
+
+    for t in range(n_steps):
+        if t % 500 == 0:
+            print(f"    Latent rollout step {t}/{n_steps}...")
+
+        # Get the stimulus for this time step
+        current_stimulus_latent = stimulus_latent[t:t+1]  # shape (1, stim_latent_dim)
+
+        # Concatenate latent state and stimulus
+        evolver_input = torch.cat([current_latent, current_stimulus_latent], dim=1)
+
+        # Evolve one step in latent space
+        evolver_output = model.evolver(evolver_input)
+
+        # Extract new latent state
+        current_latent = evolver_output[:, :latent_dim]
+
+        latent_trace.append(current_latent.squeeze(0))
+
+    print("    Latent rollout steps complete, stacking and decoding...")
+    # Stack all latent states: (n_steps, latent_dim)
+    latent_trace = torch.stack(latent_trace, dim=0)
+
+    # Decode all latent states at once
+    predicted_trace = model.decoder(latent_trace)
+
+    return predicted_trace
 
 
 def compute_rollout(
@@ -496,6 +701,55 @@ def compute_rollout(
 
     # Predict n steps (autoregressive rollout)
     predicted_segment = evolve_n_steps(model, initial_state, stimulus_segment, n_steps)
+
+    print("    Computing MSE metrics...")
+    # Compute MSE per time step
+    mse_per_step = torch.pow(predicted_segment - real_segment, 2).mean(dim=1)
+
+    # Compute cumulative MSE
+    cumulative_mse = torch.cumsum(mse_per_step, dim=0) / torch.arange(1, n_steps + 1, device=mse_per_step.device)
+
+    return real_segment, predicted_segment, mse_per_step, cumulative_mse
+
+
+def compute_rollout_latent(
+    model: LatentModel,
+    real_trace: torch.Tensor,
+    stimulus: torch.Tensor,
+    n_steps: int,
+    start_idx: int = 0
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+    Compute multi-step rollout from a single starting point, entirely in latent space.
+
+    Performs autoregressive rollout in latent space and compares with ground truth.
+    Unlike compute_rollout, this encodes once, evolves in latent space, then decodes all.
+
+    Args:
+        model: The LatentModel to evolve
+        real_trace: Real state tensor of shape (T, neurons)
+        stimulus: Stimulus tensor of shape (T, stimulus_dim)
+        n_steps: Number of time steps to predict
+        start_idx: Starting index in the trace
+
+    Returns:
+        real_segment: Real trace segment of shape (n_steps, neurons)
+        predicted_segment: Predicted trace segment of shape (n_steps, neurons)
+        mse_per_step: MSE at each time step, shape (n_steps,)
+        cumulative_mse: Cumulative average MSE up to each time step, shape (n_steps,)
+    """
+    print(f"    Preparing latent rollout data (n_steps={n_steps}, start_idx={start_idx})...")
+    # Get initial state
+    initial_state = real_trace[start_idx]
+
+    # Get stimulus segment
+    stimulus_segment = stimulus[start_idx:start_idx + n_steps]
+
+    # Get real trace segment (ground truth for the next n_steps)
+    real_segment = real_trace[start_idx + 1:start_idx + n_steps + 1]
+
+    # Predict n steps (autoregressive rollout in latent space)
+    predicted_segment = evolve_n_steps_latent(model, initial_state, stimulus_segment, n_steps)
 
     print("    Computing MSE metrics...")
     # Compute MSE per time step
