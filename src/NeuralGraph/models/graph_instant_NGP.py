@@ -21,7 +21,6 @@ from tifffile import imread, imwrite
 from tqdm import tqdm, trange
 import os
 from scipy.ndimage import map_coordinates
-import tinycudann as tcnn
 from skimage.metrics import structural_similarity as ssim
 import cv2
 import subprocess
@@ -34,6 +33,11 @@ from NeuralGraph.models.Siren_Network import Siren
 # import xarray as xr
 import torch_geometric as pyg
 
+try:
+    import tinycudann as tcnn
+except ImportError:
+    tcnn = None
+    print("Warning: tinycudann not installed. Falling back to slow mode.")
 
 def compute_gt_deformation_field(frame_idx, num_frames, res, motion_intensity=0.015):
     """Compute ground truth deformation field for visualization
