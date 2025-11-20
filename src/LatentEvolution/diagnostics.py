@@ -277,7 +277,68 @@ def evolve_many_time_steps_latent(model: LatentModel, val_data, val_stim, tmax: 
         recons = model.decoder(results.reshape((-1, latent_dim))).reshape((tmax, num_time_points, val_data.shape[1]))
     return recons
 
-def plot_mses(val_data: torch.Tensor, recons: torch.Tensor):
+
+@torch.compile(fullgraph=True, mode="reduce-overhead")
+def evolve_many_time_steps(model: LatentModel, val_data, val_stim, tmax: int):
+    """
+    Perform autoregressive rollout in activity space for multiple time horizons.
+
+    For each dt from 0 to tmax-1, predicts dt steps ahead from each time point
+    using autoregressive evolution in activity space (encoding and decoding at each step).
+    This is the activity space equivalent of evolve_many_time_steps_latent.
+
+    Args:
+        model: The LatentModel
+        val_data: Validation data of shape (T, neurons)
+        val_stim: Validation stimulus of shape (T, stim_dim)
+        tmax: Maximum number of steps to evolve
+
+    Returns:
+        recons: Reconstructed data of shape (tmax, T-tmax, neurons)
+                where recons[dt, t] is the prediction for time t+dt starting from time t
+    """
+    with torch.no_grad():
+        num_time_points = val_data.shape[0] - tmax
+        results = []
+
+        for dt in range(tmax):
+            if dt == 0:
+                # 0-step prediction: just reconstruct through encoder/decoder
+                recon = model.decoder(model.encoder(val_data[:num_time_points]))
+                results.append(recon)
+            else:
+                # dt-step prediction: autoregressive rollout in activity space
+                # Start from ground truth activity state at each time point
+                current_state = val_data[:num_time_points].clone()
+
+                # Evolve dt steps forward autoregressively (encode/decode at each step)
+                for step in range(dt):
+                    # Get stimulus for current step (offset by step)
+                    current_stim = val_stim[step:step+num_time_points]
+                    # Encode current state, evolve in latent, decode back to activity
+                    # This uses the model's forward pass which does: encode -> evolve -> decode
+                    current_state = model(current_state, current_stim)
+
+                results.append(current_state)
+
+        # Stack results: (tmax, num_time_points, neurons)
+        recons = torch.stack(results, dim=0)
+    return recons
+
+def plot_mses(val_data: torch.Tensor, recons: torch.Tensor, rollout_type: str = "latent"):
+    """
+    Plot MSE vs time steps for multi-step rollout.
+
+    Args:
+        val_data: Validation data tensor
+        recons: Reconstructed data from rollout
+        rollout_type: Type of rollout - "latent" for latent space rollout,
+                      "activity" for activity space rollout (encode/decode at each step)
+
+    Returns:
+        fig: Matplotlib figure
+        mse_metrics: Dictionary of MSE metrics
+    """
     tmax = recons.shape[0]
     model_mses = torch.zeros(tmax, device=recons.device)
     for dt in range(tmax):
@@ -290,16 +351,28 @@ def plot_mses(val_data: torch.Tensor, recons: torch.Tensor):
         null_mses[dt] = torch.nn.functional.mse_loss(val_data[:-tmax], val_data[dt:-(tmax-dt)])
     null_mses = null_mses.detach().cpu().numpy()
 
+    # Set labels and title based on rollout type
+    if rollout_type == "latent":
+        model_label = "latent space rollout"
+        title = "MSE vs Time Steps (Latent Space Rollout)\nAveraged over all starting points"
+        metric_prefix = "latent"
+    else:  # activity
+        model_label = "activity space rollout"
+        title = "MSE vs Time Steps (Activity Space Rollout)\nAveraged over all starting points"
+        metric_prefix = "activity"
+
     fig = plt.figure()
-    plt.plot(np.arange(tmax), model_mses, label="latent model")
-    plt.plot(np.arange(tmax), null_mses, ls="dashed", label="constant model (null)")
+    plt.plot(np.arange(tmax), model_mses, label=model_label)
+    plt.plot(np.arange(tmax), null_mses, ls="dashed", label="constant model: x(t+1)=x(t)")
     plt.legend()
     plt.xticks(np.arange(tmax))
     plt.grid(True)
     plt.xlabel("Time steps evolved")
     plt.ylabel("MSE")
+    plt.title(title)
     fig.tight_layout()
-    mse_metrics = {f"model_mse_evolve_{i}_steps": float(model_mses[i]) for i in range(tmax)}
+
+    mse_metrics = {f"model_mse_evolve_{i}_steps_{metric_prefix}": float(model_mses[i]) for i in range(tmax)}
     mse_metrics.update(
         {f"null_mse_evolve_{i}_steps": float(null_mses[i]) for i in range(tmax)}
     )
@@ -412,14 +485,33 @@ def run_validation_diagnostics(
         fig_labeled.savefig(run_dir / "reconstruction_variance_labeled.jpg", dpi=150)
         plt.close(fig_labeled)
 
-    # MSE evolution over time steps
-    recons = evolve_many_time_steps_latent(model, val_data, val_stim, tmax=10)
-    fig, mse_metrics = plot_mses(val_data, recons)
-    metrics.update(mse_metrics)
-    figures["mses_by_time_steps"] = fig
+    # MSE evolution over time steps - Latent space rollout
+    recons_latent = evolve_many_time_steps_latent(model, val_data, val_stim, tmax=20)
+    fig_latent, mse_metrics_latent = plot_mses(val_data, recons_latent, rollout_type="latent")
+    metrics.update(mse_metrics_latent)
+    figures["mses_by_time_steps_latent"] = fig_latent
     if save_figures:
-        fig.savefig(run_dir / "mses_by_time_steps.jpg", dpi=100)
-        plt.close(fig)
+        fig_latent.savefig(run_dir / "mses_by_time_steps_latent.jpg", dpi=100)
+        plt.close(fig_latent)
+
+    # Free GPU memory from latent rollout (~10 GB)
+    del recons_latent
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    # MSE evolution over time steps - Activity space rollout
+    recons_activity = evolve_many_time_steps(model, val_data, val_stim, tmax=20)
+    fig_activity, mse_metrics_activity = plot_mses(val_data, recons_activity, rollout_type="activity")
+    metrics.update(mse_metrics_activity)
+    figures["mses_by_time_steps_activity"] = fig_activity
+    if save_figures:
+        fig_activity.savefig(run_dir / "mses_by_time_steps_activity.jpg", dpi=100)
+        plt.close(fig_activity)
+
+    # Free GPU memory from activity rollout (~10 GB)
+    del recons_activity
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     # Multi-step rollout evaluation - compute rollout once
     print("  Starting multi-step rollout evaluation...")
