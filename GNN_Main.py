@@ -10,6 +10,7 @@ from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.graph_instant_NGP import data_instant_NGP
+from NGP_trainer import main as ngp_trainer
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
@@ -37,7 +38,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'instant_NGP'  # 'generate', 'train', 'test', 'instant_NGP'
+        task = 'NGP'  # 'generate', 'train', 'test', 'NGP', 'NGP_old'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -106,7 +107,12 @@ if __name__ == "__main__":
                 new_params = None,
             )
 
-        if 'instant_NGP' in task:
+        if task == 'NGP':
+            # Use new modular NGP trainer pipeline
+            ngp_trainer(config=config, device=device)
+
+        if task == 'NGP_old':
+            # Use original monolithic NGP function
             data_instant_NGP(config=config, style="black color", device=device)
             
                   
