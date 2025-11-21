@@ -664,7 +664,7 @@ def pretrain_siren_discrete(x_list, device, output_dir, num_training_steps=5000,
     return siren_net
 
 
-def pretrain_siren_discrete_time(x_list, device, output_dir, num_training_steps=10000,
+def train_siren(x_list, device, output_dir, num_training_steps=10000,
                                   nnr_f_T_period=10, n_train_frames=10, n_neurons=100):
     """Pre-train SIREN network on discrete neuron time series (t -> [activity_1, ..., activity_n])
 
@@ -1584,18 +1584,18 @@ def data_instant_NGP(config=None, style=None, device=None):
     # Create motion_frames and activity directories
     motion_frames_dir = f'/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}/motion_frames'
     activity_dir = f'/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}/activity'
-    # os.makedirs(motion_frames_dir, exist_ok=True)
-    # os.makedirs(activity_dir, exist_ok=True)
+    os.makedirs(motion_frames_dir, exist_ok=True)
+    os.makedirs(activity_dir, exist_ok=True)
 
-    # print(f"generating {motion_frames_dir} motion frames with fixed_scene modulation and sinusoidal warping...")
+    print(f"generating {motion_frames_dir} motion frames with fixed_scene modulation and sinusoidal warping...")
 
     # Clear existing motion frames and activity frames
-    # files = glob.glob(f'{motion_frames_dir}/*')
-    # for f in files:
-    #     os.remove(f)
-    # files = glob.glob(f'{activity_dir}/*')
-    # for f in files:
-    #     os.remove(f)
+    files = glob.glob(f'{motion_frames_dir}/*')
+    for f in files:
+        os.remove(f)
+    files = glob.glob(f'{activity_dir}/*')
+    for f in files:
+        os.remove(f)
 
     # Load boat fixed_scene image
     import os as os_module
@@ -1633,80 +1633,80 @@ def data_instant_NGP(config=None, style=None, device=None):
     X1 = torch.tensor(x[:, 1 : 1 + dimension], device=device)
 
     # COMMENTED OUT FOR FASTER TESTING - UNCOMMENT TO REGENERATE DATA
-    # for it in trange(0, n_frames, ncols=100):
+    for it in trange(0, n_frames, ncols=100):
 
-    #     x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
+        x = torch.tensor(x_list[run][it], dtype=torch.float32, device=device)
 
-    #     num = f"{id_fig:06}"
-    #     id_fig += 1
+        num = f"{id_fig:06}"
+        id_fig += 1
 
 
-    #     plt.figure(figsize=(10, 10))
-    #     plt.axis("off")
-    #     # Create figure and render to get pixel data
-    #     fig = plt.figure(figsize=(512/80, 512/80), dpi=80)  # 512x512 pixels
-    #     plt.scatter(
-    #         to_numpy(X1[:, 0]),
-    #         to_numpy(X1[:, 1]),
-    #         s=700,
-    #         c=to_numpy(x[:, 6]),
-    #         cmap="viridis",
-    #         vmin=0,
-    #         vmax=20,
-    #     )
-    #     plt.axis("off")
-    #     plt.xticks([])
-    #     plt.yticks([])
-    #     plt.tight_layout()
+        plt.figure(figsize=(10, 10))
+        plt.axis("off")
+        # Create figure and render to get pixel data
+        fig = plt.figure(figsize=(512/80, 512/80), dpi=80)  # 512x512 pixels
+        plt.scatter(
+            to_numpy(X1[:, 0]),
+            to_numpy(X1[:, 1]),
+            s=700,
+            c=to_numpy(x[:, 6]),
+            cmap="viridis",
+            vmin=0,
+            vmax=20,
+        )
+        plt.axis("off")
+        plt.xticks([])
+        plt.yticks([])
+        plt.tight_layout()
 
-    #     # Render to canvas and extract grayscale data
-    #     fig.canvas.draw()
-    #     img_rgba = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
-    #     img_rgba = img_rgba.reshape(fig.canvas.get_width_height()[::-1] + (4,))
-    #     img_rgba = img_rgba[:, :, :3]  # Convert RGBA to RGB
+        # Render to canvas and extract grayscale data
+        fig.canvas.draw()
+        img_rgba = np.frombuffer(fig.canvas.buffer_rgba(), dtype=np.uint8)
+        img_rgba = img_rgba.reshape(fig.canvas.get_width_height()[::-1] + (4,))
+        img_rgba = img_rgba[:, :, :3]  # Convert RGBA to RGB
 
-    #     # Convert RGB to grayscale
-    #     img_gray = np.dot(img_rgba[...,:3], [0.2989, 0.5870, 0.1140])
+        # Convert RGB to grayscale
+        img_gray = np.dot(img_rgba[...,:3], [0.2989, 0.5870, 0.1140])
 
-    #     # Resize to exactly 512x512 if needed
-    #     from scipy.ndimage import zoom
-    #     if img_gray.shape != (512, 512):
-    #         zoom_factors = (512 / img_gray.shape[0], 512 / img_gray.shape[1])
-    #         img_gray = zoom(img_gray, zoom_factors, order=1)
+        # Resize to exactly 512x512 if needed
+        from scipy.ndimage import zoom
+        if img_gray.shape != (512, 512):
+            zoom_factors = (512 / img_gray.shape[0], 512 / img_gray.shape[1])
+            img_gray = zoom(img_gray, zoom_factors, order=1)
 
-    #     # Save activity image: dots at FIXED initial position with changing activity (x[:,6])
-    #     # Activity changes over time, so save each frame
-    #     img_activity_32bit = img_gray.astype(np.float32)
-    #     imwrite(
-    #         f"{activity_dir}/frame_{num}.tif",
-    #         img_activity_32bit,
-    #         photometric='minisblack',
-    #         dtype=np.float32
-    #     )
+        # Save activity image: dots at FIXED initial position with changing activity (x[:,6])
+        # Activity changes over time, so save each frame
+        img_activity_32bit = img_gray.astype(np.float32)
+        imwrite(
+            f"{activity_dir}/frame_{num}.tif",
+            img_activity_32bit,
+            photometric='minisblack',
+            dtype=np.float32
+        )
 
-    #     # For motion frames: multiply activity by boat fixed_scene, then warp
-    #     # Element-wise multiplication: activity × boat_fixed_scene
-    #     img_with_fixed_scene = img_gray * boat_fixed_scene
+        # For motion frames: multiply activity by boat fixed_scene, then warp
+        # Element-wise multiplication: activity × boat_fixed_scene
+        img_with_fixed_scene = img_gray * boat_fixed_scene
 
-    #     # Apply sinusoidal warping to the combined image
-    #     # The warped result contains both activity and fixed_scene information
-    #     img_warped = apply_sinusoidal_warp(img_with_fixed_scene, it, n_frames, motion_intensity=0.015)
+        # Apply sinusoidal warping to the combined image
+        # The warped result contains both activity and fixed_scene information
+        img_warped = apply_sinusoidal_warp(img_with_fixed_scene, it, n_frames, motion_intensity=0.015)
 
-    #     # Convert to 32-bit float (single channel)
-    #     img_32bit = img_warped.astype(np.float32)
+        # Convert to 32-bit float (single channel)
+        img_32bit = img_warped.astype(np.float32)
 
-    #     # Save as 32-bit single channel TIF to motion_frames directory
-    #     imwrite(
-    #         f"{motion_frames_dir}/frame_{num}.tif",
-    #         img_32bit,
-    #         photometric='minisblack',  # grayscale
-    #         dtype=np.float32
-    #     )
-    #     plt.close()
+        # Save as 32-bit single channel TIF to motion_frames directory
+        imwrite(
+            f"{motion_frames_dir}/frame_{num}.tif",
+            img_32bit,
+            photometric='minisblack',  # grayscale
+            dtype=np.float32
+        )
+        plt.close()
 
-    # print(f"generated {n_frames} warped motion frames in {motion_frames_dir}/")
-    # print(f"frame format: 512x512, 32-bit float, single channel tif")
-    # print(f"applied sinusoidal warping with motion_intensity=0.015")
+    print(f"generated {n_frames} warped motion frames in {motion_frames_dir}/")
+    print(f"frame format: 512x512, 32-bit float, single channel tif")
+    print(f"applied sinusoidal warping with motion_intensity=0.015")
 
     # Train NSTM on the generated frames
     nstm_output_dir = f'/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}/NSTM_outputs'
@@ -1741,7 +1741,7 @@ def data_instant_NGP(config=None, style=None, device=None):
     pretrained_activity_net = None
     if siren_config is not None and use_siren:
         print("pre-training siren time network on discrete neuron data...")
-        pretrained_activity_net = pretrain_siren_discrete_time(
+        pretrained_activity_net = train_siren(
             x_list=x_list,
             device=device,
             output_dir=nstm_output_dir,
