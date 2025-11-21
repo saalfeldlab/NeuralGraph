@@ -1,7 +1,10 @@
 # Table of Contents
 
 - [Introduction and summary](#introduction-and-summary)
-- [History of experiments](#history-of-experiments)
+- [Experiments to improve voltage baseline](#experiments-to-improve-voltage-baseline)
+  - [Reduce network size](reduce-network-size)
+  - [Change activation](change-activation)
+- [History of experiments prior to checkpoint](#history-of-experiments-prior-to-checkpoint)
   - [Baseline experiment](#baseline-experiment)
   - [Performance benchmark experiments](#performance-benchmark-experiments)
   - [Assess variance in training](#assess-variance-in-training)
@@ -128,12 +131,46 @@ The figures below are based on a separate `fly_N9_62_0[40_000, 50_000)` (no nois
   </tr>
 </table>
 
-# Experiments to further tune voltage baseline
+# Activity space vs latent space roll out
+
+We observe that roll outs are stable in activity space even when they are unstable in
+latent space. We need to understand the cause. Somehow going through the decoder-encoder
+loop is pushing the trajectory back to a valid conformation. We've seen this happen in two
+scenarios:
+
+- changing the evolver to a classic MLP without skips
+- changing the num hidden units in the encoder & decoder, which drastically
+  reduces the number of parameters because the skip connections involve matrices
+  with num neurons x num hidden units parameters.
+
+I suspect this could be due to training with noise. We know from
+[experiments that reduce network size](#reduce-network-size) that going to 128 dims causes the
+rollout in latent space to explode. If we trained without noise would it explode in both
+spaces? And we will cross-validate with the noisy data. This will also test the 256d baseline
+model.
+
+```bash
+for ldim in 64 128 256; do \
+  bsub -J "noise${ldim}" -n 1 -gpu "num=1" -q gpu_a100 -o noise${ldim}.log python \
+    src/LatentEvolution/latent.py no_noise_latent_roll_out \
+    --encoder-params.num-hidden-units $ldim \
+    --decoder-params.num-hidden-units $ldim \
+    --training.simulation-config fly_N9_62_0_calcium \
+    --cross-validation-configs.0.simulation-config fly_N9_62_1_calcium
+done
+
+```
+
+Results:
+
+- ???
+
+# Experiments to improve voltage baseline
 
 We have a working baseline now. The goal now is to make the models as small as possible
 while maintaining performance.
 
-## Latent space
+## Reduce network size
 
 The size of the encoder/decoder hidden units drives the parameter count. See if we can reduce that.
 
@@ -146,7 +183,52 @@ for ldim in 64 128 256; do \
 done
 ```
 
-# History of experiments
+Results:
+
+- val loss degrades: 64d ~ 0.019, 128d ~ 0.015, 256d (baseline) ~ 0.014
+- activity space roll out is stable
+- latent space roll out blows up after a few steps at 64 & 128, but is stable
+  at 256.
+
+Note that the latent space dimension was kept at 256d in the above experiment. Now, let's
+change the latent space dimension, while keeping the hidden unit size constant. So this will
+not significantly change the parameter count, but will limit the capacity of the evolver to
+learn dynamics.
+
+```bash
+for ldim in 32 64 128 256; do \
+  bsub -J "ldim${ldim}" -n 1 -gpu "num=1" -q gpu_a100 -o ldim${ldim}.log python \
+    src/LatentEvolution/latent.py latent_dim_reduce \
+    --latent-dims $ldim
+done
+```
+
+Results:
+
+- ???
+
+## Change activation
+
+Note that the flyvis simulation data used a ReLU activation. It could be that our architecture
+somehow secretly encodes the simulation. So fix the activation to `sigmoid` and iterate on
+the architecture to get it to work.
+
+```bash
+for n in 1 2 3 ; do
+  bsub -J "sigmoid${n}" -n 1 -gpu "num=1" -q gpu_a100 -o sigmoid${n}.log python \
+    src/LatentEvolution/latent.py sigmoid0 \
+      --activation Sigmoid \
+      --encoder-params.num-hidden-layers $n \
+      --decoder-params.num-hidden-layers $n \
+      --evolver-params.num-hidden-layers $n
+done
+```
+
+Results:
+
+- the current architecture has
+
+# History of experiments prior to checkpoint
 
 ## Baseline experiment
 
@@ -1696,3 +1778,5 @@ Interestingly we observe that the mlp(x, Ax) architecture can rollout 2000 steps
 in activity space. But the latent space roll out is not as good. The MLPWithSkips
 architecture is able to roll out in the latent space alone. So we lock this for
 now.
+
+[def]: reduce-n
