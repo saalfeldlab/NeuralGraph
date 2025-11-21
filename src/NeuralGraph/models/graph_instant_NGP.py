@@ -462,7 +462,7 @@ def pretrain_siren_discrete(x_list, device, output_dir, num_training_steps=5000,
     coords = torch.from_numpy(coords).to(device)
     target_activities = torch.from_numpy(target_activities).unsqueeze(1).to(device)
 
-    print(f"\nTraining data:")
+    print("\nTraining data:")
     print(f"  coordinate grid shape: {coords.shape} (x, y, t)")
     print(f"  target activities shape: {target_activities.shape}")
     print(f"  coordinate periods: xy_period={nnr_f_xy_period}, T_period={nnr_f_T_period}")
@@ -1293,7 +1293,6 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     plt.close()
 
     # Save metrics to file
-    from scipy import stats
     near_zero_count = np.sum(np.abs(fixed_scene_mask_img) < 0.01)
     sparsity = near_zero_count / fixed_scene_mask_img.size * 100
 
@@ -1705,8 +1704,8 @@ def data_instant_NGP(config=None, style=None, device=None):
         plt.close()
 
     print(f"generated {n_frames} warped motion frames in {motion_frames_dir}/")
-    print(f"frame format: 512x512, 32-bit float, single channel tif")
-    print(f"applied sinusoidal warping with motion_intensity=0.015")
+    print("frame format: 512x512, 32-bit float, single channel tif")
+    print("applied sinusoidal warping with motion_intensity=0.015")
 
     # Train NSTM on the generated frames
     nstm_output_dir = f'/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}/NSTM_outputs'

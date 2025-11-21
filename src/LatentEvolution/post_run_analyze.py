@@ -15,6 +15,7 @@ import sys
 import argparse
 import torch
 import yaml
+from torch.utils.tensorboard import SummaryWriter
 
 from LatentEvolution.latent import LatentModel, ModelParams, get_device, load_dataset
 from LatentEvolution.diagnostics import run_validation_diagnostics
@@ -67,6 +68,10 @@ def main(run_dir: Path) -> None:
     # Get device
     device = get_device()
 
+    # Create TensorBoard writer (writes to same directory as training)
+    writer = SummaryWriter(log_dir=run_dir)
+    print(f"TensorBoard logging to {run_dir}")
+
     # Load model
     model = LatentModel(cfg).to(device)
     model.load_state_dict(torch.load(model_path, map_location=device))
@@ -115,7 +120,7 @@ def main(run_dir: Path) -> None:
 
             # Run diagnostics on cross-validation dataset
             cv_out_dir = out_dir / "cross_validation" / cv_name
-            run_validation_diagnostics(
+            cv_metrics, cv_figures = run_validation_diagnostics(
                 run_dir=cv_out_dir,
                 val_data=cv_val_data,
                 neuron_data=cv_neuron_data,
@@ -125,6 +130,27 @@ def main(run_dir: Path) -> None:
                 save_figures=True,
             )
             print(f"Saved cross-validation figures to {cv_out_dir}")
+
+            # Log cross-validation scalar metrics to TensorBoard
+            for metric_name, metric_value in cv_metrics.items():
+                writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, 0)
+            print(f"Logged {len(cv_metrics)} cross-validation scalar metrics to TensorBoard")
+
+            # Log MSE figures to TensorBoard (skip rollout traces)
+            mse_figure_names = [
+                'mses_by_time_steps_latent',
+                'mses_by_time_steps_activity',
+                'multi_start_long_latent_rollout_mses_by_time',
+                'multi_start_long_activity_rollout_mses_by_time'
+            ]
+            for fig_name in mse_figure_names:
+                if fig_name in cv_figures:
+                    writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", cv_figures[fig_name], 0)
+            print("Logged MSE figures to TensorBoard (skipped rollout traces)")
+
+    # Close TensorBoard writer
+    writer.close()
+    print("\nTensorBoard logging completed")
 
     print("\n=== Post-training analysis complete ===")
     print(f"All figures saved to: {out_dir}")
