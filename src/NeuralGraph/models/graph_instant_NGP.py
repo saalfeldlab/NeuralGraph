@@ -805,10 +805,160 @@ def pretrain_siren_discrete_time(x_list, device, output_dir, num_training_steps=
     return siren_net
 
 
+def get_activity_at_coords(coords_2d, t_normalized, pretrained_activity_net, neuron_positions,
+                           nnr_f_T_period, device, dot_size=32, image_size=512,
+                           affine_scale=None, affine_bias=None):
+    """Get activity values at arbitrary 2D coordinates using Gaussian splatting
+
+    Uses the same Gaussian splatting method as render_activity_image to ensure consistency
+    between ground truth rendering and NSTM training. Applies affine transform to map SIREN
+    output range to activity image range.
+
+    Args:
+        coords_2d: (N, 2) tensor of 2D coordinates in [0, 1]
+        t_normalized: scalar, normalized time value in [0, 1]
+        pretrained_activity_net: SIREN network mapping t -> [activity_1, ..., activity_n]
+        neuron_positions: (n_neurons, 2) tensor of neuron positions in [-0.5, 0.5]
+        nnr_f_T_period: Temporal period for SIREN
+        device: torch device
+        dot_size: Diameter of Gaussian dots in pixels (default 32)
+        image_size: Image resolution for pixel conversion (default 512)
+        affine_scale: Learnable scale parameter for affine transform (default None)
+        affine_bias: Learnable bias parameter for affine transform (default None)
+
+    Returns:
+        (N,) tensor of activity values at the queried coordinates
+    """
+    # Step 1: Query pretrained SIREN to get activities for all neurons at this time
+    t_siren = t_normalized * (2 * np.pi / nnr_f_T_period)
+    t_tensor = torch.tensor([[t_siren]], dtype=torch.float32, device=device)
+
+    with torch.no_grad():
+        neuron_activities = pretrained_activity_net(t_tensor)[0]  # (n_neurons,)
+
+    # Apply affine transform to SIREN outputs: y = scale * x + bias
+    # This maps SIREN range (e.g., [-20, 20]) to activity image range (e.g., [0, 120])
+    if affine_scale is not None and affine_bias is not None:
+        neuron_activities = affine_scale * neuron_activities + affine_bias
+
+    # Step 2: Convert coordinates to pixel space for Gaussian splatting
+    # coords_2d in [0, 1] -> pixel coords in [0, image_size-1]
+    coords_pixels = coords_2d * (image_size - 1)  # (N, 2)
+
+    # neuron_positions in [-0.5, 0.5] -> pixel coords in [0, image_size-1]
+    neuron_positions_pixels = (neuron_positions + 0.5) * (image_size - 1)  # (n_neurons, 2)
+
+    # Step 3: Gaussian splatting - compute Gaussian weights from each neuron to each query point
+    # Gaussian sigma from dot size (diameter = 2.355 * sigma for Gaussian)
+    sigma = dot_size / 2.355
+
+    # Compute squared distances: (N, 1, 2) - (1, n_neurons, 2) = (N, n_neurons, 2)
+    diffs = coords_pixels.unsqueeze(1) - neuron_positions_pixels.unsqueeze(0)
+    dist_sq = torch.sum(diffs ** 2, dim=2)  # (N, n_neurons)
+
+    # Gaussian kernel: exp(-dist^2 / (2*sigma^2))
+    gaussian_weights = torch.exp(-dist_sq / (2 * sigma ** 2))  # (N, n_neurons)
+
+    # Step 4: Sum weighted activities (Gaussian splatting)
+    # Each query point receives contribution from all neurons weighted by Gaussian
+    splatted_activities = torch.sum(gaussian_weights * neuron_activities.unsqueeze(0), dim=1)  # (N,)
+
+    return splatted_activities
+
+
+def render_siren_activity_video(pretrained_activity_net, neuron_positions, affine_scale, affine_bias,
+                                  nnr_f_T_period, n_frames, res, device, output_dir, fps=30):
+    """Render a video of SIREN activity with learned affine transform using Gaussian splatting
+
+    Args:
+        pretrained_activity_net: SIREN network mapping t -> [activity_1, ..., activity_n]
+        neuron_positions: (n_neurons, 2) tensor of neuron positions in [-0.5, 0.5]
+        affine_scale: Learned scale parameter
+        affine_bias: Learned bias parameter
+        nnr_f_T_period: Temporal period for SIREN
+        n_frames: Number of frames to render
+        res: Image resolution (e.g., 512)
+        device: torch device
+        output_dir: Directory to save video
+        fps: Frames per second for video (default 30)
+    """
+    import cv2
+    import os
+
+    # Create temporary directory for frames
+    temp_dir = f"{output_dir}/siren_activity_frames"
+    os.makedirs(temp_dir, exist_ok=True)
+
+    # Create full 2D coordinate grid
+    y_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
+    x_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
+    yv, xv = torch.meshgrid(y_coords, x_coords, indexing='ij')
+    coords_2d = torch.stack([xv.flatten(), yv.flatten()], dim=1)  # (res*res, 2)
+
+    print(f"rendering {n_frames} frames...")
+    for frame_idx in tqdm(range(n_frames), ncols=100):
+        t_normalized = frame_idx / (n_frames - 1)
+
+        # Get activity at all pixel coordinates using learned affine transform
+        with torch.no_grad():
+            activity_img = get_activity_at_coords(
+                coords_2d,
+                t_normalized,
+                pretrained_activity_net,
+                neuron_positions,
+                nnr_f_T_period,
+                device,
+                dot_size=32,
+                image_size=res,
+                affine_scale=affine_scale,
+                affine_bias=affine_bias
+            ).reshape(res, res).cpu().numpy()
+
+        # Normalize to [0, 1] for visualization
+        activity_min = activity_img.min()
+        activity_max = activity_img.max()
+        if activity_max > activity_min:
+            activity_norm = (activity_img - activity_min) / (activity_max - activity_min)
+        else:
+            activity_norm = np.zeros_like(activity_img)
+
+        # Convert to 8-bit RGB
+        activity_uint8 = (np.clip(activity_norm, 0, 1) * 255).astype(np.uint8)
+        activity_rgb = np.stack([activity_uint8, activity_uint8, activity_uint8], axis=2)
+
+        # Add text overlay with frame info
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text = f"Frame {frame_idx}/{n_frames-1} | t={t_normalized:.3f}"
+        cv2.putText(activity_rgb, text, (10, 30), font, 0.7, (255, 255, 255), 2)
+
+        # Add scale/bias info
+        text2 = f"scale={affine_scale.item():.2f}, bias={affine_bias.item():.1f}"
+        cv2.putText(activity_rgb, text2, (10, 60), font, 0.6, (255, 255, 255), 2)
+
+        # Save frame
+        cv2.imwrite(f"{temp_dir}/frame_{frame_idx:06d}.png", activity_rgb)
+
+    # Create video using ffmpeg
+    video_path = f"{output_dir}/siren_activity_affine.mp4"
+    ffmpeg_cmd = (
+        f"ffmpeg -y -framerate {fps} -i {temp_dir}/frame_%06d.png "
+        f"-c:v libx264 -pix_fmt yuv420p -crf 18 {video_path}"
+    )
+
+    import subprocess
+    subprocess.run(ffmpeg_cmd, shell=True, check=True, capture_output=True)
+
+    # Clean up temporary frames
+    import shutil
+    shutil.rmtree(temp_dir)
+
+    print(f"SIREN activity video saved to: {video_path}")
+
+
 def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir, num_training_steps=3000,
                siren_config=None, pretrained_activity_net=None, x_list=None,
                use_siren=True, siren_lr=1e-4, nstm_lr=5e-4, siren_loss_weight=1.0):
-    """Train Neural Space-Time Model with anatomy + activity decomposition
+    """Train Neural Space-Time Model with fixed_scene + activity decomposition
 
     Args:
         siren_config: Dict with keys: hidden_dim_nnr_f, n_layers_nnr_f, omega_f,
@@ -816,7 +966,7 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         x_list: List of neuron data arrays for SIREN supervision (n_frames, n_neurons, features)
         use_siren: Boolean to use SIREN network for activity (True) or grid_sample (False)
         siren_lr: Learning rate for SIREN network
-        nstm_lr: Learning rate for deformation and anatomy networks
+        nstm_lr: Learning rate for deformation and fixed_scene networks
         siren_loss_weight: Weight for SIREN supervision loss on discrete neurons
     """
     # Load motion frames
@@ -826,25 +976,33 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         img = imread(f"{motion_frames_dir}/frame_{i:06d}.tif")
         motion_images.append(img)
 
-    # Load original activity images
-    print("loading original activity images...")
+    # Load activity images (only if not using pretrained SIREN)
     activity_images = []
-    for i in range(n_frames):
-        img = imread(f"{activity_dir}/frame_{i:06d}.tif")
-        activity_images.append(img)
+    if pretrained_activity_net is None:
+        print("loading original activity images...")
+        for i in range(n_frames):
+            img = imread(f"{activity_dir}/frame_{i:06d}.tif")
+            activity_images.append(img)
+        print(f"loaded {n_frames} activity images")
+    else:
+        print("using pretrained SIREN for activity (no activity images loaded)")
 
-    # Compute normalization statistics
+    # Compute normalization statistics from motion images
     all_pixels = np.concatenate([img.flatten() for img in motion_images])
     data_min = all_pixels.min()
     data_max = all_pixels.max()
     print(f"input data range: [{data_min:.2f}, {data_max:.2f}]")
 
-    # Normalize to [0, 1] and convert to tensors (use float32 for SIREN compatibility)
-    # Keep both motion (warped) and activity (ground-truth) in GPU memory
+    # Normalize motion images to [0, 1] and convert to tensors
     motion_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float32).to(device) for img in motion_images]
-    activity_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float32).to(device) for img in activity_images]
 
-    print(f"loaded {n_frames} frames into gpu memory")
+    # Normalize activity images to [0, 1] and convert to tensors (if loaded)
+    if activity_images:
+        activity_tensors = [torch.tensor((img - data_min) / (data_max - data_min), dtype=torch.float32).to(device) for img in activity_images]
+        print(f"loaded {n_frames} frames into gpu memory")
+    else:
+        activity_tensors = None
+        print(f"loaded {n_frames} motion frames into gpu memory")
 
     # Create networks
     print("creating networks...")
@@ -858,41 +1016,16 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         network_config=config["network"]
     ).to(device)
 
-    # Anatomy network: (x, y) -> raw mask value
-    anatomy_net = tcnn.NetworkWithInputEncoding(
+    # Fixed scene network: (x, y) -> raw mask value
+    fixed_scene_net = tcnn.NetworkWithInputEncoding(
         n_input_dims=2,  # x, y
         n_output_dims=1,  # mask value
         encoding_config=config["encoding"],
         network_config=config["network"]
     ).to(device)
 
-    # Activity network: SIREN (x, y, t) -> activity value or grid_sample
-    if siren_config is not None and use_siren:
-        if pretrained_activity_net is not None:
-            print("using pre-trained siren activity network...")
-            activity_net = pretrained_activity_net
-        else:
-            print("creating siren activity network...")
-            activity_net = Siren(
-                in_features=3,  # x, y, t
-                hidden_features=siren_config['hidden_dim_nnr_f'],
-                hidden_layers=siren_config['n_layers_nnr_f'],
-                out_features=1,  # scalar activity
-                outermost_linear=siren_config['outermost_linear_nnr_f'],
-                first_omega_0=siren_config['omega_f'],
-                hidden_omega_0=siren_config['omega_f']
-            ).to(device)
-
-        # Period normalization factors
-        xy_period = siren_config['nnr_f_xy_period']
-        t_period = siren_config['nnr_f_T_period']
-        print(f"siren activity network: xy_period={xy_period}, t_period={t_period}, omega={siren_config['omega_f']}")
-    else:
-        activity_net = None
-        xy_period = 1.0
-        t_period = 1.0
-        if not use_siren:
-            print("using grid_sample for activity (use_siren=False)")
+    # Note: Activity is handled by pretrained_activity_net via get_activity_at_coords()
+    # No separate activity network needed in train_nstm
 
     # Create coordinate grid (use float16 for tinycudann, float32 for coords)
     y_coords = torch.linspace(0, 1, res, device=device, dtype=torch.float32)
@@ -903,57 +1036,33 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     # Convert to float16 for tinycudann networks
     coords_2d_f16 = coords_2d.to(torch.float16)
 
-    # Create separate optimizers with different learning rates
-    nstm_params = list(deformation_net.parameters()) + list(anatomy_net.parameters())
+    # Create learnable affine transform parameters for SIREN activity mapping
+    # Maps SIREN output range (e.g., [-20, 20]) to activity image range (e.g., [0, 120])
+    # Initialize with reasonable defaults: scale=3.0, bias=60.0 for [-20,20] -> [0,120]
+    affine_scale = torch.nn.Parameter(torch.tensor(3.0, device=device, dtype=torch.float32))
+    affine_bias = torch.nn.Parameter(torch.tensor(60.0, device=device, dtype=torch.float32))
+
+    # Create optimizer for NSTM networks only (deformation + fixed_scene + affine params)
+    nstm_params = (list(deformation_net.parameters()) +
+                   list(fixed_scene_net.parameters()) +
+                   [affine_scale, affine_bias])
     optimizer_nstm = torch.optim.Adam(nstm_params, lr=nstm_lr)
 
-    if activity_net is not None:
-        optimizer_siren = torch.optim.Adam(activity_net.parameters(), lr=siren_lr)
-    else:
-        optimizer_siren = None
-
-    # Learning rate schedules
+    # Learning rate schedule for NSTM
     scheduler_nstm = torch.optim.lr_scheduler.MultiStepLR(
         optimizer_nstm,
         milestones=[num_training_steps // 2, num_training_steps * 3 // 4],
         gamma=0.1
     )
 
-    if optimizer_siren is not None:
-        scheduler_siren = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer_siren,
-            milestones=[num_training_steps // 2, num_training_steps * 3 // 4],
-            gamma=0.1
-        )
-
-    # Prepare neuron data for SIREN supervision (if available)
-    neuron_data = None
-    if activity_net is not None and x_list is not None:
-        print("preparing neuron data for siren supervision...")
-        x_data = x_list[0][:n_frames]  # Use first run
-        n_neurons = x_data.shape[1]
-
-        # Extract positions (x, y) and activity
-        positions = x_data[:, :, :2]  # (n_frames, n_neurons, 2)
-        activities = x_data[:, :, 6:7]  # (n_frames, n_neurons, 1)
-
-        # Normalize positions to [0, 1]
-        pos_min = positions.min(axis=(0, 1))
-        pos_max = positions.max(axis=(0, 1))
-        positions_norm = (positions - pos_min) / (pos_max - pos_min + 1e-8)
-
-        # Normalize activities to [0, 1]
-        act_min = activities.min()
-        act_max = activities.max()
-        activities_norm = (activities - act_min) / (act_max - act_min + 1e-8)
-
-        # Convert to torch tensors
-        neuron_data = {
-            'positions': torch.tensor(positions_norm, dtype=torch.float32, device=device),
-            'activities': torch.tensor(activities_norm, dtype=torch.float32, device=device),
-            'n_neurons': n_neurons
-        }
-        print(f"neuron data: {n_frames} frames, {n_neurons} neurons")
+    # Extract neuron positions for activity sampling (if using pretrained SIREN)
+    neuron_positions = None
+    if pretrained_activity_net is not None and x_list is not None:
+        print("extracting neuron positions for activity sampling...")
+        frame_data = x_list[0][0]
+        neuron_positions = frame_data[:, 1:3].astype(np.float32)  # (n_neurons, 2) in [-0.5, 0.5]
+        neuron_positions = torch.tensor(neuron_positions, dtype=torch.float32, device=device)
+        print(f"using {neuron_positions.shape[0]} neuron positions")
 
     # Training loop
     print(f"training for {num_training_steps} steps...")
@@ -985,20 +1094,24 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         source_coords = batch_coords - deformation  # Note: MINUS for backward warp
         source_coords = torch.clamp(source_coords, 0, 1)
 
-        # Sample anatomy mask at source coordinates (convert to float16 for tcnn)
-        anatomy_mask = torch.sigmoid(anatomy_net(source_coords.to(torch.float16))).to(torch.float32)
+        # Sample fixed scene mask at source coordinates (convert to float16 for tcnn)
+        fixed_scene_mask = torch.sigmoid(fixed_scene_net(source_coords.to(torch.float16))).to(torch.float32)
 
         # Sample activity at source coordinates
-        if activity_net is not None:
-            # Use SIREN network with period-based normalization
-            # Create 3D coordinates: (x/xy_period, y/xy_period, t/t_period)
-            source_coords_3d = torch.cat([
-                source_coords / xy_period,
-                torch.full_like(source_coords[:, 0:1], t_normalized / t_period)
-            ], dim=1)
-            sampled_activity = activity_net(source_coords_3d)
+        if pretrained_activity_net is not None and neuron_positions is not None:
+            # Use pretrained temporal SIREN to get activity at 2D coordinates
+            sampled_activity = get_activity_at_coords(
+                source_coords,
+                t_normalized,
+                pretrained_activity_net,
+                neuron_positions,
+                siren_config['nnr_f_T_period'],
+                device,
+                affine_scale=affine_scale,
+                affine_bias=affine_bias
+            ).unsqueeze(1)  # (batch_size, 1)
         else:
-            # Fallback: use grid_sample on ground-truth activity
+            # Fallback: use grid_sample on ground-truth activity images
             source_coords_normalized = source_coords * 2 - 1
             source_coords_grid = source_coords_normalized.reshape(1, 1, batch_size, 2)
             activity_frame = activity_tensors[t_idx].reshape(1, 1, res, res)
@@ -1010,227 +1123,179 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
                 align_corners=True
             ).reshape(-1, 1)
 
-        # Reconstruction: anatomy × activity
-        reconstructed = anatomy_mask * sampled_activity
+        # Reconstruction: fixed_scene × activity
+        reconstructed = fixed_scene_mask * sampled_activity
 
         # Main reconstruction loss
         recon_loss = torch.nn.functional.mse_loss(reconstructed, target)
-
-        # Activity supervision loss using discrete neuron data (if using SIREN)
-        siren_loss = torch.tensor(0.0, device=device)
-        if activity_net is not None and neuron_data is not None:
-            # Get neuron positions and activities for this frame
-            pos_frame = neuron_data['positions'][t_idx]  # (n_neurons, 2)
-            act_frame = neuron_data['activities'][t_idx]  # (n_neurons, 1)
-
-            # Create 3D coordinates with period normalization for neurons
-            t_tensor = torch.full((neuron_data['n_neurons'], 1), t_normalized / t_period,
-                                 device=device, dtype=torch.float32)
-            neuron_coords_3d = torch.cat([pos_frame / xy_period, t_tensor], dim=1)
-
-            # Forward pass through SIREN
-            predicted_activity = activity_net(neuron_coords_3d)
-
-            # Compute loss on discrete neurons
-            siren_loss = torch.nn.functional.mse_loss(predicted_activity, act_frame)
 
         # Regularization: Deformation smoothness
         deformation_smoothness = torch.mean(torch.abs(deformation))
 
         # Combined loss with regularization
-        total_loss_nstm = recon_loss + 0.01 * deformation_smoothness
+        total_loss = recon_loss + 0.01 * deformation_smoothness
 
-        # Optimize NSTM networks (deformation + anatomy)
+        # Optimize NSTM networks (deformation + fixed_scene only)
         optimizer_nstm.zero_grad()
-        if optimizer_siren is not None and neuron_data is not None:
-            # Combined loss for backward pass
-            total_loss = total_loss_nstm + siren_loss_weight * siren_loss
-            total_loss.backward()
-            optimizer_nstm.step()
-            optimizer_siren.step()
-        else:
-            total_loss_nstm.backward()
-            optimizer_nstm.step()
+        total_loss.backward()
+        optimizer_nstm.step()
 
-        # Update learning rates
+        # Update learning rate
         scheduler_nstm.step()
-        if optimizer_siren is not None:
-            scheduler_siren.step()
 
         # Record losses
         loss_history.append(recon_loss.item())
         regularization_history['deformation'].append(deformation_smoothness.item())
 
-        # Update progress bar with losses
-        if activity_net is not None and neuron_data is not None:
-            pbar.set_postfix({
-                'recon': f'{recon_loss.item():.6f}',
-                'def': f'{deformation_smoothness.item():.4f}',
-                'siren': f'{siren_loss.item():.6f}'
-            })
-        else:
-            pbar.set_postfix({
-                'recon': f'{recon_loss.item():.6f}',
-                'def': f'{deformation_smoothness.item():.4f}'
-            })
+        # Update progress bar
+        postfix_dict = {
+            'recon': f'{recon_loss.item():.6f}',
+            'def': f'{deformation_smoothness.item():.4f}'
+        }
+        # Add affine parameters if using pretrained SIREN
+        if pretrained_activity_net is not None:
+            postfix_dict['scale'] = f'{affine_scale.item():.2f}'
+            postfix_dict['bias'] = f'{affine_bias.item():.1f}'
+        pbar.set_postfix(postfix_dict)
 
     print("training complete!")
 
-    # Extract learned anatomy mask
-    print("extracting learned anatomy mask...")
+    # Print learned affine parameters if using pretrained SIREN
+    if pretrained_activity_net is not None:
+        print(f"learned affine transform: scale={affine_scale.item():.3f}, bias={affine_bias.item():.3f}")
+
+    # Extract learned fixed_scene mask
+    print("extracting learned fixed_scene mask...")
     with torch.no_grad():
-        anatomy_mask = torch.sigmoid(anatomy_net(coords_2d))
-        anatomy_mask_img = anatomy_mask.reshape(res, res).cpu().numpy()
+        fixed_scene_mask = torch.sigmoid(fixed_scene_net(coords_2d))
+        fixed_scene_mask_img = fixed_scene_mask.reshape(res, res).cpu().numpy()
 
-    # Compute average of original activity images
-    activity_average = np.mean(activity_images, axis=0)
+    # Compute evaluation metrics (only if activity images were loaded)
+    if activity_images:
+        # Compute average of original activity images
+        activity_average = np.mean(activity_images, axis=0)
 
-    # Create ground-truth mask from activity average (threshold at mean)
-    threshold = activity_average.mean()
-    ground_truth_mask = (activity_average > threshold).astype(np.float32)
-    n_gt_pixels = ground_truth_mask.sum()
+        # Create ground-truth mask from activity average (threshold at mean)
+        threshold = activity_average.mean()
+        ground_truth_mask = (activity_average > threshold).astype(np.float32)
+        n_gt_pixels = ground_truth_mask.sum()
 
-    # Normalize anatomy mask for comparison
-    anatomy_mask_norm = (anatomy_mask_img - anatomy_mask_img.min()) / (anatomy_mask_img.max() - anatomy_mask_img.min() + 1e-8)
+        # Normalize fixed_scene mask for comparison
+        fixed_scene_mask_norm = (fixed_scene_mask_img - fixed_scene_mask_img.min()) / (fixed_scene_mask_img.max() - fixed_scene_mask_img.min() + 1e-8)
 
-    # Threshold anatomy to match ground truth coverage (top N pixels)
-    flat_anatomy = anatomy_mask_norm.flatten()
-    n_pixels_to_select = int(n_gt_pixels)
-    sorted_indices = np.argsort(flat_anatomy)[::-1]  # Sort descending
-    anatomy_binary_flat = np.zeros_like(flat_anatomy, dtype=np.float32)
-    anatomy_binary_flat[sorted_indices[:n_pixels_to_select]] = 1.0
-    anatomy_binary = anatomy_binary_flat.reshape(anatomy_mask_norm.shape)
+        # Threshold fixed_scene to match ground truth coverage (top N pixels)
+        flat_fixed_scene = fixed_scene_mask_norm.flatten()
+        n_pixels_to_select = int(n_gt_pixels)
+        sorted_indices = np.argsort(flat_fixed_scene)[::-1]  # Sort descending
+        fixed_scene_binary_flat = np.zeros_like(flat_fixed_scene, dtype=np.float32)
+        fixed_scene_binary_flat[sorted_indices[:n_pixels_to_select]] = 1.0
+        fixed_scene_binary = fixed_scene_binary_flat.reshape(fixed_scene_mask_norm.shape)
 
-    # Compute DICE score and IoU between learned anatomy and ground-truth mask
-    intersection = np.sum(anatomy_binary * ground_truth_mask)
-    union = np.sum(anatomy_binary) + np.sum(ground_truth_mask)
-    dice_score = 2 * intersection / (union + 1e-8)
-    iou_score = intersection / (union - intersection + 1e-8)
+        # Compute DICE score and IoU between learned fixed_scene and ground-truth mask
+        intersection = np.sum(fixed_scene_binary * ground_truth_mask)
+        union = np.sum(fixed_scene_binary) + np.sum(ground_truth_mask)
+        dice_score = 2 * intersection / (union + 1e-8)
+        iou_score = intersection / (union - intersection + 1e-8)
 
-    # Compute median of motion frames (warped frames) as baseline
-    motion_median = np.median(motion_images, axis=0)
+        # Compute median of motion frames (warped frames) as baseline
+        motion_median = np.median(motion_images, axis=0)
 
-    # Reconstruct fixed scene: anatomy × activity_average
-    fixed_scene_denorm = anatomy_mask_img * activity_average
+        # Reconstruct fixed scene: fixed_scene × activity_average
+        fixed_scene_denorm = fixed_scene_mask_img * activity_average
 
-    # Compute RMSE between fixed scene and activity average
-    rmse_activity = np.sqrt(np.mean((fixed_scene_denorm - activity_average) ** 2))
+        # Compute RMSE between fixed scene and activity average
+        rmse_activity = np.sqrt(np.mean((fixed_scene_denorm - activity_average) ** 2))
 
-    # Compute SSIM between fixed scene and activity average
-    # Normalize both to [0, 1] for SSIM computation
-    fixed_scene_norm = (fixed_scene_denorm - fixed_scene_denorm.min()) / (fixed_scene_denorm.max() - fixed_scene_denorm.min() + 1e-8)
-    activity_avg_norm = (activity_average - activity_average.min()) / (activity_average.max() - activity_average.min() + 1e-8)
-    ssim_activity = ssim(activity_avg_norm, fixed_scene_norm, data_range=1.0)
+        # Compute SSIM between fixed scene and activity average
+        # Normalize both to [0, 1] for SSIM computation
+        fixed_scene_norm = (fixed_scene_denorm - fixed_scene_denorm.min()) / (fixed_scene_denorm.max() - fixed_scene_denorm.min() + 1e-8)
+        activity_avg_norm = (activity_average - activity_average.min()) / (activity_average.max() - activity_average.min() + 1e-8)
+        ssim_activity = ssim(activity_avg_norm, fixed_scene_norm, data_range=1.0)
 
-    # Compute RMSE between motion median and activity average (baseline)
-    rmse_baseline = np.sqrt(np.mean((motion_median - activity_average) ** 2))
+        # Compute RMSE between motion median and activity average (baseline)
+        rmse_baseline = np.sqrt(np.mean((motion_median - activity_average) ** 2))
 
-    # Compute SSIM between motion median and activity average (baseline)
-    motion_median_norm = (motion_median - motion_median.min()) / (motion_median.max() - motion_median.min() + 1e-8)
-    ssim_baseline = ssim(activity_avg_norm, motion_median_norm, data_range=1.0)
+        # Compute SSIM between motion median and activity average (baseline)
+        motion_median_norm = (motion_median - motion_median.min()) / (motion_median.max() - motion_median.min() + 1e-8)
+        ssim_baseline = ssim(activity_avg_norm, motion_median_norm, data_range=1.0)
 
-    # Print simplified metrics (5 lines)
-    print(f"anatomy: range=[{anatomy_mask_img.min():.3f}, {anatomy_mask_img.max():.3f}] | dice={dice_score:.3f} | iou={iou_score:.3f}")
-    print(f"reconstruction: rmse={rmse_activity:.4f} | ssim={ssim_activity:.4f}")
-    print(f"baseline:       rmse={rmse_baseline:.4f} | ssim={ssim_baseline:.4f}")
-    print(f"improvement:    rmse={((rmse_baseline - rmse_activity) / rmse_baseline * 100):+.1f}% | ssim={((ssim_activity - ssim_baseline) / (1.0 - ssim_baseline) * 100):+.1f}%")
+        # Print simplified metrics (5 lines)
+        print(f"fixed_scene: range=[{fixed_scene_mask_img.min():.3f}, {fixed_scene_mask_img.max():.3f}] | dice={dice_score:.3f} | iou={iou_score:.3f}")
+        print(f"reconstruction: rmse={rmse_activity:.4f} | ssim={ssim_activity:.4f}")
+        print(f"baseline:       rmse={rmse_baseline:.4f} | ssim={ssim_baseline:.4f}")
+        print(f"improvement:    rmse={((rmse_baseline - rmse_activity) / rmse_baseline * 100):+.1f}% | ssim={((ssim_activity - ssim_baseline) / (1.0 - ssim_baseline) * 100):+.1f}%")
+    else:
+        # Using pretrained SIREN - skip metrics that require activity images
+        print(f"fixed_scene: range=[{fixed_scene_mask_img.min():.3f}, {fixed_scene_mask_img.max():.3f}]")
+        print("(skipping DICE/IoU/SSIM metrics - using pretrained SIREN without activity images)")
 
     # Save outputs
     os.makedirs(output_dir, exist_ok=True)
 
-    # Save only anatomy masks (not all intermediate images)
-    imwrite(f'{output_dir}/anatomy_learned.tif', anatomy_mask_img.astype(np.float32))
-    imwrite(f'{output_dir}/anatomy_binary.tif', anatomy_binary.astype(np.float32))
+    # Save learned fixed scene mask
+    imwrite(f'{output_dir}/fixed_scene_learned.tif', fixed_scene_mask_img.astype(np.float32))
 
-    # Create anatomy comparison figure
-    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+    # Save comparison figures (only if activity images were loaded)
+    if activity_images:
+        imwrite(f'{output_dir}/fixed_scene_binary.tif', fixed_scene_binary.astype(np.float32))
 
-    axes[0, 0].imshow(anatomy_mask_norm, cmap='viridis')
-    axes[0, 0].set_title('Learned Anatomy (Normalized)')
-    axes[0, 0].axis('off')
+        # Create fixed scene comparison figure
+        fig, axes = plt.subplots(2, 2, figsize=(12, 12))
 
-    axes[0, 1].imshow(ground_truth_mask, cmap='gray')
-    axes[0, 1].set_title('Ground Truth Mask')
-    axes[0, 1].axis('off')
+        axes[0, 0].imshow(fixed_scene_mask_norm, cmap='viridis')
+        axes[0, 0].set_title('Learned Fixed Scene (Normalized)')
+        axes[0, 0].axis('off')
 
-    axes[1, 0].imshow(anatomy_binary, cmap='gray')
-    axes[1, 0].set_title(f'Learned Anatomy (Binary)\nDICE: {dice_score:.3f}, IoU: {iou_score:.3f}')
-    axes[1, 0].axis('off')
+        axes[0, 1].imshow(ground_truth_mask, cmap='gray')
+        axes[0, 1].set_title('Ground Truth Mask')
+        axes[0, 1].axis('off')
 
-    # Difference map
-    diff_map = np.abs(anatomy_binary - ground_truth_mask)
-    axes[1, 1].imshow(diff_map, cmap='hot')
-    axes[1, 1].set_title('Difference (Error Map)')
-    axes[1, 1].axis('off')
+        axes[1, 0].imshow(fixed_scene_binary, cmap='gray')
+        axes[1, 0].set_title(f'Learned Fixed Scene (Binary)\nDICE: {dice_score:.3f}, IoU: {iou_score:.3f}')
+        axes[1, 0].axis('off')
 
-    plt.tight_layout()
-    plt.savefig(f'{output_dir}/anatomy_comparison.png', dpi=150, bbox_inches='tight')
-    plt.close()
+        # Difference map
+        diff_map = np.abs(fixed_scene_binary - ground_truth_mask)
+        axes[1, 1].imshow(diff_map, cmap='hot')
+        axes[1, 1].set_title('Difference (Error Map)')
+        axes[1, 1].axis('off')
 
-    # Create anatomy distribution histogram with metrics
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/fixed_scene_comparison.png', dpi=150, bbox_inches='tight')
+        plt.close()
+
+    # Create fixed scene distribution histogram
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-    # Histogram of raw learned anatomy values
-    axes[0].hist(anatomy_mask_img.flatten(), bins=100, color='steelblue', alpha=0.7, edgecolor='black')
-    axes[0].set_xlabel('Anatomy Value', fontsize=12)
+    # Histogram of raw learned fixed scene values
+    axes[0].hist(fixed_scene_mask_img.flatten(), bins=100, color='steelblue', alpha=0.7, edgecolor='black')
+    axes[0].set_xlabel('Fixed Scene Value', fontsize=12)
     axes[0].set_ylabel('Frequency', fontsize=12)
-    axes[0].set_title('Learned Anatomy Distribution (Raw)', fontsize=14)
-    axes[0].axvline(anatomy_mask_img.mean(), color='red', linestyle='--', linewidth=2, label=f'Mean: {anatomy_mask_img.mean():.3f}')
-    axes[0].axvline(np.median(anatomy_mask_img), color='orange', linestyle='--', linewidth=2, label=f'Median: {np.median(anatomy_mask_img):.3f}')
+    axes[0].set_title('Learned Fixed Scene Distribution (Raw)', fontsize=14)
+    axes[0].axvline(fixed_scene_mask_img.mean(), color='red', linestyle='--', linewidth=2, label=f'Mean: {fixed_scene_mask_img.mean():.3f}')
+    axes[0].axvline(np.median(fixed_scene_mask_img), color='orange', linestyle='--', linewidth=2, label=f'Median: {np.median(fixed_scene_mask_img):.3f}')
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
 
-    # Histogram of normalized anatomy values
-    axes[1].hist(anatomy_mask_norm.flatten(), bins=100, color='darkgreen', alpha=0.7, edgecolor='black')
-    axes[1].set_xlabel('Normalized Anatomy Value', fontsize=12)
+    # Histogram of normalized fixed_scene values
+    fixed_scene_mask_norm_hist = (fixed_scene_mask_img - fixed_scene_mask_img.min()) / (fixed_scene_mask_img.max() - fixed_scene_mask_img.min() + 1e-8)
+    axes[1].hist(fixed_scene_mask_norm_hist.flatten(), bins=100, color='darkgreen', alpha=0.7, edgecolor='black')
+    axes[1].set_xlabel('Normalized Fixed Scene Value', fontsize=12)
     axes[1].set_ylabel('Frequency', fontsize=12)
-    axes[1].set_title('Learned Anatomy Distribution (Normalized)', fontsize=14)
-    axes[1].axvline(anatomy_mask_norm.mean(), color='red', linestyle='--', linewidth=2, label=f'Mean: {anatomy_mask_norm.mean():.3f}')
-    axes[1].axvline(np.median(anatomy_mask_norm), color='orange', linestyle='--', linewidth=2, label=f'Median: {np.median(anatomy_mask_norm):.3f}')
+    axes[1].set_title('Learned Fixed Scene Distribution (Normalized)', fontsize=14)
+    axes[1].axvline(fixed_scene_mask_norm_hist.mean(), color='red', linestyle='--', linewidth=2, label=f'Mean: {fixed_scene_mask_norm_hist.mean():.3f}')
+    axes[1].axvline(np.median(fixed_scene_mask_norm_hist), color='orange', linestyle='--', linewidth=2, label=f'Median: {np.median(fixed_scene_mask_norm_hist):.3f}')
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig(f'{output_dir}/anatomy_distribution.png', dpi=150, bbox_inches='tight')
+    plt.savefig(f'{output_dir}/fixed_scene_distribution.png', dpi=150, bbox_inches='tight')
     plt.close()
 
     # Save metrics to file
     from scipy import stats
-    near_zero_count = np.sum(np.abs(anatomy_mask_img) < 0.01)
-    sparsity = near_zero_count / anatomy_mask_img.size * 100
-
-    with open(f'{output_dir}/metrics.txt', 'w') as f:
-        f.write("NSTM Evaluation Metrics\n")
-        f.write("="*60 + "\n\n")
-
-        f.write("Anatomy Mask Evaluation:\n")
-        f.write(f"  DICE Score: {dice_score:.4f}\n")
-        f.write(f"  IoU Score: {iou_score:.4f}\n\n")
-
-        f.write("Fixed Scene vs Activity Average:\n")
-        f.write(f"  RMSE: {rmse_activity:.4f}\n")
-        f.write(f"  SSIM: {ssim_activity:.4f}\n\n")
-
-        f.write("Baseline (Motion Median vs Activity Average):\n")
-        f.write(f"  RMSE: {rmse_baseline:.4f}\n")
-        f.write(f"  SSIM: {ssim_baseline:.4f}\n\n")
-
-        f.write("Improvement over baseline:\n")
-        f.write(f"  RMSE: {((rmse_baseline - rmse_activity) / rmse_baseline * 100):.2f}%\n")
-        f.write(f"  SSIM: {((ssim_activity - ssim_baseline) / (1.0 - ssim_baseline) * 100):.2f}%\n\n")
-
-        f.write("Anatomy Distribution:\n")
-        f.write(f"  Min: {anatomy_mask_img.min():.4f}\n")
-        f.write(f"  Max: {anatomy_mask_img.max():.4f}\n")
-        f.write(f"  Mean: {anatomy_mask_img.mean():.4f}\n")
-        f.write(f"  Median: {np.median(anatomy_mask_img):.4f}\n")
-        f.write(f"  Std Dev: {anatomy_mask_img.std():.4f}\n")
-        f.write(f"  Skewness: {stats.skew(anatomy_mask_img.flatten()):.4f}\n")
-        f.write(f"  Kurtosis: {stats.kurtosis(anatomy_mask_img.flatten()):.4f}\n")
-        f.write(f"  25th Percentile: {np.percentile(anatomy_mask_img, 25):.4f}\n")
-        f.write(f"  75th Percentile: {np.percentile(anatomy_mask_img, 75):.4f}\n")
-        f.write(f"  Sparsity (|x| < 0.01): {sparsity:.2f}%\n")
-        f.write("="*60 + "\n")
+    near_zero_count = np.sum(np.abs(fixed_scene_mask_img) < 0.01)
+    sparsity = near_zero_count / fixed_scene_mask_img.size * 100
 
     # Plot and save loss history with regularization terms
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
@@ -1253,7 +1318,22 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     plt.savefig(f'{output_dir}/loss_history.png', dpi=150)
     plt.close()
 
-    return deformation_net, anatomy_net, activity_net, loss_history
+    # Generate SIREN activity video with learned affine transform
+    if pretrained_activity_net is not None and neuron_positions is not None:
+        print("generating SIREN activity video with learned affine transform...")
+        render_siren_activity_video(
+            pretrained_activity_net,
+            neuron_positions,
+            affine_scale,
+            affine_bias,
+            siren_config['nnr_f_T_period'],
+            n_frames,
+            res,
+            device,
+            output_dir
+        )
+
+    return deformation_net, fixed_scene_net, pretrained_activity_net, loss_history
 
 
 def create_motion_field_visualization(base_image, motion_x, motion_y, res, step_size=16, black_background=False):
@@ -1280,19 +1360,19 @@ def create_motion_field_visualization(base_image, motion_x, motion_y, res, step_
     return vis
 
 
-def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motion_images,
-                            data_min, data_max, res, device, output_dir, num_frames=90, boat_anatomy=None):
+def create_quad_panel_video(deformation_net, fixed_scene_net, activity_images, motion_images,
+                            data_min, data_max, res, device, output_dir, num_frames=90, boat_fixed_scene=None):
     """Create an 8-panel comparison video (4 columns x 2 rows)
 
     Top row (Training Data):
     - Col 1: Activity
-    - Col 2: Activity × Boat anatomy
+    - Col 2: Activity × Boat fixed_scene
     - Col 3: Ground truth motion field (arrows on black)
     - Col 4: Target (warped motion frames)
 
     Bottom row (Learned):
-    - Col 1: Learned anatomy
-    - Col 2: Anatomy × Activity
+    - Col 1: Learned fixed_scene
+    - Col 2: Fixed Scene × Activity
     - Col 3: Learned motion field (arrows on black)
     - Col 4: NSTM Reconstruction
     """
@@ -1306,17 +1386,17 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
     yv, xv = torch.meshgrid(y_coords, x_coords, indexing='ij')
     coords_2d = torch.stack([xv.flatten(), yv.flatten()], dim=1)
 
-    # Extract anatomy mask once
+    # Extract fixed_scene mask once
     with torch.no_grad():
-        anatomy_mask = torch.sigmoid(anatomy_net(coords_2d))
-        anatomy_mask_img = anatomy_mask.reshape(res, res).cpu().numpy()
+        fixed_scene_mask = torch.sigmoid(fixed_scene_net(coords_2d))
+        fixed_scene_mask_img = fixed_scene_mask.reshape(res, res).cpu().numpy()
 
-    # Normalize anatomy for visualization
-    anatomy_norm = (anatomy_mask_img - anatomy_mask_img.min()) / (anatomy_mask_img.max() - anatomy_mask_img.min() + 1e-8)
+    # Normalize fixed_scene for visualization
+    fixed_scene_norm = (fixed_scene_mask_img - fixed_scene_mask_img.min()) / (fixed_scene_mask_img.max() - fixed_scene_mask_img.min() + 1e-8)
 
-    # Prepare boat anatomy for visualization (if provided)
-    if boat_anatomy is not None:
-        boat_norm = (boat_anatomy - boat_anatomy.min()) / (boat_anatomy.max() - boat_anatomy.min() + 1e-8)
+    # Prepare boat fixed_scene for visualization (if provided)
+    if boat_fixed_scene is not None:
+        boat_norm = (boat_fixed_scene - boat_fixed_scene.min()) / (boat_fixed_scene.max() - boat_fixed_scene.min() + 1e-8)
         boat_uint8 = (np.clip(boat_norm, 0, 1) * 255).astype(np.uint8)
         boat_rgb = np.stack([boat_uint8, boat_uint8, boat_uint8], axis=2)
     else:
@@ -1341,9 +1421,9 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
         activity_uint8 = (np.clip(activity_norm, 0, 1) * 255).astype(np.uint8)
         activity_rgb = np.stack([activity_uint8, activity_uint8, activity_uint8], axis=2)
 
-        # Top-2: Activity × Boat anatomy (before warping)
-        if boat_anatomy is not None:
-            activity_times_boat = activity_frame * boat_anatomy
+        # Top-2: Activity × Boat fixed_scene (before warping)
+        if boat_fixed_scene is not None:
+            activity_times_boat = activity_frame * boat_fixed_scene
             activity_boat_norm = (activity_times_boat - activity_times_boat.min()) / (activity_times_boat.max() - activity_times_boat.min() + 1e-8)
             activity_boat_uint8 = (np.clip(activity_boat_norm, 0, 1) * 255).astype(np.uint8)
             activity_boat_rgb = np.stack([activity_boat_uint8, activity_boat_uint8, activity_boat_uint8], axis=2)
@@ -1376,8 +1456,8 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
             source_coords = coords_2d - deformation
             source_coords = torch.clamp(source_coords, 0, 1)
 
-            # Sample anatomy at source coords
-            anatomy_at_source = torch.sigmoid(anatomy_net(source_coords))
+            # Sample fixed_scene at source coords
+            fixed_scene_at_source = torch.sigmoid(fixed_scene_net(source_coords))
 
             # Sample activity at source coords
             activity_tensor = torch.tensor((activity_frame - data_min) / (data_max - data_min),
@@ -1391,24 +1471,24 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
             ).reshape(-1, 1)
 
             # Reconstruction
-            recon = (anatomy_at_source * sampled_activity).reshape(res, res).cpu().numpy()
+            recon = (fixed_scene_at_source * sampled_activity).reshape(res, res).cpu().numpy()
             sampled_activity_img = sampled_activity.reshape(res, res).cpu().numpy()
 
-        # Bottom-1: Learned anatomy
-        anatomy_uint8 = (np.clip(anatomy_norm, 0, 1) * 255).astype(np.uint8)
-        learned_anatomy_rgb = np.stack([anatomy_uint8, anatomy_uint8, anatomy_uint8], axis=2)
+        # Bottom-1: Learned fixed_scene
+        fixed_scene_uint8 = (np.clip(fixed_scene_norm, 0, 1) * 255).astype(np.uint8)
+        learned_fixed_scene_rgb = np.stack([fixed_scene_uint8, fixed_scene_uint8, fixed_scene_uint8], axis=2)
 
-        # Bottom-2: Anatomy × Activity
-        anatomy_times_activity = anatomy_mask_img * activity_frame
-        anat_act_norm = (anatomy_times_activity - anatomy_times_activity.min()) / (anatomy_times_activity.max() - anatomy_times_activity.min() + 1e-8)
-        anat_act_uint8 = (np.clip(anat_act_norm, 0, 1) * 255).astype(np.uint8)
-        anatomy_activity_rgb = np.stack([anat_act_uint8, anat_act_uint8, anat_act_uint8], axis=2)
+        # Bottom-2: Fixed Scene × Activity
+        fixed_scene_times_activity = fixed_scene_mask_img * activity_frame
+        fixed_scene_act_norm = (fixed_scene_times_activity - fixed_scene_times_activity.min()) / (fixed_scene_times_activity.max() - fixed_scene_times_activity.min() + 1e-8)
+        fixed_scene_act_uint8 = (np.clip(fixed_scene_act_norm, 0, 1) * 255).astype(np.uint8)
+        fixed_scene_activity_rgb = np.stack([fixed_scene_act_uint8, fixed_scene_act_uint8, fixed_scene_act_uint8], axis=2)
 
         # Bottom-3: Learned motion field (arrows on black background)
         deformation_2d = deformation.reshape(res, res, 2).cpu().numpy()
         motion_x = deformation_2d[:, :, 0]
         motion_y = deformation_2d[:, :, 1]
-        learned_motion_vis = create_motion_field_visualization(anatomy_norm, motion_x, motion_y, res, step_size=16, black_background=True)
+        learned_motion_vis = create_motion_field_visualization(fixed_scene_norm, motion_x, motion_y, res, step_size=16, black_background=True)
 
         # Bottom-4: NSTM Reconstruction
         recon_denorm = recon * (data_max - data_min) + data_min
@@ -1433,9 +1513,9 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
         cv2.putText(target_rgb, "Target", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
         # Bottom row labels - all white text
-        cv2.putText(learned_anatomy_rgb, "Learned Fixed Scene", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+        cv2.putText(learned_fixed_scene_rgb, "Learned Fixed Scene", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
-        cv2.putText(anatomy_activity_rgb, "Fixed Scene x Activity", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
+        cv2.putText(fixed_scene_activity_rgb, "Fixed Scene x Activity", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
         cv2.putText(learned_motion_vis, "Learned Motion", (margin, y_pos), font, font_scale, (255, 255, 255), thickness)
 
@@ -1443,14 +1523,14 @@ def create_quad_panel_video(deformation_net, anatomy_net, activity_images, motio
 
         # Create 4x2 grid layout
         top_row = np.hstack([activity_rgb, activity_boat_rgb, gt_motion_vis, target_rgb])
-        bottom_row = np.hstack([learned_anatomy_rgb, anatomy_activity_rgb, learned_motion_vis, recon_rgb])
+        bottom_row = np.hstack([learned_fixed_scene_rgb, fixed_scene_activity_rgb, learned_motion_vis, recon_rgb])
         combined = np.vstack([top_row, bottom_row])
 
         # Save frame
         cv2.imwrite(f"{temp_dir}/frame_{i:04d}.png", combined)
 
     # Create video with ffmpeg
-    video_path = f'{output_dir}/nstm_8panel.mp4'
+    video_path = f'{output_dir}/nstm.mp4'
     fps = 30
 
     print("creating video from frames...")
@@ -1507,7 +1587,7 @@ def data_instant_NGP(config=None, style=None, device=None):
     # os.makedirs(motion_frames_dir, exist_ok=True)
     # os.makedirs(activity_dir, exist_ok=True)
 
-    # print(f"generating {motion_frames_dir} motion frames with anatomy modulation and sinusoidal warping...")
+    # print(f"generating {motion_frames_dir} motion frames with fixed_scene modulation and sinusoidal warping...")
 
     # Clear existing motion frames and activity frames
     # files = glob.glob(f'{motion_frames_dir}/*')
@@ -1517,13 +1597,13 @@ def data_instant_NGP(config=None, style=None, device=None):
     # for f in files:
     #     os.remove(f)
 
-    # Load boat anatomy image
+    # Load boat fixed_scene image
     import os as os_module
     current_dir = os_module.path.dirname(os_module.path.abspath(__file__))
-    boat_anatomy_path = os_module.path.join(current_dir, 'pics_boat_512.tif')
-    print(f"loading boat anatomy from {boat_anatomy_path}")
-    boat_anatomy = imread(boat_anatomy_path).astype(np.float32)
-    print(f"boat anatomy shape: {boat_anatomy.shape}, range: [{boat_anatomy.min():.4f}, {boat_anatomy.max():.4f}]")
+    boat_fixed_scene_path = os_module.path.join(current_dir, 'pics_boat_512.tif')
+    print(f"loading boat fixed_scene from {boat_fixed_scene_path}")
+    boat_fixed_scene = imread(boat_fixed_scene_path).astype(np.float32)
+    print(f"boat fixed_scene shape: {boat_fixed_scene.shape}, range: [{boat_fixed_scene.min():.4f}, {boat_fixed_scene.max():.4f}]")
 
 
     if "latex" in style:
@@ -1604,13 +1684,13 @@ def data_instant_NGP(config=None, style=None, device=None):
     #         dtype=np.float32
     #     )
 
-    #     # For motion frames: multiply activity by boat anatomy, then warp
-    #     # Element-wise multiplication: activity × boat_anatomy
-    #     img_with_anatomy = img_gray * boat_anatomy
+    #     # For motion frames: multiply activity by boat fixed_scene, then warp
+    #     # Element-wise multiplication: activity × boat_fixed_scene
+    #     img_with_fixed_scene = img_gray * boat_fixed_scene
 
     #     # Apply sinusoidal warping to the combined image
-    #     # The warped result contains both activity and anatomy information
-    #     img_warped = apply_sinusoidal_warp(img_with_anatomy, it, n_frames, motion_intensity=0.015)
+    #     # The warped result contains both activity and fixed_scene information
+    #     img_warped = apply_sinusoidal_warp(img_with_fixed_scene, it, n_frames, motion_intensity=0.015)
 
     #     # Convert to 32-bit float (single channel)
     #     img_32bit = img_warped.astype(np.float32)
@@ -1648,9 +1728,9 @@ def data_instant_NGP(config=None, style=None, device=None):
         print("no siren config found, using grid_sample for activity")
 
     # Hardcoded parameters
-    use_siren = True  # Set to False to use grid_sample instead of SIREN
+    use_siren = False  # Set to False to use grid_sample instead of SIREN
     siren_loss_weight = 1.0  # Weight for SIREN supervision loss on discrete neurons
-    nstm_lr = 5e-4  # Learning rate for deformation and anatomy networks
+    nstm_lr = 1e-4  # Learning rate for deformation and fixed_scene networks
 
     # Get SIREN learning rate from config if available
     siren_lr = 1e-4  # Default
@@ -1667,55 +1747,53 @@ def data_instant_NGP(config=None, style=None, device=None):
             output_dir=nstm_output_dir,
             num_training_steps=10000,
             nnr_f_T_period=siren_config['nnr_f_T_period'],
-            n_train_frames=128,
+            n_train_frames=256,
             n_neurons=siren_config['output_size_nnr_f']
         )
-        
-    if False:
 
-        deformation_net, anatomy_net, activity_net, loss_history = train_nstm(
-            motion_frames_dir=motion_frames_dir,
-            activity_dir=activity_dir,
-            n_frames=n_frames,
-            res=512,
-            device=device,
-            output_dir=nstm_output_dir,
-            num_training_steps=10000,  # Increased from 5000 (4x more)
-            siren_config=siren_config,
-            pretrained_activity_net=pretrained_activity_net,
-            x_list=x_list,
-            use_siren=use_siren,
-            siren_lr=siren_lr,
-            nstm_lr=nstm_lr,
-            siren_loss_weight=siren_loss_weight
-        )
+    deformation_net, fixed_scene_net, activity_net, loss_history = train_nstm(
+        motion_frames_dir=motion_frames_dir,
+        activity_dir=activity_dir,
+        n_frames=n_frames,
+        res=512,
+        device=device,
+        output_dir=nstm_output_dir,
+        num_training_steps=10000,  # Increased from 5000 (4x more)
+        siren_config=siren_config,
+        pretrained_activity_net=pretrained_activity_net,
+        x_list=x_list,
+        use_siren=use_siren,
+        siren_lr=siren_lr,
+        nstm_lr=nstm_lr,
+        siren_loss_weight=siren_loss_weight
+    )
 
-        # Load motion and activity images for video creation
-        motion_images_list = []
-        activity_images_list = []
-        for i in range(n_frames):
-            motion_images_list.append(imread(f"{motion_frames_dir}/frame_{i:06d}.tif"))
-            activity_images_list.append(imread(f"{activity_dir}/frame_{i:06d}.tif"))
+    # Load motion and activity images for video creation
+    motion_images_list = []
+    activity_images_list = []
+    for i in range(n_frames):
+        motion_images_list.append(imread(f"{motion_frames_dir}/frame_{i:06d}.tif"))
+        activity_images_list.append(imread(f"{activity_dir}/frame_{i:06d}.tif"))
 
-        # Compute data range for normalization
-        all_pixels = np.concatenate([img.flatten() for img in motion_images_list])
-        data_min = all_pixels.min()
-        data_max = all_pixels.max()
+    # Compute data range for normalization
+    all_pixels = np.concatenate([img.flatten() for img in motion_images_list])
+    data_min = all_pixels.min()
+    data_max = all_pixels.max()
 
-        # Create 4-panel comparison video
-        video_path = create_quad_panel_video(
-            deformation_net=deformation_net,
-            anatomy_net=anatomy_net,
-            activity_images=activity_images_list,
-            motion_images=motion_images_list,
-            data_min=data_min,
-            data_max=data_max,
-            res=512,
-            device=device,
-            output_dir=nstm_output_dir,
-            num_frames=256,  # Use all frames
-            boat_anatomy=boat_anatomy  # Pass the boat anatomy for visualization
-        )
-        print(f"8-panel video (4x2) saved to: {video_path}")
-        print("training completed.")
+    # Create 4-panel comparison video
+    video_path = create_quad_panel_video(
+        deformation_net=deformation_net,
+        fixed_scene_net=fixed_scene_net,
+        activity_images=activity_images_list,
+        motion_images=motion_images_list,
+        data_min=data_min,
+        data_max=data_max,
+        res=512,
+        device=device,
+        output_dir=nstm_output_dir,
+        num_frames=256,  # Use all frames
+        boat_fixed_scene=boat_fixed_scene  # Pass the boat fixed_scene for visualization
+    )
+    print(f"8-panel video (4x2) saved to: {video_path}")
+    print("training completed.")
 
