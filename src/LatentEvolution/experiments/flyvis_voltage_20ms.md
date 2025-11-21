@@ -1,7 +1,10 @@
 # Table of Contents
 
 - [Introduction and summary](#introduction-and-summary)
-- [History of experiments](#history-of-experiments)
+- [Experiments to improve voltage baseline](#experiments-to-improve-voltage-baseline)
+  - [Reduce network size](reduce-network-size)
+  - [Change activation](change-activation)
+- [History of experiments prior to checkpoint](#history-of-experiments-prior-to-checkpoint)
   - [Baseline experiment](#baseline-experiment)
   - [Performance benchmark experiments](#performance-benchmark-experiments)
   - [Assess variance in training](#assess-variance-in-training)
@@ -128,7 +131,151 @@ The figures below are based on a separate `fly_N9_62_0[40_000, 50_000)` (no nois
   </tr>
 </table>
 
-# History of experiments
+# Activity space vs latent space roll out
+
+We observe that roll outs are stable in activity space even when they are unstable in
+latent space. We need to understand the cause. Somehow going through the decoder-encoder
+loop is pushing the trajectory back to a valid conformation. We've seen this happen in two
+scenarios:
+
+- changing the evolver to a classic MLP without skips
+- changing the num hidden units in the encoder & decoder, which drastically
+  reduces the number of parameters because the skip connections involve matrices
+  with num neurons x num hidden units parameters.
+
+## verify checkpoint stability
+
+Before we make up stories about latent space dimension vs encoder/decoder complexity, let's
+check that the checkpoint we've arrived at is actually stable.
+
+```bash
+
+for seed in 1 12 123 1234 12345 ; do \
+    bsub -J "seed${seed}" -n 1 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
+        src/LatentEvolution/latent.py checkpoint_20251118_stability \
+        --training.seed $seed
+done
+```
+
+Results:
+
+- ???
+
+## network structure perturbations
+
+Review the [experiments that reduce network size](#reduce-network-size).
+
+Exclude the latent dim 32 for a moment.
+
+- even when the latent space is shrunk to 64d, both roll outs remain stable.
+- but, when the encoder/decoder hidden dimensions are reduced - even to 128d, we see an explosion
+  in the latent space roll out. So the encoder/decoder is really a very critical piece here.
+- TODO: finish this
+
+## role of noise in training
+
+I suspect this could be due to training with noise. We know from
+that going to 128 dims causes the
+rollout in latent space to explode.
+
+If we trained without noise would it explode in both
+spaces? And we will cross-validate with the noisy data. This will also test the 256d baseline
+model.
+
+```bash
+for ldim in 64 128 256; do \
+  bsub -J "noise${ldim}" -n 1 -gpu "num=1" -q gpu_a100 -o noise${ldim}.log python \
+    src/LatentEvolution/latent.py no_noise_latent_roll_out \
+    --encoder-params.num-hidden-units $ldim \
+    --decoder-params.num-hidden-units $ldim \
+    --training.simulation-config fly_N9_62_0_calcium \
+    --cross-validation-configs.0.simulation-config fly_N9_62_1_calcium
+done
+```
+
+Results:
+
+- ???
+
+# Experiments to improve voltage baseline
+
+We have a working baseline now. The goal now is to make the models as small as possible
+while maintaining performance.
+
+## Reduce network size
+
+### reduce encoder/decoder hidden units
+
+The size of the encoder/decoder hidden units drives the parameter count. See if we can reduce that.
+
+```bash
+for ldim in 64 128 256; do \
+  bsub -J "ldim${ldim}" -n 1 -gpu "num=1" -q gpu_a100 -o ldim${ldim}.log python \
+    src/LatentEvolution/latent.py encoder_decoder_hidden_units \
+    --encoder-params.num-hidden-units $ldim \
+    --decoder-params.num-hidden-units $ldim
+done
+```
+
+Results:
+
+- val loss degrades: 64d ~ 0.019, 128d ~ 0.015, 256d (baseline) ~ 0.014
+- activity space roll out is stable
+- latent space roll out blows up after a few steps at 64 & 128, but is stable
+  at 256.
+
+Note that the latent space dimension was kept at 256d in the above experiment. Now, let's
+change the latent space dimension, while keeping the hidden unit size constant. So this will
+not significantly change the parameter count, but will limit the capacity of the evolver to
+learn dynamics.
+
+### reduce latent dimension
+
+Let's keep the encoder/decoder hidden units fixed at 256. And then let's drop the
+latent dimension.
+
+```bash
+for ldim in 32 64 128 256; do \
+  bsub -J "ldim${ldim}" -n 1 -gpu "num=1" -q gpu_a100 -o ldim${ldim}.log python \
+    src/LatentEvolution/latent.py latent_dim_reduce \
+    --latent-dims $ldim
+done
+```
+
+Results:
+
+- we see a fairly large change in the validation loss when you drop the latent dimension
+- Roll out:
+  - latent roll out: remains bounded even at 64d. But the MSE is worse than with 256d. At 32d it
+    explodes. At 256d worst case mean MSE in long roll out is ~ 2e-2, and at 64d we are at 4e-2.
+  - activity roll out: explodes at 64d => going from the latent -> activity -> latent now is adding
+    noise, which doesn't happen at 256d.
+
+## Change activation
+
+Note that the flyvis simulation data used a ReLU activation. It could be that our architecture
+somehow secretly encodes the simulation. So fix the activation to `sigmoid` and iterate on
+the architecture to get it to work.
+
+```bash
+for n in 1 2 3 ; do
+  bsub -J "sigmoid${n}" -n 1 -gpu "num=1" -q gpu_a100 -o sigmoid${n}.log python \
+    src/LatentEvolution/latent.py sigmoid0 \
+      --activation Sigmoid \
+      --encoder-params.num-hidden-layers $n \
+      --decoder-params.num-hidden-layers $n \
+      --evolver-params.num-hidden-layers $n
+done
+```
+
+Results:
+
+- changing the activation function has no impact.
+- this is nice because it shows that we have some generality in the functions that we can learn.
+  And specifically that we did not accidentally parameterize the simulation with our network
+  architecture.
+
+# History of experiments prior to checkpoint
 
 ## Baseline experiment
 
@@ -140,7 +287,7 @@ we are not adding in the stimulus.
 ```bash
 
 for bs in 32 128 512 2048; do \
-    bsub -J "batch${bs}" -n 12 -gpu "num=1" -q gpu_a100 -o batch${bs}.log python \
+    bsub -J "batch${bs}" -n 1 -gpu "num=1" -q gpu_a100 -o batch${bs}.log python \
         src/LatentEvolution/latent.py batch_size_sweep \
         --training.batch-size $bs \
         --training.epochs 5000
@@ -173,7 +320,7 @@ All 4 runs completed successfully.
 ```bash
 
 for lr in 0.001 0.0001 0.00001 0.000001 ; do \
-    bsub -J "lr${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o lr${lr}.log python \
+    bsub -J "lr${lr}" -n 1 -gpu "num=1" -q gpu_a100 -o lr${lr}.log python \
         src/LatentEvolution/latent.py learning_rate_sweep \
         --training.batch-size 128 \
         --training.epochs 5000 \
@@ -216,7 +363,7 @@ for now.
 ```bash
 
 for ldim in 64 128 256 512; do \
-    bsub -J "ldim${ldim}" -n 12 -gpu "num=1" -q gpu_a100 -o ldim${ldim}.log python \
+    bsub -J "ldim${ldim}" -n 1 -gpu "num=1" -q gpu_a100 -o ldim${ldim}.log python \
         src/LatentEvolution/latent.py latent_dim_sweep \
         --latent-dims $ldim \
         --training.batch-size 512 \
@@ -387,10 +534,10 @@ Run 5 repeat trainings from different initial conditions to assess reproducibili
 ```bash
 
 for seed in 1 12 123 1234 12345 ; do \
-    bsub -J "seed${seed}" -n 12 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
+    bsub -J "seed${seed}" -n 1 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
         src/LatentEvolution/latent.py reproducibility \
         --training.seed $seed
-    done
+done
 ```
 
 ### Batch size 512
@@ -400,7 +547,7 @@ Run 5 repeat trainings from different initial conditions to assess reproducibili
 ```bash
 
 for seed in 1 12 123 1234 12345 ; do \
-    bsub -J "seed${seed}" -n 12 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
+    bsub -J "seed${seed}" -n 1 -gpu "num=1" -q gpu_a100 -o seed${seed}.log python \
         src/LatentEvolution/latent.py reproducibility_512 \
         --training.seed $seed
     done
@@ -557,7 +704,7 @@ I had (unintentionally) used batch normalization. Let's experiment turning it on
 bn_flags=("use-batch-norm" "no-use-batch-norm")
 for use_bn in "${bn_flags[@]}"
 do
-    bsub -J $use_bn -n 12 \
+    bsub -J $use_bn -n 1 \
         -gpu "num=1" -q gpu_a100 -o ${use_bn}.log python \
         src/LatentEvolution/latent.py use_batch_norm \
         --training.${use_bn}
@@ -665,7 +812,7 @@ Sorted by validation loss:  shape: (2, 4)
 
 for bs in 32 128 512 2048; do \
     for lr in 0.001 0.0001 0.00001 0.000001 ; do \
-        bsub -J "b${bs}_${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o batch${bs}_lr${lr}.log python \
+        bsub -J "b${bs}_${lr}" -n 1 -gpu "num=1" -q gpu_a100 -o batch${bs}_lr${lr}.log python \
             src/LatentEvolution/latent.py batch_and_lr_wo_bn \
             --training.batch-size $bs \
             --training.learning-rate $lr
@@ -812,7 +959,7 @@ coordinate.
 
 ```bash
 
-bsub -J latent1d -n 12 -gpu "num=1" -q gpu_a100 -o latent1d.log python \
+bsub -J latent1d -n 1 -gpu "num=1" -q gpu_a100 -o latent1d.log python \
     src/LatentEvolution/latent.py latent1d \
     --latent-dims 1 \
     --training.batch-size 512 \
@@ -839,7 +986,7 @@ drive the network. Without this it would be impossible to actually predict.
 ```bash
 
 for lr in 0.001 0.0001 0.00001 0.000001 ; do \
-    bsub -J "stim_${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o stim_lr${lr}.log python \
+    bsub -J "stim_${lr}" -n 1 -gpu "num=1" -q gpu_a100 -o stim_lr${lr}.log python \
         src/LatentEvolution/latent.py add_stimulus_lr \
         --training.learning-rate $lr
 done
@@ -847,7 +994,7 @@ done
 for seed in 1234 12345; do \
   for bs in 256 512 1024; do \
       for lr in 0.001 0.0001 0.00001 0.000001 ; do \
-          bsub -J "b${bs}_${lr}" -n 12 -gpu "num=1" -q gpu_a100 -o batch${bs}_lr${lr}.log python \
+          bsub -J "b${bs}_${lr}" -n 1 -gpu "num=1" -q gpu_a100 -o batch${bs}_lr${lr}.log python \
               src/LatentEvolution/latent.py add_stimulus_lr \
               --training.batch-size $bs \
               --training.learning-rate $lr \
@@ -1043,7 +1190,7 @@ add this loss to the encoder/decoder.
 ```bash
 
 for l1 in 0.0 0.1 0.01 0.001 0.0001 0.00001 0.000001 ; do \
-    bsub -J "l1${l1}" -n 12 -gpu "num=1" -q gpu_a100 -o l1${l1}.log python \
+    bsub -J "l1${l1}" -n 1 -gpu "num=1" -q gpu_a100 -o l1${l1}.log python \
         src/LatentEvolution/latent.py l1_reg_encoder_decoder_only \
         --encoder_params.l1_reg_loss $l1 \
         --decoder_params.l1_reg_loss $l1
@@ -1139,7 +1286,7 @@ Sorted by validation loss:  shape: (7, 5)
 ```bash
 
 for l1 in 0.0 0.1 0.01 0.001 0.0001 0.00001 0.000001 ; do \
-    bsub -J "l1${l1}" -n 12 -gpu "num=1" -q gpu_a100 -o l1${l1}.log python \
+    bsub -J "l1${l1}" -n 1 -gpu "num=1" -q gpu_a100 -o l1${l1}.log python \
         src/LatentEvolution/latent.py l1_reg_all \
         --encoder_params.l1_reg_loss $l1 \
         --decoder_params.l1_reg_loss $l1 \
@@ -1678,3 +1825,5 @@ Interestingly we observe that the mlp(x, Ax) architecture can rollout 2000 steps
 in activity space. But the latent space roll out is not as good. The MLPWithSkips
 architecture is able to roll out in the latent space alone. So we lock this for
 now.
+
+[def]: reduce-n
