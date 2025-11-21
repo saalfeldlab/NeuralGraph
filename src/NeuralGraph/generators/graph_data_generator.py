@@ -1452,20 +1452,32 @@ def data_generate_synaptic(
         print("data saved ...")
 
 
-        if (n_neurons <= 1000) & (run == run_vizualized):
+        if run == run_vizualized:
             print('plot activity ...')
             activity = x_list[:, :, 6:7]
             activity = activity.squeeze()
             activity = activity.T
-            activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
-            plt.figure(figsize=(10, 20))
-            plt.plot(activity.T, linewidth=2)
 
-            for i in range(0, n_neurons, 5):
-                plt.text(-100, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
+            # Sample 100 traces if n_neurons > 1000
+            if n_neurons > 1000:
+                sampled_indices = np.random.choice(n_neurons, 100, replace=False)
+                sampled_indices = np.sort(sampled_indices)
+                activity_plot = activity[sampled_indices]
+                n_plot = 100
+            else:
+                activity_plot = activity
+                sampled_indices = np.arange(n_neurons)
+                n_plot = n_neurons
+
+            activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
+            plt.figure(figsize=(10, 20))
+            plt.plot(activity_plot.T, linewidth=2)
+
+            for i in range(0, n_plot, 5):
+                plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')
 
             ax = plt.gca()
-            ax.text(-1500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+            ax.text(-1500, activity_plot.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
             plt.xlabel("time", fontsize=32)
             plt.xticks(fontsize=24)
             ax.spines['left'].set_visible(False)
@@ -1475,46 +1487,7 @@ def data_generate_synaptic(
             ax.set_yticklabels(['0', '20', '40'], fontsize=20)
             ax.text(n_frames * 1.2, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
             plt.tight_layout()
-            plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
+            plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
             plt.close()
-
-        #     activity = torch.tensor(x_list[:, :, 6:7], device=device)
-        #     activity = activity.squeeze()
-        #     activity = activity.t()
-        #     plt.figure(figsize=(15, 10))
-        #     ax = sns.heatmap(to_numpy(activity), center=0, cmap="viridis", cbar_kws={"fraction": 0.046})
-        #     cbar = ax.collections[0].colorbar
-        #     cbar.ax.tick_params(labelsize=32)
-        #     ax.invert_yaxis()
-        #     plt.ylabel("neurons", fontsize=64)
-        #     plt.xlabel("time", fontsize=64)
-        #     plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
-        #     plt.yticks([0, 999], [1, 1000], fontsize=48)
-        #     plt.xticks(rotation=0)
-        #     plt.tight_layout()
-        #     plt.savefig(f"graphs_data/{dataset_name}/kinograph.png", dpi=300)
-        #     plt.close()
-
-        #     plt.figure(figsize=(15, 10))
-        #     if n_neurons > 2:
-        #         n = np.random.permutation(n_neurons)
-        #         NN = 25
-        #     else:
-        #         n = np.arange(n_neurons)
-        #         NN = 2
-        #     for i in range(NN):
-        #         plt.plot(to_numpy(activity[n[i].astype(int), :]), linewidth=2)
-        #     plt.xlabel("time", fontsize=64)
-        #     plt.ylabel("$v_{i}$", fontsize=64)
-        #     # plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
-        #     plt.xticks(fontsize=24)
-        #     plt.yticks(fontsize=24)
-        #     plt.tight_layout()
-        #     plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
-        #     plt.xlim([0, 1000])
-        #     plt.tight_layout()
-        #     plt.savefig(f"graphs_data/{dataset_name}/activity_1000.png", dpi=300)
-        #     plt.close()
-
 
 

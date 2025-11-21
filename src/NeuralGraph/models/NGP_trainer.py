@@ -25,7 +25,7 @@ import matplotlib.pyplot as plt
 from NeuralGraph.utils import to_numpy
 
 # Import from graph_instant_NGP
-from src.NeuralGraph.models.graph_instant_NGP import (
+from NeuralGraph.models.graph_instant_NGP import (
     train_siren,
     train_nstm,
     apply_sinusoidal_warp
@@ -51,16 +51,15 @@ def create_video(frames_list, output_path, fps=30, layout='1panel', panel_titles
 
     if layout == '1panel':
         n_frames = len(frames_list)
-        for i, frame in enumerate(tqdm(frames_list, desc="Creating 1-panel video")):
-            # Ensure RGB
-            if len(frame.shape) == 2:
-                frame_rgb = np.stack([frame, frame, frame], axis=2)
-            else:
-                frame_rgb = frame
 
-            # Ensure uint8
-            if frame_rgb.dtype != np.uint8:
-                frame_rgb = (np.clip(frame_rgb, 0, 1) * 255).astype(np.uint8)
+        # Compute global min/max across all frames for consistent normalization
+        all_values = np.concatenate([frame.flatten() for frame in frames_list])
+        global_min = all_values.min()
+        global_max = all_values.max()
+
+        for i, frame in enumerate(tqdm(frames_list, desc="creating video", ncols=100)):
+            # Convert to RGB uint8 with global normalization
+            frame_rgb = _to_rgb_uint8(frame, global_min, global_max)
 
             # Add title if provided
             if panel_titles and len(panel_titles) > 0:
@@ -75,13 +74,19 @@ def create_video(frames_list, output_path, fps=30, layout='1panel', panel_titles
         right_frames = frames_list['right']
         n_frames = len(left_frames)
 
-        for i in tqdm(range(n_frames), desc="Creating 2-panel video"):
+        # Compute global min/max for left and right separately
+        all_left = np.concatenate([frame.flatten() for frame in left_frames])
+        all_right = np.concatenate([frame.flatten() for frame in right_frames])
+        left_min, left_max = all_left.min(), all_left.max()
+        right_min, right_max = all_right.min(), all_right.max()
+
+        for i in tqdm(range(n_frames), desc="creating video", ncols=100):
             left = left_frames[i]
             right = right_frames[i]
 
-            # Ensure RGB and uint8
-            left_rgb = _to_rgb_uint8(left)
-            right_rgb = _to_rgb_uint8(right)
+            # Convert to RGB uint8 with global normalization per panel
+            left_rgb = _to_rgb_uint8(left, left_min, left_max)
+            right_rgb = _to_rgb_uint8(right, right_min, right_max)
 
             # Add titles if provided
             if panel_titles:
@@ -99,7 +104,7 @@ def create_video(frames_list, output_path, fps=30, layout='1panel', panel_titles
         # Expected keys: 'row0_col0', 'row0_col1', ..., 'row1_col3'
         n_frames = len(frames_list['row0_col0'])
 
-        for i in tqdm(range(n_frames), desc="Creating 8-panel video"):
+        for i in tqdm(range(n_frames), desc="creating video", ncols=100):
             # Top row (4 panels)
             top_panels = []
             for col in range(4):
@@ -139,11 +144,16 @@ def create_video(frames_list, output_path, fps=30, layout='1panel', panel_titles
 
     # Clean up
     shutil.rmtree(temp_dir)
-    print(f"Video saved to: {output_path}")
 
 
-def _to_rgb_uint8(frame):
-    """Convert frame to RGB uint8 format"""
+def _to_rgb_uint8(frame, global_min=None, global_max=None):
+    """Convert frame to RGB uint8 format
+
+    Args:
+        frame: Input frame (grayscale or RGB)
+        global_min: Global minimum value for normalization (if None, use frame min)
+        global_max: Global maximum value for normalization (if None, use frame max)
+    """
     # Ensure RGB
     if len(frame.shape) == 2:
         frame_rgb = np.stack([frame, frame, frame], axis=2)
@@ -152,14 +162,15 @@ def _to_rgb_uint8(frame):
 
     # Ensure uint8
     if frame_rgb.dtype != np.uint8:
-        # Normalize to [0, 1] then to [0, 255]
-        frame_min = frame_rgb.min()
-        frame_max = frame_rgb.max()
+        # Use global min/max if provided, otherwise per-frame normalization
+        frame_min = global_min if global_min is not None else frame_rgb.min()
+        frame_max = global_max if global_max is not None else frame_rgb.max()
+
         if frame_max > frame_min:
             frame_norm = (frame_rgb - frame_min) / (frame_max - frame_min)
         else:
             frame_norm = np.zeros_like(frame_rgb)
-        frame_rgb = (frame_norm * 255).astype(np.uint8)
+        frame_rgb = (np.clip(frame_norm, 0, 1) * 255).astype(np.uint8)
 
     return frame_rgb
 
@@ -177,9 +188,7 @@ def stage1_train_siren(x_list, device, output_dir, config):
     Returns:
         siren_net: Trained SIREN network
     """
-    print("=" * 80)
-    print("STAGE 1: Training SIREN on discrete neuron activities")
-    print("=" * 80)
+    print("stage 1: training siren")
 
     siren_net = train_siren(
         x_list=x_list,
@@ -191,12 +200,12 @@ def stage1_train_siren(x_list, device, output_dir, config):
         n_neurons=config.get('n_neurons', 100)
     )
 
-    print(f"✓ SIREN training complete. Check scatter plot in: {output_dir}")
     return siren_net
 
 
 def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, device,
-                                     output_dir, activity_dir, run=0):
+                                     output_dir, activity_dir, activity_original_dir=None,
+                                     threshold_activity=False, run=0):
     """
     Stage 2: Generate activity images using matplotlib scatter (matching original workflow)
 
@@ -208,24 +217,27 @@ def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, dev
         device: torch device
         output_dir: Directory for outputs
         activity_dir: Directory to save activity images
+        activity_original_dir: Directory to save original (pre-threshold) activity images
+        threshold_activity: If True, threshold activity to binary values (0 or 50)
         run: Run index (default 0)
 
     Returns:
         activity_images: List of generated activity images
     """
-    print("=" * 80)
-    print("STAGE 2: Generating activity images using matplotlib scatter")
-    print("=" * 80)
+    print("stage 2: generating activity images")
+    if threshold_activity:
+        print("activity will be thresholded to binary (0 or 50)")
 
     os.makedirs(activity_dir, exist_ok=True)
+    if activity_original_dir is not None:
+        os.makedirs(activity_original_dir, exist_ok=True)
 
     activity_images = []
+    activity_images_original = [] if threshold_activity else None
 
     # Convert neuron positions to tensor for plotting
     X1 = torch.tensor(neuron_positions, dtype=torch.float32, device=device)
-
-    print(f"Rendering {n_frames} activity images...")
-    for frame_idx in tqdm(range(n_frames)):
+    for frame_idx in tqdm(range(n_frames), ncols=100):
         x = torch.tensor(x_list[run][frame_idx], dtype=torch.float32, device=device)
 
         # Create figure and render to get pixel data
@@ -261,6 +273,24 @@ def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, dev
 
         # Save activity image: dots at FIXED initial position with changing activity (x[:,6])
         img_activity_32bit = img_gray.astype(np.float32)
+
+        # Save original before thresholding if requested
+        if activity_original_dir is not None:
+            imwrite(
+                f"{activity_original_dir}/frame_{frame_idx:06d}.tif",
+                img_activity_32bit,
+                photometric='minisblack',
+                dtype=np.float32
+            )
+            # Keep original for video display
+            activity_images_original.append(img_activity_32bit.copy())
+
+        # Apply thresholding if requested
+        if threshold_activity:
+            # Threshold: values > mean become 50, values <= mean become 0
+            threshold_value = img_activity_32bit.mean()
+            img_activity_32bit = np.where(img_activity_32bit > threshold_value, 50.0, 0.0).astype(np.float32)
+
         activity_images.append(img_activity_32bit)
 
         # Save as TIFF (float32, matching original)
@@ -273,24 +303,21 @@ def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, dev
 
         plt.close(fig)
 
-    print(f"✓ Activity images saved to: {activity_dir}")
-
-    # Create 1-panel MP4 video
-    print("Creating activity video...")
     video_path = f"{output_dir}/stage2_activity.mp4"
     create_video(
         frames_list=activity_images,
         output_path=video_path,
         fps=30,
         layout='1panel',
-        panel_titles=['SIREN Activity']
+        panel_titles=['activity']
     )
 
-    return activity_images
+    return activity_images, activity_images_original
 
 
 def stage3_generate_warped_motion_frames(activity_images, boat_fixed_scene, n_frames,
-                                         output_dir, motion_frames_dir):
+                                         output_dir, motion_frames_dir, target_downsample_factor=1,
+                                         motion_intensity=0.015):
     """
     Stage 3: Generate warped motion frames (activity × boat + sinusoidal warp)
 
@@ -300,20 +327,22 @@ def stage3_generate_warped_motion_frames(activity_images, boat_fixed_scene, n_fr
         n_frames: Number of frames
         output_dir: Directory for outputs
         motion_frames_dir: Directory to save motion frames
+        target_downsample_factor: Downsample targets for super-resolution test
+        motion_intensity: Sinusoidal warp intensity
 
     Returns:
         motion_images: List of warped motion frames
     """
-    print("=" * 80)
-    print("STAGE 3: Generating warped motion frames")
-    print("=" * 80)
+    print("stage 3: generating motion frames")
+    if target_downsample_factor > 1:
+        print(f"targets will be downsampled by {target_downsample_factor}x for super-resolution test")
 
     os.makedirs(motion_frames_dir, exist_ok=True)
 
     motion_images = []
+    from scipy.ndimage import zoom
 
-    print(f"Applying boat mask and warping {n_frames} frames...")
-    for frame_idx in tqdm(range(n_frames)):
+    for frame_idx in tqdm(range(n_frames), ncols=100):
         activity_frame = activity_images[frame_idx]
 
         # Element-wise multiplication: activity × boat_fixed_scene
@@ -321,31 +350,44 @@ def stage3_generate_warped_motion_frames(activity_images, boat_fixed_scene, n_fr
 
         # Apply sinusoidal warping
         img_warped = apply_sinusoidal_warp(img_with_fixed_scene, frame_idx, n_frames,
-                                           motion_intensity=0.015)
+                                           motion_intensity=motion_intensity)
+
+        # Downsample target if requested (for super-resolution test)
+        if target_downsample_factor > 1:
+            res = img_warped.shape[0]
+            downsampled_size = res // target_downsample_factor
+            # Downsample using nearest neighbor
+            zoom_factor_down = downsampled_size / res
+            img_downsampled = zoom(img_warped, zoom_factor_down, order=0)
+            # Upsample back to original resolution
+            zoom_factor_up = res / downsampled_size
+            img_warped = zoom(img_downsampled, zoom_factor_up, order=0)
 
         motion_images.append(img_warped)
 
         # Save as TIFF
         imwrite(f"{motion_frames_dir}/frame_{frame_idx:06d}.tif", img_warped.astype(np.float32))
 
-    print(f"✓ Motion frames saved to: {motion_frames_dir}")
+    print(f"activity: [{np.min([img.min() for img in activity_images]):.2f}, {np.max([img.max() for img in activity_images]):.2f}]")
+    print(f"boat: [{boat_fixed_scene.min():.2f}, {boat_fixed_scene.max():.2f}]")
+    print(f"motion: [{np.min([img.min() for img in motion_images]):.2f}, {np.max([img.max() for img in motion_images]):.2f}]")
 
-    # Create 2-panel MP4 video (activity | target)
-    print("Creating 2-panel video (activity | warped target)...")
-    video_path = f"{output_dir}/stage3_activity_and_warped.mp4"
+    # Create 1-panel MP4 video (warped target only)
+    video_path = f"{output_dir}/stage3_motion.mp4"
     create_video(
-        frames_list={'left': activity_images, 'right': motion_images},
+        frames_list=motion_images,
         output_path=video_path,
         fps=30,
-        layout='2panel',
-        panel_titles=['Activity', 'Warped Target']
+        layout='1panel',
+        panel_titles=['motion']
     )
 
     return motion_images
 
 
 def stage4_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir,
-                      siren_config, pretrained_activity_net, x_list):
+                      siren_config, pretrained_activity_net, x_list, boat_fixed_scene=None,
+                      boat_downsample_factor=1, activity_images_original=None):
     """
     Stage 4: Train NSTM (deformation + fixed_scene) on warped frames
 
@@ -359,13 +401,13 @@ def stage4_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, ou
         siren_config: SIREN configuration dict
         pretrained_activity_net: Trained SIREN network (optional)
         x_list: Neuron data for SIREN supervision (optional)
+        boat_fixed_scene: Boat fixed scene image (optional)
+        boat_downsample_factor: Downsampling factor for boat image (optional)
 
     Returns:
         Trained networks and loss history
     """
-    print("=" * 80)
-    print("STAGE 4: Training NSTM (deformation + fixed_scene)")
-    print("=" * 80)
+    print("stage 4: training nstm")
 
     deformation_net, fixed_scene_net, activity_net, loss_history = train_nstm(
         motion_frames_dir=motion_frames_dir,
@@ -374,7 +416,7 @@ def stage4_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, ou
         res=res,
         device=device,
         output_dir=output_dir,
-        num_training_steps=3000,
+        num_training_steps=5000,
         siren_config=siren_config,
         pretrained_activity_net=pretrained_activity_net,
         x_list=x_list,
@@ -384,13 +426,49 @@ def stage4_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, ou
         siren_loss_weight=1.0
     )
 
-    print(f"✓ NSTM training complete. Check outputs in: {output_dir}")
-    print("✓ 8-panel video created during training")
+    # Create 8-panel video after training
+    from NeuralGraph.models.graph_instant_NGP import create_quad_panel_video
+    from tifffile import imread
+
+    # Load all frames for video creation
+    motion_images_list = []
+    activity_images_list = []
+    for i in range(n_frames):
+        motion_images_list.append(imread(f"{motion_frames_dir}/frame_{i:06d}.tif"))
+        activity_images_list.append(imread(f"{activity_dir}/frame_{i:06d}.tif"))
+
+    # Compute data range for normalization
+    all_pixels = np.concatenate([img.flatten() for img in motion_images_list])
+    data_min = all_pixels.min()
+    data_max = all_pixels.max()
+
+    # Load original activity images if thresholding was used
+    activity_images_original_list = None
+    if activity_images_original is not None:
+        activity_images_original_list = activity_images_original  # Use all frames
+
+    # Create 8-panel comparison video
+    video_path = create_quad_panel_video(
+        deformation_net=deformation_net,
+        fixed_scene_net=fixed_scene_net,
+        activity_images=activity_images_list,
+        motion_images=motion_images_list,
+        data_min=data_min,
+        data_max=data_max,
+        res=res,
+        device=device,
+        output_dir=output_dir,
+        num_frames=n_frames,
+        boat_fixed_scene=boat_fixed_scene,
+        boat_downsample_factor=boat_downsample_factor,
+        activity_images_original=activity_images_original_list
+    )
+    print(f"stage4_nstm.mp4")
 
     return deformation_net, fixed_scene_net, activity_net, loss_history
 
 
-def main(config=None, device=None):
+def data_train_NGP(config=None, device=None):
     """
     Main pipeline: Sequential execution of 4 stages
 
@@ -398,35 +476,37 @@ def main(config=None, device=None):
         config: NeuralGraphConfig object (optional)
         device: torch device (optional)
     """
-    print("\n" + "=" * 80)
-    print("NGP TRAINER - 4-Stage Sequential Pipeline")
-    print("=" * 80 + "\n")
-
-    # ========== Configuration ==========
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}\n")
 
     # Paths
     if config is not None:
-        dataset_name = config.dataset  # Use config.dataset, not config.config_file
-        config_file = config.config_file
+        dataset_name = config.dataset
     else:
         dataset_name = "signal_N11_2_1"
-        config_file = "signal_N11_2_1_1"
-    base_dir = f"/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{config_file}"
+    base_dir = f"/groups/saalfeld/home/allierc/Py/NeuralGraph/log/{dataset_name}"
     output_dir = f"{base_dir}/nstm_output"
     activity_dir = f"{base_dir}/activity"
+    activity_original_dir = f"{base_dir}/activity_original"  # For saving original before thresholding
     motion_frames_dir = f"{base_dir}/motion_frames"
 
-    os.makedirs(output_dir, exist_ok=True)
 
     # Parameters
-    n_frames = 256
+    n_frames = 512
     res = 512
+    target_downsample_factor = 4  # Downsample motion frame targets for super-resolution test (1 = no downsampling, 4 = quarter resolution, etc.)
+    motion_intensity = 0.05  # Sinusoidal warp intensity (higher = more motion, better sub-pixel sampling for super-resolution)
+    threshold_activity = False  # If True, threshold activity to binary values (0 or 50)
 
-    # Load neuron data (discrete activities)
-    print("Loading neuron data...")
+
+
+    os.makedirs(output_dir, exist_ok=True)
+    if threshold_activity:
+        os.makedirs(activity_original_dir, exist_ok=True)
+
+
+
+    # Load neuron data
     x_list = []
     y_list = []
     n_runs = 1
@@ -436,13 +516,11 @@ def main(config=None, device=None):
         x_list.append(x)
         y_list.append(y)
 
-    # Get number of neurons from data
     run = 0
     x = x_list[0][n_frames - 10]
     n_neurons = x.shape[0]
-    print(f"Loaded data: {n_neurons} neurons, {n_frames} frames")
 
-    # SIREN config (after we know n_neurons)
+    # SIREN config
     siren_config = {
         'num_training_steps': 10000,
         'nnr_f_T_period': 10,
@@ -450,43 +528,40 @@ def main(config=None, device=None):
         'n_neurons': n_neurons
     }
 
-    # Extract neuron positions (use first frame)
-    neuron_positions = x_list[0][0][:, 1:3]  # (n_neurons, 2)
+    # Extract neuron positions
+    neuron_positions = x_list[0][0][:, 1:3]
 
     # Load boat fixed scene
-    print("Loading boat fixed scene...")
-    boat_fixed_scene_path = "/workspace/src/NeuralGraph/models/pics_boat_512.tif"
+    import os as os_module
+    from scipy.ndimage import zoom
+    current_dir = os_module.path.dirname(os_module.path.abspath(__file__))
+    boat_fixed_scene_path = os_module.path.join(current_dir, 'pics_boat_512.tif')
+
     if os.path.exists(boat_fixed_scene_path):
         boat_fixed_scene = imread(boat_fixed_scene_path).astype(np.float32)
-        # Normalize to [0, 1] to match sigmoid output of fixed_scene_net
-        boat_min = boat_fixed_scene.min()
-        boat_max = boat_fixed_scene.max()
-        if boat_max > boat_min:
-            boat_fixed_scene = (boat_fixed_scene - boat_min) / (boat_max - boat_min)
-        print("Boat fixed scene normalized to [0, 1]")
+        print(f"boat: loaded high-res")
     else:
-        print(f"Warning: Boat image not found at {boat_fixed_scene_path}, using uniform mask")
         boat_fixed_scene = np.ones((res, res), dtype=np.float32)
+        print(f"boat: using default")
 
-    print(f"Boat fixed scene shape: {boat_fixed_scene.shape}, range: [{boat_fixed_scene.min():.4f}, {boat_fixed_scene.max():.4f}]\n")
+    print(f"boat: [{boat_fixed_scene.min():.2f}, {boat_fixed_scene.max():.2f}]")
 
     # Set matplotlib style for black background
     plt.style.use("dark_background")
     matplotlib.rcParams["savefig.pad_inches"] = 0
 
-    # Clear existing files in activity and motion_frames directories
-    print("Clearing existing activity and motion frames...")
+    # Clear existing files
     import glob
     for f in glob.glob(f'{motion_frames_dir}/*'):
         os.remove(f)
     for f in glob.glob(f'{activity_dir}/*'):
         os.remove(f)
 
-    # ========== Stage 1: Train SIREN ==========
+    # Stage 1: Train SIREN
     siren_net = stage1_train_siren(x_list, device, output_dir, siren_config)
 
-    # ========== Stage 2: Generate Activity Images ==========
-    activity_images = stage2_generate_activity_images(
+    # Stage 2: Generate Activity Images
+    activity_images, activity_images_original = stage2_generate_activity_images(
         x_list=x_list,
         neuron_positions=neuron_positions,
         n_frames=n_frames,
@@ -494,19 +569,26 @@ def main(config=None, device=None):
         device=device,
         output_dir=output_dir,
         activity_dir=activity_dir,
+        activity_original_dir=activity_original_dir if threshold_activity else None,
+        threshold_activity=threshold_activity,
         run=0
     )
 
-    # ========== Stage 3: Generate Warped Motion Frames ==========
+    # Stage 3: Generate Warped Motion Frames
+    # IMPORTANT: Use original (non-thresholded) activity for target generation
+    # This creates a mismatch when training uses thresholded activity
+    motion_input_activity = activity_images_original if activity_images_original is not None else activity_images
     motion_images = stage3_generate_warped_motion_frames(
-        activity_images=activity_images,
+        activity_images=motion_input_activity,
         boat_fixed_scene=boat_fixed_scene,
         n_frames=n_frames,
         output_dir=output_dir,
-        motion_frames_dir=motion_frames_dir
+        motion_frames_dir=motion_frames_dir,
+        target_downsample_factor=target_downsample_factor,
+        motion_intensity=motion_intensity
     )
 
-    # ========== Stage 4: Train NSTM ==========
+    # Stage 4: Train NSTM
     deformation_net, fixed_scene_net, activity_net, loss_history = stage4_train_nstm(
         motion_frames_dir=motion_frames_dir,
         activity_dir=activity_dir,
@@ -515,24 +597,12 @@ def main(config=None, device=None):
         device=device,
         output_dir=output_dir,
         siren_config=siren_config,
-        pretrained_activity_net=None,  # Don't use SIREN in NSTM training
-        x_list=None
+        pretrained_activity_net=None,
+        x_list=None,
+        boat_fixed_scene=boat_fixed_scene,
+        boat_downsample_factor=1,  # No longer downsampling boat - it's high-res
+        activity_images_original=activity_images_original
     )
 
-    # ========== Pipeline Complete ==========
-    print("\n" + "=" * 80)
-    print("✓ PIPELINE COMPLETE!")
-    print("=" * 80)
-    print(f"\nOutputs saved to: {output_dir}")
-    print("\nGenerated videos:")
-    print("  - Stage 1: SIREN scatter plot (PNG)")
-    print(f"  - Stage 2: {output_dir}/stage2_activity.mp4 (1-panel)")
-    print(f"  - Stage 3: {output_dir}/stage3_activity_and_warped.mp4 (2-panel)")
-    print(f"  - Stage 4: {output_dir}/quad_panel_video.mp4 (8-panel)")
-    print(f"\nActivity images: {activity_dir}/")
-    print(f"Motion frames: {motion_frames_dir}/")
-    print()
-
-
 if __name__ == "__main__":
-    main()
+    data_train_NGP()

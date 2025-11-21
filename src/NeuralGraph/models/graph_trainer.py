@@ -840,7 +840,7 @@ def data_train_signal(config, erase, best_model, device):
                                          device)
 
                     # Pass per-neuron normalized values to debug (to match dictionary values)
-                    plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=True,
+                    plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=False,
                                    current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
 
