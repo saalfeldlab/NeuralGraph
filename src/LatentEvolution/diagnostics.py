@@ -709,7 +709,6 @@ def run_validation_diagnostics(
     return metrics, figures
 
 
-@torch.compile(fullgraph=True, mode="reduce-overhead")
 def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
     """
     Evolve the model by n time steps using the predicted state at each step.
@@ -748,7 +747,6 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
     return torch.stack(predicted_trace, dim=0)
 
 
-@torch.compile(fullgraph=True, mode="reduce-overhead")
 def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
     """
     Evolve the model by n time steps entirely in latent space.
