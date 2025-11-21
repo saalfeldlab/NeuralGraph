@@ -726,13 +726,10 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
     Returns:
         predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
     """
-    print(f"    Starting rollout for {n_steps} steps...")
     predicted_trace = []
     current_state = initial_state.unsqueeze(0)  # shape (1, neurons)
 
     for t in range(n_steps):
-        if t % 500 == 0:
-            print(f"    Rollout step {t}/{n_steps}...")
         # Get the stimulus for this time step
         current_stimulus = stimulus[t:t+1]  # shape (1, stimulus_dim)
 
@@ -744,7 +741,6 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
         # Use predicted state as input for next step
         current_state = next_state
 
-    print("    Rollout steps complete, stacking results...")
     return torch.stack(predicted_trace, dim=0)
 
 
@@ -765,8 +761,6 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
     Returns:
         predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
     """
-    print(f"    Starting latent rollout for {n_steps} steps...")
-
     # Encode initial state to latent space
     current_latent = model.encoder(initial_state.unsqueeze(0))  # shape (1, latent_dim)
     latent_dim = current_latent.shape[1]
@@ -778,9 +772,6 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
     latent_trace = []
 
     for t in range(n_steps):
-        if t % 500 == 0:
-            print(f"    Latent rollout step {t}/{n_steps}...")
-
         # Get the stimulus for this time step
         current_stimulus_latent = stimulus_latent[t:t+1]  # shape (1, stim_latent_dim)
 
@@ -795,7 +786,6 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
 
         latent_trace.append(current_latent.squeeze(0))
 
-    print("    Latent rollout steps complete, stacking and decoding...")
     # Stack all latent states: (n_steps, latent_dim)
     latent_trace = torch.stack(latent_trace, dim=0)
 
