@@ -478,37 +478,57 @@ def compute_multi_start_rollout_mse(
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # Compute statistics: average over starting points, then get min/max/mean across neurons
+    # Compute statistics: average over starting points, then get min/max/mean/percentiles across neurons
     print("    Computing statistics across starting points and neurons...")
     mse_avg_over_starts = mse_array.mean(axis=0)  # (n_steps, n_neurons)
 
     mse_min_across_neurons = mse_avg_over_starts.min(axis=1)  # (n_steps,)
     mse_max_across_neurons = mse_avg_over_starts.max(axis=1)  # (n_steps,)
     mse_mean_across_neurons = mse_avg_over_starts.mean(axis=1)  # (n_steps,)
+    mse_p5_across_neurons = np.percentile(mse_avg_over_starts, 5, axis=1)  # (n_steps,)
+    mse_p95_across_neurons = np.percentile(mse_avg_over_starts, 95, axis=1)  # (n_steps,)
 
     # Create plot with log scale
     print("    Creating plot...")
     fig, ax = plt.subplots(figsize=(12, 6))
     time_steps = np.arange(n_steps)
 
+    # Plot min/max as light shaded region
     ax.fill_between(
         time_steps,
         mse_min_across_neurons,
         mse_max_across_neurons,
-        alpha=0.3,
+        alpha=0.15,
         label='Min/Max across neurons',
         color='C0'
     )
+
+    # Plot 5th-95th percentile as darker shaded region
+    ax.fill_between(
+        time_steps,
+        mse_p5_across_neurons,
+        mse_p95_across_neurons,
+        alpha=0.3,
+        label='5th-95th percentile',
+        color='C0'
+    )
+
+    # Plot mean line
     ax.plot(time_steps, mse_mean_across_neurons, linewidth=2, label='Mean across neurons', color='C0')
 
     ax.set_xlabel('Rollout Time Steps')
     ax.set_ylabel('MSE (averaged over starting points)')
     ax.set_yscale('log')
+
+    # Create clear title indicating rollout type
+    rollout_label = "Latent Space Rollout" if rollout_type == "latent" else "Activity Space Rollout"
     ax.set_title(
-        f'Multi-Start Rollout MSE ({rollout_type} space)\n'
-        f'{n_starts} random starts, {n_steps} steps each'
+        f'Multi-Start Long Rollout MSE - {rollout_label}\n'
+        f'{n_starts} random starts, {n_steps} steps each',
+        fontsize=14,
+        fontweight='bold'
     )
-    ax.legend()
+    ax.legend(loc='best')
     ax.grid(True, alpha=0.3, which='both')
     fig.tight_layout()
 
