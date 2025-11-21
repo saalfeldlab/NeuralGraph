@@ -24,12 +24,202 @@ import matplotlib
 import matplotlib.pyplot as plt
 from NeuralGraph.utils import to_numpy
 
-# Import from graph_instant_NGP
-from NeuralGraph.models.graph_instant_NGP import (
-    train_siren,
-    train_nstm,
-    apply_sinusoidal_warp
-)
+# Functions train_siren, train_nstm, and apply_sinusoidal_warp are defined below
+
+
+def apply_sinusoidal_warp(image, frame_idx, num_frames, motion_intensity=0.015):
+    """Apply sinusoidal warping to an image, similar to pixel_NSTM.py"""
+    from scipy.ndimage import map_coordinates
+
+    h, w = image.shape
+
+    # Create coordinate grids
+    y_grid, x_grid = np.meshgrid(
+        np.linspace(0, 1, h),
+        np.linspace(0, 1, w),
+        indexing='ij'
+    )
+
+    # Create displacement fields with time-varying frequency
+    t_norm = frame_idx / num_frames
+    freq_x = 2 + t_norm * 2
+    freq_y = 3 + t_norm * 1
+
+    dx = motion_intensity * np.sin(freq_x * np.pi * y_grid) * np.cos(freq_y * np.pi * x_grid)
+    dy = motion_intensity * np.cos(freq_x * np.pi * y_grid) * np.sin(freq_y * np.pi * x_grid)
+
+    # Create source coordinates
+    coords_y, coords_x = np.meshgrid(
+        np.arange(h),
+        np.arange(w),
+        indexing='ij'
+    )
+
+    # Apply displacement
+    sample_y = coords_y - dy * h
+    sample_x = coords_x - dx * w
+
+    # Ensure coordinates are within bounds
+    sample_y = np.clip(sample_y, 0, h - 1)
+    sample_x = np.clip(sample_x, 0, w - 1)
+
+    # Warp the image
+    warped = map_coordinates(image, [sample_y, sample_x], order=1, mode='reflect')
+
+    return warped
+
+
+def train_siren(x_list, device, output_dir, num_training_steps=10000,
+                nnr_f_T_period=10, n_train_frames=10, n_neurons=100):
+    """Pre-train SIREN network on discrete neuron time series (t -> [activity_1, ..., activity_n])
+
+    Args:
+        x_list: List of neuron data arrays (n_frames, n_neurons, features)
+                x_list[frame][neuron, 6] = activity value
+        device: torch device
+        output_dir: Directory to save outputs
+        num_training_steps: Number of training steps
+        nnr_f_T_period: Period for temporal coordinate (t will be scaled by 2π/period)
+        n_train_frames: Number of frames to train on
+        n_neurons: Number of neurons (output dimension)
+
+    Returns:
+        siren_net: Pre-trained SIREN network mapping t -> [activity_1, ..., activity_n]
+    """
+    from NeuralGraph.models.Siren_Network import Siren
+
+    print(f"pre-training SIREN time network on {n_neurons} neurons across {n_train_frames} frames...")
+
+    # Extract activity data from all training frames
+    all_t_coords = []
+    all_activities = []
+
+    for t_idx in range(n_train_frames):
+        frame_data = x_list[0][t_idx]
+        activities = frame_data[:, 6]  # (n_neurons,) - activity values for all neurons
+
+        # Normalize time coordinate
+        t_value = t_idx / (n_train_frames - 1) if n_train_frames > 1 else 0.0
+        t_normalized = t_value * (2 * np.pi / nnr_f_T_period)
+
+        all_t_coords.append(t_normalized)
+        all_activities.append(activities)
+
+    # Print statistics
+    all_activities_array = np.array(all_activities)
+    print(f"n_neurons: {n_neurons}")
+    print(f"n_frames: {n_train_frames}")
+    print(f"time range: [0, {all_t_coords[-1]:.4f}] (normalized)")
+    print(f"activity range: [{all_activities_array.min():.4f}, {all_activities_array.max():.4f}]")
+
+    # Convert to tensors
+    t_coords_tensor = torch.tensor(all_t_coords, dtype=torch.float32, device=device).reshape(-1, 1)  # (n_frames, 1)
+    activities_tensor = torch.tensor(all_activities_array, dtype=torch.float32, device=device)  # (n_frames, n_neurons)
+
+    # Create SIREN network: input = t (1D), output = n_neurons activities
+    siren_net = Siren(
+        in_features=1,  # Just time
+        out_features=n_neurons,  # One output per neuron
+        hidden_features=256,
+        hidden_layers=4,
+        outermost_linear=True,
+        first_omega_0=60,
+        hidden_omega_0=30
+    ).to(device)
+
+    optimizer = torch.optim.Adam(siren_net.parameters(), lr=1e-4)
+
+    # Training loop
+    loss_history = []
+    siren_net.train()
+
+    pbar = tqdm(range(num_training_steps), desc="training SIREN time network", ncols=100)
+    for step in pbar:
+        optimizer.zero_grad()
+
+        # Forward pass: input is time, output is all neuron activities
+        predicted_activities = siren_net(t_coords_tensor)  # (n_frames, n_neurons)
+
+        # Loss: MSE between predicted and true activities
+        loss = torch.nn.functional.mse_loss(predicted_activities, activities_tensor)
+
+        loss.backward()
+        optimizer.step()
+
+        loss_history.append(loss.item())
+
+        if step % 1000 == 0:
+            pbar.set_postfix({'loss': f'{loss.item():.6f}'})
+
+    # Evaluation
+    print("evaluating reconstruction...")
+    siren_net.eval()
+
+    with torch.no_grad():
+        # Plot loss history
+        plt.figure(figsize=(10, 4))
+        plt.plot(loss_history)
+        plt.title('SIREN time pre-training loss', fontsize=12)
+        plt.xlabel('step')
+        plt.ylabel('MSE loss')
+        plt.grid(True, alpha=0.3)
+        plt.savefig(f'{output_dir}/pretrain_time_loss.png', dpi=150)
+        plt.close()
+
+        print(f"final loss: {loss_history[-1]:.6f}")
+
+        # Test: scatter plot of all predictions vs ground truth
+        predicted_all = siren_net(t_coords_tensor).cpu().numpy()  # (n_frames, n_neurons)
+        ground_truth_all = activities_tensor.cpu().numpy()  # (n_frames, n_neurons)
+
+        # Flatten to get all (frame, neuron) pairs
+        pred_flat = predicted_all.flatten()
+        gt_flat = ground_truth_all.flatten()
+
+        # Calculate R²
+        r2 = 1 - (np.sum((gt_flat - pred_flat) ** 2) / np.sum((gt_flat - gt_flat.mean()) ** 2))
+
+        # Plot scatter comparison
+        fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+
+        ax.scatter(gt_flat, pred_flat, c='white', s=50, alpha=0.6, edgecolors='green', linewidths=1, label='SIREN vs GT')
+
+        # Add diagonal reference line
+        min_val = min(gt_flat.min(), pred_flat.min())
+        max_val = max(gt_flat.max(), pred_flat.max())
+        ax.plot([min_val, max_val], [min_val, max_val], 'g--', alpha=0.5, linewidth=2, label='Perfect Fit')
+
+        # Add R² text
+        ax.text(0.02, 0.98, f'R²={r2:.4f}', transform=ax.transAxes,
+               fontsize=14, verticalalignment='top', horizontalalignment='left',
+               bbox=dict(boxstyle='round', facecolor='black', alpha=0.8),
+               color='white' if r2 > 0.9 else ('orange' if r2 > 0.7 else 'red'))
+
+        ax.set_xlabel('Ground Truth Activity', fontsize=12)
+        ax.set_ylabel('SIREN Predicted Activity', fontsize=12)
+        ax.set_title(f'SIREN Time Model: {n_neurons} neurons × {n_train_frames} frames', fontsize=14)
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+        ax.set_aspect('equal')
+
+        plt.tight_layout()
+        plt.savefig(f'{output_dir}/siren_time_comparison.png', dpi=150, bbox_inches='tight')
+        plt.close()
+
+        print(f"R² = {r2:.4f} ({n_neurons * n_train_frames} data points)")
+
+    siren_net.train()
+    return siren_net
+
+
+def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir, num_training_steps=3000,
+               siren_config=None, pretrained_activity_net=None, x_list=None,
+               use_siren=True, siren_lr=1e-4, nstm_lr=5e-4, siren_loss_weight=1.0):
+    """Train Neural Space-Time Model with fixed_scene + activity decomposition
+
+    Note: This is a placeholder. The full implementation is very long.
+    """
+    raise NotImplementedError("train_nstm needs full implementation from original code")
 
 
 def create_video(frames_list, output_path, fps=30, layout='1panel', panel_titles=None):
