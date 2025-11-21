@@ -13,7 +13,6 @@ Each stage produces visualizations and MP4 videos for validation.
 """
 
 import os
-import sys
 import numpy as np
 import torch
 import cv2
@@ -386,7 +385,7 @@ def stage4_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, ou
     )
 
     print(f"✓ NSTM training complete. Check outputs in: {output_dir}")
-    print(f"✓ 8-panel video created during training")
+    print("✓ 8-panel video created during training")
 
     return deformation_net, fixed_scene_net, activity_net, loss_history
 
@@ -464,7 +463,7 @@ def main(config=None, device=None):
         boat_max = boat_fixed_scene.max()
         if boat_max > boat_min:
             boat_fixed_scene = (boat_fixed_scene - boat_min) / (boat_max - boat_min)
-        print(f"Boat fixed scene normalized to [0, 1]")
+        print("Boat fixed scene normalized to [0, 1]")
     else:
         print(f"Warning: Boat image not found at {boat_fixed_scene_path}, using uniform mask")
         boat_fixed_scene = np.ones((res, res), dtype=np.float32)
@@ -526,7 +525,7 @@ def main(config=None, device=None):
     print("=" * 80)
     print(f"\nOutputs saved to: {output_dir}")
     print("\nGenerated videos:")
-    print(f"  - Stage 1: SIREN scatter plot (PNG)")
+    print("  - Stage 1: SIREN scatter plot (PNG)")
     print(f"  - Stage 2: {output_dir}/stage2_activity.mp4 (1-panel)")
     print(f"  - Stage 3: {output_dir}/stage3_activity_and_warped.mp4 (2-panel)")
     print(f"  - Stage 4: {output_dir}/quad_panel_video.mp4 (8-panel)")
