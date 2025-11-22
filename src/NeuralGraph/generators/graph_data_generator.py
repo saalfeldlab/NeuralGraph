@@ -987,6 +987,10 @@ def data_generate_synaptic(
     measurement_noise_level = training_config.measurement_noise_level
     CustomColorMap(config=config)
 
+
+    if 'black' in style:
+        plt.style.use("dark_background")
+
     field_type = model_config.field_type
     if field_type != "":
         n_nodes = simulation_config.n_nodes
@@ -1470,7 +1474,7 @@ def data_generate_synaptic(
                 n_plot = n_neurons
 
             activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
-            plt.figure(figsize=(10, 20))
+            plt.figure(figsize=(18, 12))
             plt.plot(activity_plot.T, linewidth=2)
 
             for i in range(0, n_plot, 5):
@@ -1484,8 +1488,8 @@ def data_generate_synaptic(
             ax.spines['top'].set_visible(False)
             ax.yaxis.set_ticks_position('right')
             ax.set_yticks([0, 20, 40])
-            ax.set_yticklabels(['0', '20', '40'], fontsize=20)
-            ax.text(n_frames * 1.2, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
+            ax.set_yticklabels(['0', '20', '40'], fontsize=16)
+            # ax.text(n_frames * 1.2, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
             plt.tight_layout()
             plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
             plt.close()
