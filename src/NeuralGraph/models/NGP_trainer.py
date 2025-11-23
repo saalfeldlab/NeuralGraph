@@ -1382,6 +1382,76 @@ def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, dev
     return activity_images, activity_images_original
 
 
+def stage3_generate_warped_motion_frames(activity_images, boat_fixed_scene, n_frames,
+                                         output_dir, motion_frames_dir, target_downsample_factor=1,
+                                         motion_intensity=0.015):
+    """
+    Stage 3: Generate warped motion frames (activity × boat + sinusoidal warp)
+
+    Args:
+        activity_images: List of activity images
+        boat_fixed_scene: Boat anatomy/fixed scene image
+        n_frames: Number of frames
+        output_dir: Directory for outputs
+        motion_frames_dir: Directory to save motion frames
+        target_downsample_factor: Downsample targets for super-resolution test
+        motion_intensity: Sinusoidal warp intensity
+
+    Returns:
+        motion_images: List of warped motion frames
+    """
+    print("stage 3: generating motion frames")
+    if target_downsample_factor > 1:
+        print(f"targets will be downsampled by {target_downsample_factor}x for super-resolution test")
+
+    os.makedirs(motion_frames_dir, exist_ok=True)
+
+    motion_images = []
+    from scipy.ndimage import zoom
+
+    for frame_idx in tqdm(range(n_frames), ncols=100):
+        activity_frame = activity_images[frame_idx]
+
+        # Element-wise multiplication: activity × boat_fixed_scene
+        img_with_fixed_scene = activity_frame * boat_fixed_scene
+
+        # Apply sinusoidal warping
+        img_warped = apply_sinusoidal_warp(img_with_fixed_scene, frame_idx, n_frames,
+                                           motion_intensity=motion_intensity)
+
+        # Downsample target if requested (for super-resolution test)
+        if target_downsample_factor > 1:
+            res = img_warped.shape[0]
+            downsampled_size = res // target_downsample_factor
+            # Downsample using nearest neighbor
+            zoom_factor_down = downsampled_size / res
+            img_downsampled = zoom(img_warped, zoom_factor_down, order=0)
+            # Upsample back to original resolution
+            zoom_factor_up = res / downsampled_size
+            img_warped = zoom(img_downsampled, zoom_factor_up, order=0)
+
+        motion_images.append(img_warped)
+
+        # Save as TIFF
+        imwrite(f"{motion_frames_dir}/frame_{frame_idx:06d}.tif", img_warped.astype(np.float32))
+
+    print(f"activity: [{np.min([img.min() for img in activity_images]):.2f}, {np.max([img.max() for img in activity_images]):.2f}]")
+    print(f"boat: [{boat_fixed_scene.min():.2f}, {boat_fixed_scene.max():.2f}]")
+    print(f"motion: [{np.min([img.min() for img in motion_images]):.2f}, {np.max([img.max() for img in motion_images]):.2f}]")
+
+    # Create 1-panel MP4 video (warped target only)
+    video_path = f"{output_dir}/stage3_motion.mp4"
+    create_video(
+        frames_list=motion_images,
+        output_path=video_path,
+        fps=30,
+        layout='1panel',
+        panel_titles=['motion']
+    )
+
+    return motion_images
+
+
 def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, res, device,
                                   output_dir, activity_neural_dir, nnr_f_T_period=10, run=0):
     """
@@ -1683,74 +1753,6 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
     return neural_renderer, activity_neural_images
 
 
-def stage3_generate_warped_motion_frames(activity_images, boat_fixed_scene, n_frames,
-                                         output_dir, motion_frames_dir, target_downsample_factor=1,
-                                         motion_intensity=0.015):
-    """
-    Stage 3: Generate warped motion frames (activity × boat + sinusoidal warp)
-
-    Args:
-        activity_images: List of activity images
-        boat_fixed_scene: Boat anatomy/fixed scene image
-        n_frames: Number of frames
-        output_dir: Directory for outputs
-        motion_frames_dir: Directory to save motion frames
-        target_downsample_factor: Downsample targets for super-resolution test
-        motion_intensity: Sinusoidal warp intensity
-
-    Returns:
-        motion_images: List of warped motion frames
-    """
-    print("stage 3: generating motion frames")
-    if target_downsample_factor > 1:
-        print(f"targets will be downsampled by {target_downsample_factor}x for super-resolution test")
-
-    os.makedirs(motion_frames_dir, exist_ok=True)
-
-    motion_images = []
-    from scipy.ndimage import zoom
-
-    for frame_idx in tqdm(range(n_frames), ncols=100):
-        activity_frame = activity_images[frame_idx]
-
-        # Element-wise multiplication: activity × boat_fixed_scene
-        img_with_fixed_scene = activity_frame * boat_fixed_scene
-
-        # Apply sinusoidal warping
-        img_warped = apply_sinusoidal_warp(img_with_fixed_scene, frame_idx, n_frames,
-                                           motion_intensity=motion_intensity)
-
-        # Downsample target if requested (for super-resolution test)
-        if target_downsample_factor > 1:
-            res = img_warped.shape[0]
-            downsampled_size = res // target_downsample_factor
-            # Downsample using nearest neighbor
-            zoom_factor_down = downsampled_size / res
-            img_downsampled = zoom(img_warped, zoom_factor_down, order=0)
-            # Upsample back to original resolution
-            zoom_factor_up = res / downsampled_size
-            img_warped = zoom(img_downsampled, zoom_factor_up, order=0)
-
-        motion_images.append(img_warped)
-
-        # Save as TIFF
-        imwrite(f"{motion_frames_dir}/frame_{frame_idx:06d}.tif", img_warped.astype(np.float32))
-
-    print(f"activity: [{np.min([img.min() for img in activity_images]):.2f}, {np.max([img.max() for img in activity_images]):.2f}]")
-    print(f"boat: [{boat_fixed_scene.min():.2f}, {boat_fixed_scene.max():.2f}]")
-    print(f"motion: [{np.min([img.min() for img in motion_images]):.2f}, {np.max([img.max() for img in motion_images]):.2f}]")
-
-    # Create 1-panel MP4 video (warped target only)
-    video_path = f"{output_dir}/stage3_motion.mp4"
-    create_video(
-        frames_list=motion_images,
-        output_path=video_path,
-        fps=30,
-        layout='1panel',
-        panel_titles=['motion']
-    )
-
-    return motion_images
 
 
 def stage5_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir,
