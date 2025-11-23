@@ -1,9 +1,14 @@
 # Table of Contents
 
 - [Introduction and summary](#introduction-and-summary)
+- [Activity space vs latent space roll out](#activity-space-vs-latent-space-roll-out)
+  - [verify checkpoint stability](#verify-checkpoint-stability)
+  - [network structure perturbations](#network-structure-perturbations)
+  - [role of noise in training](#role-of-noise-in-training)
 - [Experiments to improve voltage baseline](#experiments-to-improve-voltage-baseline)
-  - [Reduce network size](reduce-network-size)
-  - [Change activation](change-activation)
+  - [Reduce network size](#reduce-network-size)
+  - [Change activation](#change-activation)
+  - [add regularization](#add-regularization)
 - [History of experiments prior to checkpoint](#history-of-experiments-prior-to-checkpoint)
   - [Baseline experiment](#baseline-experiment)
   - [Performance benchmark experiments](#performance-benchmark-experiments)
@@ -21,6 +26,8 @@
   - [Try huber/mse, gelu/relu, addition of matrix](#try-hubermse-gelurelu-addition-of-matrix)
   - [Add linear skip connections to encoder/decoder](#add-linear-skip-connections-to-encoderdecoder)
   - [How many hidden](#how-many-hidden)
+- [baseline](#baseline)
+- [input skips with varying numbers of hidden layers](#input-skips-with-varying-numbers-of-hidden-layers)
   - [Noise vs no noise](#noise-vs-no-noise)
   - [switch to mlp(x, Ax)?](#switch-to-mlpx-ax)
 
@@ -143,6 +150,17 @@ scenarios:
   reduces the number of parameters because the skip connections involve matrices
   with num neurons x num hidden units parameters.
 
+| Scenario                                                | Activity Stable? | Latent Stable? | Notes                                                      |
+| ------------------------------------------------------- | :--------------: | :------------: | ---------------------------------------------------------- |
+| Baseline: checkpoint_20251118 + randomized seeds        |       Yes        |      Yes       | Val loss ~0.014, stable rollouts in both spaces            |
+| Encoder/decoder hidden=64d/128d (latent=256d)           |       Yes        |       No       | Val loss ~0.015, latent rollout explodes after a few steps |
+| Same as above, train no noise                           |       Yes        |       No       | Training with/without noise doesn't make a difference      |
+| Latent dim=32d (Encoder/decoder hidden=256d)            |        No        |       No       | Quick explosion                                            |
+| Latent dim=64d (Encoder/decoder hidden=256d)            |        No        |   Yes, worse   | Activity explodes, but later than 32d                      |
+| Latent dim=128d (Encoder/decoder hidden=256d)           |    Yes, worse    |   Yes, worse   | All stable, but perhaps MSE is a little worse              |
+| Sigmoid activation (various depths, otherwise baseline) |       Yes        |      Yes       | No impact from activation change - shows generality        |
+| Evolver: mlp(x, Ax) 1/2/3 deep                          |    Yes, worse    | Yes, 10x worse | Mentioned as causing latent space instability              |
+
 ## verify checkpoint stability
 
 Before we make up stories about latent space dimension vs encoder/decoder complexity, let's
@@ -159,7 +177,7 @@ done
 
 Results:
 
-- ???
+- loss and mses are very reproducible to randomization of initial conditions
 
 ## network structure perturbations
 
@@ -195,7 +213,10 @@ done
 
 Results:
 
-- ???
+- noise doesn't make a difference. We see the same results as in the encoder/decoder hidden
+  units experiment: latent roll out blows up at 64, 128. activity rollout is stable.
+  - this conclusion holds in cross-validation with noise (incorrectly labeled no noise)
+  - it also holds on the noiseless validation data
 
 # Experiments to improve voltage baseline
 
@@ -274,6 +295,23 @@ Results:
 - this is nice because it shows that we have some generality in the functions that we can learn.
   And specifically that we did not accidentally parameterize the simulation with our network
   architecture.
+
+## Add regularization
+
+```bash
+
+for l1 in 0.0 0.1 0.01 0.001 0.0001 0.00001 0.000001 ; do \
+    bsub -J "l1${l1}" -n 1 -gpu "num=1" -q gpu_a100 -o l1${l1}.log python \
+        src/LatentEvolution/latent.py checkpoint_20251118_l1_reg \
+        --encoder-params.l1-reg-loss $l1 \
+        --decoder-params.l1-reg-loss $l1 \
+        --evolver-params.l1-reg-loss $l1
+done
+```
+
+Results:
+
+- ???
 
 # History of experiments prior to checkpoint
 
@@ -1822,8 +1860,9 @@ done
 ```
 
 Interestingly we observe that the mlp(x, Ax) architecture can rollout 2000 steps
-in activity space. But the latent space roll out is not as good. The MLPWithSkips
-architecture is able to roll out in the latent space alone. So we lock this for
-now.
+in activity space. But the latent space roll out is not as good. _IMPORTANT_:
+we note that the latent space roll out does not blow up, the MSE is 10x worse than
+what we see with MLPWithSkips.
 
-[def]: reduce-n
+The MLPWithSkips architecture is able to roll out in the latent space alone. So
+we lock this for now.
