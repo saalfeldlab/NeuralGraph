@@ -579,31 +579,25 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
 
         # Sample activity at source coordinates
         if neural_renderer is not None:
-            # Use NeuralRenderer to generate activity image
-            # Get SIREN activities for this frame
+            # Use NeuralRenderer to query activity directly at source coordinates
+            # Get SIREN activities for this frame (time t is fixed for this iteration)
             t_siren = torch.tensor([t_normalized * (2 * np.pi / siren_config['nnr_f_T_period'])],
                                    dtype=torch.float32, device=device).reshape(1, 1)
             with torch.set_grad_enabled(neural_renderer_learnable):
-                activities_siren = siren_net(t_siren).squeeze()  # (n_neurons,)
+                activities_siren = siren_net(t_siren).squeeze()  # (n_neurons,) in [0, 40] (pre-shifted)
 
-                # Render activity image with neural_renderer (use pre-computed positions)
-                activity_frame_neural = neural_renderer(neuron_positions_torch, activities_siren)  # (res, res)
+                # Query neural renderer ONLY at batch source coordinates (efficient!)
+                # source_coords: (batch_size, 2) in [0, 1]
+                # Neural renderer outputs corrected activity at these specific query points
+                sampled_activity_unnormalized = neural_renderer(
+                    neuron_positions_torch,  # (N, 2) neuron positions
+                    activities_siren,         # (N,) activities in [0, 40]
+                    source_coords            # (batch_size, 2) query points
+                )  # Returns: (batch_size,)
 
             # CRITICAL: Normalize using same data_min/data_max as matplotlib activity images!
             # This ensures neural renderer outputs are in same range as loaded activity images
-            activity_frame_neural_normalized = (activity_frame_neural - data_min) / (data_max - data_min)
-
-            # Sample from neural renderer output at source coordinates
-            source_coords_normalized = source_coords * 2 - 1
-            source_coords_grid = source_coords_normalized.reshape(1, 1, batch_size, 2)
-            activity_frame_reshaped = activity_frame_neural_normalized.reshape(1, 1, res, res)
-            sampled_activity = torch.nn.functional.grid_sample(
-                activity_frame_reshaped,
-                source_coords_grid,
-                mode='bilinear',
-                padding_mode='border',
-                align_corners=True
-            ).reshape(-1, 1)
+            sampled_activity = ((sampled_activity_unnormalized - data_min) / (data_max - data_min)).unsqueeze(1)  # (batch_size, 1)
         elif pretrained_activity_net is not None and neuron_positions is not None:
             # Use pretrained temporal SIREN to get activity at 2D coordinates
             sampled_activity = get_activity_at_coords(
@@ -1325,14 +1319,15 @@ def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, dev
         x = torch.tensor(x_list[run][frame_idx], dtype=torch.float32, device=device)
 
         # Create figure and render to get pixel data
+        # Flip y-coordinates to match neural renderer coordinate system
         fig = plt.figure(figsize=(512/80, 512/80), dpi=80)  # 512x512 pixels
         plt.scatter(
             to_numpy(X1[:, 0]),
-            to_numpy(X1[:, 1]),
+            -to_numpy(X1[:, 1]),  # Flip y-axis: y -> -y
             s=700,
             c=to_numpy(x[:, 6]),
             cmap="viridis",
-            vmin=0,
+            vmin=-20,
             vmax=20,
         )
         plt.axis("off")
@@ -1355,8 +1350,9 @@ def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, dev
             zoom_factors = (512 / img_gray.shape[0], 512 / img_gray.shape[1])
             img_gray = zoom(img_gray, zoom_factors, order=1)
 
-        # Save activity image: dots at FIXED initial position with changing activity (x[:,6])
-        img_activity_32bit = img_gray.astype(np.float32)
+        # Rescale grayscale [0, 255] to activity values [0, 100]
+        # Grayscale 0 (black) -> activity 0, Grayscale 255 (white) -> activity 100
+        img_activity_32bit = (img_gray / 255.0 * 100.0).astype(np.float32)
 
         activity_images.append(img_activity_32bit)
 
@@ -1453,9 +1449,14 @@ def stage3_generate_warped_motion_frames(activity_images, boat_fixed_scene, n_fr
 
 
 def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, res, device,
-                                  output_dir, activity_neural_dir, nnr_f_T_period=10, run=0):
+                                  output_dir, activity_dir, activity_neural_dir, nnr_f_T_period=10, run=0):
     """
-    Stage 4: Train NeuralRenderer to mimic matplotlib scatter rendering
+    Stage 4: Train NeuralRenderer (Gaussian Splatting + MLP) to mimic matplotlib rendering
+
+    NEW ARCHITECTURE:
+    - Gaussian Splatting: Outputs [field_value, ∂f/∂x, ∂f/∂y] at query points
+    - MLP: 3-layer network refines features to match matplotlib style
+    - Learnable params: affine transform (6), σ (1), β (1), MLP weights (~4k)
 
     Training schedule:
         - Epoch 1: 2000 iterations, LR=1e-3
@@ -1469,6 +1470,7 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
         res: Image resolution (512)
         device: torch device
         output_dir: Directory for outputs
+        activity_dir: Directory with true activity images (from Stage 2)
         activity_neural_dir: Directory to save neural renderer activity images
         nnr_f_T_period: Temporal period for SIREN
         run: Run index for x_list
@@ -1477,18 +1479,29 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
         neural_renderer: Trained NeuralRenderer network
         activity_neural_images: List of neural renderer activity images
     """
-    from NeuralGraph.models.NeuralRenderer import NeuralRenderer, render_activity_matplotlib
+    from NeuralGraph.models.NeuralRenderer import NeuralRenderer
+    from tifffile import imread
     import torch
     import numpy as np
 
-    print("stage 4: training neural renderer")
+    print("stage 4: training neural renderer (gaussian splatting + mlp)")
 
-    # Create neural renderer with 1 learnable parameter (position_scale) + U-Net
-    # sigma=0.02 as in original working version
+    # Preload all true activity images from Stage 2 (targets for training)
+    print(f"loading true activity images from {activity_dir}...")
+    activity_images_target = []
+    for frame_idx in range(n_frames):
+        img = imread(f"{activity_dir}/frame_{frame_idx:06d}.tif")
+        activity_images_target.append(torch.tensor(img, dtype=torch.float32, device=device))
+    print(f"loaded {n_frames} activity images")
+
+    # Create neural renderer with NEW architecture
+    # - Gaussian splatting: affine (6 params) + σ (1 param) + β (1 param)
+    # - MLP: 3 layers with 64 hidden units (~4k params)
     neural_renderer = NeuralRenderer(
         resolution=res,
-        sigma=0.02,
-        use_unet=True
+        sigma_init=0.02,
+        beta_init=50.0,
+        hidden_dim=64
     ).to(device)
 
     # Convert neuron positions to torch tensor (normalize from [-0.5, 0.5] to [0, 1])
@@ -1496,23 +1509,31 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
     neuron_positions_torch = (neuron_positions_torch + 0.5)  # [-0.5, 0.5] -> [0, 1]
     n_neurons = neuron_positions.shape[0]
 
+    # Create query grid for training (all pixel coordinates)
+    query_grid = neural_renderer.create_grid(res, device=device)  # (res*res, 2)
+
     # Training loop
     loss_history = []
 
     siren_net.eval()  # SIREN is frozen, only train renderer
     neural_renderer.train()
 
-    # Two-stage training schedule (matching original working version)
+    # Create Fig folder for training visualization
+    fig_dir = f"{output_dir}/Fig"
+    os.makedirs(fig_dir, exist_ok=True)
+
+    # Two-stage training schedule
     training_schedule = [
         {'lr': 1e-3, 'steps': 2000, 'epoch': 1},
         {'lr': 5e-5, 'steps': 2000, 'epoch': 2}
     ]
 
+    global_step = 0  # Track global step across epochs
     for schedule in training_schedule:
         optimizer = torch.optim.Adam(neural_renderer.parameters(), lr=schedule['lr'])
         epoch_losses = []
 
-        pbar = trange(schedule['steps'], desc=f"epoch {schedule['epoch']}", ncols=100)
+        pbar = trange(schedule['steps'], desc=f"epoch {schedule['epoch']}", ncols=150)
         for step in pbar:
             # Sample random frame
             frame_idx = np.random.randint(0, n_frames)
@@ -1523,26 +1544,17 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
                                   dtype=torch.float32, device=device).reshape(1, 1)
 
             with torch.no_grad():
-                activities_siren = siren_net(t_input).squeeze()  # (n_neurons,)
+                activities_siren = siren_net(t_input).squeeze()  # (n_neurons,) in [0, 40] (pre-shifted)
 
-            # Generate matplotlib target (ground truth rendering)
-            # Use neuron_positions (in [-0.5, 0.5]) for matplotlib
-            target_image = render_activity_matplotlib(
-                positions=neuron_positions,
-                activities=activities_siren.cpu().numpy(),
-                resolution=res,
-                vmin=0,
-                vmax=20,
-                device=device
-            )
-            target_image = torch.tensor(target_image, dtype=torch.float32, device=device)
+            # Use preloaded true activity image as target (from Stage 2)
+            target_image = activity_images_target[frame_idx].flatten()  # (res*res,)
 
-            # Predict with neural renderer
+            # Predict with neural renderer (Gaussian splatting + MLP)
             # Use normalized positions [0, 1] for neural renderer
-            predicted_image = neural_renderer(neuron_positions_torch, activities_siren)
+            predicted_flat = neural_renderer(neuron_positions_torch, activities_siren, query_grid)  # (res*res,)
 
             # Loss: MSE between predicted and matplotlib target
-            loss = torch.nn.functional.mse_loss(predicted_image, target_image)
+            loss = torch.nn.functional.mse_loss(predicted_flat, target_image)
 
             # Optimize
             optimizer.zero_grad()
@@ -1556,19 +1568,81 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
                 params = neural_renderer.get_learnable_params()
                 pbar.set_postfix({
                     'loss': f'{loss.item():.6f}',
-                    'pos_scale': f"{params['position_scale']:.2f}"
+                    'σ²': f"{params['sigma']**2:.6f}",
+                    'β': f"{params['beta']:.1f}",
+                    'ax': f"{params['affine_ax']:.2f}",
+                    'tx': f"{params['affine_tx']:.3f}"
                 })
+
+            # Save visualization every 200 iterations
+            if global_step % 200 == 0:
+                neural_renderer.eval()
+                with torch.no_grad():
+                    # Use current frame for visualization
+                    # 1. True activity image (target)
+                    true_img = activity_images_target[frame_idx].cpu().numpy()
+
+                    # 2. Gaussian splatting only
+                    gaussian_only_flat = neural_renderer.forward_splatting_only(
+                        neuron_positions_torch, activities_siren, query_grid
+                    )
+                    gaussian_only_img = gaussian_only_flat.reshape(res, res).cpu().numpy()
+
+                    # 3. Full neural renderer (gaussian + MLP)
+                    neural_flat = neural_renderer(neuron_positions_torch, activities_siren, query_grid)
+                    neural_img = neural_flat.reshape(res, res).cpu().numpy()
+
+                # Normalize all three to [0, 1] using same vmin=0, vmax=100
+                vmin = 0
+                vmax = 100
+
+                true_norm = np.clip((true_img - vmin) / (vmax - vmin), 0, 1)
+                gaussian_norm = np.clip((gaussian_only_img - vmin) / (vmax - vmin), 0, 1)
+                neural_norm = np.clip((neural_img - vmin) / (vmax - vmin), 0, 1)
+
+                # Convert to uint8
+                true_uint8 = (true_norm * 255).astype(np.uint8)
+                gaussian_uint8 = (gaussian_norm * 255).astype(np.uint8)
+                neural_uint8 = (neural_norm * 255).astype(np.uint8)
+
+                # Create 3-panel figure
+                import cv2
+                combined = np.hstack([true_uint8, gaussian_uint8, neural_uint8])
+                frame_rgb = np.stack([combined, combined, combined], axis=2)
+
+                # Add titles
+                cv2.putText(frame_rgb, "True Activity", (10, 30),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                cv2.putText(frame_rgb, "Gaussian Splatting", (10 + res, 30),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+                cv2.putText(frame_rgb, "Gaussian + MLP", (10 + 2*res, 30),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+
+                # Add parameter values
+                param_text = f"Step {global_step}: ax={params['affine_ax']:.2f}, tx={params['affine_tx']:.3f}"
+                cv2.putText(frame_rgb, param_text, (10, res - 10),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1)
+
+                # Save
+                cv2.imwrite(f"{fig_dir}/step_{global_step:06d}.png", frame_rgb)
+                neural_renderer.train()
+
+            global_step += 1
 
     print("neural renderer training complete!")
 
     # Summary of network architecture
     total_params = neural_renderer.get_num_parameters()
     learnable_params = neural_renderer.get_learnable_params()
-    unet_params = total_params - 1  # Total minus the 1 position_scale parameter
+    splatting_params = 6  # affine (4) + σ (1) + β (1)
+    mlp_params = total_params - splatting_params
 
     print(f"  total parameters: {total_params:,}")
-    print(f"    - u-net parameters: {unet_params:,}")
-    print(f"    - learnable position_scale: {learnable_params['position_scale']:.4f}")
+    print(f"    - gaussian splatting: {splatting_params} params")
+    print(f"      affine: ax={learnable_params['affine_ax']:.3f}, ay={learnable_params['affine_ay']:.3f}, "
+          f"tx={learnable_params['affine_tx']:.3f}, ty={learnable_params['affine_ty']:.3f}")
+    print(f"      kernel: σ={learnable_params['sigma']:.4f}, β={learnable_params['beta']:.2f}")
+    print(f"    - mlp: {mlp_params:,} params")
 
     # Plot loss history
     import matplotlib.pyplot as plt
@@ -1581,7 +1655,7 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
     plt.savefig(f'{output_dir}/neural_renderer_loss.png', dpi=150)
     plt.close()
 
-    # Generate comparison video: 3 panels (target | gaussian only | gaussian + unet)
+    # Generate comparison video: 3 panels (target | gaussian splatting | gaussian + MLP)
     print("generating 3-panel comparison video...")
     neural_renderer.eval()
 
@@ -1591,29 +1665,26 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
 
     with torch.no_grad():
         for frame_idx in tqdm(range(n_frames), desc="rendering comparison frames", ncols=100):
-            # Get SIREN activities
+            # Get SIREN activities (already shifted to [0, 40])
             t_normalized = frame_idx / (n_frames - 1) if n_frames > 1 else 0.0
             t_input = torch.tensor(t_normalized * (2 * np.pi / nnr_f_T_period),
                                   dtype=torch.float32, device=device).reshape(1, 1)
-            activities = siren_net(t_input).squeeze()
+            activities = siren_net(t_input).squeeze()  # (n_neurons,) in [0, 40]
 
-            # 1. Matplotlib rendering (target) - use same vmin/vmax as training!
-            matplotlib_img = render_activity_matplotlib(
-                positions=neuron_positions,
-                activities=activities.cpu().numpy(),
-                resolution=res,
-                vmin=0,
-                vmax=20,  # Match training vmax
-                device=device
-            )
+            # 1. True activity image (target from Stage 2)
+            matplotlib_img = activity_images_target[frame_idx].cpu().numpy()
             matplotlib_frames.append(matplotlib_img)
 
-            # 2. Gaussian splatting only (no U-Net)
-            gaussian_only_img = neural_renderer.splatting(neuron_positions_torch, activities).cpu().numpy()
+            # 2. Gaussian splatting only (WITHOUT MLP refinement)
+            gaussian_only_flat = neural_renderer.forward_splatting_only(
+                neuron_positions_torch, activities, query_grid
+            )
+            gaussian_only_img = gaussian_only_flat.reshape(res, res).cpu().numpy()
             gaussian_only_frames.append(gaussian_only_img)
 
-            # 3. Neural renderer (Gaussian splatting + U-Net)
-            neural_img = neural_renderer(neuron_positions_torch, activities).cpu().numpy()
+            # 3. Neural renderer (Gaussian splatting + MLP)
+            neural_flat = neural_renderer(neuron_positions_torch, activities, query_grid)
+            neural_img = neural_flat.reshape(res, res).cpu().numpy()
             neural_frames.append(neural_img)
 
     # Create 3-panel video
@@ -1649,11 +1720,11 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
         frame_rgb = np.stack([combined, combined, combined], axis=2)
 
         # Add panel titles
-        cv2.putText(frame_rgb, "Target (matplotlib)", (10, 30),
+        cv2.putText(frame_rgb, "Ground Truth", (10, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
         cv2.putText(frame_rgb, "Gaussian Splatting", (10 + res, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-        cv2.putText(frame_rgb, "Neural Renderer", (10 + 2*res, 30),
+        cv2.putText(frame_rgb, "Gaussian + MLP", (10 + 2*res, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
         cv2.imwrite(f"{temp_dir}/frame_{i:06d}.png", frame_rgb)
@@ -1751,8 +1822,6 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
 
     neural_renderer.train()
     return neural_renderer, activity_neural_images
-
-
 
 
 def stage5_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_dir,
@@ -1894,14 +1963,14 @@ def data_train_NGP(config=None, device=None):
     res = 512
     target_downsample_factor = 1  # Downsample motion frame targets for super-resolution test (1 = no downsampling, 4 = quarter resolution, etc.)
     motion_intensity = 0.015  # Sinusoidal warp intensity (higher = more motion, better sub-pixel sampling for super-resolution)
-    threshold_activity = True  # If True, train SIREN with constant activity value of 5 (demonstrates INR decomposition requires time-dependent activity)
+    threshold_activity = False  # If True, train SIREN with constant activity value of 5 (demonstrates INR decomposition requires time-dependent activity)
 
     # Stage 5 options: Choose activity source for NSTM training
     # Option 1: use_neural_renderer_for_nstm = False, neural_renderer_learnable = False  --> Use matplotlib activity (Stage 2)
     # Option 2: use_neural_renderer_for_nstm = True,  neural_renderer_learnable = False  --> Use fixed NeuralRenderer (Stage 4)
     # Option 3: use_neural_renderer_for_nstm = True,  neural_renderer_learnable = True   --> Use learnable NeuralRenderer (Stage 4, LR=1e-6)
     use_neural_renderer_for_nstm = True  # If True, use NeuralRenderer (Stage 4). If False, use matplotlib (Stage 2)
-    neural_renderer_learnable = True  # Only used if use_neural_renderer_for_nstm=True. If True, NeuralRenderer is learnable during NSTM training (LR=1e-6)
+    neural_renderer_learnable = False  # Only used if use_neural_renderer_for_nstm=True. If True, NeuralRenderer is learnable during NSTM training (LR=1e-6)
 
 
 
@@ -1919,12 +1988,15 @@ def data_train_NGP(config=None, device=None):
     for run in range(n_runs):
         x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+
         x_list.append(x)
         y_list.append(y)
 
     run = 0
     x = x_list[0][n_frames - 10]
     n_neurons = x.shape[0]
+
+    print(f"Activity range after shift: [{x[:, 6].min():.1f}, {x[:, 6].max():.1f}]")
 
     # SIREN config
     siren_config = {
@@ -2005,6 +2077,7 @@ def data_train_NGP(config=None, device=None):
         res=res,
         device=device,
         output_dir=output_dir,
+        activity_dir=activity_dir,
         activity_neural_dir=activity_neural_dir,
         nnr_f_T_period=siren_config['nnr_f_T_period'],
         run=0
