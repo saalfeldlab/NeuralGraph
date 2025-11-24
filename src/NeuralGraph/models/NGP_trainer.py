@@ -233,7 +233,6 @@ def render_siren_activity_video(pretrained_activity_net, neuron_positions, affin
 
 def apply_sinusoidal_warp(image, frame_idx, num_frames, motion_intensity=0.015):
     """Apply sinusoidal warping to an image, similar to pixel_NSTM.py"""
-    from scipy.ndimage import map_coordinates
 
     h, w = image.shape
 
@@ -818,7 +817,6 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
     plt.close()
 
     # Save metrics to file
-    from scipy import stats
     near_zero_count = np.sum(np.abs(fixed_scene_mask_img) < 0.01)
     sparsity = near_zero_count / fixed_scene_mask_img.size * 100
 
