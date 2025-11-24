@@ -311,7 +311,8 @@ done
 
 Results:
 
-- ???
+- Rollout suffers with any regularization larger than 1e-5. So just use that as
+  a default for now.
 
 # History of experiments prior to checkpoint
 
