@@ -9,20 +9,20 @@ activation: ReLU
 encoder_params:
   num_hidden_layers: 1 # Layers in the encoder MLP
   num_hidden_units: 256 # Hidden units per layer
-  l1_reg_loss: 0.0
+  l1_reg_loss: 1e-5
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 decoder_params:
   num_hidden_layers: 1 # Layers in the decoder MLP
   num_hidden_units: 256 # Hidden units per layer
-  l1_reg_loss: 0.0
+  l1_reg_loss: 1e-5
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 evolver_params:
   time_units: 1 # Number of time steps to evolve per forward pass
   num_hidden_layers: 1 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
-  l1_reg_loss: 0.0
+  l1_reg_loss: 1e-5
   # RETIRED: learnable_diagonal was ineffective and is no longer supported (must be false)
   learnable_diagonal: false
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
