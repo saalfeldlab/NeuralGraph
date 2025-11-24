@@ -120,6 +120,7 @@ class CrossValidationConfig(BaseModel):
     """Configuration for cross-dataset validation."""
     simulation_config: str
     name: str | None = None  # Optional human-readable name
+    data_split: DataSplit | None = None # data split
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -819,11 +820,14 @@ def train(cfg: ModelParams, run_dir: Path):
                 cv_name = cv_config.name or cv_config.simulation_config
                 print(f"\nEvaluating on {cv_name} ({cv_config.simulation_config})...")
 
+                # default to the same data split as training, unless specified
+                data_split = cv_config.data_split or cfg.training.data_split
+
                 # Load cross-validation dataset (only need validation split)
                 _, cv_val_data, _, _, cv_val_stim, _, cv_neuron_data = load_dataset(
                     simulation_config=cv_config.simulation_config,
                     column_to_model=cfg.training.column_to_model,
-                    data_split=cfg.training.data_split,  # Use same time ranges
+                    data_split=data_split,
                     num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
                     device=device,
                 )

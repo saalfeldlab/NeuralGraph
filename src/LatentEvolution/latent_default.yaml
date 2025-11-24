@@ -78,3 +78,10 @@ cross_validation_configs:
     name: "no_noise"
   - simulation_config: "fly_N9_62_0_optical_flow_calcium"
     name: "optical_flow"
+    data_split: # this is only for validation so training/validation/test are the same
+      train_start: 5000
+      train_end: 15000
+      validation_start: 5000
+      validation_end: 15000
+      test_start: 5000
+      test_end: 15000
