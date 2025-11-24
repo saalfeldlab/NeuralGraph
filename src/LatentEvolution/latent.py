@@ -716,7 +716,7 @@ def train(cfg: ModelParams, run_dir: Path):
                     model=model,
                     config=cfg,
                     save_figures=False,
-                    skip_neuron_traces=True,
+                    skip_multi_start_rollout=True,
                 )
                 diagnostics_duration = (datetime.now() - diagnostics_start).total_seconds()
 
