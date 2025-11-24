@@ -1388,13 +1388,12 @@ def data_train_flyvis(config, erase, best_model, device):
                 ids = np.arange(n_neurons)
 
 
-
             for batch in range(batch_size):
 
                 k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
 
-                if recurrent_training & (time_step>1):
-                    k = k - k % time_step
+                # if recurrent_training & (time_step>1):
+                #     k = k - k % time_step
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 

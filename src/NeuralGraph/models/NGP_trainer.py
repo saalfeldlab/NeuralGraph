@@ -536,13 +536,6 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         neuron_positions_torch = torch.tensor(neuron_positions, dtype=torch.float32, device=device)
         neuron_positions_torch = (neuron_positions_torch + 0.5)  # [-0.5, 0.5] -> [0, 1]
 
-    # Learning rate schedule for NSTM
-    scheduler_nstm = torch.optim.lr_scheduler.MultiStepLR(
-        optimizer_nstm,
-        milestones=[num_training_steps // 2, num_training_steps * 3 // 4],
-        gamma=0.1
-    )
-
     # Extract neuron positions for activity sampling (if using pretrained SIREN)
     neuron_positions = None
     if pretrained_activity_net is not None and x_list is not None:
@@ -552,125 +545,143 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
         neuron_positions = torch.tensor(neuron_positions, dtype=torch.float32, device=device)
         print(f"using {neuron_positions.shape[0]} neuron positions")
 
-    # Training loop
-    print(f"training for {num_training_steps} steps...")
+    # Two-epoch training schedule (like Stage 4)
+    print(f"training for {num_training_steps * 2} steps (2 epochs × {num_training_steps} steps)...")
     loss_history = []
     regularization_history = {'deformation': []}
     batch_size = min(16384, res*res)
 
-    pbar = trange(num_training_steps, ncols=150)
-    for step in pbar:
-        # Select random frame
-        t_idx = np.random.randint(0, n_frames)
-        t_normalized = t_idx / (n_frames - 1)
-
-        # Select random batch of pixels
-        indices = torch.randperm(res*res, device=device)[:batch_size]
-        batch_coords = coords_2d[indices]
-
-        # Target values from warped motion frames
-        target = motion_tensors[t_idx].reshape(-1, 1)[indices]
-
-        # Create 3D coordinates for deformation network (convert to float16 for tcnn)
-        t_tensor = torch.full_like(batch_coords[:, 0:1], t_normalized)
-        coords_3d = torch.cat([batch_coords, t_tensor], dim=1).to(torch.float16)
-
-        # Forward pass - deformation network (backward warp)
-        deformation = deformation_net(coords_3d).to(torch.float32)
-
-        # Compute source coordinates (backward warp)
-        source_coords = batch_coords - deformation  # Note: MINUS for backward warp
-        source_coords = torch.clamp(source_coords, 0, 1)
-
-        # Sample fixed scene mask at source coordinates (convert to float16 for tcnn)
-        fixed_scene_mask = torch.sigmoid(fixed_scene_net(source_coords.to(torch.float16))).to(torch.float32)
-
-        # Sample activity at source coordinates
-        if neural_renderer is not None:
-            # Use NeuralRenderer to query activity directly at source coordinates
-            # Get SIREN activities for this frame (time t is fixed for this iteration)
-            t_siren = torch.tensor([t_normalized * (2 * np.pi / siren_config['nnr_f_T_period'])],
-                                   dtype=torch.float32, device=device).reshape(1, 1)
-            with torch.set_grad_enabled(neural_renderer_learnable):
-                activities_siren = siren_net(t_siren).squeeze()  # (n_neurons,) in [0, 1]
-
-                # Query neural renderer ONLY at batch source coordinates (efficient!)
-                # source_coords: (batch_size, 2) in [0, 1]
-                # Neural renderer outputs activity values in [activity_min, activity_max] range
-                sampled_activity_unnormalized = neural_renderer(
-                    neuron_positions_torch,  # (N, 2) neuron positions
-                    activities_siren,         # (N,) activities in [0, 1]
-                    source_coords            # (batch_size, 2) query points
-                )  # Returns: (batch_size,) in [activity_min, activity_max] range
-
-            # CRITICAL: Normalize using same activity_min/activity_max as activity images!
-            # This ensures neural renderer outputs are in same range as loaded activity images
-            sampled_activity = ((sampled_activity_unnormalized - activity_min) / (activity_max - activity_min)).unsqueeze(1)  # (batch_size, 1)
-        elif pretrained_activity_net is not None and neuron_positions is not None:
-            # Use pretrained temporal SIREN to get activity at 2D coordinates
-            sampled_activity = get_activity_at_coords(
-                source_coords,
-                t_normalized,
-                pretrained_activity_net,
-                neuron_positions,
-                siren_config['nnr_f_T_period'],
-                device,
-                affine_scale=affine_scale,
-                affine_bias=affine_bias
-            ).unsqueeze(1)  # (batch_size, 1)
+    for epoch in range(1, 3):
+        # Set learning rate for this epoch
+        if epoch == 1:
+            lr_nstm = nstm_lr
+            lr_neural = neural_renderer_lr
         else:
-            # Fallback: use grid_sample on ground-truth activity images
-            source_coords_normalized = source_coords * 2 - 1
-            source_coords_grid = source_coords_normalized.reshape(1, 1, batch_size, 2)
-            activity_frame = activity_tensors[t_idx].reshape(1, 1, res, res)
-            sampled_activity = torch.nn.functional.grid_sample(
-                activity_frame,
-                source_coords_grid,
-                mode='bilinear',
-                padding_mode='border',
-                align_corners=True
-            ).reshape(-1, 1)
+            lr_nstm = nstm_lr / 10.0
+            lr_neural = neural_renderer_lr / 10.0
 
-        # Reconstruction: fixed_scene × activity
-        reconstructed = fixed_scene_mask * sampled_activity
-
-        # Main reconstruction loss
-        recon_loss = torch.nn.functional.mse_loss(reconstructed, target)
-
-        # Regularization: Deformation smoothness
-        deformation_smoothness = torch.mean(torch.abs(deformation))
-
-        # Combined loss with regularization
-        total_loss = recon_loss + 0.01 * deformation_smoothness
-
-        # Optimize NSTM networks (deformation + fixed_scene only)
-        optimizer_nstm.zero_grad()
+        # Update optimizer learning rates
+        for param_group in optimizer_nstm.param_groups:
+            param_group['lr'] = lr_nstm
         if optimizer_neural_renderer is not None:
-            optimizer_neural_renderer.zero_grad()
+            for param_group in optimizer_neural_renderer.param_groups:
+                param_group['lr'] = lr_neural
 
-        total_loss.backward()
+        print(f"epoch {epoch}: lr_nstm={lr_nstm:.6f}" +
+              (f", lr_neural={lr_neural:.6f}" if optimizer_neural_renderer is not None else ""))
 
-        optimizer_nstm.step()
-        if optimizer_neural_renderer is not None:
-            optimizer_neural_renderer.step()
+        pbar = trange(num_training_steps, desc=f"epoch {epoch}", ncols=150)
+        for step in pbar:
+            # Select random frame
+            t_idx = np.random.randint(0, n_frames)
+            t_normalized = t_idx / (n_frames - 1)
 
-        # Update learning rate
-        scheduler_nstm.step()
+            # Select random batch of pixels
+            indices = torch.randperm(res*res, device=device)[:batch_size]
+            batch_coords = coords_2d[indices]
 
-        # Record losses
-        loss_history.append(recon_loss.item())
-        regularization_history['deformation'].append(deformation_smoothness.item())
+            # Target values from warped motion frames
+            target = motion_tensors[t_idx].reshape(-1, 1)[indices]
 
-        # Update progress bar
-        postfix_dict = {
-            'recon': f'{recon_loss.item():.6f}',
-            'def': f'{deformation_smoothness.item():.4f}'
-        }
-        # Add affine parameters if using pretrained SIREN
-        if pretrained_activity_net is not None:
-            postfix_dict['scale'] = f'{affine_scale.item():.2f}'
-            postfix_dict['bias'] = f'{affine_bias.item():.1f}'
-        pbar.set_postfix(postfix_dict)
+            # Create 3D coordinates for deformation network (convert to float16 for tcnn)
+            t_tensor = torch.full_like(batch_coords[:, 0:1], t_normalized)
+            coords_3d = torch.cat([batch_coords, t_tensor], dim=1).to(torch.float16)
+
+            # Forward pass - deformation network (backward warp)
+            deformation = deformation_net(coords_3d).to(torch.float32)
+
+            # Compute source coordinates (backward warp)
+            source_coords = batch_coords - deformation  # Note: MINUS for backward warp
+            source_coords = torch.clamp(source_coords, 0, 1)
+
+            # Sample fixed scene mask at source coordinates (convert to float16 for tcnn)
+            fixed_scene_mask = torch.sigmoid(fixed_scene_net(source_coords.to(torch.float16))).to(torch.float32)
+
+            # Sample activity at source coordinates
+            if neural_renderer is not None:
+                # Use NeuralRenderer to query activity directly at source coordinates
+                # Get SIREN activities for this frame (time t is fixed for this iteration)
+                t_siren = torch.tensor([t_normalized * (2 * np.pi / siren_config['nnr_f_T_period'])],
+                                       dtype=torch.float32, device=device).reshape(1, 1)
+                with torch.set_grad_enabled(neural_renderer_learnable):
+                    activities_siren = siren_net(t_siren).squeeze()  # (n_neurons,) in [0, 1]
+
+                    # Query neural renderer ONLY at batch source coordinates (efficient!)
+                    # source_coords: (batch_size, 2) in [0, 1]
+                    # Neural renderer outputs activity values in [activity_min, activity_max] range
+                    sampled_activity_unnormalized = neural_renderer(
+                        neuron_positions_torch,  # (N, 2) neuron positions
+                        activities_siren,         # (N,) activities in [0, 1]
+                        source_coords            # (batch_size, 2) query points
+                    )  # Returns: (batch_size,) in [activity_min, activity_max] range
+
+                # CRITICAL: Normalize using same activity_min/activity_max as activity images!
+                # This ensures neural renderer outputs are in same range as loaded activity images
+                sampled_activity = ((sampled_activity_unnormalized - activity_min) / (activity_max - activity_min)).unsqueeze(1)  # (batch_size, 1)
+            elif pretrained_activity_net is not None and neuron_positions is not None:
+                # Use pretrained temporal SIREN to get activity at 2D coordinates
+                sampled_activity = get_activity_at_coords(
+                    source_coords,
+                    t_normalized,
+                    pretrained_activity_net,
+                    neuron_positions,
+                    siren_config['nnr_f_T_period'],
+                    device,
+                    affine_scale=affine_scale,
+                    affine_bias=affine_bias
+                ).unsqueeze(1)  # (batch_size, 1)
+            else:
+                # Fallback: use grid_sample on ground-truth activity images
+                source_coords_normalized = source_coords * 2 - 1
+                source_coords_grid = source_coords_normalized.reshape(1, 1, batch_size, 2)
+                activity_frame = activity_tensors[t_idx].reshape(1, 1, res, res)
+                sampled_activity = torch.nn.functional.grid_sample(
+                    activity_frame,
+                    source_coords_grid,
+                    mode='bilinear',
+                    padding_mode='border',
+                    align_corners=True
+                ).reshape(-1, 1)
+
+            # Reconstruction: fixed_scene × activity
+            reconstructed = fixed_scene_mask * sampled_activity
+
+            # Main reconstruction loss
+            recon_loss = torch.nn.functional.mse_loss(reconstructed, target)
+
+            # Regularization: Deformation smoothness
+            deformation_smoothness = torch.mean(torch.abs(deformation))
+
+            # Combined loss with regularization
+            total_loss = recon_loss + 0.01 * deformation_smoothness
+
+            # Optimize NSTM networks (deformation + fixed_scene only)
+            optimizer_nstm.zero_grad()
+            if optimizer_neural_renderer is not None:
+                optimizer_neural_renderer.zero_grad()
+
+            total_loss.backward()
+
+            optimizer_nstm.step()
+            if optimizer_neural_renderer is not None:
+                optimizer_neural_renderer.step()
+
+            # Record losses
+            loss_history.append(recon_loss.item())
+            regularization_history['deformation'].append(deformation_smoothness.item())
+
+            # Update progress bar
+            postfix_dict = {
+                'recon': f'{recon_loss.item():.6f}',
+                'def': f'{deformation_smoothness.item():.4f}'
+            }
+            # Add affine parameters if using pretrained SIREN
+            if pretrained_activity_net is not None:
+                postfix_dict['scale'] = f'{affine_scale.item():.2f}'
+                postfix_dict['bias'] = f'{affine_bias.item():.1f}'
+        
+            if step % 100 == 0:
+                pbar.set_postfix(postfix_dict)
 
     print("training complete!")
 
@@ -1722,7 +1733,8 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
     beta_actual = F.softplus(torch.tensor(params['beta'])).item() + 1e-6
 
     for i in tqdm(range(len(matplotlib_frames)), desc="saving frames", ncols=100):
-        fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+        # Use figure size that produces even dimensions: 15x5 @ 80 dpi = 1200x400 (both even)
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 
         # Panel 1: True Activity
         im0 = axes[0].imshow(matplotlib_frames[i], vmin=matplotlib_vmin, vmax=matplotlib_vmax, cmap='gray')
@@ -1747,29 +1759,18 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
         fig.suptitle(param_text, fontsize=10, y=0.02)
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        plt.savefig(f"{temp_dir}/frame_{i:06d}.png", dpi=100)
+        # Use dpi=80 to get 1200x400 pixels (both divisible by 2)
+        plt.savefig(f"{temp_dir}/frame_{i:06d}.png", dpi=80)
         plt.close(fig)
 
     # Create video with ffmpeg
+    # Use vf pad filter to ensure dimensions are divisible by 2 for libx264
     ffmpeg_cmd = (
         f"ffmpeg -y -framerate 30 -i {temp_dir}/frame_%06d.png "
+        f"-vf 'pad=ceil(iw/2)*2:ceil(ih/2)*2' "
         f"-c:v libx264 -pix_fmt yuv420p -crf 18 {video_path}"
     )
-    try:
-        result = subprocess.run(ffmpeg_cmd, shell=True, check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError as e:
-        print(f"ffmpeg error: {e.stderr}")
-        # Try alternative: save individual frames and create video with imageio
-        print("falling back to imageio for video creation...")
-        import imageio
-        frames = []
-        for i in range(len(matplotlib_frames)):
-            frame_path = f"{temp_dir}/frame_{i:06d}.png"
-            if os.path.exists(frame_path):
-                frames.append(imageio.imread(frame_path))
-        if frames:
-            imageio.mimsave(video_path, frames, fps=30, codec='libx264')
-            print(f"video created with imageio")
+    subprocess.run(ffmpeg_cmd, shell=True, check=True, capture_output=True, text=True)
 
     # Clean up temp frames
     if os.path.exists(temp_dir):
@@ -1904,13 +1905,13 @@ def stage5_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, ou
         res=res,
         device=device,
         output_dir=output_dir,
-        num_training_steps=5000,
+        num_training_steps=20000,
         siren_config=siren_config,
         pretrained_activity_net=pretrained_activity_net,
         x_list=x_list,
         use_siren=False,  # Use ground truth activity images, not SIREN
         siren_lr=1e-4,
-        nstm_lr=5e-4,
+        nstm_lr=2.5e-4,
         siren_loss_weight=1.0,
         neural_renderer=neural_renderer,
         neural_renderer_learnable=neural_renderer_learnable,

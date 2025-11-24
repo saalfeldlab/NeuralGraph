@@ -8558,8 +8558,9 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_24']
 
-    # config_list = ['fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18', 'fly_N9_62_5_19', 'fly_N9_62_5_20']
-    config_list = ['fly_N9_62_22_10']
+    config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
+
+    # config_list = ['fly_N9_62_22_10']
     
     # config_list = ['signal_N11_2_1_2']             
 
