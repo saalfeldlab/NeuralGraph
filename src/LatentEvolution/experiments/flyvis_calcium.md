@@ -41,3 +41,8 @@ for ldim in 256 384 512 1024; do \
     --latent-dims $ldim
 done
 ```
+
+Results:
+
+- jobs failed with OOM. We should increase slots to 2.
+- even at 1024d the latent roll out fails.

@@ -679,7 +679,7 @@ def train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, output_di
             if pretrained_activity_net is not None:
                 postfix_dict['scale'] = f'{affine_scale.item():.2f}'
                 postfix_dict['bias'] = f'{affine_bias.item():.1f}'
-        
+
             if step % 100 == 0:
                 pbar.set_postfix(postfix_dict)
 
@@ -1648,7 +1648,7 @@ def stage4_train_neural_renderer(siren_net, x_list, neuron_positions, n_frames, 
                 plt.tight_layout(rect=[0, 0.03, 1, 0.95])
                 plt.savefig(f"{fig_dir}/step_{global_step:06d}.png", dpi=150)
                 plt.close(fig)
-                
+
                 neural_renderer.train()
 
             global_step += 1
@@ -1966,7 +1966,7 @@ def stage5_train_nstm(motion_frames_dir, activity_dir, n_frames, res, device, ou
         activity_images_original=activity_images_original_list,
         use_neural_renderer=(neural_renderer is not None)
     )
-    print(f"stage5_nstm.mp4")
+    print("stage4_nstm.mp4")
 
     return deformation_net, fixed_scene_net, activity_net, loss_history
 
@@ -2044,16 +2044,15 @@ def data_train_NGP(config=None, device=None):
 
     # Load boat fixed scene
     import os as os_module
-    from scipy.ndimage import zoom
     current_dir = os_module.path.dirname(os_module.path.abspath(__file__))
     boat_fixed_scene_path = os_module.path.join(current_dir, 'pics_boat_512.tif')
 
     if os.path.exists(boat_fixed_scene_path):
         boat_fixed_scene = imread(boat_fixed_scene_path).astype(np.float32)
-        print(f"boat: loaded high-res")
+        print("boat: loaded high-res")
     else:
         boat_fixed_scene = np.ones((res, res), dtype=np.float32)
-        print(f"boat: using default")
+        print("boat: using default")
 
     print(f"boat: [{boat_fixed_scene.min():.2f}, {boat_fixed_scene.max():.2f}]")
 
