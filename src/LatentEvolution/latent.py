@@ -352,7 +352,7 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
 
     # regularization loss
 
-    reg_loss = torch.tensor(0.0)
+    reg_loss = torch.tensor(0.0, device=x_t.device)
     if cfg.encoder_params.l1_reg_loss > 0.:
         for p in model.encoder.parameters():
             reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
@@ -372,7 +372,7 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     recon_loss = loss_fn(recon, x_t)
 
     # LP norm penalty on prediction errors (for outlier control)
-    lp_norm_loss = torch.tensor(0.0)
+    lp_norm_loss = torch.tensor(0.0, device=x_t.device)
     if cfg.training.lp_norm_weight > 0.:
         lp_norm_evolve = torch.norm(output - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_recon = torch.norm(recon - x_t, p=cfg.training.lp_norm_p, dim=1).mean()

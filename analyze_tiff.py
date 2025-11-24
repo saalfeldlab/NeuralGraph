@@ -11,18 +11,18 @@ print(f"Image mean: {img.mean():.2f}")
 print(f"Image std: {img.std():.2f}")
 
 # Sample some specific pixel values
-print(f"\nSample pixel values:")
+print("\nSample pixel values:")
 print(f"  Center pixel: {img[256, 256]:.2f}")
 print(f"  Top-left corner: {img[0, 0]:.2f}")
 
 # Check histogram of values
 hist, bin_edges = np.histogram(img, bins=10)
-print(f"\nHistogram (10 bins):")
+print("\nHistogram (10 bins):")
 for i in range(len(hist)):
     print(f"  [{bin_edges[i]:.1f}, {bin_edges[i+1]:.1f}]: {hist[i]} pixels")
 
 # Check unique values around 0, 30, 100
-print(f"\nPixels near key values:")
+print("\nPixels near key values:")
 print(f"  Pixels == 0: {np.sum(img == 0.0)}")
 print(f"  Pixels in [0-5]: {np.sum((img >= 0) & (img <= 5))}")
 print(f"  Pixels in [25-35]: {np.sum((img >= 25) & (img <= 35))}")

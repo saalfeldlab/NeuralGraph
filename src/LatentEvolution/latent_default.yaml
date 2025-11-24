@@ -76,3 +76,5 @@ training:
 cross_validation_configs:
   - simulation_config: "fly_N9_62_0_calcium"
     name: "no_noise"
+  - simulation_config: "fly_N9_62_0_optical_flow_calcium"
+    name: "optical_flow"
