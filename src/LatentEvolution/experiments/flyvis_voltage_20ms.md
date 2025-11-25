@@ -314,6 +314,69 @@ Results:
 - Rollout suffers with any regularization larger than 1e-5. So just use that as
   a default for now.
 
+## Remove residual connection
+
+After adding the MLP-with-skips architecture we should remove the residual update in the evolver.
+It is possible that it can capture higher frequency changes more accurately.
+
+```bash
+bsub -J residual -o residual.log -n 1 -gpu "num=1" -q gpu_a100 \
+  python src/LatentEvolution/latent.py remove_residual_update
+```
+
+Results:
+
+- The rollout at 100 steps converges faster during training, which is a good sign.
+- NOTE: if this turns out to improve results. We should reconsider the MLP parameters of the
+  evolver & repeat [this experiment](#try-making-the-evolver-deeper).
+- ???
+
+# Cell-type dependent performance
+
+We observe that Mi4 is a problematic cell type for rollout. The performance is varied and in some
+cases the R2 is close to zero. This is a problem for both the optical flow stimulus and the
+DAVIS stimulus with no noise.
+
+## Try making the evolver deeper
+
+```bash
+for n in 1 2 3 4 ; do \
+  bsub -J $n -q gpu_a100 -gpu "num=1" -n 2 -o h${n}.log \
+    python src/LatentEvolution/latent.py deeper_evolver \
+    --evolver-params.num-hidden-layers $n
+done
+```
+
+Results:
+
+- ???
+
+## Stimulus encoder
+
+Is 64 a good choice? Would 128 improve results?
+
+```bash
+for n in 64 128 256 ; do \
+  bsub -J se${n} -q gpu_a100 -gpu "num=1" -n 2 -o se${n}.log \
+    python src/LatentEvolution/latent.py stimulus_encoder_latent \
+    --stimulus-encoder-params.num-hidden-dims $n \
+    --stimulus-encoder-params.num-output-dims $n
+done
+```
+
+Results:
+
+- ???
+
+## Training without noise
+
+It could be that the Mi4 dynamics are thrown off in the presence of noise, so we should also do a
+with & without noise experiment again.
+
+Results:
+
+- ???
+
 # History of experiments prior to checkpoint
 
 ## Baseline experiment
