@@ -8,7 +8,7 @@
       "program": "${file}",
       "console": "integratedTerminal",
 
-  // Make sure we use your conda env
+      // Make sure we use your conda env
 
       // Don’t skip anything as “library code”
       "justMyCode": false,
@@ -22,6 +22,37 @@
 
       // Optional: pass args here if your script needs them
       "args": []
+    },
+    {
+      "name": "▶ Python: Run latent.py (Conda neural-graph)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/LatentEvolution/latent.py",
+      "console": "integratedTerminal",
+
+      // Make sure we use your conda env
+
+      // Don’t skip anything as “library code”
+      "justMyCode": false,
+
+      // Catch code that spawns subprocesses (multiprocessing, CLI wrappers)
+      "subProcess": true,
+
+      // Useful if your code imports your own packages from the repo
+      "env": {
+        // "PYTHONPATH": "${workspaceFolder}",
+        "CUDA_VISIBLE_DEVICES": "1"
+      },
+      // "envFile": "${workspaceFolder}/.env",
+
+      // Optional: pass args here if your script needs them
+      "args": [
+        "debugme",
+        "--training.epochs",
+        "1",
+        "--training.data-passes-per-epoch",
+        "1"
+      ]
     }
   ]
 }

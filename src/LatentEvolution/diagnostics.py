@@ -7,6 +7,7 @@ and behavior after training is complete.
 
 from __future__ import annotations
 
+from enum import StrEnum, auto
 from pathlib import Path
 from typing import TYPE_CHECKING
 import numpy as np
@@ -18,6 +19,28 @@ from datetime import datetime
 if TYPE_CHECKING:
     from LatentEvolution.latent import ModelParams, LatentModel
     from LatentEvolution.load_flyvis import NeuronData
+
+
+class PlotMode(StrEnum):
+    """Control plotting that happens during training vs post training"""
+    TRAINING = auto()
+    POST_RUN = auto()
+
+    @property
+    def save_figures(self):
+        return self == PlotMode.POST_RUN
+
+    @property
+    def run_long_rollout(self):
+        return self == PlotMode.POST_RUN
+
+    @property
+    def compute_long_rollout(self):
+        return self == PlotMode.POST_RUN
+
+    @property
+    def neuron_traces(self):
+        return self == PlotMode.POST_RUN
 
 
 def log_timestamp(message: str, start_time: float | None = None):
@@ -423,75 +446,7 @@ def compute_per_neuron_mse(
 
     return per_neuron_mse
 
-
-def compute_multi_start_rollout_mse(
-    model: LatentModel,
-    val_data: torch.Tensor,
-    val_stim: torch.Tensor,
-    n_steps: int = 2000,
-    n_starts: int = 10,
-    rollout_type: str = "latent",
-) -> tuple[np.ndarray, plt.Figure, dict[str, float]]:
-    """
-    Compute MSE over time from multiple random starting points.
-
-    For each starting point, runs a rollout and computes MSE at each time step
-    for each neuron. Aggregates across starting points to show MSE variability
-    across neurons as a function of rollout time.
-
-    Args:
-        model: The trained LatentModel
-        val_data: Validation data of shape (T, N) where N is number of neurons
-        val_stim: Validation stimulus of shape (T, S)
-        n_steps: Number of rollout steps (default: 2000)
-        n_starts: Number of random starting points (default: 10)
-        rollout_type: "latent" for latent space rollout, "activity" for activity space
-
-    Returns:
-        mse_array: Array of shape (n_starts, n_steps, n_neurons) with MSE at each time/neuron
-        fig: Matplotlib figure showing min/max/mean MSE across neurons vs time
-        metrics: Dictionary with summary statistics
-    """
-    print(f"  Computing multi-start {rollout_type} rollout ({n_starts} starts, {n_steps} steps each)...")
-
-    # Pick random starting points ensuring we have enough data
-    max_start = val_data.shape[0] - n_steps - 1
-    if max_start < n_starts:
-        raise ValueError(
-            f"Not enough data for {n_starts} starting points with {n_steps} steps. "
-            f"Need at least {n_steps + n_starts + 1} time points, have {val_data.shape[0]}"
-        )
-
-    rng = np.random.default_rng(seed=0)
-    start_indices = rng.choice(max_start, size=n_starts, replace=False)
-
-    n_neurons = val_data.shape[1]
-    mse_array = np.zeros((n_starts, n_steps, n_neurons))
-
-    for i, start_idx in enumerate(start_indices):
-        print(f"    Rollout {i+1}/{n_starts} from start_idx={start_idx}...")
-
-        # Get initial state and segments
-        initial_state = val_data[start_idx]
-        stimulus_segment = val_stim[start_idx:start_idx + n_steps]
-        real_segment = val_data[start_idx + 1:start_idx + n_steps + 1]
-
-        # Perform rollout
-        if rollout_type == "latent":
-            predicted_segment = evolve_n_steps_latent(model, initial_state, stimulus_segment, n_steps)
-        else:  # activity
-            predicted_segment = evolve_n_steps(model, initial_state, stimulus_segment, n_steps)
-
-        # Compute MSE per time step per neuron (squared error, not averaged)
-        squared_error = torch.pow(predicted_segment - real_segment, 2).detach().cpu().numpy()
-        mse_array[i] = squared_error
-
-        # Clear GPU memory after each rollout
-        del predicted_segment, real_segment, squared_error
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-    # Compute statistics: average over starting points, then get min/max/mean/percentiles across neurons
+def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: int) -> tuple[plt.Figure, dict[str, float]]:
     print("    Computing statistics across starting points and neurons...")
     mse_avg_over_starts = mse_array.mean(axis=0)  # (n_steps, n_neurons)
 
@@ -534,7 +489,7 @@ def compute_multi_start_rollout_mse(
     ax.set_yscale('log')
 
     # Create clear title indicating rollout type
-    rollout_label = "Latent Space Rollout" if rollout_type == "latent" else "Activity Space Rollout"
+    rollout_label = f"{rollout_type} Space Rollout"
     ax.set_title(
         f'Multi-Start Long Rollout MSE - {rollout_label}\n'
         f'{n_starts} random starts, {n_steps} steps each',
@@ -552,9 +507,122 @@ def compute_multi_start_rollout_mse(
         f"multi_start_long_{rollout_type}_rollout_mses_by_time_final_max": float(mse_max_across_neurons[-1]),
         f"multi_start_long_{rollout_type}_rollout_mses_by_time_mean_over_time": float(mse_mean_across_neurons.mean()),
     }
+    return fig, metrics
+
+def compute_multi_start_rollout_mse(
+    model: LatentModel,
+    val_data: torch.Tensor,
+    val_stim: torch.Tensor,
+    neuron_data: NeuronData,
+    n_steps: int = 2000,
+    n_starts: int = 10,
+    rollout_type: str = "latent",
+    plot_mode: PlotMode = PlotMode.TRAINING,
+) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float]]:
+    """
+    Compute MSE over time from multiple random starting points.
+
+    For each starting point, runs a rollout and computes MSE at each time step
+    for each neuron. Aggregates across starting points to show MSE variability
+    across neurons as a function of rollout time.
+
+    Args:
+        model: The trained LatentModel
+        val_data: Validation data of shape (T, N) where N is number of neurons
+        val_stim: Validation stimulus of shape (T, S)
+        n_steps: Number of rollout steps (default: 2000)
+        n_starts: Number of random starting points (default: 10)
+        rollout_type: "latent" for latent space rollout, "activity" for activity space
+
+    Returns:
+        mse_array: Array of shape (n_starts, n_steps, n_neurons) with MSE at each time/neuron
+        figures: figures
+        metrics: Dictionary with summary statistics
+    """
+    print(f"  Computing multi-start {rollout_type} rollout ({n_starts} starts, {n_steps} steps each)...")
+
+    assert n_starts > 0
+    # Pick random starting points ensuring we have enough data
+    max_start = val_data.shape[0] - n_steps - 1
+    if max_start < n_starts:
+        raise ValueError(
+            f"Not enough data for {n_starts} starting points with {n_steps} steps. "
+            f"Need at least {n_steps + n_starts + 1} time points, have {val_data.shape[0]}"
+        )
+
+    rng = np.random.default_rng(seed=0)
+    start_indices = rng.choice(max_start, size=n_starts, replace=False)
+
+    n_neurons = val_data.shape[1]
+    mse_array = np.zeros((n_starts, n_steps, n_neurons))
+
+    best_mse = float("inf")
+    worst_mse = -float("inf")
+
+    best_segment_data = None
+    worst_segment_data = None
+
+    for i, start_idx in enumerate(start_indices):
+        print(f"    Rollout {i+1}/{n_starts} from start_idx={start_idx}...")
+
+        # Get initial state and segments
+        initial_state = val_data[start_idx]
+        stimulus_segment = val_stim[start_idx:start_idx + n_steps]
+        real_segment = val_data[start_idx + 1:start_idx + n_steps + 1]
+
+        # Perform rollout
+        if rollout_type == "latent":
+            predicted_segment = evolve_n_steps_latent(model, initial_state, stimulus_segment, n_steps)
+        else:  # activity
+            predicted_segment = evolve_n_steps(model, initial_state, stimulus_segment, n_steps)
+
+        # Compute MSE per time step per neuron (squared error, not averaged)
+        squared_error = torch.pow(predicted_segment - real_segment, 2).detach().cpu().numpy()
+        mse_array[i] = squared_error
+        mean_mse = np.nanmean(squared_error)
+        if best_segment_data is None:
+            worst_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
+            best_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
+            best_mse = mean_mse
+            worst_mse = mean_mse
+        else:
+            if mean_mse > worst_mse:
+                worst_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
+                worst_mse = mean_mse
+            if mean_mse < best_mse:
+                best_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
+                best_mse = mean_mse
+        # Clear GPU memory after each rollout
+        del predicted_segment, real_segment, squared_error
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    figures = {}
+
+    # plot worst segment
+    start_idx, real_segment, predicted_segment = worst_segment_data
+    if plot_mode.neuron_traces:
+        figures[f"worst_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
+                real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
+            )
+    # plot mse vs variance cell type labelled
+    figures[f"worst_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
+
+    # plot best segment
+    start_idx, real_segment, predicted_segment = best_segment_data
+    if plot_mode.neuron_traces:
+        figures[f"best_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
+                real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
+            )
+    # plot mse vs variance cell type labelled
+    figures[f"best_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
+
+    # Compute statistics: average over starting points, then get min/max/mean/percentiles across neurons
+    fig, metrics = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts)
+    figures[f"multi_start_{n_steps}step_{rollout_type}_rollout_mses_by_time"] = fig
 
     print(f"    Multi-start {rollout_type} rollout complete")
-    return mse_array, fig, metrics
+    return mse_array, figures, metrics
 
 
 def run_validation_diagnostics(
@@ -564,8 +632,7 @@ def run_validation_diagnostics(
     val_stim: torch.Tensor,
     model: LatentModel,
     config: ModelParams,
-    save_figures: bool = False,
-    skip_multi_start_rollout: bool = False,
+    plot_mode: PlotMode,
 ) -> tuple[dict[str, float|int], dict[str, plt.Figure]]:
     """
     Perform validation diagnostics on the trained model.
@@ -584,6 +651,7 @@ def run_validation_diagnostics(
         metrics: Dictionary of scalar metrics
         figures: Dictionary of matplotlib figures
     """
+
     overall_start = time.time()
     log_timestamp("Running validation diagnostics...")
     print(f"  Val data shape: {val_data.shape}")
@@ -592,163 +660,42 @@ def run_validation_diagnostics(
     metrics = {}
     figures = {}
 
-    # Compute reconstruction traces
-    step_start = time.time()
-    log_timestamp("Computing reconstruction traces...")
-    true_trace = val_data.detach().cpu().numpy()
-    recon_trace = model.decoder(model.encoder(val_data)).detach().cpu().numpy()
-    log_timestamp("Reconstruction traces complete", step_start)
-
     # make run dir if it doesn't exist
     run_dir.mkdir(parents=True, exist_ok=True)
 
-
-    # Reconstruction error stratified (colored by cell type)
-    step_start = time.time()
-    log_timestamp("Plotting reconstruction variance...")
-    fig = plot_recon_error(true_trace, recon_trace, neuron_data)
-    figures["reconstruction_variance"] = fig
-    if save_figures:
-        fig.savefig(run_dir / "reconstruction_variance.jpg", dpi=100)
-        plt.close(fig)
-    log_timestamp("Reconstruction variance plot complete", step_start)
-
-    # Reconstruction error with cell type labels
-    step_start = time.time()
-    log_timestamp("Plotting reconstruction variance (labeled)...")
-    fig_labeled = plot_recon_error_labeled(true_trace, recon_trace, neuron_data)
-    figures["reconstruction_variance_labeled"] = fig_labeled
-    if save_figures:
-        fig_labeled.savefig(run_dir / "reconstruction_variance_labeled.jpg", dpi=150)
-        plt.close(fig_labeled)
-    log_timestamp("Reconstruction variance (labeled) plot complete", step_start)
-
-    # MSE evolution over time steps - Latent space rollout
-    step_start = time.time()
-    log_timestamp("Computing MSE evolution (latent space, tmax=20)...")
-    recons_latent = evolve_many_time_steps_latent(model, val_data, val_stim, tmax=20)
-    fig_latent, mse_metrics_latent = plot_mses(val_data, recons_latent, rollout_type="latent")
-    metrics.update(mse_metrics_latent)
-    figures["mses_by_time_steps_latent"] = fig_latent
-    if save_figures:
-        fig_latent.savefig(run_dir / "mses_by_time_steps_latent.jpg", dpi=100)
-        plt.close(fig_latent)
-    log_timestamp("MSE evolution (latent space) complete", step_start)
-
-    # Free GPU memory from latent rollout (~10 GB)
-    del recons_latent
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-
-    # MSE evolution over time steps - Activity space rollout
-    step_start = time.time()
-    log_timestamp("Computing MSE evolution (activity space, tmax=20)...")
-    recons_activity = evolve_many_time_steps(model, val_data, val_stim, tmax=20)
-    fig_activity, mse_metrics_activity = plot_mses(val_data, recons_activity, rollout_type="activity")
-    metrics.update(mse_metrics_activity)
-    figures["mses_by_time_steps_activity"] = fig_activity
-    if save_figures:
-        fig_activity.savefig(run_dir / "mses_by_time_steps_activity.jpg", dpi=100)
-        plt.close(fig_activity)
-    log_timestamp("MSE evolution (activity space) complete", step_start)
-
-    # Free GPU memory from activity rollout (~10 GB)
-    del recons_activity
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-
-    # Multi-step rollout evaluation - compute rollout once
-    step_start = time.time()
-    log_timestamp("Starting multi-step rollout evaluation (activity space, 2000 steps)...")
-    with torch.no_grad():
-        real_segment, predicted_segment, mse_per_step, cumulative_mse = compute_rollout(
-            model, val_data, val_stim, n_steps=2000, start_idx=100
-        )
-    log_timestamp("Multi-step rollout (activity) computation complete", step_start)
-
-    # Generate MSE figure (always)
-    step_start = time.time()
-    log_timestamp("Generating rollout MSE figure...")
-    rollout_mse_fig, rollout_metrics = plot_rollout_mse_from_results(
-        mse_per_step, cumulative_mse
-    )
-    metrics.update(rollout_metrics)
-    figures["rollout_mse"] = rollout_mse_fig
-    log_timestamp("Rollout MSE figure complete", step_start)
-
-    # Generate neuron trace figure (only for post-training analysis)
-    if not skip_multi_start_rollout:
-        step_start = time.time()
-        log_timestamp("Generating rollout neuron trace figure...")
-        rollout_traces_fig = plot_rollout_traces_from_results(
-            real_segment, predicted_segment, neuron_data, start_idx=100
-        )
-        figures["rollout_traces"] = rollout_traces_fig
-        log_timestamp("Rollout trace figure complete", step_start)
-        if save_figures:
-            step_start = time.time()
-            log_timestamp("Saving rollout trace figure to disk...")
-            rollout_traces_fig.savefig(run_dir / "rollout_traces.jpg", dpi=100)
-            plt.close(rollout_traces_fig)
-            log_timestamp("Rollout trace figure saved", step_start)
-
-    # Multi-step rollout evaluation in latent space
-    step_start = time.time()
-    log_timestamp("Starting multi-step rollout evaluation (latent space, 2000 steps)...")
-    with torch.no_grad():
-        real_segment_latent, predicted_segment_latent, mse_per_step_latent, cumulative_mse_latent = compute_rollout_latent(
-            model, val_data, val_stim, n_steps=2000, start_idx=100
-        )
-    log_timestamp("Multi-step rollout (latent) computation complete", step_start)
-
-    # Generate neuron trace figure for latent rollout (only for post-training analysis)
-    if not skip_multi_start_rollout:
-        step_start = time.time()
-        log_timestamp("Generating latent rollout neuron trace figure...")
-        rollout_latent_traces_fig = plot_rollout_traces_from_results(
-            real_segment_latent, predicted_segment_latent, neuron_data, start_idx=100
-        )
-        figures["rollout_latent_traces"] = rollout_latent_traces_fig
-        log_timestamp("Latent rollout trace figure complete", step_start)
-        if save_figures:
-            step_start = time.time()
-            log_timestamp("Saving latent rollout trace figure to disk...")
-            rollout_latent_traces_fig.savefig(run_dir / "rollout_latent_traces.jpg", dpi=100)
-            plt.close(rollout_latent_traces_fig)
-            log_timestamp("Latent rollout trace figure saved", step_start)
-
-    # Multi-start rollout evaluation - only run on final trained model
-    if not skip_multi_start_rollout:
-        # Multi-start rollout evaluation - Activity space
+    # Multi-start short-rollout evaluation - Activity & latent
+    for rollout_type in ("activity", "latent"):
         step_start = time.time()
         log_timestamp("Starting multi-start rollout evaluation (activity space, 10 starts x 2000 steps)...")
         with torch.no_grad():
-            _, multi_rollout_activity_fig, multi_rollout_activity_metrics = compute_multi_start_rollout_mse(
-                model, val_data, val_stim, n_steps=2000, n_starts=10, rollout_type="activity"
+            _, new_figs, new_metrics = compute_multi_start_rollout_mse(
+                model, val_data, val_stim, neuron_data, n_steps=100, n_starts=10, rollout_type=rollout_type,
+                plot_mode=plot_mode
             )
-        metrics.update(multi_rollout_activity_metrics)
-        figures["multi_start_long_activity_rollout_mses_by_time"] = multi_rollout_activity_fig
-        if save_figures:
-            multi_rollout_activity_fig.savefig(run_dir / "multi_start_long_activity_rollout_mses_by_time.jpg", dpi=100)
-            plt.close(multi_rollout_activity_fig)
-        log_timestamp("Multi-start rollout (activity) complete", step_start)
+        metrics.update(new_metrics)
+        figures.update(new_figs)
+        log_timestamp(f"Multi-start rollout ({rollout_type}) complete", step_start)
 
-        # Multi-start rollout evaluation - Latent space
-        step_start = time.time()
-        log_timestamp("Starting multi-start rollout evaluation (latent space, 10 starts x 2000 steps)...")
-        with torch.no_grad():
-            _, multi_rollout_latent_fig, multi_rollout_latent_metrics = compute_multi_start_rollout_mse(
-                model, val_data, val_stim, n_steps=2000, n_starts=10, rollout_type="latent"
-            )
-        metrics.update(multi_rollout_latent_metrics)
-        figures["multi_start_long_latent_rollout_mses_by_time"] = multi_rollout_latent_fig
-        if save_figures:
-            multi_rollout_latent_fig.savefig(run_dir / "multi_start_long_latent_rollout_mses_by_time.jpg", dpi=100)
-            plt.close(multi_rollout_latent_fig)
-        log_timestamp("Multi-start rollout (latent) complete", step_start)
+    # Multi-start rollout evaluation - only run on final trained model
+    if plot_mode.run_long_rollout:
+        # Multi-start rollout evaluation - Activity & latent
+        for rollout_type in ("activity", "latent"):
+            step_start = time.time()
+            log_timestamp("Starting multi-start rollout evaluation (activity space, 10 starts x 2000 steps)...")
+            with torch.no_grad():
+                _, new_figs, new_metrics = compute_multi_start_rollout_mse(
+                    model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=10, rollout_type=rollout_type,
+                    plot_mode=plot_mode
+                )
+            metrics.update(new_metrics)
+            figures.update(new_figs)
+            log_timestamp(f"Multi-start rollout ({rollout_type}) complete", step_start)
     else:
         log_timestamp("Skipping multi-start rollout evaluation (skip_multi_start_rollout=True)")
 
+    if plot_mode.save_figures:
+        for key, fig in new_figs.items():
+            fig.savefig(run_dir / f"{key}.jpg", dpi=100)
     log_timestamp("Validation diagnostics complete", overall_start)
     return metrics, figures
 
@@ -989,9 +936,10 @@ def plot_rollout_mse_from_results(
 
 
 def plot_rollout_traces_from_results(
-    real_segment: torch.Tensor,
-    predicted_segment: torch.Tensor,
+    real_segment: torch.Tensor | np.ndarray,
+    predicted_segment: torch.Tensor | np.ndarray,
     neuron_data: NeuronData,
+    rollout_type: str,
     start_idx: int = 100,
 ) -> plt.Figure:
     """
@@ -1022,9 +970,12 @@ def plot_rollout_traces_from_results(
             print(f"      Plotting cell type {itype}/{ntypes}...")
         ix = rng.choice(neuron_data.indices_per_type[itype])
 
-        real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
-        pred_trace_cpu = predicted_segment[:, ix].detach().cpu().numpy()
-
+        try:
+            real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
+            pred_trace_cpu = predicted_segment[:, ix].detach().cpu().numpy()
+        except:
+            real_trace_cpu = real_segment[:, ix]
+            pred_trace_cpu = predicted_segment[:, ix]
         # Plot real trace: black solid
         axes[itype].plot(real_trace_cpu, lw=1, color='black', label='Real')
         ylim = axes[itype].get_ylim()
@@ -1042,7 +993,7 @@ def plot_rollout_traces_from_results(
         axes[itype].grid(True, alpha=0.3)
 
     axes[-1].set_xlabel("Rollout Time Steps")
-    fig.suptitle(f"Multi-Step Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=0.995)
+    fig.suptitle(f"Multi-Step {rollout_type} Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=0.995)
 
     print("    Running tight_layout()...")
     fig.tight_layout()

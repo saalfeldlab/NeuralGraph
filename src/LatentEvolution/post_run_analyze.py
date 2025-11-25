@@ -18,7 +18,7 @@ import yaml
 from torch.utils.tensorboard import SummaryWriter
 
 from LatentEvolution.latent import LatentModel, ModelParams, get_device, load_dataset
-from LatentEvolution.diagnostics import run_validation_diagnostics
+from LatentEvolution.diagnostics import PlotMode, run_validation_diagnostics
 
 
 def main(run_dir: Path) -> None:
@@ -97,7 +97,7 @@ def main(run_dir: Path) -> None:
         val_stim=val_stim,
         model=model,
         config=cfg,
-        save_figures=True,
+        plot_mode=PlotMode.POST_RUN,
     )
     print(f"Saved main validation figures to {out_dir}")
 
@@ -127,7 +127,7 @@ def main(run_dir: Path) -> None:
                 val_stim=cv_val_stim,
                 model=model,
                 config=cfg,
-                save_figures=True,
+                plot_mode=PlotMode.POST_RUN
             )
             print(f"Saved cross-validation figures to {cv_out_dir}")
 
