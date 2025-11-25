@@ -83,10 +83,10 @@ import shutil
 import subprocess
 
 # Optional dependency
-try:
-    from pysr import PySRRegressor
-except (ImportError, subprocess.CalledProcessError):
-    PySRRegressor = None
+# try:
+#     from pysr import PySRRegressor
+# except (ImportError, subprocess.CalledProcessError):
+#     PySRRegressor = None
 
 
 def get_training_files(log_dir, n_runs):
@@ -5444,6 +5444,47 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
 
+            # Plot connectivity matrix comparison
+            col_start = 0
+            col_end = 217 * 2  # 424        L1 L2
+            row_start = 1736
+            row_end = 1736 + 217 * 2  # 2160   R1 R2
+            
+
+            true_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
+            true_in_region[edges[1], edges[0]] = gt_weights
+
+            learned_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
+            learned_in_region[edges[1], edges[0]] = corrected_W.squeeze()
+
+            fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+
+            # First panel: true_in connectivity
+            ax1 = sns.heatmap(to_numpy(true_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
+                              cbar_kws={'fraction': 0.046}, ax=axes[0])
+            axes[0].set_title('true connectivity', fontsize=24)
+            axes[0].set_xlabel('columns [1736:2170]', fontsize=18)
+            axes[0].set_ylabel('rows [0:434]', fontsize=18)
+            cbar1 = ax1.collections[0].colorbar
+            cbar1.ax.tick_params(labelsize=16)
+
+            # Second panel: learned_in connectivity
+            ax2 = sns.heatmap(to_numpy(learned_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
+                              cbar_kws={'fraction': 0.046}, ax=axes[1])
+            axes[1].set_title('learned connectivity', fontsize=24)
+            axes[1].set_xlabel('columns [1736:2170]', fontsize=18)
+            axes[1].set_ylabel('rows [0:434]', fontsize=18)
+            cbar2 = ax2.collections[0].colorbar
+            cbar2.ax.tick_params(labelsize=16)
+
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/connectivity_comparison.png', dpi=150, bbox_inches='tight')
+            plt.close()
+
+            
+
+
+
 
 
 
@@ -5643,6 +5684,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             # for n_clust in [50, 75, 100, 125, 150]:
             #     results = clustering_spectral(a_aug, type_list, n_clusters=n_clust)
             #     print(f"  n_clusters={n_clust}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
+
+
+
+
 
 
 
@@ -8558,9 +8603,13 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_24']
 
-    config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
+    # config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
 
-    # config_list = ['fly_N9_62_22_10']
+    # config_list = ['fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18']
+
+    # config_list = ['fly_N9_62_5_9_5', 'fly_N9_62_5_19_5', 'fly_N9_62_5_19_6']
+
+    config_list = ['fly_N9_62_22_1']
     
     # config_list = ['signal_N11_2_1_2']             
 
