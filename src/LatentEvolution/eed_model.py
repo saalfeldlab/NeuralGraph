@@ -221,5 +221,5 @@ class Evolver(nn.Module):
                 x = self.evolver(concat)
             else:
                 # Standard residual: x = x + MLP(x)
-                x = x + self.evolver(x)
+                x = self.evolver(x)
         return x
