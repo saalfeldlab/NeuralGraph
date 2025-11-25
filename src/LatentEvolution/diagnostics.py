@@ -967,7 +967,7 @@ def plot_rollout_traces_from_results(
     # Create one large figure
     fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
 
-    p5, p95 = torch.quantile(real_segment, [0.05, 0.95]).detach().cpu().numpy()
+    p5, p95 = torch.quantile(real_segment, torch.tensor([0.05, 0.95], device=real_segment.device)).detach().cpu().numpy()
     print(f"    Plotting {ntypes} neuron traces...")
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
         if itype % 10 == 0:
