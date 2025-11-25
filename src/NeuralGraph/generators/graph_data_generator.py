@@ -333,7 +333,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
         # If n_extra_null_edges > 424*424, prioritize L1-L2 (receiver) and R1-R2 (sender) connections
         if n_extra_null_edges > 424 * 424:
-            print(f"Prioritizing L1-L2 and R1-R2 connections...")
+            print("Prioritizing L1-L2 and R1-R2 connections...")
             # R1 R2 (sender): columns 0 to 433
             col_start = 0
             col_end = 217 * 2  # 434

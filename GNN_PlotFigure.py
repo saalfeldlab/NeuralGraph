@@ -80,7 +80,6 @@ from tifffile import imread
 
 import matplotlib.ticker as ticker
 import shutil
-import subprocess
 
 # Optional dependency
 # try:
