@@ -973,9 +973,9 @@ def plot_rollout_traces_from_results(
     ]
     is_torch = isinstance(real_segment, torch.Tensor) and isinstance(predicted_segment, torch.Tensor)
     if is_torch:
-        llim, ulim = torch.quantile(real_segment[:, ixs], torch.tensor([0.02, 0.98], device=real_segment.device)).detach().cpu().numpy()
+        llim, ulim = torch.quantile(real_segment[:, ixs], torch.tensor([0.01, 0.99], device=real_segment.device)).detach().cpu().numpy()
     else:
-        llim, ulim = np.quantile(real_segment[:, ixs], [0.02, 0.98])
+        llim, ulim = np.quantile(real_segment[:, ixs], [0.01, 0.99])
     print(f"    Plotting {ntypes} neuron traces...")
 
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
