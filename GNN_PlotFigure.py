@@ -5446,9 +5446,9 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             # Plot connectivity matrix comparison
             col_start = 0
-            col_end = 217 * 2  # 424        L1 L2
+            col_end = 217 * 2  # 424        R1 R2
             row_start = 1736
-            row_end = 1736 + 217 * 2  # 2160   R1 R2
+            row_end = 1736 + 217 * 2  # 2160   L1 L2
             
 
             true_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)

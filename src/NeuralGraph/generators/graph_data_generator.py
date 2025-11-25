@@ -330,18 +330,60 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         existing_edges = set(zip(edge_index[0].cpu().numpy(), edge_index[1].cpu().numpy()))
         import random
         extra_edges = []
-        max_attempts = n_extra_null_edges * 10
-        attempts = 0
-        while len(extra_edges) < n_extra_null_edges and attempts < max_attempts:
-            source = random.randint(0, n_neurons - 1)
-            target = random.randint(0, n_neurons - 1)
-            if (source, target) not in existing_edges and source != target:
-                extra_edges.append([source, target])
-            attempts += 1
+
+        # If n_extra_null_edges > 424*424, prioritize L1-L2 (receiver) and R1-R2 (sender) connections
+        if n_extra_null_edges > 424 * 424:
+            print(f"Prioritizing L1-L2 and R1-R2 connections...")
+            # R1 R2 (sender): columns 0 to 433
+            col_start = 0
+            col_end = 217 * 2  # 434
+            # L1 L2 (receiver): rows 1736 to 2159
+            row_start = 1736
+            row_end = 1736 + 217 * 2  # 2160
+
+            # Generate all possible edges in the priority region
+            priority_edges = []
+            for source in range(col_start, col_end):
+                for target in range(row_start, row_end):
+                    if (source, target) not in existing_edges and source != target:
+                        priority_edges.append([source, target])
+
+            # Add priority edges first
+            n_priority = min(len(priority_edges), n_extra_null_edges)
+            random.shuffle(priority_edges)
+            extra_edges.extend(priority_edges[:n_priority])
+            print(f"Added {len(extra_edges)} priority edges from R1-R2 to L1-L2")
+
+            # Fill remaining with random edges if needed
+            remaining = n_extra_null_edges - len(extra_edges)
+            if remaining > 0:
+                print(f"Filling remaining {remaining} edges randomly...")
+                existing_edges.update([(e[0], e[1]) for e in extra_edges])
+                max_attempts = remaining * 10
+                attempts = 0
+                while len(extra_edges) < n_extra_null_edges and attempts < max_attempts:
+                    source = random.randint(0, n_neurons - 1)
+                    target = random.randint(0, n_neurons - 1)
+                    if (source, target) not in existing_edges and source != target:
+                        extra_edges.append([source, target])
+                        existing_edges.add((source, target))
+                    attempts += 1
+        else:
+            # Original random edge generation
+            max_attempts = n_extra_null_edges * 10
+            attempts = 0
+            while len(extra_edges) < n_extra_null_edges and attempts < max_attempts:
+                source = random.randint(0, n_neurons - 1)
+                target = random.randint(0, n_neurons - 1)
+                if (source, target) not in existing_edges and source != target:
+                    extra_edges.append([source, target])
+                attempts += 1
+
         if extra_edges:
             extra_edge_index = torch.tensor(extra_edges, dtype=torch.long, device=device).t()
             edge_index = torch.cat([edge_index, extra_edge_index], dim=1)
             p["w"] = torch.cat([p["w"], torch.zeros(len(extra_edges), device=device)])
+            print(f"Total extra edges added: {len(extra_edges)}")
 
     pde = PDE_N9(p=p, f=torch.nn.functional.relu, params=simulation_config.params,
                  model_type=model_config.signal_model_name, n_neuron_types=n_neuron_types, device=device)
