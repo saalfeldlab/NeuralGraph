@@ -697,7 +697,7 @@ def run_validation_diagnostics(
         log_timestamp("Skipping multi-start rollout evaluation (skip_multi_start_rollout=True)")
 
     if plot_mode.save_figures:
-        for key, fig in new_figs.items():
+        for key, fig in figures.items():
             fig.savefig(run_dir / f"{key}.jpg", dpi=100)
     log_timestamp("Validation diagnostics complete", overall_start)
     return metrics, figures
@@ -1005,12 +1005,12 @@ def plot_rollout_traces_from_results(
         unexplained_var = np.nanvar(real_trace_cpu - pred_trace_cpu)
         r2 = 1 - unexplained_var / total_var
 
-        axes[itype].set_title(f"{tname}: ix={int(ix)}, R2 = {r2:.2f}, var = {total_var:.2e} (autoregressive rollout from t={start_idx})")
+        axes[itype].set_title(f"{tname}: ix={int(ix)}, R2 = {r2:.2f}, var = {total_var:.2e} ({rollout_type} rollout)")
         axes[itype].legend(loc='upper right')
         axes[itype].grid(True, alpha=0.3)
 
     axes[-1].set_xlabel("Rollout Time Steps")
-    fig.suptitle(f"Multi-Step {rollout_type} Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=0.995)
+    fig.suptitle(f"Multi-Step {rollout_type} Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=1.1)
 
     print("    Running tight_layout()...")
     fig.tight_layout()
