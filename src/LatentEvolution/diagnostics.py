@@ -972,10 +972,15 @@ def plot_rollout_traces_from_results(
         rng.choice(neuron_data.indices_per_type[itype]) for itype in range(len(neuron_data.TYPE_NAMES))
     ]
     is_torch = isinstance(real_segment, torch.Tensor) and isinstance(predicted_segment, torch.Tensor)
+    llim = real_segment[:, ixs].min()
+    ulim = real_segment[:, ixs].max()
     if is_torch:
-        llim, ulim = torch.quantile(real_segment[:, ixs], torch.tensor([0.01, 0.99], device=real_segment.device)).detach().cpu().numpy()
-    else:
-        llim, ulim = np.quantile(real_segment[:, ixs], [0.01, 0.99])
+        llim = llim.detach().cpu().numpy()
+        ulim = ulim.detach().cpu().numpy()
+
+    # broaden a bit more
+    llim -= 0.5
+    ulim += 0.5
     print(f"    Plotting {ntypes} neuron traces...")
 
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
