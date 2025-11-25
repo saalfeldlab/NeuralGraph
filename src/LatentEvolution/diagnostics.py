@@ -605,6 +605,7 @@ def compute_multi_start_rollout_mse(
         figures[f"worst_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
                 real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
             )
+        plt.close()
     # plot mse vs variance cell type labelled
     figures[f"worst_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
 
@@ -614,12 +615,14 @@ def compute_multi_start_rollout_mse(
         figures[f"best_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
                 real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
             )
+        plt.close()
     # plot mse vs variance cell type labelled
     figures[f"best_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
 
     # Compute statistics: average over starting points, then get min/max/mean/percentiles across neurons
     fig, metrics = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts)
     figures[f"multi_start_{n_steps}step_{rollout_type}_rollout_mses_by_time"] = fig
+    plt.close()
 
     print(f"    Multi-start {rollout_type} rollout complete")
     return mse_array, figures, metrics
@@ -964,6 +967,7 @@ def plot_rollout_traces_from_results(
     # Create one large figure
     fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
 
+    p5, p95 = torch.quantile(real_segment, [0.05, 0.95]).detach().cpu().numpy()
     print(f"    Plotting {ntypes} neuron traces...")
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
         if itype % 10 == 0:
@@ -978,7 +982,7 @@ def plot_rollout_traces_from_results(
             pred_trace_cpu = predicted_segment[:, ix]
         # Plot real trace: black solid
         axes[itype].plot(real_trace_cpu, lw=1, color='black', label='Real')
-        ylim = axes[itype].get_ylim()
+        # ylim = axes[itype].get_ylim()
 
         # Plot predicted trace: orange solid
         axes[itype].plot(pred_trace_cpu, lw=1, color='#ff7f0e', label='Predicted (rollout)')
@@ -987,8 +991,12 @@ def plot_rollout_traces_from_results(
         time_steps = np.arange(len(real_trace_cpu))
         axes[itype].fill_between(time_steps, real_trace_cpu, pred_trace_cpu,
                                 alpha=0.2, color='#ff7f0e')
-        axes[itype].set_ylim(*ylim)
-        axes[itype].set_title(f"{tname}: ix={int(ix)} (autoregressive rollout from t={start_idx})")
+        axes[itype].set_ylim(p5, p95)
+        total_var = np.var(real_trace_cpu)
+        unexplained_var = np.var(real_trace_cpu - pred_trace_cpu)
+        r2 = 1 - unexplained_var / total_var
+
+        axes[itype].set_title(f"{tname}: ix={int(ix)}, R2 = {r2:.2f}, var = {total_var:.2e} (autoregressive rollout from t={start_idx})")
         axes[itype].legend(loc='upper right')
         axes[itype].grid(True, alpha=0.3)
 
