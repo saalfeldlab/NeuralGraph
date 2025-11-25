@@ -22,7 +22,7 @@ import tensorstore as ts
 
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
-from LatentEvolution.diagnostics import run_validation_diagnostics, compute_per_neuron_mse
+from LatentEvolution.diagnostics import run_validation_diagnostics, compute_per_neuron_mse, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
 from LatentEvolution.eed_model import (
     MLP,
@@ -715,8 +715,7 @@ def train(cfg: ModelParams, run_dir: Path):
                     val_stim=val_stim,
                     model=model,
                     config=cfg,
-                    save_figures=False,
-                    skip_multi_start_rollout=True,
+                    plot_mode = PlotMode.TRAINING,
                 )
                 diagnostics_duration = (datetime.now() - diagnostics_start).total_seconds()
 
@@ -808,7 +807,7 @@ def train(cfg: ModelParams, run_dir: Path):
             val_stim=val_stim,
             model=model,
             config=cfg,
-            save_figures=True,
+            plot_mode = PlotMode.POST_RUN,
         )
         print(f"Saved main validation figures to {run_dir}")
 
@@ -841,7 +840,7 @@ def train(cfg: ModelParams, run_dir: Path):
                     val_stim=cv_val_stim,
                     model=model,
                     config=cfg,
-                    save_figures=True,
+                    plot_mode = PlotMode.POST_RUN
                 )
                 print(f"Saved cross-validation figures to {cv_out_dir}")
 
