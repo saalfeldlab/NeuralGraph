@@ -109,11 +109,12 @@ def main(run_dir: Path) -> None:
             cv_name = cv_config.name or cv_config.simulation_config
             print(f"\nEvaluating on {cv_name} ({cv_config.simulation_config})...")
 
+            data_split = cv_config.data_split or cfg.training.data_split
             # Load cross-validation dataset (only need validation split)
             _, cv_val_data, _, _, cv_val_stim, _, cv_neuron_data = load_dataset(
                 simulation_config=cv_config.simulation_config,
                 column_to_model=cfg.training.column_to_model,
-                data_split=cfg.training.data_split,  # Use same time ranges
+                data_split=data_split,  # Use same time ranges
                 num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
                 device=device,
             )
