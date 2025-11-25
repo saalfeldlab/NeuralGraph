@@ -148,9 +148,9 @@ def plot_recon_error(true_trace, recon_trace, neuron_data: NeuronData):
     fig, ax = plt.subplots(1, 2, figsize=(10, 4))
     # time variation, neuron variation
     for i in (0, 1):
-        var_trace = np.var(true_trace, axis=i)
+        var_trace = np.nanvar(true_trace, axis=i)
         err = recon_trace - true_trace
-        var_err = np.var(err, axis=i)
+        var_err = np.nanvar(err, axis=i)
 
         if i == 0:  # neuron variation - color by cell type
             # Create colormap with enough distinct colors for all cell types (65 types)
@@ -202,9 +202,9 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
     fig, ax = plt.subplots(1, 1, figsize=(14, 10))
 
     # Compute variance across time for each neuron (axis=0 -> one value per neuron)
-    var_trace = np.var(true_trace, axis=0)
+    var_trace = np.nanvar(true_trace, axis=0)
     err = recon_trace - true_trace
-    var_err = np.var(err, axis=0)
+    var_err = np.nanvar(err, axis=0)
 
     # Create colormap with enough distinct colors for all cell types (65 types)
     num_types = len(neuron_data.TYPE_NAMES)
@@ -992,8 +992,8 @@ def plot_rollout_traces_from_results(
         axes[itype].fill_between(time_steps, real_trace_cpu, pred_trace_cpu,
                                 alpha=0.2, color='#ff7f0e')
         axes[itype].set_ylim(p5, p95)
-        total_var = np.var(real_trace_cpu)
-        unexplained_var = np.var(real_trace_cpu - pred_trace_cpu)
+        total_var = np.nanvar(real_trace_cpu)
+        unexplained_var = np.nanvar(real_trace_cpu - pred_trace_cpu)
         r2 = 1 - unexplained_var / total_var
 
         axes[itype].set_title(f"{tname}: ix={int(ix)}, R2 = {r2:.2f}, var = {total_var:.2e} (autoregressive rollout from t={start_idx})")
