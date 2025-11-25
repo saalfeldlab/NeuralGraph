@@ -7,6 +7,7 @@ from datetime import datetime
 from uuid import uuid4
 from pydantic import BaseModel
 import subprocess
+import os
 
 
 def get_git_commit_hash() -> str:
@@ -196,5 +197,13 @@ def create_run_directory(
 
     # Create directory
     run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create symlink from base_dir/expt_code/run_uuid -> run_dir
+    symlink_dir = base_dir / expt_code
+    symlink_dir.mkdir(parents=True, exist_ok=True)
+    symlink_path = symlink_dir / run_uuid
+    # Use relative path for the symlink target to make it relocatable
+    relative_target = os.path.relpath(run_dir, symlink_dir)
+    symlink_path.symlink_to(relative_target)
 
     return run_dir

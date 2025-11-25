@@ -206,6 +206,14 @@ class TestCreateRunDirectory(unittest.TestCase):
             # UUID should be 6 characters
             self.assertEqual(len(result.name), 6)
 
+            # Check symlink from base_dir/expt_code/run_uuid -> run_dir
+            run_uuid = result.name
+            symlink_path = tmp_path / 'test_exp' / run_uuid
+            self.assertTrue(symlink_path.exists())
+            self.assertTrue(symlink_path.is_symlink())
+            # Verify symlink points to the correct directory
+            self.assertEqual(symlink_path.resolve(), result.resolve())
+
     def test_no_overrides_structure(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -225,6 +233,13 @@ class TestCreateRunDirectory(unittest.TestCase):
             self.assertIn('test_exp_', result.parent.name)
             self.assertIn('_abc123', result.parent.name)
 
+            # Check symlink from base_dir/expt_code/run_uuid -> run_dir
+            run_uuid = result.name
+            symlink_path = tmp_path / 'test_exp' / run_uuid
+            self.assertTrue(symlink_path.exists())
+            self.assertTrue(symlink_path.is_symlink())
+            self.assertEqual(symlink_path.resolve(), result.resolve())
+
     def test_creates_nested_directories(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -242,6 +257,13 @@ class TestCreateRunDirectory(unittest.TestCase):
             self.assertEqual(result.parent.name, 'lr0.001')
             self.assertEqual(result.parent.parent.name, 'bs64')
             self.assertEqual(result.parent.parent.parent.name, 'ld128')
+
+            # Check symlink from base_dir/expt_code/run_uuid -> run_dir
+            run_uuid = result.name
+            symlink_path = tmp_path / 'test_exp' / run_uuid
+            self.assertTrue(symlink_path.exists())
+            self.assertTrue(symlink_path.is_symlink())
+            self.assertEqual(symlink_path.resolve(), result.resolve())
 
     def test_unique_uuids(self):
         """Test that multiple calls create unique directories."""
@@ -268,6 +290,18 @@ class TestCreateRunDirectory(unittest.TestCase):
             self.assertTrue(result2.exists())
             # Should have same parent (same hyperparameters)
             self.assertEqual(result1.parent, result2.parent)
+
+            # Check that both symlinks were created
+            run_uuid1 = result1.name
+            run_uuid2 = result2.name
+            symlink_path1 = tmp_path / 'test_exp' / run_uuid1
+            symlink_path2 = tmp_path / 'test_exp' / run_uuid2
+            self.assertTrue(symlink_path1.exists())
+            self.assertTrue(symlink_path1.is_symlink())
+            self.assertTrue(symlink_path2.exists())
+            self.assertTrue(symlink_path2.is_symlink())
+            self.assertEqual(symlink_path1.resolve(), result1.resolve())
+            self.assertEqual(symlink_path2.resolve(), result2.resolve())
 
 
 if __name__ == "__main__":
