@@ -1034,7 +1034,7 @@ def data_train_signal(config, erase, best_model, device):
                                                                          lr_update=lr_update, lr_W=lr_W,
                                                                          lr_modulation=lr_modulation)
                     for sub_epochs in trange(20):
-                        rr = torch.tensor(np.linspace(-5, 5, 1000)).to(device)
+                        rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
                         pred = []
                         optimizer.zero_grad()
                         for n in range(n_neurons):
