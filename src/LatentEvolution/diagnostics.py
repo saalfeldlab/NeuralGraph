@@ -602,22 +602,22 @@ def compute_multi_start_rollout_mse(
     # plot worst segment
     start_idx, real_segment, predicted_segment = worst_segment_data
     if plot_mode.neuron_traces:
-        figures[f"worst_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
+        figures[f"worst_{n_steps}step_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
                 real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
             )
         plt.close()
     # plot mse vs variance cell type labelled
-    figures[f"worst_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
+    figures[f"worst_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
 
     # plot best segment
     start_idx, real_segment, predicted_segment = best_segment_data
     if plot_mode.neuron_traces:
-        figures[f"best_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
+        figures[f"best_{n_steps}step_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
                 real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
             )
         plt.close()
     # plot mse vs variance cell type labelled
-    figures[f"best_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
+    figures[f"best_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
 
     # Compute statistics: average over starting points, then get min/max/mean/percentiles across neurons
     fig, metrics = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts)
