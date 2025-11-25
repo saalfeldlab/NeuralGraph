@@ -967,7 +967,8 @@ def plot_rollout_traces_from_results(
     # Create one large figure
     fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
 
-    if isinstance(real_segment, torch.Tensor):
+    is_torch = isinstance(real_segment, torch.Tensor)
+    if is_torch:
         p5, p95 = torch.quantile(real_segment, torch.tensor([0.05, 0.95], device=real_segment.device)).detach().cpu().numpy()
     else:
         p5, p95 = np.quantile(real_segment, [0.05, 0.95])
@@ -977,10 +978,10 @@ def plot_rollout_traces_from_results(
             print(f"      Plotting cell type {itype}/{ntypes}...")
         ix = rng.choice(neuron_data.indices_per_type[itype])
 
-        try:
+        if is_torch:
             real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
             pred_trace_cpu = predicted_segment[:, ix].detach().cpu().numpy()
-        except:
+        else:
             real_trace_cpu = real_segment[:, ix]
             pred_trace_cpu = predicted_segment[:, ix]
         # Plot real trace: black solid
