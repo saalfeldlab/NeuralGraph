@@ -967,16 +967,21 @@ def plot_rollout_traces_from_results(
     # Create one large figure
     fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
 
-    is_torch = isinstance(real_segment, torch.Tensor)
+    # defin ylim
+    ixs = [
+        rng.choice(neuron_data.indices_per_type[itype]) for itype in range(len(neuron_data.TYPE_NAMES))
+    ]
+    is_torch = isinstance(real_segment, torch.Tensor) and isinstance(predicted_segment, torch.Tensor)
     if is_torch:
-        p5, p95 = torch.quantile(real_segment, torch.tensor([0.05, 0.95], device=real_segment.device)).detach().cpu().numpy()
+        llim, ulim = torch.quantile(real_segment[:, ixs], torch.tensor([0.02, 0.98], device=real_segment.device)).detach().cpu().numpy()
     else:
-        p5, p95 = np.quantile(real_segment, [0.05, 0.95])
+        llim, ulim = np.quantile(real_segment[:, ixs], [0.02, 0.98])
     print(f"    Plotting {ntypes} neuron traces...")
+
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
         if itype % 10 == 0:
             print(f"      Plotting cell type {itype}/{ntypes}...")
-        ix = rng.choice(neuron_data.indices_per_type[itype])
+        ix = ixs[itype]
 
         if is_torch:
             real_trace_cpu = real_segment[:, ix].detach().cpu().numpy()
@@ -995,7 +1000,7 @@ def plot_rollout_traces_from_results(
         time_steps = np.arange(len(real_trace_cpu))
         axes[itype].fill_between(time_steps, real_trace_cpu, pred_trace_cpu,
                                 alpha=0.2, color='#ff7f0e')
-        axes[itype].set_ylim(p5, p95)
+        axes[itype].set_ylim(llim, ulim)
         total_var = np.nanvar(real_trace_cpu)
         unexplained_var = np.nanvar(real_trace_cpu - pred_trace_cpu)
         r2 = 1 - unexplained_var / total_var
