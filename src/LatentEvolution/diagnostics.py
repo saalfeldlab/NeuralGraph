@@ -119,35 +119,6 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
     return fig
 
 
-def compute_per_neuron_mse(
-    model: LatentModel,
-    data: torch.Tensor,
-    stim: torch.Tensor,
-    time_units: int,
-) -> np.ndarray:
-    """
-    Compute per-neuron MSE between model predictions and targets.
-
-    Args:
-        model: The trained LatentModel instance
-        data: Data tensor of shape (T, N) where N is number of neurons
-        stim: Stimulus tensor of shape (T, S)
-        time_units: Number of time steps to evolve
-
-    Returns:
-        per_neuron_mse: Array of shape (N,) with MSE for each neuron
-    """
-    with torch.no_grad():
-        x_t = data[:-time_units]
-        stim_t = stim[:-time_units]
-        x_t_plus = data[time_units:]
-        predictions = model(x_t, stim_t)
-
-        # Compute MSE per neuron (average over time dimension)
-        per_neuron_mse = ((predictions - x_t_plus) ** 2).mean(dim=0).cpu().numpy()
-
-    return per_neuron_mse
-
 def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: int) -> tuple[plt.Figure, dict[str, float]]:
     print("    Computing statistics across starting points and neurons...")
     mse_avg_over_starts = mse_array.mean(axis=0)  # (n_steps, n_neurons)
