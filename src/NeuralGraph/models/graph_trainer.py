@@ -87,7 +87,7 @@ from prettytable import PrettyTable
 import imageio
 
 
-def data_train(config=None, erase=False, best_model=None, device=None):
+def data_train(config=None, erase=False, best_model=None, style=None, device=None):
     # plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
     # rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
     # matplotlib.rcParams['savefig.pad_inches'] = 0
@@ -96,7 +96,7 @@ def data_train(config=None, erase=False, best_model=None, device=None):
 
     torch.manual_seed(seed)
     np.random.seed(seed)
-    random.seed(seed)
+    random.seed(seed)        
 
     # torch.autograd.set_detect_anomaly(True)
 
@@ -114,14 +114,14 @@ def data_train(config=None, erase=False, best_model=None, device=None):
     elif 'zebra' in config.dataset:
         data_train_zebra(config, erase, best_model, device)
     else:
-        data_train_signal(config, erase, best_model, device)
+        data_train_signal(config, erase, best_model, style, device)
 
     print("training completed.")
 
 
 
 
-def data_train_signal(config, erase, best_model, device):
+def data_train_signal(config, erase, best_model, style, device):
 
     simulation_config = config.simulation
     train_config = config.training
@@ -152,7 +152,6 @@ def data_train_signal(config, erase, best_model, device):
 
     n_excitatory_neurons = simulation_config.n_excitatory_neurons
 
-
     field_type = model_config.field_type
 
     embedding_cluster = EmbeddingCluster(config)
@@ -162,6 +161,13 @@ def data_train_signal(config, erase, best_model, device):
     multi_connectivity = config.training.multi_connectivity
     baseline_value = simulation_config.baseline_value
     cmap = CustomColorMap(config=config)
+
+    if "black" in style:
+        plt.style.use("dark_background")
+        mc = 'white'
+    else:
+        plt.style.use("default")
+        mc = 'black'
 
     if config.training.seed != 42:
         torch.random.fork_rng(devices=device)
@@ -836,8 +842,7 @@ def data_train_signal(config, erase, best_model, device):
                                 'edge_norm', 'edge_weight', 'phi_weight', 'W_sign']:
                         loss_components[key].append(regul_tracker[key] / n_neurons)
 
-                    plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap,
-                                         device)
+                    plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device)
 
                     # Pass per-neuron normalized values to debug (to match dictionary values)
                     plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=False,
@@ -1332,6 +1337,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
     time.sleep(0.2)
 
+
     for epoch in range(start_epoch, n_epochs + 1):
 
         if batch_ratio < 1:
@@ -1522,7 +1528,7 @@ def data_train_flyvis(config, erase, best_model, device):
                         track_regul(regul_term, 'phi_grad')
 
                     # regularisation sign Wij (Dale's Law: all outgoing weights should have same sign)
-                    if (coeff_W_sign > 0) & (epoch==1):
+                    if (coeff_W_sign > 0) & (epoch>0):
                         # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
                         # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
 
@@ -1711,6 +1717,27 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 total_loss += loss.item()
                 total_loss_regul += regul_total_this_iter
+
+
+                if (N < 10000) & (N%50==0):
+                    row_start = 1736
+                    row_end = 1736 + 217 * 2  # 2160   L1 L2
+                    col_start = 0
+                    col_end = 217 * 2  # 424
+                    learned_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
+                    learned_in_region[edges[1], edges[0]] = model.W.squeeze()
+                    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+                    # Learned connectivity
+                    ax1 = sns.heatmap(to_numpy(learned_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
+                                        cbar_kws={'fraction': 0.046}, ax=ax)
+                    ax.set_title('learned connectivity', fontsize=24)
+                    ax.set_xlabel('columns [0:434] (R1 R2)', fontsize=18)
+                    ax.set_ylabel('rows [1736:2160] (L1 L2)', fontsize=18)
+                    cbar1 = ax1.collections[0].colorbar
+                    cbar1.ax.tick_params(labelsize=16)
+                    plt.tight_layout()
+                    plt.savefig(f'{log_dir}/results/connectivity_comparison_R_to_L_{N:04d}.png', dpi=150, bbox_inches='tight')
+                    plt.close()
 
                 if track_components:
                     # Store in dictionary lists
@@ -2598,6 +2625,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     elif 'zebra' in config.dataset:
         data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
+    
     else:
         data_test_signal(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 

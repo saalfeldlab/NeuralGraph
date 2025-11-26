@@ -37,14 +37,13 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'generate'  #, 'train', 'test', 'generate', 'NGP'
+        task = 'train'  #, 'train', 'test', 'generate', 'NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
         #                'fly_N9_64_3_1', 'fly_N9_64_3_2', 'fly_N9_64_3_3', 'fly_N9_64_3_4',
         #                'fly_N9_64_4_1', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_4'
         #                ]  
-
 
         # config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
 
@@ -54,14 +53,13 @@ if __name__ == "__main__":
 
         # config_list = ['fly_N9_62_22_1', 'fly_N9_62_22_2', 'fly_N9_62_22_3', 'fly_N9_62_22_4', 'fly_N9_62_22_5', 'fly_N9_62_22_6', 'fly_N9_62_22_7', 'fly_N9_62_22_8', 'fly_N9_62_22_9', 'fly_N9_62_22_10']
 
-        config_list = ['fly_N9_62_22_11']
+        # config_list = ['fly_N9_62_23_1']
         
         # config_list = ['zebra_N10_34_1']
 
         # config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
 
-
-        # config_list = ['signal_N11_2_1_1']
+        config_list = ['signal_N11_1_3']
         
 
     for config_file_ in config_list:
@@ -90,7 +88,13 @@ if __name__ == "__main__":
             ) 
 
         if "train" in task:
-            data_train(config=config, erase=False, best_model=best_model, device=device)
+            data_train(
+                config=config, 
+                erase=False, 
+                best_model=best_model, 
+                style = 'black', 
+                device=device
+            )
 
         if "test" in task:
 
@@ -102,7 +106,7 @@ if __name__ == "__main__":
                 visualize=False,
                 style="black color name continuous_slice",
                 verbose=False,
-                best_model='best',
+                best_model='1_11520',   
                 run=0,
                 test_mode="",
                 sample_embedding=False,

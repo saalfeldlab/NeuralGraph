@@ -5444,20 +5444,18 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
             # Plot connectivity matrix comparison
-            col_start = 0
-            col_end = 217 * 2  # 424        R1 R2
+
             row_start = 1736
             row_end = 1736 + 217 * 2  # 2160   L1 L2
+            col_start = 0
+            col_end = 217 * 2  # 424        R1 R2
             
-
             true_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
             true_in_region[edges[1], edges[0]] = gt_weights
-
             learned_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
             learned_in_region[edges[1], edges[0]] = corrected_W.squeeze()
 
             fig, axes = plt.subplots(1, 2, figsize=(20, 10))
-
             # First panel: true_in connectivity
             ax1 = sns.heatmap(to_numpy(true_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
                               cbar_kws={'fraction': 0.046}, ax=axes[0])
@@ -5466,7 +5464,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             axes[0].set_ylabel('rows [0:434]', fontsize=18)
             cbar1 = ax1.collections[0].colorbar
             cbar1.ax.tick_params(labelsize=16)
-
             # Second panel: learned_in connectivity
             ax2 = sns.heatmap(to_numpy(learned_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
                               cbar_kws={'fraction': 0.046}, ax=axes[1])
@@ -5477,7 +5474,36 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             cbar2.ax.tick_params(labelsize=16)
 
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/connectivity_comparison.png', dpi=150, bbox_inches='tight')
+            plt.savefig(f'{log_dir}/results/connectivity_comparison_R_to_L.png', dpi=150, bbox_inches='tight')
+            plt.close()
+
+
+
+            row_start = 0
+            row_end = 217 * 2  # 424        R1 R2
+            col_start = 1736
+            col_end = 1736 + 217 * 2  # 2160   L1 L2
+
+            fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+            # First panel: true_in connectivity
+            ax1 = sns.heatmap(to_numpy(true_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
+                              cbar_kws={'fraction': 0.046}, ax=axes[0])
+            axes[0].set_title('true connectivity', fontsize=24)
+            axes[0].set_xlabel('columns [1736:2170]', fontsize=18)
+            axes[0].set_ylabel('rows [0:434]', fontsize=18)
+            cbar1 = ax1.collections[0].colorbar
+            cbar1.ax.tick_params(labelsize=16)
+            # Second panel: learned_in connectivity
+            ax2 = sns.heatmap(to_numpy(learned_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
+                              cbar_kws={'fraction': 0.046}, ax=axes[1])
+            axes[1].set_title('learned connectivity', fontsize=24)
+            axes[1].set_xlabel('columns [1736:2170]', fontsize=18)
+            axes[1].set_ylabel('rows [0:434]', fontsize=18)
+            cbar2 = ax2.collections[0].colorbar
+            cbar2.ax.tick_params(labelsize=16)
+
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/connectivity_comparison_L_to_R.png', dpi=150, bbox_inches='tight')
             plt.close()
 
             
@@ -5508,8 +5534,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 logger=logger,
                 index_to_name=index_to_name
             )
-
-            plot_reconstruction_correlations(activity_results=activity_results, results_per_neuron=results_per_neuron, gt_taus=gt_taus, gt_V_Rest=gt_V_Rest, type_list=type_list, index_to_name=index_to_name, log_dir=log_dir)
 
             print('alternative clustering methods...')
 
@@ -5843,8 +5867,6 @@ def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style,
             # print mean and std
             print(f'reconstruction loss: {np.mean(recons_loss_list):.4f} +/- {np.std(recons_loss_list):.4f}')
             print(f'baseline loss: {np.mean(baseline_loss_list):.4f} +/- {np.std(baseline_loss_list):.4f}')
-
-
 
 
 
@@ -6393,122 +6415,6 @@ def analyze_neuron_type_reconstruction(config, model, edges, true_weights, gt_ta
         'rmse_tau_per_type': rmse_taus,
         'rmse_vrest_per_type': rmse_vrests
     }
-
-
-def plot_reconstruction_correlations(activity_results, results_per_neuron, gt_taus, gt_V_Rest,
-                                   type_list, index_to_name, log_dir, alpha_individual=0.0):
-   """
-   Plot correlations between neuron statistics and reconstruction performance.
-   Parameters:
-   -----------
-   activity_results : dict with 'mu_activity', 'sigma_activity'
-   results_per_neuron : dict with 'rmse_weights_per_neuron', 'rmse_tau_per_neuron', 'rmse_vrest_per_neuron'
-   gt_taus : ground truth tau values
-   gt_V_Rest : ground truth V_rest values
-   type_list : neuron type labels
-   index_to_name : mapping from type index to name
-   log_dir : directory to save plots
-   alpha_individual : transparency for individual neurons (default 0.2)
-   """
-   mu_activity = activity_results['mu_activity']
-   sigma_activity = activity_results['sigma_activity']
-   rmse_weights = results_per_neuron['rmse_weights_per_neuron']
-   rmse_tau = results_per_neuron['rmse_tau_per_neuron']
-   rmse_vrest = results_per_neuron['rmse_vrest_per_neuron']
-
-   gt_taus = to_numpy(gt_taus)
-   gt_V_Rest = to_numpy(gt_V_Rest)
-   type_list = to_numpy(type_list).squeeze()
-
-   n_neurons = len(mu_activity)
-   n_types = len(np.unique(type_list))
-
-   # Create colormap for neuron types
-   cmap = plt.cm.get_cmap('tab20b')
-   if n_types > 20:
-       cmap = plt.cm.get_cmap('hsv')
-   colors = [cmap(i/n_types) for i in range(n_types)]
-   neuron_colors = [colors[int(t)] for t in type_list]
-
-   # Compute type-averaged values
-   unique_types = np.unique(type_list)
-   type_mean_mu = np.zeros(len(unique_types))
-   type_mean_sigma = np.zeros(len(unique_types))
-   type_mean_tau = np.zeros(len(unique_types))
-   type_mean_vrest = np.zeros(len(unique_types))
-   type_mean_rmse_weights = np.zeros(len(unique_types))
-   type_mean_rmse_tau = np.zeros(len(unique_types))
-   type_mean_rmse_vrest = np.zeros(len(unique_types))
-
-   for i, type_id in enumerate(unique_types):
-       type_mask = (type_list == type_id)
-       type_mean_mu[i] = np.mean(mu_activity[type_mask])
-       type_mean_sigma[i] = np.mean(sigma_activity[type_mask])
-       type_mean_tau[i] = np.mean(gt_taus[type_mask])
-       type_mean_vrest[i] = np.mean(gt_V_Rest[type_mask])
-       type_mean_rmse_weights[i] = np.mean(rmse_weights[type_mask])
-       type_mean_rmse_tau[i] = np.mean(rmse_tau[type_mask])
-       type_mean_rmse_vrest[i] = np.mean(rmse_vrest[type_mask])
-
-   # Create figure with spacing between columns
-   fig = plt.figure(figsize=(20, 16))
-   gs = fig.add_gridspec(4, 3, hspace=0.3, wspace=0.4,
-                        left=0.06, right=0.94, top=0.96, bottom=0.06)
-
-   # Define row labels and data
-   row_data = [
-       (mu_activity, type_mean_mu, r'$\mu_{activity}$'),
-       (sigma_activity, type_mean_sigma, r'$\sigma_{activity}$'),
-       (gt_taus * 1000, type_mean_tau * 1000, r'$\tau$ [ms]'),  # Convert to ms
-       (gt_V_Rest, type_mean_vrest, r'$V_{rest}$')
-   ]
-
-   # Define column labels and data
-   col_data = [
-       (rmse_weights, type_mean_rmse_weights, 'RMSE weights'),
-       (rmse_tau, type_mean_rmse_tau, r'RMSE $\tau$'),
-       (rmse_vrest, type_mean_rmse_vrest, r'RMSE $V_{rest}$')
-   ]
-
-   # Create all panels
-   for row_idx, (x_data, x_type_mean, x_label) in enumerate(row_data):
-       for col_idx, (y_data, y_type_mean, y_label) in enumerate(col_data):
-           ax = fig.add_subplot(gs[row_idx, col_idx])
-
-           # Filter out inf/nan values for individuals
-           valid_mask = np.isfinite(x_data) & np.isfinite(y_data) & (y_data < 200)
-           x_valid = x_data[valid_mask]
-           y_valid = y_data[valid_mask]
-           colors_valid = [neuron_colors[i] for i in range(n_neurons) if valid_mask[i]]
-
-           # Plot individual neurons with low alpha
-           ax.scatter(x_valid, y_valid, c=colors_valid,
-                              alpha=alpha_individual, s=10, edgecolors='none')
-
-           # Plot type-averaged values with high visibility
-           for i, type_id in enumerate(unique_types):
-               ax.scatter(x_type_mean[i], y_type_mean[i],
-                         c=[colors[int(type_id)]], s=100,
-                         edgecolors='black', linewidth=1.5,
-                         alpha=1.0, zorder=10)
-
-           # Labels and formatting
-           ax.set_xlabel(x_label, fontsize=12)
-           ax.set_ylabel('', fontsize=12)
-           ax.grid(True, alpha=0.2)
-           ax.tick_params(labelsize=10)
-
-           # Set y-axis limit for RMSE
-           ax.set_ylim([0, min(150, np.percentile(y_valid, 99) * 1.1)])
-
-           # Add column title for first row
-           if row_idx == 0:
-               ax.set_title(y_label, fontsize=16, pad=10)
-
-   plt.tight_layout()
-   plt.savefig(f'{log_dir}/results/reconstruction_correlations.png',
-               dpi=300, bbox_inches='tight')
-   plt.close()
 
 
 def movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges, gt_weights, gt_taus, gt_V_Rest,
@@ -8607,9 +8513,9 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18']
 
     # config_list = ['fly_N9_62_5_9_5', 'fly_N9_62_5_19_5', 'fly_N9_62_5_19_6']
-
-    config_list = ['fly_N9_62_22_1']
     
+    config_list = ['fly_N9_62_5_19_5']
+
     # config_list = ['signal_N11_2_1_2']             
 
     for config_file_ in config_list:
@@ -8621,7 +8527,7 @@ if __name__ == '__main__':
         print(f'\033[94mconfig_file  {config.config_file}\033[0m')
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)     # 'best'
 
     # compare_experiments(config_list, 'training.batch_size')
 

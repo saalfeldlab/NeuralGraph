@@ -88,14 +88,27 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
                          device=self.device,
                          requires_grad=True, dtype=torch.float32))
 
+        # self.W = nn.Parameter(
+        #     torch.zeros(
+        #         self.n_edges + self.n_extra_null_edges,
+        #         device=self.device,
+        #         requires_grad=True,
+        #         dtype=torch.float32,
+        #     )[:, None]
+        # )
+
         self.W = nn.Parameter(
-            torch.zeros(
+            torch.randn(
                 self.n_edges + self.n_extra_null_edges,
                 device=self.device,
                 requires_grad=True,
                 dtype=torch.float32,
-            )[:, None]
+            )[:, None] * 0.05
         )
+
+
+
+        
 
         if 'visual' in model_config.field_type:
 

@@ -304,7 +304,8 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
-def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, device):
+
+def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device):
 
     if 'PDE_N3' in config.graph_model.signal_model_name:
 
@@ -337,34 +338,41 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
          gt_weight = gt_weight[:-1,:-1]
          pred_weight = pred_weight[:-1,:-1]
 
+    if 'PDE_N11' in config.graph_model.signal_model_name:
+        weight_variable = '$J_{ij}$'
+        signal_variable = '$h_i$'
+    else:
+        weight_variable = '$W_{ij}$'
+        signal_variable = '$v_i$'
+
     if n_neurons<1000:
         fig = plt.figure(figsize=(16, 8))
         ax = fig.add_subplot(121)
-        ax = sns.heatmap(gt_weight, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
+        ax = sns.heatmap(gt_weight, center=0, vmin=-0.2, vmax=0.2, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)
         plt.xlabel('presynaptic', fontsize=16)
-        plt.title('true weight matrix', fontsize=16)
+        plt.title(f'true {weight_variable}', fontsize=16)
         ax = fig.add_subplot(122)
-        ax = sns.heatmap(pred_weight, center=0, square=True, cmap='bwr', vmin=-1, vmax=1, cbar_kws={'fraction': 0.046})
+        ax = sns.heatmap(pred_weight / 10, center=0, vmin=-0.2, vmax=0.2, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)
         plt.xlabel('presynaptic', fontsize=16)
-        plt.title('predicted weight matrix', fontsize=16)
+        plt.title(f'learned {weight_variable}', fontsize=16)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=50)
+        plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
     fig = plt.figure(figsize=(8, 8))
     fig, ax = fig_init()
     if n_neurons<1000:
-        plt.scatter(gt_weight, pred_weight / 10, s=1.0, c='k', alpha=1.0)
+        plt.scatter(gt_weight, pred_weight / 10, s=1.0, c=mc, alpha=1.0)
     else:
-        plt.scatter(gt_weight, pred_weight / 10, s=0.1, c='k', alpha=0.1)
-    plt.xlabel(r'true $W_{ij}$', fontsize=48)
-    plt.ylabel(r'learned $W_{ij}$', fontsize=48)
+        plt.scatter(gt_weight, pred_weight / 10, s=0.1, c=mc, alpha=0.1)
+    plt.xlabel(r'true $J_{ij}$', fontsize=48)
+    plt.ylabel(r'learned $J_{ij}$', fontsize=48)
     if n_neurons == 8000:
         plt.xlim([-0.05, 0.05])
     else:
@@ -464,9 +472,16 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.ylim(config.plotting.ylim)
         plt.xticks(fontsize=24)
         plt.yticks(fontsize=24)
-        plt.xlabel('$v_j$', fontsize=48)
-        plt.ylabel(r'$\mathrm{MLP_1}(a_j, v_j)$', fontsize=48)
+
+        xlabel = signal_variable.replace('_i', '_j')
+        if config.training.training_single_type:
+            ylabel = rf'$\mathrm{{MLP_1}}({xlabel[1:-1]})$'
+        else:
+            ylabel = rf'$\mathrm{{MLP_1}}(a_j, {xlabel[1:-1]})$'
+        plt.xlabel(xlabel, fontsize=48)
+        plt.ylabel(ylabel, fontsize=48)
         plt.tight_layout()
+
         plt.savefig(f"./{log_dir}/tmp_training/function/lin_edge/func_{epoch}_{N}.tif", dpi=87)
         plt.close()
 
@@ -488,9 +503,16 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     plt.ylim(config.plotting.ylim)
     plt.xticks(fontsize=24)
     plt.yticks(fontsize=24)
-    plt.xlabel('$v_i$', fontsize=48)
-    plt.ylabel(r'$\mathrm{MLP_0}(a_i, v_i)$', fontsize=48)
+
+    if config.training.training_single_type:
+        ylabel = rf'$\mathrm{{MLP_0}}({signal_variable[1:-1]})$'
+    else:
+        ylabel = rf'$\mathrm{{MLP_0}}(a_i, {signal_variable[1:-1]})$'
+    plt.xlabel(signal_variable, fontsize=48)
+    plt.ylabel(ylabel, fontsize=48)
+
     plt.tight_layout()
+
     plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
@@ -500,7 +522,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
 
         fig = plt.figure(figsize=(8, 8))
         fig, ax = fig_init()
-        plt.scatter(gt_weight, pred_weight, s=10, c='k')
+        plt.scatter(gt_weight, pred_weight, s=10, c=mc)
         plt.xlabel(r'true $e_i$', fontsize=48)
         plt.ylabel(r'learned $e_i$', fontsize=48)
         plt.tight_layout()
@@ -523,14 +545,14 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         frame_ = np.arange(0, len(excitation)) / len(excitation)
         gt_excitation=np.cos((2*np.pi)*config.simulation.oscillation_frequency*frame_)
         plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
-        plt.plot(excitation, c='k', linewidth=1)
+        plt.plot(excitation, c=mc, linewidth=1)
         plt.xlabel('time', fontsize=48)
         plt.ylabel('excitation', fontsize=48)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         ax = fig.add_subplot(122)
         plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
-        plt.plot(excitation, c='k', linewidth=1)
+        plt.plot(excitation, c=mc, linewidth=1)
         plt.xlabel('time', fontsize=48)
         plt.ylabel('excitation', fontsize=48)
         plt.xticks(fontsize=12)
@@ -539,6 +561,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/field/excitation_{epoch}_{N}.tif", dpi=87)
         plt.close()
+
 
 def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):
 
@@ -869,72 +892,40 @@ def increasing_batch_size(batch_size):
 
     return get_batch_size
 
+
 def set_trainable_parameters(model=[], lr_embedding=[], lr=[],  lr_update=[], lr_W=[], lr_modulation=[], learning_rate_NNR=[], learning_rate_NNR_f=[], learning_rate_NNR_E=[], learning_rate_NNR_b=[]):
 
     trainable_params = [param for _, param in model.named_parameters() if param.requires_grad]
-    n_total_params = sum(p.numel() for p in trainable_params) 
-    # check model.a exists
-    n_total_params = n_total_params + torch.numel(model.a) if hasattr(model, 'a') else n_total_params
+    n_total_params = sum(p.numel() for p in trainable_params)
 
+    # Only count model.a if it exists and requires gradients (not frozen by training_single_type)
+    if hasattr(model, 'a') and model.a.requires_grad:
+        n_total_params = n_total_params + torch.numel(model.a)
 
-    # embedding = model.a
-    # optimizer = torch.optim.Adam([embedding], lr=lr_embedding)
-    #
-    # _, *parameters = trainable_params
-    # for parameter in parameters:
-    #     optimizer.add_param_group({'params': parameter, 'lr': lr})
 
     if lr_update==[]:
         lr_update = lr
 
-    optimizer = torch.optim.Adam([model.a], lr=lr_embedding)
-    for name, parameter in model.named_parameters():
-        if (parameter.requires_grad) & (name!='a'):
-            if (name=='b') or ('lin_modulation' in name):
-                optimizer.add_param_group({'params': parameter, 'lr': lr_modulation})
-                # print(f'lr_modulation: {name} {lr_modulation}')
-            elif 'lin_phi' in name:
-                optimizer.add_param_group({'params': parameter, 'lr': lr_update})
-                # print(f'lr_W: {name} {lr_W}')
-            elif 'W' in name:
-                optimizer.add_param_group({'params': parameter, 'lr': lr_W})
-            elif 'NNR_f' in name:
-                optimizer.add_param_group({'params': parameter, 'lr': learning_rate_NNR_f})
-                # print(f'lr_W: {name} {lr_W}')
-            elif 'NNR' in name:
-                optimizer.add_param_group({'params': parameter, 'lr': learning_rate_NNR})
-                # print(f'lr_W: {name} {lr_W}')
-            else:
-                optimizer.add_param_group({'params': parameter, 'lr': lr})
-                # print(f'lr: {name} {lr}')
-
-    return optimizer, n_total_params
-
-def set_trainable_parameters_vae(
-    model=[],                    # global fallback LR (like your original `lr`)
-    lr=[],
-    lr_encoder=[],
-    lr_latent_update=[],
-    lr_decoder=[],         # optional WD for all groups
-):
-
-    trainable_params = [p for _, p in model.named_parameters() if p.requires_grad]
-    n_total_params = sum(p.numel() for p in trainable_params)
-
     param_groups = []
     for name, parameter in model.named_parameters():
-        if (not parameter.requires_grad):
-            continue
-        if "encoder" in name:
-            param_groups.append({"params": [parameter], "lr": lr_encoder})
-        elif "update_latent" in name:
-            param_groups.append({"params": [parameter], "lr": lr_latent_update})
-        elif "decoder" in name:
-            param_groups.append({"params": [parameter], "lr": lr_decoder})
-        else:
-            param_groups.append({"params": [parameter], "lr": lr})
+        if parameter.requires_grad:
+            if name == 'a':
+                param_groups.append({'params': parameter, 'lr': lr_embedding})
+            elif (name=='b') or ('lin_modulation' in name):
+                param_groups.append({'params': parameter, 'lr': lr_modulation})
+            elif 'lin_phi' in name:
+                param_groups.append({'params': parameter, 'lr': lr_update})
+            elif 'W' in name:
+                param_groups.append({'params': parameter, 'lr': lr_W})
+            elif 'NNR_f' in name:
+                param_groups.append({'params': parameter, 'lr': learning_rate_NNR_f})
+            elif 'NNR' in name:
+                param_groups.append({'params': parameter, 'lr': learning_rate_NNR})
+            else:
+                param_groups.append({'params': parameter, 'lr': lr})
 
     optimizer = torch.optim.Adam(param_groups)
+
     return optimizer, n_total_params
 
 

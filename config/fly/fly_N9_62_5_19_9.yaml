@@ -1,5 +1,5 @@
-description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective coeff_edge_norm: 1  coeff_W_sign: 1   extra edges 100000"
-dataset: "fly_N9_62_11"
+description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective   recurrent_training: True  time_step: 4  20 epochs coeff_W_L2: 0.1 update stimuli  batch 8  hidden_dim_update: 16"
+dataset: "fly_N9_62_1"
 
 simulation:
   connectivity_file: "to be specified"
@@ -15,8 +15,6 @@ simulation:
   delta_t: 0.02
   baseline_value: 0
 
-  n_extra_null_edges: 200000
-
   visual_input_type: "DAVIS"
 
 graph_model:
@@ -25,12 +23,12 @@ graph_model:
 
   input_size: 3
   n_layers: 3
-  hidden_dim: 64
+  hidden_dim: 16
   output_size: 1
 
   input_size_update: 5
   n_layers_update: 3
-  hidden_dim_update: 64
+  hidden_dim_update: 16
   aggr_type: "add"
   embedding_dim: 2
 
@@ -44,14 +42,15 @@ plotting:
   ylim: [-100, 100]
 
 training:
-  n_epochs: 3
+  n_epochs: 20
   n_runs: 1
   device: "auto"
 
-  recurrent_training: False
-  batch_size: 1
+  recurrent_training: True
+  time_step: 4
+
+  batch_size: 8
   batch_ratio: 1
-  small_init_batch_size: False
 
   sparsity: "none"
   rotation_augmentation: False
@@ -66,7 +65,7 @@ training:
   coeff_edge_diff: 500
   coeff_update_u_diff: 0
   coeff_update_msg_diff: 0
-  coeff_edge_norm: 1
+  coeff_edge_norm: 1.0
 
   coeff_edge_weight_L1: 1
   coeff_phi_weight_L1: 1
@@ -77,5 +76,4 @@ training:
 
   coeff_W_L1: 5.0E-5
   coeff_W_L1_rate: 0.5
-  coeff_W_sign: 1
-  W_sign_temperature: 10.0
+  coeff_W_L2: 0.1
