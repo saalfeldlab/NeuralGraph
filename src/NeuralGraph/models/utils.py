@@ -176,7 +176,7 @@ def get_in_features(rr=None, embedding=None, model=[], model_name = [], max_radi
                                      rr[:, None] / max_radius, embedding, embedding), dim=1)
         case 'PDE_N2' | 'PDE_N3' | 'PDE_N6' :
             in_features = rr[:, None]
-        case 'PDE_N4' | 'PDE_N7':
+        case 'PDE_N4' | 'PDE_N7' | 'PDE_N11':
             in_features = torch.cat((rr[:, None], embedding), dim=1)
         case 'PDE_N8':
             in_features = torch.cat((rr[:, None]*0, rr[:, None], embedding, embedding), dim=1)

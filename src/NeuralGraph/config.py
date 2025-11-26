@@ -238,6 +238,7 @@ class PlottingConfig(BaseModel):
     pic_size: list[int] = [1000, 1100]
     data_embedding: int = 1
     plot_batch_size: int = 1000
+    label_style: str = "MLP"  # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
 
 class TrainingConfig(BaseModel):

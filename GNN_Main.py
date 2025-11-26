@@ -37,7 +37,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'train'  #, 'train', 'test', 'generate', 'NGP'
+        task = 'test'  #, 'train', 'test', 'generate', 'NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
         # config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
 
-        config_list = ['signal_N11_1_8']
+        config_list = ['signal_N11_1_3']
         
 
     for config_file_ in config_list:
@@ -106,7 +106,7 @@ if __name__ == "__main__":
                 visualize=False,
                 style="black color name continuous_slice",
                 verbose=False,
-                best_model='1_11520',   
+                best_model='best',   
                 run=0,
                 test_mode="",
                 sample_embedding=False,

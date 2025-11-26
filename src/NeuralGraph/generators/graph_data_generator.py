@@ -1504,8 +1504,8 @@ def data_generate_synaptic(
             activity = activity.squeeze()
             activity = activity.T
 
-            # Sample 100 traces if n_neurons > 1000
-            if n_neurons > 1000:
+            # Sample 100 traces if n_neurons > 100
+            if n_neurons > 100:
                 sampled_indices = np.random.choice(n_neurons, 100, replace=False)
                 sampled_indices = np.sort(sampled_indices)
                 activity_plot = activity[sampled_indices]
@@ -1531,7 +1531,7 @@ def data_generate_synaptic(
             ax.yaxis.set_ticks_position('right')
             ax.set_yticks([0, 20, 40])
             ax.set_yticklabels(['0', '20', '40'], fontsize=16)
-            # ax.text(n_frames * 1.2, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
+            plt.xlim([0, min(n_frames, 10000)])
             plt.tight_layout()
             plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
             plt.close()

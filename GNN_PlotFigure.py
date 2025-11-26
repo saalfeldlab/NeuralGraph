@@ -177,6 +177,707 @@ def plot_confusion_matrix(index, true_labels, new_labels, n_neuron_types, epoch,
     return accuracy
 
 
+# =============================================================================
+# Movie generation functions for plot_signal
+# =============================================================================
+
+def determine_plot_limits_signal(config, log_dir, n_runs, device, n_neurons, type_list, cmap, connectivity, xnorm, ynorm, n_samples=5, true_model=None, n_neuron_types=1):
+    """
+    Sample a few models to determine stable xlim/ylim for movies.
+    Returns dict with limits for each plot type.
+
+    Args:
+        true_model: Ground truth model for computing true MLP limits (optional)
+        n_neuron_types: Number of neuron types for true curve computation
+    """
+    files, file_id_list = get_training_files(log_dir, n_runs)
+    if len(file_id_list) == 0:
+        return None
+
+    model, bc_pos, bc_dpos = choose_training_model(config, device)
+
+    # Sample indices evenly distributed
+    sample_indices = np.linspace(0, len(file_id_list) - 1, min(n_samples, len(file_id_list)), dtype=int)
+
+    # Collect ranges
+    weight_min, weight_max = [], []
+    embedding_min, embedding_max = [], []
+    lin_edge_min, lin_edge_max = [], []
+    lin_phi_min, lin_phi_max = [], []
+
+    # Compute true model limits first if available
+    rr = torch.linspace(-xnorm.squeeze(), xnorm.squeeze(), 100).to(device)
+    if true_model is not None:
+        with torch.no_grad():
+            for n in range(n_neuron_types):
+                # True lin_edge (phi) limits
+                true_func = true_model.func(rr, n, 'phi')
+                lin_edge_min.append(to_numpy(true_func).min())
+                lin_edge_max.append(to_numpy(true_func).max())
+                # True lin_phi (update) limits
+                true_func = true_model.func(rr, n, 'update')
+                lin_phi_min.append(to_numpy(true_func).min())
+                lin_phi_max.append(to_numpy(true_func).max())
+
+    with torch.no_grad():
+        for idx in sample_indices:
+            file_id = file_id_list[idx]
+            epoch = files[file_id].split('graphs')[1][1:-3]
+            net = f"{log_dir}/models/best_model_with_{n_runs-1}_graphs_{epoch}.pt"
+            state_dict = torch.load(net, map_location=device)
+            model.load_state_dict(state_dict['model_state_dict'])
+            model.eval()
+
+            # Weight comparison limits
+            gt_weight = to_numpy(connectivity).flatten()
+            pred_weight = to_numpy(model.W).flatten()
+            weight_min.extend([gt_weight.min(), pred_weight.min()])
+            weight_max.extend([gt_weight.max(), pred_weight.max()])
+
+            # Embedding limits
+            amax = torch.max(model.a, dim=0).values
+            amin = torch.min(model.a, dim=0).values
+            model_a = (model.a - amin) / (amax - amin)
+            embedding_min.append(0)
+            embedding_max.append(1)
+
+            # Lin_edge limits
+            model_name = config.graph_model.signal_model_name
+            if model_name in ['PDE_N2', 'PDE_N3', 'PDE_N6']:
+                # Simple models: single input
+                in_features = rr[:, None]
+                func = model.lin_edge(in_features.float())
+                if config.graph_model.lin_edge_positive:
+                    func = func ** 2
+                lin_edge_min.append(to_numpy(func).min())
+                lin_edge_max.append(to_numpy(func).max())
+            else:
+                # Models with embeddings (PDE_N4, PDE_N5, PDE_N7, PDE_N8, PDE_N11, etc.)
+                for n in range(min(10, n_neurons)):
+                    embedding_ = model.a[n, :] * torch.ones((100, config.graph_model.embedding_dim), device=device)
+                    if model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
+                        in_features = torch.cat((rr[:, None], embedding_), dim=1)
+                    elif model_name == 'PDE_N5':
+                        in_features = torch.cat((rr[:, None], embedding_, embedding_), dim=1)
+                    elif model_name == 'PDE_N8':
+                        in_features = torch.cat((rr[:, None]*0, rr[:, None], embedding_, embedding_), dim=1)
+                    else:
+                        in_features = torch.cat((rr[:, None], embedding_), dim=1)
+                    func = model.lin_edge(in_features.float())
+                    if config.graph_model.lin_edge_positive:
+                        func = func ** 2
+                    lin_edge_min.append(to_numpy(func).min())
+                    lin_edge_max.append(to_numpy(func).max())
+
+            # Lin_phi limits
+            for n in range(min(10, n_neurons)):
+                embedding_ = model.a[n, :] * torch.ones((100, config.graph_model.embedding_dim), device=device)
+                in_features = get_in_features_update(rr[:, None], model, embedding_, device)
+                func = model.lin_phi(in_features.float())
+                lin_phi_min.append(to_numpy(func).min() * to_numpy(ynorm))
+                lin_phi_max.append(to_numpy(func).max() * to_numpy(ynorm))
+
+    # Add margins
+    margin = 0.1
+    limits = {
+        'weight': (min(weight_min) * (1 + margin), max(weight_max) * (1 + margin)),
+        'embedding': (-0.1, 1.1),
+        'lin_edge': (min(lin_edge_min) * (1 + margin) - 0.1, max(lin_edge_max) * (1 + margin) + 0.1),
+        'lin_phi': (min(lin_phi_min) * (1 + margin) - 0.5, max(lin_phi_max) * (1 + margin) + 0.5),
+    }
+
+    return limits
+
+
+def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iteration, config, limits, second_correction=1.0):
+    """Create weight comparison scatter plot for signal models.
+
+    Args:
+        second_correction: Correction factor to apply to predicted weights (default 1.0 = no correction)
+    """
+    n_neurons = connectivity.shape[0]
+
+    i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=model.W.device)
+    A = model.W.clone().detach()
+    A[i, i] = 0
+
+    gt_weight = to_numpy(connectivity).flatten()
+    pred_weight = to_numpy(A).flatten() / second_correction
+
+    # Adjust scatter plot parameters based on number of neurons (consistent with 'best' mode)
+    if n_neurons < 1000:
+        scatter_size = 1
+        scatter_alpha = 1.0
+    else:
+        scatter_size = 0.1
+        scatter_alpha = 0.1
+
+    # Plot green diagonal line (y=x, perfect correlation) first
+    weight_max = np.max(np.abs(gt_weight)) * 1.1
+    weight_lim = (-weight_max, weight_max)
+    ax.plot(weight_lim, weight_lim, c='g', linewidth=4, zorder=1)
+
+    ax.scatter(gt_weight, pred_weight, s=scatter_size, c=mc, alpha=scatter_alpha, zorder=2)
+
+    # Compute R² and slope
+    lin_fit, _ = curve_fit(linear_model, gt_weight, pred_weight)
+    residuals = pred_weight - linear_model(gt_weight, *lin_fit)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((pred_weight - np.mean(pred_weight)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+
+    # Variable names based on model type
+    if 'PDE_N11' in config.graph_model.signal_model_name:
+        true_weight_var = '$J_{ij}$'
+        learned_weight_var = '$J_{ij}^*$'
+    else:
+        true_weight_var = '$W_{ij}$'
+        learned_weight_var = '$W_{ij}^*$'
+
+    ax.set_xlabel(f'true {true_weight_var}', fontsize=32)
+    ax.set_ylabel(f'learned {learned_weight_var}', fontsize=32)
+    ax.set_xlim(weight_lim)
+    ax.set_ylim(weight_lim)
+    ax.tick_params(labelsize=16)
+
+    # Add R² and slope text
+    ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
+            fontsize=20, verticalalignment='top')
+    ax.text(0.05, 0.87, f'slope: {lin_fit[0]:.2f}', transform=ax.transAxes,
+            fontsize=20, verticalalignment='top')
+    ax.text(0.05, 0.79, f'epoch: {epoch}', transform=ax.transAxes,
+            fontsize=16, verticalalignment='top')
+
+    return r_squared, lin_fit[0]
+
+
+def create_signal_embedding_subplot(fig, ax, model, type_list, n_neuron_types, cmap, limits):
+    """Create embedding scatter plot for signal models."""
+    amax = torch.max(model.a, dim=0).values
+    amin = torch.min(model.a, dim=0).values
+    model_a = (model.a - amin) / (amax - amin)
+
+    for n in range(n_neuron_types - 1, -1, -1):
+        pos = torch.argwhere(type_list == n).squeeze()
+        if pos.numel() > 0:
+            ax.scatter(to_numpy(model_a[pos, 0]), to_numpy(model_a[pos, 1]),
+                      s=30, color=cmap.color(n), alpha=0.8, edgecolors='none')
+
+    ax.set_xlabel(r'$\mathbf{a}_0$', fontsize=32)
+    ax.set_ylabel(r'$\mathbf{a}_1$', fontsize=32)
+    ax.set_xlim(limits['embedding'])
+    ax.set_ylim(limits['embedding'])
+    ax.tick_params(labelsize=16)
+
+
+def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list, cmap, device, xnorm, limits, mc, label_style='MLP', true_model=None, n_neuron_types=1):
+    """Create lin_edge function plot for signal models.
+
+    Args:
+        label_style: 'MLP' for MLP_0, MLP_1 labels; 'greek' for phi, f labels
+        true_model: Ground truth model for plotting true curves (optional)
+        n_neuron_types: Number of neuron types for true curve plotting
+    """
+    rr = torch.linspace(-xnorm.squeeze(), xnorm.squeeze(), 1000).to(device)
+
+    model_name = config.graph_model.signal_model_name
+
+    # Compute normalization factor from true model at x > 6 (asymptotic region)
+    norm_factor = 1.0
+    if true_model is not None:
+        with torch.no_grad():
+            # Evaluate at x > 6 to get true asymptotic value (well into saturation for tanh)
+            rr_asymptotic = torch.linspace(6.0, 10.0, 100).to(device)
+            true_max = 0.0
+            for n in range(n_neuron_types):
+                true_func = true_model.func(rr_asymptotic, n, 'phi')
+                # Get mean absolute value in asymptotic region
+                true_asymptotic = torch.abs(true_func).mean().item()
+                true_max = max(true_max, true_asymptotic)
+            if true_max > 0:
+                norm_factor = true_max
+
+    # Plot true curves first (green, thick) if true_model is provided
+    if true_model is not None:
+        for n in range(n_neuron_types):
+            true_func = true_model.func(rr, n, 'phi')
+            ax.plot(to_numpy(rr), to_numpy(true_func) / norm_factor, c='g', linewidth=8)
+
+    if model_name in ['PDE_N2', 'PDE_N3', 'PDE_N6']:
+        # Simple models: single line, single input
+        in_features = rr[:, None]
+        with torch.no_grad():
+            func = model.lin_edge(in_features.float())
+        if config.graph_model.lin_edge_positive:
+            func = func ** 2
+        ax.plot(to_numpy(rr), to_numpy(func) / norm_factor, color='w', linewidth=4)
+    else:
+        # Models with embeddings: multiple lines per type (PDE_N4, PDE_N5, PDE_N7, PDE_N8, PDE_N11, etc.)
+        # First pass: compute learned curves' asymptotic normalization factor at x > 6
+        rr_asymptotic = torch.linspace(6.0, 10.0, 100).to(device)
+        learned_asymptotic_max = 0.0
+        for n in range(min(100, n_neurons)):
+            embedding_ = model.a[n, :] * torch.ones((100, config.graph_model.embedding_dim), device=device)
+            if model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
+                in_features = torch.cat((rr_asymptotic[:, None], embedding_), dim=1)
+            elif model_name == 'PDE_N5':
+                in_features = torch.cat((rr_asymptotic[:, None], embedding_, embedding_), dim=1)
+            elif model_name == 'PDE_N8':
+                in_features = torch.cat((rr_asymptotic[:, None]*0, rr_asymptotic[:, None], embedding_, embedding_), dim=1)
+            else:
+                in_features = torch.cat((rr_asymptotic[:, None], embedding_), dim=1)
+            with torch.no_grad():
+                func = model.lin_edge(in_features.float())
+            if config.graph_model.lin_edge_positive:
+                func = func ** 2
+            learned_asymptotic_max = max(learned_asymptotic_max, torch.abs(func).mean().item())
+
+        learned_norm_factor = learned_asymptotic_max if learned_asymptotic_max > 0 else 1.0
+
+        # Second pass: plot with learned normalization factor
+        for n in range(min(100, n_neurons)):
+            embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+            # Construct in_features based on model type
+            if model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
+                in_features = torch.cat((rr[:, None], embedding_), dim=1)
+            elif model_name == 'PDE_N5':
+                in_features = torch.cat((rr[:, None], embedding_, embedding_), dim=1)
+            elif model_name == 'PDE_N8':
+                in_features = torch.cat((rr[:, None]*0, rr[:, None], embedding_, embedding_), dim=1)
+            else:
+                in_features = torch.cat((rr[:, None], embedding_), dim=1)
+            with torch.no_grad():
+                func = model.lin_edge(in_features.float())
+            if config.graph_model.lin_edge_positive:
+                func = func ** 2
+            ax.plot(to_numpy(rr), to_numpy(func) / learned_norm_factor,
+                   color='w', linewidth=1, alpha=0.3)
+
+    # Variable names
+    if 'PDE_N11' in model_name:
+        signal_var = '$h_j$'
+    else:
+        signal_var = '$v_j$'
+
+    # Label style
+    if label_style == 'MLP':
+        ylabel = r'$\mathrm{MLP_1}(h_j)$'
+    else:
+        ylabel = r'$f$'
+
+    ax.set_xlabel(signal_var, fontsize=32)
+    ax.set_ylabel(ylabel, fontsize=32)
+    ax.set_xlim([-to_numpy(xnorm).item(), to_numpy(xnorm).item()])
+    # Set ylim to normalized range (approximately -1 to 1)
+    ax.set_ylim([-1.2, 1.2])
+    ax.tick_params(labelsize=16)
+
+
+def create_signal_lin_phi_subplot(fig, ax, model, config, n_neurons, type_list, cmap, device, xnorm, ynorm, limits, label_style='MLP', true_model=None, n_neuron_types=1):
+    """Create lin_phi function plot for signal models.
+
+    Args:
+        label_style: 'MLP' for MLP_0, MLP_1 labels; 'greek' for phi, f labels
+        true_model: Ground truth model for plotting true curves (optional)
+        n_neuron_types: Number of neuron types for true curve plotting
+    """
+    rr = torch.linspace(-xnorm.squeeze(), xnorm.squeeze(), 1000).to(device)
+
+    # Plot true curves first (green, thick) if true_model is provided
+    if true_model is not None:
+        for n in range(n_neuron_types):
+            true_func = true_model.func(rr, n, 'update')
+            ax.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=8)
+
+    for n in range(n_neurons):
+        embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+        in_features = get_in_features_update(rr[:, None], model, embedding_, device)
+        with torch.no_grad():
+            func = model.lin_phi(in_features.float())
+        func = func[:, 0]
+        ax.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm),
+               color='w', linewidth=1, alpha=0.3)
+
+    # Variable names and labels
+    if 'PDE_N11' in config.graph_model.signal_model_name:
+        signal_var = '$h_i$'
+    else:
+        signal_var = '$v_i$'
+
+    # Label style
+    if label_style == 'MLP':
+        if config.training.training_single_type:
+            ylabel = rf'$\mathrm{{MLP_0}}({signal_var[1:-1]})$'
+        else:
+            ylabel = rf'$\mathrm{{MLP_0}}(\mathbf{{a}}_i, {signal_var[1:-1]})$'
+    else:
+        if config.training.training_single_type:
+            ylabel = rf'$\phi({signal_var[1:-1]})$'
+        else:
+            ylabel = rf'$\phi(\mathbf{{a}}_i, {signal_var[1:-1]})$'
+
+    ax.set_xlabel(signal_var, fontsize=32)
+    ax.set_ylabel(ylabel, fontsize=32)
+    ax.set_xlim([-to_numpy(xnorm).item(), to_numpy(xnorm).item()])
+    ax.set_ylim(limits['lin_phi'])
+    ax.tick_params(labelsize=16)
+
+
+def create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, device,
+                                      connectivity=None):
+    """Create excitation function plot for signal models with n_excitatory_neurons > 0.
+
+    Shows learned oscillation excitation function vs ground truth cosine.
+    Optionally includes an inlet scatter plot for e_i (excitatory neuron weights).
+
+    Args:
+        connectivity: Expanded connectivity matrix (optional, for inlet scatter)
+    """
+    simulation_config = config.simulation
+
+    with torch.no_grad():
+        kk = torch.arange(0, n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
+        excitation_field = model.NNR_f(kk[:, None])
+        model_a = model.a[-1] * torch.ones((n_frames, 1), device=device)
+        in_features = torch.cat([excitation_field, model_a], dim=1)
+        msg = model.lin_edge(in_features)
+
+    excitation = to_numpy(msg.squeeze())
+
+    frame_ = np.arange(0, len(excitation)) / len(excitation)
+    gt_excitation = np.cos((2 * np.pi) * simulation_config.oscillation_frequency * frame_)
+
+    # Plot ground truth (green, thick)
+    ax.plot(gt_excitation, c='g', linewidth=4, alpha=0.5, label='ground truth')
+    # Plot learned (marker color, thinner)
+    ax.plot(excitation, c=mc, linewidth=1, label='learned')
+
+    ax.set_xlabel('time', fontsize=32)
+    ax.set_ylabel('excitation', fontsize=32)
+    ax.tick_params(labelsize=16)
+    ax.set_xlim([0, 2000])  # Zoom into first 2000 frames
+    ax.legend(fontsize=12, loc='upper right')
+
+    # Add inlet with e_i scatter if connectivity is provided
+    if connectivity is not None:
+        # Create inset axes in the lower right corner
+        inset_ax = ax.inset_axes([0.6, 0.1, 0.35, 0.35])  # [x, y, width, height] in axes coordinates
+
+        # Use expanded connectivity's last column for ground truth (matches training code)
+        gt_weight_exc = to_numpy(connectivity[:-1, -1])
+        pred_weight_exc = to_numpy(model.W[:-1, -1])
+
+        inset_ax.scatter(gt_weight_exc, pred_weight_exc, s=3, c=mc, alpha=0.7)
+        inset_ax.set_xlabel(r'true $e_i$', fontsize=10)
+        inset_ax.set_ylabel(r'learned $e_i$', fontsize=10)
+        inset_ax.tick_params(labelsize=8)
+
+        # Set equal aspect and add diagonal line
+        all_weights = np.concatenate([gt_weight_exc, pred_weight_exc])
+        lim_min = np.min(all_weights) - 0.1 * np.abs(np.min(all_weights))
+        lim_max = np.max(all_weights) + 0.1 * np.abs(np.max(all_weights))
+        inset_ax.set_xlim([lim_min, lim_max])
+        inset_ax.set_ylim([lim_min, lim_max])
+        inset_ax.plot([lim_min, lim_max], [lim_min, lim_max], 'g--', linewidth=0.5, alpha=0.5)
+
+
+def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_types, type_list,
+                         cmap, connectivity, xnorm, ynorm, mc, logger, fps=10, copy_to_presentation=None,
+                         true_model=None, n_excitatory_neurons=0):
+    """
+    Create movies for signal model training visualization.
+
+    Args:
+        config: Configuration object
+        log_dir: Log directory path
+        n_runs: Number of training runs
+        device: Torch device
+        n_neurons: Number of neurons
+        n_neuron_types: Number of neuron types
+        type_list: Tensor of neuron types
+        cmap: Color map
+        connectivity: Ground truth connectivity matrix
+        xnorm, ynorm: Normalization values
+        mc: Marker color ('k' or 'w')
+        logger: Logger object
+        fps: Frames per second for movies
+        copy_to_presentation: Path to copy movies for presentation (optional)
+        true_model: Ground truth model for plotting true curves (optional)
+        n_excitatory_neurons: Number of excitatory neurons (default 0)
+    """
+    # Get label_style from config (default to 'MLP')
+    label_style = getattr(config.plotting, 'label_style', 'MLP')
+    n_frames = config.simulation.n_frames
+
+    # Extract just the base name from dataset (may contain path like 'signal/signal_N11_1')
+    dataset_name = os.path.basename(config.dataset)
+    movies_dir = f'{log_dir}/results/movies'
+    os.makedirs(movies_dir, exist_ok=True)
+
+    # Get training files
+    files, file_id_list = get_training_files(log_dir, n_runs)
+    if len(file_id_list) == 0:
+        logger.info('No training files found for movie creation')
+        return
+
+    # Determine stable plot limits
+    logger.info('Determining plot limits...')
+    limits = determine_plot_limits_signal(config, log_dir, n_runs, device, n_neurons, type_list,
+                                          cmap, connectivity, xnorm, ynorm,
+                                          true_model=true_model, n_neuron_types=n_neuron_types)
+    if limits is None:
+        logger.info('Could not determine plot limits')
+        return
+
+    model, bc_pos, bc_dpos = choose_training_model(config, device)
+
+    # Load second_correction if available (computed in 'best' mode)
+    second_correction_path = f'{log_dir}/second_correction.npy'
+    if os.path.exists(second_correction_path):
+        second_correction = float(np.load(second_correction_path))
+        logger.info(f'Loaded second_correction: {second_correction:.4f}')
+    else:
+        second_correction = 1.0
+        logger.info('No second_correction found, using 1.0')
+
+    metadata = {'title': f'{dataset_name} training', 'artist': 'NeuralGraph'}
+
+    # Movie configurations: (name, figsize, create_function)
+    movie_configs = [
+        ('weights', (8, 8), 'weight'),
+        ('embedding', (8, 8), 'embedding'),
+        ('lin_edge', (8, 8), 'lin_edge'),
+        ('lin_phi', (8, 8), 'lin_phi'),
+    ]
+
+    # Add excitation movie if n_excitatory_neurons > 0
+    if n_excitatory_neurons > 0:
+        movie_configs.append(('excitation', (10, 6), 'excitation'))
+
+    r_squared_list = []
+    slope_list = []
+
+    for movie_name, figsize, plot_type in movie_configs:
+        mp4_path = f'{movies_dir}/{movie_name}_{dataset_name}.mp4'
+        jpg_path = f'{movies_dir}/{movie_name}_{dataset_name}.jpg'
+
+        logger.info(f'Creating {movie_name} movie...')
+        logger.info(f'mp4_path: {mp4_path}')
+
+        writer = FFMpegWriter(fps=fps, metadata=metadata)
+        fig = plt.figure(figsize=figsize)
+
+        first_frame_saved = False
+
+        with writer.saving(fig, mp4_path, dpi=100):
+            for file_id_ in tqdm(range(len(file_id_list)), desc=f'{movie_name}', ncols=90):
+                plt.clf()
+                ax = fig.add_subplot(111)
+
+                file_id = file_id_list[file_id_]
+                epoch = files[file_id].split('graphs')[1][1:-3]
+                net = f"{log_dir}/models/best_model_with_{n_runs-1}_graphs_{epoch}.pt"
+
+                state_dict = torch.load(net, map_location=device)
+                model.load_state_dict(state_dict['model_state_dict'])
+                model.eval()
+
+                with torch.no_grad():
+                    if plot_type == 'weight':
+                        r2, slope = create_signal_weight_subplot(fig, ax, model, connectivity, mc,
+                                                                  epoch, file_id_, config, limits, second_correction)
+                        if movie_name == 'weights':
+                            r_squared_list.append(r2)
+                            slope_list.append(slope)
+                    elif plot_type == 'embedding':
+                        create_signal_embedding_subplot(fig, ax, model, type_list, n_neuron_types, cmap, limits)
+                    elif plot_type == 'lin_edge':
+                        create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
+                                                       cmap, device, xnorm, limits, mc, label_style,
+                                                       true_model=true_model, n_neuron_types=n_neuron_types)
+                    elif plot_type == 'lin_phi':
+                        create_signal_lin_phi_subplot(fig, ax, model, config, n_neurons, type_list,
+                                                      cmap, device, xnorm, ynorm, limits, label_style,
+                                                      true_model=true_model, n_neuron_types=n_neuron_types)
+                    elif plot_type == 'excitation':
+                        create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, device,
+                                                         connectivity=connectivity)
+
+                plt.tight_layout()
+                writer.grab_frame()
+
+                # Save first frame as JPG
+                if not first_frame_saved:
+                    plt.savefig(jpg_path, dpi=150, bbox_inches='tight')
+                    first_frame_saved = True
+
+        plt.close(fig)
+        logger.info(f'Saved: {mp4_path}')
+        logger.info(f'Saved: {jpg_path}')
+
+    # Create combined 2x2 movie
+    mp4_path_combined = f'{movies_dir}/combined_{dataset_name}.mp4'
+    jpg_path_combined = f'{movies_dir}/combined_{dataset_name}.jpg'
+
+    # Check if training_single_type is enabled (skip embedding panel if so)
+    training_single_type = getattr(config.training, 'training_single_type', False) or getattr(config.training, 'init_training_single_type', False)
+
+    logger.info('Creating combined 2x2 movie...')
+    writer = FFMpegWriter(fps=fps, metadata=metadata)
+    fig = plt.figure(figsize=(16, 16))
+
+    first_frame_saved = False
+
+    with writer.saving(fig, mp4_path_combined, dpi=100):
+        for file_id_ in tqdm(range(len(file_id_list)), desc='combined', ncols=90):
+            plt.clf()
+
+            file_id = file_id_list[file_id_]
+            epoch = files[file_id].split('graphs')[1][1:-3]
+            net = f"{log_dir}/models/best_model_with_{n_runs-1}_graphs_{epoch}.pt"
+
+            state_dict = torch.load(net, map_location=device)
+            model.load_state_dict(state_dict['model_state_dict'])
+            model.eval()
+
+            with torch.no_grad():
+                # Weights subplot (top-left)
+                ax1 = fig.add_subplot(2, 2, 1)
+                create_signal_weight_subplot(fig, ax1, model, connectivity, mc, epoch, file_id_, config, limits, second_correction)
+
+                # Top-right panel:
+                # - Show excitation if training_single_type AND n_excitatory_neurons > 0
+                # - Show embedding if not training_single_type
+                # - Skip if training_single_type and no excitatory neurons
+                if training_single_type and n_excitatory_neurons > 0:
+                    ax2 = fig.add_subplot(2, 2, 2)
+                    create_signal_excitation_subplot(fig, ax2, model, config, n_frames, mc, device,
+                                                     connectivity=connectivity)
+                elif not training_single_type:
+                    ax2 = fig.add_subplot(2, 2, 2)
+                    create_signal_embedding_subplot(fig, ax2, model, type_list, n_neuron_types, cmap, limits)
+
+                # Lin_phi subplot (bottom-left) - MLP0
+                ax3 = fig.add_subplot(2, 2, 3)
+                create_signal_lin_phi_subplot(fig, ax3, model, config, n_neurons, type_list,
+                                              cmap, device, xnorm, ynorm, limits, label_style,
+                                              true_model=true_model, n_neuron_types=n_neuron_types)
+
+                # Lin_edge subplot (bottom-right) - MLP1
+                ax4 = fig.add_subplot(2, 2, 4)
+                create_signal_lin_edge_subplot(fig, ax4, model, config, n_neurons, type_list,
+                                               cmap, device, xnorm, limits, mc, label_style,
+                                               true_model=true_model, n_neuron_types=n_neuron_types)
+
+            plt.tight_layout()
+            writer.grab_frame()
+
+            if not first_frame_saved:
+                plt.savefig(jpg_path_combined, dpi=150, bbox_inches='tight')
+                first_frame_saved = True
+
+    plt.close(fig)
+    logger.info(f'Saved: {mp4_path_combined}')
+
+    # Generate LaTeX script
+    latex_path = f'{movies_dir}/slides_{dataset_name}.tex'
+    generate_signal_latex_slides(dataset_name, latex_path, logger, training_single_type)
+
+    # Copy to presentation folder if specified
+    if copy_to_presentation:
+        copy_movies_to_presentation(log_dir, dataset_name, copy_to_presentation, logger)
+
+    return r_squared_list, slope_list
+
+
+def generate_signal_latex_slides(dataset_name, output_path, logger, training_single_type=False):
+    """Generate LaTeX slides for the movies."""
+
+    # Embedding frame (only if not training_single_type)
+    embedding_frame = '' if training_single_type else f'''\\blackframe
+\\begin{{frame}}{{GNN training - embedding}}
+\\centering
+\\vspace{{3em}}
+\\href{{run:Movies/embedding_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/embedding_{dataset_name}.jpg}}}}
+\\end{{frame}}
+
+'''
+
+    latex_content = f'''% LaTeX slides for {dataset_name} training movies
+% Generated by NeuralGraph
+
+\\blackframe
+\\begin{{frame}}{{GNN training - weight reconstruction}}
+\\centering
+\\vspace{{3em}}
+\\href{{run:Movies/weights_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/weights_{dataset_name}.jpg}}}}
+\\end{{frame}}
+
+{embedding_frame}\\blackframe
+\\begin{{frame}}{{GNN training - MLP0 function}}
+\\centering
+\\vspace{{3em}}
+\\href{{run:Movies/lin_phi_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/lin_phi_{dataset_name}.jpg}}}}
+\\end{{frame}}
+
+\\blackframe
+\\begin{{frame}}{{GNN training - MLP1 function}}
+\\centering
+\\vspace{{3em}}
+\\href{{run:Movies/lin_edge_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/lin_edge_{dataset_name}.jpg}}}}
+\\end{{frame}}
+
+\\blackframe
+\\begin{{frame}}{{GNN training - overview}}
+\\centering
+\\vspace{{3em}}
+\\href{{run:Movies/combined_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/combined_{dataset_name}.jpg}}}}
+\\end{{frame}}
+'''
+
+    with open(output_path, 'w') as f:
+        f.write(latex_content)
+
+    logger.info(f'LaTeX slides saved: {output_path}')
+
+
+def copy_movies_to_presentation(log_dir, dataset_name, presentation_path, logger):
+    """Copy movies and JPGs to presentation folder."""
+    import shutil
+
+    movies_dir = f'{log_dir}/results/movies'
+    dest_dir = presentation_path
+
+    os.makedirs(dest_dir, exist_ok=True)
+
+    files_to_copy = [
+        f'weights_{dataset_name}.mp4',
+        f'weights_{dataset_name}.jpg',
+        f'embedding_{dataset_name}.mp4',
+        f'embedding_{dataset_name}.jpg',
+        f'lin_edge_{dataset_name}.mp4',
+        f'lin_edge_{dataset_name}.jpg',
+        f'lin_phi_{dataset_name}.mp4',
+        f'lin_phi_{dataset_name}.jpg',
+        f'combined_{dataset_name}.mp4',
+        f'combined_{dataset_name}.jpg',
+    ]
+
+    for filename in files_to_copy:
+        src = f'{movies_dir}/{filename}'
+        dst = f'{dest_dir}/{filename}'
+        if os.path.exists(src):
+            shutil.copy2(src, dst)
+            logger.info(f'Copied: {filename} -> {dest_dir}')
+        else:
+            logger.warning(f'File not found: {src}')
+
+    # Also copy LaTeX file
+    latex_src = f'{movies_dir}/slides_{dataset_name}.tex'
+    latex_dst = f'{dest_dir}/slides_{dataset_name}.tex'
+    if os.path.exists(latex_src):
+        shutil.copy2(latex_src, latex_dst)
+        logger.info(f'Copied: slides_{dataset_name}.tex -> {dest_dir}')
 
 
 def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device):
@@ -271,6 +972,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     else:
         mc = 'k'
 
+    # Get label_style from config (default to 'MLP')
+    label_style = getattr(config.plotting, 'label_style', 'MLP')
+
     if has_ghost:
         model_missing_activity = nn.ModuleList([
             Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
@@ -313,6 +1017,46 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
         files, file_id_list = get_training_files(log_dir, n_runs)
 
+        # Load connectivity for movie generation and create true_model for plotting true curves
+        connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+
+        # Expand connectivity and type_list if n_excitatory_neurons > 0
+        if n_excitatory_neurons > 0:
+            # Use run=0 for model_e since the model learns from run 0 primarily
+            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_0.pt", map_location=device)
+            expanded = torch.zeros((n_neurons, n_neurons), device=device)
+            expanded[:n_neurons - n_excitatory_neurons, :n_neurons - n_excitatory_neurons] = connectivity
+            expanded[:n_neurons - n_excitatory_neurons, -1] = model_e.t().squeeze()
+            connectivity = expanded.clone().detach()
+
+            # Expand type_list for excitatory neurons
+            type_list = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device) * (simulation_config.n_neuron_types + 1)), dim=0)
+            n_neuron_types = n_neuron_types + n_excitatory_neurons
+
+        true_model, _, _ = choose_model(config=config, W=connectivity, device=device)
+
+        # Create movies with stable axes
+        create_signal_movies(
+            config=config,
+            log_dir=log_dir,
+            n_runs=n_runs,
+            device=device,
+            n_neurons=n_neurons,
+            n_neuron_types=n_neuron_types,
+            type_list=type_list,
+            cmap=cmap,
+            connectivity=connectivity,
+            xnorm=xnorm,
+            ynorm=ynorm,
+            mc=mc,
+            logger=logger,
+            fps=10,
+            copy_to_presentation='/groups/saalfeld/saalfeldlab/cedric/presentation/CT 2025/Movies',
+            true_model=true_model,
+            n_excitatory_neurons=n_excitatory_neurons
+        )
+
+        # Continue with existing PNG generation for backwards compatibility
         r_squared_list = []
         slope_list = []
         it = -1
@@ -425,7 +1169,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                             embedding0 = model.a[n0, :] * torch.ones((1000, config.graph_model.embedding_dim),
                                                                      device=device)
                             # in_features = torch.cat((rr[:, None], embedding0), dim=1)
-                            in_features = get_in_features(rr, embedding0, model_config.signal_model_name, max_radius)
+                            in_features = get_in_features(rr, embedding0, model, model_config.signal_model_name, max_radius)
                             if config.graph_model.lin_edge_positive:
                                 func = model.lin_edge(in_features.float()) ** 2 * correction
                             else:
@@ -465,19 +1209,43 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.tight_layout()
                     plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
-                else:
+                elif (model_config.signal_model_name == 'PDE_N11'):
                     fig, ax = fig_init()
-                    in_features = rr[:, None]
-                    with torch.no_grad():
-                        func = model.lin_edge(in_features.float()) * correction
-                    if config.graph_model.lin_edge_positive:
-                        func = func ** 2
-                    plt.plot(to_numpy(rr), to_numpy(func), color=mc, linewidth=8, label=r'learned')
-                    plt.xlabel(r'$x_j$', fontsize=68)
-                    # plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
-                    plt.ylabel(r'learned $\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=68)
-                    plt.ylim([-1.5, 1.5])
-                    plt.xlim([-5,5])
+                    # Compute normalization factor from true model at x > 6 (asymptotic region)
+                    norm_factor = 1.0
+                    if true_model is not None:
+                        rr_asymptotic = torch.linspace(6.0, 10.0, 100).to(device)
+                        true_max = 0.0
+                        for n_type in range(n_neuron_types):
+                            true_func = true_model.func(rr_asymptotic, n_type, 'phi')
+                            true_asymptotic = torch.abs(true_func).mean().item()
+                            true_max = max(true_max, true_asymptotic)
+                        if true_max > 0:
+                            norm_factor = true_max
+                    # Plot true curves first (green, thick)
+                    if true_model is not None:
+                        for n_type in range(n_neuron_types):
+                            true_func = true_model.func(rr, n_type, 'phi')
+                            plt.plot(to_numpy(rr), to_numpy(true_func) / norm_factor, c='g', linewidth=8)
+                    # Plot learned curves
+                    for k in range(n_neuron_types):
+                        for m in range(250):
+                            pos0 = to_numpy(torch.argwhere(type_list == k).squeeze())
+                            n0 = np.random.randint(len(pos0))
+                            n0 = pos0[n0, 0]
+                            embedding0 = model.a[n0, :] * torch.ones((1000, config.graph_model.embedding_dim),
+                                                                     device=device)
+                            in_features = torch.cat((rr[:, None], embedding0), dim=1)
+                            with torch.no_grad():
+                                func = model.lin_edge(in_features.float()) * correction
+                            plt.plot(to_numpy(rr), to_numpy(func) / norm_factor, color=cmap.color(k), linewidth=2, alpha=0.25)
+                    plt.xlabel(r'$v_j$', fontsize=68)
+                    if label_style == 'MLP':
+                        plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=68)
+                    else:
+                        plt.ylabel(r'$f$', fontsize=68)
+                    plt.ylim([-1.2, 1.2])
+                    plt.xlim([-to_numpy(xnorm).item(), to_numpy(xnorm).item()])
                     plt.tight_layout()
                     plt.savefig(f"./{log_dir}/results/all/MLP1_{num}.png", dpi=80)
                     plt.close()
@@ -748,19 +1516,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
 
 
-        fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
-        plt.plot(r_squared_list, linewidth=4, c=mc)
-        plt.xlim([0, 100])
-        plt.ylim([0, 1.1])
-        plt.yticks(fontsize=48)
-        plt.xticks([0, 100], [0, 20], fontsize=48)
-        plt.ylabel('$R^2$', fontsize=64)
-        plt.xlabel('epoch', fontsize=64)
-        plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/R2.png', dpi=300)
-        plt.close()
-        np.save(f'./{log_dir}/results/R2.npy', r_squared_list)
-
         slope_list = np.array(slope_list) / p[0][0]
         fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
         plt.plot(slope_list*10, linewidth=4, c=mc)
@@ -879,6 +1634,33 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
         connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
 
+        # Create true_model for computing plot limits with true MLP values
+        true_model_for_limits, _, _ = choose_model(config=config, W=connectivity, device=device)
+
+        # Compute plot limits for consistent axes (includes true MLP values)
+        limits = determine_plot_limits_signal(
+            config=config,
+            log_dir=log_dir,
+            n_runs=n_runs,
+            device=device,
+            n_neurons=n_neurons,
+            type_list=type_list,
+            cmap=cmap,
+            connectivity=connectivity,
+            xnorm=xnorm,
+            ynorm=ynorm,
+            n_samples=5,
+            true_model=true_model_for_limits,
+            n_neuron_types=n_neuron_types
+        )
+
+        # Determine variable name based on model type
+        model_name = config.graph_model.signal_model_name
+        if 'PDE_N11' in model_name:
+            weight_var = '$J_{ij}$'
+        else:
+            weight_var = '$W_{ij}$'
+
         if n_excitatory_neurons > 0:
             # update to full connectivity including excitatory neurons
 
@@ -886,7 +1668,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             edges, edge_attr = dense_to_sparse(adj_matrix)
             edges_all = edges.clone().detach()
 
-            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_{run}.pt", map_location=device)
+            # Use run=0 for model_e since the model learns from run 0 primarily
+            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_0.pt", map_location=device)
             N = connectivity.shape[0]
             expanded = torch.zeros((n_neurons, n_neurons), device=device)
             expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
@@ -904,55 +1687,56 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         edge_index = adj_t.nonzero().t().contiguous()
 
         edge_index = adj_t.nonzero().t().contiguous()
-        weights = to_numpy(adjacency.flatten())
-        pos = np.argwhere(weights != 0)
-        weights = weights[pos]
 
-        fig_init()
-        plt.hist(weights, bins=1000, color=mc, alpha=0.5)
-        plt.ylabel(r'counts', fontsize=64)
-        plt.xlabel(r'$W$', fontsize=64)
-        plt.yticks(fontsize=24)
-        plt.xticks(fontsize=24)
-        plt.xlim([-0.1, 0.1])
-        plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/weights_distribution.png', dpi=300)
-        plt.close()
+        # Compute weight limits from actual data
+        gt_weight_flat = to_numpy(connectivity).flatten()
+        weight_max = np.max(np.abs(gt_weight_flat)) * 1.1
+        weight_lim = (-weight_max, weight_max)
 
         plt.figure(figsize=(10, 10))
         ax = sns.heatmap(to_numpy(adjacency), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
-                         vmin=-0.1, vmax=0.1)
+                         vmin=weight_lim[0], vmax=weight_lim[1])
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
-        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
+        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
         plt.xticks([])
         plt.yticks([])
         plt.tight_layout()
         plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
         plt.close()
 
-        plt.figure(figsize=(10, 10))
-        if False: # config.graph_model.signal_model_name == 'PDE_N8':
-            with open(f'graphs_data/{dataset_name}/larynx_neuron_list.json', 'r') as file:
-                larynx_neuron_list = json.load(file)
-            with open(f'graphs_data/{dataset_name}/all_neuron_list.json', 'r') as file:
-                activity_neuron_list = json.load(file)
-            map_larynx_matrix, n = map_matrix(larynx_neuron_list, activity_neuron_list, adjacency)
+        # Sample 100 traces if n_neurons > 1000
+        n_neurons_plot = n_neurons - n_excitatory_neurons
+        if n_neurons_plot > 1000:
+            sampled_indices = np.random.choice(n_neurons_plot, 100, replace=False)
+            sampled_indices = np.sort(sampled_indices)
+            activity_plot = to_numpy(activity[sampled_indices])
+            n_plot = 100
         else:
-            n = np.random.randint(0, n_neurons-n_excitatory_neurons, 50)
-        for i in range(len(n)):
-            plt.plot(to_numpy(activity[n[i].astype(int), :]) + 20*i, linewidth=1)
-        plt.xlabel('time', fontsize=64)
-        plt.ylabel('$x_{i}$', fontsize=64)
-        plt.xlim([0,n_frames])
-        # plt.xticks([10000, 99000], [10000, 100000], fontsize=48)
-        plt.xticks(fontsize=28)
-        plt.yticks(fontsize=28)
-        plt.title(r'$v_i$ samples',fontsize=48)
+            sampled_indices = np.arange(n_neurons_plot)
+            activity_plot = to_numpy(activity[:n_neurons_plot])
+            n_plot = n_neurons_plot
+
+        activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
+        plt.figure(figsize=(18, 12))
+        plt.plot(activity_plot.T, linewidth=2)
+
+        for i in range(0, n_plot, 5):
+            plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')
+
+        ax = plt.gca()
+        ax.text(-1500, activity_plot.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+        plt.xlabel("time", fontsize=32)
+        plt.xticks(fontsize=24)
+        ax.spines['left'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.yaxis.set_ticks_position('right')
+        ax.set_yticks([0, 20, 40])
+        ax.set_yticklabels(['0', '20', '40'], fontsize=16)
         plt.tight_layout()
         plt.savefig(f'./{log_dir}/results/activity.png', dpi=300)
         plt.close()
@@ -971,23 +1755,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
             A = model.W.clone().detach()
             A[i, i] = 0
-
-            plt.figure(figsize=(10, 10))
-            ax = sns.heatmap(to_numpy(A), center=0, square=True, cmap='bwr',
-                             cbar_kws={'fraction': 0.046}, vmin=-0.5, vmax=0.5)
-            cbar = ax.collections[0].colorbar
-            cbar.ax.tick_params(labelsize=32)
-            plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-            plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-            plt.xticks(rotation=0)
-            # plt.subplot(2, 2, 1)
-            # ax = sns.heatmap(to_numpy(A[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
-            # plt.xticks(rotation=0)
-            # plt.xticks([])
-            # plt.yticks([])
-            plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/first learned connectivity.png', dpi=300)
-            plt.close()
 
             A = A[:n_neurons,:n_neurons]
 
@@ -1097,13 +1864,17 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.savefig(f"./{log_dir}/results/excitation.png", dpi=170.7)
                 plt.close()
 
-            fig, ax = fig_init()
             rr = torch.linspace(-xnorm.squeeze() * 2 , xnorm.squeeze() * 2 , 1000).to(device)
             func_list = []
             for n in trange(0,n_neurons, ncols=90):
-                if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
+                if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                    in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
+                    if model_config.signal_model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
+                        in_features = torch.cat((rr[:, None], embedding_), dim=1)
+                    elif model_config.signal_model_name == 'PDE_N5':
+                        in_features = torch.cat((rr[:, None], embedding_, embedding_), dim=1)
+                    else:
+                        in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius)
                 else:
                     in_features = rr[:,None]
                 with torch.no_grad():
@@ -1111,19 +1882,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 if config.graph_model.lin_edge_positive:
                     func = func ** 2
                 func_list.append(func)
-                plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                         linewidth=2 // ( 1 + (n_neuron_types>16)*1.0), alpha=0.25)
             func_list = torch.stack(func_list).squeeze()
-            y_min, y_max = func_list.min().item(), func_list.max().item()
-            plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'Learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
-            # if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
-            #     plt.ylim([-0.5,0.5])
-            # plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
-            plt.ylim([y_min,y_max*1.1])
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/raw_psi.png", dpi=170.7)
-            plt.close()
 
             upper = func_list[:,950:1000].flatten()
             upper = torch.sort(upper, descending=True).values
@@ -1131,25 +1890,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             # correction = 1 / torch.mean(torch.mean(func_list[:,900:1000], dim=0))
             print(f'upper: {to_numpy(1/correction):0.4f}  correction: {to_numpy(correction):0.2f}')
             torch.save(correction, f'{log_dir}/correction.pt')
-
-            matrix_correction = torch.mean(func_list[:,950:1000], dim=1)
-            A_corrected = A * matrix_correction[:, None]
-            plt.figure(figsize=(10, 10))
-            ax = sns.heatmap(to_numpy(A_corrected), center=0, square=True, cmap='bwr',
-                             cbar_kws={'fraction': 0.046}, vmin=-0.1, vmax=0.1)
-            cbar = ax.collections[0].colorbar
-            cbar.ax.tick_params(labelsize=32)
-            plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-            plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-            plt.xticks(rotation=0)
-            # plt.subplot(2, 2, 1)
-            # ax = sns.heatmap(to_numpy(A[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
-            # plt.xticks(rotation=0)
-            # plt.xticks([])
-            # plt.yticks([])
-            plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/corrected learned connectivity.png', dpi=300)
-            plt.close()
 
             print('update functions ...')
             if model_config.signal_model_name == 'PDE_N5':
@@ -1173,7 +1913,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                             spine.set_linewidth(3)
                         for m in range(n_neuron_types):
                             true_func = true_model.func(rr, k, m, 'phi')
-                            plt.plot(to_numpy(rr), to_numpy(true_func), c=mc, linewidth=1, label='original', alpha=0.21)
+                            plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=4, label='original')
                         for n in range(n_neuron_types):
                             for m in range(250):
                                 pos0 = to_numpy(torch.argwhere(type_list == k).squeeze())
@@ -1223,15 +1963,15 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 if (model_config.signal_model_name == 'PDE_N4'):
                     for n in range(n_neuron_types):
                         true_func = true_model.func(rr, n, 'phi')
-                        plt.plot(to_numpy(rr), to_numpy(true_func), c = mc, linewidth = 16, label = 'original', alpha = 0.21)
+                        plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
                 else:
                     true_func = true_model.func(rr, 0, 'phi')
-                    plt.plot(to_numpy(rr), to_numpy(true_func), c = mc, linewidth = 16, label = 'original', alpha = 0.21)
+                    plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
 
                 for n in trange(0,n_neurons, ncols=90):
-                    if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
+                    if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
                         embedding_ = model.a[n, :] * torch.ones((1500, config.graph_model.embedding_dim), device=device)
-                        in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
+                        in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius)
                     else:
                         in_features = rr[:, None]
                     with torch.no_grad():
@@ -1240,24 +1980,24 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         else:
                             func = model.lin_edge(in_features.float()) * correction
                         psi_list.append(func)
-                    if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
-                        plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(to_numpy(type_list)[n].astype(int)), linewidth=2, alpha=0.25)
-                    else:
-                        plt.plot(to_numpy(rr), to_numpy(func), 2, color=mc, linewidth=2, alpha=0.25)
+                    plt.plot(to_numpy(rr), to_numpy(func), color='w', linewidth=4, alpha=0.25)
 
                 plt.xlabel(r'$v_i$', fontsize=68)
-                if (model_config.signal_model_name == 'PDE_N4'):
-                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
-                elif model_config.signal_model_name == 'PDE_N5':
-                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, v_i)$', fontsize=68)
+                if label_style == 'MLP':
+                    plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=68)
                 else:
-                    plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
+                    if (model_config.signal_model_name == 'PDE_N4'):
+                        plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                    elif model_config.signal_model_name == 'PDE_N5':
+                        plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, v_i)$', fontsize=68)
+                    else:
+                        plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
                 if config.graph_model.lin_edge_positive:
                     plt.ylim([-0.2, 1.2])
                 else:
                     plt.ylim([-1.6, 1.6])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/learned_psi.png", dpi=170.7)
+                plt.savefig(f"./{log_dir}/results/MLP1.png", dpi=170.7)
                 plt.close()
                 psi_list = torch.stack(psi_list)
                 psi_list = psi_list.squeeze()
@@ -1270,7 +2010,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     true_func = true_model.func(rr, n, n, 'update')
                 else:
                     true_func = true_model.func(rr, n, 'update')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c=mc, linewidth=16, label='original', alpha=0.21)
+                plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
             phi_list = []
             for n in trange(n_neurons, ncols=90):
                 embedding_ = model.a[n, :] * torch.ones((1500, config.graph_model.embedding_dim), device=device)
@@ -1281,15 +2021,23 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 func = func[:, 0]
                 phi_list.append(func)
                 plt.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm),
-                         color=cmap.color(to_numpy(type_list[n]).astype(int)), linewidth=2, alpha=0.25)
+                         color='w', linewidth=4, alpha=0.25)
             phi_list = torch.stack(phi_list)
             func_list_ = to_numpy(phi_list)
+            # Compute ylim from actual data
+            phi_y_min = (phi_list * ynorm).min().item()
+            phi_y_max = (phi_list * ynorm).max().item()
+            phi_y_range = phi_y_max - phi_y_min
+            phi_ylim = [phi_y_min - phi_y_range * 0.1, phi_y_max + phi_y_range * 0.1]
             plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+            if label_style == 'MLP':
+                plt.ylabel(r'$\mathrm{MLP_0}$', fontsize=68)
+            else:
+                plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, v_i)$', fontsize=68)
             plt.tight_layout()
             # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
-            plt.ylim(config.plotting.ylim)
-            plt.savefig(f'./{log_dir}/results/learned phi.png', dpi=300)
+            plt.ylim(phi_ylim)
+            plt.savefig(f'./{log_dir}/results/MLP0.png', dpi=300)
             plt.close()
 
             print('UMAP reduction ...')
@@ -1333,8 +2081,11 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             # print(f'accuracy: {accuracy:0.4f}   n_clusters: {n_clusters}    obtained with  method: {config.training.cluster_method}  ')
             # logger.info(f'accuracy: {accuracy:0.4f}   n_clusters: {n_clusters}    obtained with  method: {config.training.cluster_method} ')
 
+            # Adjust dot size based on number of neurons
+            dot_size = 400 if n_neurons < 1000 else 150
+
             plt.figure(figsize=(10, 10))
-            plt.scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=150, color=cmap.color(to_numpy(type_list).astype(int)))
+            plt.scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(to_numpy(type_list).astype(int)))
             plt.xticks([])
             plt.yticks([])
             plt.axis('off')
@@ -1343,7 +2094,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.close()
 
             plt.figure(figsize=(10, 10))
-            plt.scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=150, color=cmap.color(new_labels[:n_neurons].astype(int)))
+            plt.scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(new_labels[:n_neurons].astype(int)))
             plt.xticks([])
             plt.yticks([])
             plt.axis('off')
@@ -1354,15 +2105,18 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             fig, ax = fig_init()
             gt_weight = to_numpy(connectivity)
             pred_weight = to_numpy(A)
-            plt.scatter(gt_weight, pred_weight / 10 , s=0.1, c=mc, alpha=0.1)
-            plt.xlabel(r'true $W_{ij}$', fontsize=68)
-            plt.ylabel(r'learned $W_{ij}$', fontsize=68)
-            if n_neurons == 8000:
-                plt.xlim([-0.05,0.05])
-                plt.ylim([-0.05,0.05])
+            # Adjust scatter plot parameters based on number of neurons
+            if n_neurons < 1000:
+                scatter_size = 1
+                scatter_alpha = 1.0
             else:
-                plt.xlim([-0.2,0.2])
-                plt.ylim([-0.2,0.2])
+                scatter_size = 0.1
+                scatter_alpha = 0.1
+            plt.scatter(gt_weight, pred_weight / 10, s=scatter_size, c=mc, alpha=scatter_alpha)
+            plt.xlabel(f'true {weight_var}', fontsize=68)
+            plt.ylabel(f'learned {weight_var}', fontsize=68)
+            plt.xlim(weight_lim)
+            plt.ylim(weight_lim)
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/first_comparison.png", dpi=87)
             plt.close()
@@ -1384,36 +2138,93 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             fig, ax = fig_init()
             gt_weight = to_numpy(connectivity)
             pred_weight = to_numpy(A)
-            plt.scatter(gt_weight, pred_weight / second_correction, s=0.1, c=mc, alpha=0.1)
-            plt.xlabel(r'true $W_{ij}$', fontsize=68)
-            plt.ylabel(r'learned $W_{ij}$', fontsize=68)
-            if n_neurons == 8000:
-                plt.xlim([-0.05,0.05])
-                plt.ylim([-0.05,0.05])
-            else:
-                plt.xlim([-0.2,0.2])
-                plt.ylim([-0.2,0.2])
+            plt.scatter(gt_weight, pred_weight / second_correction, s=scatter_size, c=mc, alpha=scatter_alpha)
+            plt.xlabel(f'true {weight_var}', fontsize=68)
+            plt.ylabel(f'learned {weight_var}', fontsize=68)
+            plt.xlim(weight_lim)
+            plt.ylim(weight_lim)
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/second_comparison.png", dpi=87)
             plt.close()
 
+            # Final learned connectivity heatmap (transpose to match ground truth orientation)
+            A_plot = A.t()
             plt.figure(figsize=(10, 10))
-            # plt.title(r'learned $W_{ij}$', fontsize=68)
-            ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
+            ax = sns.heatmap(to_numpy(A_plot)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
             cbar = ax.collections[0].colorbar
-            # here set the labelsize by 20
             cbar.ax.tick_params(labelsize=32)
             plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
             plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
             plt.xticks(rotation=0)
             plt.subplot(2, 2, 1)
-            ax = sns.heatmap(to_numpy(A[0:20, 0:20]/second_correction), cbar=False, center=0, square=True, cmap='bwr')
-            plt.xticks(rotation=0)
+            ax = sns.heatmap(to_numpy(A_plot[0:20, 0:20])/second_correction, cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
             plt.xticks([])
             plt.yticks([])
             plt.tight_layout()
             plt.savefig(f'./{log_dir}/results/final learned connectivity.png', dpi=300)
             plt.close()
+
+            if n_excitatory_neurons > 0:
+                print('plot excitation function ...')
+
+                # Plot learned excitation function vs ground truth oscillation
+                fig = plt.figure(figsize=(16, 8))
+                ax = fig.add_subplot(121)
+
+                with torch.no_grad():
+                    kk = torch.arange(0, n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
+                    excitation_field = model.NNR_f(kk[:, None])
+                    model_a = model.a[-1] * torch.ones((n_frames, 1), device=device)
+                    in_features = torch.cat([excitation_field, model_a], dim=1)
+                    msg = model.lin_edge(in_features)
+
+                excitation = to_numpy(msg.squeeze())
+
+                frame_ = np.arange(0, len(excitation)) / len(excitation)
+                gt_excitation = np.cos((2 * np.pi) * simulation_config.oscillation_frequency * frame_)
+                plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5, label='ground truth')
+                plt.plot(excitation, c=mc, linewidth=1, label='learned')
+                plt.xlabel('time', fontsize=48)
+                plt.ylabel('excitation', fontsize=48)
+                plt.xticks(fontsize=12)
+                plt.yticks(fontsize=12)
+                plt.legend(fontsize=16)
+
+                ax = fig.add_subplot(122)
+                plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
+                plt.plot(excitation, c=mc, linewidth=1)
+                plt.xlabel('time', fontsize=48)
+                plt.ylabel('excitation', fontsize=48)
+                plt.xticks(fontsize=12)
+                plt.yticks(fontsize=12)
+                plt.xlim([0, 2000])
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/excitation.png", dpi=170)
+                plt.close()
+
+                # Plot excitatory neuron weights comparison (e_i scatter)
+                # Use expanded connectivity's last column for ground truth (matches training code)
+                gt_weight_exc = to_numpy(connectivity[:-1, -1])
+                pred_weight_exc = to_numpy(model.W[:-1, -1])
+
+                fig, ax = fig_init()
+                plt.scatter(gt_weight_exc, pred_weight_exc, s=10, c=mc)
+                plt.xlabel(r'true $e_i$', fontsize=48)
+                plt.ylabel(r'learned $e_i$', fontsize=48)
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/comparison_exc.png", dpi=170)
+                plt.close()
+
+                # R² for excitation weights
+                x_data = gt_weight_exc.flatten()
+                y_data = pred_weight_exc.flatten()
+                lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
+                residuals = y_data - linear_model(x_data, *lin_fit)
+                ss_res = np.sum(residuals ** 2)
+                ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+                r_squared_exc = 1 - (ss_res / ss_tot)
+                print(f'Excitation weights R²: {r_squared_exc:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                logger.info(f'Excitation weights R²: {np.round(r_squared_exc, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
             if has_ghost:
 
@@ -2202,7 +3013,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     c_list = np.linspace(c1, c2, 100)
                     for n in range(k * 100, (k + 1) * 100):
                         embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                        in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
+                        in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius)
                         with torch.no_grad():
                             func = model.lin_phi(in_features.float())
                         func_list.append(func)
@@ -2293,19 +3104,6 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     plt.savefig(f"./{log_dir}/results/all/field_{epoch}.png", dpi=80)
                     plt.close()
 
-        fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
-        plt.plot(r_squared_list, linewidth=4, c=mc)
-        plt.xlim([0, 100])
-        plt.ylim([0, 1.1])
-        plt.yticks(fontsize=48)
-        plt.xticks([0, 100], [0, 20], fontsize=48)
-        plt.ylabel('$R^2$', fontsize=64)
-        plt.xlabel('epoch', fontsize=64)
-        plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/R2.png', dpi=300)
-        plt.close()
-        np.save(f'./{log_dir}/results/R2.npy', r_squared_list)
-
         slope_list = np.array(slope_list) / p[0][0]
         fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
         plt.plot(slope_list, linewidth=4, c=mc)
@@ -2378,7 +3176,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 plt.xticks([])
                 plt.yticks([])
                 embedding_ = model.a[k, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
+                in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius)
                 with torch.no_grad():
                     func = model.lin_phi(in_features.float())
                     plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(it//250), alpha=0.5)
@@ -2468,27 +3266,21 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
         pos = np.argwhere(weights != 0)
         weights = weights[pos]
 
-        fig_init()
-        plt.hist(weights, bins=1000, color=mc, alpha=0.5)
-        plt.ylabel(r'counts', fontsize=64)
-        plt.xlabel(r'$W$', fontsize=64)
-        plt.yticks(fontsize=24)
-        plt.xticks(fontsize=24)
-        plt.xlim([-0.1, 0.1])
-        plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/weights_distribution.png', dpi=300)
-        plt.close()
+        # Compute weight limits from actual data
+        gt_weight_flat = to_numpy(adjacency).flatten()
+        weight_max = np.max(np.abs(gt_weight_flat)) * 1.1
+        weight_lim = (-weight_max, weight_max)
 
         plt.figure(figsize=(10, 10))
         ax = sns.heatmap(to_numpy(adjacency), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046},
-                         vmin=-0.1, vmax=0.1)
+                         vmin=weight_lim[0], vmax=weight_lim[1])
         cbar = ax.collections[0].colorbar
         cbar.ax.tick_params(labelsize=32)
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
-        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
+        ax = sns.heatmap(to_numpy(adjacency[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
         plt.xticks([])
         plt.yticks([])
         plt.tight_layout()
@@ -2699,7 +3491,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 fig, ax = fig_init()
                 for n in trange(k*100,(k+1)*100, ncols=90):
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                    in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
+                    in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius)
                     with torch.no_grad():
                         func = model.lin_phi(in_features.float())
                     func_list.append(func)
@@ -2707,9 +3499,9 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                              # linewidth=4, alpha=0.15-0.15*(n%100)/100)
                     plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(it), alpha=0.25)
                 true_func = true_model.func(rr, it, 'update')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c=mc, linewidth=1)
+                plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=4)
                 true_func = true_model.func(rr, it+1, 'update')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c=mc, linewidth=1)
+                plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=4)
                 plt.xlabel(r'$v_i$', fontsize=68)
                 plt.ylabel(r'Learned $\phi^*(\mathbf{a}_i(t), v_i)$', fontsize=68)
                 plt.ylim([-8,8])
@@ -2718,31 +3510,22 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 plt.savefig(f"./{log_dir}/results/phi_{k}.png", dpi=170.7)
                 plt.close()
 
-            fig, ax = fig_init()
             rr = torch.tensor(np.linspace(-5, 5, 1000)).to(device)
             func_list = []
             for n in trange(0,n_neurons,n_neurons, ncols=90):
-                if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
+                if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                    in_features = get_in_features(rr, embedding_, model_config.signal_model_name, max_radius)
+                    in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius)
                 else:
                     in_features = rr[:, None]
                 with torch.no_grad():
                     func = model.lin_edge(in_features.float())
-                if (model_config.signal_model_name == 'PDE_N4') | (model_config.signal_model_name == 'PDE_N5'):
+                if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
                     if n<250:
                         func_list.append(func)
                 else:
                     func_list.append(func)
-                plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(to_numpy(type_list)[n].astype(int)),
-                         linewidth=8 // ( 1 + (n_neuron_types>16)*1.0), alpha=0.25)
             func_list = torch.stack(func_list)
-            plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'Learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
-            plt.xlim([-5,5])
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/raw_psi.png", dpi=170.7)
-            plt.close()
 
             correction = 1 / torch.mean(torch.mean(func_list[:,900:1000], dim=0))
             print(f'correction: {correction:0.2f}')
@@ -2754,10 +3537,10 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             if model_config.signal_model_name == 'PDE_N4':
                 for n in range(n_neuron_types):
                     true_func = true_model.func(rr, n, 'phi')
-                    plt.plot(to_numpy(rr), to_numpy(true_func), c = 'k', linewidth = 16, label = 'original', alpha = 0.21)
+                    plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
             else:
                 true_func = true_model.func(rr, 0, 'phi')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c = 'k', linewidth = 16, label = 'original', alpha = 0.21)
+                plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
 
             for n in trange(0,n_neurons, ncols=90):
                 in_features = rr[:, None]
@@ -2766,11 +3549,14 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     psi_list.append(func)
                     plt.plot(to_numpy(rr), to_numpy(func), 2, color=mc, linewidth=2, alpha=0.25)
             plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
+            if label_style == 'MLP':
+                plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=68)
+            else:
+                plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
             plt.ylim([-1.1, 1.1])
             plt.xlim(config.plotting.xlim)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/learned_psi.png", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/MLP1.png", dpi=170.7)
             plt.close()
 
 
@@ -2810,7 +3596,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
 
             plt.figure(figsize=(10, 10))
             # plt.title(r'learned $W_{ij}$', fontsize=68)
-            ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=-0.1,vmax=0.1)
+            ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
             cbar = ax.collections[0].colorbar
             # here set the labelsize by 20
             cbar.ax.tick_params(labelsize=32)
@@ -2818,7 +3604,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
             plt.xticks(rotation=0)
             plt.subplot(2, 2, 1)
-            ax = sns.heatmap(to_numpy(A[0:20, 0:20]/second_correction), cbar=False, center=0, square=True, cmap='bwr', vmin=-0.1, vmax=0.1)
+            ax = sns.heatmap(to_numpy(A[0:20, 0:20]/second_correction), cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
             plt.xticks(rotation=0)
             plt.xticks([])
             plt.yticks([])
@@ -3081,7 +3867,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                             embedding0 = model.a[n0, :] * torch.ones((1000, config.graph_model.embedding_dim),
                                                                      device=device)
                             # in_features = torch.cat((rr[:, None], embedding0), dim=1)
-                            in_features = get_in_features(rr, embedding0, model_config.signal_model_name, max_radius)
+                            in_features = get_in_features(rr, embedding0, model, model_config.signal_model_name, max_radius)
                             if config.graph_model.lin_edge_positive:
                                 func = model.lin_edge(in_features.float()) ** 2 * correction
                             else:
@@ -3378,19 +4164,6 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
                 plt.savefig(f"./{log_dir}/results/training/fig_{num}.png", dpi=80)
                 plt.close()
-
-        fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
-        plt.plot(r_squared_list, linewidth=4, c=mc)
-        plt.xlim([0, 100])
-        plt.ylim([0, 1.1])
-        plt.yticks(fontsize=48)
-        plt.xticks([0, 100], [0, 20], fontsize=48)
-        plt.ylabel('$R^2$', fontsize=64)
-        plt.xlabel('epoch', fontsize=64)
-        plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/R2.png', dpi=300)
-        plt.close()
-        np.save(f'./{log_dir}/results/R2.npy', r_squared_list)
 
         slope_list = np.array(slope_list) / p[0][0]
         fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
@@ -3834,7 +4607,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             # # plt.xlim([-to_numpy(xnorm)*2, to_numpy(xnorm)*2])
             # plt.ylim([y_min,y_max*1.1])
             # plt.tight_layout()
-            # plt.savefig(f"./{log_dir}/results/raw_psi.png", dpi=170.7)
+            # plt.savefig(f"./{log_dir}/results/first_MLP1.png", dpi=170.7)
             # plt.close()
             #
             # upper = func_list[:,950:1000].flatten()
@@ -3975,7 +4748,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             #     else:
             #         plt.ylim([-1.6, 1.6])
             #     plt.tight_layout()
-            #     plt.savefig(f"./{log_dir}/results/learned_psi.png", dpi=170.7)
+            #     plt.savefig(f"./{log_dir}/results/MLP1.png", dpi=170.7)
             #     plt.close()
             #     psi_list = torch.stack(psi_list)
             #     psi_list = psi_list.squeeze()
@@ -4115,24 +4888,6 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             #     plt.ylim([-0.2,0.2])
             # plt.tight_layout()
             # plt.savefig(f"./{log_dir}/results/second_comparison.png", dpi=87)
-            # plt.close()
-            #
-            # plt.figure(figsize=(10, 10))
-            # # plt.title(r'learned $W_{ij}$', fontsize=68)
-            # ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
-            # cbar = ax.collections[0].colorbar
-            # # here set the labelsize by 20
-            # cbar.ax.tick_params(labelsize=32)
-            # plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-            # plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-            # plt.xticks(rotation=0)
-            # plt.subplot(2, 2, 1)
-            # ax = sns.heatmap(to_numpy(A[0:20, 0:20]/second_correction), cbar=False, center=0, square=True, cmap='bwr')
-            # plt.xticks(rotation=0)
-            # plt.xticks([])
-            # plt.yticks([])
-            # plt.tight_layout()
-            # plt.savefig(f'./{log_dir}/results/final learned connectivity.png', dpi=300)
             # plt.close()
 
             if False: # has_field:
@@ -8514,9 +9269,10 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_62_5_9_5', 'fly_N9_62_5_19_5', 'fly_N9_62_5_19_6']
     
-    config_list = ['fly_N9_62_5_19_5']
+    # config_list = ['fly_N9_62_5_19_5']
 
-    # config_list = ['signal_N11_2_1_2']             
+    # config_list = ['signal_N11_1_3'] 
+    config_list = ['signal_N11_2_1_3']               
 
     for config_file_ in config_list:
         print(' ')
@@ -8527,7 +9283,8 @@ if __name__ == '__main__':
         print(f'\033[94mconfig_file  {config.config_file}\033[0m')
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)     # 'best'
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device)  
+        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device)    
 
     # compare_experiments(config_list, 'training.batch_size')
 
