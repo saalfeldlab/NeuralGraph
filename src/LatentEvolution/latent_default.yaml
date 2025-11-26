@@ -57,9 +57,9 @@ training:
   data_split:
     train_start: 4000 # Exclude burn-in
     train_end: 54000
-    validation_start: 58000
-    validation_end: 60000
-    test_start: 62000
+    validation_start: 54000
+    validation_end: 64000
+    test_start: 54000
     test_end: 64000
 # Optional: Enable PyTorch profiler to generate Chrome trace files for performance analysis
 # Uncomment the following section to enable profiling:

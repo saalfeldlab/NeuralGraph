@@ -326,10 +326,9 @@ bsub -J residual -o residual.log -n 1 -gpu "num=1" -q gpu_a100 \
 
 Results:
 
-- The rollout at 100 steps converges faster during training, which is a good sign.
-- NOTE: if this turns out to improve results. We should reconsider the MLP parameters of the
-  evolver & repeat [this experiment](#try-making-the-evolver-deeper).
-- ???
+- while the overall loss metrics are similar, the Mi4 worst 100step rollout improves when the
+  residual connection is removed. This actually makes sense. Mi4 is a strongly varying trace with
+  high variance and the residual forces the leading order change to be constant.
 
 # Cell-type dependent performance
 
@@ -343,7 +342,7 @@ no regularization so let's go back there first.
 ## Try making the evolver deeper
 
 ```bash
-for n in 1 2 3 4 ; do \
+for n in 2 3 ; do \
   bsub -J $n -q gpu_a100 -gpu "num=1" -n 2 -o h${n}.log \
     python src/LatentEvolution/latent.py deeper_evolver \
     --evolver-params.num-hidden-layers $n
@@ -365,23 +364,6 @@ for n in 64 128 256 ; do \
     --stimulus-encoder-params.num-hidden-units $n \
     --stimulus-encoder-params.num-output-dims $n
 done
-```
-
-Results:
-
-- ???
-
-## Training without noise
-
-It could be that the Mi4 dynamics are thrown off in the presence of noise, so we should also do a
-with & without noise experiment again.
-
-```bash
-
-bsub -J no_noise -q gpu_a100 -gpu "num=1" -n 2 -o no_noise.log \
-    python src/LatentEvolution/latent.py no_noise \
-    --training.simulation-config fly_N9_62_0_calcium
-
 ```
 
 Results:
