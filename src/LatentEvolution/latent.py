@@ -66,6 +66,11 @@ class ProfileConfig(BaseModel):
 
 
 class TrainingConfig(BaseModel):
+    time_units: int = Field(
+        1,
+        description="Observation interval: activity data available every N steps. Evolver unrolled N times during training.",
+        json_schema_extra={"short_name": "tu"}
+    )
     epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
     batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
     learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
@@ -208,6 +213,8 @@ class ModelParams(BaseModel):
 class LatentModel(nn.Module):
     def __init__(self, params: ModelParams):
         super().__init__()
+        self.stim_output_dims = params.stimulus_encoder_params.num_output_dims
+        self.training_time_units = params.training.time_units
 
         # Encoder: use MLPWithSkips if flag is set
         encoder_cls = MLPWithSkips if params.encoder_params.use_input_skips else MLP
@@ -257,20 +264,90 @@ class LatentModel(nn.Module):
         )
 
     def forward(self, x_t, stim_t):
+        """Single-step forward: evolve by 1 time unit.
+
+        Args:
+            x_t: Activity at time t (batch, neurons)
+            stim_t: Stimulus at time t (batch, stim_dims)
+
+        Returns:
+            Predicted activity at time t+1 (batch, neurons)
+        """
         proj_t = self.encoder(x_t)
         proj_stim_t = self.stimulus_encoder(stim_t)
         proj_t_next = self.evolver(torch.concatenate([proj_t, proj_stim_t], dim=1))
         x_t_next = self.decoder(proj_t_next[:, :-proj_stim_t.shape[1]])
         return x_t_next
 
+    def evolve_training_steps(self, x_t, stim_sequence):
+        """Evolve through training_time_units steps, using stimulus at each step.
+
+        This method evolves by exactly self.training_time_units steps, as configured
+        during model initialization. Used during training and evaluation.
+
+        Args:
+            x_t: Activity at time t (batch, neurons)
+            stim_sequence: Stimulus for each step (batch, training_time_units, stim_dims)
+
+        Returns:
+            Predicted activity at time t+training_time_units (batch, neurons)
+        """
+        proj_t = self.encoder(x_t)
+
+        for step in range(self.training_time_units):
+            stim_t = stim_sequence[:, step, :]
+            proj_stim_t = self.stimulus_encoder(stim_t)
+            proj_t = self.evolver(torch.concatenate([proj_t, proj_stim_t], dim=1))
+            # Strip stimulus dims to get pure latent state for next iteration
+            proj_t = proj_t[:, :-self.stim_output_dims]
+
+        return self.decoder(proj_t)
+
 
 # -------------------------------------------------------------------
 # Data + Batching
 # -------------------------------------------------------------------
 
+def make_stim_sequences(stim: torch.Tensor, time_units: int) -> torch.Tensor:
+    """Create stimulus sequences for all valid starting positions.
+
+    Args:
+        stim: Stimulus data (time, stim_dims)
+        time_units: Number of steps per sequence
+
+    Returns:
+        Stimulus sequences (num_sequences, time_units, stim_dims)
+        where num_sequences = time - time_units
+    """
+    total_time = stim.shape[0]
+    num_sequences = total_time - time_units
+
+    # Create sequences for each starting position
+    # stim_sequences[i] = stim[i:i+time_units]
+    stim_sequences = torch.stack([
+        stim[i:i + time_units] for i in range(num_sequences)
+    ], dim=0)
+
+    return stim_sequences
+
+
 def make_batches_random(
     data: torch.Tensor, stim: torch.Tensor, batch_size: int, time_units: int
 ) -> Iterator[tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]]:
+    """Generate random batches for training.
+
+    Args:
+        data: Activity data (time, neurons)
+        stim: Stimulus data (time, stim_dims)
+        batch_size: Number of samples per batch
+        time_units: Observation interval - activity available every N steps
+
+    Yields:
+        ((x_t, stim_sequence), x_t_plus) where:
+            x_t: Activity at time t (batch, neurons)
+            stim_sequence: Stimulus for steps t to t+time_units-1 (batch, time_units, stim_dims)
+            x_t_plus: Activity at time t+time_units (batch, neurons)
+    """
     total_time = data.shape[0]
     if total_time <= time_units:
         raise ValueError(
@@ -281,10 +358,14 @@ def make_batches_random(
             low=0, high=total_time - time_units, size=(batch_size,), device=data.device
         )
         x_t = data[start_indices]
-        stim_t = stim[start_indices]
-
         x_t_plus = data[start_indices + time_units]
-        yield (x_t, stim_t), x_t_plus
+
+        # Gather stimulus for each intermediate step: (batch, time_units, stim_dims)
+        stim_sequence = torch.stack([
+            stim[start_indices + step] for step in range(time_units)
+        ], dim=1)
+
+        yield (x_t, stim_sequence), x_t_plus
 
 
 # -------------------------------------------------------------------
@@ -345,12 +426,20 @@ def get_device() -> torch.device:
         return torch.device("cpu")
 
 
-def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelParams):
+def train_step_nocompile(model: LatentModel, x_t, stim_sequence, x_t_plus, cfg: ModelParams):
+    """Training step with multi-step evolution.
+
+    Args:
+        model: LatentModel instance
+        x_t: Activity at time t (batch, neurons)
+        stim_sequence: Stimulus for each step (batch, time_units, stim_dims)
+        x_t_plus: Target activity at time t+time_units (batch, neurons)
+        cfg: Model configuration
+    """
     # Get loss function from config
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss
-
     reg_loss = torch.tensor(0.0, device=x_t.device)
     if cfg.encoder_params.l1_reg_loss > 0.:
         for p in model.encoder.parameters():
@@ -362,8 +451,8 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
         for p in model.evolver.parameters():
             reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
 
-    # evolution loss
-    output = model(x_t, stim_t)
+    # evolution loss - unroll evolver through training_time_units steps
+    output = model.evolve_training_steps(x_t, stim_sequence)
     evolve_loss = loss_fn(output, x_t_plus)
 
     # reconstruction loss
@@ -380,7 +469,8 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
     loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
     return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss)
 
-train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
+train_step = torch.compile(train_step_nocompile,  #fullgraph=True,
+                           mode="reduce-overhead")
 
 # -------------------------------------------------------------------
 # Data Loading and Evaluation
@@ -450,10 +540,10 @@ def evaluate_dataset(
     model.eval()
     with torch.no_grad():
         x_t = data[:-time_units]
-        stim_t = stim[:-time_units]
+        stim_seq = make_stim_sequences(stim, time_units)
         x_t_plus = data[time_units:]
 
-        predictions = model(x_t, stim_t)
+        predictions = model.evolve_training_steps(x_t, stim_seq)
         mse_loss = torch.nn.functional.mse_loss(predictions, x_t_plus).item()
 
         # Baseline: constant model (no change prediction)
@@ -534,13 +624,13 @@ def train(cfg: ModelParams, run_dir: Path):
 
         metrics = {
             "val_loss_constant_model": torch.nn.functional.mse_loss(
-                val_data[: -cfg.evolver_params.time_units], val_data[cfg.evolver_params.time_units:]
+                val_data[: -cfg.training.time_units], val_data[cfg.training.time_units:]
             ).item(),
             "train_loss_constant_model": torch.nn.functional.mse_loss(
-                train_data[: -cfg.evolver_params.time_units], train_data[cfg.evolver_params.time_units:]
+                train_data[: -cfg.training.time_units], train_data[cfg.training.time_units:]
             ).item(),
             "test_loss_constant_model": torch.nn.functional.mse_loss(
-                test_data[: -cfg.evolver_params.time_units], test_data[cfg.evolver_params.time_units:]
+                test_data[: -cfg.training.time_units], test_data[cfg.training.time_units:]
             ).item(),
         }
         print(f"Constant model loss: {metrics}")
@@ -558,7 +648,7 @@ def train(cfg: ModelParams, run_dir: Path):
             max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
         )
         batch_iter = make_batches_random(
-            train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
+            train_data, train_stim, cfg.training.batch_size, cfg.training.time_units
         )
 
         # --- Initialize GPU monitoring ---
@@ -626,11 +716,11 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Validation phase ----
             model.eval()
             with torch.no_grad():
-                val_x_t = val_data[: -cfg.evolver_params.time_units]
-                val_stim_t = val_stim[: -cfg.evolver_params.time_units]
-                val_x_t_plus = val_data[cfg.evolver_params.time_units :]
+                val_x_t = val_data[: -cfg.training.time_units]
+                val_stim_seq = make_stim_sequences(val_stim, cfg.training.time_units)
+                val_x_t_plus = val_data[cfg.training.time_units :]
                 val_loss = torch.nn.functional.mse_loss(
-                    model(val_x_t, val_stim_t), val_x_t_plus
+                    model.evolve_training_steps(val_x_t, val_stim_seq), val_x_t_plus
                 ).item()
 
             model.train()
@@ -712,11 +802,11 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Final test evaluation ---
         model.eval()
         with torch.no_grad():
-            test_x_t = test_data[: -cfg.evolver_params.time_units]
-            test_stim_t = test_stim[: -cfg.evolver_params.time_units]
-            test_x_t_plus = test_data[cfg.evolver_params.time_units :]
+            test_x_t = test_data[: -cfg.training.time_units]
+            test_stim_seq = make_stim_sequences(test_stim, cfg.training.time_units)
+            test_x_t_plus = test_data[cfg.training.time_units :]
             test_loss = torch.nn.functional.mse_loss(
-                model(test_x_t, test_stim_t), test_x_t_plus
+                model.evolve_training_steps(test_x_t, test_stim_seq), test_x_t_plus
             ).item()
 
         print(f"Final Test Loss: {test_loss:.4e}")
@@ -843,22 +933,38 @@ def train(cfg: ModelParams, run_dir: Path):
 # -------------------------------------------------------------------
 
 if __name__ == "__main__":
-    msg = "First argument should be an expt_code that turns into a directory. \
-expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
-`latent.py dummy_code --help`."
-    if len(sys.argv) == 1:
+    msg = """Usage: python latent.py <expt_code> <default_config> [overrides...]
+
+Arguments:
+  expt_code       Experiment code (must match [A-Za-z0-9_]+)
+  default_config  Base config file (e.g., latent_1step.yaml, latent_5step.yaml)
+
+Example:
+  python latent.py my_experiment latent_1step.yaml --training.epochs 100
+
+To view available overrides:
+  python latent.py dummy latent_1step.yaml --help"""
+
+    if len(sys.argv) < 3:
         print(msg)
         sys.exit(1)
 
-    # Extract expt_code from command line
+    # Extract positional arguments
     expt_code = sys.argv[1]
+    default_yaml = sys.argv[2]
 
     if not re.match("[A-Za-z0-9_]+", expt_code):
-        print(msg)
+        print(f"Error: expt_code must match [A-Za-z0-9_]+, got: {expt_code}")
         sys.exit(1)
 
-    # Create argument list for tyro (excluding expt_code)
-    tyro_args = sys.argv[2:]
+    # Resolve default path (relative to this file's directory)
+    default_path = Path(__file__).resolve().parent / default_yaml
+    if not default_path.exists():
+        print(f"Error: Default config file not found: {default_path}")
+        sys.exit(1)
+
+    # Create argument list for tyro (excluding expt_code and default_config)
+    tyro_args = sys.argv[3:]
 
     commit_hash = get_git_commit_hash()
 
@@ -875,9 +981,6 @@ expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
         out.write("\n".join(sys.argv))
 
     # Load default YAML
-    default_path = (
-        Path(__file__).resolve().parent / "latent_default.yaml"
-    )
     with open(default_path, "r") as f:
         data = yaml.safe_load(f)
     default_cfg = ModelParams(**data)

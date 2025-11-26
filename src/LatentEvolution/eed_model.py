@@ -33,7 +33,6 @@ class MLPParams(BaseModel):
 
 
 class EvolverParams(BaseModel):
-    time_units: int
     num_hidden_units: int
     num_hidden_layers: int
     l1_reg_loss: float = 0.0
@@ -43,6 +42,9 @@ class EvolverParams(BaseModel):
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
     use_mlp_with_matrix: bool = Field(
         False, description="DEPRECATED: This feature was not effective. Must be False."
+    )
+    time_units: int = Field(
+        1, description="DEPRECATED: Use training.time_units instead. Kept for backwards compatibility."
     )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -182,9 +184,10 @@ class MLPWithSkips(nn.Module):
 
 
 class Evolver(nn.Module):
+    """Single-step evolver: advances latent state by 1 time unit."""
+
     def __init__(self, latent_dims: int, stim_dims: int, evolver_params: EvolverParams, use_batch_norm: bool = True, activation: str = "ReLU"):
         super().__init__()
-        self.time_units = evolver_params.time_units
         dim = latent_dims + stim_dims
 
         # Use MLPWithSkips if flag is set, similar to encoder/decoder
@@ -202,6 +205,5 @@ class Evolver(nn.Module):
         )
 
     def forward(self, x):
-        for _ in range(self.time_units):
-            x = self.evolver(x)
-        return x
+        """Single evolution step."""
+        return self.evolver(x)

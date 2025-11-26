@@ -1,4 +1,5 @@
-# Default configuration for the Latent Space Voltage Model
+# Default configuration for 5-step Latent Space Model
+# Activity data is observed every 5 time steps; stimulus available at every step
 
 latent_dims: 256 # Dimensionality of latent space
 num_neurons: 13741 # Number of observed neurons (input/output size)
@@ -19,12 +20,9 @@ decoder_params:
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 evolver_params:
-  time_units: 1 # Number of time steps to evolve per forward pass
   num_hidden_layers: 1 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
   l1_reg_loss: 0.0
-  # RETIRED: learnable_diagonal was ineffective and is no longer supported (must be false)
-  learnable_diagonal: false
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 stimulus_encoder_params:
@@ -35,6 +33,7 @@ stimulus_encoder_params:
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 training:
+  time_units: 5  # Activity observed every 5 steps; evolver unrolled 5 times
   simulation_config: "fly_N9_62_0_calcium"
   data_passes_per_epoch: 100
   epochs: 200 # Total number of epochs
@@ -61,22 +60,9 @@ training:
     validation_end: 64000
     test_start: 54000
     test_end: 64000
-# Optional: Enable PyTorch profiler to generate Chrome trace files for performance analysis
-# Uncomment the following section to enable profiling:
-# profiling:
-#   wait: 3        # Skip first 3 epochs (warmup for model compilation)
-#   warmup: 1      # Warmup profiler for 1 epoch
-#   active: 1      # Actively profile for 3 epochs
-#   repeat: 0      # Do this cycle once
-#   record_shapes: true      # Record tensor shapes (helpful for debugging)
-#   profile_memory: true     # Profile memory usage (GPU/CPU)
-#   with_stack: false        # Stack traces add significant overhead, disable by default
 
 # Cross-dataset validation (evaluates trained model on different datasets)
 cross_validation_configs:
-  # we are training without noise so we will automatically get these results
-  # - simulation_config: "fly_N9_62_0_calcium"
-  #   name: "no_noise"
   - simulation_config: "fly_N9_62_0_optical_flow_calcium"
     name: "optical_flow"
     data_split: # this is only for validation so training/validation/test are the same
