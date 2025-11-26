@@ -469,8 +469,7 @@ def train_step_nocompile(model: LatentModel, x_t, stim_sequence, x_t_plus, cfg: 
     loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
     return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss)
 
-train_step = torch.compile(train_step_nocompile,  #fullgraph=True,
-                           mode="reduce-overhead")
+train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
 # -------------------------------------------------------------------
 # Data Loading and Evaluation
