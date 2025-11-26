@@ -74,17 +74,9 @@ training:
 
 # Cross-dataset validation (evaluates trained model on different datasets)
 cross_validation_configs:
+  # we are training without noise so we will automatically get these results
   # - simulation_config: "fly_N9_62_0_calcium"
   #   name: "no_noise"
-  - simulation_config: "fly_N9_62_1_calcium"
-    name: "added_noise"
-    data_split:
-      train_start: 4000 # Exclude burn-in
-      train_end: 54000
-      validation_start: 58000
-      validation_end: 64000
-      test_start: 58000
-      test_end: 64000
   - simulation_config: "fly_N9_62_0_optical_flow_calcium"
     name: "optical_flow"
     data_split: # this is only for validation so training/validation/test are the same

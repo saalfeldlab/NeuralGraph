@@ -849,17 +849,10 @@ def train(cfg: ModelParams, run_dir: Path):
                     writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, 0)
                 print(f"Logged {len(cv_metrics)} cross-validation scalar metrics to TensorBoard")
 
-                # Log MSE figures to TensorBoard (skip rollout traces)
-                mse_figure_names = [
-                    'mses_by_time_steps_latent',
-                    'mses_by_time_steps_activity',
-                    'multi_start_long_latent_rollout_mses_by_time',
-                    'multi_start_long_activity_rollout_mses_by_time'
-                ]
-                for fig_name in mse_figure_names:
-                    if fig_name in cv_figures:
-                        writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", cv_figures[fig_name], 0)
-                print("Logged MSE figures to TensorBoard (skipped rollout traces)")
+                # Log figures to TensorBoard
+                for fig_name, fig in cv_figures.items():
+                    writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, 0)
+                print("Logged MSE figures to TensorBoard")
 
         # Save final metrics
         metrics_path = run_dir / "final_metrics.yaml"
