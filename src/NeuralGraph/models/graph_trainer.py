@@ -3204,8 +3204,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
                     plt.figure(figsize=(20, 10))
                     if 'latex' in style:
-                        plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
-                        rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
+                        plt.rcParams['text.usetex'] = False
+                        plt.rcParams['font.family'] = 'sans-serif'
 
                     ax = plt.subplot(122)
                     plt.scatter(to_numpy(modulation_gt_list_[-1, :]), to_numpy(modulation_pred_list_[-1, :]), s=10,
@@ -3259,19 +3259,13 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // (n_neurons-n_excitatory_neurons), (n_neurons-n_excitatory_neurons)))
 
             mpl.rcParams.update({
-                "text.usetex": False,  # Disabled LaTeX
-                "font.family": "serif",
-                "font.serif": ["Times New Roman", "Liberation Serif", "DejaVu Serif"],
-                "font.size": 12,           # Base font size
-                "axes.labelsize": 14,      # Axis labels
-                "legend.fontsize": 12,     # Legend
-                "xtick.labelsize": 10,     # Tick labels
+                "text.usetex": False,
+                "font.family": "sans-serif",
+                "font.size": 12,
+                "axes.labelsize": 14,
+                "legend.fontsize": 12,
+                "xtick.labelsize": 10,
                 "ytick.labelsize": 10,
-                "text.latex.preamble": r"""
-                    \usepackage[T1]{fontenc}
-                    \usepackage[sc]{mathpazo}
-                    \linespread{1.05}
-                """,
             })
 
             plt.figure(figsize=(20, 10))
@@ -3408,7 +3402,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     dataset_name_ = dataset_name.split('/')[-1]
-    generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
+    generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20, log_dir=f"./{log_dir}")
 
     # Copy the last PNG file before erasing Fig folder
     files = glob.glob(f'./{log_dir}/results/Fig/*.png')

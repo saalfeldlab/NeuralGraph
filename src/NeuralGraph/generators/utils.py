@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import scipy
+import subprocess
 import torch
 import torch_geometric.data as data
 import xarray as xr
@@ -553,7 +554,7 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
     return edge_index, connectivity, mask
 
 
-def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=None, crf=23):
+def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=None, crf=23, log_dir=None):
     """
     Generate a compressed video using ffmpeg's libx264 codec in MP4 format.
     Automatically handles odd dimensions by scaling to even dimensions.
@@ -564,11 +565,15 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=N
         framerate (int): Desired video framerate.
         output_name (str): Name of output .mp4 file.
         crf (int): Constant Rate Factor for quality (0-51, lower = better quality, 23 is default).
+        log_dir (str): If provided, save mp4 to log_dir instead of output_dir.
     """
 
     fig_dir = os.path.join(output_dir, "Fig")
     input_pattern = os.path.join(fig_dir, f"Fig_{run}_%06d.png")
-    output_path = os.path.join(output_dir, f"{output_name}.mp4")
+
+    # Save to log_dir if provided, otherwise to output_dir
+    save_dir = log_dir if log_dir is not None else output_dir
+    output_path = os.path.join(save_dir, f"{output_name}.mp4")
 
     # Video filter to ensure even dimensions (required for yuv420p)
     # This scales the video so both width and height are divisible by 2
@@ -587,10 +592,13 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=N
         output_path,
     ]
 
-    # print(f"Generating compressed video (libx264): {' '.join(ffmpeg_cmd)}")
-
-
-    print(f"compressed video (libx264) saved to: {output_path}")
+    try:
+        subprocess.run(ffmpeg_cmd, check=True)
+        print(f"compressed video (libx264) saved to: {output_path}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error generating video: {e}")
+    except FileNotFoundError:
+        print("ffmpeg not found. Please install ffmpeg to generate videos.")
 
 
 def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
