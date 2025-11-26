@@ -9,7 +9,7 @@ class PDE_N11(pyg.nn.MessagePassing):
 
     """
     Compute network signaling, the transfer functions are neuron-dependent
-    
+
     Inputs
     ----------
     data : a torch_geometric.data object
@@ -18,27 +18,51 @@ class PDE_N11(pyg.nn.MessagePassing):
     -------
     du : float
     the update rate of the signals (dim 1)
-        
+
     """
 
-    def __init__(self, config = [],aggr_type=[], p=[], W=[], phi=[], device=[]):
+    def __init__(self, config = [],aggr_type=[], p=[], W=[], phi=[], func_p=None, device=[]):
         super(PDE_N11, self).__init__(aggr=aggr_type)
 
         self.p = p
         self.W = W
         self.phi = phi
+        self.func_p = func_p
 
         self.device = device
         self.n_neurons = config.simulation.n_neurons
+        self.n_neuron_types = config.simulation.n_neuron_types
 
         self.A = config.simulation.oscillation_max_amplitude
 
         self.e = self.A * (torch.rand((self.n_neurons,1), device = self.device) * 2 -1)
-        
+
         self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device = self.device)
 
         self.has_oscillations = (config.simulation.visual_input_type == 'oscillatory')
         self.max_frame = config.simulation.n_frames + 1
+
+        # Initialize func_p with default values if not provided
+        if self.func_p is None:
+            self.func_p = [['tanh', n, n] for n in range(self.n_neuron_types)]
+
+        # Define available activation functions
+        self.activation_funcs = {
+            'tanh': torch.tanh,
+            'relu': torch.relu,
+            'sigmoid': torch.sigmoid,
+            'softplus': torch.nn.functional.softplus,
+            'identity': lambda x: x,
+            'elu': torch.nn.functional.elu,
+            'leaky_relu': torch.nn.functional.leaky_relu,
+        }
+
+    def get_activation(self, func_name):
+        """Get activation function by name."""
+        if func_name in self.activation_funcs:
+            return self.activation_funcs[func_name]
+        else:
+            return self.phi  # Default to phi if unknown
 
     def forward(self, data=[], has_field=False, data_id=[], frame=[]):
         x, _edge_index = data.x, data.edge_index
@@ -51,7 +75,19 @@ class PDE_N11(pyg.nn.MessagePassing):
 
         u = x[:, 6:7]
 
-        msg = torch.matmul(self.W, self.phi(u))
+        # Apply type-specific activation functions for message passing
+        msg = torch.zeros_like(u)
+        for n in range(len(self.func_p)):
+            func_name = self.func_p[n][0]
+            activation = self.get_activation(func_name)
+
+            # Find neurons of this type
+            type_mask = (neuron_type == n)
+            if type_mask.any():
+                # Compute message with type-specific activation
+                activated_u = activation(u)
+                msg_n = torch.matmul(self.W, activated_u)
+                msg[type_mask] = msg_n[type_mask]
 
         if self.has_oscillations:
             du = -c*u + g * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
@@ -70,6 +106,10 @@ class PDE_N11(pyg.nn.MessagePassing):
 
     def func(self, u, type, function):
         if function=='phi':
+            # Use type-specific function if available
+            if self.func_p is not None and type < len(self.func_p):
+                func_name = self.func_p[type][0]
+                return self.get_activation(func_name)(u)
             return self.phi(u)
 
         elif function=='update':

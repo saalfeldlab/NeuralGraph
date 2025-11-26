@@ -312,7 +312,7 @@ class TrainingConfig(BaseModel):
     Ising_filter: str = "none"
 
     init_training_single_type: bool = False
-    training_single_type: bool = True
+    training_single_type: bool = False
     
 
     learning_rate_start: float = 0.001

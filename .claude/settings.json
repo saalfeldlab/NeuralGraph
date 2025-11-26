@@ -1,28 +1,35 @@
 {
   "permissions": {
     "allow": [
-      "Bash(gh pr view:*)",
+      "Read(/workspace/**)",
+      "Edit(/workspace/**)",
+      "Write(/workspace/**)",
+      "Glob(/workspace/**)",
+      "Grep(/workspace/**)",
       "Bash(ls:*)",
       "Bash(cat:*)",
-      "Bash(git diff:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
       "Bash(echo:*)",
+      "Bash(pwd:*)",
+      "Bash(cd:*)",
+      "Bash(git:*)",
+      "Bash(gh:*)",
+      "Bash(python:*)",
+      "Bash(pip:*)",
+      "Bash(conda:*)",
+      "Bash(source:*)",
       "Bash(sleep:*)",
       "Bash(ps:*)",
       "Bash(pgrep:*)",
-      "Bash(tail:*)",
-      "Bash(head:*)",
-      "Bash(python GNN_Main.py:*)",
-      "Bash(python GNN_PlotFigure.py:*)",
-      "Bash(source:*)",
-      "Bash(conda activate:*)",
-      "Write(status.md)",
-      "Write(task.md)",
-      "Edit(status.md)",
-      "Edit(task.md)",
-      "Edit(config/fly/fly_N9_62_22_10.yaml)",
-      "Edit(src/NeuralGraph/models/graph_trainer.py)",
-      "Edit(GNN_PlotFigure.py)"
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)"
     ],
-    "deny": ["Bash(rm:*)", "Bash(chmod:*)"]
+    "deny": ["Bash(rm -rf:*)"]
   }
 }

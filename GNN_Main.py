@@ -59,7 +59,7 @@ if __name__ == "__main__":
 
         # config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
 
-        config_list = ['signal_N11_1_3']
+        config_list = ['signal_N11_1_8']
         
 
     for config_file_ in config_list:
