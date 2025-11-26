@@ -334,8 +334,11 @@ Results:
 # Cell-type dependent performance
 
 We observe that Mi4 is a problematic cell type for rollout. The performance is varied and in some
-cases the R2 is close to zero. This is a problem for both the optical flow stimulus and the
+cases the R2 is close to zero. This is a problem for both the optical flow stimulus (bad) and the
 DAVIS stimulus with no noise.
+
+Looking back at `checkpoint_20251124` experiments the rollout performance improves in the no noise in training +
+no regularization so let's go back there first.
 
 ## Try making the evolver deeper
 
@@ -359,7 +362,7 @@ Is 64 a good choice? Would 128 improve results?
 for n in 64 128 256 ; do \
   bsub -J se${n} -q gpu_a100 -gpu "num=1" -n 2 -o se${n}.log \
     python src/LatentEvolution/latent.py stimulus_encoder_latent \
-    --stimulus-encoder-params.num-hidden-dims $n \
+    --stimulus-encoder-params.num-hidden-units $n \
     --stimulus-encoder-params.num-output-dims $n
 done
 ```
@@ -372,6 +375,14 @@ Results:
 
 It could be that the Mi4 dynamics are thrown off in the presence of noise, so we should also do a
 with & without noise experiment again.
+
+```bash
+
+bsub -J no_noise -q gpu_a100 -gpu "num=1" -n 2 -o no_noise.log \
+    python src/LatentEvolution/latent.py no_noise \
+    --training.simulation-config fly_N9_62_0_calcium
+
+```
 
 Results:
 
