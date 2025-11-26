@@ -199,11 +199,13 @@ def create_run_directory(
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Create symlink from base_dir/expt_code/run_uuid -> run_dir
-    symlink_dir = base_dir / expt_code
-    symlink_dir.mkdir(parents=True, exist_ok=True)
-    symlink_path = symlink_dir / run_uuid
-    # Use relative path for the symlink target to make it relocatable
-    relative_target = os.path.relpath(run_dir, symlink_dir)
-    symlink_path.symlink_to(relative_target)
+    # Only create symlink if there are overrides (hparam_path is not '.')
+    if hparam_path != Path('.'):
+        symlink_dir = base_dir / expt_dir_name
+        symlink_dir.mkdir(parents=True, exist_ok=True)
+        symlink_path = symlink_dir / run_uuid
+        # Use relative path for the symlink target to make it relocatable
+        relative_target = os.path.relpath(run_dir, symlink_dir)
+        symlink_path.symlink_to(relative_target)
 
     return run_dir
