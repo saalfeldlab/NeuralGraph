@@ -33,7 +33,6 @@ class MLPParams(BaseModel):
 
 
 class EvolverParams(BaseModel):
-    time_units: int
     num_hidden_units: int
     num_hidden_layers: int
     l1_reg_loss: float = 0.0
@@ -43,6 +42,9 @@ class EvolverParams(BaseModel):
     use_input_skips: bool = Field(False, description="If True, use MLPWithSkips instead of standard MLP")
     use_mlp_with_matrix: bool = Field(
         False, description="DEPRECATED: This feature was not effective. Must be False."
+    )
+    time_units: int = Field(
+        1, description="DEPRECATED: Use training.time_units instead. Kept for backwards compatibility."
     )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 

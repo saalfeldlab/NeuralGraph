@@ -66,6 +66,11 @@ class ProfileConfig(BaseModel):
 
 
 class TrainingConfig(BaseModel):
+    time_units: int = Field(
+        1,
+        description="Observation interval: activity data available every N steps. Evolver unrolled N times during training.",
+        json_schema_extra={"short_name": "tu"}
+    )
     epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
     batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
     learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
@@ -843,22 +848,38 @@ def train(cfg: ModelParams, run_dir: Path):
 # -------------------------------------------------------------------
 
 if __name__ == "__main__":
-    msg = "First argument should be an expt_code that turns into a directory. \
-expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
-`latent.py dummy_code --help`."
-    if len(sys.argv) == 1:
+    msg = """Usage: python latent.py <expt_code> <default_config> [overrides...]
+
+Arguments:
+  expt_code       Experiment code (must match [A-Za-z0-9_]+)
+  default_config  Base config file (e.g., latent_1step.yaml, latent_5step.yaml)
+
+Example:
+  python latent.py my_experiment latent_1step.yaml --training.epochs 100
+
+To view available overrides:
+  python latent.py dummy latent_1step.yaml --help"""
+
+    if len(sys.argv) < 3:
         print(msg)
         sys.exit(1)
 
-    # Extract expt_code from command line
+    # Extract positional arguments
     expt_code = sys.argv[1]
+    default_yaml = sys.argv[2]
 
     if not re.match("[A-Za-z0-9_]+", expt_code):
-        print(msg)
+        print(f"Error: expt_code must match [A-Za-z0-9_]+, got: {expt_code}")
         sys.exit(1)
 
-    # Create argument list for tyro (excluding expt_code)
-    tyro_args = sys.argv[2:]
+    # Resolve default path (relative to this file's directory)
+    default_path = Path(__file__).resolve().parent / default_yaml
+    if not default_path.exists():
+        print(f"Error: Default config file not found: {default_path}")
+        sys.exit(1)
+
+    # Create argument list for tyro (excluding expt_code and default_config)
+    tyro_args = sys.argv[3:]
 
     commit_hash = get_git_commit_hash()
 
@@ -875,9 +896,6 @@ expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
         out.write("\n".join(sys.argv))
 
     # Load default YAML
-    default_path = (
-        Path(__file__).resolve().parent / "latent_default.yaml"
-    )
     with open(default_path, "r") as f:
         data = yaml.safe_load(f)
     default_cfg = ModelParams(**data)
