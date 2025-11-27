@@ -2610,7 +2610,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
 
 
-def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15,
+def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600,
               ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
 
     dataset_name = config.dataset
@@ -2621,16 +2621,16 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         test_mode = "test_ablation_0"
 
     if 'fly' in config.dataset:
-        data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, new_params, device)
+        data_test_flyvis(config, visualize, style, verbose, best_model, step, n_rollout_frames, test_mode, new_params, device)
 
     elif 'zebra' in config.dataset:
         data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
     
     else:
-        data_test_signal(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
+        data_test_signal(config, config_file, visualize, style, verbose, best_model, step, n_rollout_frames,ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 
 
-def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
+def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
     dataset_name = config.dataset
     simulation_config = config.simulation
     model_config = config.graph_model
@@ -3043,8 +3043,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     id_fig = 0
 
 
-    n_test_frames = 3000
-    it_step = 50
+    n_test_frames = n_rollout_frames // 2
+    it_step = step
 
     for it in trange(start_it,start_it+n_test_frames * 2, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
@@ -3650,7 +3650,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.close
 
 
-def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', new_params = None, device=None):
+def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, n_rollout_frames=600, test_mode='', new_params = None, device=None):
 
 
     if "black" in style:
@@ -3891,11 +3891,12 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         sintel_frame_idx = 0
         davis_frame_idx = 0
 
+    target_frames = n_rollout_frames
+
     if 'full' in test_mode:
-        target_frames = 90000
+        target_frames = n_frames
         step = 25000
     else:
-        target_frames = 2000
         step = 10
     print(f'plot activity frames \033[92m0-{target_frames}...\033[0m')
 
@@ -3974,7 +3975,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         37, 38, 39, 40, 41, 42, 0]
 
 
-    # MAIN LOOP #####################################
+    # Main loop #####################################
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):

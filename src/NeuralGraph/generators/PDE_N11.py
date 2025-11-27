@@ -91,6 +91,7 @@ class PDE_N11(pyg.nn.MessagePassing):
         # Apply type-specific activation functions for message passing
         # Format: ["func_name", amplitude, shift] -> amplitude * func(x - shift)
         msg = torch.zeros_like(u)
+        
         for n in range(len(self.func_p)):
             func_name = self.func_p[n][0]
             amplitude = self.func_p[n][1] if len(self.func_p[n]) > 1 else 1.0
