@@ -57,5 +57,12 @@ class PDE_N(pyg.nn.MessagePassing):
 
 
 
+    def func(self, u, type, function):
+        if function == 'phi':
+            return torch.tanh(u)
+        elif function == 'update':
+            b, c = self.p[type, 0:1], self.p[type, 1:2]
+            return -b * u + c * torch.tanh(u)
+
     def psi(self, r, p):
         return r * p

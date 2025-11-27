@@ -574,8 +574,8 @@ def create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, devic
     # Plot learned (marker color, thinner)
     ax.plot(excitation, c=mc, linewidth=1, label='learned')
 
-    ax.set_xlabel('time', fontsize=32)
-    ax.set_ylabel('excitation', fontsize=32)
+    ax.set_xlabel('$t$', fontsize=32)
+    ax.set_ylabel('$\\mathrm{INR}(t)$', fontsize=32)
     ax.tick_params(labelsize=16)
     ax.set_xlim([0, 2000])  # Zoom into first 2000 frames
     # Set ylim based on ground truth amplitude
@@ -1669,9 +1669,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             type_list = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device) * (simulation_config.n_neuron_types + 1)), dim=0)
             n_neuron_types = n_neuron_types + n_excitatory_neurons
 
-
-
-
         adjacency = connectivity.t().clone().detach()
         adj_t = torch.abs(adjacency) > 0
         edge_index = adj_t.nonzero().t().contiguous()
@@ -1989,6 +1986,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.ylim([-0.2, 1.2])
                 else:
                     plt.ylim([-1.6, 1.6])
+                plt.xlim([-1.6, 1.6])
+                ax.grid(True, linestyle='--', alpha=0.5)
+                ax.set_xticks(np.arange(-1.5, 2.0, 0.5))
+                ax.set_yticks(np.arange(-1.5, 2.0, 0.5))
+                ax.grid(True, linestyle='--', alpha=0.5)
+
                 plt.tight_layout()
                 plt.savefig(f"./{log_dir}/results/MLP1.png", dpi=170.7)
                 plt.close()
@@ -9276,8 +9279,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_62_5_19_5']
 
     # config_list = ['signal_N11_1_3'] 
-    # config_list = ['signal_N11_2_1_3']
-    config_list = ['signal_N11_2_2_2']                 
+    config_list = ['signal_N11_1_3', 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
+    # config_list = ['signal_N11_1_8_1', 'signal_N11_1_8_2', 'signal_N11_1_8_3']                
 
     for config_file_ in config_list:
         print(' ')

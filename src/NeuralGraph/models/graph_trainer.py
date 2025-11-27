@@ -3363,10 +3363,14 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             # plt.xlim([-20,20])
             # plt.ylim([-20,20])
-            plt.xlabel('true $x_i$', fontsize=48)
-            plt.ylabel('learned $x_i$', fontsize=48)
-            plt.xticks(fontsize=24)
-            plt.yticks(fontsize=24)
+            if 'PDE_N11' in config.graph_model.signal_model_name:
+                plt.xlabel('true $h_i$', fontsize=48)
+                plt.ylabel('learned $h_i$', fontsize=48)
+            else:
+                plt.xlabel('true $x_i$', fontsize=48)
+                plt.ylabel('learned $x_i$', fontsize=48)              
+            plt.xticks([])
+            plt.yticks([])
 
 
             R2_list.append(r2)
@@ -3435,7 +3439,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
-    ax.text(-200, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    ax.text(-500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
     plt.xlabel("time", fontsize=32)
     plt.xticks(fontsize=24)
     ax.spines['left'].set_visible(False)
@@ -3454,7 +3458,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
-    ax.text(-200, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    ax.text(-500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
     plt.xlabel("time", fontsize=32)
     plt.xticks(fontsize=24)
     ax.spines['left'].set_visible(False)
@@ -3463,8 +3467,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     ax.set_yticks([0, 20, 40])
     ax.set_yticklabels(['0', '20', '40'], fontsize=20)
     ax.text(x_inference_list.shape[1] * 1.1, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
-
-
+    ax.set
 
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/{dataset_name_}_activity.png", dpi=300)

@@ -36,14 +36,14 @@ plotting:
   arrow_length: 1
   xlim: [-5, 5]
   ylim: [-2, 2]
-  label_style: "MLP"  # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
+  label_style: "MLP" # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
 training:
   n_epochs: 10
   n_runs: 2
   device: "auto"
 
-  batch_size: 8
+  batch_size: 1
   small_init_batch_size: False
 
   seed: 24

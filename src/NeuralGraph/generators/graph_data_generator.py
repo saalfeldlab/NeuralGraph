@@ -1536,4 +1536,51 @@ def data_generate_synaptic(
             plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
             plt.close()
 
+            # Plot MLP0 and MLP1 functions
+            if hasattr(model, 'func'):
+                print('plot MLP0 and MLP1 functions ...')
+                xnorm = np.std(x_list[:, :, 6])
+                rr = torch.linspace(-xnorm, xnorm, 1000).to(device)
+                neuron_types = x_list[0, :, 5].astype(int)
+                cmap = plt.cm.get_cmap(config.plotting.colormap)
+
+                # Check if model is PDE_N5 (has different func signature with type_i, type_j)
+                is_pde_n5 = 'PDE_N5' in model_config.signal_model_name
+
+                # Plot MLP1 (message/phi function)
+                plt.figure(figsize=(10, 8))
+                for n in range(n_neurons):
+                    neuron_type = neuron_types[n]
+                    if is_pde_n5:
+                        func_phi = model.func(rr, neuron_type, neuron_type, 'phi')
+                    else:
+                        func_phi = model.func(rr, neuron_type, 'phi')
+                    plt.plot(to_numpy(rr), to_numpy(func_phi), color=cmap(neuron_type), linewidth=1, alpha=0.5)
+                plt.xlabel('$x$', fontsize=32)
+                plt.ylabel(r'$\mathrm{MLP}_1(x)$', fontsize=32)
+                plt.xticks(fontsize=24)
+                plt.yticks(fontsize=24)
+                plt.grid(True, linestyle='--', alpha=0.5)
+                plt.tight_layout()
+                plt.savefig(f"graphs_data/{dataset_name}/MLP1_function.png", dpi=300)
+                plt.close()
+
+                # Plot MLP0 (update function)
+                plt.figure(figsize=(10, 8))
+                for n in range(n_neurons):
+                    neuron_type = neuron_types[n]
+                    if is_pde_n5:
+                        func_update = model.func(rr, neuron_type, neuron_type, 'update')
+                    else:
+                        func_update = model.func(rr, neuron_type, 'update')
+                    plt.plot(to_numpy(rr), to_numpy(func_update), color=cmap(neuron_type), linewidth=1, alpha=0.5)
+                plt.xlabel('$x$', fontsize=32)
+                plt.ylabel(r'$\mathrm{MLP}_0(x)$', fontsize=32)
+                plt.xticks(fontsize=24)
+                plt.yticks(fontsize=24)
+                plt.grid(True, linestyle='--', alpha=0.5)
+                plt.tight_layout()
+                plt.savefig(f"graphs_data/{dataset_name}/MLP0_function.png", dpi=300)
+                plt.close()
+
 

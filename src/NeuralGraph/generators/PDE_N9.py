@@ -68,6 +68,21 @@ class PDE_N9(pyg.nn.MessagePassing):
         else:
             return self.p["w"][:, None] * self.f(v_j)
 
+    def func(self, u, type, function):
+        if function == 'phi':
+            if 'multiple_ReLU' in self.model_type:
+                return self.f(u) * self.params[type]
+            else:
+                return self.f(u)
+        elif function == 'update':
+            v_rest = self.p["V_i_rest"][type]
+            tau = self.p["tau_i"][type]
+            if 'tanh' in self.model_type:
+                s = self.params
+                return (-u + v_rest + s * torch.tanh(u)) / tau
+            else:
+                return (-u + v_rest) / tau
+
 def group_by_direction_and_function(neuron_type):
     if neuron_type in ['R1', 'R2', 'R3', 'R4', 'R5', 'R6']:
         return 0  # Outer photoreceptors

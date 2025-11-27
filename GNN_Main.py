@@ -45,7 +45,7 @@ if __name__ == "__main__":
         #                'fly_N9_64_4_1', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_4'
         #                ]  
 
-        config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
+        # config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
 
         # config_list = ['fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18']
 
@@ -62,7 +62,12 @@ if __name__ == "__main__":
         # config_list = ['signal_N11_1_9_1']
 
         # config_list = ['signal_N11_1_3']
-        # config_list = ['signal_N11_2_1_3', 'signal_N11_2_2_2']     
+
+        config_list = [ 'signal_N11_2_1_3', 'signal_N11_2_2_2']  
+           
+        # config_list = ['signal_N11_1_8_1']
+
+
         
 
     for config_file_ in config_list:
@@ -115,8 +120,8 @@ if __name__ == "__main__":
                 run=0,
                 test_mode="",
                 sample_embedding=False,
-                step=10,
-                n_rollout_frames=3000,
+                step=20,
+                n_rollout_frames=10000,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,

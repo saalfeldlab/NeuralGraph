@@ -43,9 +43,9 @@ class PDE_N11(pyg.nn.MessagePassing):
         self.max_frame = config.simulation.n_frames + 1
 
         # Initialize func_p with default values if not provided
-        # Format: ["func_name", amplitude, shift] -> amplitude * func(x - shift)
+        # Format: ["func_name", amplitude, slope] -> amplitude * func(x - slope)
         if self.func_p is None:
-            self.func_p = [['tanh', 1.0, 0.0] for n in range(self.n_neuron_types)]
+            self.func_p = [['tanh', 1.0, 1.0] for n in range(self.n_neuron_types)]
 
         # Define available activation functions
         self.activation_funcs = {
@@ -58,21 +58,21 @@ class PDE_N11(pyg.nn.MessagePassing):
             'leaky_relu': torch.nn.functional.leaky_relu,
         }
 
-    def get_activation(self, func_name, amplitude=1.0, shift=0.0):
-        """Get activation function by name with amplitude and shift.
+    def get_activation(self, func_name, amplitude=1.0, slope=0.0):
+        """Get activation function by name with amplitude and slope.
 
         Args:
             func_name: Name of the activation function
             amplitude: Amplitude multiplier (a in a*func(x-b))
-            shift: Shift value to apply to input (b in a*func(x-b))
+            slope: slope value to apply to input (b in a*func(x-b))
 
         Returns:
-            Function that computes: amplitude * func(x - shift)
+            Function that computes: amplitude * func(x - slope)
         """
         if func_name in self.activation_funcs:
             base_func = self.activation_funcs[func_name]
-            if amplitude != 1.0 or shift != 0.0:
-                return lambda x, a=amplitude, s=shift, f=base_func: a * f(x - s)
+            if amplitude != 1.0 or slope != 0.0:
+                return lambda x, a=amplitude, s=slope, f=base_func: a * f(x / s)
             return base_func
         else:
             return self.phi  # Default to phi if unknown
@@ -89,14 +89,14 @@ class PDE_N11(pyg.nn.MessagePassing):
         u = x[:, 6:7]
 
         # Apply type-specific activation functions for message passing
-        # Format: ["func_name", amplitude, shift] -> amplitude * func(x - shift)
+        # Format: ["func_name", amplitude, slope] -> amplitude * func(x - slope)
         msg = torch.zeros_like(u)
         
         for n in range(len(self.func_p)):
             func_name = self.func_p[n][0]
             amplitude = self.func_p[n][1] if len(self.func_p[n]) > 1 else 1.0
-            shift = self.func_p[n][2] if len(self.func_p[n]) > 2 else 0.0
-            activation = self.get_activation(func_name, amplitude, shift)
+            slope = self.func_p[n][2] if len(self.func_p[n]) > 2 else 1.0
+            activation = self.get_activation(func_name, amplitude, slope)
 
             # Find neurons of this type
             type_mask = (neuron_type == n)
@@ -124,12 +124,12 @@ class PDE_N11(pyg.nn.MessagePassing):
     def func(self, u, type, function):
         if function=='phi':
             # Use type-specific function if available
-            # Format: ["func_name", amplitude, shift] -> amplitude * func(x - shift)
+            # Format: ["func_name", amplitude, slope] -> amplitude * func(x - slope)
             if self.func_p is not None and type < len(self.func_p):
                 func_name = self.func_p[type][0]
                 amplitude = self.func_p[type][1] if len(self.func_p[type]) > 1 else 1.0
-                shift = self.func_p[type][2] if len(self.func_p[type]) > 2 else 0.0
-                return self.get_activation(func_name, amplitude, shift)(u)
+                slope = self.func_p[type][2] if len(self.func_p[type]) > 2 else 0.0
+                return self.get_activation(func_name, amplitude, slope)(u)
             return self.phi(u)
 
         elif function=='update':
