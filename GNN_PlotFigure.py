@@ -298,14 +298,14 @@ def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iterat
         correction: Per-neuron correction tensor from correction.pt (default None = no per-neuron correction)
     """
     n_neurons = connectivity.shape[0]
-    # Limit to true neurons (exclude excitatory neurons)
+    # limit to true neurons (exclude excitatory neurons)
     n_plot = n_neurons - n_excitatory_neurons
 
     i, j = torch.triu_indices(n_plot, n_plot, requires_grad=False, device=model.W.device)
     A = model.W[:n_plot, :n_plot].clone().detach()
     A[i, i] = 0
 
-    # Apply per-neuron correction if provided
+    # apply per-neuron correction if provided
     if correction is not None:
         correction_np = to_numpy(correction[:n_plot])
         pred_weight = to_numpy(A)
@@ -317,7 +317,7 @@ def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iterat
 
     gt_weight = to_numpy(connectivity[:n_plot, :n_plot]).flatten()
 
-    # Adjust scatter plot parameters based on number of neurons (consistent with 'best' mode)
+    # adjust scatter plot parameters based on number of neurons (consistent with 'best' mode)
     if n_neurons < 1000:
         scatter_size = 1
         scatter_alpha = 1.0
@@ -325,21 +325,21 @@ def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iterat
         scatter_size = 0.1
         scatter_alpha = 0.1
 
-    # Plot green diagonal line (y=x, perfect correlation) first
+    # plot green diagonal line (y=x, perfect correlation) first
     weight_max = np.max(np.abs(gt_weight)) * 1.1
     weight_lim = (-weight_max, weight_max)
     ax.plot(weight_lim, weight_lim, c='g', linewidth=4, zorder=1)
 
     ax.scatter(gt_weight, pred_weight, s=scatter_size, c=mc, alpha=scatter_alpha, zorder=2)
 
-    # Compute R² and slope
+    # compute R² and slope
     lin_fit, _ = curve_fit(linear_model, gt_weight, pred_weight)
     residuals = pred_weight - linear_model(gt_weight, *lin_fit)
     ss_res = np.sum(residuals ** 2)
     ss_tot = np.sum((pred_weight - np.mean(pred_weight)) ** 2)
     r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
 
-    # Variable names based on model type
+    # variable names based on model type
     if 'PDE_N11' in config.graph_model.signal_model_name:
         true_weight_var = '$J_{ij}$'
         learned_weight_var = '$J_{ij}^*$'
@@ -353,7 +353,7 @@ def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iterat
     # ax.set_ylim(weight_lim)
     ax.tick_params(labelsize=16)
 
-    # Add R² and slope text
+    # add R² and slope text
     ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
             fontsize=20, verticalalignment='top')
     ax.text(0.05, 0.87, f'slope: {lin_fit[0]:.2f}', transform=ax.transAxes,
@@ -467,28 +467,28 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
                 func = model.lin_edge(in_features.float())
             if config.graph_model.lin_edge_positive:
                 func = func ** 2
-            # Apply per-neuron correction if provided
+            # apply per-neuron correction if provided
             if correction is not None:
                 func = func * correction[n]
             ax.plot(to_numpy(rr), to_numpy(func) / learned_norm_factor,
                    color='w', linewidth=1, alpha=0.3)
 
-    # Variable names
+    # variable names
     if 'PDE_N11' in model_name:
         signal_var = '$h_j$'
     else:
         signal_var = '$v_j$'
 
-    # Label style
+    # label style
     if label_style == 'MLP':
-        ylabel = r'$\mathrm{MLP_1}(h_j)$'
+        ylabel = r'$\mathrm{MLP_1}(\mathbf{a}_j, h_j)$'
     else:
         ylabel = r'$f$'
 
     ax.set_xlabel(signal_var, fontsize=32)
     ax.set_ylabel(ylabel, fontsize=32)
     ax.set_xlim([-to_numpy(xnorm).item(), to_numpy(xnorm).item()])
-    # Set ylim to normalized range (approximately -1 to 1)
+    # set ylim to normalized range (approximately -1 to 1)
     ax.set_ylim([-1.2, 1.2])
     ax.tick_params(labelsize=16)
 
@@ -603,7 +603,7 @@ def create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, devic
 
 
 def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_types, type_list,
-                         cmap, connectivity, xnorm, ynorm, mc, fps=10, copy_to_presentation=None,
+                         cmap, connectivity, xnorm, ynorm, mc, fps=10,
                          true_model=None, n_excitatory_neurons=0, apply_weight_correction=False):
     """
     Create movies for signal model training visualization.
@@ -621,7 +621,6 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
         xnorm, ynorm: Normalization values
         mc: Marker color ('k' or 'w')
         fps: Frames per second for movies
-        copy_to_presentation: Path to copy movies for presentation (optional)
         true_model: Ground truth model for plotting true curves (optional)
         n_excitatory_neurons: Number of excitatory neurons (default 0)
         apply_weight_correction: Apply per-neuron correction from correction.pt (default False)
@@ -635,31 +634,31 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
     movies_dir = f'{log_dir}/results/movies'
     os.makedirs(movies_dir, exist_ok=True)
 
-    # Get training files
+    # get training files
     files, file_id_list = get_training_files(log_dir, n_runs)
     if len(file_id_list) == 0:
-        print('No training files found for movie creation')
+        print('no training files found for movie creation')
         return
 
-    # Determine stable plot limits
-    print('Determining plot limits...')
+    # determine stable plot limits
+    print('determining plot limits...')
     limits = determine_plot_limits_signal(config, log_dir, n_runs, device, n_neurons, type_list,
                                           cmap, connectivity, xnorm, ynorm,
                                           true_model=true_model, n_neuron_types=n_neuron_types)
     if limits is None:
-        print('Could not determine plot limits')
+        print('could not determine plot limits')
         return
 
     model, bc_pos, bc_dpos = choose_training_model(config, device)
 
-    # Load second_correction if available (computed in 'best' mode)
+    # load second_correction if available (computed in 'best' mode)
     second_correction_path = f'{log_dir}/second_correction.npy'
     if os.path.exists(second_correction_path):
         second_correction = float(np.load(second_correction_path))
     else:
         second_correction = 1.0
 
-    # Load per-neuron correction if apply_weight_correction is enabled
+    # load per-neuron correction if apply_weight_correction is enabled
     correction = None
     if apply_weight_correction:
         correction_path = f'{log_dir}/correction.pt'
@@ -668,7 +667,7 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
     metadata = {'title': f'{dataset_name} training', 'artist': 'NeuralGraph'}
 
-    # Movie configurations: (name, figsize, create_function)
+    # movie configurations: (name, figsize, create_function)
     movie_configs = [
         ('weights', (8, 8), 'weight'),
         ('embedding', (8, 8), 'embedding'),
@@ -676,18 +675,19 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
         ('lin_phi', (8, 8), 'lin_phi'),
     ]
 
-    # Add excitation movie if n_excitatory_neurons > 0
+    # add excitation movie if n_excitatory_neurons > 0
     if n_excitatory_neurons > 0:
         movie_configs.append(('excitation', (8, 8), 'excitation'))
 
     r_squared_list = []
     slope_list = []
 
-    for movie_name, figsize, plot_type in movie_configs:
-        mp4_path = f'{movies_dir}/{movie_name}_{dataset_name}.mp4'
-        jpg_path = f'{movies_dir}/{movie_name}_{dataset_name}.jpg'
+    # add 'without' suffix if correction is not applied
+    suffix = '' if apply_weight_correction else '_without'
 
-        print(f'Creating {movie_name} movie...')
+    for movie_name, figsize, plot_type in movie_configs:
+        mp4_path = f'{movies_dir}/{movie_name}_{dataset_name}{suffix}.mp4'
+        jpg_path = f'{movies_dir}/{movie_name}_{dataset_name}{suffix}.jpg'
 
         writer = FFMpegWriter(fps=fps, metadata=metadata)
         fig = plt.figure(figsize=figsize)
@@ -741,14 +741,13 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
         plt.close(fig)
 
-    # Create combined 2x2 movie
-    mp4_path_combined = f'{movies_dir}/combined_{dataset_name}.mp4'
-    jpg_path_combined = f'{movies_dir}/combined_{dataset_name}.jpg'
+    # create combined 2x2 movie
+    mp4_path_combined = f'{movies_dir}/combined_{dataset_name}{suffix}.mp4'
+    jpg_path_combined = f'{movies_dir}/combined_{dataset_name}{suffix}.jpg'
 
-    # Check if training_single_type is enabled (skip embedding panel if so)
+    # check if training_single_type is enabled (skip embedding panel if so)
     training_single_type = getattr(config.training, 'training_single_type', False) or getattr(config.training, 'init_training_single_type', False)
 
-    print('Creating combined 2x2 movie...')
     writer = FFMpegWriter(fps=fps, metadata=metadata)
     fig = plt.figure(figsize=(16, 16))
 
@@ -806,99 +805,9 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
     plt.close(fig)
 
-    # Generate LaTeX script
-    latex_path = f'{movies_dir}/slides_{dataset_name}.tex'
-    generate_signal_latex_slides(dataset_name, latex_path, training_single_type)
-
-    # Copy to presentation folder if specified
-    if copy_to_presentation:
-        copy_movies_to_presentation(log_dir, dataset_name, copy_to_presentation)
-
     return r_squared_list, slope_list
 
 
-def generate_signal_latex_slides(dataset_name, output_path, training_single_type=False):
-    """Generate LaTeX slides for the movies."""
-
-    # Embedding frame (only if not training_single_type)
-    embedding_frame = '' if training_single_type else f'''\\blackframe
-\\begin{{frame}}{{GNN training - embedding}}
-\\centering
-\\vspace{{3em}}
-\\href{{run:Movies/embedding_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/embedding_{dataset_name}.jpg}}}}
-\\end{{frame}}
-
-'''
-
-    latex_content = f'''% LaTeX slides for {dataset_name} training movies
-% Generated by NeuralGraph
-
-\\blackframe
-\\begin{{frame}}{{GNN training - weight reconstruction}}
-\\centering
-\\vspace{{3em}}
-\\href{{run:Movies/weights_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/weights_{dataset_name}.jpg}}}}
-\\end{{frame}}
-
-{embedding_frame}\\blackframe
-\\begin{{frame}}{{GNN training - MLP0 function}}
-\\centering
-\\vspace{{3em}}
-\\href{{run:Movies/lin_phi_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/lin_phi_{dataset_name}.jpg}}}}
-\\end{{frame}}
-
-\\blackframe
-\\begin{{frame}}{{GNN training - MLP1 function}}
-\\centering
-\\vspace{{3em}}
-\\href{{run:Movies/lin_edge_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/lin_edge_{dataset_name}.jpg}}}}
-\\end{{frame}}
-
-\\blackframe
-\\begin{{frame}}{{GNN training - overview}}
-\\centering
-\\vspace{{3em}}
-\\href{{run:Movies/combined_{dataset_name}.mp4?autostart&noprogress}}{{\\includegraphics[width=\\textwidth*5/10]{{Movies/combined_{dataset_name}.jpg}}}}
-\\end{{frame}}
-'''
-
-    with open(output_path, 'w') as f:
-        f.write(latex_content)
-
-
-def copy_movies_to_presentation(log_dir, dataset_name, presentation_path):
-    """Copy movies and JPGs to presentation folder."""
-    import shutil
-
-    movies_dir = f'{log_dir}/results/movies'
-    dest_dir = presentation_path
-
-    os.makedirs(dest_dir, exist_ok=True)
-
-    files_to_copy = [
-        f'weights_{dataset_name}.mp4',
-        f'weights_{dataset_name}.jpg',
-        f'embedding_{dataset_name}.mp4',
-        f'embedding_{dataset_name}.jpg',
-        f'lin_edge_{dataset_name}.mp4',
-        f'lin_edge_{dataset_name}.jpg',
-        f'lin_phi_{dataset_name}.mp4',
-        f'lin_phi_{dataset_name}.jpg',
-        f'combined_{dataset_name}.mp4',
-        f'combined_{dataset_name}.jpg',
-    ]
-
-    for filename in files_to_copy:
-        src = f'{movies_dir}/{filename}'
-        dst = f'{dest_dir}/{filename}'
-        if os.path.exists(src):
-            shutil.copy2(src, dst)
-
-    # Also copy LaTeX file
-    latex_src = f'{movies_dir}/slides_{dataset_name}.tex'
-    latex_dst = f'{dest_dir}/slides_{dataset_name}.tex'
-    if os.path.exists(latex_src):
-        shutil.copy2(latex_src, latex_dst)
 
 
 def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device, apply_weight_correction=False):
@@ -1043,7 +952,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
         true_model, _, _ = choose_model(config=config, W=connectivity, device=device)
 
-        # Create movies with stable axes
+        # create movies with stable axes
         create_signal_movies(
             config=config,
             log_dir=log_dir,
@@ -1058,7 +967,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             ynorm=ynorm,
             mc=mc,
             fps=10,
-            copy_to_presentation='/groups/saalfeld/saalfeldlab/cedric/presentation/CT 2025/Movies',
             true_model=true_model,
             n_excitatory_neurons=n_excitatory_neurons,
             apply_weight_correction=apply_weight_correction
@@ -1292,7 +1200,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 A = model.W.clone().detach()
                 A[i, i] = 0
 
-                # Apply per-neuron correction if enabled
+                # apply per-neuron correction if enabled
                 if apply_weight_correction:
                     correction_np = to_numpy(correction)
                     pred_weight = to_numpy(A)
@@ -1302,7 +1210,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     pred_weight = to_numpy(A)
 
                 fig, ax = fig_init()
-                # Use true_model.W for ground truth (like 'best' option)
+                # use true_model.W for ground truth (like 'best' option)
                 if hasattr(true_model, 'W') and true_model.W is not None:
                     gt_weight = to_numpy(true_model.W)
                 else:
@@ -1520,18 +1428,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
 
 
-        slope_list = np.array(slope_list) / p[0][0]
-        fig, ax = fig_init(formatx='%.0f', formaty='%.2f')
-        plt.plot(slope_list*10, linewidth=4, c=mc)
-        plt.xlim([0, 100])
-        plt.ylim([0, 1.1])
-        plt.yticks(fontsize=48)
-        plt.xticks([0, 100], [0, 20], fontsize=48)
-        plt.ylabel('slope', fontsize=64)
-        plt.xlabel('epoch', fontsize=64)
-        plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/slope.png', dpi=300)
-        plt.close()
 
     else:
 
@@ -1671,6 +1567,30 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 state_dict = torch.load(net, map_location=device)
                 model_f.load_state_dict(state_dict['model_state_dict'])
 
+            # print learnable parameters table
+            mlp0_params = sum(p.numel() for p in model.lin_phi.parameters())
+            mlp1_params = sum(p.numel() for p in model.lin_edge.parameters())
+            a_params = model.a.numel()
+            w_params = model.W.numel()
+            print('')
+            print('learnable parameters:')
+            print(f'  MLP0 (lin_phi): {mlp0_params:,}')
+            print(f'  MLP1 (lin_edge): {mlp1_params:,}')
+            print(f'  a (embeddings): {a_params:,}')
+            print(f'  W (connectivity): {w_params:,}')
+            total_params = mlp0_params + mlp1_params + a_params + w_params
+            if has_field:
+                siren_params = sum(p.numel() for p in model_f.parameters())
+                print(f'  INR (model_f): {siren_params:,}')
+                total_params += siren_params
+            if hasattr(model, 'NNR_f') and model.NNR_f is not None:
+                nnr_f_params = sum(p.numel() for p in model.NNR_f.parameters())
+                print(f'  INR (NNR_f): {nnr_f_params:,}')
+                total_params += nnr_f_params
+            print(f'  total: {total_params:,}')
+            print('')
+
+            if has_field:
                 if 'short_term_plasticity' in field_type:
 
                     fig, ax = fig_init()
@@ -1993,11 +1913,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             if n_excitatory_neurons > 0:
                 print('plot excitation function ...')
 
-                # First compute e_i scatter to get the slope for correction
-                # Use expanded connectivity's last column for ground truth (matches training code)
-                # Minus sign and second_correction on predicted to match ground truth
+                # compute e_i scatter to get the slope for correction
                 gt_weight_exc = to_numpy(connectivity[:-1, -1])
-                pred_weight_exc = -to_numpy(model.W[:-1, -1]) / second_correction
+                pred_weight_exc = -to_numpy(model.W[:-1, -1])
 
                 # R² and slope for excitation weights
                 x_data = gt_weight_exc.flatten()
@@ -6227,167 +6145,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
 
-
-def plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, cc, style, extended, device):
-    dataset_name = config.dataset
-    config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
-
-    n_frames = config.simulation.n_frames
-    n_runs = config.training.n_runs
-    n_neurons = config.simulation.n_neurons
-
-    colors_65 = sns.color_palette("Set3", 12) * 6  # pastel, repeat until 65
-    colors_65 = colors_65[:65]
-
-    config.simulation.max_radius if hasattr(config.simulation, 'max_radius') else 2.5
-    dimension = config.simulation.dimension
-
-    log_file = os.path.join(log_dir, 'results.log')
-    if os.path.exists(log_file):
-        os.remove(log_file)
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-
-    # Create file handler only, no console output
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-    logger.handlers.clear()  # Clear any existing handlers
-
-    file_handler = logging.FileHandler(log_file, mode='w')
-    file_handler.setFormatter(logging.Formatter('%(asctime)s %(message)s'))
-    logger.addHandler(file_handler)
-
-    # Prevent propagation to root logger (which might have console handlers)
-    logger.propagate = False
-
-    print(f'experiment description: {config.description}')
-    logger.info(f'experiment description: {config.description}')
-
-    # Load neuron group mapping for flyvis
-
-    CustomColorMap(config=config)
-
-    if 'black' in style:
-        plt.style.use('dark_background')
-        mc = 'w'
-    else:
-        plt.style.use('default')
-        mc = 'k'
-
-    x_list = []
-    y_list = []
-    time.sleep(0.5)
-    print('load simulation data...')
-    for run in range(0, n_runs):
-        if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
-            x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
-            y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
-            x = to_numpy(torch.stack(x))
-            y = to_numpy(torch.stack(y))
-        else:
-            x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
-            y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
-        x_list.append(x)
-        y_list.append(y)
-
-    ynorm = torch.load(os.path.join(log_dir, 'ynorm.pt'), map_location=device)
-    if os.path.exists(os.path.join(log_dir, 'xnorm.pt')):
-        xnorm = torch.load(os.path.join(log_dir, 'xnorm.pt'))
-    else:
-        xnorm = torch.tensor([5], device=device)
-
-    print(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
-    logger.info(f'xnorm: {to_numpy(xnorm)}, ynorm: {to_numpy(ynorm)}')
-
-    # Load data with new format
-    # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
-    gt_weights = torch.load(f'./graphs_data/{dataset_name}/weights.pt', map_location=device)
-    torch.load(f'./graphs_data/{dataset_name}/taus.pt', map_location=device)
-    torch.load(f'./graphs_data/{dataset_name}/V_i_rest.pt', map_location=device)
-    edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
-    true_weights = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
-    true_weights[edges[1], edges[0]] = gt_weights
-
-    x = x_list[0][n_frames - 10]
-    type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
-    len(np.unique(to_numpy(type_list)))
-    region_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
-    len(np.unique(to_numpy(region_list)))
-    n_neurons = len(type_list)
-
-    # Neuron type index to name mapping
-
-    activity = torch.tensor(x_list[0][:, :, 3:4], device=device)
-    activity = activity.squeeze().t()
-    torch.mean(activity, dim=1)
-    torch.std(activity, dim=1)
-
-    os.makedirs(f'{log_dir}/results/', exist_ok=True)
-
-
-    if epoch_list[0] == 'all':
-
-        print ('not implemented yet ...')
-
-    else:
-        config.dataset.split('fly_N9_')[1]
-        files, file_id_list = get_training_files(log_dir, n_runs)
-
-        for epoch in epoch_list:
-
-            net = f'{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch}.pt'
-            model = Calcium_Latent_Dynamics(config=config, device=device)
-
-            state_dict = torch.load(net, map_location=device)
-            model.load_state_dict(state_dict['model_state_dict'])
-            model.eval()
-            print(f'net: {net}')
-            logger.info(f'net: {net}')
-
-            # Plot 1: Loss curve
-            if os.path.exists(os.path.join(log_dir, 'loss.pt')):
-                plt.figure(figsize=(8, 6))
-                ax = plt.gca()
-                for spine in ax.spines.values():
-                    spine.set_alpha(0.75)
-                list_loss = torch.load(os.path.join(log_dir, 'loss.pt'))
-                plt.plot(list_loss, color=mc, linewidth=2)
-                plt.xlim([0, len(list_loss)])
-                plt.ylabel('Loss')
-                plt.xlabel('Epochs')
-                plt.title('Training Loss')
-                plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/loss.png', dpi=300)
-                plt.close()
-
-            recons_loss_list = []
-            baseline_loss_list = []
-            for it in trange(0, n_frames-1, ncols=90):
-
-                x = torch.tensor(x_list[run][it,:,7:8], dtype=torch.float32, device=device).squeeze()
-                y = torch.tensor(x_list[run][it+1,:,7:8], device=device).squeeze()   # auto-encoder_loss
-
-                with torch.no_grad():
-                    pred, mu, logvar = model(x)
-                recon_loss = (pred-y).norm(2)
-                baseline_loss = (x-y).norm(2)
-
-                recons_loss_list.append(to_numpy(recon_loss))
-                baseline_loss_list.append(to_numpy(baseline_loss))
-
-            recons_loss_list = np.array(recons_loss_list)
-            baseline_loss_list = np.array(baseline_loss_list)
-
-            # print mean and std
-            print(f'reconstruction loss: {np.mean(recons_loss_list):.4f} +/- {np.std(recons_loss_list):.4f}')
-            print(f'baseline loss: {np.mean(baseline_loss_list):.4f} +/- {np.std(baseline_loss_list):.4f}')
-
-
-
-
-
-
-
 def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended, device):
 
     dataset_name = config.dataset
@@ -9031,8 +8788,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_62_5_19_5']
 
     # config_list = ['signal_N11_1_3'] 
-    # config_list = ['signal_N11_1_3'] # 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
-    config_list = ['signal_N11_1_8_1']   #, 'signal_N11_1_8_2'] #, 'signal_N11_1_8_3']                
+    config_list = ['signal_N11_2_1_3'] # 'signal_N11_1_3'] # 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
+    # config_list = ['signal_N11_1_8_1'] #, 'signal_N11_1_8_2']         
 
     for config_file_ in config_list:
         print(' ')
@@ -9043,8 +8800,9 @@ if __name__ == '__main__':
         print(f'\033[94mconfig_file  {config.config_file}\033[0m')
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
-        # data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=False)
-        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=False)    
+        data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=False)
+        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=False)    
+        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=True)    
 
     # compare_experiments(config_list, 'training.batch_size')
 
