@@ -368,8 +368,8 @@ def create_signal_embedding_subplot(fig, ax, model, type_list, n_neuron_types, c
 
     ax.set_xlabel(r'$\mathbf{a}_0$', fontsize=32)
     ax.set_ylabel(r'$\mathbf{a}_1$', fontsize=32)
-    ax.set_xlim(limits['embedding'])
-    ax.set_ylim(limits['embedding'])
+    ax.set_xlim([-0.2, 1.2])
+    ax.set_ylim([-0.2, 1.2])
     ax.tick_params(labelsize=16)
 
 
@@ -401,10 +401,13 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
                 norm_factor = true_max
 
     # Plot true curves first (green, thick) if true_model is provided
+    # Plot one curve per neuron, colored by neuron type
     if true_model is not None:
-        for n in range(n_neuron_types):
-            true_func = true_model.func(rr, n, 'phi')
-            ax.plot(to_numpy(rr), to_numpy(true_func) / norm_factor, c='g', linewidth=8)
+        neuron_types = to_numpy(type_list).astype(int)
+        for n in range(n_neurons):
+            neuron_type = int(neuron_types[n])
+            true_func = true_model.func(rr, neuron_type, 'phi')
+            ax.plot(to_numpy(rr), to_numpy(true_func) / norm_factor, color=cmap.color(neuron_type), linewidth=2, alpha=0.5)
 
     if model_name in ['PDE_N2', 'PDE_N3', 'PDE_N6']:
         # Simple models: single line, single input
@@ -486,11 +489,13 @@ def create_signal_lin_phi_subplot(fig, ax, model, config, n_neurons, type_list, 
     """
     rr = torch.linspace(-xnorm.squeeze(), xnorm.squeeze(), 1000).to(device)
 
-    # Plot true curves first (green, thick) if true_model is provided
+    # Plot true curves first (one curve per neuron, colored by neuron type)
     if true_model is not None:
-        for n in range(n_neuron_types):
-            true_func = true_model.func(rr, n, 'update')
-            ax.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=8)
+        neuron_types = to_numpy(type_list).astype(int)
+        for n in range(n_neurons):
+            neuron_type = int(neuron_types[n])
+            true_func = true_model.func(rr, neuron_type, 'update')
+            ax.plot(to_numpy(rr), to_numpy(true_func), color=cmap.color(neuron_type), linewidth=2, alpha=0.5)
 
     for n in range(n_neurons):
         embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
@@ -751,13 +756,13 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
                 # Top-right panel:
                 # - Show excitation if training_single_type AND n_excitatory_neurons > 0
-                # - Show embedding if not training_single_type
-                # - Skip if training_single_type and no excitatory neurons
+                # - Show embedding if not training_single_type OR epoch is 0 (to show initial state)
+                # - Skip if training_single_type and no excitatory neurons (except epoch 0)
                 if training_single_type and n_excitatory_neurons > 0:
                     ax2 = fig.add_subplot(2, 2, 2)
                     create_signal_excitation_subplot(fig, ax2, model, config, n_frames, mc, device,
                                                      connectivity=connectivity, second_correction=second_correction)
-                elif not training_single_type:
+                elif not training_single_type or int(epoch) == 0:
                     ax2 = fig.add_subplot(2, 2, 2)
                     create_signal_embedding_subplot(fig, ax2, model, type_list, n_neuron_types, cmap, limits)
 
@@ -884,7 +889,7 @@ def copy_movies_to_presentation(log_dir, dataset_name, presentation_path, logger
         logger.info(f'Copied: slides_{dataset_name}.tex -> {dest_dir}')
 
 
-def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device):
+def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device, apply_weight_correction=False):
 
     dataset_name = config.dataset
 
@@ -2098,10 +2103,17 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.savefig(f"./{log_dir}/results/learned_types.png", dpi=170.7)
             plt.close()
 
+            # Use the apply_weight_correction parameter passed from data_plot
+            # (default is False if not specified)
+
             fig, ax = fig_init()
             # Limit to first 100 neurons (exclude excitatory neuron if present)
             n_plot = n_neurons - n_excitatory_neurons if n_excitatory_neurons > 0 else n_neurons
-            gt_weight = to_numpy(connectivity[:n_plot, :n_plot])
+            # For signal models with W matrix (PDE_N11), use true_model.W as ground truth
+            if hasattr(true_model, 'W') and true_model.W is not None:
+                gt_weight = to_numpy(true_model.W[:n_plot, :n_plot])
+            else:
+                gt_weight = to_numpy(connectivity[:n_plot, :n_plot])
             pred_weight = to_numpy(A[:n_plot, :n_plot])
             # Adjust scatter plot parameters based on number of neurons
             if n_plot < 1000:
@@ -2129,33 +2141,158 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print(f'R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
             logger.info(f'R²: {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
-            second_correction = lin_fit[0]
-            print(f'second_correction: {second_correction:0.2f}')
-            np.save(f'{log_dir}/second_correction.npy', second_correction)
+            # Debug: Print weight statistics
+            print(f'\n=== Weight Comparison Debug ===')
+            print(f'Ground truth weights shape: {gt_weight.shape}')
+            print(f'Predicted weights shape: {pred_weight.shape}')
+            print(f'GT weight range: [{np.min(gt_weight):.4f}, {np.max(gt_weight):.4f}]')
+            print(f'Pred weight range: [{np.min(pred_weight):.4f}, {np.max(pred_weight):.4f}]')
+            print(f'GT non-zero elements: {np.sum(np.abs(gt_weight) > 1e-6)}')
+            print(f'Pred non-zero elements: {np.sum(np.abs(pred_weight) > 1e-6)}')
+            print(f'Number of neuron types: {n_neuron_types}')
+            print(f'apply_weight_correction: {apply_weight_correction}')
 
-            fig, ax = fig_init()
-            # Use already computed gt_weight and pred_weight (limited to n_plot neurons)
-            plt.scatter(gt_weight, pred_weight / second_correction, s=scatter_size, c=mc, alpha=scatter_alpha)
-            plt.xlabel(f'true {weight_var}', fontsize=68)
-            plt.ylabel(f'learned {weight_var}', fontsize=68)
-            plt.xlim(weight_lim)
-            plt.ylim(weight_lim)
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/second_comparison.png", dpi=87)
-            plt.close()
+            if hasattr(true_model, 'W'):
+                print(f'true_model.W exists: True, shape: {true_model.W.shape}')
+                print(f'true_model.W range: [{to_numpy(torch.min(true_model.W)):.4f}, {to_numpy(torch.max(true_model.W)):.4f}]')
+            else:
+                print(f'true_model.W exists: False (using connectivity)')
 
-            # Final learned connectivity heatmap (transpose to match ground truth orientation)
-            # Limit to n_plot neurons (exclude excitatory neuron if present)
-            A_plot = A[:n_plot, :n_plot].t()
+            # Check learned vs GT weights sample
+            nonzero_mask = np.abs(gt_weight) > 1e-6
+            if np.any(nonzero_mask):
+                gt_sample = gt_weight[nonzero_mask][:10]
+                pred_sample = pred_weight[nonzero_mask][:10]
+                ratio_sample = pred_sample / gt_sample
+                print(f'\nSample of 10 edges (GT vs Pred):')
+                for i in range(min(10, len(gt_sample))):
+                    print(f'  GT: {gt_sample[i]:8.4f}  Pred: {pred_sample[i]:8.4f}  Ratio: {ratio_sample[i]:8.2f}')
+                print(f'Mean ratio (Pred/GT): {np.mean(pred_sample / gt_sample):.4f}')
+                print(f'Median ratio (Pred/GT): {np.median(pred_sample / gt_sample):.4f}')
+
+            print(f'================================\n')
+
+            if apply_weight_correction:
+                # Algorithm:
+                # 1. For each neuron, compute MLP1(x) over a range and find max value
+                # 2. Use max values as per-neuron normalization factors
+                # 3. Correct W matrix rows by dividing by source neuron's normalization factor
+                # 4. Compute global correction factor between normalized W and ground truth
+
+                print(f'\n=== Per-Neuron MLP1 Normalization ===')
+
+                # Compute MLP1(x) for each neuron over a range of values
+                rr = torch.linspace(-2, 2, 100, dtype=torch.float32, device=device)
+
+                # Get neuron types for all neurons in the plot
+                type_list_np = to_numpy(type_list[:n_plot]).astype(int).flatten()
+
+                # Compute normalization factor for each neuron based on its MLP1 function
+                norm_factors = np.zeros(n_plot)
+
+                for i in range(n_plot):
+                    neuron_type = type_list_np[i]
+                    # Compute MLP1(x) for this neuron type using model.func
+                    mlp1_values = to_numpy(model.func(rr, neuron_type, 'phi'))
+                    # Find max absolute value as normalization factor
+                    norm_factors[i] = np.max(np.abs(mlp1_values))
+
+                print(f'Normalization factors computed for {n_plot} neurons')
+                print(f'Norm factor range: [{np.min(norm_factors):.4f}, {np.max(norm_factors):.4f}]')
+                print(f'Norm factor mean: {np.mean(norm_factors):.4f}')
+                print(f'Sample norm factors (first 10): {norm_factors[:10]}')
+
+                # Correct W matrix: divide each row by the source neuron's normalization factor
+                # W[i,j] represents weight from neuron j to neuron i, so we divide by norm_factors[j]
+                corrected_pred = np.copy(pred_weight)
+                for i in range(n_plot):
+                    for j in range(n_plot):
+                        if norm_factors[j] > 1e-6:  # Avoid division by zero
+                            corrected_pred[i, j] = pred_weight[i, j] / norm_factors[j]
+
+                print(f'After per-neuron correction:')
+                print(f'Corrected pred range: [{np.min(corrected_pred):.4f}, {np.max(corrected_pred):.4f}]')
+
+                # Compute global correction factor between normalized weights and ground truth
+                nonzero_mask = np.abs(gt_weight) > 1e-6
+                if np.any(nonzero_mask):
+                    global_lin_fit, _ = curve_fit(linear_model, gt_weight[nonzero_mask].flatten(),
+                                                   corrected_pred[nonzero_mask].flatten())
+                    global_correction = global_lin_fit[0]
+                    print(f'Global correction factor: {global_correction:.4f}')
+
+                    # Apply global correction
+                    corrected_pred = corrected_pred / global_correction
+                    second_correction = global_correction * norm_factors.reshape(1, -1)  # Combined correction
+
+                    print(f'After global correction:')
+                    print(f'Final corrected pred range: [{np.min(corrected_pred):.4f}, {np.max(corrected_pred):.4f}]')
+
+                    # Compute final R² and slope
+                    final_lin_fit, _ = curve_fit(linear_model, gt_weight[nonzero_mask].flatten(),
+                                                 corrected_pred[nonzero_mask].flatten())
+                    final_r2 = np.corrcoef(gt_weight[nonzero_mask].flatten(),
+                                          corrected_pred[nonzero_mask].flatten())[0, 1] ** 2
+                    print(f'Final R²: {final_r2:.4f}, Final slope: {final_lin_fit[0]:.4f}')
+
+                    np.save(f'{log_dir}/second_correction.npy', global_correction)
+                else:
+                    second_correction = 1.0
+                    corrected_pred = pred_weight
+                    print(f'No non-zero ground truth weights, skipping correction')
+                    np.save(f'{log_dir}/second_correction.npy', second_correction)
+
+                print(f'================================\n')
+
+                fig, ax = fig_init()
+                # corrected_pred already computed above with per-neuron normalization
+                plt.scatter(gt_weight, corrected_pred, s=scatter_size, c=mc, alpha=scatter_alpha)
+                plt.xlabel(f'true {weight_var}', fontsize=68)
+                plt.ylabel(f'learned {weight_var}', fontsize=68)
+                plt.xlim(weight_lim)
+                plt.ylim(weight_lim)
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/second_comparison.png", dpi=87)
+                plt.close()
+
+                # Final learned connectivity heatmap (transpose to match ground truth orientation)
+                # Limit to n_plot neurons (exclude excitatory neuron if present)
+                A_plot = A[:n_plot, :n_plot].t()
+                # Apply per-neuron normalization to the weight matrix
+                A_plot_corrected = to_numpy(A_plot).copy()
+                for i in range(n_plot):
+                    for j in range(n_plot):
+                        if norm_factors[j] > 1e-6:
+                            A_plot_corrected[i, j] = A_plot_corrected[i, j] / norm_factors[j]
+                if isinstance(global_correction, (int, float, np.number)):
+                    A_plot_corrected = A_plot_corrected / global_correction
+            else:
+                # Without correction - use weights as-is
+                second_correction = 1.0
+                print('Weight correction disabled (apply_weight_correction = False)')
+
+                fig, ax = fig_init()
+                plt.scatter(gt_weight, pred_weight, s=scatter_size, c=mc, alpha=scatter_alpha)
+                plt.xlabel(f'true {weight_var}', fontsize=68)
+                plt.ylabel(f'learned {weight_var}', fontsize=68)
+                plt.xlim(weight_lim)
+                plt.ylim(weight_lim)
+                plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/second_comparison.png", dpi=87)
+                plt.close()
+
+                # Final learned connectivity heatmap without correction
+                A_plot = A[:n_plot, :n_plot].t()
+                A_plot_corrected = to_numpy(A_plot)
             plt.figure(figsize=(10, 10))
-            ax = sns.heatmap(to_numpy(A_plot)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
+            ax = sns.heatmap(A_plot_corrected, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
             cbar = ax.collections[0].colorbar
             cbar.ax.tick_params(labelsize=32)
             plt.xticks([0, n_plot - 1], [1, n_plot], fontsize=48)
             plt.yticks([0, n_plot - 1], [1, n_plot], fontsize=48)
             plt.xticks(rotation=0)
             plt.subplot(2, 2, 1)
-            ax = sns.heatmap(to_numpy(A_plot[0:20, 0:20])/second_correction, cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
+            ax = sns.heatmap(A_plot_corrected[0:20, 0:20], cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
             plt.xticks([])
             plt.yticks([])
             plt.tight_layout()
@@ -8247,7 +8384,7 @@ def plot_loss_curves(log_dir, ylim=None):
 
 
 
-def data_plot(config, config_file, epoch_list, style, extended, device):
+def data_plot(config, config_file, epoch_list, style, extended, device, apply_weight_correction=False):
 
     # plt.rcParams['text.usetex'] = False  # LaTeX disabled
     # rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
@@ -8318,7 +8455,7 @@ def data_plot(config, config_file, epoch_list, style, extended, device):
     elif ('PDE_N3' in config.graph_model.signal_model_name):
         plot_synaptic3(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     else:
-        plot_signal(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
+        plot_signal(config, epoch_list, log_dir, logger, 'viridis', style, extended, device, apply_weight_correction)
 
     for handler in logger.handlers[:]:
         handler.close()
@@ -9279,8 +9416,8 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_62_5_19_5']
 
     # config_list = ['signal_N11_1_3'] 
-    config_list = ['signal_N11_1_3'] # , 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
-    # config_list = ['signal_N11_1_8_1', 'signal_N11_1_8_2', 'signal_N11_1_8_3']                
+    # config_list = ['signal_N11_1_3'] # 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
+    config_list = ['signal_N11_1_8_1']   #, 'signal_N11_1_8_2'] #, 'signal_N11_1_8_3']                
 
     for config_file_ in config_list:
         print(' ')
