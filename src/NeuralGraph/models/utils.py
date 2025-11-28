@@ -176,7 +176,7 @@ def get_in_features(rr=None, embedding=None, model=[], model_name = [], max_radi
                                      rr[:, None] / max_radius, embedding, embedding), dim=1)
         case 'PDE_N2' | 'PDE_N3' | 'PDE_N6' :
             in_features = rr[:, None]
-        case 'PDE_N4' | 'PDE_N7':
+        case 'PDE_N4' | 'PDE_N7' | 'PDE_N11':
             in_features = torch.cat((rr[:, None], embedding), dim=1)
         case 'PDE_N8':
             in_features = torch.cat((rr[:, None]*0, rr[:, None], embedding, embedding), dim=1)
@@ -348,14 +348,14 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     if n_neurons<1000:
         fig = plt.figure(figsize=(16, 8))
         ax = fig.add_subplot(121)
-        ax = sns.heatmap(gt_weight, center=0, vmin=-0.2, vmax=0.2, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
+        ax = sns.heatmap(gt_weight, center=0, vmin=-0.5, vmax=0.5, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)
         plt.xlabel('presynaptic', fontsize=16)
         plt.title(f'true {weight_variable}', fontsize=16)
         ax = fig.add_subplot(122)
-        ax = sns.heatmap(pred_weight / 10, center=0, vmin=-0.2, vmax=0.2, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
+        ax = sns.heatmap(pred_weight / 10, center=0, vmin=-0.5, vmax=0.5, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)

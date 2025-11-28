@@ -238,6 +238,7 @@ class PlottingConfig(BaseModel):
     pic_size: list[int] = [1000, 1100]
     data_embedding: int = 1
     plot_batch_size: int = 1000
+    label_style: str = "MLP"  # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
 
 class TrainingConfig(BaseModel):
@@ -343,12 +344,9 @@ class TrainingConfig(BaseModel):
     coeff_W_sign: float = 0
     W_sign_temperature: float = 10.0
 
-    coeff_lin_phi_zero: float = 1
+    coeff_lin_phi_zero: float = 0
     coeff_entropy_loss: float = 0
-    coeff_loss1: float = 1
-    coeff_loss2: float = 1
-    coeff_loss3: float = 1
-    coeff_edge_diff: float = 10
+    coeff_edge_diff: float = 0
     coeff_update_diff: float = 0
     coeff_update_msg_diff: float = 0
     coeff_update_msg_sign: float = 0

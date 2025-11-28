@@ -2610,7 +2610,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
 
 
-def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15,
+def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600,
               ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
 
     dataset_name = config.dataset
@@ -2621,16 +2621,16 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         test_mode = "test_ablation_0"
 
     if 'fly' in config.dataset:
-        data_test_flyvis(config, visualize, style, verbose, best_model, step, test_mode, new_params, device)
+        data_test_flyvis(config, visualize, style, verbose, best_model, step, n_rollout_frames, test_mode, new_params, device)
 
     elif 'zebra' in config.dataset:
         data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
     
     else:
-        data_test_signal(config, config_file, visualize, style, verbose, best_model, step, ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
+        data_test_signal(config, config_file, visualize, style, verbose, best_model, step, n_rollout_frames,ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 
 
-def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
+def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
     dataset_name = config.dataset
     simulation_config = config.simulation
     model_config = config.graph_model
@@ -3043,8 +3043,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     id_fig = 0
 
 
-    n_test_frames = 3000
-    it_step = 50
+    n_test_frames = n_rollout_frames // 2
+    it_step = step
 
     for it in trange(start_it,start_it+n_test_frames * 2, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
@@ -3204,8 +3204,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
                     plt.figure(figsize=(20, 10))
                     if 'latex' in style:
-                        plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
-                        rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
+                        plt.rcParams['text.usetex'] = False
+                        plt.rcParams['font.family'] = 'sans-serif'
 
                     ax = plt.subplot(122)
                     plt.scatter(to_numpy(modulation_gt_list_[-1, :]), to_numpy(modulation_pred_list_[-1, :]), s=10,
@@ -3249,7 +3249,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             elif 'CElegans' in dataset_name:
                 n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
             else:
-                n = [20, 30, 100, 150, 260, 270, 520, 620, 720, 820]
+                n = [20, 30, 100, 150, 260, 270, 520, 620, 720, 780]
 
             neuron_gt_list_ = torch.cat(neuron_gt_list, 0)
             neuron_pred_list_ = torch.cat(neuron_pred_list, 0)
@@ -3259,19 +3259,13 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // (n_neurons-n_excitatory_neurons), (n_neurons-n_excitatory_neurons)))
 
             mpl.rcParams.update({
-                "text.usetex": False,  # Disabled LaTeX
-                "font.family": "serif",
-                "font.serif": ["Times New Roman", "Liberation Serif", "DejaVu Serif"],
-                "font.size": 12,           # Base font size
-                "axes.labelsize": 14,      # Axis labels
-                "legend.fontsize": 12,     # Legend
-                "xtick.labelsize": 10,     # Tick labels
+                "text.usetex": False,
+                "font.family": "sans-serif",
+                "font.size": 12,
+                "axes.labelsize": 14,
+                "legend.fontsize": 12,
+                "xtick.labelsize": 10,
                 "ytick.labelsize": 10,
-                "text.latex.preamble": r"""
-                    \usepackage[T1]{fontenc}
-                    \usepackage[sc]{mathpazo}
-                    \linespread{1.05}
-                """,
             })
 
             plt.figure(figsize=(20, 10))
@@ -3317,8 +3311,11 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             plt.xlim([0, n_test_frames])
             plt.ylim(ylim)
-            plt.xlabel('time-points', fontsize=48)
-            plt.ylabel('neurons', fontsize=48)
+            plt.xlabel('frame', fontsize=48)
+            if 'PDE_N11' in config.graph_model.signal_model_name:
+                plt.ylabel('$h_i$', fontsize=48)
+            else:
+                plt.ylabel('$x_i$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks([])
 
@@ -3369,10 +3366,14 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             # plt.xlim([-20,20])
             # plt.ylim([-20,20])
-            plt.xlabel('true $x_i$', fontsize=48)
-            plt.ylabel('learned $x_i$', fontsize=48)
-            plt.xticks(fontsize=24)
-            plt.yticks(fontsize=24)
+            if 'PDE_N11' in config.graph_model.signal_model_name:
+                plt.xlabel('true $h_i$', fontsize=48)
+                plt.ylabel('learned $h_i$', fontsize=48)
+            else:
+                plt.xlabel('true $x_i$', fontsize=48)
+                plt.ylabel('learned $x_i$', fontsize=48)              
+            plt.xticks([])
+            plt.yticks([])
 
 
             R2_list.append(r2)
@@ -3408,7 +3409,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     dataset_name_ = dataset_name.split('/')[-1]
-    generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
+    generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20, log_dir=f"./{log_dir}")
 
     # Copy the last PNG file before erasing Fig folder
     files = glob.glob(f'./{log_dir}/results/Fig/*.png')
@@ -3441,7 +3442,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
-    ax.text(-200, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    ax.text(-500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
     plt.xlabel("time", fontsize=32)
     plt.xticks(fontsize=24)
     ax.spines['left'].set_visible(False)
@@ -3460,7 +3461,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
-    ax.text(-200, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    ax.text(-500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
     plt.xlabel("time", fontsize=32)
     plt.xticks(fontsize=24)
     ax.spines['left'].set_visible(False)
@@ -3469,8 +3470,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     ax.set_yticks([0, 20, 40])
     ax.set_yticklabels(['0', '20', '40'], fontsize=20)
     ax.text(x_inference_list.shape[1] * 1.1, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
-
-
+    ax.set
 
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/{dataset_name_}_activity.png", dpi=300)
@@ -3575,88 +3575,13 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             longest_run_start, longest_run_length = max(high_r2_runs, key=lambda x: x[1])
         else:
             longest_run_start, longest_run_length = 0, 0
-
-        # Write results to rollout log file
-        rollout_log_path = f"./{log_dir}/results_rollout.log"
-        with open(rollout_log_path, 'w') as f:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-            f.write(f"Rollout R² Metrics - {timestamp}\n")
-            f.write("="*60 + "\n\n")
-
-            f.write(f"R² Mean: {r2_mean:.4f}\n")
-            f.write(f"R² Std: {r2_std:.4f}\n")
-            f.write(f"R² Median: {r2_median:.4f}\n")
-            f.write(f"R² Min: {r2_min:.4f}\n")
-            f.write(f"R² Max: {r2_max:.4f}\n\n")
-
-            f.write(f"Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)\n")
-            if high_r2_runs:
-                f.write(f"Longest high-R² run: {longest_run_length} frames\n")
-
-            f.write(f"\nTotal frames analyzed: {len(R2_array)}\n")
-
-        # Also write results to main log file
-        log_file_path = f"./{log_dir}/results.log"
-        with open(log_file_path, 'a') as f:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-            f.write(f"\n{'='*80}\n")
-            f.write(f"Rollout R² Analysis - {timestamp}\n")
-            f.write(f"{'='*80}\n\n")
-
-            f.write(f"Dataset: {dataset_name}\n")
-            f.write(f"Model: {net}\n")
-            f.write(f"Total frames analyzed: {len(R2_array)}\n\n")
-
-            f.write("R² Statistics:\n")
-            f.write(f"  Mean:   {r2_mean:.4f}\n")
-            f.write(f"  Std:    {r2_std:.4f}\n")
-            f.write(f"  Median: {r2_median:.4f}\n")
-            f.write(f"  Min:    {r2_min:.4f}\n")
-            f.write(f"  Max:    {r2_max:.4f}\n\n")
-
-            f.write("High Performance Analysis (R² > 0.9):\n")
-            f.write(f"  Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)\n")
-            f.write(f"  Number of high-R² runs: {len(high_r2_runs)}\n")
-            if high_r2_runs:
-                f.write(f"  Longest consecutive run: {longest_run_length} frames (starting at frame {longest_run_start})\n")
-                f.write(f"  All high-R² runs: {high_r2_runs[:10]}")  # Show first 10 runs
-                if len(high_r2_runs) > 10:
-                    f.write(f" ... ({len(high_r2_runs)-10} more)")
-                f.write("\n")
-            else:
-                f.write("  No frames achieved R² > 0.9\n")
-
-            f.write("\n")
-
-        print(f"\n{'='*80}")
-        print("R² Analysis Summary:")
-        print(f"{'='*80}")
         print(f"mean R²: {r2_mean:.4f} ± {r2_std:.4f}")
         print(f"range: [{r2_min:.4f}, {r2_max:.4f}]")
-        print(f"frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)")
-        if high_r2_runs:
-            print(f"longest high-R² run: {longest_run_length} frames")
-        print(f"results saved to: {log_file_path}")
-        print(f"{'='*80}\n")
-
-    if len(angle_list) > 0:
-        angle = torch.stack(angle_list)
-        fig = plt.figure(figsize=(12, 12))
-        plt.hist(to_numpy(angle), bins=1000, color='w')
-        plt.xlabel('angle', fontsize=48)
-        plt.ylabel('count', fontsize=48)
-        plt.xticks(fontsize=24)
-        plt.yticks(fontsize=24)
-        plt.xlim([-90, 90])
-        plt.savefig(f"./{log_dir}/results/angle.tif", dpi=170.7)
-        plt.close
 
 
-def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, test_mode='', new_params = None, device=None):
+
+
+def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, n_rollout_frames=600, test_mode='', new_params = None, device=None):
 
 
     if "black" in style:
@@ -3897,11 +3822,12 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         sintel_frame_idx = 0
         davis_frame_idx = 0
 
+    target_frames = n_rollout_frames
+
     if 'full' in test_mode:
-        target_frames = 90000
+        target_frames = n_frames
         step = 25000
     else:
-        target_frames = 2000
         step = 10
     print(f'plot activity frames \033[92m0-{target_frames}...\033[0m')
 
@@ -3980,7 +3906,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         37, 38, 39, 40, 41, 42, 0]
 
 
-    # MAIN LOOP #####################################
+    # Main loop #####################################
 
     with torch.no_grad():
         for pass_num in range(num_passes_needed):

@@ -1,16 +1,17 @@
-description: "RNN chaotic"
-dataset: "signal_N11_1"
+description: "RNN chaotic with multiple message functions   batch_size: 1    coeff_update_diff"
+dataset: "signal_N11_8"
 
 simulation:
   connectivity_type: "chaotic"
   connectivity_init: [0, 0.1]
   connectivity_distribution: "Gaussian"
-  params: [[7.0, 1.0], [1.0, 1.0], [1.0, 1.0], [1.0, 1.0]]
+  params: [[7.0, 1.0], [7.0, 0.5]]
+  func_params: [["tanh", 1.0, 1.0], ["tanh", 1.0, 1.0]]
   phi: "tanh"
   tau: 1.0
-  n_neurons: 100
-  n_neuron_types: 1
-  n_frames: 10000
+  n_neurons: 800
+  n_neuron_types: 2
+  n_frames: 64000
   delta_t: 0.1
   boundary: "no"
   start_frame: 0
@@ -35,7 +36,7 @@ plotting:
   colormap: "tab10"
   arrow_length: 1
   xlim: [-5, 5]
-  ylim: [-2, 2]
+  ylim: [-5, 5]
   label_style: "MLP" # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
 training:
@@ -51,13 +52,16 @@ training:
   data_augmentation_loop: 50
 
   sparsity: "none"
+  sparsity_freq: 4
+  cluster_method: "distance_plot"
+  fix_cluster_embedding: True
 
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
 
   coeff_W_L1: 1.0E-5
-  coeff_edge_norm: 0.0
-  coeff_edge_diff: 100
+  coeff_edge_diff: 10
+  coeff_update_diff: 5
 
-  training_single_type: True
+  init_training_single_type: True

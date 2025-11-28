@@ -37,7 +37,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'train'  #, 'train', 'test', 'generate', 'NGP'
+        task = 'test'  #, 'train', 'test', 'generate', 'NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -59,7 +59,15 @@ if __name__ == "__main__":
 
         # config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
 
-        config_list = ['signal_N11_1_8']
+        # config_list = ['signal_N11_1_9_1']
+
+        # config_list = ['signal_N11_1_3']
+
+        # config_list = [ 'signal_N11_2_1_3', 'signal_N11_2_2_2']  
+           
+        config_list = ['signal_N11_1_8_1']
+
+
         
 
     for config_file_ in config_list:
@@ -99,18 +107,21 @@ if __name__ == "__main__":
         if "test" in task:
 
             config.training.noise_model_level = 0.0
-            config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'  
+            
+            if 'fly' in config_file_:
+                config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'  
 
             data_test(
                 config=config,
                 visualize=False,
                 style="black color name continuous_slice",
                 verbose=False,
-                best_model='1_11520',   
+                best_model='best',   
                 run=0,
                 test_mode="",
                 sample_embedding=False,
-                step=10,
+                step=1,
+                n_rollout_frames=400,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
