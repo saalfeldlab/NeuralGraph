@@ -3311,8 +3311,11 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             plt.xlim([0, n_test_frames])
             plt.ylim(ylim)
-            plt.xlabel('time-points', fontsize=48)
-            plt.ylabel('neurons', fontsize=48)
+            plt.xlabel('frame', fontsize=48)
+            if 'PDE_N11' in config.graph_model.signal_model_name:
+                plt.ylabel('$h_i$', fontsize=48)
+            else:
+                plt.ylabel('$x_i$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks([])
 
@@ -3572,85 +3575,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             longest_run_start, longest_run_length = max(high_r2_runs, key=lambda x: x[1])
         else:
             longest_run_start, longest_run_length = 0, 0
-
-        # Write results to rollout log file
-        rollout_log_path = f"./{log_dir}/results_rollout.log"
-        with open(rollout_log_path, 'w') as f:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-            f.write(f"Rollout R² Metrics - {timestamp}\n")
-            f.write("="*60 + "\n\n")
-
-            f.write(f"R² Mean: {r2_mean:.4f}\n")
-            f.write(f"R² Std: {r2_std:.4f}\n")
-            f.write(f"R² Median: {r2_median:.4f}\n")
-            f.write(f"R² Min: {r2_min:.4f}\n")
-            f.write(f"R² Max: {r2_max:.4f}\n\n")
-
-            f.write(f"Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)\n")
-            if high_r2_runs:
-                f.write(f"Longest high-R² run: {longest_run_length} frames\n")
-
-            f.write(f"\nTotal frames analyzed: {len(R2_array)}\n")
-
-        # Also write results to main log file
-        log_file_path = f"./{log_dir}/results.log"
-        with open(log_file_path, 'a') as f:
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-            f.write(f"\n{'='*80}\n")
-            f.write(f"Rollout R² Analysis - {timestamp}\n")
-            f.write(f"{'='*80}\n\n")
-
-            f.write(f"Dataset: {dataset_name}\n")
-            f.write(f"Model: {net}\n")
-            f.write(f"Total frames analyzed: {len(R2_array)}\n\n")
-
-            f.write("R² Statistics:\n")
-            f.write(f"  Mean:   {r2_mean:.4f}\n")
-            f.write(f"  Std:    {r2_std:.4f}\n")
-            f.write(f"  Median: {r2_median:.4f}\n")
-            f.write(f"  Min:    {r2_min:.4f}\n")
-            f.write(f"  Max:    {r2_max:.4f}\n\n")
-
-            f.write("High Performance Analysis (R² > 0.9):\n")
-            f.write(f"  Frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)\n")
-            f.write(f"  Number of high-R² runs: {len(high_r2_runs)}\n")
-            if high_r2_runs:
-                f.write(f"  Longest consecutive run: {longest_run_length} frames (starting at frame {longest_run_start})\n")
-                f.write(f"  All high-R² runs: {high_r2_runs[:10]}")  # Show first 10 runs
-                if len(high_r2_runs) > 10:
-                    f.write(f" ... ({len(high_r2_runs)-10} more)")
-                f.write("\n")
-            else:
-                f.write("  No frames achieved R² > 0.9\n")
-
-            f.write("\n")
-
-        print(f"\n{'='*80}")
-        print("R² Analysis Summary:")
-        print(f"{'='*80}")
         print(f"mean R²: {r2_mean:.4f} ± {r2_std:.4f}")
         print(f"range: [{r2_min:.4f}, {r2_max:.4f}]")
-        print(f"frames with R² > 0.9: {n_frames_high_r2} / {len(R2_array)} ({pct_frames_high_r2:.1f}%)")
-        if high_r2_runs:
-            print(f"longest high-R² run: {longest_run_length} frames")
-        print(f"results saved to: {log_file_path}")
-        print(f"{'='*80}\n")
 
-    if len(angle_list) > 0:
-        angle = torch.stack(angle_list)
-        fig = plt.figure(figsize=(12, 12))
-        plt.hist(to_numpy(angle), bins=1000, color='w')
-        plt.xlabel('angle', fontsize=48)
-        plt.ylabel('count', fontsize=48)
-        plt.xticks(fontsize=24)
-        plt.yticks(fontsize=24)
-        plt.xlim([-90, 90])
-        plt.savefig(f"./{log_dir}/results/angle.tif", dpi=170.7)
-        plt.close
+
 
 
 def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, n_rollout_frames=600, test_mode='', new_params = None, device=None):
