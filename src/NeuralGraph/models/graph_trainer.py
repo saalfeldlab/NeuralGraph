@@ -954,29 +954,28 @@ def data_train_signal(config, erase, best_model, style, device):
             # Load and display last saved figures
             from tifffile import imread
 
+            def safe_load_and_display(ax, filepath):
+                """Load and display image if file exists, otherwise leave panel empty."""
+                if os.path.exists(filepath):
+                    img = imread(filepath)
+                    ax.imshow(img)
+                ax.axis('off')
+
             # Plot 2: Last embedding
-            fig.add_subplot(2, 3, 2)
-            img = imread(f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.tif")
-            plt.imshow(img)
-            plt.axis('off')
+            ax = fig.add_subplot(2, 3, 2)
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.tif")
 
             # Plot 3: Last weight comparison
-            fig.add_subplot(2, 3, 3)
-            img = imread(f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.tif")
-            plt.imshow(img)
-            plt.axis('off')
+            ax = fig.add_subplot(2, 3, 3)
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.tif")
 
             # Plot 4: Last phi function
-            fig.add_subplot(2, 3, 4)
-            img = imread(f"./{log_dir}/tmp_training/function/lin_phi/func_{last_epoch}_{last_N}.tif")
-            plt.imshow(img)
-            plt.axis('off')
+            ax = fig.add_subplot(2, 3, 4)
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/lin_phi/func_{last_epoch}_{last_N}.tif")
 
             # Plot 5: Last edge function
-            fig.add_subplot(2, 3, 5)
-            img = imread(f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
-            plt.imshow(img)
-            plt.axis('off')
+            ax = fig.add_subplot(2, 3, 5)
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
 
 
         plt.tight_layout()

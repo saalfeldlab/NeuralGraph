@@ -798,17 +798,9 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
                                              apply_weight_correction=apply_weight_correction,
                                              xnorm=xnorm, device=device)
 
-                # Top-right panel:
-                # - Show excitation if training_single_type AND n_excitatory_neurons > 0
-                # - Show embedding if not training_single_type OR epoch is 0 (to show initial state)
-                # - Skip if training_single_type and no excitatory neurons (except epoch 0)
-                if training_single_type and n_excitatory_neurons > 0:
-                    ax2 = fig.add_subplot(2, 2, 2)
-                    create_signal_excitation_subplot(fig, ax2, model, config, n_frames, mc, device,
-                                                     connectivity=connectivity, second_correction=second_correction)
-                elif not training_single_type or int(epoch) == 0:
-                    ax2 = fig.add_subplot(2, 2, 2)
-                    create_signal_embedding_subplot(fig, ax2, model, type_list, n_neuron_types, cmap, limits)
+                # Top-right panel: embedding
+                ax2 = fig.add_subplot(2, 2, 2)
+                create_signal_embedding_subplot(fig, ax2, model, type_list, n_neuron_types, cmap, limits)
 
                 # Lin_phi subplot (bottom-left) - MLP0
                 ax3 = fig.add_subplot(2, 2, 3)
@@ -8817,7 +8809,8 @@ if __name__ == '__main__':
 
     # config_list = ['signal_N11_1_3_1'] 
     # config_list = ['signal_N11_2_1_3'] # 'signal_N11_1_3'] # 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
-    config_list = ['signal_N11_1_8_1', 'signal_N11_1_8_2']         
+    # config_list = ['signal_N11_1_8_2']      
+    config_list = ['signal_N11_2_1_5']
 
     for config_file_ in config_list:
         print(' ')
@@ -8829,8 +8822,8 @@ if __name__ == '__main__':
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
         data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
-        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=True)    
-        data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=False)    
+        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=True)    
+        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=False)    
 
 
     # compare_experiments(config_list, 'training.batch_size')

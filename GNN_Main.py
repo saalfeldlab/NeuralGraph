@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
         # config_list = [ 'signal_N11_2_1_3', 'signal_N11_2_2_2']  
            
-        config_list = ['signal_N11_1_8_1']
+        config_list = ['signal_N11_2_1_3']
 
 
         
@@ -121,7 +121,7 @@ if __name__ == "__main__":
                 test_mode="",
                 sample_embedding=False,
                 step=1,
-                n_rollout_frames=400,
+                n_rollout_frames=800,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
