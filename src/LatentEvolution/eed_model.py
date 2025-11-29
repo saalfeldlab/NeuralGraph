@@ -186,24 +186,22 @@ class MLPWithSkips(nn.Module):
 class Evolver(nn.Module):
     def __init__(self, latent_dims: int, stim_dims: int, evolver_params: EvolverParams, use_batch_norm: bool = True, activation: str = "ReLU"):
         super().__init__()
-        self.time_units = evolver_params.time_units
-        dim = latent_dims + stim_dims
 
         # Use MLPWithSkips if flag is set, similar to encoder/decoder
         evolver_cls = MLPWithSkips if evolver_params.use_input_skips else MLP
 
         self.evolver = evolver_cls(
             MLPParams(
-                num_input_dims=dim,
+                num_input_dims=latent_dims + stim_dims,
                 num_hidden_layers=evolver_params.num_hidden_layers,
                 num_hidden_units=evolver_params.num_hidden_units,
-                num_output_dims=dim,
+                num_output_dims=latent_dims,
                 activation=activation,
                 use_batch_norm=use_batch_norm,
             )
         )
 
-    def forward(self, x):
-        for _ in range(self.time_units):
-            x = x + self.evolver(x)
-        return x
+    def forward(self, proj_t, proj_stim_t):
+        """Evolve one time step in latent space."""
+        proj_t_next = proj_t + self.evolver(torch.concatenate([proj_t, proj_stim_t], dim=1))
+        return proj_t_next

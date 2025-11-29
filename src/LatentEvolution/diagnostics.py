@@ -434,7 +434,6 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
 
     # Encode initial state to latent space
     current_latent = model.encoder(initial_state.unsqueeze(0))  # shape (1, latent_dim)
-    latent_dim = current_latent.shape[1]
 
     # Encode all stimulus
     stimulus_latent = model.stimulus_encoder(stimulus)  # shape (n_steps, stim_latent_dim)
@@ -449,14 +448,11 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
         # Get the stimulus for this time step
         current_stimulus_latent = stimulus_latent[t:t+1]  # shape (1, stim_latent_dim)
 
-        # Concatenate latent state and stimulus
-        evolver_input = torch.cat([current_latent, current_stimulus_latent], dim=1)
-
         # Evolve one step in latent space
-        evolver_output = model.evolver(evolver_input)
+        evolver_output = model.evolver(current_latent, current_stimulus_latent)
 
         # Extract new latent state
-        current_latent = evolver_output[:, :latent_dim]
+        current_latent = evolver_output
 
         latent_trace.append(current_latent.squeeze(0))
 

@@ -264,8 +264,8 @@ class LatentModel(nn.Module):
     def forward(self, x_t, stim_t):
         proj_t = self.encoder(x_t)
         proj_stim_t = self.stimulus_encoder(stim_t)
-        proj_t_next = self.evolver(torch.concatenate([proj_t, proj_stim_t], dim=1))
-        x_t_next = self.decoder(proj_t_next[:, :-proj_stim_t.shape[1]])
+        proj_t_next = self.evolver(proj_t, proj_stim_t)
+        x_t_next = self.decoder(proj_t_next)
         return x_t_next
 
 
@@ -275,7 +275,8 @@ class LatentModel(nn.Module):
 
 def make_batches_random(
     data: torch.Tensor, stim: torch.Tensor, batch_size: int, time_units: int
-) -> Iterator[tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]]:
+) -> Iterator[torch.Tensor]:
+    """Randomly sample `batch_size` starting points."""
     total_time = data.shape[0]
     if total_time <= time_units:
         raise ValueError(
@@ -285,11 +286,7 @@ def make_batches_random(
         start_indices = torch.randint(
             low=0, high=total_time - time_units, size=(batch_size,), device=data.device
         )
-        x_t = data[start_indices]
-        stim_t = stim[start_indices]
-
-        x_t_plus = data[start_indices + time_units]
-        yield (x_t, stim_t), x_t_plus
+        yield start_indices
 
 
 # -------------------------------------------------------------------
@@ -350,13 +347,19 @@ def get_device() -> torch.device:
         return torch.device("cpu")
 
 
-def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelParams):
+def train_step_nocompile(
+        model: LatentModel,
+        train_data: torch.Tensor,
+        train_stim: torch.Tensor,
+        batch_indices: torch.Tensor,
+        cfg: ModelParams
+    ):
+
     # Get loss function from config
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss
-
-    reg_loss = torch.tensor(0.0, device=x_t.device)
+    reg_loss = torch.tensor(0.0, device=train_data.device)
     if cfg.encoder_params.l1_reg_loss > 0.:
         for p in model.encoder.parameters():
             reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
@@ -367,19 +370,43 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
         for p in model.evolver.parameters():
             reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
 
-    # evolution loss
-    output = model(x_t, stim_t)
-    evolve_loss = loss_fn(output, x_t_plus)
+
+    # b = batch size
+    # N = neurons
+    # L = latent dim for activity
+    # Ls = latent dim for stimulus
+    dt = cfg.training.time_units
+    x_t = train_data[batch_indices] # b x N
+    proj_t = model.encoder(x_t) # b x L
+
+    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(dt, device=train_data.device), dim=1)
+    # dt x b x 1736
+    stim_t = train_stim[stim_indices, :]
+    dim_stim = train_stim.shape[1]
+    dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
+    # dt x b x Ls
+    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((dt, -1, dim_stim_latent))
+
+    # prediction target
+    x_t_plus = train_data[batch_indices + dt]
 
     # reconstruction loss
-    recon = model.decoder(model.encoder(x_t))
-    recon_loss = loss_fn(recon, x_t)
+    recon_t = model.decoder(proj_t)
+    recon_loss = loss_fn(recon_t, x_t)
+
+    # evolution loss
+    # evolve proj_t by dt
+    for i in range(dt):
+        proj_t = model.evolver(proj_t, proj_stim_t[i])
+    pred_t_plus = model.decoder(proj_t)
+    evolve_loss = loss_fn(pred_t_plus, x_t_plus)
+
 
     # LP norm penalty on prediction errors (for outlier control)
     lp_norm_loss = torch.tensor(0.0, device=x_t.device)
     if cfg.training.lp_norm_weight > 0.:
-        lp_norm_evolve = torch.norm(output - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
-        lp_norm_recon = torch.norm(recon - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_evolve = torch.norm(pred_t_plus - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_recon = torch.norm(recon_t - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
 
     loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
@@ -432,44 +459,6 @@ def load_dataset(
     test_stim = torch.from_numpy(test_stim_np).to(device)
 
     return train_data, val_data, test_data, train_stim, val_stim, test_stim, sim_data.neuron_data
-
-
-def evaluate_dataset(
-    model: LatentModel,
-    data: torch.Tensor,
-    stim: torch.Tensor,
-    time_units: int,
-) -> dict[str, float]:
-    """
-    Evaluate model on a dataset.
-
-    Args:
-        model: Trained LatentModel
-        data: Data tensor (time x neurons)
-        stim: Stimulus tensor (time x stimulus_dims)
-        time_units: Number of time steps to predict forward
-
-    Returns:
-        Dictionary with evaluation metrics
-    """
-    model.eval()
-    with torch.no_grad():
-        x_t = data[:-time_units]
-        stim_t = stim[:-time_units]
-        x_t_plus = data[time_units:]
-
-        predictions = model(x_t, stim_t)
-        mse_loss = torch.nn.functional.mse_loss(predictions, x_t_plus).item()
-
-        # Baseline: constant model (no change prediction)
-        constant_model_mse = torch.nn.functional.mse_loss(
-            data[:-time_units], data[time_units:]
-        ).item()
-
-    return {
-        "mse_loss": mse_loss,
-        "constant_model_mse": constant_model_mse,
-    }
 
 
 # -------------------------------------------------------------------
@@ -562,7 +551,7 @@ def train(cfg: ModelParams, run_dir: Path):
         batches_per_epoch = (
             max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
         )
-        batch_iter = make_batches_random(
+        batch_indices_iter = make_batches_random(
             train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
         )
 
@@ -620,8 +609,8 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
-                (x_t, stim_t), x_t_plus = next(batch_iter)
-                loss_tuple = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
+                batch_indices = next(batch_indices_iter)
+                loss_tuple = train_step_fn(model, train_data, train_stim, batch_indices, cfg)
                 loss_tuple[0].backward()
                 optimizer.step()
                 losses.accumulate(*loss_tuple)
@@ -631,12 +620,9 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Validation phase ----
             model.eval()
             with torch.no_grad():
-                val_x_t = val_data[: -cfg.evolver_params.time_units]
-                val_stim_t = val_stim[: -cfg.evolver_params.time_units]
-                val_x_t_plus = val_data[cfg.evolver_params.time_units :]
-                val_loss = torch.nn.functional.mse_loss(
-                    model(val_x_t, val_stim_t), val_x_t_plus
-                ).item()
+                start_indices = torch.arange(val_data.shape[0] - cfg.evolver_params.time_units, device=device)
+                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, cfg)
+                val_loss = loss_tuple[0].item()
 
             model.train()
 
@@ -717,12 +703,9 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Final test evaluation ---
         model.eval()
         with torch.no_grad():
-            test_x_t = test_data[: -cfg.evolver_params.time_units]
-            test_stim_t = test_stim[: -cfg.evolver_params.time_units]
-            test_x_t_plus = test_data[cfg.evolver_params.time_units :]
-            test_loss = torch.nn.functional.mse_loss(
-                model(test_x_t, test_stim_t), test_x_t_plus
-            ).item()
+            start_indices = torch.arange(test_data.shape[0] - cfg.evolver_params.time_units, device=device)
+            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, cfg)
+            test_loss = loss_tuple[0].item()
 
         print(f"Final Test Loss: {test_loss:.4e}")
 
