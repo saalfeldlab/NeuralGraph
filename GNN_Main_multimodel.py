@@ -3,13 +3,13 @@ import os
 import warnings
 
 import matplotlib
+
+from NeuralGraph.generators.graph_data_generator import data_generate
+from NeuralGraph.models.graph_trainer import data_test, data_train
+from NeuralGraph.utils import add_pre_folder, set_device
 matplotlib.use("Agg")
 
 from NeuralGraph.config import NeuralGraphConfig
-from NeuralGraph.generators.graph_data_generator import *
-from NeuralGraph.models.graph_trainer import *
-from NeuralGraph.models.Siren_Network import *
-from NeuralGraph.models.utils import *
 
 
 def _parse_args():
