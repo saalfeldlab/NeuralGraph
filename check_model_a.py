@@ -1,5 +1,4 @@
 import torch
-import sys
 
 # Load the first saved model (epoch 0)
 model_path = '/workspace/NeuralGraph/log/signal/signal_N11_1_8_2/models/best_model_with_1_graphs_0_0.pt'
