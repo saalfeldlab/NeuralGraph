@@ -37,7 +37,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = None
-        task = 'generate'  #, 'train', 'test', 'generate', 'NGP'
+        task = 'train'  #, 'train', 'test', 'generate', 'NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -57,17 +57,9 @@ if __name__ == "__main__":
         
         # config_list = ['zebra_N10_34_1']
 
-        # config_list = ['signal_N11_4_4_1', 'signal_N11_4_4_2', 'signal_N11_4_4_3', 'signal_N11_4_4_4', 'signal_N11_4_4_5', 'signal_N11_4_4_6']
 
-        # config_list = ['signal_N11_1_9_1']
 
-        # config_list = ['signal_N11_1_3']
-
-        # config_list = [ 'signal_N11_2_1_3', 'signal_N11_2_2_2']  
-           
-        # config_list = ['signal_N11_2_1_3']
-
-        # config_list = ['fly_N9_62_1']
+        config_list = ['fly_N9_64_2_1']
 
         # config_list = ['fly_N9_22_10', 'fly_N9_44_6', 'fly_N9_62_1']
 
@@ -77,12 +69,9 @@ if __name__ == "__main__":
 
         # config_list = ['fly_N9_63_1']
 
-        config_list = ['signal_N4_4']
+        # config_list = ['signal_N4_4']
 
 
-
-
-        
 
     for config_file_ in config_list:
         print(" ")

@@ -313,11 +313,6 @@ def data_train_signal(config, erase, best_model, style, device):
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
-    if train_config.init_fast_LR:
-        lr_embedding = lr_embedding * 10
-        lr_update = lr_update * 10
-        lr = lr * 10
-
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
@@ -411,12 +406,6 @@ def data_train_signal(config, erase, best_model, style, device):
             print(f'reset W model.a at epoch : {epoch}')
         if (epoch == 1) & (train_config.init_training_single_type):
             lr_embedding = train_config.learning_rate_embedding_start
-            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
-            model.train()
-        if (epoch == 1) & (train_config.init_fast_LR):
-            lr_embedding = lr_embedding * 10
-            lr_update = lr_update * 10
-            lr = lr * 10
             optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
             model.train()
 
@@ -1706,7 +1695,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss_regul += regul_total_this_iter
 
 
-                if (N < 10000) & (N%50==0):
+                if (N < 10000) & (N % 50 == 0) & hasattr(model, 'W') :
                     row_start = 1736
                     row_end = 1736 + 217 * 2  # 2160   L1 L2
                     col_start = 0

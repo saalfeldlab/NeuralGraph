@@ -9028,7 +9028,9 @@ if __name__ == '__main__':
 
     # config_list = ['fly_N9_44_21', 'fly_N9_44_6', 'fly_N9_22_10', 'fly_N9_44_3']
 
-    config_list = ['fly_N9_63_1', 'fly_N9_62_1']
+    # config_list = ['fly_N9_63_1', 'fly_N9_62_1']
+
+    config_list = ['signal_N2_1', 'signal_N2_2', 'signal_N2_3', 'signal_N2_4']
 
     for config_file_ in config_list:
         print(' ')

@@ -14,6 +14,15 @@
   "python.analysis.typeCheckingMode": "basic",
   "python.analysis.diagnosticMode": "workspace",
 
+  // === Terminal ===
+  "terminal.integrated.profiles.linux": {
+    "neural-graph-linux": {
+      "path": "/bin/bash",
+      "args": ["-c", "source /workspace/.conda_envs/neural-graph-linux/bin/activate && exec bash"]
+    }
+  },
+  "terminal.integrated.defaultProfile.linux": "neural-graph-linux",
+
   // === Autosave ===
   "files.autoSave": "onFocusChange",
 
