@@ -687,8 +687,6 @@ def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, m
 
 def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], model=None, n_nodes=0, n_neurons=None, ynorm=None, type_list=None, cmap=None, update_type=None, device=None):
 
-    max_radius = config.simulation.max_radius
-    min_radius = config.simulation.min_radius
     dimension = config.simulation.dimension
 
     if config.graph_model.particle_model_name != '':
@@ -699,13 +697,7 @@ def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], mod
         config_model = config.graph_model.mesh_model_name
 
     if rr==[]:
-        if config_model == 'PDE_G':
-            rr = torch.tensor(np.linspace(0, max_radius * 1.3, 1000)).to(device)
-        elif config_model == 'PDE_GS':
-            rr = torch.tensor(np.logspace(7, 9, 1000)).to(device)
-        elif config_model == 'PDE_E':
-            rr = torch.tensor(np.linspace(min_radius, max_radius, 1000)).to(device)
-        elif 'PDE_N' in config_model:
+        if 'PDE_N' in config_model:
             rr = torch.tensor(np.linspace(-5, 5, 1000)).to(device)
         else:
             rr = torch.tensor(np.linspace(0, max_radius, 1000)).to(device)
