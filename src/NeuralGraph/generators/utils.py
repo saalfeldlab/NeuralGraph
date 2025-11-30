@@ -682,49 +682,49 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
     # Add epoch and iteration info as text annotation
     info_text = ""
     if epoch is not None:
-        info_text += f"Epoch: {epoch}"
+        info_text += f"epoch: {epoch}"
     if Niter is not None:
         if info_text:
             info_text += " | "
-        info_text += f"Iterations/epoch: {Niter}"
+        info_text += f"iterations/epoch: {Niter}"
     if info_text:
         fig_loss.suptitle(info_text, fontsize=20, y=0.995)
 
     # Linear scale
-    ax1.plot(loss_dict['loss'], color='b', linewidth=2, label='Loss (no regul)', alpha=0.8)
-    ax1.plot(loss_dict['regul_total'], color='k', linewidth=2, label='Total Regularization', alpha=0.8)
-    ax1.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 Sparsity', alpha=0.7)
-    ax1.plot(loss_dict['W_L2'], color='darkred', linewidth=1.5, label='W L2 Regul', alpha=0.7)
-    ax1.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W Sign (Dale)', alpha=0.7)
-    ax1.plot(loss_dict['edge_grad'], color='g', linewidth=1.5, label='Edge Gradient Penalty', alpha=0.7)
-    ax1.plot(loss_dict['phi_grad'], color='m', linewidth=1.5, label='Phi Gradient Penalty', alpha=0.7)
-    ax1.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='Edge Monotonicity', alpha=0.7)
-    ax1.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='Edge Norm', alpha=0.7)
-    ax1.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='Edge Weight Regul', alpha=0.7)
-    ax1.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='Phi Weight Regul', alpha=0.7)
-    ax1.set_xlabel('Iteration', fontsize=16)
-    ax1.set_ylabel('Loss', fontsize=16)
-    ax1.set_title('Loss vs Iteration (Linear Scale)', fontsize=18)
+    ax1.plot(loss_dict['loss'], color='b', linewidth=4, label='loss (no regul)', alpha=0.8)
+    ax1.plot(loss_dict['regul_total'], color='b', linewidth=2, label='total regularization', alpha=0.8)
+    ax1.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 sparsity', alpha=0.7)
+    ax1.plot(loss_dict['W_L2'], color='darkred', linewidth=1.5, label='W L2 regul', alpha=0.7)
+    ax1.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W sign (Dale)', alpha=0.7)
+    ax1.plot(loss_dict['phi_grad'], color='m', linewidth=1.5, label='MLP0 gradient penalty', alpha=0.7)
+    ax1.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='MLP0 Weight Regul', alpha=0.7)
+    ax1.plot(loss_dict['edge_grad'], color='g', linewidth=1.5, label='MLP1 gradient penalty', alpha=0.7)
+    ax1.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='MLP1 monotonicity', alpha=0.7)
+    ax1.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='MLP1 norm', alpha=0.7)
+    ax1.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='MLP1 weight regul', alpha=0.7)
+    ax1.set_xlabel('iteration', fontsize=16)
+    ax1.set_ylabel('loss', fontsize=16)
+    ax1.set_title('loss vs iteration', fontsize=18)
     ax1.legend(fontsize=10, loc='best', ncol=2)
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(labelsize=14)
 
     # Log scale
-    ax2.plot(loss_dict['loss'], color='b', linewidth=2, label='Loss (no regul)', alpha=0.8)
-    ax2.plot(loss_dict['regul_total'], color='k', linewidth=2, label='Total Regularization', alpha=0.8)
-    ax2.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 Sparsity', alpha=0.7)
-    ax2.plot(loss_dict['W_L2'], color='darkred', linewidth=1.5, label='W L2 Regul', alpha=0.7)
-    ax2.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W Sign (Dale)', alpha=0.7)
-    ax2.plot(loss_dict['edge_grad'], color='g', linewidth=1.5, label='Edge Gradient Penalty', alpha=0.7)
-    ax2.plot(loss_dict['phi_grad'], color='m', linewidth=1.5, label='Phi Gradient Penalty', alpha=0.7)
-    ax2.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='Edge Monotonicity', alpha=0.7)
-    ax2.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='Edge Norm', alpha=0.7)
-    ax2.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='Edge Weight Regul', alpha=0.7)
-    ax2.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='Phi Weight Regul', alpha=0.7)
-    ax2.set_xlabel('Iteration', fontsize=16)
-    ax2.set_ylabel('Loss', fontsize=16)
+    ax2.plot(loss_dict['loss'], color='b', linewidth=4, label='loss (no regul)', alpha=0.8)
+    ax2.plot(loss_dict['regul_total'], color='b', linewidth=2, label='total regularization', alpha=0.8)
+    ax2.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 sparsity', alpha=0.7)
+    ax2.plot(loss_dict['W_L2'], color='darkred', linewidth=1.5, label='W L2 regul', alpha=0.7)
+    ax2.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W sign (Dale)', alpha=0.7)
+    ax2.plot(loss_dict['phi_grad'], color='m', linewidth=1.5, label='MLP0 gradient penalty', alpha=0.7)
+    ax2.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='MLP0 Weight Regul', alpha=0.7)
+    ax2.plot(loss_dict['edge_grad'], color='g', linewidth=1.5, label='MLP1 gradient penalty', alpha=0.7)
+    ax2.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='MLP1 monotonicity', alpha=0.7)
+    ax2.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='MLP1 norm', alpha=0.7)
+    ax2.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='MLP1 weight regul', alpha=0.7)
+    ax2.set_xlabel('iteration', fontsize=16)
+    ax2.set_ylabel('loss', fontsize=16)
     ax2.set_yscale('log')
-    ax2.set_title('Loss vs Iteration (Log Scale)', fontsize=18)
+    ax2.set_title('loss vs iteration (Log)', fontsize=18)
     ax2.legend(fontsize=10, loc='best', ncol=2)
     ax2.grid(True, alpha=0.3, which='both')
     ax2.tick_params(labelsize=14)

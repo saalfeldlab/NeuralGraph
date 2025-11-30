@@ -310,6 +310,8 @@ class TrainingConfig(BaseModel):
     init_training_single_type: bool = False
     training_single_type: bool = False
     
+    init_fast_LR: bool = False
+    
 
     learning_rate_start: float = 0.001
     learning_rate_embedding_start: float = 0.001

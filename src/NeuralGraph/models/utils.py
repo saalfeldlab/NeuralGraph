@@ -438,6 +438,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
 
         fig = plt.figure(figsize=(8, 8))
         rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+        func_list = []
         for n in range(n_neurons):
             if config.graph_model.signal_model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
@@ -465,11 +466,13 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
                 func = model.lin_edge(in_features.float())
             if config.graph_model.lin_edge_positive:
                 func = func ** 2
+            func_list.append(to_numpy(func))
             if (n % 2 == 0):
                 plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(to_numpy(type_list)[n].astype(int)),
                          linewidth=2, alpha=0.25)
         plt.xlim(config.plotting.xlim)
-        plt.ylim(config.plotting.ylim)
+        all_func = np.concatenate(func_list)
+        plt.ylim([np.min(all_func), np.max(all_func)])
         plt.xticks(fontsize=24)
         plt.yticks(fontsize=24)
 
@@ -487,6 +490,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
 
     rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
     fig = plt.figure(figsize=(8, 8))
+    func_list = []
     for n in range(n_neurons):
         embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
         if 'generic' in config.graph_model.update_type:
@@ -495,12 +499,14 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
             in_features = torch.cat((rr[:, None], embedding_), dim=1)
         with torch.no_grad():
             func = model.lin_phi(in_features.float())
+        func_list.append(to_numpy(func))
         if (n % 2 == 0):
             plt.plot(to_numpy(rr), to_numpy(func), 2,
                      color=cmap.color(to_numpy(type_list)[n].astype(int)),
                      linewidth=1, alpha=0.1)
     plt.xlim(config.plotting.xlim)
-    plt.ylim(config.plotting.ylim)
+    all_func = np.concatenate(func_list)
+    plt.ylim([np.min(all_func), np.max(all_func)])
     plt.xticks(fontsize=24)
     plt.yticks(fontsize=24)
 

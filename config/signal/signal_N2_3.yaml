@@ -1,4 +1,4 @@
-description: "synaptic network 100.000 points  1000 000 iterations per epoch batchsize 8  coeff_W_L1: 1.0E-5"
+description: "synaptic network 100.000 points  1000 000 iterations per epoch batchsize 8  coeff_W_L1: 1.0E-5   init_training_single_type: True"
 dataset: "signal_N2_1"
 
 simulation:
@@ -67,3 +67,5 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
   coeff_W_L1: 1.0E-5
+
+  init_training_single_type: True

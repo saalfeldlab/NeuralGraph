@@ -302,21 +302,23 @@ def data_train_signal(config, erase, best_model, style, device):
 
     print('set optimizer ...')
     lr = train_config.learning_rate_start
-    if train_config.learning_rate_update_start == 0:
-        lr_update = train_config.learning_rate_start
-    else:
-        lr_update = train_config.learning_rate_update_start
+    lr_update = lr
     if train_config.init_training_single_type:
         lr_embedding = 1.0E-16
     else:
         lr_embedding = train_config.learning_rate_embedding_start
     lr_W = train_config.learning_rate_W_start
     lr_modulation = train_config.learning_rate_modulation_start
+
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
-    optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                         lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    if train_config.init_fast_LR:
+        lr_embedding = lr_embedding * 10
+        lr_update = lr_update * 10
+        lr = lr * 10
+
+    optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
@@ -407,11 +409,17 @@ def data_train_signal(config, erase, best_model, style, device):
                 model.a.copy_(model.a * 0)
             logger.info(f'reset W model.a at epoch : {epoch}')
             print(f'reset W model.a at epoch : {epoch}')
-
         if (epoch == 1) & (train_config.init_training_single_type):
-                lr_embedding = train_config.learning_rate_embedding_start
-                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
-                model.train()
+            lr_embedding = train_config.learning_rate_embedding_start
+            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+            model.train()
+        if (epoch == 1) & (train_config.init_fast_LR):
+            lr_embedding = lr_embedding * 10
+            lr_update = lr_update * 10
+            lr = lr * 10
+            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+            model.train()
+
 
         batch_size = get_batch_size(epoch)
         logger.info(f'batch_size: {batch_size}')
