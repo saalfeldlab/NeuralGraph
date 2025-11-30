@@ -285,7 +285,6 @@ def data_train_signal(config, erase, best_model, style, device):
         start_epoch = 0
         list_loss = []
 
-    # Initialize dictionary for tracking loss components per iteration
     loss_components = {
         'loss': [],
         'regul_total': [],
@@ -316,8 +315,6 @@ def data_train_signal(config, erase, best_model, style, device):
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
-
-
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
@@ -325,12 +322,10 @@ def data_train_signal(config, erase, best_model, style, device):
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
     logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
-
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
     print(f'network: {net}')
     print(f'initial batch_size: {batch_size}')
     logger.info(f'network: {net}  N epochs: {n_epochs}  initial batch_size: {batch_size}')
-
 
     print('training setup ...')
     connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
@@ -353,10 +348,7 @@ def data_train_signal(config, erase, best_model, style, device):
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
 
-
-
         if n_excitatory_neurons > 0:
-            # update to full connectivity including excitatory neurons
 
             adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
             edges, edge_attr = dense_to_sparse(adj_matrix)
@@ -371,8 +363,6 @@ def data_train_signal(config, erase, best_model, style, device):
 
 
             type_list  = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device)) * (simulation_config.n_neuron_types + 1), dim=0)
-
-
 
     if train_config.coeff_W_sign > 0:
         index_weight = []
@@ -455,8 +445,6 @@ def data_train_signal(config, erase, best_model, style, device):
             loss = torch.zeros(1, device=device)
             run = np.random.randint(n_runs-1)
 
-            # Always track total regularization for epoch stats
-            # Only track individual components when plotting
             track_components = ((N % plot_frequency == 0) | (N == 0))
             regul_total_this_iter = 0
             if track_components:
@@ -583,8 +571,7 @@ def data_train_signal(config, erase, best_model, style, device):
                         regul_term = (msg-1).norm(2) * coeff_edge_norm
                         loss = loss + regul_term                 # normalization lin_edge(xnorm) = 1 for all embedding values
                         track_regul(regul_term, 'edge_norm')
-
-                    # Gradient penalty for MLP smoothness (edge function)
+                    # gradient penalty for MLP smoothness (edge function)
                     if (train_config.coeff_edge_gradient_penalty > 0):
                         in_features_sample = in_features[ids].clone()
                         in_features_sample.requires_grad_(True)
@@ -605,8 +592,7 @@ def data_train_signal(config, erase, best_model, style, device):
                         regul_term = (grad_edge.norm(2) ** 2) * train_config.coeff_edge_gradient_penalty
                         loss = loss + regul_term
                         track_regul(regul_term, 'edge_grad')
-
-                    # Gradient penalty for MLP smoothness (update function)
+                    # gradient penalty for MLP smoothness (update function)
                     if (train_config.coeff_phi_gradient_penalty > 0):
                         in_features_phi = get_in_features_update(rr=None, model=model, device=device)
                         in_features_phi_sample = in_features_phi[ids].clone()
@@ -625,7 +611,6 @@ def data_train_signal(config, erase, best_model, style, device):
                         regul_term = (grad_phi.norm(2) ** 2) * train_config.coeff_phi_gradient_penalty
                         loss = loss + regul_term
                         track_regul(regul_term, 'phi_grad')
-
                     # regularisation sign Wij
                     if (coeff_W_sign > 0):
                         if (N%4 == 0):
@@ -910,8 +895,6 @@ def data_train_signal(config, erase, best_model, style, device):
             # check_and_clear_memory(device=device, iteration_number=N, every_n_iterations=Niter // 50, memory_percentage_threshold=0.6)
 
 
-
-        # Calculate epoch-level losses
         epoch_total_loss = total_loss / n_neurons
         epoch_regul_loss = total_loss_regul / n_neurons
         epoch_pred_loss = (total_loss - total_loss_regul) / n_neurons
@@ -935,7 +918,6 @@ def data_train_signal(config, erase, best_model, style, device):
 
         fig = plt.figure(figsize=(15, 10))
 
-        # Plot 1: Loss
         fig.add_subplot(2, 3, 1)
         plt.plot(list_loss, color='k', linewidth=1)
         plt.xlim([0, n_epochs])
@@ -944,7 +926,6 @@ def data_train_signal(config, erase, best_model, style, device):
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
 
-        # Find the last saved file to get epoch and N
         embedding_files = glob.glob(f"./{log_dir}/tmp_training/embedding/*.tif")
         if embedding_files:
             last_file = max(embedding_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
@@ -976,7 +957,6 @@ def data_train_signal(config, erase, best_model, style, device):
             # Plot 5: Last edge function
             ax = fig.add_subplot(2, 3, 5)
             safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
-
 
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
@@ -2629,6 +2609,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         data_test_signal(config, config_file, visualize, style, verbose, best_model, step, n_rollout_frames,ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 
 
+
 def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
     dataset_name = config.dataset
     simulation_config = config.simulation
@@ -3579,7 +3560,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
 
-
 def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, n_rollout_frames=600, test_mode='', new_params = None, device=None):
 
 
@@ -3824,7 +3804,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     target_frames = n_rollout_frames
 
     if 'full' in test_mode:
-        target_frames = n_frames # noqa: F821
+        target_frames = simulation_config.n_frames
         step = 25000
     else:
         step = 10
@@ -4562,6 +4542,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
         else:
             np.save(f"./{log_dir}/results/activity_true.npy", activity_true)
             np.save(f"./{log_dir}/results/activity_pred.npy", activity_pred)
+
 
 
 def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device):

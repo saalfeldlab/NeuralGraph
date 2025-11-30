@@ -1,12 +1,12 @@
-description: 'synaptic network 100.000 points  1000 000 iterations per epoch batchsize 1  coeff_W_L1: 1.0E-5'
-dataset: 'signal_N2_5'
+description: 'test neuron_dependent functions'
+dataset: 'signal_N4_3'
 
 simulation:
     connectivity_file: 'random'
     adjacency_matrix: ''
     connectivity_init: [0,0.1]
     connectivity_distribution: 'Lorentz'
-    params: [[10.0,1.0,1.0],[10.0,2.0,1.0],[10.0,1.0,2.0],[10.0,2.0,2.0]]
+    params: [[10.0,1.0,1.0,1.0],[10.0,2.0,1.0,2.0],[10.0,1.0,2.0,4.0],[10.0,2.0,2.0,8.0]]
     phi: 'tanh'
     tau: 1.0
     min_radius: 1.0
@@ -20,12 +20,12 @@ simulation:
     start_frame: -1000
 
 graph_model:
-    signal_model_name: 'PDE_N2'
+    signal_model_name: 'PDE_N4'
     particle_model_name: ''
     mesh_model_name: ''
     prediction: 'first_derivative'
 
-    input_size: 1
+    input_size: 3
     output_size: 1
     hidden_dim: 64
     n_layers: 3
@@ -46,25 +46,26 @@ plotting:
     ylim: [-8,8]
 
 training:
-    n_epochs: 20
-    n_runs: 2
     device: 'auto'
-
-    batch_size: 8
+    n_epochs: 20
+    batch_size: 1
     small_init_batch_size: False
+    n_runs: 2
 
-    seed: 24
-
-    rotation_augmentation: False
-    data_augmentation_loop: 25
-
-    sparsity: 'none'
-    sparsity_freq: 4
-    cluster_method: 'distance_plot'
+    sparsity: 'replace_embedding_function'
+    data_augmentation_loop: 100
+    cluster_method: 'distance_embedding'
+    cluster_distance_threshold: 0.2
     fix_cluster_embedding: True
 
-    learning_rate_W_start: 1.0E-3
-    learning_rate_start: 5.0E-4
-    learning_rate_embedding_start: 5.0E-3
-    coeff_W_L1: 1.0E-5
+    sparsity: 'replace_embedding_function'
+    sparsity_freq: 4
 
+    learning_rate_W_start: 1.0E-4
+    learning_rate_start: 5.0E-5
+    learning_rate_embedding_start: 5.0E-4
+
+    init_training_single_type: True
+
+    coeff_edge_diff: 100
+    coeff_W_L1: 1.0E-5
