@@ -528,13 +528,13 @@ def train(cfg: ModelParams, run_dir: Path):
 
         metrics = {
             "val_loss_constant_model": torch.nn.functional.mse_loss(
-                val_data[: -cfg.evolver_params.time_units], val_data[cfg.evolver_params.time_units:]
+                val_data[: -cfg.training.time_units], val_data[cfg.training.time_units:]
             ).item(),
             "train_loss_constant_model": torch.nn.functional.mse_loss(
-                train_data[: -cfg.evolver_params.time_units], train_data[cfg.evolver_params.time_units:]
+                train_data[: -cfg.training.time_units], train_data[cfg.training.time_units:]
             ).item(),
             "test_loss_constant_model": torch.nn.functional.mse_loss(
-                test_data[: -cfg.evolver_params.time_units], test_data[cfg.evolver_params.time_units:]
+                test_data[: -cfg.training.time_units], test_data[cfg.training.time_units:]
             ).item(),
         }
         print(f"Constant model loss: {metrics}")
@@ -552,7 +552,7 @@ def train(cfg: ModelParams, run_dir: Path):
             max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
         )
         batch_indices_iter = make_batches_random(
-            train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
+            train_data, train_stim, cfg.training.batch_size, cfg.training.time_units
         )
 
         # --- Initialize GPU monitoring ---
@@ -620,7 +620,7 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Validation phase ----
             model.eval()
             with torch.no_grad():
-                start_indices = torch.arange(val_data.shape[0] - cfg.evolver_params.time_units, device=device)
+                start_indices = torch.arange(val_data.shape[0] - cfg.training.time_units, device=device)
                 loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, cfg)
                 val_loss = loss_tuple[0].item()
 
@@ -703,7 +703,7 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Final test evaluation ---
         model.eval()
         with torch.no_grad():
-            start_indices = torch.arange(test_data.shape[0] - cfg.evolver_params.time_units, device=device)
+            start_indices = torch.arange(test_data.shape[0] - cfg.training.time_units, device=device)
             loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, cfg)
             test_loss = loss_tuple[0].item()
 
