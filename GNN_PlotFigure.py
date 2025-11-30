@@ -57,7 +57,6 @@ from NeuralGraph.utils import (
 from NeuralGraph.models.Siren_Network import Siren, Siren_Network
 from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyVis
 from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
-from NeuralGraph.models.Calcium_Latent_Dynamics import Calcium_Latent_Dynamics
 from NeuralGraph.models.graph_trainer import data_test
 from NeuralGraph.generators.utils import choose_model
 from NeuralGraph.config import NeuralGraphConfig
@@ -2573,7 +2572,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                     case 'PDE_N2':
 
-                        func = torch.mean(psi_list, dim=0).squeeze()
+                        func = torch.mean(psi_list, dim=0).squeeze() # noqa: F821
 
                         symbolic = get_pyssr_function(model_pysrr, rr, func)
 
@@ -2593,8 +2592,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                             pos = np.argwhere(labels == k)
                             pos = pos.squeeze()
 
-                            func = psi_list[pos]
-                            func = torch.mean(psi_list[pos], dim=0)
+                            func = psi_list[pos] # noqa: F821
+                            func = torch.mean(psi_list[pos], dim=0) # noqa: F821
 
                             symbolic = get_pyssr_function(model_pysrr, rr, func)
 
@@ -2613,8 +2612,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                             logger.info(f'psi {k//4} {k%4} ................')
 
                             pos =np.arange(k*250,(k+1)*250)
-                            func = psi_list[pos]
-                            func = torch.mean(psi_list[pos], dim=0)
+                            func = psi_list[pos] # noqa: F821
+                            func = torch.mean(psi_list[pos], dim=0) # noqa: F821
 
                             symbolic = get_pyssr_function(model_pysrr, rr, func)
 
@@ -3376,7 +3375,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                     psi_list.append(func)
                     plt.plot(to_numpy(rr), to_numpy(func), 2, color=mc, linewidth=2, alpha=0.25)
             plt.xlabel(r'$v_i$', fontsize=68)
-            if label_style == 'MLP':
+            if label_style == 'MLP': # noqa: F821
                 plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=68)
             else:
                 plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
@@ -6108,7 +6107,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             row_end = 1736 + 217 * 2  # 2160   L1 L2
             col_start = 0
             col_end = 217 * 2  # 424        R1 R2
-            
+
             true_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
             true_in_region[edges[1], edges[0]] = gt_weights
             learned_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
@@ -8052,7 +8051,7 @@ def data_plot(config, config_file, epoch_list, style, extended, device, apply_we
         plot_synaptic_CElegans(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     elif 'fly' in config.dataset:
         if config.simulation.calcium_type != 'none':
-            plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
+            plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, 'viridis', style, extended, device) # noqa: F821
         else:
             plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     elif 'zebra' in config.dataset:
@@ -9017,7 +9016,7 @@ if __name__ == '__main__':
     # config_list = ['fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18']
 
     # config_list = ['fly_N9_62_5_9_5', 'fly_N9_62_5_19_5', 'fly_N9_62_5_19_6']
-    
+
     # config_list = ['fly_N9_62_5_19_5']
 
     # config_list = ['signal_N11_1_3_1'] 
@@ -9041,8 +9040,8 @@ if __name__ == '__main__':
         folder_name = './log/' + pre_folder + '/tmp_results/'
         os.makedirs(folder_name, exist_ok=True)
         data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
-        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=True)    
-        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=False)    
+        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=True)
+        # data_plot(config=config, config_file=config_file, epoch_list=['all'], style='black color', extended='plots', device=device, apply_weight_correction=False)
 
 
     # compare_experiments(config_list, 'training.batch_size')

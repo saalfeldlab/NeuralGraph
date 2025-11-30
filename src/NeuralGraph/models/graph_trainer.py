@@ -96,7 +96,7 @@ def data_train(config=None, erase=False, best_model=None, style=None, device=Non
 
     torch.manual_seed(seed)
     np.random.seed(seed)
-    random.seed(seed)        
+    random.seed(seed)
 
     # torch.autograd.set_detect_anomaly(True)
 
@@ -192,7 +192,7 @@ def data_train_signal(config, erase, best_model, style, device):
         y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
         x_list.append(x)
         y_list.append(y)
-    
+
     run = 0
     x = x_list[0][n_frames - 10]
     n_neurons = x.shape[0]
@@ -373,7 +373,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
 
      # PDE_N3 is special, embedding changes over time
-    if 'PDE_N3' in model_config.signal_model_name:         
+    if 'PDE_N3' in model_config.signal_model_name:
         ind_a = torch.tensor(np.arange(1, n_neurons * 100), device=device)
         pos = torch.argwhere(ind_a % 100 != 99).squeeze()
         ind_a = ind_a[pos]
@@ -493,7 +493,7 @@ def data_train_signal(config, erase, best_model, style, device):
                 ids = np.arange(n_neurons-n_excitatory_neurons)
 
                 if not (torch.isnan(x).any()):
-                    
+
                     if has_missing_activity:
                         t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
                         missing_activity = baseline_value + model_missing_activity[run](t).squeeze()
@@ -1548,7 +1548,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     else:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm     # loss on activity derivative
 
-                    
+
                     if loss_noise_level>0:
                         y = y + torch.randn(y.shape, device=device) * loss_noise_level
 
@@ -1583,13 +1583,13 @@ def data_train_flyvis(config, erase, best_model, device):
             if not (dataset_batch == []):
 
                 total_loss_regul += loss.item()
-                
+
 
                 if test_neural_field:
                     loss = loss + (visual_input_batch - y_batch).norm(2)
-                
-                
-                
+
+
+
                 elif 'MLP_ODE' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
@@ -1634,13 +1634,13 @@ def data_train_flyvis(config, erase, best_model, device):
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
-                    
 
-                    
+
+
                     if recurrent_training:
 
                         # Compute initial integrated prediction for ALL neurons (needed for autoregressive loop)
-                        pred_x = x_batch[:, 0:1] + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)  
+                        pred_x = x_batch[:, 0:1] + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
                         if time_step > 1:
                             # Autoregressive rollout for time_step-1 additional steps
@@ -1677,7 +1677,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                 for batch in batch_loader:
                                     pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
 
-                                pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)  
+                                pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
                         loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
@@ -1842,7 +1842,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                                     # RMSE for this frame
                                     error_list.append(np.sqrt(((pred_vec * correction - gt_vec) ** 2).mean()))
-                    
+
                     if (not(test_neural_field)) & (not('MLP' in signal_model_name)):
                         plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap, type_list, gt_weights, edges, n_neurons=n_neurons, n_neuron_types=n_neuron_types)
                     torch.save(
@@ -2471,21 +2471,21 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     ground_truth = torch.tensor(vol_xyz, device=device, dtype=torch.float32) / 512
     ground_truth = ground_truth.permute(1,0,2)
 
-    
+
     print("Saving vol_xyz as TIFF...")
     print(f"  Shape: {vol_xyz.shape}")
     print(f"  Dtype: {vol_xyz.dtype}")
     print(f"  Value range: [{vol_xyz.min():.4f}, {vol_xyz.max():.4f}]")
-    
+
     vol_norm = vol_xyz / 1600
-    
+
     # Transpose to put Z dimension first for ImageJ: (1328, 2048, 72) -> (72, 1328, 2048)
     vol_norm = vol_norm.transpose(2, 0, 1)  # Move Z from last to first dimension
     print(f"  Transposed shape for ImageJ: {vol_norm.shape} (Z×Y×X)")
-    
+
     # Convert to uint16 for TIFF
     vol_uint16 = (vol_norm * 65535).astype(np.uint16)
-    
+
     tifffile.imwrite(
         'zapbench.tif',
         vol_uint16,
@@ -2497,7 +2497,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
         },
         description=f"ZapBench volume, frame {FRAME}, shape: {vol_xyz.shape}"
     )
-    
+
     print(f"✅ Saved zapbench.tif - Shape: {vol_uint16.shape}, Size: {vol_uint16.nbytes/(1024*1024):.1f} MB")
 
     # down sample
@@ -2604,7 +2604,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     elif 'zebra' in config.dataset:
         data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
-    
+
     else:
         data_test_signal(config, config_file, visualize, style, verbose, best_model, step, n_rollout_frames,ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
 
@@ -2753,7 +2753,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
         edge_index, edge_attr = dense_to_sparse(adj_matrix)
         e = torch.load(f'./graphs_data/{dataset_name}/model_e_{run}.pt', map_location=device)
-        model_generator.e = torch.nn.Parameter(e)   
+        model_generator.e = torch.nn.Parameter(e)
 
 
 
@@ -3015,7 +3015,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     neuron_pred_list = []
     neuron_generated_list = []
 
-    x_inference_list = [] 
+    x_inference_list = []
     x_generated_list = []
 
     R2_list = []
@@ -3051,7 +3051,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             rmserr = torch.sqrt(torch.mean((x_generated[:n_neurons, 6] - x0[:, 6]) ** 2))
         else:
             rmserr = torch.sqrt(torch.mean((x[:n_neurons-n_excitatory_neurons, 6] - x0[:, 6]) ** 2))
-        
+
         neuron_gt_list.append(x0[:, 6:7])
         neuron_pred_list.append(x[:n_neurons, 6:7].clone().detach())
         neuron_generated_list.append(x_generated[:n_neurons, 6:7].clone().detach())
@@ -3351,7 +3351,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 plt.ylabel('learned $h_i$', fontsize=48)
             else:
                 plt.xlabel('true $x_i$', fontsize=48)
-                plt.ylabel('learned $x_i$', fontsize=48)              
+                plt.ylabel('learned $x_i$', fontsize=48)
             plt.xticks([])
             plt.yticks([])
 
