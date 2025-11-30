@@ -448,6 +448,8 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
             true_func = true_model.func(rr, neuron_type, 'phi')
             ax.plot(to_numpy(rr), to_numpy(true_func) / norm_factor, color=cmap.color(neuron_type), linewidth=8, alpha=1.0)
 
+    max_radius = config.simulation.max_radius
+
     if model_name in ['PDE_N2', 'PDE_N3', 'PDE_N6']:
         # Simple models: single line, single input
         in_features = rr[:, None]
@@ -458,21 +460,13 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
         ax.plot(to_numpy(rr), to_numpy(func) / norm_factor, color='w', linewidth=4)
     else:
         # Models with embeddings: multiple lines per type (PDE_N4, PDE_N5, PDE_N7, PDE_N8, PDE_N11, etc.)
-        # compute per-neuron correction on the fly if apply_weight_correction is enabled
-        correction = None
         if apply_weight_correction:
+            # First pass: compute per-neuron correction
             rr_corr = torch.linspace(-xnorm.squeeze() * 2, xnorm.squeeze() * 2, 1000).to(device)
             func_list = []
             for n in range(n_neurons):
                 embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                if model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
-                    in_features = torch.cat((rr_corr[:, None], embedding_), dim=1)
-                elif model_name == 'PDE_N5':
-                    in_features = torch.cat((rr_corr[:, None], embedding_, embedding_), dim=1)
-                elif model_name == 'PDE_N8':
-                    in_features = torch.cat((rr_corr[:, None]*0, rr_corr[:, None], embedding_, embedding_), dim=1)
-                else:
-                    in_features = torch.cat((rr_corr[:, None], embedding_), dim=1)
+                in_features = get_in_features(rr_corr, embedding_, model, model_name, max_radius)
                 with torch.no_grad():
                     func = model.lin_edge(in_features.float())
                 if config.graph_model.lin_edge_positive:
@@ -482,27 +476,28 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
             upper = torch.max(func_list[:, 950:1000], dim=1)[0]
             correction = 1 / (upper + 1E-16)
 
-        # Second pass: plot with learned normalization factor
-        for n in range(min(100, n_neurons)):
-            embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-            # Construct in_features based on model type
-            if model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
-                in_features = torch.cat((rr[:, None], embedding_), dim=1)
-            elif model_name == 'PDE_N5':
-                in_features = torch.cat((rr[:, None], embedding_, embedding_), dim=1)
-            elif model_name == 'PDE_N8':
-                in_features = torch.cat((rr[:, None]*0, rr[:, None], embedding_, embedding_), dim=1)
-            else:
-                in_features = torch.cat((rr[:, None], embedding_), dim=1)
-            with torch.no_grad():
-                func = model.lin_edge(in_features.float())
-            if config.graph_model.lin_edge_positive:
-                func = func ** 2
-            # apply per-neuron correction if computed
-            if correction is not None:
+            # Second pass: plot with correction applied
+            for n in range(min(100, n_neurons)):
+                embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                in_features = get_in_features(rr, embedding_, model, model_name, max_radius)
+                with torch.no_grad():
+                    func = model.lin_edge(in_features.float())
+                if config.graph_model.lin_edge_positive:
+                    func = func ** 2
                 func = func * correction[n]
-            ax.plot(to_numpy(rr), to_numpy(func),
-                   color='w', linewidth=1, alpha=0.3)
+                ax.plot(to_numpy(rr), to_numpy(func),
+                       color='w', linewidth=1, alpha=0.3)
+        else:
+            # No correction: plot raw functions
+            for n in range(n_neurons):
+                embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                in_features = get_in_features(rr, embedding_, model, model_name, max_radius)
+                with torch.no_grad():
+                    func = model.lin_edge(in_features.float())
+                if config.graph_model.lin_edge_positive:
+                    func = func ** 2
+                ax.plot(to_numpy(rr), to_numpy(func),
+                       color='w', linewidth=1, alpha=0.25)
 
     # variable names
     if 'PDE_N11' in model_name:
@@ -519,8 +514,9 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
     ax.set_xlabel(signal_var, fontsize=32)
     ax.set_ylabel(ylabel, fontsize=32)
     ax.set_xlim([-to_numpy(xnorm).item(), to_numpy(xnorm).item()])
-    # set ylim to normalized range (approximately -1 to 1)
-    ax.set_ylim([-1.2, 1.2])
+    # set ylim to normalized range only when correction is applied
+    if apply_weight_correction:
+        ax.set_ylim([-1.2, 1.2])
     ax.tick_params(labelsize=16)
 
 
@@ -633,6 +629,98 @@ def create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, devic
     ax.legend(fontsize=16, loc='upper right')
 
 
+# ============================================================================
+# Shared Movie Creation Helpers
+# ============================================================================
+
+def setup_movies_directory(log_dir):
+    """Create and return movies directory path.
+
+    Args:
+        log_dir: Log directory path
+
+    Returns:
+        movies_dir: Path to movies directory
+    """
+    movies_dir = f'{log_dir}/results/movies'
+    os.makedirs(movies_dir, exist_ok=True)
+    return movies_dir
+
+
+def create_movie(mp4_path, jpg_path, figsize, fps, metadata, file_id_list, frame_callback, dpi=100):
+    """Generic movie creation loop.
+
+    Args:
+        mp4_path: Path for output MP4 file
+        jpg_path: Path for first frame JPG (can be None to skip)
+        figsize: Figure size tuple
+        fps: Frames per second
+        metadata: Metadata dict for FFMpegWriter
+        file_id_list: List of file indices to iterate
+        frame_callback: Function(fig, file_id_) that creates each frame
+        dpi: DPI for movie frames
+
+    Returns:
+        Result from frame_callback if any (e.g., r_squared_list)
+    """
+    writer = FFMpegWriter(fps=fps, metadata=metadata)
+    fig = plt.figure(figsize=figsize)
+
+    first_frame_saved = False
+    results = []
+
+    with writer.saving(fig, mp4_path, dpi=dpi):
+        for file_id_ in tqdm(range(len(file_id_list)), desc=os.path.basename(mp4_path).replace('.mp4', ''), ncols=90):
+            plt.clf()
+
+            result = frame_callback(fig, file_id_)
+            if result is not None:
+                results.append(result)
+
+            plt.tight_layout()
+            writer.grab_frame()
+
+            if jpg_path and not first_frame_saved:
+                plt.savefig(jpg_path, dpi=150, bbox_inches='tight')
+                first_frame_saved = True
+
+    plt.close(fig)
+    return results if results else None
+
+
+def load_model_state(model, net_path, device):
+    """Load model state from checkpoint.
+
+    Args:
+        model: Model instance to load state into
+        net_path: Path to checkpoint file
+        device: Torch device
+
+    Returns:
+        model: Model with loaded state in eval mode
+    """
+    state_dict = torch.load(net_path, map_location=device)
+    model.load_state_dict(state_dict['model_state_dict'])
+    model.eval()
+    return model
+
+
+def get_epoch_from_file(file_path, n_runs):
+    """Extract epoch number from model file path.
+
+    Args:
+        file_path: Path to model file
+        n_runs: Number of training runs
+
+    Returns:
+        epoch: Epoch string
+    """
+    return file_path.split('graphs')[1][1:-3]
+
+
+# ============================================================================
+
+
 def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_types, type_list,
                          cmap, connectivity, xnorm, ynorm, mc, fps=10,
                          true_model=None, n_excitatory_neurons=0, apply_weight_correction=False):
@@ -662,8 +750,7 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
     # Extract just the base name from dataset (may contain path like 'signal/signal_N11_1')
     dataset_name = os.path.basename(config.dataset)
-    movies_dir = f'{log_dir}/results/movies'
-    os.makedirs(movies_dir, exist_ok=True)
+    movies_dir = setup_movies_directory(log_dir)
 
     # get training files
     files, file_id_list = get_training_files(log_dir, n_runs)
@@ -724,12 +811,9 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
                 ax = fig.add_subplot(111)
 
                 file_id = file_id_list[file_id_]
-                epoch = files[file_id].split('graphs')[1][1:-3]
+                epoch = get_epoch_from_file(files[file_id], n_runs)
                 net = f"{log_dir}/models/best_model_with_{n_runs-1}_graphs_{epoch}.pt"
-
-                state_dict = torch.load(net, map_location=device)
-                model.load_state_dict(state_dict['model_state_dict'])
-                model.eval()
+                load_model_state(model, net, device)
 
                 with torch.no_grad():
                     if plot_type == 'weight':
@@ -783,12 +867,9 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
             plt.clf()
 
             file_id = file_id_list[file_id_]
-            epoch = files[file_id].split('graphs')[1][1:-3]
+            epoch = get_epoch_from_file(files[file_id], n_runs)
             net = f"{log_dir}/models/best_model_with_{n_runs-1}_graphs_{epoch}.pt"
-
-            state_dict = torch.load(net, map_location=device)
-            model.load_state_dict(state_dict['model_state_dict'])
-            model.eval()
+            load_model_state(model, net, device)
 
             with torch.no_grad():
                 # Weights subplot (top-left)
@@ -820,6 +901,58 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
             if not first_frame_saved:
                 plt.savefig(jpg_path_combined, dpi=150, bbox_inches='tight')
+                first_frame_saved = True
+
+    plt.close(fig)
+
+    # create two-panel connectivity comparison movie (true vs learned heatmaps)
+    mp4_path_connectivity = f'{movies_dir}/connectivity_{dataset_name}{suffix}.mp4'
+    jpg_path_connectivity = f'{movies_dir}/connectivity_{dataset_name}{suffix}.jpg'
+
+    writer = FFMpegWriter(fps=fps, metadata=metadata)
+    fig = plt.figure(figsize=(16, 8))
+
+    # prepare true connectivity heatmap data
+    n_plot = n_neurons - n_excitatory_neurons if n_excitatory_neurons > 0 else n_neurons
+    true_connectivity_plot = to_numpy(connectivity[:n_plot, :n_plot])
+
+    first_frame_saved = False
+
+    with writer.saving(fig, mp4_path_connectivity, dpi=100):
+        for file_id_ in tqdm(range(len(file_id_list)), desc='connectivity', ncols=90):
+            plt.clf()
+
+            file_id = file_id_list[file_id_]
+            epoch = get_epoch_from_file(files[file_id], n_runs)
+            net = f"{log_dir}/models/best_model_with_{n_runs-1}_graphs_{epoch}.pt"
+            load_model_state(model, net, device)
+
+            with torch.no_grad():
+                # Get learned weights
+                A = model.W[:n_plot, :n_plot]
+                learned_connectivity_plot = to_numpy(A)
+
+                # Left panel: true connectivity
+                ax1 = fig.add_subplot(1, 2, 1)
+                sns.heatmap(true_connectivity_plot, center=0, square=True, cmap='bwr',
+                           cbar=False, vmin=-0.5, vmax=0.5, ax=ax1)
+                ax1.set_title('true connectivity', fontsize=20)
+                ax1.set_xticks([])
+                ax1.set_yticks([])
+
+                # Right panel: learned connectivity (raw)
+                ax2 = fig.add_subplot(1, 2, 2)
+                sns.heatmap(learned_connectivity_plot, center=0, square=True, cmap='bwr',
+                           cbar=False, vmin=-0.5, vmax=0.5, ax=ax2)
+                ax2.set_title('learned connectivity', fontsize=20)
+                ax2.set_xticks([])
+                ax2.set_yticks([])
+
+            plt.tight_layout()
+            writer.grab_frame()
+
+            if not first_frame_saved:
+                plt.savefig(jpg_path_connectivity, dpi=150, bbox_inches='tight')
                 first_frame_saved = True
 
     plt.close(fig)
@@ -1444,9 +1577,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 plt.savefig(f"./{log_dir}/results/training/fig_{num}.png", dpi=80)
                 plt.close()
-
-
-
 
     else:
 
@@ -5279,6 +5409,74 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
     if ('Ising' in extended) | ('ising' in extended):
         analyze_ising_model(x_list, delta_t, log_dir, logger, to_numpy(edges))
 
+    # Activity plots - read activity from x[:,3:4] (activity column)
+    config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
+    x = x_list[0][n_frames - 10]
+    neuron_types = to_numpy(type_list).astype(int).squeeze()
+
+    # Get activity traces for all frames from x[:,3:4]
+    activity_true = np.array([x_list[0][k][:, 3] for k in range(n_frames)]).T  # (n_neurons, n_frames)
+    visual_input_true = np.array([x_list[0][k][:, 4] for k in range(n_frames)]).T  # (n_neurons, n_frames)
+
+    start_frame = 0
+    end_frame = n_frames
+
+    # Create two figures: all types and selected types
+    for fig_name, selected_types in [
+        ("selected", [5, 15, 43, 39, 35, 31, 23, 19, 12, 55]),  # L1, Mi12, Tm1, T5a, T4a, T1, R1, Mi2, Mi1, Tm9
+        ("all", np.arange(0, n_neuron_types))
+    ]:
+        neuron_indices = []
+        for stype in selected_types:
+            indices = np.where(neuron_types == stype)[0]
+            if len(indices) > 0:
+                neuron_indices.append(indices[0])
+
+        if len(neuron_indices) == 0:
+            continue
+
+        fig, ax = plt.subplots(1, 1, figsize=(15, 10))
+
+        true_slice = activity_true[neuron_indices, start_frame:end_frame]
+        visual_input_slice = visual_input_true[neuron_indices, start_frame:end_frame]
+        step_v = 2.5
+        lw = 1
+
+        # Adjust fontsize based on number of neurons
+        name_fontsize = 10 if len(selected_types) > 50 else 18
+
+        for i in range(len(neuron_indices)):
+            baseline = np.mean(true_slice[i])
+            ax.plot(true_slice[i] - baseline + i * step_v, linewidth=lw, c='green', alpha=0.9,
+                    label='activity' if i == 0 else None)
+            # Plot visual input only for neuron_id = 0
+            if (neuron_indices[i] == 0) and visual_input_slice[i].mean() > 0:
+                ax.plot(visual_input_slice[i] - baseline + i * step_v, linewidth=1, c='yellow', alpha=0.9,
+                        linestyle='--', label='visual input')
+
+        for i in range(len(neuron_indices)):
+            type_idx = selected_types[i] if isinstance(selected_types, list) else selected_types[i]
+            ax.text(-50, i * step_v, f'{index_to_name[type_idx]}', fontsize=name_fontsize, va='bottom', ha='right', color=mc)
+
+        ax.set_ylim([-step_v, len(neuron_indices) * (step_v + 0.25 + 0.15 * (len(neuron_indices)//50))])
+        ax.set_yticks([])
+        ax.set_xticks([0, 1000, 2000])
+        ax.set_xticklabels([0, 1000, 2000], fontsize=16)
+        ax.set_xlabel('frame', fontsize=20)
+        ax.set_xlim([0, 2000])
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+
+        ax.legend(loc='upper right', fontsize=14)
+
+        plt.tight_layout()
+        if fig_name == "all":
+            plt.savefig(f'{log_dir}/results/activity_{config_indices}.png', dpi=300, bbox_inches='tight')
+        else:
+            plt.savefig(f'{log_dir}/results/activity_{config_indices}_selected.png', dpi=300, bbox_inches='tight')
+        plt.close()
+
     if epoch_list[0] == 'all':
 
         movie_synaptic_flyvis(config, log_dir, n_runs, device, x_list, y_list, edges, gt_weights, gt_taus, gt_V_Rest,
@@ -5298,6 +5496,25 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             model.edges = edges
             print(f'net: {net}')
             logger.info(f'net: {net}')
+
+            # print learnable parameters table
+            mlp0_params = sum(p.numel() for p in model.lin_phi.parameters())
+            mlp1_params = sum(p.numel() for p in model.lin_edge.parameters())
+            a_params = model.a.numel()
+            w_params = model.W.numel()
+            print('')
+            print('learnable parameters:')
+            print(f'  MLP0 (lin_phi): {mlp0_params:,}')
+            print(f'  MLP1 (lin_edge): {mlp1_params:,}')
+            print(f'  a (embeddings): {a_params:,}')
+            print(f'  W (connectivity): {w_params:,}')
+            total_params = mlp0_params + mlp1_params + a_params + w_params
+            if hasattr(model, 'NNR_f') and model.NNR_f is not None:
+                nnr_f_params = sum(p.numel() for p in model.NNR_f.parameters())
+                print(f'  INR (NNR_f): {nnr_f_params:,}')
+                total_params += nnr_f_params
+            print(f'  total: {total_params:,}')
+            print('')
 
             # Plot 1: Loss curve
             if os.path.exists(os.path.join(log_dir, 'loss.pt')):
@@ -5324,18 +5541,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 pos = torch.argwhere(type_list == n)
                 plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=24, color=colors_65[n], alpha=0.8,
                             edgecolors='none')
-            plt.xlabel(r'$\mathbf{a}_{i0}$', fontsize=48)
-            plt.ylabel(r'$\mathbf{a}_{i1}$', fontsize=48)
+            plt.xlabel(r'$a_{i0}$', fontsize=48)
+            plt.ylabel(r'$a_{i1}$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
-            # results = clustering_gmm(to_numpy(model.a), type_list, n_components=75)
-            # print(f"GMM n_components=75: {results['n_components']} components, "
-            #     f"accuracy=\033[32m{results['accuracy']:.3f}\033[0m")
-            # logger.info(f"eps={eps}: {results['n_clusters_found']} clusters, "
-            #             f"accuracy={results['accuracy']:.3f}")
-            # plt.text(0.05, 0.95, f"N: {n_neurons}\naccuracy: {results['accuracy']:.2f}",
-            #         transform=plt.gca().transAxes, fontsize=32,
-            #         verticalalignment='top', color=mc)
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/embedding_{config_indices}.png', dpi=300)
             plt.close()
@@ -5360,16 +5569,16 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                             color=cmap.color(to_numpy(type_list)[n].astype(int)),
                             linewidth=1, alpha=0.1)
             plt.xlabel('$v_j$', fontsize=48)
-            plt.ylabel(r'$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
+            plt.ylabel(r'$\mathrm{MLP_1}(a_j, v_j)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.xlim([-1,2.5])
             plt.ylim([-config.plotting.xlim[1]/10, 2.5])
-            plt.text(0.05, 0.95, f"N: {n_neurons}",
-                    transform=plt.gca().transAxes, fontsize=32,
-                    verticalalignment='top', color=mc)
+            # plt.text(0.05, 0.95, f"N: {n_neurons}",
+            #     transform=plt.gca().transAxes, fontsize=32,
+            #     verticalalignment='top', color=mc)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}_all.png", dpi=300)
+            plt.savefig(f"./{log_dir}/results/MLP1_{config_indices}.png", dpi=300)
             plt.close()
 
 
@@ -5406,13 +5615,13 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 else:
                     slopes_lin_edge_list.append(1)
             plt.xlabel('$v_j$', fontsize=48)
-            plt.ylabel(r'$\mathrm{MLP_1}(\mathbf{a}_j, v_j)$', fontsize=48)
+            plt.ylabel(r'$\mathrm{MLP_1}(a_j, v_j)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.xlim([-1,5])
             plt.ylim([-config.plotting.xlim[1]/10, config.plotting.xlim[1]*2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/edge_functions_{config_indices}_domain.png", dpi=300)
+            plt.savefig(f"./{log_dir}/results/MLP1_{config_indices}_domain.png", dpi=300)
             plt.close()
 
 
@@ -5430,29 +5639,28 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.xticks(fontsize=18)
             plt.yticks(fontsize=24)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/edge_function_slope_{config_indices}.png", dpi=300)
+            plt.savefig(f"./{log_dir}/results/MLP1_slope_{config_indices}.png", dpi=300)
             plt.close()
 
             # Plot 5: Phi function visualization
 
-            if 'plots' in extended:
-                fig = plt.figure(figsize=(10, 9))
-                for n in trange(n_neurons, ncols=90):
-                    rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
-                    embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
-                    in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
-                    with torch.no_grad():
-                        func = model.lin_phi(in_features.float())
-                        plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(to_numpy(type_list)[n].astype(int)), linewidth=1, alpha=0.1)
-                plt.xlim([-2.5,2.5])
-                plt.ylim([-100,100])
-                plt.xlabel('$v_i$', fontsize=48)
-                plt.ylabel(r'$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
-                plt.xticks(fontsize=24)
-                plt.yticks(fontsize=24)
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_all.png", dpi=300)
-                plt.close()
+            fig = plt.figure(figsize=(10, 9))
+            for n in trange(n_neurons, ncols=90):
+                rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
+                embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
+                in_features = torch.cat((rr[:, None], embedding_, rr[:, None] * 0, torch.zeros_like(rr[:, None])), dim=1)
+                with torch.no_grad():
+                    func = model.lin_phi(in_features.float())
+                    plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(to_numpy(type_list)[n].astype(int)), linewidth=1, alpha=0.1)
+            plt.xlim([-2.5,2.5])
+            plt.ylim([-100,100])
+            plt.xlabel('$v_i$', fontsize=48)
+            plt.ylabel(r'$\mathrm{MLP_0}(a_i, v_i)$', fontsize=48)
+            plt.xticks(fontsize=24)
+            plt.yticks(fontsize=24)
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/MLP0_{config_indices}.png", dpi=300)
+            plt.close()
 
             func_list = []
             slopes_lin_phi_list = []
@@ -5483,14 +5691,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.xlim(config.plotting.xlim)
             plt.ylim(config.plotting.ylim)
             plt.xlabel('$v_i$', fontsize=48)
-            plt.ylabel(r'$\mathrm{MLP_0}(\mathbf{a}_i, v_i)$', fontsize=48)
+            plt.ylabel(r'$\mathrm{MLP_0}(a_i, v_i)$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
-            plt.text(0.05, 0.95, f"N: {n_neurons}",
-                transform=plt.gca().transAxes, fontsize=32,
-                verticalalignment='top', color=mc)
+            # plt.text(0.05, 0.95, f"N: {n_neurons}",
+            #     transform=plt.gca().transAxes, fontsize=32,
+            #     verticalalignment='top', color=mc)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_domain.png", dpi=300)
+            plt.savefig(f"./{log_dir}/results/MLP0_{config_indices}_domain.png", dpi=300)
             plt.close()
 
             slopes_lin_phi_array = np.array(slopes_lin_phi_list)
@@ -5510,7 +5718,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $\tau$', fontsize=48)
-            plt.ylabel(r'learned $\widehat{\tau}$', fontsize=48)
+            plt.ylabel(r'learned $\tau$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.xlim([0, 0.35])
@@ -5537,7 +5745,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $V_{rest}$', fontsize=48)
-            plt.ylabel(r'learned $\widehat{V}_{rest}$', fontsize=48)
+            plt.ylabel(r'learned $V_{rest}$', fontsize=48)
             plt.xticks(fontsize=24)
             plt.yticks(fontsize=24)
             plt.xlim([0, 0.8])
@@ -5555,20 +5763,20 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             ax = plt.subplot(2, 1, 1)
             plt.scatter(np.arange(n_neurons), learned_tau,
                         c=cmap.color(to_numpy(type_list).astype(int)), s=2, alpha=0.5)
-            plt.ylabel(r'$\widehat{\tau}_i$', fontsize=48)
+            plt.ylabel(r'$\tau_i$', fontsize=48)
             plt.xticks([])   # no xticks for top plot
             plt.yticks(fontsize=24)
             ax = plt.subplot(2, 1, 2)
             plt.scatter(np.arange(n_neurons), learned_V_rest,
                         c=cmap.color(to_numpy(type_list).astype(int)), s=2, alpha=0.5)
             plt.xlabel('neuron index', fontsize=48)
-            plt.ylabel(r'$\widehat{V}^{\mathrm{rest}}_i$', fontsize=48)
+            plt.ylabel(r'$V^{\mathrm{rest}}_i$', fontsize=48)
             ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=5))
             plt.xticks(fontsize=18)
             plt.yticks(fontsize=24)
             plt.ylim([0, 1])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/phi_functions_{config_indices}_params.png", dpi=300)
+            plt.savefig(f"./{log_dir}/results/MLP0_{config_indices}_params.png", dpi=300)
             plt.close()
 
             for target_type_name in target_type_name_list:  # Change this to any desired type name
@@ -5613,7 +5821,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     mean_gt_V_rest = np.mean(type_gt_V_rest)
                     mean_learned_V_rest = np.mean(type_learned_V_rest)
 
-                    # Plot true function in red: y = -x/tau + V_rest/tau
+                    # Plot true function in green: y = -x/tau + V_rest/tau
                     if len(neurons_of_type) > 0:
                         # Use a representative neuron for the activity range
                         n_rep = neurons_of_type[0]
@@ -5621,18 +5829,18 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                         x_max = to_numpy(mu_activity[n_rep] + 25 * sigma_activity[n_rep])
                         x_true = np.linspace(x_min, x_max, 1000)
                         y_true = -x_true / mean_gt_tau + mean_gt_V_rest / mean_gt_tau
-                        plt.plot(x_true, y_true, 'r-', linewidth=1, alpha=0.5, label='true function')
+                        plt.plot(x_true, y_true, 'g-', linewidth=3, alpha=0.7, label='true function')
 
                     # Add text with tau and V_rest information
                     text_info = f'$\\tau$ (true): {mean_gt_tau:.3f}\n$\\tau$ (learned): {mean_learned_tau:.3f}\n$V_{{rest}}$ (true): {mean_gt_V_rest:.3f}\n$V_{{rest}}$ (learned): {mean_learned_V_rest:.3f}'
                     plt.text(0.02, 0.98, text_info, transform=plt.gca().transAxes,
                             verticalalignment='top', horizontalalignment='left', fontsize=14)
 
-                    plt.title(f'{target_type_name} id:{target_type_index}  ({len(neurons_of_type)} traces)',fontsize=48)
+                    plt.title(f'{target_type_name} id:{target_type_index}  ({len(neurons_of_type)} traces)', fontsize=16)
                     plt.xticks(fontsize=24)
                     plt.yticks(fontsize=24)
                     plt.tight_layout()
-                    plt.savefig(f"./{log_dir}/results/phi_functions_{target_type_name}.png", dpi=300)
+                    plt.savefig(f"{log_dir}/results/MLP0_{target_type_name}.png", dpi=300)
                     plt.close()
 
 
@@ -5669,12 +5877,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
                      verticalalignment='bottom', fontsize=10)
 
-            plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
-            plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}$', fontsize=48)
+            plt.xlabel(r'true $W_{ij}$', fontsize=48)
+            plt.ylabel(r'learned $W_{ij}$', fontsize=48)
             plt.xticks(fontsize = 24)
             plt.yticks(fontsize = 24)
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/comparison_raw.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/weights_comparison_raw.png', dpi=300)
             plt.close()
             print(f"first weights fit R²: {r_squared:.2f}  slope: {np.round(lin_fit[0], 4)}")
             logger.info(f"first weights fit R²: {r_squared:.2f}  slope: {np.round(lin_fit[0], 4)}")
@@ -5833,12 +6041,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 plt.text(0.05, 0.95,
                         f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}',
                         transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
-                plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
-                plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}r_j$', fontsize=48)
+                plt.xlabel(r'true $W_{ij}$', fontsize=48)
+                plt.ylabel(r'learned $W_{ij}r_j$', fontsize=48)
                 plt.xticks(fontsize = 24)
                 plt.yticks(fontsize = 24)
                 plt.tight_layout()
-                plt.savefig(f'{log_dir}/results/comparison_rj.png', dpi=300)
+                plt.savefig(f'{log_dir}/results/weights_comparison_rj.png', dpi=300)
                 plt.close()
 
 
@@ -5860,18 +6068,17 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                          f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
                          f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
                          f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
-            plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
-                     verticalalignment='bottom', fontsize=10)
+            # plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
+            #          verticalalignment='bottom', fontsize=10)
 
-            plt.xlabel(r'true $\mathbf{W}_{ij}$', fontsize=48)
-            # plt.ylabel(r'learned -$\widehat{\mathbf{W}}_{ij} \, g_i r_j \, \widehat{\tau}_i$', fontsize=48)
-            plt.ylabel(r'learned $\widehat{\mathbf{W}}_{ij}^*$', fontsize=48)
+            plt.xlabel(r'true $W_{ij}$', fontsize=48)
+            plt.ylabel(r'learned $W_{ij}^*$', fontsize=48)
             plt.xticks(fontsize = 24)
             plt.yticks(fontsize = 24)
             plt.xlim([-1,2])
             plt.ylim([-1,2])
             plt.tight_layout()
-            plt.savefig(f'{log_dir}/results/corrected_comparison.png', dpi=300)
+            plt.savefig(f'{log_dir}/results/weights_comparison_corrected.png', dpi=300)
             plt.close()
 
             print(f"second weights fit R²: \033[92m{r_squared:.4f}\033[0m  slope: {np.round(lin_fit[0], 4)}")
@@ -5931,14 +6138,43 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
 
+            # Plot true connectivity: full NxN matrix with R_to_L region as inset
+            true_connectivity_path = f'{log_dir}/results/true connectivity.png'
+            if not os.path.exists(true_connectivity_path):
+                full_true_data = to_numpy(true_in_region)
+                # Inset region from R_to_L (rows 1736:2170, cols 0:434)
+                inset_row_start = 1736
+                inset_row_end = 1736 + 217 * 2
+                inset_col_start = 0
+                inset_col_end = 217 * 2
+                inset_data = full_true_data[inset_row_start:inset_row_end, inset_col_start:inset_col_end]
+
+                plt.figure(figsize=(10, 10))
+                ax = sns.heatmap(full_true_data, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
+                cbar = ax.collections[0].colorbar
+                cbar.ax.tick_params(labelsize=32)
+                plt.xticks([0, n_neurons - 1], [0, n_neurons], fontsize=48)
+                plt.yticks([0, n_neurons - 1], [0, n_neurons], fontsize=48)
+                plt.xticks(rotation=0)
+                plt.subplot(2, 2, 1)
+                ax = sns.heatmap(inset_data, cbar=False, center=0, square=True, cmap='bwr')
+                plt.xticks([])
+                plt.yticks([])
+                plt.tight_layout()
+                plt.savefig(true_connectivity_path, dpi=300)
+                plt.close()
+
             row_start = 0
             row_end = 217 * 2  # 424        R1 R2
             col_start = 1736
             col_end = 1736 + 217 * 2  # 2160   L1 L2
 
+            true_data = to_numpy(true_in_region[row_start:row_end, col_start:col_end])
+            learned_data = to_numpy(learned_in_region[row_start:row_end, col_start:col_end])
+
             fig, axes = plt.subplots(1, 2, figsize=(20, 10))
             # First panel: true_in connectivity
-            ax1 = sns.heatmap(to_numpy(true_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
+            ax1 = sns.heatmap(true_data, center=0, square=True, cmap='bwr',
                               cbar_kws={'fraction': 0.046}, ax=axes[0])
             axes[0].set_title('true connectivity', fontsize=24)
             axes[0].set_xlabel('columns [1736:2170]', fontsize=18)
@@ -5946,7 +6182,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             cbar1 = ax1.collections[0].colorbar
             cbar1.ax.tick_params(labelsize=16)
             # Second panel: learned_in connectivity
-            ax2 = sns.heatmap(to_numpy(learned_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
+            ax2 = sns.heatmap(learned_data, center=0, square=True, cmap='bwr',
                               cbar_kws={'fraction': 0.046}, ax=axes[1])
             axes[1].set_title('learned connectivity', fontsize=24)
             axes[1].set_xlabel('columns [1736:2170]', fontsize=18)
@@ -5957,11 +6193,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/connectivity_comparison_L_to_R.png', dpi=150, bbox_inches='tight')
             plt.close()
-
-            
-
-
-
 
 
 
@@ -5988,10 +6219,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             )
 
             print('alternative clustering methods...')
-
-
-
-
 
 
             # compute connectivity statistics for true weights
@@ -6137,13 +6364,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.scatter(a_umap[:, 0], a_umap[:, 1], c=cluster_labels, s=24, cmap=cmap_65, alpha=0.8, edgecolors='none')
 
 
-            # Add cluster centroids
-            for c in range(best_n):
-                mask = cluster_labels == c
-                if mask.sum() > 0:
-                    cx, cy = np.median(a_umap[mask, 0]), np.median(a_umap[mask, 1])
-                    plt.text(cx, cy, str(c), fontsize=8, ha='center', va='center')
-
             plt.xlabel(r'UMAP$_1$', fontsize=48)
             plt.ylabel(r'UMAP$_2$', fontsize=48)
             plt.xticks(fontsize=24)
@@ -6153,16 +6373,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/embedding_augmented_{config_indices}.png', dpi=300)
             plt.close()
-
-            # Spectral clustering
-            # print('spectral:')
-            # for n_clust in [50, 75, 100, 125, 150]:
-            #     results = clustering_spectral(a_aug, type_list, n_clusters=n_clust)
-            #     print(f"  n_clusters={n_clust}: accuracy=\033[32m{results['accuracy']:.3f}\033[0m, ARI={results['ari']:.3f}, NMI={results['nmi']:.3f}")
-
-
-
-
 
 
 def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended, device):
@@ -6735,10 +6945,12 @@ def create_combined_movie(config, log_dir, config_indices, files, file_id_list, 
                           mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata):
     """Create the main 1x4 subplot movie."""
 
+    movies_dir = setup_movies_directory(log_dir)
+
     writer = FFMpegWriter(fps=fps, metadata=metadata)
     fig = plt.figure(figsize=(20, 20))  # Wider figure for 4 columns
     plt.subplots_adjust(wspace=0.3, hspace=0.5)
-    mp4_path = f'{log_dir}/results/training_{config_indices}.mp4'
+    mp4_path = f'{movies_dir}/training_{config_indices}.mp4'
 
     with writer.saving(fig, mp4_path, dpi=80):
         for file_id_ in trange(len(file_id_list), ncols=90):
@@ -6769,20 +6981,22 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
                              mu_activity, sigma_activity, cmap, mc, ynorm, logger, fps, metadata):
     """Create individual movies for each subplot component."""
 
+    movies_dir = setup_movies_directory(log_dir)
+
     movie_configs = [
         ('weight_reconstruction', (8, 8), create_weight_subplot),
         ('embedding_recons', (8, 8), create_embedding_subplot),
         ('tau_recons', (8, 8), create_tau_subplot),
         ('V_rest_recons', (8, 8), create_vrest_subplot),
-        ('lin_phi_recons', (8, 8), create_lin_phi_subplot),
-        ('lin_edge_recons', (8, 8), create_lin_edge_subplot)
+        ('MLP0', (8, 8), create_lin_phi_subplot),
+        ('MLP1', (8, 8), create_lin_edge_subplot)
     ]
 
     for movie_name, figsize, subplot_func in movie_configs:
         writer = FFMpegWriter(fps=fps, metadata=metadata)
         fig = plt.figure(figsize=figsize)
-        mp4_path = f'{log_dir}/results/{movie_name}_{config_indices}.mp4'
-        png_path = f'{log_dir}/results/{movie_name}_{config_indices}_first_frame.png'
+        mp4_path = f'{movies_dir}/{movie_name}_{config_indices}.mp4'
+        png_path = f'{movies_dir}/{movie_name}_{config_indices}_first_frame.png'
 
         logger.info(f'Creating {movie_name} movie...')
 
@@ -6808,10 +7022,10 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
                     create_tau_subplot(fig, slopes_lin_phi_list, gt_taus, n_neurons, mc, 1, 1, 1)
                 elif movie_name == 'V_rest_recons':
                     create_vrest_subplot(fig, slopes_lin_phi_list, offsets_list, gt_V_Rest, n_neurons, mc, 1, 1, 1)
-                elif movie_name == 'lin_phi_recons':
+                elif movie_name == 'MLP0':
                     create_lin_phi_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list,
                                            device, 1, 1, 1)
-                elif movie_name == 'lin_edge_recons':
+                elif movie_name == 'MLP1':
                     create_lin_edge_subplot(fig, model, config, n_neurons, mu_activity, sigma_activity, cmap, type_list,
                                             device, 1, 1, 1)
 
@@ -6828,11 +7042,10 @@ def create_individual_movies(config, log_dir, config_indices, files, file_id_lis
 
 def load_model_for_epoch(config, log_dir, files, file_id_, n_runs, device, edges, logger):
     """Load model for specific epoch."""
-    epoch = files[file_id_].split('graphs')[1][1:-3]
+    epoch = get_epoch_from_file(files[file_id_], n_runs)
     net = f'{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{epoch}.pt'
     model = Signal_Propagation_FlyVis(aggr_type=config.graph_model.aggr_type, config=config, device=device)
-    state_dict = torch.load(net, map_location=device)
-    model.load_state_dict(state_dict['model_state_dict'])
+    load_model_state(model, net, device)
     model.edges = edges
     logger.info(f'net: {net}')
     return model, epoch
@@ -7056,7 +7269,7 @@ def create_vrest_subplot(fig, slopes_lin_phi_list, offsets_list, gt_V_Rest, n_ne
     ax.text(0.05, 0.95, f'R²: {r_squared:.3f}\nslope: {lin_fit[0]:.2f}\nN: {len(gt_V_rest_numpy)}',
             transform=ax.transAxes, verticalalignment='top', fontsize=24)
     ax.set_xlabel('true $V_{rest}$', fontsize=32)
-    ax.set_ylabel(r'learned $\widehat{V}_{rest}$', fontsize=32)
+    ax.set_ylabel(r'learned $V_{rest}$', fontsize=32)
     ax.set_xlim([-0.05, 0.9])
     ax.set_ylim([-0.05, 0.9])
     ax.tick_params(axis='both', which='major', labelsize=24)
@@ -7298,11 +7511,11 @@ def compare_gnn_results(config_list, varied_parameter):
         if label == 'clustering accuracy':
             ax.set_ylabel('classification accuracy', fontsize=18)
         elif label == 'weights R²':
-            ax.set_ylabel(r'learned $\widehat{\mathbf{W}}_{ij}\quadR²$', fontsize=18)
+            ax.set_ylabel(r'learned $W_{ij}\quad R²$', fontsize=18)
         elif label == 'tau R²':
-            ax.set_ylabel(r'learned $\widehat{\tau}_i \quad R^2$', fontsize=18)
+            ax.set_ylabel(r'learned $\tau_i \quad R^2$', fontsize=18)
         elif label == 'V_rest R²':
-            ax.set_ylabel(r'learned $\widehat{V}^{rest}_i\quad R^2$', fontsize=18)
+            ax.set_ylabel(r'learned $V^{rest}_i\quad R^2$', fontsize=18)
         ax.set_ylim(0, 1.1)
         if use_log:
             ax.set_xscale('log')
@@ -7877,10 +8090,10 @@ def plot_results_figure(config_file_, config_indices, panel_suffix='domain'):
     # Setup paths
     log_dir = f'log/fly/{config_file_}'
     panels = {
-        'a': f"{log_dir}/results/corrected_comparison.png",
+        'a': f"{log_dir}/results/weights_comparison_corrected.png",
         'b': f"{log_dir}/results/embedding_{config_indices}.png",
-        'c': f"{log_dir}/results/edge_functions_{config_indices}_all.png",
-        'd': f"{log_dir}/results/phi_functions_{config_indices}_domain.png",
+        'c': f"{log_dir}/results/MLP1_{config_indices}.png",
+        'd': f"{log_dir}/results/MLP0_{config_indices}_domain.png",
         'e': f"{log_dir}/results/tau_comparison_{config_indices}.png",
         'f': f"{log_dir}/results/V_rest_comparison_{config_indices}.png"
     }
@@ -8599,21 +8812,21 @@ def get_figures(index):
             fig = plt.figure(figsize=(12, 10))
 
             ax1 = fig.add_subplot(3, 3, 1)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_all.png"
+            panel_pic_path =f"./{log_dir}/results/MLP1_{config_indices}.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
             ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax2 = fig.add_subplot(3, 3, 2)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
+            panel_pic_path =f"./{log_dir}/results/MLP1_{config_indices}_domain.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
             ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax3 = fig.add_subplot(3, 3, 3)
-            panel_pic_path = f"./{log_dir}/results/edge_function_slope_{config_indices}.png"
+            panel_pic_path = f"./{log_dir}/results/MLP1_slope_{config_indices}.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
@@ -8621,7 +8834,7 @@ def get_figures(index):
 
             # Second row
             ax4 = fig.add_subplot(3, 3, 4)
-            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_all.png"
+            panel_pic_path = f"./{log_dir}/results/MLP0_{config_indices}.png"
 
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
@@ -8629,14 +8842,14 @@ def get_figures(index):
             ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax5 = fig.add_subplot(3, 3, 5)
-            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
+            panel_pic_path = f"./{log_dir}/results/MLP0_{config_indices}_domain.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
             ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax6 = fig.add_subplot(3, 3, 6)
-            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_params.png"
+            panel_pic_path = f"./{log_dir}/results/MLP0_{config_indices}_params.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
@@ -8644,7 +8857,7 @@ def get_figures(index):
 
             # Third row
             ax7 = fig.add_subplot(3, 3, 7)
-            panel_pic_path = f"./{log_dir}/results/comparison_raw.png"
+            panel_pic_path = f"./{log_dir}/results/weights_comparison_raw.png"
             if os.path.exists(panel_pic_path):
                 img = imageio.imread(panel_pic_path)
                 plt.imshow(img)
@@ -8654,7 +8867,7 @@ def get_figures(index):
             ax7.text(0.1, 1.01, 'g)', transform=ax7.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax8 = fig.add_subplot(3, 3, 8)
-            panel_pic_path = f"./{log_dir}/results/comparison_rj.png"
+            panel_pic_path = f"./{log_dir}/results/weights_comparison_rj.png"
             if os.path.exists(panel_pic_path):
                 img = imageio.imread(panel_pic_path)
                 plt.imshow(img)
@@ -8664,7 +8877,7 @@ def get_figures(index):
             ax8.text(0.1, 1.01, 'h)', transform=ax8.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax9 = fig.add_subplot(3, 3, 9)
-            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
+            panel_pic_path = f"./{log_dir}/results/weights_comparison_corrected.png"
             if os.path.exists(panel_pic_path):
                 img = imageio.imread(panel_pic_path)
                 plt.imshow(img)
@@ -8694,21 +8907,21 @@ def get_figures(index):
             fig = plt.figure(figsize=(10, 9))
 
             ax1 = fig.add_subplot(3, 3, 1)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_all.png"
+            panel_pic_path =f"./{log_dir}/results/MLP1_{config_indices}.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
             ax1.text(0.1, 1.01, 'a)', transform=ax1.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax2 = fig.add_subplot(3, 3, 2)
-            panel_pic_path =f"./{log_dir}/results/edge_functions_{config_indices}_domain.png"
+            panel_pic_path =f"./{log_dir}/results/MLP1_{config_indices}_domain.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
             ax2.text(0.1, 1.01, 'b)', transform=ax2.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax3 = fig.add_subplot(3, 3, 3)
-            panel_pic_path = f"./{log_dir}/results/edge_function_slope_{config_indices}.png"
+            panel_pic_path = f"./{log_dir}/results/MLP1_slope_{config_indices}.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
@@ -8716,7 +8929,7 @@ def get_figures(index):
 
             # Second row
             ax4 = fig.add_subplot(3, 3, 4)
-            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_all.png"
+            panel_pic_path = f"./{log_dir}/results/MLP0_{config_indices}.png"
 
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
@@ -8724,14 +8937,14 @@ def get_figures(index):
             ax4.text(0.1, 1.01, 'd)', transform=ax4.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax5 = fig.add_subplot(3, 3, 5)
-            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_domain.png"
+            panel_pic_path = f"./{log_dir}/results/MLP0_{config_indices}_domain.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
             ax5.text(0.1, 1.01, 'e)', transform=ax5.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax6 = fig.add_subplot(3, 3, 6)
-            panel_pic_path = f"./{log_dir}/results/phi_functions_{config_indices}_params.png"
+            panel_pic_path = f"./{log_dir}/results/MLP0_{config_indices}_params.png"
             img = imageio.imread(panel_pic_path)
             plt.imshow(img)
             plt.axis('off')
@@ -8739,7 +8952,7 @@ def get_figures(index):
 
             # Third row
             ax7 = fig.add_subplot(3, 3, 7)
-            panel_pic_path = f"./{log_dir}/results/comparison_raw.png"
+            panel_pic_path = f"./{log_dir}/results/weights_comparison_raw.png"
             if os.path.exists(panel_pic_path):
                 img = imageio.imread(panel_pic_path)
                 plt.imshow(img)
@@ -8749,7 +8962,7 @@ def get_figures(index):
             ax7.text(0.1, 1.01, 'g)', transform=ax7.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax8 = fig.add_subplot(3, 3, 8)
-            panel_pic_path = f"./{log_dir}/results/comparison_rj.png"
+            panel_pic_path = f"./{log_dir}/results/weights_comparison_rj.png"
             if os.path.exists(panel_pic_path):
                 img = imageio.imread(panel_pic_path)
                 plt.imshow(img)
@@ -8759,7 +8972,7 @@ def get_figures(index):
             ax8.text(0.1, 1.01, 'h)', transform=ax8.transAxes, fontsize=18, va='bottom', ha='right')
 
             ax9 = fig.add_subplot(3, 3, 9)
-            panel_pic_path = f"./{log_dir}/results/corrected_comparison.png"
+            panel_pic_path = f"./{log_dir}/results/weights_comparison_corrected.png"
             if os.path.exists(panel_pic_path):
                 img = imageio.imread(panel_pic_path)
                 plt.imshow(img)
@@ -8809,8 +9022,14 @@ if __name__ == '__main__':
 
     # config_list = ['signal_N11_1_3_1'] 
     # config_list = ['signal_N11_2_1_3'] # 'signal_N11_1_3'] # 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
-    # config_list = ['signal_N11_1_8_2']      
-    config_list = ['signal_N11_2_1_5']
+    # config_list = ['signal_N11_1_8_1', 'signal_N11_1_8_2']      
+    # config_list = ['signal_N11_2_1_5']
+
+    # config_list = [ 'fly_N9_44_26', 'fly_N9_62_0', 'fly_N9_51_2', 'fly_N9_62_1']
+
+    # config_list = ['fly_N9_44_21', 'fly_N9_44_6', 'fly_N9_22_10', 'fly_N9_44_3']
+
+    config_list = ['fly_N9_63_1', 'fly_N9_62_1']
 
     for config_file_ in config_list:
         print(' ')

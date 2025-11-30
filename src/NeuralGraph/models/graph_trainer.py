@@ -3824,7 +3824,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     target_frames = n_rollout_frames
 
     if 'full' in test_mode:
-        target_frames = n_frames
+        target_frames = simulation_config.n_frames
         step = 25000
     else:
         step = 10
