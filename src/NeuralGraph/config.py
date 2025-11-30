@@ -48,11 +48,7 @@ class SimulationConfig(BaseModel):
     tile_flip_prob: float = 0.05      # per-frame random flip probability
     tile_seed: int = 42
 
-    n_grid: int = 128
-
     n_nodes: Optional[int] = None
-    n_node_types: Optional[int] = None
-    node_coeff_map: Optional[str] = None
     node_value_map: Optional[str] = "input_data/pattern_Null.tif"
 
     adjacency_matrix: str = ""
@@ -89,7 +85,6 @@ class SimulationConfig(BaseModel):
 
     pos_init: str = "uniform"
     dpos_init: float = 0
-    diffusion_coefficients: list[list[float]] = None
 
 
 

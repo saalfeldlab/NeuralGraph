@@ -248,12 +248,7 @@ def init_mesh(config, device):
         case '' :
             node_value = torch.zeros((n_nodes, 2), device=device)
 
-    # i0 = imread(f'graphs_data/{node_type_map}')
-    # values = i0[(to_numpy(x_mesh[:, 0]) * 255).astype(int), (to_numpy(y_mesh[:, 0]) * 255).astype(int)]
-    # if np.max(values) > 0:
-    #     values = np.round(values / np.max(values) * (simulation_config.n_node_types-1))
-    # type_mesh = torch.tensor(values, device=device)
-    # type_mesh = type_mesh[:, None]
+
 
     type_mesh = torch.zeros((n_nodes, 1), device=device)
 
