@@ -726,11 +726,7 @@ def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], mod
                 embedding_ = model_a * torch.ones((1000, dimension), device=device)
 
         if update_type == 'NA':
-<<<<<<< HEAD
             in_features = get_in_features(rr=rr, embedding=embedding_, model=model, model_name=config_model, max_radius=max_radius) # noqa: F821
-=======
-            in_features = get_in_features(rr=rr, embedding=embedding_, model=model, model_name=config_model, max_radius=max_radius) #noqa: F821
->>>>>>> 03483cb (fix instances of evolver.time_units)
         else:
             in_features = get_in_features_update(rr=rr[:, None], embedding=embedding_, model=model, device=device)
         with torch.no_grad():
