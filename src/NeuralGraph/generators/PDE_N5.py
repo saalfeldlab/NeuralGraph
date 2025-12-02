@@ -65,19 +65,19 @@ class PDE_N5(pyg.nn.MessagePassing):
         return T[edge_index_i, edge_index_j][:, None]  * (self.phi((u_j-b_j)/t_i) - u_j*l_j/50) * field_i
 
 
-    def func(self, u, type_i, type_j, function):
+    def func(self, u, type, function):
 
         if function=='phi':
 
-            t = self.p[type_i, 3:4]
-            l = torch.log(self.p[type_j, 3:4])
+            t = self.p[type, 3:4]
+            l = torch.log(self.p[type, 3:4])
             if self.p.shape[1] < 5:
                 b = torch.zeros_like(t)
             else:
-                b = self.p[type_j, 4:5]
+                b = self.p[type, 4:5]
 
             return self.phi((u-b)/t) - u*l/50
 
         elif function=='update':
-            _g, s, c = self.p[type_i, 0:1], self.p[type_i, 1:2], self.p[type_i, 2:3]
+            _g, s, c = self.p[type, 0:1], self.p[type, 1:2], self.p[type, 2:3]
             return -c * u + s * torch.tanh(u)
