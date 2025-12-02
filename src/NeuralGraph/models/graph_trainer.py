@@ -4419,7 +4419,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             name_fontsize = 10 if len(neuron_plot_indices) > 50 else 18
 
             # Plot ground truth (green, thick)
-            for plot_idx, i in enumerate(trange(len(neuron_plot_indices), ncols=50, desc=f"Plotting {fig_suffix}")):
+            for plot_idx, i in enumerate(trange(len(neuron_plot_indices), ncols=100, desc=f"plotting {fig_suffix}")):
                 neuron_idx = neuron_plot_indices[i]
                 baseline = np.mean(true_slice[neuron_idx])
                 ax.plot(true_slice[neuron_idx] - baseline + plot_idx * step_v, linewidth=lw, c='green', alpha=0.9,

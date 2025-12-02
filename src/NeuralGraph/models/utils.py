@@ -717,13 +717,10 @@ def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], mod
         else:
             model_a = model.a[n, :]
 
-        if config.training.do_tracking:
-            embedding_ = model_a * torch.ones((1000, dimension), device=device)
+        if (update_type != 'NA') & model.embedding_trial:
+            embedding_ = torch.cat((model_a, model.b[0].clone().detach().repeat(n_neurons, 1)), dim=1) * torch.ones((1000, 2*dimension), device=device)
         else:
-            if (update_type != 'NA') & model.embedding_trial:
-                embedding_ = torch.cat((model_a, model.b[0].clone().detach().repeat(n_neurons, 1)), dim=1) * torch.ones((1000, 2*dimension), device=device)
-            else:
-                embedding_ = model_a * torch.ones((1000, dimension), device=device)
+            embedding_ = model_a * torch.ones((1000, dimension), device=device)
 
         if update_type == 'NA':
             in_features = get_in_features(rr=rr, embedding=embedding_, model=model, model_name=config_model, max_radius=max_radius) # noqa: F821

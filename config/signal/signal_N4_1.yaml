@@ -1,4 +1,4 @@
-description: 'test neuron_dependent functions'
+description: 'test neuron_dependent functions   batch 8'
 dataset: 'signal_N4_1'
 
 simulation:
@@ -46,18 +46,18 @@ plotting:
     ylim: [-8,8]
 
 training:
-    n_epochs: 20
-    batch_size: 1
+    device: 'auto'
+    n_epochs: 10
+    batch_size: 8
     small_init_batch_size: False
     n_runs: 2
 
     sparsity: 'replace_embedding_function'
-    rotation_augmentation: False
     data_augmentation_loop: 100
     cluster_method: 'distance_embedding'
     cluster_distance_threshold: 0.2
     fix_cluster_embedding: True
-    device: 'auto'
+
     sparsity: 'replace_embedding_function'
     sparsity_freq: 4
 
@@ -65,6 +65,7 @@ training:
     learning_rate_start: 5.0E-5
     learning_rate_embedding_start: 5.0E-4
 
-    coeff_edge_diff: 100
+    init_training_single_type: True
 
+    coeff_edge_diff: 100
     coeff_W_L1: 1.0E-5

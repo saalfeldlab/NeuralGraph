@@ -36,8 +36,8 @@ if __name__ == "__main__":
         else:
             best_model = None
     else:
-        best_model = None
-        task = 'train'  #, 'train', 'test', 'generate', 'NGP'
+        best_model = ''
+        task = 'test'  #, 'train', 'test', 'generate', 'NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -57,9 +57,7 @@ if __name__ == "__main__":
         
         # config_list = ['zebra_N10_34_1']
 
-
-
-        config_list = ['fly_N9_64_2_1']
+        # config_list = ['fly_N9_64_2_1']
 
         # config_list = ['fly_N9_22_10', 'fly_N9_44_6', 'fly_N9_62_1']
 
@@ -69,7 +67,7 @@ if __name__ == "__main__":
 
         # config_list = ['fly_N9_63_1']
 
-        # config_list = ['signal_N4_4']
+        config_list = ['signal_N11_2_1_3']
 
 
 
@@ -112,7 +110,7 @@ if __name__ == "__main__":
             config.training.noise_model_level = 0.0
             
             if 'fly' in config_file_:
-                config.simulation.visual_input_type = 'DAVIS'   #'DAVIS'  
+                config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'  
 
             data_test(
                 config=config,
@@ -121,10 +119,10 @@ if __name__ == "__main__":
                 verbose=False,
                 best_model='best',   
                 run=0,
-                test_mode="'test_ablation_50",
+                test_mode="",
                 sample_embedding=False,
                 step=10,
-                n_rollout_frames=2000,
+                n_rollout_frames=10000,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
