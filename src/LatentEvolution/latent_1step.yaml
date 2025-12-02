@@ -1,4 +1,5 @@
-# Default configuration for the Latent Space Voltage Model
+# Default configuration for 1-step Latent Space Model (frozen)
+# Activity data is observed every time step; this is the original behavior
 
 latent_dims: 256 # Dimensionality of latent space
 num_neurons: 13741 # Number of observed neurons (input/output size)
@@ -19,12 +20,9 @@ decoder_params:
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 evolver_params:
-  time_units: 1 # Number of time steps to evolve per forward pass
   num_hidden_layers: 1 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
   l1_reg_loss: 0.0
-  # RETIRED: learnable_diagonal was ineffective and is no longer supported (must be false)
-  learnable_diagonal: false
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 stimulus_encoder_params:
@@ -35,6 +33,7 @@ stimulus_encoder_params:
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 training:
+  time_units: 1 # Activity observed every step; evolver called once per forward pass
   simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 100
   epochs: 200 # Total number of epochs

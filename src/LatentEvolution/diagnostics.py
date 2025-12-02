@@ -119,35 +119,6 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
     return fig
 
 
-def compute_per_neuron_mse(
-    model: LatentModel,
-    data: torch.Tensor,
-    stim: torch.Tensor,
-    time_units: int,
-) -> np.ndarray:
-    """
-    Compute per-neuron MSE between model predictions and targets.
-
-    Args:
-        model: The trained LatentModel instance
-        data: Data tensor of shape (T, N) where N is number of neurons
-        stim: Stimulus tensor of shape (T, S)
-        time_units: Number of time steps to evolve
-
-    Returns:
-        per_neuron_mse: Array of shape (N,) with MSE for each neuron
-    """
-    with torch.no_grad():
-        x_t = data[:-time_units]
-        stim_t = stim[:-time_units]
-        x_t_plus = data[time_units:]
-        predictions = model(x_t, stim_t)
-
-        # Compute MSE per neuron (average over time dimension)
-        per_neuron_mse = ((predictions - x_t_plus) ** 2).mean(dim=0).cpu().numpy()
-
-    return per_neuron_mse
-
 def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: int) -> tuple[plt.Figure, dict[str, float]]:
     print("    Computing statistics across starting points and neurons...")
     mse_avg_over_starts = mse_array.mean(axis=0)  # (n_steps, n_neurons)
@@ -463,7 +434,6 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
 
     # Encode initial state to latent space
     current_latent = model.encoder(initial_state.unsqueeze(0))  # shape (1, latent_dim)
-    latent_dim = current_latent.shape[1]
 
     # Encode all stimulus
     stimulus_latent = model.stimulus_encoder(stimulus)  # shape (n_steps, stim_latent_dim)
@@ -478,14 +448,11 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
         # Get the stimulus for this time step
         current_stimulus_latent = stimulus_latent[t:t+1]  # shape (1, stim_latent_dim)
 
-        # Concatenate latent state and stimulus
-        evolver_input = torch.cat([current_latent, current_stimulus_latent], dim=1)
-
         # Evolve one step in latent space
-        evolver_output = model.evolver(evolver_input)
+        evolver_output = model.evolver(current_latent, current_stimulus_latent)
 
         # Extract new latent state
-        current_latent = evolver_output[:, :latent_dim]
+        current_latent = evolver_output
 
         latent_trace.append(current_latent.squeeze(0))
 

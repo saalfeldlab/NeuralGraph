@@ -48,10 +48,13 @@
       // Optional: pass args here if your script needs them
       "args": [
         "debugme",
+        "latent_1step.yaml",
         "--training.epochs",
         "1",
         "--training.data-passes-per-epoch",
-        "1"
+        "1",
+        "--training.train-step",
+        "train_step_nocompile"
       ]
     }
   ]

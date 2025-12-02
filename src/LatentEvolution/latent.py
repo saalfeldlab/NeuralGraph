@@ -18,11 +18,9 @@ import yaml
 import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-import tensorstore as ts
-
 from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
 from LatentEvolution.gpu_stats import GPUMonitor
-from LatentEvolution.diagnostics import run_validation_diagnostics, compute_per_neuron_mse, PlotMode
+from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
 from LatentEvolution.eed_model import (
     MLP,
@@ -68,6 +66,11 @@ class ProfileConfig(BaseModel):
 
 
 class TrainingConfig(BaseModel):
+    time_units: int = Field(
+        1,
+        description="Observation interval: activity data available every N steps. Evolver unrolled N times during training.",
+        json_schema_extra={"short_name": "tu"}
+    )
     epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
     batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
     learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
@@ -261,8 +264,8 @@ class LatentModel(nn.Module):
     def forward(self, x_t, stim_t):
         proj_t = self.encoder(x_t)
         proj_stim_t = self.stimulus_encoder(stim_t)
-        proj_t_next = self.evolver(torch.concatenate([proj_t, proj_stim_t], dim=1))
-        x_t_next = self.decoder(proj_t_next[:, :-proj_stim_t.shape[1]])
+        proj_t_next = self.evolver(proj_t, proj_stim_t)
+        x_t_next = self.decoder(proj_t_next)
         return x_t_next
 
 
@@ -272,7 +275,8 @@ class LatentModel(nn.Module):
 
 def make_batches_random(
     data: torch.Tensor, stim: torch.Tensor, batch_size: int, time_units: int
-) -> Iterator[tuple[tuple[torch.Tensor, torch.Tensor], torch.Tensor]]:
+) -> Iterator[torch.Tensor]:
+    """Randomly sample `batch_size` starting points."""
     total_time = data.shape[0]
     if total_time <= time_units:
         raise ValueError(
@@ -282,11 +286,7 @@ def make_batches_random(
         start_indices = torch.randint(
             low=0, high=total_time - time_units, size=(batch_size,), device=data.device
         )
-        x_t = data[start_indices]
-        stim_t = stim[start_indices]
-
-        x_t_plus = data[start_indices + time_units]
-        yield (x_t, stim_t), x_t_plus
+        yield start_indices
 
 
 # -------------------------------------------------------------------
@@ -347,13 +347,19 @@ def get_device() -> torch.device:
         return torch.device("cpu")
 
 
-def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelParams):
+def train_step_nocompile(
+        model: LatentModel,
+        train_data: torch.Tensor,
+        train_stim: torch.Tensor,
+        batch_indices: torch.Tensor,
+        cfg: ModelParams
+    ):
+
     # Get loss function from config
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss
-
-    reg_loss = torch.tensor(0.0, device=x_t.device)
+    reg_loss = torch.tensor(0.0, device=train_data.device)
     if cfg.encoder_params.l1_reg_loss > 0.:
         for p in model.encoder.parameters():
             reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
@@ -364,19 +370,43 @@ def train_step_nocompile(model: LatentModel, x_t, stim_t, x_t_plus, cfg: ModelPa
         for p in model.evolver.parameters():
             reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
 
-    # evolution loss
-    output = model(x_t, stim_t)
-    evolve_loss = loss_fn(output, x_t_plus)
+
+    # b = batch size
+    # N = neurons
+    # L = latent dim for activity
+    # Ls = latent dim for stimulus
+    dt = cfg.training.time_units
+    x_t = train_data[batch_indices] # b x N
+    proj_t = model.encoder(x_t) # b x L
+
+    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(dt, device=train_data.device), dim=1)
+    # dt x b x 1736
+    stim_t = train_stim[stim_indices, :]
+    dim_stim = train_stim.shape[1]
+    dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
+    # dt x b x Ls
+    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((dt, -1, dim_stim_latent))
+
+    # prediction target
+    x_t_plus = train_data[batch_indices + dt]
 
     # reconstruction loss
-    recon = model.decoder(model.encoder(x_t))
-    recon_loss = loss_fn(recon, x_t)
+    recon_t = model.decoder(proj_t)
+    recon_loss = loss_fn(recon_t, x_t)
+
+    # evolution loss
+    # evolve proj_t by dt
+    for i in range(dt):
+        proj_t = model.evolver(proj_t, proj_stim_t[i])
+    pred_t_plus = model.decoder(proj_t)
+    evolve_loss = loss_fn(pred_t_plus, x_t_plus)
+
 
     # LP norm penalty on prediction errors (for outlier control)
     lp_norm_loss = torch.tensor(0.0, device=x_t.device)
     if cfg.training.lp_norm_weight > 0.:
-        lp_norm_evolve = torch.norm(output - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
-        lp_norm_recon = torch.norm(recon - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_evolve = torch.norm(pred_t_plus - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_recon = torch.norm(recon_t - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
 
     loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
@@ -429,44 +459,6 @@ def load_dataset(
     test_stim = torch.from_numpy(test_stim_np).to(device)
 
     return train_data, val_data, test_data, train_stim, val_stim, test_stim, sim_data.neuron_data
-
-
-def evaluate_dataset(
-    model: LatentModel,
-    data: torch.Tensor,
-    stim: torch.Tensor,
-    time_units: int,
-) -> dict[str, float]:
-    """
-    Evaluate model on a dataset.
-
-    Args:
-        model: Trained LatentModel
-        data: Data tensor (time x neurons)
-        stim: Stimulus tensor (time x stimulus_dims)
-        time_units: Number of time steps to predict forward
-
-    Returns:
-        Dictionary with evaluation metrics
-    """
-    model.eval()
-    with torch.no_grad():
-        x_t = data[:-time_units]
-        stim_t = stim[:-time_units]
-        x_t_plus = data[time_units:]
-
-        predictions = model(x_t, stim_t)
-        mse_loss = torch.nn.functional.mse_loss(predictions, x_t_plus).item()
-
-        # Baseline: constant model (no change prediction)
-        constant_model_mse = torch.nn.functional.mse_loss(
-            data[:-time_units], data[time_units:]
-        ).item()
-
-    return {
-        "mse_loss": mse_loss,
-        "constant_model_mse": constant_model_mse,
-    }
 
 
 # -------------------------------------------------------------------
@@ -536,13 +528,13 @@ def train(cfg: ModelParams, run_dir: Path):
 
         metrics = {
             "val_loss_constant_model": torch.nn.functional.mse_loss(
-                val_data[: -cfg.evolver_params.time_units], val_data[cfg.evolver_params.time_units:]
+                val_data[: -cfg.training.time_units], val_data[cfg.training.time_units:]
             ).item(),
             "train_loss_constant_model": torch.nn.functional.mse_loss(
-                train_data[: -cfg.evolver_params.time_units], train_data[cfg.evolver_params.time_units:]
+                train_data[: -cfg.training.time_units], train_data[cfg.training.time_units:]
             ).item(),
             "test_loss_constant_model": torch.nn.functional.mse_loss(
-                test_data[: -cfg.evolver_params.time_units], test_data[cfg.evolver_params.time_units:]
+                test_data[: -cfg.training.time_units], test_data[cfg.training.time_units:]
             ).item(),
         }
         print(f"Constant model loss: {metrics}")
@@ -552,39 +544,6 @@ def train(cfg: ModelParams, run_dir: Path):
         writer.add_scalar("Baseline/val_loss_constant_model", metrics["val_loss_constant_model"], 0)
         writer.add_scalar("Baseline/test_loss_constant_model", metrics["test_loss_constant_model"], 0)
 
-        # --- TensorStore setup for per-neuron MSE logging ---
-        tensorstore_dir = run_dir / "per_neuron_mse"
-        tensorstore_dir.mkdir(exist_ok=True)
-        print(f"TensorStore per-neuron MSE logs will be saved to {tensorstore_dir}")
-
-        # Create TensorStore datasets for train and validation MSE per neuron
-        train_mse_store = ts.open({
-            'driver': 'zarr',
-            'kvstore': {'driver': 'file', 'path': str(tensorstore_dir / 'train_mse_per_neuron.zarr')},
-            'metadata': {
-                'compressor': {'id': 'blosc', 'cname': 'lz4', 'clevel': 5, 'shuffle': 1},
-                'dtype': '<f4',  # float32
-                'shape': [cfg.training.epochs, cfg.num_neurons],
-                'chunks': [1, cfg.num_neurons],  # One epoch per chunk
-            },
-            'create': True,
-            'delete_existing': True,
-        }).result()
-
-        val_mse_store = ts.open({
-            'driver': 'zarr',
-            'kvstore': {'driver': 'file', 'path': str(tensorstore_dir / 'val_mse_per_neuron.zarr')},
-            'metadata': {
-                'compressor': {'id': 'blosc', 'cname': 'lz4', 'clevel': 5, 'shuffle': 1},
-                'dtype': '<f4',  # float32
-                'shape': [cfg.training.epochs, cfg.num_neurons],
-                'chunks': [1, cfg.num_neurons],  # One epoch per chunk
-            },
-            'create': True,
-            'delete_existing': True,
-        }).result()
-        print("TensorStore datasets created for per-neuron MSE logging")
-
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
@@ -592,8 +551,8 @@ def train(cfg: ModelParams, run_dir: Path):
         batches_per_epoch = (
             max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
         )
-        batch_iter = make_batches_random(
-            train_data, train_stim, cfg.training.batch_size, cfg.evolver_params.time_units
+        batch_indices_iter = make_batches_random(
+            train_data, train_stim, cfg.training.batch_size, cfg.training.time_units
         )
 
         # --- Initialize GPU monitoring ---
@@ -650,8 +609,8 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
-                (x_t, stim_t), x_t_plus = next(batch_iter)
-                loss_tuple = train_step_fn(model, x_t, stim_t, x_t_plus, cfg)
+                batch_indices = next(batch_indices_iter)
+                loss_tuple = train_step_fn(model, train_data, train_stim, batch_indices, cfg)
                 loss_tuple[0].backward()
                 optimizer.step()
                 losses.accumulate(*loss_tuple)
@@ -661,24 +620,9 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Validation phase ----
             model.eval()
             with torch.no_grad():
-                val_x_t = val_data[: -cfg.evolver_params.time_units]
-                val_stim_t = val_stim[: -cfg.evolver_params.time_units]
-                val_x_t_plus = val_data[cfg.evolver_params.time_units :]
-                val_loss = torch.nn.functional.mse_loss(
-                    model(val_x_t, val_stim_t), val_x_t_plus
-                ).item()
-
-                # Compute per-neuron MSE for train and validation
-                train_mse_per_neuron = compute_per_neuron_mse(
-                    model, train_data, train_stim, cfg.evolver_params.time_units
-                )
-                val_mse_per_neuron = compute_per_neuron_mse(
-                    model, val_data, val_stim, cfg.evolver_params.time_units
-                )
-
-                # Log to TensorStore (async, non-blocking)
-                train_mse_store[epoch] = train_mse_per_neuron
-                val_mse_store[epoch] = val_mse_per_neuron
+                start_indices = torch.arange(val_data.shape[0] - cfg.training.time_units, device=device)
+                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, cfg)
+                val_loss = loss_tuple[0].item()
 
             model.train()
 
@@ -759,12 +703,9 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Final test evaluation ---
         model.eval()
         with torch.no_grad():
-            test_x_t = test_data[: -cfg.evolver_params.time_units]
-            test_stim_t = test_stim[: -cfg.evolver_params.time_units]
-            test_x_t_plus = test_data[cfg.evolver_params.time_units :]
-            test_loss = torch.nn.functional.mse_loss(
-                model(test_x_t, test_stim_t), test_x_t_plus
-            ).item()
+            start_indices = torch.arange(test_data.shape[0] - cfg.training.time_units, device=device)
+            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, cfg)
+            test_loss = loss_tuple[0].item()
 
         print(f"Final Test Loss: {test_loss:.4e}")
 
@@ -890,22 +831,38 @@ def train(cfg: ModelParams, run_dir: Path):
 # -------------------------------------------------------------------
 
 if __name__ == "__main__":
-    msg = "First argument should be an expt_code that turns into a directory. \
-expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
-`latent.py dummy_code --help`."
-    if len(sys.argv) == 1:
+    msg = """Usage: python latent.py <expt_code> <default_config> [overrides...]
+
+Arguments:
+  expt_code       Experiment code (must match [A-Za-z0-9_]+)
+  default_config  Base config file (e.g., latent_1step.yaml, latent_5step.yaml)
+
+Example:
+  python latent.py my_experiment latent_1step.yaml --training.epochs 100
+
+To view available overrides:
+  python latent.py dummy latent_1step.yaml --help"""
+
+    if len(sys.argv) < 3:
         print(msg)
         sys.exit(1)
 
-    # Extract expt_code from command line
+    # Extract positional arguments
     expt_code = sys.argv[1]
+    default_yaml = sys.argv[2]
 
     if not re.match("[A-Za-z0-9_]+", expt_code):
-        print(msg)
+        print(f"Error: expt_code must match [A-Za-z0-9_]+, got: {expt_code}")
         sys.exit(1)
 
-    # Create argument list for tyro (excluding expt_code)
-    tyro_args = sys.argv[2:]
+    # Resolve default path (relative to this file's directory)
+    default_path = Path(__file__).resolve().parent / default_yaml
+    if not default_path.exists():
+        print(f"Error: Default config file not found: {default_path}")
+        sys.exit(1)
+
+    # Create argument list for tyro (excluding expt_code and default_config)
+    tyro_args = sys.argv[3:]
 
     commit_hash = get_git_commit_hash()
 
@@ -922,9 +879,6 @@ expt_code should match `[A-Za-z0-9_]+`. To view available overrides run \
         out.write("\n".join(sys.argv))
 
     # Load default YAML
-    default_path = (
-        Path(__file__).resolve().parent / "latent_default.yaml"
-    )
     with open(default_path, "r") as f:
         data = yaml.safe_load(f)
     default_cfg = ModelParams(**data)

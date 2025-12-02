@@ -1,0 +1,74 @@
+# Default configuration for 5-step Latent Space Model
+# Activity data is observed every 5 time steps; stimulus available at every step
+
+latent_dims: 256 # Dimensionality of latent space
+num_neurons: 13741 # Number of observed neurons (input/output size)
+use_batch_norm: False
+# Activation function from torch.nn (e.g., ReLU, GELU, Tanh, Mish)
+activation: ReLU
+
+encoder_params:
+  num_hidden_layers: 1 # Layers in the encoder MLP
+  num_hidden_units: 256 # Hidden units per layer
+  l1_reg_loss: 0.0
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+
+decoder_params:
+  num_hidden_layers: 1 # Layers in the decoder MLP
+  num_hidden_units: 256 # Hidden units per layer
+  l1_reg_loss: 0.0
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+
+evolver_params:
+  num_hidden_layers: 1 # Hidden layers in the evolver network
+  num_hidden_units: 256 # Hidden units per layer in the evolver
+  l1_reg_loss: 0.0
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+
+stimulus_encoder_params:
+  num_input_dims: 1736
+  num_hidden_layers: 3
+  num_hidden_units: 64
+  num_output_dims: 64
+  use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+
+training:
+  time_units: 5  # Activity observed every 5 steps; evolver unrolled 5 times
+  simulation_config: "fly_N9_62_0_calcium"
+  data_passes_per_epoch: 100
+  epochs: 200 # Total number of epochs
+  save_best_checkpoint: True # Save model with lowest validation loss
+  save_checkpoint_every_n_epochs: 0
+  diagnostics_freq_epochs: 10 # Run ~ 13s of diagnostics every n epochs
+  batch_size: 256 # Samples per batch
+  learning_rate: 0.00001 # Learning rate for optimizer
+  optimizer: Adam # Optimizer name from torch.optim
+  train_step: train_step
+  column_to_model: "VOLTAGE" # Options: CALCIUM, VOLTAGE, FLUORESCENCE, STIMULUS
+  use_tf32_matmul: true
+  seed: 42
+  # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
+  loss_function: mse_loss
+  # LP norm penalty for outlier control
+  lp_norm_weight: 0.0 # Weight for LP norm penalty on prediction errors
+  lp_norm_p: 8 # P value for LP norm (higher values penalize outliers more)
+
+  data_split:
+    train_start: 4000 # Exclude burn-in
+    train_end: 54000
+    validation_start: 54000
+    validation_end: 64000
+    test_start: 54000
+    test_end: 64000
+
+# Cross-dataset validation (evaluates trained model on different datasets)
+cross_validation_configs:
+  - simulation_config: "fly_N9_62_0_optical_flow_calcium"
+    name: "optical_flow"
+    data_split: # this is only for validation so training/validation/test are the same
+      train_start: 5000
+      train_end: 15000
+      validation_start: 5000
+      validation_end: 15000
+      test_start: 5000
+      test_end: 15000
