@@ -1,5 +1,8 @@
 {
   "permissions": {
+    "autoApprove": {
+      "tools": ["Grep", "Read", "Glob"]
+    },
     "allow": [
       "Read(/workspace/**)",
       "Edit(/workspace/**)",

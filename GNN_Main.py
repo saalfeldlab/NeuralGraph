@@ -10,6 +10,7 @@ from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
+from GNN_PlotFigure import data_plot
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
@@ -37,7 +38,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'generate'  #, 'train', 'test', 'generate', 'NGP'
+        task = 'test plot'  #, 'train', 'test', 'generate', 'NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -45,13 +46,10 @@ if __name__ == "__main__":
         #                'fly_N9_64_4_1', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_4'
         #                ]  
 
-        # config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
 
-        # config_list = ['fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18']
 
-        # config_list = ['fly_N9_62_5_9_5', 'fly_N9_62_5_19_5', 'fly_N9_62_5_19_6']
+        config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
 
-        # config_list = ['fly_N9_62_22_1', 'fly_N9_62_22_2', 'fly_N9_62_22_3', 'fly_N9_62_22_4', 'fly_N9_62_22_5', 'fly_N9_62_22_6', 'fly_N9_62_22_7', 'fly_N9_62_22_8', 'fly_N9_62_22_9', 'fly_N9_62_22_10']
 
         # config_list = ['fly_N9_62_23_1']
         
@@ -67,7 +65,7 @@ if __name__ == "__main__":
 
         # config_list = ['fly_N9_63_1']
 
-        config_list = ['signal_N5_1']
+        # config_list = ['fly_N9_62_23_1']
 
 
 
@@ -122,11 +120,16 @@ if __name__ == "__main__":
                 test_mode="",
                 sample_embedding=False,
                 step=10,
-                n_rollout_frames=10000,
+                n_rollout_frames=2000,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,
             )
+
+        if 'plot' in task:
+            folder_name = './log/' + pre_folder + '/tmp_results/'
+            os.makedirs(folder_name, exist_ok=True)
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
 
         if task == 'NGP':
             # Use new modular NGP trainer pipeline

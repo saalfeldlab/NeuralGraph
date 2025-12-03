@@ -1695,7 +1695,10 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss_regul += regul_total_this_iter
 
 
-                if (N < 10000) & (N % 50 == 0) & hasattr(model, 'W') :
+                if (N < 10000) & (N % 2000 == 0) & hasattr(model, 'W') :
+
+                    plt.style.use('dark_background')
+
                     row_start = 1736
                     row_end = 1736 + 217 * 2  # 2160   L1 L2
                     col_start = 0
@@ -1705,12 +1708,10 @@ def data_train_flyvis(config, erase, best_model, device):
                     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
                     # Learned connectivity
                     ax1 = sns.heatmap(to_numpy(learned_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
-                                        cbar_kws={'fraction': 0.046}, ax=ax)
+                                        cbar=False, ax=ax)
                     ax.set_title('learned connectivity', fontsize=24)
                     ax.set_xlabel('columns [0:434] (R1 R2)', fontsize=18)
                     ax.set_ylabel('rows [1736:2160] (L1 L2)', fontsize=18)
-                    cbar1 = ax1.collections[0].colorbar
-                    cbar1.ax.tick_params(labelsize=16)
                     plt.tight_layout()
                     plt.savefig(f'{log_dir}/results/connectivity_comparison_R_to_L_{N:04d}.png', dpi=150, bbox_inches='tight')
                     plt.close()
@@ -4523,6 +4524,9 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
             ax.set_xticklabels([start_frame, end_frame//2, end_frame], fontsize=16)
             ax.set_xlabel('frame', fontsize=20)
             ax.set_xlim([-50, end_frame - start_frame + 100])
+
+            print([-50, end_frame - start_frame + 100])
+
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
             ax.spines['left'].set_visible(False)

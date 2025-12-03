@@ -5981,22 +5981,28 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                 for batch in batch_loader:
                     pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
 
+            # Extract features and compute gradient of lin_phi w.r.t. msg
             v = in_features[:, 0:1].clone().detach()
             embedding = in_features[:, 1:3].clone().detach()
             msg = in_features[:, 3:4].clone().detach()
             excitation = in_features[:, 4:5].clone().detach()
 
+            # Re-enable gradients (may have been disabled by data_test)
+            torch.set_grad_enabled(True)
+
+            # Enable gradient tracking for msg
             msg.requires_grad_(True)
             # Concatenate input features for the final layer
-            in_features = torch.cat([v, embedding, msg, excitation], dim=1)
-            out = model.lin_phi(in_features)
+            in_features_grad = torch.cat([v, embedding, msg, excitation], dim=1)
+            # Run lin_phi outside no_grad context to build computation graph
+            out = model.lin_phi(in_features_grad)
 
             grad_msg = torch.autograd.grad(
                 outputs=out,
                 inputs=msg,
                 grad_outputs=torch.ones_like(out),
                 retain_graph=True,
-                create_graph=True  # optional, only if you want to compute higher-order grads later
+                create_graph=False
             )[0]
 
             # print (f'grad_msg shape: {grad_msg.shape}')
@@ -6148,7 +6154,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
 
             # Plot connectivity matrix comparison
-
+            print('plot connectivity matrix comparison')
             row_start = 1736
             row_end = 1736 + 217 * 2  # 2160   L1 L2
             col_start = 0
@@ -9073,11 +9079,13 @@ if __name__ == '__main__':
 
     # config_list = [ 'fly_N9_44_26', 'fly_N9_62_0', 'fly_N9_51_2', 'fly_N9_62_1']
 
-    # config_list = ['fly_N9_44_21', 'fly_N9_44_6', 'fly_N9_22_10', 'fly_N9_44_3']
+    # config_list = ['fly_N9_22_10', 'fly_N9_44_6', 'fly_N9_44_21', 'fly_N9_44_3']
 
     # config_list = ['fly_N9_63_1', 'fly_N9_62_1']
 
-    config_list = ['signal_N4_1','signal_N4_2']
+    # config_list = ['signal_N11_1_8_3']
+
+    config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
 
     for config_file_ in config_list:
         print(' ')
