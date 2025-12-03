@@ -1,4 +1,4 @@
-description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective   recurrent_training: True  time_step: 4  20 epochs BASELINE LR"
+description: "Neural ODE training test t+2, adjoint method for memory-efficient backprop"
 dataset: "fly_N9_62_1"
 
 simulation:
@@ -46,15 +46,19 @@ training:
   n_runs: 1
   device: "auto"
 
-  recurrent_training: True
-  time_step: 4
+  neural_ODE_training: True
+  time_step: 2
+  ode_method: "euler"
+  ode_rtol: 1.0E-4
+  ode_atol: 1.0E-5
+  ode_adjoint: True
 
-  batch_size: 1
+  batch_size: 16
   batch_ratio: 1
 
   sparsity: "none"
   rotation_augmentation: False
-  data_augmentation_loop: 25
+  data_augmentation_loop: 50
 
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4

@@ -1,5 +1,5 @@
-description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective coeff_edge_norm: 1"
-dataset: "fly_N9_62_50"
+description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective   recurrent_training: True  time_step: 8  20 epochs coeff_W_L2: 0.1 update stimuli  batch 16"
+dataset: "fly_N9_62_1"
 
 simulation:
   connectivity_file: "to be specified"
@@ -42,18 +42,19 @@ plotting:
   ylim: [-100, 100]
 
 training:
-  n_epochs: 10
+  n_epochs: 20
   n_runs: 1
   device: "auto"
 
-  recurrent_training: False
-  batch_size: 1
+  recurrent_training: True
+  time_step: 8
+
+  batch_size: 16
   batch_ratio: 1
-  small_init_batch_size: False
 
   sparsity: "none"
   rotation_augmentation: False
-  data_augmentation_loop: 25
+  data_augmentation_loop: 50
 
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
@@ -64,7 +65,7 @@ training:
   coeff_edge_diff: 500
   coeff_update_u_diff: 0
   coeff_update_msg_diff: 0
-  coeff_edge_norm: 1
+  coeff_edge_norm: 1.0
 
   coeff_edge_weight_L1: 1
   coeff_phi_weight_L1: 1
@@ -75,3 +76,4 @@ training:
 
   coeff_W_L1: 5.0E-5
   coeff_W_L1_rate: 0.5
+  coeff_W_L2: 0.1

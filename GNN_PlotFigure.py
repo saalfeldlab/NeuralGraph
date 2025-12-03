@@ -1950,10 +1950,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             fig, ax = fig_init()
             for n in trange(n_neuron_types, ncols=90):
-                if model_config.signal_model_name == 'PDE_N5':
-                    true_func = true_model.func(rr, n, n, 'update')
-                else:
-                    true_func = true_model.func(rr, n, 'update')
+                true_func = true_model.func(rr, n, 'update')
                 plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
             phi_list = []
             for n in trange(n_neurons, ncols=90):
@@ -2187,6 +2184,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 print('plot field ...')
                 os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
+
+                # Load second_correction if available
+                second_correction_path = f'{log_dir}/second_correction.npy'
+                if os.path.exists(second_correction_path):
+                    second_correction = float(np.load(second_correction_path))
+                else:
+                    second_correction = 1.0
 
                 if 'derivative' in field_type:
 
@@ -2485,7 +2489,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 else:
                     x[:, 8:9] = torch.ones_like(x[:, 0:1])
                 dataset = data.Data(x=x, edge_index=edge_index)
-                pred, in_features_ = model(data=dataset, return_all=True)
+                data_id = torch.zeros(x.shape[0], dtype=torch.long, device=device)
+                pred, in_features_ = model(data=dataset, data_id=data_id, return_all=True)
                 feature_list = ['u', 'embedding0', 'embedding1', 'msg', 'field']
                 for n in range(in_features_.shape[1]):
                     print(f'feature {feature_list[n]}: {to_numpy(torch.mean(in_features_[:, n])):0.4f}  std: {to_numpy(torch.std(in_features_[:, n])):0.4f}')
@@ -9061,31 +9066,13 @@ if __name__ == '__main__':
     #     pass
 
 
-    # config_list = ['fly_N9_44_24']
 
-    # config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
 
-    # config_list = ['fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18']
-
-    # config_list = ['fly_N9_62_5_9_5', 'fly_N9_62_5_19_5', 'fly_N9_62_5_19_6']
-
-    # config_list = ['fly_N9_62_5_19_5']
-
-    # config_list = ['signal_N11_1_3_1'] 
-
-    # config_list = ['signal_N11_2_1_3'] # 'signal_N11_1_3'] # 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
-    # config_list = ['signal_N11_1_8_1'] # 'signal_N11_1_8_2']      
-    # config_list = ['signal_N11_2_1_5']
-
-    # config_list = [ 'fly_N9_44_26', 'fly_N9_62_0', 'fly_N9_51_2', 'fly_N9_62_1']
-
-    # config_list = ['fly_N9_22_10', 'fly_N9_44_6', 'fly_N9_44_21', 'fly_N9_44_3']
-
-    # config_list = ['fly_N9_63_1', 'fly_N9_62_1']
+    config_list = ['signal_N5_1', 'signal_N5_2']
 
     # config_list = ['signal_N11_1_8_3']
 
-    config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
+    # config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
 
     for config_file_ in config_list:
         print(' ')

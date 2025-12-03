@@ -47,6 +47,7 @@ from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyV
 from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
 from NeuralGraph.models.Signal_Propagation_MLP_ODE import Signal_Propagation_MLP_ODE
 from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
+from NeuralGraph.models.neural_ode_wrapper import integrate_neural_ode, neural_ode_loss_flyvis
 from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal
 from NeuralGraph.models.Signal_Propagation_RNN import Signal_Propagation_RNN
 from NeuralGraph.models.Signal_Propagation_LSTM import Signal_Propagation_LSTM
@@ -1067,6 +1068,11 @@ def data_train_flyvis(config, erase, best_model, device):
     data_augmentation_loop = train_config.data_augmentation_loop
     recurrent_training = train_config.recurrent_training
     noise_recurrent_level = train_config.noise_recurrent_level
+    neural_ODE_training = train_config.neural_ODE_training
+    ode_method = train_config.ode_method
+    ode_rtol = train_config.ode_rtol
+    ode_atol = train_config.ode_atol
+    ode_adjoint = train_config.ode_adjoint
     batch_size = train_config.batch_size
     batch_ratio = train_config.batch_ratio
     time_window = train_config.time_window
@@ -1374,8 +1380,8 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
 
-                # if recurrent_training & (time_step>1):
-                #     k = k - k % time_step
+                if recurrent_training & (time_step>1):
+                    k = k - k % time_step
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 
@@ -1634,7 +1640,40 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
 
-                    if recurrent_training:
+                    if neural_ODE_training:
+                        # Neural ODE training: use adjoint method for memory-efficient backprop
+                        # Memory is O(1) in number of rollout steps L (vs O(L) for BPTT)
+                        # Backward pass uses adjoint ODE solve, computes gradients w.r.t.:
+                        #   - model.W (connectivity weights)
+                        #   - model.lin_edge, model.lin_phi weights
+                        #   - embeddings model.a
+
+                        ode_loss, pred_x = neural_ode_loss_flyvis(
+                            model=model,
+                            dataset_batch=dataset_batch,
+                            x_list=x_list,
+                            run=run,
+                            k_batch=k_batch,
+                            time_step=time_step,
+                            batch_size=batch_size,
+                            n_neurons=n_neurons,
+                            ids_batch=ids_batch,
+                            delta_t=delta_t,
+                            device=device,
+                            mask_batch=mask_batch,
+                            data_id=data_id,
+                            has_visual_field=has_visual_field,
+                            y_batch=y_batch,
+                            noise_level=noise_recurrent_level,
+                            ode_method=ode_method,
+                            rtol=ode_rtol,
+                            atol=ode_atol,
+                            adjoint=ode_adjoint
+                        )
+                        loss = loss + ode_loss
+                        
+
+                    elif recurrent_training:
 
                         # Compute initial integrated prediction for ALL neurons (needed for autoregressive loop)
                         pred_x = x_batch[:, 0:1] + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)

@@ -392,6 +392,12 @@ class TrainingConfig(BaseModel):
     recurrent_loop: int = 0
     noise_recurrent_level: float = 0.0
 
+    neural_ODE_training: bool = False
+    ode_method: Literal["dopri5", "rk4", "euler", "midpoint", "heun"] = "dopri5"
+    ode_rtol: float = 1e-4
+    ode_atol: float = 1e-5
+    ode_adjoint: bool = True
+
     time_step: int = 1
     recurrent_sequence: str = ""
     recurrent_parameters: list[float] = [0, 0]
