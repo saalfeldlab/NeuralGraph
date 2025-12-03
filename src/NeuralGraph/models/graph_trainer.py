@@ -1327,7 +1327,7 @@ def data_train_flyvis(config, erase, best_model, device):
         else:
             Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
 
-        plot_frequency = int(Niter // 10)
+        plot_frequency = int(Niter // 20)
         print(f'{Niter} iterations per epoch')
         logger.info(f'{Niter} iterations per epoch')
         print(f'plot every {plot_frequency} iterations')
@@ -1671,7 +1671,7 @@ def data_train_flyvis(config, erase, best_model, device):
                             adjoint=ode_adjoint
                         )
                         loss = loss + ode_loss
-                        
+
 
                     elif recurrent_training:
 
