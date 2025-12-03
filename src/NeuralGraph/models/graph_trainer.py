@@ -3635,6 +3635,12 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     field_type = model_config.field_type
     signal_model_name = model_config.signal_model_name
 
+    neural_ODE_training = training_config.neural_ODE_training
+    ode_method = training_config.ode_method
+    ode_rtol = training_config.ode_rtol
+    ode_atol = training_config.ode_atol
+    ode_adjoint = training_config.ode_adjoint
+    time_step = training_config.time_step
 
     ensemble_id = simulation_config.ensemble_id
     model_id = simulation_config.model_id
@@ -4140,6 +4146,32 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
                         elif 'MLP' in signal_model_name:
                             y = model(x, data_id=None, mask=None, return_all=False)
+                        elif neural_ODE_training:
+                            dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
+                            data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
+                            v0 = x[:, 3].flatten()
+                            v_final, _ = integrate_neural_ode(
+                                model=model,
+                                v0=v0,
+                                data_template=dataset,
+                                data_id=data_id,
+                                time_steps=1,
+                                delta_t=delta_t,
+                                neurons_per_sample=n_neurons,
+                                batch_size=1,
+                                mask_batch=mask,
+                                has_visual_field='visual' in field_type,
+                                x_list=None,
+                                run=0,
+                                device=device,
+                                k_batch=torch.tensor([it], device=device),
+                                ode_method=ode_method,
+                                rtol=ode_rtol,
+                                atol=ode_atol,
+                                adjoint=False,
+                                noise_level=0.0
+                            )
+                            y = (v_final.view(-1, 1) - x[:, 3:4]) / delta_t
                         else:
                             dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
                             data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)

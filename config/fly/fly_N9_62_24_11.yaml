@@ -48,7 +48,7 @@ training:
 
   neural_ODE_training: True
   time_step: 8
-  ode_method: "heun"
+  ode_method: "heun3"
   ode_rtol: 1.0E-2
   ode_atol: 1.0E-3
   ode_adjoint: True

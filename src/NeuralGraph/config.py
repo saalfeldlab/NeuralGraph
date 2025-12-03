@@ -393,7 +393,7 @@ class TrainingConfig(BaseModel):
     noise_recurrent_level: float = 0.0
 
     neural_ODE_training: bool = False
-    ode_method: Literal["dopri5", "rk4", "euler", "midpoint", "heun"] = "dopri5"
+    ode_method: Literal["dopri5", "rk4", "euler", "midpoint", "heun3"] = "dopri5"
     ode_rtol: float = 1e-4
     ode_atol: float = 1e-5
     ode_adjoint: bool = True
@@ -408,8 +408,6 @@ class TrainingConfig(BaseModel):
 
     MPM_trainer : str = "F"
 
-
-# Main config schema for NeuralGraph
 
 
 class NeuralGraphConfig(BaseModel):
