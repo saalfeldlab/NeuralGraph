@@ -55,7 +55,6 @@ training:
     small_init_batch_size: False
     n_runs: 2
     sparsity: 'none'
-    rotation_augmentation: False
     data_augmentation_loop: 100
     cluster_method: 'distance_plot'
     cluster_distance_threshold: 0.05

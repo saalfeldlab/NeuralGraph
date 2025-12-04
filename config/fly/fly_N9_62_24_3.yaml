@@ -1,4 +1,4 @@
-description: "no extra null edges, noise_model_level: 0.05 DAVIS  64K frames augmented objective coeff_edge_norm: 1  coeff_W_sign: 0.01  W_sign_temperature: 3.0"
+description: "Neural ODE training test t+2, adjoint method ode_adjoint: False"
 dataset: "fly_N9_62_1"
 
 simulation:
@@ -42,17 +42,23 @@ plotting:
   ylim: [-100, 100]
 
 training:
-  n_epochs: 3
+  n_epochs: 20
   n_runs: 1
   device: "auto"
 
-  recurrent_training: False
-  batch_size: 1
+  neural_ODE_training: True
+  time_step: 2
+  ode_method: "euler"
+  ode_rtol: 1.0E-4
+  ode_atol: 1.0E-5
+  ode_adjoint: False
+  # grad_clip_W: 1.0
+
+  batch_size: 16
   batch_ratio: 1
-  small_init_batch_size: False
 
   sparsity: "none"
-  data_augmentation_loop: 25
+  data_augmentation_loop: 50
 
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
@@ -63,7 +69,7 @@ training:
   coeff_edge_diff: 500
   coeff_update_u_diff: 0
   coeff_update_msg_diff: 0
-  coeff_edge_norm: 1
+  coeff_edge_norm: 1.0
 
   coeff_edge_weight_L1: 1
   coeff_phi_weight_L1: 1
@@ -74,5 +80,3 @@ training:
 
   coeff_W_L1: 5.0E-5
   coeff_W_L1_rate: 0.5
-  coeff_W_sign: 0.01
-  W_sign_temperature: 3.0

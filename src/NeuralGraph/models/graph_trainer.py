@@ -1179,8 +1179,6 @@ def data_train_flyvis(config, erase, best_model, device):
     print(f'ynorm: {to_numpy(ynorm)}')
     logger.info(f'ynorm: {to_numpy(ynorm)}')
 
-
-
     print('create models ...')
     if time_window >0:
         model = Signal_Propagation_Temporal(aggr_type=model_config.aggr_type, config=config, device=device)
@@ -1202,7 +1200,6 @@ def data_train_flyvis(config, erase, best_model, device):
     # Count parameters
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
-    logger.info(f'total parameters: {n_total_params:,}')
 
     start_epoch = 0
     list_loss = []
@@ -1241,46 +1238,23 @@ def data_train_flyvis(config, erase, best_model, device):
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
-    print(
-        f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
-    logger.info(
-        f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
-
-    # Debug: Check all parameter devices before creating optimizer
-    print('checking all model parameter devices before optimizer creation:')
-    param_devices = set()
-    for name, param in model.named_parameters():
-        param_devices.add(str(param.device))
-    print(f'unique parameter devices: {param_devices}')
-    if len(param_devices) > 1:
-        print('warning: model has parameters on different devices!')
-        for name, param in model.named_parameters():
-            if str(param.device) != str(device):
-                print(f'  {name}: {param.device} (expected {device})')
-
-    # Ensure model.a (embedding) is on the correct device
-    if hasattr(model, 'a'):
-        model.a = model.a.to(device)
-        print(f'model.a moved to device: {device}')
+    print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, learning_rate_NNR {learning_rate_NNR}')
 
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    
     print('Optimizer created successfully')
     model.train()
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
     print(f'network: {net}')
     print(f'initial batch_size: {batch_size}')
-    logger.info(f'network: {net}')
-    logger.info(f'N epochs: {n_epochs}')
-    logger.info(f'initial batch_size: {batch_size}')
 
     # connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
     gt_weights = torch.load(f'./graphs_data/{dataset_name}/weights.pt', map_location=device)
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     edges_all = edges.clone().detach()
     print(f'{edges.shape[1]} edges')
-
 
     # res = analyze_type_neighbors(
     #     type_name="Mi1",
@@ -1336,7 +1310,6 @@ def data_train_flyvis(config, erase, best_model, device):
     }
 
     time.sleep(0.2)
-
 
     for epoch in range(start_epoch, n_epochs + 1):
 
@@ -1650,6 +1623,8 @@ def data_train_flyvis(config, erase, best_model, device):
                         #   - model.lin_edge, model.lin_phi weights
                         #   - embeddings model.a
 
+                        ode_state_clamp = getattr(train_config, 'ode_state_clamp', 10.0)
+                        ode_stab_lambda = getattr(train_config, 'ode_stab_lambda', 0.0)
                         ode_loss, pred_x = neural_ode_loss_FlyVis(
                             model=model,
                             dataset_batch=dataset_batch,
@@ -1670,7 +1645,9 @@ def data_train_flyvis(config, erase, best_model, device):
                             rtol=ode_rtol,
                             atol=ode_atol,
                             adjoint=ode_adjoint,
-                            iteration=N
+                            iteration=N,
+                            state_clamp=ode_state_clamp,
+                            stab_lambda=ode_stab_lambda
                         )
                         loss = loss + ode_loss
 
@@ -1730,8 +1707,14 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 loss.backward()
 
+                # Gradient clipping for W (helps stabilize adjoint ODE training)
+                if hasattr(model, 'W') and model.W.grad is not None:
+                    grad_clip_W = getattr(train_config, 'grad_clip_W', 0.0)
+                    if grad_clip_W > 0:
+                        torch.nn.utils.clip_grad_norm_(model.W, max_norm=grad_clip_W)
+
                 # Debug gradient check for neural ODE training
-                if DEBUG_ODE and neural_ODE_training and (N % 100 == 0 or N < 5):
+                if DEBUG_ODE and neural_ODE_training and (N % 500 == 0):
                     debug_check_gradients(model, loss, N)
 
                 optimizer.step()

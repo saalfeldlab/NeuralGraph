@@ -1713,14 +1713,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
-            print(f'net: {net}')
 
             i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
             A = model.W.clone().detach()
             A[i, i] = 0
             A = A.t()
             A = A[:n_neurons,:n_neurons]
-
 
             plt.figure(figsize=(10, 10))
             connectivity_plot = to_numpy(A)
@@ -3204,7 +3202,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
-            print(f'net: {net}')
+
 
             if has_field:
 
@@ -4159,7 +4157,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
-            print(f'net: {net}')
+
 
             fig, ax = fig_init()
             for n in range(n_neurons):
@@ -5574,7 +5572,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edges
-            print(f'net: {net}')
+
             logger.info(f'net: {net}')
 
             # print learnable parameters table
@@ -5921,14 +5919,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             # Plot 4: Weight comparison using model.W and gt_weights
             # Check Dale's Law for learned weights
-            dale_results = check_dales_law(
-                edges=edges,
-                weights=model.W,
-                type_list=type_list,
-                n_neurons=n_neurons,
-                verbose=False,
-                logger=None
-            )
+            # dale_results = check_dales_law(
+            #     edges=edges,
+            #     weights=model.W,
+            #     type_list=type_list,
+            #     n_neurons=n_neurons,
+            #     verbose=False,
+            #     logger=None
+            # )
 
             fig = plt.figure(figsize=(10, 9))
             learned_weights = to_numpy(model.W.squeeze())
@@ -5943,14 +5941,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
 
             # Add Dale's Law statistics
-            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
-                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
-                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
-                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
-                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
-                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
-            plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
-                     verticalalignment='bottom', fontsize=10)
+            # dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+            #              f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+            #              f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+            #              f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+            #              f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+            #              f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            # plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
+            #          verticalalignment='bottom', fontsize=10)
 
             plt.xlabel(r'true $W_{ij}$', fontsize=48)
             plt.ylabel(r'learned $W_{ij}$', fontsize=48)
@@ -6143,12 +6141,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
 
             # Add Dale's Law statistics (reusing dale_results from earlier)
-            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
-                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
-                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
-                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
-                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
-                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            # dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+            #              f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+            #              f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+            #              f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+            #              f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+            #              f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
             # plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
             #          verticalalignment='bottom', fontsize=10)
 

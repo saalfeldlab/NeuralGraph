@@ -54,7 +54,6 @@ training:
   small_init_batch_size: False
 
   sparsity: "none"
-  rotation_augmentation: False
   data_augmentation_loop: 25
 
   learning_rate_W_start: 1.0E-3

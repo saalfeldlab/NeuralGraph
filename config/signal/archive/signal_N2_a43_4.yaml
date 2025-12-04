@@ -51,7 +51,6 @@ training:
     batch_size: 1
     small_init_batch_size: False
 
-    rotation_augmentation: False
     data_augmentation_loop: 50
 
     sparsity: 'none'

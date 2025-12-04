@@ -26,7 +26,7 @@ class GNNODEFunc_FlyVis(nn.Module):
 
     def __init__(self, model, data_template, data_id, neurons_per_sample, batch_size,
                  has_visual_field=False, x_list=None,
-                 run=0, device=None, k_batch=None):
+                 run=0, device=None, k_batch=None, state_clamp=10.0, stab_lambda=0.0):
         super().__init__()
         self.model = model
         self.data_template = data_template
@@ -39,6 +39,8 @@ class GNNODEFunc_FlyVis(nn.Module):
         self.device = device or torch.device('cpu')
         self.k_batch = k_batch  # per-sample k values, shape (batch_size,)
         self.delta_t = 1.0
+        self.state_clamp = state_clamp  # clamp state to [-state_clamp, state_clamp]
+        self.stab_lambda = stab_lambda  # damping: dv = GNN(v) - lambda*v
 
     def set_time_params(self, delta_t):
         self.delta_t = delta_t
@@ -89,14 +91,16 @@ class GNNODEFunc_FlyVis(nn.Module):
             return_all=False
         )
 
-        return pred.view(-1)
+        dv = pred.view(-1)
+
+        return dv
 
 
 def integrate_neural_ode_FlyVis(model, v0, data_template, data_id, time_steps, delta_t,
                          neurons_per_sample, batch_size, has_visual_field=False,
                          x_list=None, run=0, device=None, k_batch=None,
                          ode_method='dopri5', rtol=1e-4, atol=1e-5,
-                         adjoint=True, noise_level=0.0):
+                         adjoint=True, noise_level=0.0, state_clamp=10.0, stab_lambda=0.0):
     """
     Integrate GNN dynamics using Neural ODE.
 
@@ -104,6 +108,8 @@ def integrate_neural_ode_FlyVis(model, v0, data_template, data_id, time_steps, d
         ode_method : str - solver ('dopri5', 'rk4', 'euler', etc.)
         rtol, atol : float - tolerances for adaptive solvers
         adjoint : bool - use adjoint method for O(1) memory
+        state_clamp : float - clamp state to [-state_clamp, state_clamp] during integration
+        stab_lambda : float - damping coefficient for stability
 
     Returns:
         v_final : final state (N,)
@@ -123,7 +129,9 @@ def integrate_neural_ode_FlyVis(model, v0, data_template, data_id, time_steps, d
         x_list=x_list,
         run=run,
         device=device,
-        k_batch=k_batch
+        k_batch=k_batch,
+        state_clamp=state_clamp,
+        stab_lambda=stab_lambda
     )
     ode_func.set_time_params(delta_t)
 
@@ -157,7 +165,7 @@ def neural_ode_loss_FlyVis(model, dataset_batch, x_list, run, k_batch,
                            data_id=None, has_visual_field=False,
                            y_batch=None, noise_level=0.0, ode_method='dopri5',
                            rtol=1e-4, atol=1e-5, adjoint=True,
-                           iteration=0):
+                           iteration=0, state_clamp=10.0, stab_lambda=0.0):
     """
     Compute loss using Neural ODE integration.
     Replaces explicit autoregressive rollout in data_train_flyvis.
@@ -175,7 +183,7 @@ def neural_ode_loss_FlyVis(model, dataset_batch, x_list, run, k_batch,
         for b in range(batch_size)
     ], device=device)
 
-    if DEBUG_ODE and (iteration % 100 == 0 or iteration < 5):
+    if DEBUG_ODE and (iteration % 500 == 0):
         print(f"\n=== Neural ODE Debug (iter {iteration}) ===")
         print(f"time_step={time_step}, delta_t={delta_t}, batch_size={batch_size}")
         print(f"neurons_per_sample={neurons_per_sample}, n_neurons={n_neurons}")
@@ -203,13 +211,15 @@ def neural_ode_loss_FlyVis(model, dataset_batch, x_list, run, k_batch,
         rtol=rtol,
         atol=atol,
         adjoint=adjoint,
-        noise_level=noise_level
+        noise_level=noise_level,
+        state_clamp=state_clamp,
+        stab_lambda=stab_lambda
     )
 
     pred_x = v_final.view(-1, 1)
     loss = ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
-    if DEBUG_ODE and (iteration % 100 == 0 or iteration < 5):
+    if DEBUG_ODE and (iteration % 500 == 0):
         print(f"v_final mean={v_final.mean().item():.4f}, std={v_final.std().item():.4f}")
         print(f"y_batch mean={y_batch[ids_batch].mean().item():.4f}, std={y_batch[ids_batch].std().item():.4f}")
         print(f"pred_x mean={pred_x[ids_batch].mean().item():.4f}, std={pred_x[ids_batch].std().item():.4f}")

@@ -49,7 +49,6 @@ training:
     large_range: False
     sparsity: 'none'
     sparsity_freq: 4
-    rotation_augmentation: False
     data_augmentation_loop: 200
     cluster_method: 'distance_plot'
     fix_cluster_embedding: True

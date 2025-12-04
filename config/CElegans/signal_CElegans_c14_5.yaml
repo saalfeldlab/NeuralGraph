@@ -80,7 +80,6 @@ training:
     embedding_trial: False
 
     sparsity: 'none'
-    rotation_augmentation: False
     data_augmentation_loop: 1500
 
     learning_rate_W_start: 1.0E-3

@@ -53,7 +53,6 @@ training:
     epoch_reset: 999
     epoch_reset_freq: 999
 
-    rotation_augmentation: False
     data_augmentation_loop: 50
 
     sparsity: 'none'

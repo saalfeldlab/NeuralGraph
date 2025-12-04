@@ -397,6 +397,9 @@ class TrainingConfig(BaseModel):
     ode_rtol: float = 1e-4
     ode_atol: float = 1e-5
     ode_adjoint: bool = True
+    ode_state_clamp: float = 10.0
+    ode_stab_lambda: float = 0.0
+    grad_clip_W: float = 0.0
 
     time_step: int = 1
     recurrent_sequence: str = ""

@@ -71,7 +71,6 @@ training:
   batch_size: 8
   small_init_batch_size: True
 
-  rotation_augmentation: False
   data_augmentation_loop: 20
 
   sparsity: "none"
