@@ -138,14 +138,17 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
 
         return reconstructed_field
 
-    def forward(self, data=[], data_id=[], mask=[], k = [],return_all=False):
+    def forward(self, data=[], data_id=[], k=[], return_all=False, **kwargs):
         self.return_all = return_all
         x, edge_index = data.x, data.edge_index
 
         self.data_id = data_id.squeeze().long().clone().detach()
-        self.mask = mask.squeeze().long().clone().detach()
 
-        if self.calcium_type!="none":
+        # Compute edge-to-W indices directly from edge count (no mask needed)
+        n_edges_batch = edge_index.shape[1]
+        self.edge_W_idx = torch.arange(n_edges_batch, device=self.device) % (self.n_edges + self.n_extra_null_edges)
+
+        if self.calcium_type != "none":
             v = data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
         else:
             v = data.x[:, 3:4]
@@ -168,7 +171,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
             return pred
 
     def message(self, edge_index_i, edge_index_j, v_i, v_j, embedding_i, embedding_j, data_id_i):
-        if (self.model=='PDE_N9_B'):
+        if (self.model == 'PDE_N9_B'):
             in_features = torch.cat([v_i, v_j, embedding_i, embedding_j], dim=1)
         else:
             in_features = torch.cat([v_j, embedding_j], dim=1)
@@ -177,7 +180,7 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         if self.lin_edge_positive:
             lin_edge = lin_edge**2
 
-        return self.W[self.mask % (self.n_edges+ self.n_extra_null_edges)] * lin_edge
+        return self.W[self.edge_W_idx] * lin_edge
 
     def update(self, aggr_out):
         return aggr_out

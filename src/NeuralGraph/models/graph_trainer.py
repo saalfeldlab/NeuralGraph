@@ -47,7 +47,11 @@ from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyV
 from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
 from NeuralGraph.models.Signal_Propagation_MLP_ODE import Signal_Propagation_MLP_ODE
 from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
-from NeuralGraph.models.Neural_ode_wrapper_FlyVis import integrate_neural_ode_FlyVis, neural_ode_loss_FlyVis
+from NeuralGraph.models.Neural_ode_wrapper_FlyVis import (
+    integrate_neural_ode_FlyVis, neural_ode_loss_FlyVis,
+    debug_check_gradients, debug_verify_forward_pass, debug_compare_ode_vs_recurrent,
+    DEBUG_ODE
+)
 from NeuralGraph.models.Neural_ode_wrapper_Signal import integrate_neural_ode_Signal, neural_ode_loss_Signal
 from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal
 from NeuralGraph.models.Signal_Propagation_RNN import Signal_Propagation_RNN
@@ -776,15 +780,9 @@ def data_train_signal(config, erase, best_model, style, device):
                     loss = loss + ode_loss
 
                 elif recurrent_training:
-                    # Multi-step training with loss at each step
+                    # Multi-step training with loss only at final step (consistent with neural_ODE)
                     # Initial prediction with noise
                     pred_x = x_batch + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
-
-                    # Compute loss for first step
-                    if (n_excitatory_neurons > 0) & (batch_size>1):
-                        loss = loss + (pred_x - y_batch).norm(2)
-                    else:
-                        loss = loss + (pred_x[ids_batch] - y_batch[ids_batch]).norm(2)
 
                     # Rollout for remaining steps
                     if time_step > 1:
@@ -805,23 +803,11 @@ def data_train_signal(config, erase, best_model, style, device):
                             # Integrate prediction with noise
                             pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
-                            # Get target for this step
-                            if batch_size > 1:
-                                y_target_batch = []
-                                neurons_per_sample = dataset_batch[0].x.shape[0]
-                                for b in range(batch_size):
-                                    k_val = int(k_batch[b * neurons_per_sample].item())
-                                    y_target = torch.tensor(x_list[run][k_val + step + 1, :, 6:7], dtype=torch.float32, device=device).detach()
-                                    if n_excitatory_neurons > 0:
-                                        y_target = torch.cat((y_target, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
-                                    y_target_batch.append(y_target)
-                                y_target_batch = torch.cat(y_target_batch, dim=0)
-                                loss = loss + (pred_x - y_target_batch).norm(2)
-                            else:
-                                y_target = torch.tensor(x_list[run][int(k_batch[0].item()) + step + 1, :, 6:7], dtype=torch.float32, device=device).detach()
-                                if n_excitatory_neurons > 0:
-                                    y_target = torch.cat((y_target, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
-                                loss = loss + (pred_x[ids_batch] - y_target[ids_batch]).norm(2)
+                    # Compute loss only at final step (y_batch is target at k + time_step)
+                    if (n_excitatory_neurons > 0) & (batch_size > 1):
+                        loss = loss + ((pred_x - y_batch) / (delta_t * time_step)).norm(2)
+                    else:
+                        loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
                 else:
 
@@ -1384,28 +1370,16 @@ def data_train_flyvis(config, erase, best_model, device):
 
             dataset_batch = []
             ids_batch = []
-            mask_batch = []
             k_batch = []
             visual_input_batch = []
             ids_index = 0
-            mask_index = 0
 
             loss = 0
             run = np.random.randint(n_runs)
 
-            if batch_ratio < 1:
-                # use percent neurons
-                n_core = int(n_neurons * batch_ratio)
-                ids = np.sort(np.random.choice(n_neurons, n_core, replace=False))
-                mask = torch.isin(edges_all[1, :], torch.tensor(ids, device=device))
-                edges = edges_all[:, mask]
-                mask = torch.arange(edges_all.shape[1], device=device)[mask]
-
-            else:
-                # use all neurons
-                edges = edges_all.clone().detach()
-                mask = torch.arange(edges_all.shape[1], device=device)
-                ids = np.arange(n_neurons)
+            # Use all neurons (batch_ratio removed)
+            edges = edges_all.clone().detach()
+            ids = np.arange(n_neurons)
 
 
             for batch in range(batch_size):
@@ -1597,7 +1571,6 @@ def data_train_flyvis(config, erase, best_model, device):
                             x_batch = x[:, 3:5]
                             y_batch = y
                             ids_batch = ids
-                            mask_batch = mask
                             k_batch = torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k
                             if test_neural_field:
                                 visual_input_batch = visual_input
@@ -1606,13 +1579,11 @@ def data_train_flyvis(config, erase, best_model, device):
                             x_batch = torch.cat((x_batch, x[:, 3:5]), dim=0)
                             y_batch = torch.cat((y_batch, y), dim=0)
                             ids_batch = np.concatenate((ids_batch, ids + ids_index), axis=0)
-                            mask_batch = torch.cat((mask_batch, mask + mask_index), dim=0)
                             k_batch = torch.cat((k_batch, torch.ones((x.shape[0], 1), dtype=torch.int, device=device) * k), dim=0)
                             if test_neural_field:
                                 visual_input_batch = torch.cat((visual_input_batch, visual_input), dim=0)
 
                         ids_index += x.shape[0]
-                        mask_index += edges_all.shape[1]
 
 
             if not (dataset_batch == []):
@@ -1628,7 +1599,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 elif 'MLP_ODE' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
-                        pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
+                        pred = model(batch.x, data_id=data_id, return_all=False)
 
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
@@ -1637,7 +1608,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 elif 'MLP' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
-                        pred = model(batch.x, data_id=data_id, mask=mask_batch, return_all=False)
+                        pred = model(batch.x, data_id=data_id, return_all=False)
 
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
@@ -1648,7 +1619,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         if (coeff_update_msg_diff > 0) | (coeff_update_u_diff > 0) | (coeff_update_msg_sign>0):
-                            pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
+                            pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
                             if coeff_update_msg_diff > 0 :      # Enforces that increasing the message input should increase the output (monotonic increasing)
                                 pred_msg = model.lin_phi(in_features.clone().detach())
                                 in_features_msg_next = in_features.clone().detach()
@@ -1668,7 +1639,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                 msg = in_features[:,model_config.embedding_dim+1].clone().detach()
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
                         else:
-                            pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
+                            pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
 
 
                     if neural_ODE_training:
@@ -1691,7 +1662,6 @@ def data_train_flyvis(config, erase, best_model, device):
                             ids_batch=ids_batch,
                             delta_t=delta_t,
                             device=device,
-                            mask_batch=mask_batch,
                             data_id=data_id,
                             has_visual_field=has_visual_field,
                             y_batch=y_batch,
@@ -1699,7 +1669,8 @@ def data_train_flyvis(config, erase, best_model, device):
                             ode_method=ode_method,
                             rtol=ode_rtol,
                             atol=ode_atol,
-                            adjoint=ode_adjoint
+                            adjoint=ode_adjoint,
+                            iteration=N
                         )
                         loss = loss + ode_loss
 
@@ -1742,7 +1713,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                 # Run forward pass with updated states
                                 batch_loader = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
                                 for batch in batch_loader:
-                                    pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
+                                    pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
 
                                 pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
@@ -1758,6 +1729,10 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                 loss.backward()
+
+                # Debug gradient check for neural ODE training
+                if DEBUG_ODE and neural_ODE_training and (N % 100 == 0 or N < 5):
+                    debug_check_gradients(model, loss, N)
 
                 optimizer.step()
 
@@ -3946,7 +3921,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     tile_seed = simulation_config.seed
 
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
-    mask = torch.arange(edges.shape[1], device=device)
 
     if ('test_ablation' in test_mode) & (not('MLP' in signal_model_name)) & (not('RNN' in signal_model_name)) & (not('LSTM' in signal_model_name)):
         #  test_mode="test_ablation_100"
@@ -4194,7 +4168,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             I = x_selected[:, 4:5]
                             y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
                         elif 'MLP' in signal_model_name:
-                            y = model(x_selected, data_id=None, mask=None, return_all=False)
+                            y = model(x_selected, data_id=None, return_all=False)
 
                     else:
                         if 'RNN' in signal_model_name:
@@ -4206,7 +4180,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             I = x[:n_input_neurons, 4:5]
                             y = model.rollout_step(v, I, dt=delta_t, method='rk4') - v  # Return as delta
                         elif 'MLP' in signal_model_name:
-                            y = model(x, data_id=None, mask=None, return_all=False)
+                            y = model(x, data_id=None, return_all=False)
                         elif neural_ODE_training:
                             dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
                             data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
@@ -4220,7 +4194,6 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                                 delta_t=delta_t,
                                 neurons_per_sample=n_neurons,
                                 batch_size=1,
-                                mask_batch=mask,
                                 has_visual_field='visual' in field_type,
                                 x_list=None,
                                 run=0,
@@ -4236,7 +4209,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         else:
                             dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
                             data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
-                            y = model(dataset, data_id, mask, False)
+                            y = model(dataset, data_id=data_id, return_all=False)
 
                     # Save states
                     x_generated_list.append(to_numpy(x_generated.clone().detach()))

@@ -51,7 +51,7 @@ training:
   ode_method: "euler"
   ode_rtol: 1.0E-4
   ode_atol: 1.0E-5
-  ode_adjoint: True
+  ode_adjoint: False
 
   batch_size: 16
   batch_ratio: 1
