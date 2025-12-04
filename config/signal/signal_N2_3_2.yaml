@@ -1,4 +1,4 @@
-description: "Neural ODE training time_step=4 euler smaller LR"
+description: "Neural ODE training time_step=8 euler"
 dataset: "signal_N2_1"
 
 simulation:
@@ -51,7 +51,7 @@ training:
   device: "auto"
 
   neural_ODE_training: True
-  time_step: 4
+  time_step: 8
   ode_method: "euler"
   ode_rtol: 1.0E-2
   ode_atol: 1.0E-3
@@ -70,7 +70,7 @@ training:
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
-  learning_rate_W_start: 1.0E-4
-  learning_rate_start: 5.0E-5
-  learning_rate_embedding_start: 7.5E-5
+  learning_rate_W_start: 1.0E-3
+  learning_rate_start: 5.0E-4
+  learning_rate_embedding_start: 7.5E-4
   coeff_W_L1: 1.0E-5

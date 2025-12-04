@@ -486,6 +486,11 @@ def data_train_signal(config, erase, best_model, style, device):
 
                 k = np.random.randint(n_frames - 4 - time_step)
 
+                if recurrent_training or neural_ODE_training:
+                    k = k - k % time_step
+
+
+
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 
                 if n_excitatory_neurons > 0:
@@ -1407,7 +1412,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 k = np.random.randint(n_frames - 4 - time_step - time_window) + time_window
 
-                if recurrent_training & (time_step>1):
+                if recurrent_training or neural_ODE_training:
                     k = k - k % time_step
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
@@ -1664,7 +1669,6 @@ def data_train_flyvis(config, erase, best_model, device):
                                 loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
                         else:
                             pred, in_features, msg = model(batch, data_id=data_id, mask=mask_batch, return_all=True)
-
 
 
                     if neural_ODE_training:

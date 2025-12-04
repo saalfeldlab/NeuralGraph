@@ -59,7 +59,7 @@ training:
   seed: 24
 
   rotation_augmentation: False
-  data_augmentation_loop: 12
+  data_augmentation_loop: 25
 
   sparsity: "none"
   sparsity_freq: 4
