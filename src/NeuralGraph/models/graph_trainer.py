@@ -47,7 +47,8 @@ from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyV
 from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
 from NeuralGraph.models.Signal_Propagation_MLP_ODE import Signal_Propagation_MLP_ODE
 from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
-from NeuralGraph.models.neural_ode_wrapper import integrate_neural_ode, neural_ode_loss_flyvis
+from NeuralGraph.models.Neural_ode_wrapper_FlyVis import integrate_neural_ode_FlyVis, neural_ode_loss_FlyVis
+from NeuralGraph.models.Neural_ode_wrapper_Signal import integrate_neural_ode_Signal, neural_ode_loss_Signal
 from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal
 from NeuralGraph.models.Signal_Propagation_RNN import Signal_Propagation_RNN
 from NeuralGraph.models.Signal_Propagation_LSTM import Signal_Propagation_LSTM
@@ -140,6 +141,11 @@ def data_train_signal(config, erase, best_model, style, device):
     recurrent_training = train_config.recurrent_training
     noise_recurrent_level = train_config.noise_recurrent_level
     recurrent_parameters = train_config.recurrent_parameters.copy()
+    neural_ODE_training = train_config.neural_ODE_training
+    ode_method = train_config.ode_method
+    ode_rtol = train_config.ode_rtol
+    ode_atol = train_config.ode_atol
+    ode_adjoint = train_config.ode_adjoint
     target_batch_size = train_config.batch_size
     delta_t = simulation_config.delta_t
     if train_config.small_init_batch_size:
@@ -665,15 +671,11 @@ def data_train_signal(config, erase, best_model, style, device):
                         mask = torch.isin(edges[1, :], torch.tensor(ids, device=device))
                         edges = edges[:, mask]
 
-                    if recurrent_training:
-                        y = torch.tensor(x_list[run][k + 1, :, 6:7], dtype=torch.float32, device=device).detach()
+                    if recurrent_training or neural_ODE_training:
+                        y = torch.tensor(x_list[run][k + time_step, :, 6:7], dtype=torch.float32, device=device).detach()
                         if n_excitatory_neurons > 0:
                             y = torch.cat((y, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
                     else:
-                        if n_excitatory_neurons > 0:
-                            y = torch.tensor(y_list[run][k], device=device) / ynorm
-                            y = torch.cat((y, torch.zeros((1,1), dtype=torch.float32, device=device)), dim=0)
-
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
 
                     if not (torch.isnan(y).any()):
@@ -737,7 +739,38 @@ def data_train_signal(config, erase, best_model, style, device):
                     else:
                         pred = model(batch, data_id=data_id, k=k_batch)
 
-                if recurrent_training:
+                if neural_ODE_training:
+                    # Neural ODE training: use adjoint method for memory-efficient backprop
+                    # Memory is O(1) in number of rollout steps L (vs O(L) for BPTT)
+                    # Backward pass uses adjoint ODE solve, computes gradients w.r.t.:
+                    #   - model.W (connectivity weights)
+                    #   - model.lin_edge, model.lin_phi weights
+                    #   - embeddings model.a
+
+                    ode_loss, pred_x = neural_ode_loss_Signal(
+                        model=model,
+                        dataset_batch=dataset_batch,
+                        x_list=x_list,
+                        run=run,
+                        k_batch=k_batch,
+                        time_step=time_step,
+                        batch_size=batch_size,
+                        n_neurons=n_neurons,
+                        ids_batch=ids_batch,
+                        delta_t=delta_t,
+                        device=device,
+                        data_id=data_id,
+                        y_batch=y_batch,
+                        noise_level=noise_recurrent_level,
+                        ode_method=ode_method,
+                        rtol=ode_rtol,
+                        atol=ode_atol,
+                        adjoint=ode_adjoint,
+                        n_excitatory_neurons=n_excitatory_neurons
+                    )
+                    loss = loss + ode_loss
+
+                elif recurrent_training:
                     # Multi-step training with loss at each step
                     # Initial prediction with noise
                     pred_x = x_batch + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
@@ -785,15 +818,9 @@ def data_train_signal(config, erase, best_model, style, device):
                                     y_target = torch.cat((y_target, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
                                 loss = loss + (pred_x[ids_batch] - y_target[ids_batch]).norm(2)
 
-
-
                 else:
 
-                    # standard single-step training
-                    if (n_excitatory_neurons > 0) & (batch_size>1):
-                        loss = loss + (pred[ids_batch] - y_batch).norm(2)
-                    else:
-                        loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+                    loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
 
 
@@ -1544,7 +1571,7 @@ def data_train_flyvis(config, erase, best_model, device):
                         loss = loss + regul_term
                         track_regul(regul_term, 'W_sign')
 
-                    if recurrent_training:
+                    if recurrent_training or neural_ODE_training:
                         y = torch.tensor(x_list[run][k + time_step,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
                     elif test_neural_field:
                         y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)  # loss on current excitation
@@ -1648,7 +1675,7 @@ def data_train_flyvis(config, erase, best_model, device):
                         #   - model.lin_edge, model.lin_phi weights
                         #   - embeddings model.a
 
-                        ode_loss, pred_x = neural_ode_loss_flyvis(
+                        ode_loss, pred_x = neural_ode_loss_FlyVis(
                             model=model,
                             dataset_batch=dataset_batch,
                             x_list=x_list,
@@ -2662,6 +2689,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     delta_t = simulation_config.delta_t
     time_window = training_config.time_window
     time_step = training_config.time_step
+    neural_ODE_training = training_config.neural_ODE_training
+    ode_method = training_config.ode_method
+    ode_rtol = training_config.ode_rtol
+    ode_atol = training_config.ode_atol
 
     cmap = CustomColorMap(config=config)
     dimension = simulation_config.dimension
@@ -3111,7 +3142,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             excitation_values = model.forward_excitation(it)
             x[-1, 6] = excitation_values
             x[-1, 0] = n_neurons-1
-
         elif 'learnable_short_term_plasticity' in field_type:
             alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 8] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
@@ -3131,10 +3161,37 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
         with torch.no_grad():
             dataset = pyg_Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
-            pred = model(dataset, data_id=data_id, k=it)
-            y = pred
+            if neural_ODE_training:
+                # Use Neural ODE integration with time_step=1
+                u0 = x[:, 6].flatten()
+                u_final, _ = integrate_neural_ode_Signal(
+                    model=model,
+                    u0=u0,
+                    data_template=dataset,
+                    data_id=data_id,
+                    time_steps=1,
+                    delta_t=delta_t,
+                    neurons_per_sample=n_neurons,
+                    batch_size=1,
+                    x_list=None,
+                    run=0,
+                    device=device,
+                    k_batch=torch.tensor([it], device=device),
+                    ode_method=ode_method,
+                    rtol=ode_rtol,
+                    atol=ode_atol,
+                    adjoint=False,
+                    noise_level=0.0
+                )
+                y = (u_final.view(-1, 1) - x[:, 6:7]) / delta_t
+            else:
+                pred = model(dataset, data_id=data_id, k=it)
+                y = pred
             dataset = pyg_Data(x=x_generated, pos=x[:, 1:3], edge_index=edge_index_generated)
-            pred_generator = model_generator(dataset, data_id=data_id, frame=it)
+            if "PDE_N3" in model_config.signal_model_name:
+                pred_generator = model_generator(dataset, data_id=data_id, alpha=it/n_frames)
+            else:
+                pred_generator = model_generator(dataset, data_id=data_id)
 
         # signal update
         x[:n_neurons, 6:7] = x[:n_neurons, 6:7] + y[:n_neurons] * delta_t
@@ -4150,7 +4207,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                             dataset = pyg.data.Data(x=x, pos=x, edge_index=edge_index)
                             data_id = torch.zeros((x.shape[0], 1), dtype=torch.int, device=device)
                             v0 = x[:, 3].flatten()
-                            v_final, _ = integrate_neural_ode(
+                            v_final, _ = integrate_neural_ode_FlyVis(
                                 model=model,
                                 v0=v0,
                                 data_template=dataset,
@@ -4395,6 +4452,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         break
                 if it >= target_frames:
                     break
+            
             if it >= target_frames:
                 break
     print(f"generated {len(x_list)} frames total")

@@ -1,4 +1,4 @@
-description: "Neural ODE training test t+8, adjoint method for memory-efficient backprop"
+description: "Neural ODE training test t+8, rk4 solver"
 dataset: "fly_N9_62_1"
 
 simulation:
@@ -49,8 +49,8 @@ training:
   neural_ODE_training: True
   time_step: 8
   ode_method: "dopri5"
-  ode_rtol: 1.0E-2
-  ode_atol: 1.0E-3
+  ode_rtol: 1.0E-1
+  ode_atol: 1.0E-2
   ode_adjoint: True
 
   batch_size: 16
@@ -60,9 +60,9 @@ training:
   rotation_augmentation: False
   data_augmentation_loop: 50
 
-  learning_rate_W_start: 1.0E-3
-  learning_rate_start: 5.0E-4
-  learning_rate_embedding_start: 1.0E-3
+  learning_rate_W_start: 1.0E-4
+  learning_rate_start: 5.0E-5
+  learning_rate_embedding_start: 1.0E-4
 
   noise_model_level: 0.05
 

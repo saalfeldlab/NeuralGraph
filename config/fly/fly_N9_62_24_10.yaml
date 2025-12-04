@@ -48,7 +48,7 @@ training:
 
   neural_ODE_training: True
   time_step: 8
-  ode_method: "midpoint"
+  ode_method: "euler"
   ode_rtol: 1.0E-2
   ode_atol: 1.0E-3
   ode_adjoint: True
@@ -60,9 +60,9 @@ training:
   rotation_augmentation: False
   data_augmentation_loop: 50
 
-  learning_rate_W_start: 1.0E-3
-  learning_rate_start: 5.0E-4
-  learning_rate_embedding_start: 1.0E-3
+  learning_rate_W_start: 5.0E-4
+  learning_rate_start: 2.5E-4
+  learning_rate_embedding_start: 5.0E-4
 
   noise_model_level: 0.05
 

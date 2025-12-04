@@ -2321,28 +2321,40 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     im_list = list([])
                     pred_list = list([])
 
+                    # Compute scale factor from first frame
+                    im_first = im[0].squeeze()
+                    im_first = np.sqrt(im_first)
+                    pred_first = model_f(time=0, enlarge=False) ** 2
+                    pred_first = torch.reshape(pred_first, (n_nodes_per_axis, n_nodes_per_axis))
+                    pred_first = to_numpy(torch.sqrt(pred_first))
+                    scale_factor = im_first.max() / (pred_first.max() + 1e-8)
+                    print(f'[DEBUG field] scale_factor={scale_factor:.4f} mc={mc} n_nodes_per_axis={n_nodes_per_axis}')
+
                     for frame in trange(0, n_frames, n_frames // 100, ncols=90):
 
+                        # true field - match training: sqrt + rot90
                         fig, ax = fig_init()
-                        im_ = np.zeros((44, 44))
+                        im_ = np.zeros((n_nodes_per_axis, n_nodes_per_axis))
                         if (frame >= 0) & (frame < n_frames):
                             im_ = im[int(frame / n_frames * 256)].squeeze()
-                        plt.imshow(im_, cmap='gray', vmin=0, vmax=2)
+                        im_ = np.sqrt(im_)
+                        im_ = np.rot90(im_, k=1)
+                        plt.imshow(im_, cmap='gray')
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
                         plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.png", dpi=80)
                         plt.close()
 
-                        pred = model_f(time=frame / n_frames, enlarge=False) ** 2 * second_correction / 10
+                        # reconstructed LR - match training: model_f**2, then sqrt, then rot90, then scale
+                        pred = model_f(time=frame / n_frames, enlarge=False) ** 2
                         pred = torch.reshape(pred, (n_nodes_per_axis, n_nodes_per_axis))
-
-                        pred = to_numpy(pred)
-                        pred = np.flipud(pred)
-                        pred = np.rot90(pred, 1)
-                        pred = np.fliplr(pred)
+                        pred = to_numpy(torch.sqrt(pred)) * scale_factor
+                        if frame == 0:
+                            print(f'[DEBUG LR] pred min={pred.min():.4f} max={pred.max():.4f} im_ min={im_.min():.4f} max={im_.max():.4f}')
+                        pred = np.rot90(pred, k=1)
                         fig, ax = fig_init()
-                        plt.imshow(pred, cmap='gray', vmin=0, vmax=2)
+                        plt.imshow(pred, cmap='gray')
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
@@ -2359,25 +2371,30 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         # print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
                         slope_list.append(lin_fit[0])
 
+                        if frame == 0:
+                            print(f'[DEBUG scatter] im_ shape={im_.shape} min={im_.min():.4f} max={im_.max():.4f}')
+                            print(f'[DEBUG scatter] pred shape={pred.shape} min={pred.min():.4f} max={pred.max():.4f}')
+                            print(f'[DEBUG scatter] x_data range=[{x_data.min():.4f}, {x_data.max():.4f}] y_data range=[{y_data.min():.4f}, {y_data.max():.4f}]')
+                            print(f'[DEBUG scatter] R^2={r_squared:.4f} slope={lin_fit[0]:.4f}')
                         fig, ax = fig_init()
                         plt.scatter(im_, pred, s=10, c=mc)
-                        plt.xlim([0.3, 1.6])
-                        # plt.ylim([0.3, 1.6])
                         plt.xlabel(r'true neuromodulation', fontsize=48)
                         plt.ylabel(r'learned neuromodulation', fontsize=48)
-                        plt.text(0.35, 1.5, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}', fontsize=42)
+                        ax.text(0.05, 0.95, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}',
+                                transform=ax.transAxes, fontsize=42, verticalalignment='top')
                         plt.tight_layout()
                         plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.png", dpi=80)
                         plt.close()
                         im_list.append(im_)
                         pred_list.append(pred)
 
-                        pred = model_f(time=frame / n_frames, enlarge=True) ** 2 * second_correction / 10 # /lin_fit[0]
+                        # reconstructed HR - same processing with scale
+                        pred = model_f(time=frame / n_frames, enlarge=True) ** 2
                         pred = torch.reshape(pred, (640, 640))
-                        pred = to_numpy(pred)
-                        pred = np.flipud(pred)
-                        pred = np.rot90(pred, 1)
-                        pred = np.fliplr(pred)
+                        pred = to_numpy(torch.sqrt(pred)) * scale_factor
+                        if frame == 0:
+                            print(f'[DEBUG HR] pred min={pred.min():.4f} max={pred.max():.4f}')
+                        pred = np.rot90(pred, k=1)
                         fig, ax = fig_init()
                         plt.imshow(pred, cmap='gray')
                         plt.xticks([])
@@ -2502,8 +2519,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 fig, ax = fig_init()
                 f = torch.reshape(x[:n_nodes, 8:9], (n_nodes_per_axis, n_nodes_per_axis))
-                plt.imshow(to_numpy(f), cmap='viridis', vmin=-1, vmax=10)
+                f = to_numpy(torch.sqrt(f))
+                f = np.rot90(f, k=1)
+                plt.imshow(f, cmap='grey')
+                plt.xticks([])
+                plt.yticks([])
                 plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/field/field_{epoch}.png", dpi=80)
                 plt.close()
 
 
@@ -4981,10 +5003,11 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                         fig, ax = fig_init()
                         plt.scatter(im_, pred, s=10, c=mc)
                         plt.xlim([0.3, 1.6])
-                        # plt.ylim([0.3, 1.6])
+                        plt.ylim([0.3, 1.6])
                         plt.xlabel(r'true neuromodulation', fontsize=48)
                         plt.ylabel(r'learned neuromodulation', fontsize=48)
-                        plt.text(0.35, 1.5, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}', fontsize=42)
+                        ax.text(0.05, 0.95, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}',
+                                transform=ax.transAxes, fontsize=42, verticalalignment='top')
                         plt.tight_layout()
                         plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.png", dpi=80)
                         plt.close()
@@ -4994,11 +5017,13 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                         pred = model_f(time=frame / n_frames, enlarge=True) ** 2 * second_correction / 10 # /lin_fit[0]
                         pred = torch.reshape(pred, (640, 640))
                         pred = to_numpy(pred)
+                        if frame == 0:
+                            print(f'[DEBUG HR] pred min={pred.min():.4f} max={pred.max():.4f}')
                         pred = np.flipud(pred)
                         pred = np.rot90(pred, 1)
                         pred = np.fliplr(pred)
                         fig, ax = fig_init()
-                        plt.imshow(pred, cmap='gray')
+                        plt.imshow(pred, cmap='gray', vmin=0, vmax=2)
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
@@ -9068,7 +9093,7 @@ if __name__ == '__main__':
 
 
 
-    config_list = ['signal_N5_1', 'signal_N5_2']
+    config_list = ['signal_N5_1']
 
     # config_list = ['signal_N11_1_8_3']
 

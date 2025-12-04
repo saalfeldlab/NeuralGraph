@@ -12,7 +12,7 @@ from torchdiffeq import odeint, odeint_adjoint
 from torch_geometric.loader import DataLoader
 
 
-class GNNODEFunc(nn.Module):
+class GNNODEFunc_FlyVis(nn.Module):
     """
     Wraps GNN model as ODE vector field: dv/dt = f(t, v).
 
@@ -91,7 +91,7 @@ class GNNODEFunc(nn.Module):
         return pred.view(-1)
 
 
-def integrate_neural_ode(model, v0, data_template, data_id, time_steps, delta_t,
+def integrate_neural_ode_FlyVis(model, v0, data_template, data_id, time_steps, delta_t,
                          neurons_per_sample, batch_size, mask_batch=None, has_visual_field=False,
                          x_list=None, run=0, device=None, k_batch=None,
                          ode_method='dopri5', rtol=1e-4, atol=1e-5,
@@ -112,7 +112,7 @@ def integrate_neural_ode(model, v0, data_template, data_id, time_steps, delta_t,
     # adjoint: O(1) memory, standard: faster but O(L) memory
     solver = odeint_adjoint if adjoint else odeint
 
-    ode_func = GNNODEFunc(
+    ode_func = GNNODEFunc_FlyVis(
         model=model,
         data_template=data_template,
         data_id=data_id,
@@ -151,7 +151,7 @@ def integrate_neural_ode(model, v0, data_template, data_id, time_steps, delta_t,
     return v_final, v_trajectory
 
 
-def neural_ode_loss_flyvis(model, dataset_batch, x_list, run, k_batch,
+def neural_ode_loss_FlyVis(model, dataset_batch, x_list, run, k_batch,
                            time_step, batch_size, n_neurons, ids_batch,
                            delta_t, device, mask_batch=None,
                            data_id=None, has_visual_field=False,
@@ -175,7 +175,7 @@ def neural_ode_loss_flyvis(model, dataset_batch, x_list, run, k_batch,
         for b in range(batch_size)
     ], device=device)
 
-    v_final, v_trajectory = integrate_neural_ode(
+    v_final, v_trajectory = integrate_neural_ode_FlyVis(
         model=model,
         v0=v0,
         data_template=data_template,
