@@ -1,4 +1,4 @@
-description: "Recurrent training time_step=8"
+description: "Neural ODE training time_step=16 euler"
 dataset: "signal_N2_1"
 
 simulation:
@@ -50,8 +50,12 @@ training:
   n_runs: 2
   device: "auto"
 
-  recurrent_training: True
-  time_step: 8
+  neural_ODE_training: True
+  time_step: 16
+  ode_method: "euler"
+  ode_rtol: 1.0E-2
+  ode_atol: 1.0E-3
+  ode_adjoint: True
 
   batch_size: 8
   small_init_batch_size: False

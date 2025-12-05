@@ -38,7 +38,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'plot test'  #, 'train', 'test', 'generate', 'plot', 'NGP'
+        task = 'plot'  #, 'train', 'test', 'generate', 'plot', 'NGP'
 
         # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
         #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
@@ -46,7 +46,7 @@ if __name__ == "__main__":
         #                'fly_N9_64_4_1', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_4'
         #                ]  
 
-        # config_list = ['fly_N9_62_5_9_6', 'fly_N9_62_5_19_12', 'fly_N9_62_5_29_1', 'fly_N9_62_5_39_1']
+        config_list = ['fly_N9_62_5_29_1', 'fly_N9_62_5_39_1']
 
         # config_list = ['fly_N9_62_23_1']
         
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
         # config_list = ['fly_N9_44_6']
 
-        config_list = ['fly_N9_62_24_1']
+        # config_list = ['fly_N9_62_24_1']
 
         # config_list = ['signal_N2_1']
 

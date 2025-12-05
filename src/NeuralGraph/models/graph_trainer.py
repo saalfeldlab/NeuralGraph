@@ -15,7 +15,21 @@ import tifffile
 import numpy as np
 from torch_geometric.utils import dense_to_sparse
 
-from NeuralGraph.models.utils import *
+from NeuralGraph.models.utils import (
+    choose_training_model,
+    increasing_batch_size,
+    constant_batch_size,
+    set_trainable_parameters,
+    get_in_features_update,
+    get_in_features_lin_edge,
+    analyze_edge_function,
+    plot_training_signal,
+    plot_training_signal_field,
+    plot_training_signal_missing_activity,
+    plot_training_flyvis,
+    plot_weight_comparison,
+    get_index_particles,
+)
 from NeuralGraph.utils import (
     to_numpy,
     CustomColorMap,
@@ -1087,6 +1101,15 @@ def data_train_flyvis(config, erase, best_model, device):
     field_type = model_config.field_type
     time_step = train_config.time_step
 
+    coeff_W_sign = train_config.coeff_W_sign
+    W_sign_temperature = train_config.W_sign_temperature
+    coeff_update_msg_diff = train_config.coeff_update_msg_diff
+    coeff_update_u_diff = train_config.coeff_update_u_diff
+    coeff_edge_norm = train_config.coeff_edge_norm
+    coeff_update_msg_sign = train_config.coeff_update_msg_sign
+    coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
+    coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
+
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
@@ -1166,9 +1189,15 @@ def data_train_flyvis(config, erase, best_model, device):
     else:
         model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
 
-
+    # Move model to device before loading state dict
     model = model.to(device)
+    print(f'Model moved to device: {device}')
 
+    # Debug: Check device of model parameters
+    sample_param = next(model.parameters())
+    print(f'Sample parameter device: {sample_param.device}')
+
+    # Count parameters
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
 
@@ -1213,6 +1242,8 @@ def data_train_flyvis(config, erase, best_model, device):
 
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    
+    print('Optimizer created successfully')
     model.train()
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
@@ -1225,30 +1256,86 @@ def data_train_flyvis(config, erase, best_model, device):
     edges_all = edges.clone().detach()
     print(f'{edges.shape[1]} edges')
 
+    # res = analyze_type_neighbors(
+    #     type_name="Mi1",
+    #     edges_all=edges_all,
+    #     type_list=type_list,          # (N,1) or (N,)
+    #     n_hops=10,
+    #     direction='in',
+    #     verbose=True
+    # )
+    # # for hop in res["per_hop"]:
+    # #     print('hop ', hop["hop"], ':' , hop["n_new"], hop["type_counts"])
+    # hop_counts = [h["n_new"] for h in res["per_hop"]]          # number of neurons at each hop
+    # total_excl_target = sum(hop_counts)                        # unique neurons discovered (excluding target)
+    # total_incl_target = 1 + total_excl_target                  # including the target neuron
+    # cumulative_by_hop = np.cumsum(hop_counts).tolist()
+    # print("per-hop:", hop_counts)
+    # print("cumulative:", cumulative_by_hop)
+    # print("total excl target:", total_excl_target)
+
+    if coeff_W_sign > 0:
+        index_weight = []
+        for i in range(n_neurons):
+            # Get source neurons that connect to neuron i
+            mask = edges[1] == i
+            index_weight.append(edges[0][mask])
+
+    coeff_W_L1 = train_config.coeff_W_L1
+    coeff_edge_diff = train_config.coeff_edge_diff
+    coeff_update_diff = train_config.coeff_update_diff
+    logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
+    print(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
 
     print("start training ...")
+
     check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
     # torch.autograd.set_detect_anomaly(True)
 
     list_loss_regul = []
 
-    regul_tracker = RegularizationTracker(config=config, model=model, device=device, n_neurons=n_neurons)
-    ids = np.arange(n_neurons)
+    # Initialize dictionary for tracking loss components per iteration
+    loss_components = {
+        'loss': [],
+        'regul_total': [],
+        'W_L1': [],
+        'W_L2': [],
+        'W_sign': [],
+        'edge_grad': [],
+        'phi_grad': [],
+        'edge_diff': [],
+        'edge_norm': [],
+        'edge_weight': [],
+        'phi_weight': []
+    }
 
     time.sleep(0.2)
 
-    Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
-    plot_frequency = int(Niter // 20)
-    print(f'{Niter} iterations per epoch, plot every {plot_frequency} iterations')
-
     for epoch in range(start_epoch, n_epochs + 1):
+
+        if batch_ratio < 1:
+            Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio * 0.2)
+        else:
+            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
+
+        plot_frequency = int(Niter // 20)
+        print(f'{Niter} iterations per epoch')
+        logger.info(f'{Niter} iterations per epoch')
+        print(f'plot every {plot_frequency} iterations')
 
         total_loss = 0
         total_loss_regul = 0
         k = 0
 
+        # anneal loss_noise_level, decrease with epoch
         loss_noise_level = train_config.loss_noise_level * (0.95 ** epoch)
-        regul_tracker.update_coefficients(epoch)
+        # anneal weight_L1, increase with epoch
+        coeff_edge_weight_L1= train_config.coeff_edge_weight_L1 * (1 - np.exp(-train_config.coeff_edge_weight_L1_rate**epoch))
+        coeff_phi_weight_L1 = train_config.coeff_phi_weight_L1 * (1 - np.exp(-train_config.coeff_phi_weight_L1_rate*epoch))
+        coeff_W_L1 = train_config.coeff_W_L1 * (1 - np.exp(-train_config.coeff_W_L1_rate * epoch))
+        coeff_W_L2 = train_config.coeff_W_L2
+
+
 
         for N in trange(Niter,ncols=150):
 
@@ -1262,7 +1349,11 @@ def data_train_flyvis(config, erase, best_model, device):
 
             loss = 0
             run = np.random.randint(n_runs)
+
+            # Use all neurons (batch_ratio removed)
             edges = edges_all.clone().detach()
+            ids = np.arange(n_neurons)
+
 
             for batch in range(batch_size):
 
@@ -1272,6 +1363,8 @@ def data_train_flyvis(config, erase, best_model, device):
                     k = k - k % time_step
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+
+                ids = np.arange(n_neurons)
 
                 if time_window > 0:
                     x_temporal = x_list[run][k - time_window + 1: k + 1, :, 3:4].transpose(1, 0, 2).squeeze(-1)
@@ -1283,16 +1376,152 @@ def data_train_flyvis(config, erase, best_model, device):
                     x[model.n_input_neurons:, 4:5] = 0
 
                 loss = torch.zeros(1, device=device)
-                track_components = regul_tracker.should_track(N, plot_frequency)
+
+                track_components = ((N % plot_frequency == 0) | (N == 0))
+                regul_total_this_iter = 0
+
+                if track_components:
+                    regul_tracker = {
+                        'W_L1': 0,
+                        'W_L2': 0,
+                        'W_sign': 0,
+                        'edge_grad': 0,
+                        'phi_grad': 0,
+                        'edge_diff': 0,
+                        'phi_zero': 0,
+                        'edge_norm': 0,
+                        'edge_weight': 0,
+                        'phi_weight': 0
+                    }
+
+                def track_regul(regul_term, component_name):
+                    """Helper to track regularization"""
+                    nonlocal regul_total_this_iter
+                    val = regul_term.item()
+                    regul_total_this_iter += val
+                    if track_components:
+                        regul_tracker[component_name] += val
+                    return val
 
                 if not (torch.isnan(x).any()):
-                    in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device)
-                    regul_loss = regul_tracker.compute_regularization(
-                        x=x, ids=ids, xnorm=xnorm, edges=edges, epoch=epoch,
-                        in_features=in_features, in_features_next=in_features_next,
-                        track=track_components
-                    )
-                    loss = loss + regul_loss
+                    # regularisation sparsity on Wij
+                    if coeff_W_L1>0:
+                        regul_term = model.W.norm(1) * coeff_W_L1
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_L1')
+                    # regularisation L2 on Wij
+                    if coeff_W_L2>0:
+                        regul_term = model.W.norm(2) * coeff_W_L2
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_L2')
+                    # regularisation sparsity on weights of model.lin_edge
+                    if (coeff_edge_weight_L1+coeff_edge_weight_L2)>0:
+                        for param in model.lin_edge.parameters():
+                            regul_term = param.norm(1) * coeff_edge_weight_L1 + param.norm(2) * coeff_edge_weight_L2
+                            loss = loss + regul_term
+                            track_regul(regul_term, 'edge_weight')
+                    if (coeff_phi_weight_L1+coeff_phi_weight_L2)>0:
+                        for param in model.lin_phi.parameters():
+                            regul_term = param.norm(2) * coeff_phi_weight_L1 + param.norm(2) * coeff_phi_weight_L2
+                            loss = loss + regul_term
+                            track_regul(regul_term, 'phi_weight')
+                    # regularisation lin_edge
+                    in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons,device)
+                    if coeff_edge_diff > 0:
+                        if model_config.lin_edge_positive:
+                            msg0 = model.lin_edge(in_features[ids].clone()) ** 2
+                            msg1 = model.lin_edge(in_features_next[ids].clone()) ** 2
+                        else:
+                            msg0 = model.lin_edge(in_features[ids].clone())
+                            msg1 = model.lin_edge(in_features_next[ids].clone())
+                        regul_term = torch.relu(msg0 - msg1).norm(2) * coeff_edge_diff      # lin_edge monotonically increasing  over voltage for all embedding values
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'edge_diff')
+                    if coeff_edge_norm > 0:
+                        in_features[:,0] = 2 * xnorm
+                        if model_config.lin_edge_positive:
+                            msg = model.lin_edge(in_features[ids].clone()) ** 2
+                        else:
+                            msg = model.lin_edge(in_features[ids].clone())
+                        regul_term = (msg - 2 * xnorm).norm(2) * coeff_edge_norm
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'edge_norm')
+
+                    # Gradient penalty for MLP smoothness (edge function)
+                    if (train_config.coeff_edge_gradient_penalty > 0):
+                        in_features_sample = in_features[ids].clone()
+                        in_features_sample.requires_grad_(True)
+
+                        if model_config.lin_edge_positive:
+                            msg_sample = model.lin_edge(in_features_sample) ** 2
+                        else:
+                            msg_sample = model.lin_edge(in_features_sample)
+
+                        # Compute gradient (Jacobian) of edge function w.r.t. inputs
+                        grad_edge = torch.autograd.grad(
+                            outputs=msg_sample.sum(),
+                            inputs=in_features_sample,
+                            create_graph=True
+                        )[0]
+
+                        # Penalize large gradients (L2 norm squared encourages smoothness)
+                        regul_term = (grad_edge.norm(2) ** 2) * train_config.coeff_edge_gradient_penalty
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'edge_grad')
+
+                    if (train_config.coeff_phi_gradient_penalty > 0):
+                        in_features_phi = get_in_features_update(rr=None, model=model, device=device)
+                        in_features_phi_sample = in_features_phi[ids].clone()
+                        in_features_phi_sample.requires_grad_(True)
+
+                        pred_phi_sample = model.lin_phi(in_features_phi_sample)
+
+                        # Compute gradient of update function w.r.t. inputs
+                        grad_phi = torch.autograd.grad(
+                            outputs=pred_phi_sample.sum(),
+                            inputs=in_features_phi_sample,
+                            create_graph=True
+                        )[0]
+
+                        # Penalize large gradients
+                        regul_term = (grad_phi.norm(2) ** 2) * train_config.coeff_phi_gradient_penalty
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'phi_grad')
+
+                    # regularisation sign Wij (Dale's Law: all outgoing weights should have same sign)
+                    if (coeff_W_sign > 0) & (epoch>0):
+                        # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
+                        # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
+
+                        # model.W has shape [n_edges, 1] - squeeze to [n_edges]
+                        weights = model.W.squeeze()
+
+                        # Get source neurons for each edge (Dale's Law applies to outgoing connections)
+                        source_neurons = edges[0]
+
+                        # Use smooth sigmoid approximation instead of hard threshold for differentiability
+                        # sigmoid(k*w) ≈ 1 for w >> 0, ≈ 0 for w << 0, with smooth gradients
+                        n_pos = torch.zeros(n_neurons, device=device)
+                        n_neg = torch.zeros(n_neurons, device=device)
+                        n_total = torch.zeros(n_neurons, device=device)
+
+                        pos_mask = torch.sigmoid(W_sign_temperature * weights)
+                        neg_mask = torch.sigmoid(-W_sign_temperature * weights)
+
+                        n_pos.scatter_add_(0, source_neurons, pos_mask)
+                        n_neg.scatter_add_(0, source_neurons, neg_mask)
+                        n_total.scatter_add_(0, source_neurons, torch.ones_like(weights))
+
+                        # Compute violation for each neuron: (n_pos/n_total) * (n_neg/n_total)
+                        # Avoid division by zero for neurons with no outgoing edges
+                        violation = torch.where(n_total > 0,
+                                               (n_pos / n_total) * (n_neg / n_total),
+                                               torch.zeros_like(n_total))
+
+                        loss_W_sign = violation.sum()
+                        regul_term = loss_W_sign * coeff_W_sign
+                        loss = loss + regul_term
+                        track_regul(regul_term, 'W_sign')
 
                     if recurrent_training or neural_ODE_training:
                         y = torch.tensor(x_list[run][k + time_step,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
@@ -1300,6 +1529,7 @@ def data_train_flyvis(config, erase, best_model, device):
                         y = torch.tensor(x_list[run][k, :n_input_neurons, 4:5], device=device)  # loss on current excitation
                     else:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm     # loss on activity derivative
+
 
                     if loss_noise_level>0:
                         y = y + torch.randn(y.shape, device=device) * loss_noise_level
@@ -1331,15 +1561,21 @@ def data_train_flyvis(config, erase, best_model, device):
 
             if not (dataset_batch == []):
 
+                total_loss_regul += loss.item()
+
+
                 if test_neural_field:
                     loss = loss + (visual_input_batch - y_batch).norm(2)
+
 
 
                 elif 'MLP_ODE' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, return_all=False)
+
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
+
 
 
                 elif 'MLP' in signal_model_name:
@@ -1349,13 +1585,34 @@ def data_train_flyvis(config, erase, best_model, device):
 
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
 
+
                 else:
+
 
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
-                        pred, in_features, _ = model(batch, data_id=data_id, return_all=True)
-                        update_regul_loss = regul_tracker.compute_update_regularization(in_features, ids_batch)
-                        loss = loss + update_regul_loss
+                        if (coeff_update_msg_diff > 0) | (coeff_update_u_diff > 0) | (coeff_update_msg_sign>0):
+                            pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
+                            if coeff_update_msg_diff > 0 :      # Enforces that increasing the message input should increase the output (monotonic increasing)
+                                pred_msg = model.lin_phi(in_features.clone().detach())
+                                in_features_msg_next = in_features.clone().detach()
+                                in_features_msg_next[:, model_config.embedding_dim+1] = in_features_msg_next[:, model_config.embedding_dim+1] * 1.05
+                                pred_msg_next = model.lin_phi(in_features_msg_next.clone().detach())
+                                loss = loss + torch.relu(pred_msg[ids_batch]-pred_msg_next[ids_batch]).norm(2) * coeff_update_msg_diff
+                            if coeff_update_u_diff > 0:
+                                pred_u = model.lin_phi(in_features.clone().detach())
+                                in_features_u_next = in_features.clone().detach()
+                                in_features_u_next[:, 0] = in_features_u_next[:, 0] * 1.05  # Perturb voltage (first column)
+                                pred_u_next = model.lin_phi(in_features_u_next.clone().detach())
+                                loss = loss + torch.relu(pred_u_next[ids_batch] - pred_u[ids_batch]).norm(2) * coeff_update_u_diff
+                            if coeff_update_msg_sign > 0: # Penalizes when pred_msg not of same sign as msg
+                                in_features_modified = in_features.clone().detach()
+                                in_features_modified[:, 0] = 0
+                                pred_msg = model.lin_phi(in_features_modified)
+                                msg = in_features[:,model_config.embedding_dim+1].clone().detach()
+                                loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
+                        else:
+                            pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
 
 
                     if neural_ODE_training:
@@ -1397,12 +1654,13 @@ def data_train_flyvis(config, erase, best_model, device):
 
                     elif recurrent_training:
 
-
+                        # Compute initial integrated prediction for ALL neurons (needed for autoregressive loop)
                         pred_x = x_batch[:, 0:1] + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
                         if time_step > 1:
+                            # Autoregressive rollout for time_step-1 additional steps
                             for step in range(time_step - 1):
-
+                                # Create new dataset_batch with updated activity (maintaining gradients)
                                 dataset_batch_new = []
                                 neurons_per_sample = dataset_batch[0].x.shape[0]
 
@@ -1410,20 +1668,26 @@ def data_train_flyvis(config, erase, best_model, device):
                                     start_idx = b * neurons_per_sample
                                     end_idx = (b + 1) * neurons_per_sample
 
+                                    # Update neural activity (column 3)
                                     dataset_batch[b].x[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
 
-                                    k_current = k_batch[start_idx, 0].item() + step + 1  
+                                    # Update visual input (column 4) for next time step
+                                    # Get k value for this batch sample from k_batch
+                                    k_current = k_batch[start_idx, 0].item() + step + 1  # Next time step
 
                                     if has_visual_field:
+                                        # Get visual input for next time step
                                         visual_input_next = model.forward_visual(dataset_batch[b].x, k_current)
                                         dataset_batch[b].x[:model.n_input_neurons, 4:5] = visual_input_next
                                         dataset_batch[b].x[model.n_input_neurons:, 4:5] = 0
                                     else:
+                                        # Update from x_list for next time step
                                         x_next = torch.tensor(x_list[run][k_current], dtype=torch.float32, device=device)
                                         dataset_batch[b].x[:, 4:5] = x_next[:, 4:5]
 
                                     dataset_batch_new.append(dataset_batch[b])
 
+                                # Run forward pass with updated states
                                 batch_loader = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
                                 for batch in batch_loader:
                                     pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
@@ -1433,7 +1697,9 @@ def data_train_flyvis(config, erase, best_model, device):
                         loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
 
+
                     else:
+
 
 
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
@@ -1441,14 +1707,20 @@ def data_train_flyvis(config, erase, best_model, device):
 
                 loss.backward()
 
+                # Gradient clipping for W (helps stabilize adjoint ODE training)
+                if hasattr(model, 'W') and model.W.grad is not None:
+                    grad_clip_W = getattr(train_config, 'grad_clip_W', 0.0)
+                    if grad_clip_W > 0:
+                        torch.nn.utils.clip_grad_norm_(model.W, max_norm=grad_clip_W)
 
+                # Debug gradient check for neural ODE training
                 if DEBUG_ODE and neural_ODE_training and (N % 500 == 0):
                     debug_check_gradients(model, loss, N)
 
                 optimizer.step()
 
                 total_loss += loss.item()
-                total_loss_regul += regul_tracker.get_regul_total()
+                total_loss_regul += regul_total_this_iter
 
 
                 if (N < 10000) & (N % 2000 == 0) & hasattr(model, 'W') :
@@ -1462,7 +1734,7 @@ def data_train_flyvis(config, erase, best_model, device):
                     learned_in_region = torch.zeros((n_neurons, n_neurons), dtype=torch.float32, device=edges.device)
                     learned_in_region[edges[1], edges[0]] = model.W.squeeze()
                     fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-
+                    # Learned connectivity
                     ax1 = sns.heatmap(to_numpy(learned_in_region[row_start:row_end, col_start:col_end]), center=0, square=True, cmap='bwr',
                                         cbar=False, ax=ax)
                     ax.set_title('learned connectivity', fontsize=24)
@@ -1473,16 +1745,28 @@ def data_train_flyvis(config, erase, best_model, device):
                     plt.close()
 
                 if track_components:
+                    # Store in dictionary lists
+                    current_loss = loss.item()
+                    loss_components['loss'].append((current_loss - regul_total_this_iter) / n_neurons)
+                    loss_components['regul_total'].append(regul_total_this_iter / n_neurons)
+                    for key in ['W_L1', 'W_L2', 'W_sign', 'edge_grad', 'phi_grad', 'edge_diff',
+                                'edge_norm', 'edge_weight', 'phi_weight']:
+                        loss_components[key].append(regul_tracker[key] / n_neurons)
 
-                    regul_tracker.track_regularization(loss)
-                    regul_tracker.plot_loss(log_dir, epoch=epoch, Niter=N,
-                                           total_loss=total_loss, total_loss_regul=total_loss_regul)
+                    # Pass per-neuron normalized values to debug (to match dictionary values)
+                    plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=False,
+                                   current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
+                                   total_loss=total_loss, total_loss_regul=total_loss_regul)
+
 
                     if has_visual_field:
                         with torch.no_grad():
                             plt.style.use('dark_background')
 
+                            # Static XY locations (take from first frame of this run)
                             X1 = to_numpy(x_list[run][0][:n_input_neurons, 1:3])
+
+                            # group-based selection of 10 traces
                             groups = 217
                             group_size = n_input_neurons // groups  # expect 8
                             assert groups * group_size == n_input_neurons, "Unexpected packing of input neurons"
@@ -1527,16 +1811,21 @@ def data_train_flyvis(config, erase, best_model, device):
                                     gt_field = x_list[0][k, :n_input_neurons, 4:5]
                                     gt_vec = to_numpy(gt_field).squeeze()  # (n_input_neurons,)
 
+                                    # update rolling traces
                                     hist_t.append(k)
                                     for i in trace_ids:
                                         hist_gt[i].append(gt_vec[i])
                                         hist_pred[i].append(pred_vec[i])
 
+                                    # draw three panels
                                     fig.clf()
+
+                                    # Traces
 
                                     rmse_frame = float(np.sqrt(((pred_vec - gt_vec) ** 2).mean()))
                                     float(np.mean(np.abs(pred_vec - gt_vec)))
                                     running_rmse = float(np.mean(error_list + [rmse_frame])) if len(error_list) else rmse_frame
+
 
                                     ax3 = fig.add_subplot(1, 3, 3)
                                     ax3.set_axis_off()
@@ -1561,6 +1850,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                         va='top', ha='left',
                                         fontsize=10, color='white')
 
+                                                                        # GT field
 
                                     ax1 = fig.add_subplot(1, 3, 1)
                                     ax1.scatter(X1[:, 0], X1[:, 1], s=256, c=gt_vec, cmap="viridis", marker='h', vmin=0, vmax=1)
@@ -1576,6 +1866,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                     plt.tight_layout()
                                     writer.grab_frame()
 
+                                    # RMSE for this frame
                                     error_list.append(np.sqrt(((pred_vec * correction - gt_vec) ** 2).mean()))
 
                     if (not(test_neural_field)) & (not('MLP' in signal_model_name)):

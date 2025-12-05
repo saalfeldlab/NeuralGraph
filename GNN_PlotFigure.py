@@ -5787,8 +5787,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             residuals = learned_tau - linear_model(gt_taus, *lin_fit_tau)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_tau - np.mean(learned_tau)) ** 2)
-            r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit_tau[0]:.2f}\nN: {n_edges}',
+            r_squared_tau = 1 - (ss_res / ss_tot)
+            plt.text(0.05, 0.95, f'R²: {r_squared_tau:.2f}\nslope: {lin_fit_tau[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $\tau$', fontsize=48)
             plt.ylabel(r'learned $\tau$', fontsize=48)
@@ -5811,8 +5811,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             residuals = learned_V_rest - linear_model(gt_V_rest, *lin_fit_V_rest)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_V_rest - np.mean(learned_V_rest)) ** 2)
-            r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit_V_rest[0]:.2f}\nN: {n_edges}',
+            r_squared_V_rest = 1 - (ss_res / ss_tot)
+            plt.text(0.05, 0.95, f'R²: {r_squared_V_rest:.2f}\nslope: {lin_fit_V_rest[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $V_{rest}$', fontsize=48)
             plt.ylabel(r'learned $V_{rest}$', fontsize=48)
@@ -5823,8 +5823,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
             plt.close()
-
-
 
             fig = plt.figure(figsize=(10, 9))
             ax = plt.subplot(2, 1, 1)
@@ -6165,10 +6163,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
             else:
                 print('outliers: 0  (no outliers detected)')
-            print(f"tau reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit_tau[0]:.2f}")
-            logger.info(f"tau reconstruction R²: {r_squared:.3f}  slope: {lin_fit_tau[0]:.2f}")
-            print(f"V_rest reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit_V_rest[0]:.2f}")
-            logger.info(f"V_rest reconstruction R²: {r_squared:.3f}  slope: {lin_fit_V_rest[0]:.2f}")
+            print(f"tau reconstruction R²: \033[92m{r_squared_tau:.3f}\033[0m  slope: {lin_fit_tau[0]:.2f}")
+            logger.info(f"tau reconstruction R²: {r_squared_tau:.3f}  slope: {lin_fit_tau[0]:.2f}")
+            print(f"V_rest reconstruction R²: \033[92m{r_squared_V_rest:.3f}\033[0m  slope: {lin_fit_V_rest[0]:.2f}")
+            logger.info(f"V_rest reconstruction R²: {r_squared_V_rest:.3f}  slope: {lin_fit_V_rest[0]:.2f}")
 
 
             # Print Dale's Law check results
