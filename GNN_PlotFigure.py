@@ -5783,12 +5783,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             fig = plt.figure(figsize=(10, 9))
             plt.scatter(gt_taus, learned_tau, c=mc, s=1, alpha=0.3)
-            lin_fit, lin_fitv = curve_fit(linear_model, gt_taus, learned_tau)
-            residuals = learned_tau - linear_model(gt_taus, *lin_fit)
+            lin_fit_tau, _ = curve_fit(linear_model, gt_taus, learned_tau)
+            residuals = learned_tau - linear_model(gt_taus, *lin_fit_tau)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_tau - np.mean(learned_tau)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
+            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit_tau[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $\tau$', fontsize=48)
             plt.ylabel(r'learned $\tau$', fontsize=48)
@@ -5800,9 +5800,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.savefig(f'{log_dir}/results/tau_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
-            print(f"tau reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit[0]:.2f}")
-            logger.info(f"tau reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
-            torch.save(torch.tensor(learned_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
 
             # V_rest comparison (reconstructed vs ground truth)
             learned_V_rest = np.where(slopes_lin_phi_array != 0, -offsets_array / slopes_lin_phi_array, 1)
@@ -5810,12 +5807,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             gt_V_rest = to_numpy(gt_V_Rest[:n_neurons])
             fig = plt.figure(figsize=(10, 9))
             plt.scatter(gt_V_rest, learned_V_rest, c=mc, s=1, alpha=0.3)
-            lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest, learned_V_rest)
-            residuals = learned_V_rest - linear_model(gt_V_rest, *lin_fit)
+            lin_fit_V_rest, _ = curve_fit(linear_model, gt_V_rest, learned_V_rest)
+            residuals = learned_V_rest - linear_model(gt_V_rest, *lin_fit_V_rest)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_V_rest - np.mean(learned_V_rest)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
+            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit_V_rest[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $V_{rest}$', fontsize=48)
             plt.ylabel(r'learned $V_{rest}$', fontsize=48)
@@ -5827,10 +5824,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
-            print(f"V_rest reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit[0]:.2f}")
-            logger.info(f"V_rest reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
 
-            torch.save(torch.tensor(learned_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
 
             fig = plt.figure(figsize=(10, 9))
             ax = plt.subplot(2, 1, 1)
@@ -6171,13 +6165,18 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
             else:
                 print('outliers: 0  (no outliers detected)')
+            print(f"tau reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit_tau[0]:.2f}")
+            logger.info(f"tau reconstruction R²: {r_squared:.3f}  slope: {lin_fit_tau[0]:.2f}")
+            print(f"V_rest reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit_V_rest[0]:.2f}")
+            logger.info(f"V_rest reconstruction R²: {r_squared:.3f}  slope: {lin_fit_V_rest[0]:.2f}")
+
 
             # Print Dale's Law check results
-            print("Dale's law check:")
-            print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
-            print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
-            print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} (\033[92m{100*dale_results['n_mixed']/n_neurons:.1f}%\033[0m)")
-            logger.info(f"Dale's Law - Excitatory: {dale_results['n_excitatory']}, Inhibitory: {dale_results['n_inhibitory']}, Mixed/Violations: {dale_results['n_mixed']}")
+            # print("Dale's law check:")
+            # print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
+            # print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
+            # print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} (\033[92m{100*dale_results['n_mixed']/n_neurons:.1f}%\033[0m)")
+
 
 
 

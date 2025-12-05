@@ -1730,3 +1730,384 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
         'violations': dale_violations,
         'neuron_signs': neuron_signs
     }
+
+
+class RegularizationTracker:
+    """
+    Centralized class for computing, tracking, and plotting regularization terms during training.
+
+    Supports regularization terms:
+    - W_L1, W_L2: Weight matrix sparsity and L2 regularization
+    - W_sign: Dale's Law enforcement (same-sign outgoing weights)
+    - edge_diff, edge_norm: Edge function monotonicity and normalization
+    - edge_grad, phi_grad: Gradient penalties for MLP smoothness
+    - edge_weight, phi_weight: L1/L2 on MLP parameters
+    - phi_zero: Constraint that lin_phi(0) = 0
+    - update_msg_diff, update_u_diff, update_msg_sign: Update function constraints
+    """
+
+    def __init__(self, config, model, device, n_neurons):
+        """
+        Initialize the regularization tracker.
+
+        Args:
+            config: Configuration object with training and model settings
+            model: The neural network model
+            device: Torch device
+            n_neurons: Number of neurons in the network
+        """
+        self.config = config
+        self.model = model
+        self.device = device
+        self.n_neurons = n_neurons
+
+        train_config = config.training
+        model_config = config.graph_model
+
+        # Store coefficients
+        self.coeff_W_L1 = train_config.coeff_W_L1
+        self.coeff_W_L2 = train_config.coeff_W_L2
+        self.coeff_W_sign = train_config.coeff_W_sign
+        self.W_sign_temperature = train_config.W_sign_temperature
+        self.coeff_edge_diff = train_config.coeff_edge_diff
+        self.coeff_edge_norm = train_config.coeff_edge_norm
+        self.coeff_edge_gradient_penalty = train_config.coeff_edge_gradient_penalty
+        self.coeff_phi_gradient_penalty = train_config.coeff_phi_gradient_penalty
+        self.coeff_edge_weight_L1 = train_config.coeff_edge_weight_L1
+        self.coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
+        self.coeff_phi_weight_L1 = train_config.coeff_phi_weight_L1
+        self.coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
+        self.coeff_update_msg_diff = train_config.coeff_update_msg_diff
+        self.coeff_update_u_diff = train_config.coeff_update_u_diff
+        self.coeff_update_msg_sign = train_config.coeff_update_msg_sign
+
+        # Model config
+        self.lin_edge_positive = model_config.lin_edge_positive
+        self.embedding_dim = model_config.embedding_dim
+
+        # Initialize loss components dictionary
+        self.loss_components = {
+            'loss': [],
+            'regul_total': [],
+            'W_L1': [],
+            'W_L2': [],
+            'W_sign': [],
+            'edge_grad': [],
+            'phi_grad': [],
+            'edge_diff': [],
+            'edge_norm': [],
+            'edge_weight': [],
+            'phi_weight': [],
+            'update_msg_diff': [],
+            'update_u_diff': [],
+            'update_msg_sign': [],
+        }
+
+        # Current iteration tracking
+        self._regul_total = 0
+        self._regul_terms = {}
+        self._tracking = False
+
+    def should_track(self, iteration, plot_frequency):
+        """Determine if this iteration should track regularization components."""
+        return (iteration % plot_frequency == 0) or (iteration == 0)
+
+    def _add_regul(self, regul_term, component_name):
+        """Internal helper to accumulate regularization and optionally track components."""
+        val = regul_term.item()
+        self._regul_total += val
+        if self._tracking:
+            self._regul_terms[component_name] += val
+        return regul_term
+
+    def compute_regularization(self, *, x, ids, xnorm, edges, epoch=0,
+                                in_features=None, in_features_next=None,
+                                track=False):
+        """
+        Compute all regularization terms.
+
+        Args:
+            x: Input tensor
+            ids: Neuron indices for this batch
+            xnorm: Normalization factor
+            edges: Edge index tensor
+            epoch: Current epoch (some regularizations only apply after epoch 0)
+            in_features: Pre-computed input features for lin_edge (optional)
+            in_features_next: Pre-computed next input features for lin_edge (optional)
+            track: Whether to track individual regularization components
+
+        Returns:
+            Total regularization loss tensor
+        """
+        # Reset counters
+        self._regul_total = 0
+        self._tracking = track
+        if track:
+            self._regul_terms = {key: 0 for key in self.loss_components.keys()
+                                if key not in ['loss', 'regul_total']}
+
+        loss = torch.zeros(1, device=self.device)
+        model = self.model
+
+        # W L1 sparsity
+        if self.coeff_W_L1 > 0:
+            regul_term = model.W.norm(1) * self.coeff_W_L1
+            loss = loss + self._add_regul(regul_term, 'W_L1')
+
+        # W L2 regularization
+        if self.coeff_W_L2 > 0:
+            regul_term = model.W.norm(2) * self.coeff_W_L2
+            loss = loss + self._add_regul(regul_term, 'W_L2')
+
+        # Edge weight L1/L2 regularization
+        if (self.coeff_edge_weight_L1 + self.coeff_edge_weight_L2) > 0:
+            for param in model.lin_edge.parameters():
+                regul_term = param.norm(1) * self.coeff_edge_weight_L1 + param.norm(2) * self.coeff_edge_weight_L2
+                loss = loss + self._add_regul(regul_term, 'edge_weight')
+
+        # Phi weight L1/L2 regularization
+        # Note: original code uses norm(2) for L1 coefficient (likely a bug, but keeping for consistency)
+        if (self.coeff_phi_weight_L1 + self.coeff_phi_weight_L2) > 0:
+            for param in model.lin_phi.parameters():
+                regul_term = param.norm(2) * self.coeff_phi_weight_L1 + param.norm(2) * self.coeff_phi_weight_L2
+                loss = loss + self._add_regul(regul_term, 'phi_weight')
+
+        # Edge diff (monotonicity constraint)
+        if self.coeff_edge_diff > 0 and in_features is not None and in_features_next is not None:
+            if self.lin_edge_positive:
+                msg0 = model.lin_edge(in_features[ids].clone()) ** 2
+                msg1 = model.lin_edge(in_features_next[ids].clone()) ** 2
+            else:
+                msg0 = model.lin_edge(in_features[ids].clone())
+                msg1 = model.lin_edge(in_features_next[ids].clone())
+            regul_term = torch.relu(msg0 - msg1).norm(2) * self.coeff_edge_diff
+            loss = loss + self._add_regul(regul_term, 'edge_diff')
+
+
+        # Edge gradient penalty (smoothness)
+        if self.coeff_edge_gradient_penalty > 0 and in_features is not None:
+            in_features_sample = in_features[ids].clone()
+            in_features_sample.requires_grad_(True)
+
+            if self.lin_edge_positive:
+                msg_sample = model.lin_edge(in_features_sample) ** 2
+            else:
+                msg_sample = model.lin_edge(in_features_sample)
+
+            grad_edge = torch.autograd.grad(
+                outputs=msg_sample.sum(),
+                inputs=in_features_sample,
+                create_graph=True
+            )[0]
+
+            regul_term = (grad_edge.norm(2) ** 2) * self.coeff_edge_gradient_penalty
+            loss = loss + self._add_regul(regul_term, 'edge_grad')
+
+        # Edge norm constraint 
+        if self.coeff_edge_norm > 0 and in_features is not None:
+            in_features[:, 0] = 2 * xnorm
+            if self.lin_edge_positive:
+                msg = model.lin_edge(in_features[ids].clone()) ** 2
+            else:
+                msg = model.lin_edge(in_features[ids].clone())
+            regul_term = (msg - 2 * xnorm).norm(2) * self.coeff_edge_norm
+            loss = loss + self._add_regul(regul_term, 'edge_norm')
+
+
+
+        # Phi gradient penalty (smoothness)
+        if self.coeff_phi_gradient_penalty > 0:
+            in_features_phi = get_in_features_update(rr=None, model=model, device=self.device)
+            in_features_phi_sample = in_features_phi[ids].clone()
+            in_features_phi_sample.requires_grad_(True)
+
+            pred_phi_sample = model.lin_phi(in_features_phi_sample)
+
+            grad_phi = torch.autograd.grad(
+                outputs=pred_phi_sample.sum(),
+                inputs=in_features_phi_sample,
+                create_graph=True
+            )[0]
+
+            regul_term = (grad_phi.norm(2) ** 2) * self.coeff_phi_gradient_penalty
+            loss = loss + self._add_regul(regul_term, 'phi_grad')
+
+        # W sign (Dale's Law)
+        if (self.coeff_W_sign > 0) and (epoch > 0):
+            weights = model.W.squeeze()
+            source_neurons = edges[0]
+
+            n_pos = torch.zeros(self.n_neurons, device=self.device)
+            n_neg = torch.zeros(self.n_neurons, device=self.device)
+            n_total = torch.zeros(self.n_neurons, device=self.device)
+
+            pos_mask = torch.sigmoid(self.W_sign_temperature * weights)
+            neg_mask = torch.sigmoid(-self.W_sign_temperature * weights)
+
+            n_pos.scatter_add_(0, source_neurons, pos_mask)
+            n_neg.scatter_add_(0, source_neurons, neg_mask)
+            n_total.scatter_add_(0, source_neurons, torch.ones_like(weights))
+
+            violation = torch.where(n_total > 0,
+                                   (n_pos / n_total) * (n_neg / n_total),
+                                   torch.zeros_like(n_total))
+
+            loss_W_sign = violation.sum()
+            regul_term = loss_W_sign * self.coeff_W_sign
+            loss = loss + self._add_regul(regul_term, 'W_sign')
+
+        return loss
+
+    def compute_update_regularization(self, in_features, ids_batch):
+        """
+        Compute update function regularization terms (requires model forward pass output).
+
+        Args:
+            in_features: Input features from model forward pass
+            ids_batch: Batch indices
+
+        Returns:
+            Total update regularization loss tensor
+        """
+        loss = torch.zeros(1, device=self.device)
+        model = self.model
+
+        # Update msg diff (monotonicity on message input)
+        if self.coeff_update_msg_diff > 0:
+            pred_msg = model.lin_phi(in_features.clone().detach())
+            in_features_msg_next = in_features.clone().detach()
+            in_features_msg_next[:, self.embedding_dim + 1] = in_features_msg_next[:, self.embedding_dim + 1] * 1.05
+            pred_msg_next = model.lin_phi(in_features_msg_next)
+            regul_term = torch.relu(pred_msg[ids_batch] - pred_msg_next[ids_batch]).norm(2) * self.coeff_update_msg_diff
+            loss = loss + self._add_regul(regul_term, 'update_msg_diff')
+
+        # Update u diff (monotonicity on voltage input)
+        if self.coeff_update_u_diff > 0:
+            pred_u = model.lin_phi(in_features.clone().detach())
+            in_features_u_next = in_features.clone().detach()
+            in_features_u_next[:, 0] = in_features_u_next[:, 0] * 1.05
+            pred_u_next = model.lin_phi(in_features_u_next)
+            regul_term = torch.relu(pred_u_next[ids_batch] - pred_u[ids_batch]).norm(2) * self.coeff_update_u_diff
+            loss = loss + self._add_regul(regul_term, 'update_u_diff')
+
+        # Update msg sign (sign consistency)
+        if self.coeff_update_msg_sign > 0:
+            in_features_modified = in_features.clone().detach()
+            in_features_modified[:, 0] = 0
+            pred_msg = model.lin_phi(in_features_modified)
+            msg = in_features[:, self.embedding_dim + 1].clone().detach()
+            regul_term = (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * self.coeff_update_msg_sign
+            loss = loss + self._add_regul(regul_term, 'update_msg_sign')
+
+        return loss
+
+    def get_regul_total(self):
+        """Return the total regularization loss for the current iteration."""
+        return self._regul_total
+
+    def track_regularization(self, loss):
+        """
+        Track loss components for the current iteration.
+
+        Args:
+            loss: Total loss value (including regularization)
+        """
+        current_loss = loss.item() if torch.is_tensor(loss) else loss
+
+        # Store normalized values
+        self.loss_components['loss'].append((current_loss - self._regul_total) / self.n_neurons)
+        self.loss_components['regul_total'].append(self._regul_total / self.n_neurons)
+
+        if self._tracking:
+            for key in self._regul_terms:
+                if key in self.loss_components:
+                    self.loss_components[key].append(self._regul_terms[key] / self.n_neurons)
+
+    def plot_loss(self, log_dir, epoch, Niter, total_loss=None, total_loss_regul=None, debug=False):
+        """
+        Plot loss components.
+
+        Args:
+            log_dir: Directory to save plots
+            epoch: Current epoch
+            Niter: Current iteration
+            total_loss: Accumulated total loss (for debug)
+            total_loss_regul: Accumulated regularization loss (for debug)
+            debug: Whether to print debug information
+        """
+        from NeuralGraph.generators.utils import plot_signal_loss
+
+        current_loss = self.loss_components['loss'][-1] if self.loss_components['loss'] else None
+        current_regul = self.loss_components['regul_total'][-1] if self.loss_components['regul_total'] else None
+
+        plot_signal_loss(
+            self.loss_components,
+            log_dir,
+            epoch=epoch,
+            Niter=Niter,
+            debug=debug,
+            current_loss=current_loss,
+            current_regul=current_regul,
+            total_loss=total_loss,
+            total_loss_regul=total_loss_regul
+        )
+
+    def update_coefficients(self, epoch):
+        """
+        Update regularization coefficients based on epoch (for annealing).
+
+        Args:
+            epoch: Current epoch number
+        """
+        train_config = self.config.training
+
+        # Anneal coefficients that change with epoch: starts at 0, increases toward max value
+        self.coeff_edge_weight_L1 = train_config.coeff_edge_weight_L1 * (1 - np.exp(-train_config.coeff_edge_weight_L1_rate * epoch))
+        self.coeff_phi_weight_L1 = train_config.coeff_phi_weight_L1 * (1 - np.exp(-train_config.coeff_phi_weight_L1_rate * epoch))
+        self.coeff_W_L1 = train_config.coeff_W_L1 * (1 - np.exp(-train_config.coeff_W_L1_rate * epoch))
+        self.coeff_W_L2 = train_config.coeff_W_L2
+
+
+def analyze_neighbor_hops(type_name, edges_all, type_list, n_hops=10, direction='in', verbose=True):
+    """
+    Analyze neighbor connectivity by hop count for a given neuron type.
+
+    Args:
+        type_name: Name of the neuron type to analyze
+        edges_all: Edge index tensor [2, n_edges]
+        type_list: Tensor of neuron types (N,1) or (N,)
+        n_hops: Number of hops to analyze
+        direction: 'in' for incoming connections, 'out' for outgoing
+        verbose: Whether to print detailed information
+
+    Returns:
+        Dictionary with hop_counts, cumulative, total_excl_target, total_incl_target
+    """
+    res = analyze_type_neighbors(
+        type_name=type_name,
+        edges_all=edges_all,
+        type_list=type_list,
+        n_hops=n_hops,
+        direction=direction,
+        verbose=verbose
+    )
+
+    hop_counts = [h["n_new"] for h in res["per_hop"]]
+    total_excl_target = sum(hop_counts)
+    total_incl_target = 1 + total_excl_target
+    cumulative_by_hop = np.cumsum(hop_counts).tolist()
+
+    if verbose:
+        for hop in res["per_hop"]:
+            print('hop ', hop["hop"], ':', hop["n_new"], hop["type_counts"])
+        print("per-hop:", hop_counts)
+        print("cumulative:", cumulative_by_hop)
+        print("total excl target:", total_excl_target)
+
+    return {
+        'hop_counts': hop_counts,
+        'cumulative': cumulative_by_hop,
+        'total_excl_target': total_excl_target,
+        'total_incl_target': total_incl_target,
+        'per_hop_details': res["per_hop"]
+    }
