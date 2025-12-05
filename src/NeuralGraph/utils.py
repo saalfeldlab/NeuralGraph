@@ -2531,40 +2531,9 @@ class LossRegularizer:
                 total_regul = total_regul + regul_term
                 self._add('W_sign', regul_term)
 
-        # --- Update function regularizations ---
-        if in_features is not None:
-            embedding_dim = mc.embedding_dim
-
-            if self._coeffs['update_msg_diff'] > 0:
-                pred_msg = model.lin_phi(in_features.clone().detach())
-                in_features_msg_next = in_features.clone().detach()
-                in_features_msg_next[:, embedding_dim + 1] = in_features_msg_next[:, embedding_dim + 1] * 1.05
-                pred_msg_next = model.lin_phi(in_features_msg_next)
-                regul_term = torch.relu(pred_msg[ids_batch] - pred_msg_next[ids_batch]).norm(2) * self._coeffs['update_msg_diff']
-                total_regul = total_regul + regul_term
-                self._add('update_msg_diff', regul_term)
-
-            if self._coeffs['update_u_diff'] > 0:
-                pred_u = model.lin_phi(in_features.clone().detach())
-                in_features_u_next = in_features.clone().detach()
-                in_features_u_next[:, 0] = in_features_u_next[:, 0] * 1.05
-                pred_u_next = model.lin_phi(in_features_u_next)
-                regul_term = torch.relu(pred_u_next[ids_batch] - pred_u[ids_batch]).norm(2) * self._coeffs['update_u_diff']
-                total_regul = total_regul + regul_term
-                self._add('update_u_diff', regul_term)
-
-            if self._coeffs['update_msg_sign'] > 0:
-                in_features_modified = in_features.clone().detach()
-                in_features_modified[:, 0] = 0
-                pred_msg = model.lin_phi(in_features_modified)
-                msg_col = in_features[:, embedding_dim + 1].clone().detach()
-                regul_term = (torch.tanh(pred_msg / 0.1) - torch.tanh(msg_col.unsqueeze(-1) / 0.1)).norm(2) * self._coeffs['update_msg_sign']
-                total_regul = total_regul + regul_term
-                self._add('update_msg_sign', regul_term)
-
-        # Record to history if appropriate
-        if self.should_record():
-            self._record_to_history()
+        # Note: Update function regularizations (update_msg_diff, update_u_diff, update_msg_sign)
+        # are handled by compute_update_regul() which should be called after the model forward pass.
+        # Call finalize_iteration() after all regularizations are computed to record to history.
 
         return total_regul
 
@@ -2574,6 +2543,66 @@ class LossRegularizer:
         self._history['regul_total'].append(self._iter_total / n)
         for comp in self.COMPONENTS:
             self._history[comp].append(self._iter_tracker.get(comp, 0) / n)
+
+    def compute_update_regul(self, model, in_features, ids_batch, device):
+        """
+        Compute update function regularizations (update_msg_diff, update_u_diff, update_msg_sign).
+
+        This method should be called after the model forward pass when in_features is available.
+
+        Args:
+            model: The neural network model
+            in_features: Features from model forward pass
+            ids_batch: Batch indices
+            device: Torch device
+
+        Returns:
+            Total update regularization loss tensor
+        """
+        mc = self.model_config
+        embedding_dim = mc.embedding_dim
+        total_regul = torch.tensor(0.0, device=device)
+
+        if in_features is None:
+            return total_regul
+
+        if self._coeffs['update_msg_diff'] > 0:
+            pred_msg = model.lin_phi(in_features.clone().detach())
+            in_features_msg_next = in_features.clone().detach()
+            in_features_msg_next[:, embedding_dim + 1] = in_features_msg_next[:, embedding_dim + 1] * 1.05
+            pred_msg_next = model.lin_phi(in_features_msg_next)
+            regul_term = torch.relu(pred_msg[ids_batch] - pred_msg_next[ids_batch]).norm(2) * self._coeffs['update_msg_diff']
+            total_regul = total_regul + regul_term
+            self._add('update_msg_diff', regul_term)
+
+        if self._coeffs['update_u_diff'] > 0:
+            pred_u = model.lin_phi(in_features.clone().detach())
+            in_features_u_next = in_features.clone().detach()
+            in_features_u_next[:, 0] = in_features_u_next[:, 0] * 1.05
+            pred_u_next = model.lin_phi(in_features_u_next)
+            regul_term = torch.relu(pred_u_next[ids_batch] - pred_u[ids_batch]).norm(2) * self._coeffs['update_u_diff']
+            total_regul = total_regul + regul_term
+            self._add('update_u_diff', regul_term)
+
+        if self._coeffs['update_msg_sign'] > 0:
+            in_features_modified = in_features.clone().detach()
+            in_features_modified[:, 0] = 0
+            pred_msg = model.lin_phi(in_features_modified)
+            msg_col = in_features[:, embedding_dim + 1].clone().detach()
+            regul_term = (torch.tanh(pred_msg / 0.1) - torch.tanh(msg_col.unsqueeze(-1) / 0.1)).norm(2) * self._coeffs['update_msg_sign']
+            total_regul = total_regul + regul_term
+            self._add('update_msg_sign', regul_term)
+
+        return total_regul
+
+    def finalize_iteration(self):
+        """
+        Finalize the current iteration by recording to history if appropriate.
+
+        This should be called after all regularization computations (compute + compute_update_regul).
+        """
+        if self.should_record():
+            self._record_to_history()
 
     def get_iteration_total(self) -> float:
         """Get total regularization for current iteration."""

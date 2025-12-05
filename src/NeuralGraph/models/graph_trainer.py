@@ -806,7 +806,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
                     plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device)
 
-                    # Pass per-neuron normalized values to debug (to match dictionary values)
+                    # pass per-neuron normalized values to debug (to match dictionary values)
                     plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=False,
                                    current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
@@ -876,7 +876,7 @@ def data_train_signal(config, erase, best_model, style, device):
         epoch_regul_loss = total_loss_regul / n_neurons
         epoch_pred_loss = (total_loss - total_loss_regul) / n_neurons
 
-        print("Epoch {}. Loss: {:.6f} (pred: {:.6f}, regul: {:.6f})".format(
+        print("epoch {}. loss: {:.6f} (pred: {:.6f}, regul: {:.6f})".format(
             epoch, epoch_total_loss, epoch_pred_loss, epoch_regul_loss))
         logger.info("Epoch {}. Loss: {:.6f} (pred: {:.6f}, regul: {:.6f})".format(
             epoch, epoch_total_loss, epoch_pred_loss, epoch_regul_loss))
@@ -1053,23 +1053,11 @@ def data_train_flyvis(config, erase, best_model, device):
     ode_atol = train_config.ode_atol
     ode_adjoint = train_config.ode_adjoint
     batch_size = train_config.batch_size
-    batch_ratio = train_config.batch_ratio
     time_window = train_config.time_window
     training_selected_neurons = train_config.training_selected_neurons
 
-    prediction = model_config.prediction
-
     field_type = model_config.field_type
     time_step = train_config.time_step
-
-    coeff_W_sign = train_config.coeff_W_sign
-    W_sign_temperature = train_config.W_sign_temperature
-    coeff_update_msg_diff = train_config.coeff_update_msg_diff
-    coeff_update_u_diff = train_config.coeff_update_u_diff
-    coeff_edge_norm = train_config.coeff_edge_norm
-    coeff_update_msg_sign = train_config.coeff_update_msg_sign
-    coeff_edge_weight_L2 = train_config.coeff_edge_weight_L2
-    coeff_phi_weight_L2 = train_config.coeff_phi_weight_L2
 
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
@@ -1130,7 +1118,7 @@ def data_train_flyvis(config, erase, best_model, device):
     logger.info(f'xnorm: {to_numpy(xnorm)}')
 
     n_neurons = x.shape[0]
-    print(f'N neurons: {n_neurons}')
+    print(f'n neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons =n_neurons
     type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
@@ -1150,15 +1138,8 @@ def data_train_flyvis(config, erase, best_model, device):
     else:
         model = Signal_Propagation_FlyVis(aggr_type=model_config.aggr_type, config=config, device=device)
 
-    # Move model to device before loading state dict
+
     model = model.to(device)
-    print(f'Model moved to device: {device}')
-
-    # Debug: Check device of model parameters
-    sample_param = next(model.parameters())
-    print(f'Sample parameter device: {sample_param.device}')
-
-    # Count parameters
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
 
@@ -1166,28 +1147,20 @@ def data_train_flyvis(config, erase, best_model, device):
     list_loss = []
     if (best_model != None) & (best_model != '') & (best_model != '') & (best_model != 'None'):
         net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
-        print(f'Loading state_dict from {net} ...')
+        print(f'loading state_dict from {net} ...')
         state_dict = torch.load(net, map_location=device)
         model.load_state_dict(state_dict['model_state_dict'])
         start_epoch = int(best_model.split('_')[0])
-        print(f'State_dict loaded: best_model={best_model}, start_epoch={start_epoch}')
-        logger.info(f'best_model: {best_model}  start_epoch: {start_epoch}')
-        # Debug: Check device after loading
-        sample_param = next(model.parameters())
-        print(f'After loading state_dict, sample parameter device: {sample_param.device}')
-        # list_loss = torch.load(f"{log_dir}/loss.pt")
+        print(f'state_dict loaded: best_model={best_model}, start_epoch={start_epoch}')
     elif  train_config.pretrained_model !='':
         net = train_config.pretrained_model
-        print(f'Loading pretrained state_dict from {net} ...')
+        print(f'loading pretrained state_dict from {net} ...')
         state_dict = torch.load(net, map_location=device)
         model.load_state_dict(state_dict['model_state_dict'])
-        print('Pretrained state_dict loaded')
+        print('pretrained state_dict loaded')
         logger.info(f'pretrained: {net}')
-        # Debug: Check device after loading
-        sample_param = next(model.parameters())
-        print(f'After loading pretrained state_dict, sample parameter device: {sample_param.device}')
     else:
-        print('No state_dict loaded - using freshly initialized model')
+        print('no state_dict loaded - using freshly initialized model')
 
     lr = train_config.learning_rate_start
     if train_config.learning_rate_update_start == 0:
@@ -1203,8 +1176,6 @@ def data_train_flyvis(config, erase, best_model, device):
 
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
                                                          lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
-    
-    print('Optimizer created successfully')
     model.train()
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
@@ -1235,10 +1206,10 @@ def data_train_flyvis(config, erase, best_model, device):
     # print("cumulative:", cumulative_by_hop)
     # print("total excl target:", total_excl_target)
 
-    if coeff_W_sign > 0:
+    if train_config.coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
-            # Get source neurons that connect to neuron i
+            # get source neurons that connect to neuron i
             mask = edges[1] == i
             index_weight.append(edges[0][mask])
 
@@ -1399,28 +1370,11 @@ def data_train_flyvis(config, erase, best_model, device):
 
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
-                        if (coeff_update_msg_diff > 0) | (coeff_update_u_diff > 0) | (coeff_update_msg_sign>0):
-                            pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
-                            if coeff_update_msg_diff > 0 :      # Enforces that increasing the message input should increase the output (monotonic increasing)
-                                pred_msg = model.lin_phi(in_features.clone().detach())
-                                in_features_msg_next = in_features.clone().detach()
-                                in_features_msg_next[:, model_config.embedding_dim+1] = in_features_msg_next[:, model_config.embedding_dim+1] * 1.05
-                                pred_msg_next = model.lin_phi(in_features_msg_next.clone().detach())
-                                loss = loss + torch.relu(pred_msg[ids_batch]-pred_msg_next[ids_batch]).norm(2) * coeff_update_msg_diff
-                            if coeff_update_u_diff > 0:
-                                pred_u = model.lin_phi(in_features.clone().detach())
-                                in_features_u_next = in_features.clone().detach()
-                                in_features_u_next[:, 0] = in_features_u_next[:, 0] * 1.05  # Perturb voltage (first column)
-                                pred_u_next = model.lin_phi(in_features_u_next.clone().detach())
-                                loss = loss + torch.relu(pred_u_next[ids_batch] - pred_u[ids_batch]).norm(2) * coeff_update_u_diff
-                            if coeff_update_msg_sign > 0: # Penalizes when pred_msg not of same sign as msg
-                                in_features_modified = in_features.clone().detach()
-                                in_features_modified[:, 0] = 0
-                                pred_msg = model.lin_phi(in_features_modified)
-                                msg = in_features[:,model_config.embedding_dim+1].clone().detach()
-                                loss = loss + (torch.tanh(pred_msg / 0.1) - torch.tanh(msg / 0.1)).norm(2) * coeff_update_msg_sign
-                        else:
-                            pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
+                        pred, in_features, msg = model(batch, data_id=data_id, return_all=True)
+
+                    # compute update function regularizations (update_msg_diff, update_u_diff, update_msg_sign)
+                    update_regul = regularizer.compute_update_regul(model, in_features, ids_batch, device)
+                    loss = loss + update_regul
 
 
                     if neural_ODE_training:
@@ -1524,6 +1478,8 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss += loss.item()
                 total_loss_regul += regularizer.get_iteration_total()
 
+                # finalize iteration to record history
+                regularizer.finalize_iteration()
 
                 if (N < 10000) & (N % 2000 == 0) & hasattr(model, 'W') :
 
@@ -1547,15 +1503,15 @@ def data_train_flyvis(config, erase, best_model, device):
                     plt.close()
 
                 if regularizer.should_record():
-                    # Get history from regularizer and add loss component
+                    # get history from regularizer and add loss component
                     current_loss = loss.item()
                     regul_total_this_iter = regularizer.get_iteration_total()
                     loss_components['loss'].append((current_loss - regul_total_this_iter) / n_neurons)
 
-                    # Merge loss_components with regularizer history for plotting
+                    # merge loss_components with regularizer history for plotting
                     plot_dict = {**regularizer.get_history(), 'loss': loss_components['loss']}
 
-                    # Pass per-neuron normalized values to debug (to match dictionary values)
+                    # pass per-neuron normalized values to debug (to match dictionary values)
                     plot_signal_loss(plot_dict, log_dir, epoch=epoch, Niter=N, debug=False,
                                    current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
@@ -1687,7 +1643,7 @@ def data_train_flyvis(config, erase, best_model, device):
         epoch_regul_loss = total_loss_regul / n_neurons
         epoch_pred_loss = (total_loss - total_loss_regul) / n_neurons
 
-        print("Epoch {}. Loss: {:.6f} (pred: {:.6f}, regul: {:.6f})".format(
+        print("epoch {}. loss: {:.6f} (pred: {:.6f}, regul: {:.6f})".format(
             epoch, epoch_total_loss, epoch_pred_loss, epoch_regul_loss))
         logger.info("Epoch {}. Loss: {:.6f} (pred: {:.6f}, regul: {:.6f})".format(
             epoch, epoch_total_loss, epoch_pred_loss, epoch_regul_loss))
@@ -2041,7 +1997,7 @@ def data_train_zebra(config, erase, best_model, device):
     logger.info(f'xnorm: {to_numpy(xnorm)}')
 
     n_neurons = x.shape[0]
-    print(f'N neurons: {n_neurons}')
+    print(f'n neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons =n_neurons
     torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
@@ -2232,8 +2188,8 @@ def data_train_zebra(config, erase, best_model, device):
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
-        print("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
-        logger.info("Epoch {}. Loss: {:.6f}".format(epoch, total_loss / n_neurons))
+        print("epoch {}. loss: {:.6f}".format(epoch, total_loss / n_neurons))
+        logger.info("epoch {}. loss: {:.6f}".format(epoch, total_loss / n_neurons))
         torch.save({'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict()},
                 os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
@@ -2300,16 +2256,16 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     ground_truth = ground_truth.permute(1,0,2)
 
 
-    print("Saving vol_xyz as TIFF...")
-    print(f"  Shape: {vol_xyz.shape}")
-    print(f"  Dtype: {vol_xyz.dtype}")
-    print(f"  Value range: [{vol_xyz.min():.4f}, {vol_xyz.max():.4f}]")
+    print("saving vol_xyz as TIFF...")
+    print(f"  shape: {vol_xyz.shape}")
+    print(f"  dtype: {vol_xyz.dtype}")
+    print(f"  value range: [{vol_xyz.min():.4f}, {vol_xyz.max():.4f}]")
 
     vol_norm = vol_xyz / 1600
 
     # Transpose to put Z dimension first for ImageJ: (1328, 2048, 72) -> (72, 1328, 2048)
     vol_norm = vol_norm.transpose(2, 0, 1)  # Move Z from last to first dimension
-    print(f"  Transposed shape for ImageJ: {vol_norm.shape} (Z×Y×X)")
+    print(f"  transposed shape for ImageJ: {vol_norm.shape} (Z×Y×X)")
 
     # Convert to uint16 for TIFF
     vol_uint16 = (vol_norm * 65535).astype(np.uint16)
@@ -2326,7 +2282,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
         description=f"ZapBench volume, frame {FRAME}, shape: {vol_xyz.shape}"
     )
 
-    print(f"✅ Saved zapbench.tif - Shape: {vol_uint16.shape}, Size: {vol_uint16.nbytes/(1024*1024):.1f} MB")
+    print(f"saved zapbench.tif - shape: {vol_uint16.shape}, size: {vol_uint16.nbytes/(1024*1024):.1f} MB")
 
     # down sample
     factor = 4
@@ -2378,7 +2334,7 @@ def data_train_zebra_fluo(config, erase, best_model, device):
         loss_list.append(loss.item())
 
     if (step % steps_til_summary == 0) and (step>0):
-        print("Step %d, Total loss %0.6f" % (step, loss))
+        print("step %d, total loss %0.6f" % (step, loss))
 
         z_idx = 20
 
@@ -3413,7 +3369,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             longest_run_start, longest_run_length = max(high_r2_runs, key=lambda x: x[1])
         else:
             longest_run_start, longest_run_length = 0, 0
-        print(f"mean R²: {r2_mean:.4f} ± {r2_std:.4f}")
+        print(f"mean R2: {r2_mean:.4f} +/- {r2_std:.4f}")
         print(f"range: [{r2_min:.4f}, {r2_max:.4f}]")
 
 
@@ -3723,7 +3679,7 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
     if 'test_modified' in test_mode:
         noise_W = float(test_mode.split('_')[-1])
         if noise_W > 0:
-            print(f'\033[93mtest modified W with noise level {noise_W} \033[0m')
+            print(f'\033[93mtest modified W with noise level {noise_W}\033[0m')
             noise_p_W = torch.randn_like(pde.p['w']) * noise_W # + torch.ones_like(pde.p['w'])
             pde_modified.p['w'] = pde.p['w'].clone() + noise_p_W
 
@@ -4684,7 +4640,7 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     plt.savefig(f"./{log_dir}/results/recons_error_per_condition.png", dpi=150)
     plt.close()
 
-    print(f"grand average MAE: {mean_mae[-1]:.4f} ± {sem_mae[-1]:.4f} (N={counts[-1]})")
+    print(f"grand average MAE: {mean_mae[-1]:.4f} +/- {sem_mae[-1]:.4f} (N={counts[-1]})")
 
 
     reconstructed = reconstructed.squeeze()
