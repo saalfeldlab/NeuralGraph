@@ -41,6 +41,7 @@ from NeuralGraph.utils import (
     open_gcs_zarr,
     compute_trace_metrics,
     get_datavis_root_dir,
+    LossRegularizer,
 )
 from NeuralGraph.models.Siren_Network import Siren, Siren_Network
 from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyVis
@@ -1241,11 +1242,8 @@ def data_train_flyvis(config, erase, best_model, device):
             mask = edges[1] == i
             index_weight.append(edges[0][mask])
 
-    coeff_W_L1 = train_config.coeff_W_L1
-    coeff_edge_diff = train_config.coeff_edge_diff
-    coeff_update_diff = train_config.coeff_update_diff
-    logger.info(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
-    print(f'coeff_W_L1: {coeff_W_L1} coeff_edge_diff: {coeff_edge_diff} coeff_update_diff: {coeff_update_diff}')
+    logger.info(f'coeff_W_L1: {train_config.coeff_W_L1} coeff_edge_diff: {train_config.coeff_edge_diff} coeff_update_diff: {train_config.coeff_update_diff}')
+    print(f'coeff_W_L1: {train_config.coeff_W_L1} coeff_edge_diff: {train_config.coeff_edge_diff} coeff_update_diff: {train_config.coeff_update_diff}')
 
     print("start training ...")
 
@@ -1254,48 +1252,31 @@ def data_train_flyvis(config, erase, best_model, device):
 
     list_loss_regul = []
 
-    # Initialize dictionary for tracking loss components per iteration
-    loss_components = {
-        'loss': [],
-        'regul_total': [],
-        'W_L1': [],
-        'W_L2': [],
-        'W_sign': [],
-        'edge_grad': [],
-        'phi_grad': [],
-        'edge_diff': [],
-        'edge_norm': [],
-        'edge_weight': [],
-        'phi_weight': []
-    }
+    regularizer = LossRegularizer(
+        train_config=train_config,
+        model_config=model_config,
+        activity_column=3,  # flyvis uses column 3 for activity
+        plot_frequency=1,   # will be updated per epoch
+        n_neurons=n_neurons,
+        trainer_type='flyvis'
+    )
+
+    loss_components = {'loss': []}
 
     time.sleep(0.2)
 
     for epoch in range(start_epoch, n_epochs + 1):
 
-        if batch_ratio < 1:
-            Niter = int(n_frames * data_augmentation_loop // batch_size / batch_ratio * 0.2)
-        else:
-            Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
-
+        Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
         plot_frequency = int(Niter // 20)
-        print(f'{Niter} iterations per epoch')
-        logger.info(f'{Niter} iterations per epoch')
-        print(f'plot every {plot_frequency} iterations')
+        print(f'{Niter} iterations per epoch, plot every {plot_frequency} iterations')
 
         total_loss = 0
         total_loss_regul = 0
         k = 0
 
-        # anneal loss_noise_level, decrease with epoch
         loss_noise_level = train_config.loss_noise_level * (0.95 ** epoch)
-        # anneal weight_L1, increase with epoch
-        coeff_edge_weight_L1= train_config.coeff_edge_weight_L1 * (1 - np.exp(-train_config.coeff_edge_weight_L1_rate**epoch))
-        coeff_phi_weight_L1 = train_config.coeff_phi_weight_L1 * (1 - np.exp(-train_config.coeff_phi_weight_L1_rate*epoch))
-        coeff_W_L1 = train_config.coeff_W_L1 * (1 - np.exp(-train_config.coeff_W_L1_rate * epoch))
-        coeff_W_L2 = train_config.coeff_W_L2
-
-
+        regularizer.set_epoch(epoch, plot_frequency)
 
         for N in trange(Niter,ncols=150):
 
@@ -1310,7 +1291,6 @@ def data_train_flyvis(config, erase, best_model, device):
             loss = 0
             run = np.random.randint(n_runs)
 
-            # Use all neurons (batch_ratio removed)
             edges = edges_all.clone().detach()
             ids = np.arange(n_neurons)
 
@@ -1336,111 +1316,20 @@ def data_train_flyvis(config, erase, best_model, device):
                     x[model.n_input_neurons:, 4:5] = 0
 
                 loss = torch.zeros(1, device=device)
-
-                track_components = ((N % plot_frequency == 0) | (N == 0))
-                regul_total_this_iter = 0
-
-                if track_components:
-                    regul_tracker = {
-                        'W_L1': 0,
-                        'W_L2': 0,
-                        'W_sign': 0,
-                        'edge_grad': 0,
-                        'phi_grad': 0,
-                        'edge_diff': 0,
-                        'phi_zero': 0,
-                        'edge_norm': 0,
-                        'edge_weight': 0,
-                        'phi_weight': 0
-                    }
-
-                def track_regul(regul_term, component_name):
-                    """Helper to track regularization"""
-                    nonlocal regul_total_this_iter
-                    val = regul_term.item()
-                    regul_total_this_iter += val
-                    if track_components:
-                        regul_tracker[component_name] += val
-                    return val
+                regularizer.reset_iteration()
 
                 if not (torch.isnan(x).any()):
-                    # regularisation sparsity on Wij
-                    if coeff_W_L1>0:
-                        regul_term = model.W.norm(1) * coeff_W_L1
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'W_L1')
-                    # regularisation L2 on Wij
-                    if coeff_W_L2>0:
-                        regul_term = model.W.norm(2) * coeff_W_L2
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'W_L2')
-                    # regularisation sparsity on weights of model.lin_edge
-                    if (coeff_edge_weight_L1+coeff_edge_weight_L2)>0:
-                        for param in model.lin_edge.parameters():
-                            regul_term = param.norm(1) * coeff_edge_weight_L1 + param.norm(2) * coeff_edge_weight_L2
-                            loss = loss + regul_term
-                            track_regul(regul_term, 'edge_weight')
-                    if (coeff_phi_weight_L1+coeff_phi_weight_L2)>0:
-                        for param in model.lin_phi.parameters():
-                            regul_term = param.norm(2) * coeff_phi_weight_L1 + param.norm(2) * coeff_phi_weight_L2
-                            loss = loss + regul_term
-                            track_regul(regul_term, 'phi_weight')
-                    # regularisation lin_edge
-                    in_features, in_features_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons,device)
-                    if coeff_edge_diff > 0:
-                        if model_config.lin_edge_positive:
-                            msg0 = model.lin_edge(in_features[ids].clone()) ** 2
-                            msg1 = model.lin_edge(in_features_next[ids].clone()) ** 2
-                        else:
-                            msg0 = model.lin_edge(in_features[ids].clone())
-                            msg1 = model.lin_edge(in_features_next[ids].clone())
-                        regul_term = torch.relu(msg0 - msg1).norm(2) * coeff_edge_diff      # lin_edge monotonically increasing  over voltage for all embedding values
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'edge_diff')
-                    if coeff_edge_norm > 0:
-                        in_features[:,0] = 2 * xnorm
-                        if model_config.lin_edge_positive:
-                            msg = model.lin_edge(in_features[ids].clone()) ** 2
-                        else:
-                            msg = model.lin_edge(in_features[ids].clone())
-                        regul_term = (msg - 2 * xnorm).norm(2) * coeff_edge_norm
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'edge_norm')
-
-                    # regularisation sign Wij (Dale's Law: all outgoing weights should have same sign)
-                    if (coeff_W_sign > 0) & (epoch>0):
-                        # For each neuron, compute violation measure: (n_pos/n_total) * (n_neg/n_total)
-                        # This is 0 for pure excitatory/inhibitory, max 0.25 for 50-50 mixed
-
-                        # model.W has shape [n_edges, 1] - squeeze to [n_edges]
-                        weights = model.W.squeeze()
-
-                        # Get source neurons for each edge (Dale's Law applies to outgoing connections)
-                        source_neurons = edges[0]
-
-                        # Use smooth sigmoid approximation instead of hard threshold for differentiability
-                        # sigmoid(k*w) ≈ 1 for w >> 0, ≈ 0 for w << 0, with smooth gradients
-                        n_pos = torch.zeros(n_neurons, device=device)
-                        n_neg = torch.zeros(n_neurons, device=device)
-                        n_total = torch.zeros(n_neurons, device=device)
-
-                        pos_mask = torch.sigmoid(W_sign_temperature * weights)
-                        neg_mask = torch.sigmoid(-W_sign_temperature * weights)
-
-                        n_pos.scatter_add_(0, source_neurons, pos_mask)
-                        n_neg.scatter_add_(0, source_neurons, neg_mask)
-                        n_total.scatter_add_(0, source_neurons, torch.ones_like(weights))
-
-                        # Compute violation for each neuron: (n_pos/n_total) * (n_neg/n_total)
-                        # Avoid division by zero for neurons with no outgoing edges
-                        violation = torch.where(n_total > 0,
-                                               (n_pos / n_total) * (n_neg / n_total),
-                                               torch.zeros_like(n_total))
-
-                        loss_W_sign = violation.sum()
-                        regul_term = loss_W_sign * coeff_W_sign
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'W_sign')
+                    regul_loss = regularizer.compute(
+                        model=model,
+                        x=x,
+                        in_features=None,  # Will be computed in update_* regularizations later
+                        ids=ids,
+                        ids_batch=None,  # Will be set later
+                        edges=edges,
+                        device=device,
+                        xnorm=xnorm
+                    )
+                    loss = loss + regul_loss
 
                     if recurrent_training or neural_ODE_training:
                         y = torch.tensor(x_list[run][k + time_step,:,3:4], dtype=torch.float32, device=device).detach()       # loss on next activity
@@ -1535,12 +1424,6 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
                     if neural_ODE_training:
-                        # Neural ODE training: use adjoint method for memory-efficient backprop
-                        # Memory is O(1) in number of rollout steps L (vs O(L) for BPTT)
-                        # Backward pass uses adjoint ODE solve, computes gradients w.r.t.:
-                        #   - model.W (connectivity weights)
-                        #   - model.lin_edge, model.lin_phi weights
-                        #   - embeddings model.a
 
                         ode_state_clamp = getattr(train_config, 'ode_state_clamp', 10.0)
                         ode_stab_lambda = getattr(train_config, 'ode_stab_lambda', 0.0)
@@ -1627,10 +1510,10 @@ def data_train_flyvis(config, erase, best_model, device):
                 loss.backward()
 
                 # Gradient clipping for W (helps stabilize adjoint ODE training)
-                if hasattr(model, 'W') and model.W.grad is not None:
-                    grad_clip_W = getattr(train_config, 'grad_clip_W', 0.0)
-                    if grad_clip_W > 0:
-                        torch.nn.utils.clip_grad_norm_(model.W, max_norm=grad_clip_W)
+                # if hasattr(model, 'W') and model.W.grad is not None:
+                #     grad_clip_W = getattr(train_config, 'grad_clip_W', 0.0)
+                #     if grad_clip_W > 0:
+                #         torch.nn.utils.clip_grad_norm_(model.W, max_norm=grad_clip_W)
 
                 # Debug gradient check for neural ODE training
                 if DEBUG_ODE and neural_ODE_training and (N % 500 == 0):
@@ -1639,7 +1522,7 @@ def data_train_flyvis(config, erase, best_model, device):
                 optimizer.step()
 
                 total_loss += loss.item()
-                total_loss_regul += regul_total_this_iter
+                total_loss_regul += regularizer.get_iteration_total()
 
 
                 if (N < 10000) & (N % 2000 == 0) & hasattr(model, 'W') :
@@ -1663,17 +1546,17 @@ def data_train_flyvis(config, erase, best_model, device):
                     plt.savefig(f'{log_dir}/results/connectivity_comparison_R_to_L_{N:04d}.png', dpi=150, bbox_inches='tight')
                     plt.close()
 
-                if track_components:
-                    # Store in dictionary lists
+                if regularizer.should_record():
+                    # Get history from regularizer and add loss component
                     current_loss = loss.item()
+                    regul_total_this_iter = regularizer.get_iteration_total()
                     loss_components['loss'].append((current_loss - regul_total_this_iter) / n_neurons)
-                    loss_components['regul_total'].append(regul_total_this_iter / n_neurons)
-                    for key in ['W_L1', 'W_L2', 'W_sign', 'edge_grad', 'phi_grad', 'edge_diff',
-                                'edge_norm', 'edge_weight', 'phi_weight']:
-                        loss_components[key].append(regul_tracker[key] / n_neurons)
+
+                    # Merge loss_components with regularizer history for plotting
+                    plot_dict = {**regularizer.get_history(), 'loss': loss_components['loss']}
 
                     # Pass per-neuron normalized values to debug (to match dictionary values)
-                    plot_signal_loss(loss_components, log_dir, epoch=epoch, Niter=N, debug=False,
+                    plot_signal_loss(plot_dict, log_dir, epoch=epoch, Niter=N, debug=False,
                                    current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
 
