@@ -2377,6 +2377,12 @@ class LossRegularizer:
         """Check if we should record to history this iteration."""
         return (self.iter_count % self.plot_frequency == 0) or (self.iter_count == 1)
 
+    def needs_update_regul(self) -> bool:
+        """Check if update regularization is needed (update_msg_diff, update_u_diff, or update_msg_sign)."""
+        return (self._coeffs['update_msg_diff'] > 0 or
+                self._coeffs['update_u_diff'] > 0 or
+                self._coeffs['update_msg_sign'] > 0)
+
     def _add(self, name: str, term):
         """Internal: accumulate a regularization term."""
         if term is None:

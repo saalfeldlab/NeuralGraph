@@ -304,7 +304,6 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
-
 def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device):
 
     if 'PDE_N3' in config.graph_model.signal_model_name:
@@ -567,7 +566,6 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/field/excitation_{epoch}_{N}.tif", dpi=87)
         plt.close()
-
 
 def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):
 
@@ -1422,8 +1420,6 @@ def get_n_hop_neighborhood_with_stats(target_ids, edges_all, n_hops, verbose=Fal
 
     return np.array(sorted(all_neurons))
 
-
-
 def analyze_type_neighbors(
     type_name: str,
     edges_all: torch.Tensor,        # shape (2, E); row0=pre, row1=post; on some device
@@ -1579,7 +1575,6 @@ def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', y
     plt.savefig(output_path, dpi=150)
     plt.close()
     return slope, r_squared
-
 
 def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True, logger=None):
     """

@@ -361,8 +361,6 @@ class TrainingConfig(BaseModel):
     coeff_edge_weight_L2: float = 0
     coeff_phi_weight_L2: float = 0
 
-    diff_update_regul: str = "none"
-
     coeff_model_a: float = 0
     coeff_model_b: float = 0
     coeff_lin_modulation: float = 0
