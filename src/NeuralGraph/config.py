@@ -361,13 +361,6 @@ class TrainingConfig(BaseModel):
     coeff_edge_weight_L2: float = 0
     coeff_phi_weight_L2: float = 0
 
-    coeff_edge_gradient_penalty: float = 0
-    coeff_phi_gradient_penalty: float = 0
-
-    coeff_Jp_norm: float = 0
-    coeff_F_norm: float = 0
-    coeff_det_F: float = 1
-
     diff_update_regul: str = "none"
 
     coeff_model_a: float = 0
@@ -381,10 +374,6 @@ class TrainingConfig(BaseModel):
     loss_noise_level: float = 0.0
 
 
-    rotation_augmentation: bool = False
-    translation_augmentation: bool = False
-    reflection_augmentation: bool = False
-    velocity_augmentation: bool = False
     data_augmentation_loop: int = 40
 
     recurrent_training: bool = False

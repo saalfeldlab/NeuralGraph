@@ -584,46 +584,6 @@ def data_train_signal(config, erase, best_model, style, device):
                         regul_term = (msg-1).norm(2) * coeff_edge_norm
                         loss = loss + regul_term                 # normalization lin_edge(xnorm) = 1 for all embedding values
                         track_regul(regul_term, 'edge_norm')
-                    # gradient penalty for MLP smoothness (edge function)
-                    if (train_config.coeff_edge_gradient_penalty > 0):
-                        in_features_sample = in_features[ids].clone()
-                        in_features_sample.requires_grad_(True)
-
-                        if model_config.lin_edge_positive:
-                            msg_sample = model.lin_edge(in_features_sample) ** 2
-                        else:
-                            msg_sample = model.lin_edge(in_features_sample)
-
-                        # Compute gradient (Jacobian) of edge function w.r.t. inputs
-                        grad_edge = torch.autograd.grad(
-                            outputs=msg_sample.sum(),
-                            inputs=in_features_sample,
-                            create_graph=True
-                        )[0]
-
-                        # Penalize large gradients (L2 norm squared encourages smoothness)
-                        regul_term = (grad_edge.norm(2) ** 2) * train_config.coeff_edge_gradient_penalty
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'edge_grad')
-                    # gradient penalty for MLP smoothness (update function)
-                    if (train_config.coeff_phi_gradient_penalty > 0):
-                        in_features_phi = get_in_features_update(rr=None, model=model, device=device)
-                        in_features_phi_sample = in_features_phi[ids].clone()
-                        in_features_phi_sample.requires_grad_(True)
-
-                        pred_phi_sample = model.lin_phi(in_features_phi_sample)
-
-                        # Compute gradient of update function w.r.t. inputs
-                        grad_phi = torch.autograd.grad(
-                            outputs=pred_phi_sample.sum(),
-                            inputs=in_features_phi_sample,
-                            create_graph=True
-                        )[0]
-
-                        # Penalize large gradients
-                        regul_term = (grad_phi.norm(2) ** 2) * train_config.coeff_phi_gradient_penalty
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'phi_grad')
                     # regularisation sign Wij
                     if (coeff_W_sign > 0):
                         if (N%4 == 0):
@@ -1446,47 +1406,6 @@ def data_train_flyvis(config, erase, best_model, device):
                         regul_term = (msg - 2 * xnorm).norm(2) * coeff_edge_norm
                         loss = loss + regul_term
                         track_regul(regul_term, 'edge_norm')
-
-                    # Gradient penalty for MLP smoothness (edge function)
-                    if (train_config.coeff_edge_gradient_penalty > 0):
-                        in_features_sample = in_features[ids].clone()
-                        in_features_sample.requires_grad_(True)
-
-                        if model_config.lin_edge_positive:
-                            msg_sample = model.lin_edge(in_features_sample) ** 2
-                        else:
-                            msg_sample = model.lin_edge(in_features_sample)
-
-                        # Compute gradient (Jacobian) of edge function w.r.t. inputs
-                        grad_edge = torch.autograd.grad(
-                            outputs=msg_sample.sum(),
-                            inputs=in_features_sample,
-                            create_graph=True
-                        )[0]
-
-                        # Penalize large gradients (L2 norm squared encourages smoothness)
-                        regul_term = (grad_edge.norm(2) ** 2) * train_config.coeff_edge_gradient_penalty
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'edge_grad')
-
-                    if (train_config.coeff_phi_gradient_penalty > 0):
-                        in_features_phi = get_in_features_update(rr=None, model=model, device=device)
-                        in_features_phi_sample = in_features_phi[ids].clone()
-                        in_features_phi_sample.requires_grad_(True)
-
-                        pred_phi_sample = model.lin_phi(in_features_phi_sample)
-
-                        # Compute gradient of update function w.r.t. inputs
-                        grad_phi = torch.autograd.grad(
-                            outputs=pred_phi_sample.sum(),
-                            inputs=in_features_phi_sample,
-                            create_graph=True
-                        )[0]
-
-                        # Penalize large gradients
-                        regul_term = (grad_phi.norm(2) ** 2) * train_config.coeff_phi_gradient_penalty
-                        loss = loss + regul_term
-                        track_regul(regul_term, 'phi_grad')
 
                     # regularisation sign Wij (Dale's Law: all outgoing weights should have same sign)
                     if (coeff_W_sign > 0) & (epoch>0):

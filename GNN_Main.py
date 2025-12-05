@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
         # config_list = ['fly_N9_44_6']
 
-        # config_list = ['fly_N9_62_24_1']
+        # config_list = ['fly_N9_62_1']
 
         # config_list = ['signal_N2_1']
 
