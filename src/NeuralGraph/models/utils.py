@@ -332,6 +332,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         pred_weight = to_numpy(model.W[0, :n_neurons, :n_neurons].clone().detach())
     else:
         pred_weight = to_numpy(model.W[:n_neurons, :n_neurons].clone().detach())
+    np.fill_diagonal(pred_weight, 0)
 
     if config.simulation.n_excitatory_neurons > 0:
          gt_weight = gt_weight[:-1,:-1]

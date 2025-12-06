@@ -305,49 +305,7 @@ def init_mesh(config, device):
     return pos_mesh, dpos_mesh, type_mesh, node_value, a_mesh, node_id_mesh, mesh_data
 
 
-def init_synapse_map(config, x, edge_attr_adjacency, edge_index, device):
-    # TODO: This function appears to be dead code with missing parameters (dataset_name, N1, V1, T1, H1, A1)
-    dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index, edge_attr=edge_attr_adjacency)
-    G = to_networkx(dataset, remove_self_loops=True, to_undirected=True)
-    forceatlas2 = ForceAtlas2(
-        # Behavior alternatives
-        outboundAttractionDistribution=True,  # Dissuade hubs
-        linLogMode=False,  # NOT IMPLEMENTED
-        adjustSizes=False,  # Prevent overlap (NOT IMPLEMENTED)
-        edgeWeightInfluence=1.0,
-
-        # Performance
-        jitterTolerance=1.0,  # Tolerance
-        barnesHutOptimize=True,
-        barnesHutTheta=1.2,
-        multiThreaded=False,  # NOT IMPLEMENTED
-
-        # Tuning
-        scalingRatio=2.0,
-        strongGravityMode=False,
-        gravity=1.0,
-
-        # Log
-        verbose=True)
-
-    positions = forceatlas2.forceatlas2_networkx_layout(G, pos=None, iterations=500)
-    positions = np.array(list(positions.values()))
-    X1 = torch.tensor(positions, dtype=torch.float32, device=device)
-    X1 = X1 - torch.mean(X1, 0)
-
-    # torch.save(X1, f'./graphs_data/graphs_{dataset_name}/X1.pt')  # TODO: dataset_name parameter missing
-
-    # TODO: N1, V1, T1, H1, A1 parameters missing - this code appears to be incomplete
-    # x = torch.concatenate((N1.clone().detach(), X1.clone().detach(), V1.clone().detach(), T1.clone().detach(),
-    #                        H1.clone().detach(), A1.clone().detach()), 1)
-    x = None  # Placeholder since original code is incomplete
-
-    # pos = nx.spring_layout(G, weight='weight', seed=42, k=1)
-    # for k,p in pos.items():
-    #     X1[k,:] = torch.tensor([p[0],p[1]], device=device)
-    
-    
-def init_connectivity(connectivity_file, connectivity_type, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device):
+def init_connectivity(connectivity_file, connectivity_type, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device, connectivity_rank=1):
 
     if 'adjacency.pt' in connectivity_file:
         connectivity = torch.load(connectivity_file, map_location=device)
@@ -383,11 +341,11 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             J1 = 1.0
             J0 = 0.5
             connectivity = (J1 * np.cos(th[:, None] - th[None, :]) + J0) / n_neurons   # Synaptic weight matrix
-        elif 'rank 1' in connectivity_type:
-            # Rank 1 network 
-            u1 = np.random.rand(n_neurons)
-            u2 = np.random.rand(n_neurons)
-            connectivity = np.outer(u1,u2)
+        elif 'low_rank' in connectivity_type:
+            # Low rank network: W = U @ V where U is (N x rank) and V is (rank x N)
+            U = np.random.randn(n_neurons, connectivity_rank)
+            V = np.random.randn(connectivity_rank, n_neurons)
+            connectivity = U @ V / np.sqrt(connectivity_rank * n_neurons)
         elif 'successor' in connectivity_type:
             # Successor Representation
             T = np.eye(n_neurons, k=1)

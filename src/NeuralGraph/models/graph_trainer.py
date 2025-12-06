@@ -375,7 +375,6 @@ def data_train_signal(config, erase, best_model, style, device):
     # coefficients kept outside regularizer (special cases)
     coeff_lin_modulation = train_config.coeff_lin_modulation
     coeff_model_b = train_config.coeff_model_b
-    coeff_update_diff = train_config.coeff_update_diff
 
     # initialize regularizer
     regularizer = LossRegularizer(
@@ -451,8 +450,6 @@ def data_train_signal(config, erase, best_model, style, device):
                 if recurrent_training or neural_ODE_training:
                     k = k - k % time_step
 
-
-
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 
                 if n_excitatory_neurons > 0:
@@ -511,28 +508,8 @@ def data_train_signal(config, erase, best_model, style, device):
                         index_weight=index_weight if train_config.coeff_W_sign > 0 else None,
                         n_excitatory_neurons=n_excitatory_neurons
                     )
-                    
-                    loss = loss + regul_loss
 
-                    # update_diff regularization (kept outside - special case for 'generic' update_type)
-                    if (model.update_type == 'generic') & (coeff_update_diff > 0):
-                        in_features_edge, in_features_edge_next = get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device)
-                        if model_config.lin_edge_positive:
-                            msg0 = model.lin_edge(in_features_edge[ids].clone().detach()) ** 2
-                            msg1 = model.lin_edge(in_features_edge_next[ids].clone().detach()) ** 2
-                        else:
-                            msg0 = model.lin_edge(in_features_edge[ids].clone().detach())
-                            msg1 = model.lin_edge(in_features_edge_next[ids].clone().detach())
-                        in_feature_update = torch.cat((torch.zeros((n_neurons, 1), device=device),
-                                                       model.a[:n_neurons], msg0,
-                                                       torch.ones((n_neurons, 1), device=device)), dim=1)
-                        in_feature_update = in_feature_update[ids]
-                        in_feature_update_next = torch.cat((torch.zeros((n_neurons, 1), device=device),
-                                                            model.a[:n_neurons], msg1,
-                                                            torch.ones((n_neurons, 1), device=device)), dim=1)
-                        in_feature_update_next = in_feature_update_next[ids]
-                        regul_term = torch.relu(model.lin_phi(in_feature_update) - model.lin_phi(in_feature_update_next)).norm(2) * coeff_update_diff
-                        loss = loss + regul_term
+                    loss = loss + regul_loss
 
                     if batch_ratio < 1:
                         ids_ = np.random.permutation(ids.shape[0])[:int(ids.shape[0] * batch_ratio)]
@@ -579,7 +556,10 @@ def data_train_signal(config, erase, best_model, style, device):
                             model=model,
                             in_features=in_features,
                             ids_batch=ids_batch,
-                            device=device
+                            device=device,
+                            x=x,
+                            xnorm=xnorm,
+                            ids=ids
                         )
                         loss = loss + update_regul_loss
                     else:
@@ -2531,13 +2511,15 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
         edge_index_, connectivity, mask = init_connectivity(
                 simulation_config.connectivity_file,
+                simulation_config.connectivity_type,
                 simulation_config.connectivity_distribution,
+                simulation_config.connectivity_filling_factor,
                 new_params[0],
-                None,
                 n_neurons,
                 n_neuron_types,
                 dataset_name,
                 device,
+                connectivity_rank=simulation_config.connectivity_rank,
             )
 
 

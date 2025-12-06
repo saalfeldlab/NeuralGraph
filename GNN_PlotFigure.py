@@ -302,9 +302,8 @@ def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iterat
     # limit to true neurons (exclude excitatory neurons)
     n_plot = n_neurons - n_excitatory_neurons
 
-    i, j = torch.triu_indices(n_plot, n_plot, requires_grad=False, device=model.W.device)
     A = model.W[:n_plot, :n_plot].clone().detach()
-    A[i, i] = 0
+    A.fill_diagonal_(0)
 
     # compute and apply per-neuron correction on the fly
     if apply_weight_correction and xnorm is not None and device is not None:
@@ -1179,9 +1178,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     correction = torch.ones(n_neurons, device=device)
                     second_correction = 1.0
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach()
-                A[i, i] = 0
+                A.fill_diagonal_(0)
                 A = A.t()
 
                 # Apply per-neuron correction if enabled
@@ -1354,9 +1352,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
                 plt.close()
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach()
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 # apply per-neuron correction if enabled
                 if apply_weight_correction:
@@ -1714,9 +1711,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
 
-            i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
             A = model.W.clone().detach()
-            A[i, i] = 0
+            A.fill_diagonal_(0)
             A = A.t()
             A = A[:n_neurons,:n_neurons]
 
@@ -2107,7 +2103,113 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print(f'R² (corrected): \033[92m{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
             logger.info(f'R² (corrected): {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
+            # eigenvalue and eigenvector analysis
+            print('plot eigenvalue spectrum and eigenvector comparison ...')
 
+            # compute eigenvalues and eigenvectors
+            eig_true, V_true = np.linalg.eig(gt_weight)
+            eig_learned, V_learned = np.linalg.eig(pred_weight_corrected / lin_fit[0])
+
+            # sort by eigenvalue magnitude
+            idx_true = np.argsort(-np.abs(eig_true))
+            idx_learned = np.argsort(-np.abs(eig_learned))
+            eig_true_sorted = eig_true[idx_true]
+            eig_learned_sorted = eig_learned[idx_learned]
+            V_true = V_true[:, idx_true]
+            V_learned = V_learned[:, idx_learned]
+
+            # left eigenvectors (right eigenvectors of transpose)
+            _, L_true = np.linalg.eig(gt_weight.T)
+            _, L_learned = np.linalg.eig((pred_weight_corrected / lin_fit[0]).T)
+            L_true = L_true[:, idx_true]
+            L_learned = L_learned[:, idx_learned]
+
+            # compute alignment matrices
+            alignment_R = np.abs(V_true.conj().T @ V_learned)
+            alignment_L = np.abs(L_true.conj().T @ L_learned)
+
+            # best alignment score for each true eigenvector
+            best_alignment_R = np.max(alignment_R, axis=1)
+            best_alignment_L = np.max(alignment_L, axis=1)
+
+            # create 2x3 figure
+            fig, axes = plt.subplots(2, 3, figsize=(30, 20))
+
+            # Row 1: Eigenvalues
+            # (0,0) complex plane scatter
+            axes[0, 0].scatter(eig_true.real, eig_true.imag, s=100, c='b', alpha=0.7, label='true')
+            axes[0, 0].scatter(eig_learned.real, eig_learned.imag, s=100, c='r', alpha=0.7, label='learned')
+            axes[0, 0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0, 0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0, 0].set_xlabel('real', fontsize=32)
+            axes[0, 0].set_ylabel('imag', fontsize=32)
+            axes[0, 0].legend(fontsize=20)
+            axes[0, 0].tick_params(labelsize=20)
+            axes[0, 0].set_title('eigenvalues in complex plane', fontsize=28)
+
+            # (0,1) histogram of real parts
+            bins = np.linspace(min(eig_true.real.min(), eig_learned.real.min()),
+                              max(eig_true.real.max(), eig_learned.real.max()), 50)
+            axes[0, 1].hist(eig_true.real, bins=bins, alpha=0.5, label='true', color='b')
+            axes[0, 1].hist(eig_learned.real, bins=bins, alpha=0.5, label='learned', color='r')
+            axes[0, 1].set_xlabel('real eigenvalue', fontsize=32)
+            axes[0, 1].set_ylabel('count', fontsize=32)
+            axes[0, 1].legend(fontsize=20)
+            axes[0, 1].tick_params(labelsize=20)
+            axes[0, 1].set_title('real part distribution', fontsize=28)
+
+            # (0,2) eigenvalue magnitude comparison (sorted)
+            axes[0, 2].scatter(np.abs(eig_true_sorted), np.abs(eig_learned_sorted), s=100, c=mc, alpha=0.7)
+            max_val = max(np.abs(eig_true_sorted).max(), np.abs(eig_learned_sorted).max())
+            axes[0, 2].plot([0, max_val], [0, max_val], 'g--', linewidth=2)
+            axes[0, 2].set_xlabel('true |eigenvalue|', fontsize=32)
+            axes[0, 2].set_ylabel('learned |eigenvalue|', fontsize=32)
+            axes[0, 2].tick_params(labelsize=20)
+            axes[0, 2].set_title('eigenvalue magnitude comparison', fontsize=28)
+
+            # Row 2: Eigenvectors
+            # (1,0) right eigenvector alignment matrix
+            im = axes[1, 0].imshow(alignment_R, cmap='hot', vmin=0, vmax=1)
+            axes[1, 0].set_xlabel('learned eigenvector index', fontsize=28)
+            axes[1, 0].set_ylabel('true eigenvector index', fontsize=28)
+            axes[1, 0].set_title('right eigenvector alignment', fontsize=28)
+            axes[1, 0].tick_params(labelsize=16)
+            plt.colorbar(im, ax=axes[1, 0], fraction=0.046)
+
+            # (1,1) left eigenvector alignment matrix
+            im_L = axes[1, 1].imshow(alignment_L, cmap='hot', vmin=0, vmax=1)
+            axes[1, 1].set_xlabel('learned eigenvector index', fontsize=28)
+            axes[1, 1].set_ylabel('true eigenvector index', fontsize=28)
+            axes[1, 1].set_title('left eigenvector alignment', fontsize=28)
+            axes[1, 1].tick_params(labelsize=16)
+            plt.colorbar(im_L, ax=axes[1, 1], fraction=0.046)
+
+            # (1,2) best alignment scores
+            axes[1, 2].plot(range(len(best_alignment_R)), best_alignment_R, 'b-', linewidth=2, alpha=0.7, label=f'right (mean={np.mean(best_alignment_R):.2f})')
+            axes[1, 2].plot(range(len(best_alignment_L)), best_alignment_L, 'r-', linewidth=2, alpha=0.7, label=f'left (mean={np.mean(best_alignment_L):.2f})')
+            axes[1, 2].axhline(y=1/np.sqrt(n_plot), color='gray', linestyle='--', linewidth=2, label=f'random ({1/np.sqrt(n_plot):.2f})')
+            axes[1, 2].set_xlabel('eigenvector index (sorted by |eigenvalue|)', fontsize=28)
+            axes[1, 2].set_ylabel('best alignment score', fontsize=28)
+            axes[1, 2].set_title('best alignment per eigenvector', fontsize=28)
+            axes[1, 2].set_ylim([0, 1.05])
+            axes[1, 2].legend(fontsize=20)
+            axes[1, 2].tick_params(labelsize=16)
+
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/eigen_comparison.png", dpi=87)
+            plt.close()
+
+            # spectral radius comparison
+            true_spectral_radius = np.max(np.abs(eig_true))
+            learned_spectral_radius = np.max(np.abs(eig_learned))
+            print(f'spectral radius - true: {true_spectral_radius:.3f}  learned: {learned_spectral_radius:.3f}')
+            logger.info(f'spectral radius - true: {true_spectral_radius:.3f}  learned: {learned_spectral_radius:.3f}')
+
+            # summary statistics
+            mean_align_R = np.mean(best_alignment_R)
+            mean_align_L = np.mean(best_alignment_L)
+            print(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
+            logger.info(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
 
             if n_excitatory_neurons > 0:
                 print('plot excitation function ...')
@@ -2889,9 +2991,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 correction = torch.load(f'{log_dir}/correction.pt',map_location=device)
                 second_correction = np.load(f'{log_dir}/second_correction.npy')
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
                 ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=-0.1,vmax=0.1)
@@ -2962,9 +3063,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 adj_t = torch.abs(adjacency_) > 0
                 edge_index = adj_t.nonzero().t().contiguous()
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
                 gt_weight = to_numpy(adjacency)
@@ -3466,9 +3566,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             plt.close()
 
 
-            i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
             A = model.W.clone().detach() / correction
-            A[i, i] = 0
+            A.fill_diagonal_(0)
 
             fig, ax = fig_init()
             gt_weight = to_numpy(adjacency)
@@ -3703,9 +3802,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     correction = torch.tensor(1.0, device=device)
                     second_correction = 1.0
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
                 A = A.t()
 
                 fig, ax = fig_init()
@@ -3848,9 +3946,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 adj_t = torch.abs(adjacency_) > 0
                 edge_index = adj_t.nonzero().t().contiguous()
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
                 gt_weight = to_numpy(adjacency)
@@ -4370,9 +4467,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 for k in range(min(20, model.W.shape[0] - 1)):
                     fig, ax = fig_init()
                     plt.axis('off')
-                    i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                     A = model.W[k].clone().detach()
-                    A[i, i] = 0
+                    A.fill_diagonal_(0)
                     pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
                     A[pos,:] = 0
                     A = torch.reshape(A, (n_neurons, n_neurons))
@@ -4385,9 +4481,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 fig, axes = plt.subplots(4, 5, figsize=(20, 16))
                 axes = axes.flatten()
                 for k in range(min(20, model.W.shape[0] - 1)):
-                    i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                     A = model.W[k].clone().detach()
-                    A[i, i] = 0
+                    A.fill_diagonal_(0)
                     pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
                     A[pos,:] = 0
                     larynx_pred_weight, index_larynx = map_matrix(larynx_neuron_list, all_neuron_list, A)
@@ -4412,9 +4507,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
             else:
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach()
-                A[i, i] = 0
+                A.fill_diagonal_(0)
                 A = A.t()
                 fig, ax = fig_init()
                 ax = sns.heatmap(to_numpy(A) , center=0, square=True, cmap='bwr',
@@ -9088,9 +9182,9 @@ if __name__ == '__main__':
 
 
 
-    config_list = ['signal_N5_1']
+    config_list = ['signal_N11_5_2', 'signal_N11_5_3', 'signal_N11_5_4', 'signal_N11_5_5', 'signal_N11_6_1']
 
-    # config_list = ['signal_N11_1_8_3']
+    # config_list = ['signal_N11_1_3']
 
     # config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
 

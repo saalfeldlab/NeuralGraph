@@ -2378,8 +2378,9 @@ class LossRegularizer:
         return (self.iter_count % self.plot_frequency == 0) or (self.iter_count == 1)
 
     def needs_update_regul(self) -> bool:
-        """Check if update regularization is needed (update_msg_diff, update_u_diff, or update_msg_sign)."""
-        return (self._coeffs['update_msg_diff'] > 0 or
+        """Check if update regularization is needed (update_diff, update_msg_diff, update_u_diff, or update_msg_sign)."""
+        return (self._coeffs['update_diff'] > 0 or
+                self._coeffs['update_msg_diff'] > 0 or
                 self._coeffs['update_u_diff'] > 0 or
                 self._coeffs['update_msg_sign'] > 0)
 
@@ -2550,9 +2551,10 @@ class LossRegularizer:
         for comp in self.COMPONENTS:
             self._history[comp].append(self._iter_tracker.get(comp, 0) / n)
 
-    def compute_update_regul(self, model, in_features, ids_batch, device):
+    def compute_update_regul(self, model, in_features, ids_batch, device,
+                              x=None, xnorm=None, ids=None):
         """
-        Compute update function regularizations (update_msg_diff, update_u_diff, update_msg_sign).
+        Compute update function regularizations (update_diff, update_msg_diff, update_u_diff, update_msg_sign).
 
         This method should be called after the model forward pass when in_features is available.
 
@@ -2561,13 +2563,41 @@ class LossRegularizer:
             in_features: Features from model forward pass
             ids_batch: Batch indices
             device: Torch device
+            x: Input tensor (required for update_diff with 'generic' update_type)
+            xnorm: Normalization value (required for update_diff)
+            ids: Sample indices (required for update_diff)
 
         Returns:
             Total update regularization loss tensor
         """
+        from NeuralGraph.models.utils import get_in_features_lin_edge
+
         mc = self.model_config
         embedding_dim = mc.embedding_dim
+        n_neurons = self.n_neurons
         total_regul = torch.tensor(0.0, device=device)
+
+        # update_diff: for 'generic' update_type only
+        if (self._coeffs['update_diff'] > 0) and (model.update_type == 'generic') and (x is not None):
+            in_features_edge, in_features_edge_next = get_in_features_lin_edge(
+                x, model, mc, xnorm, n_neurons, device)
+            if mc.lin_edge_positive:
+                msg0 = model.lin_edge(in_features_edge[ids].clone().detach()) ** 2
+                msg1 = model.lin_edge(in_features_edge_next[ids].clone().detach()) ** 2
+            else:
+                msg0 = model.lin_edge(in_features_edge[ids].clone().detach())
+                msg1 = model.lin_edge(in_features_edge_next[ids].clone().detach())
+            in_feature_update = torch.cat((torch.zeros((n_neurons, 1), device=device),
+                                           model.a[:n_neurons], msg0,
+                                           torch.ones((n_neurons, 1), device=device)), dim=1)
+            in_feature_update = in_feature_update[ids]
+            in_feature_update_next = torch.cat((torch.zeros((n_neurons, 1), device=device),
+                                                model.a[:n_neurons], msg1,
+                                                torch.ones((n_neurons, 1), device=device)), dim=1)
+            in_feature_update_next = in_feature_update_next[ids]
+            regul_term = torch.relu(model.lin_phi(in_feature_update) - model.lin_phi(in_feature_update_next)).norm(2) * self._coeffs['update_diff']
+            total_regul = total_regul + regul_term
+            self._add('update_diff', regul_term)
 
         if in_features is None:
             return total_regul
