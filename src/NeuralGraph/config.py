@@ -57,7 +57,8 @@ class SimulationConfig(BaseModel):
     connectivity_file: str = ""
     connectivity_init: list[float] = [-1]
     connectivity_filling_factor: float = 1
-    connectivity_type: Literal["none", "distance", "voronoi", "k_nearest", 'chaotic', 'ring attractor', 'rank 1', 'successor', 'null'] = "none"
+    connectivity_type: Literal["none", "distance", "voronoi", "k_nearest", 'chaotic', 'ring attractor', 'low_rank', 'successor', 'null'] = "none"
+    connectivity_rank: int = 1
     connectivity_parameter: float = 1.0
     connectivity_distribution: str = "Gaussian"
     connectivity_distribution_params: float = 1
@@ -361,15 +362,6 @@ class TrainingConfig(BaseModel):
     coeff_edge_weight_L2: float = 0
     coeff_phi_weight_L2: float = 0
 
-    coeff_edge_gradient_penalty: float = 0
-    coeff_phi_gradient_penalty: float = 0
-
-    coeff_Jp_norm: float = 0
-    coeff_F_norm: float = 0
-    coeff_det_F: float = 1
-
-    diff_update_regul: str = "none"
-
     coeff_model_a: float = 0
     coeff_model_b: float = 0
     coeff_lin_modulation: float = 0
@@ -381,16 +373,21 @@ class TrainingConfig(BaseModel):
     loss_noise_level: float = 0.0
 
 
-    rotation_augmentation: bool = False
-    translation_augmentation: bool = False
-    reflection_augmentation: bool = False
-    velocity_augmentation: bool = False
     data_augmentation_loop: int = 40
 
     recurrent_training: bool = False
     recurrent_training_start_epoch: int = 0
     recurrent_loop: int = 0
     noise_recurrent_level: float = 0.0
+
+    neural_ODE_training: bool = False
+    ode_method: Literal["dopri5", "rk4", "euler", "midpoint", "heun3"] = "dopri5"
+    ode_rtol: float = 1e-4
+    ode_atol: float = 1e-5
+    ode_adjoint: bool = True
+    ode_state_clamp: float = 10.0
+    ode_stab_lambda: float = 0.0
+    grad_clip_W: float = 0.0
 
     time_step: int = 1
     recurrent_sequence: str = ""
@@ -402,8 +399,6 @@ class TrainingConfig(BaseModel):
 
     MPM_trainer : str = "F"
 
-
-# Main config schema for NeuralGraph
 
 
 class NeuralGraphConfig(BaseModel):

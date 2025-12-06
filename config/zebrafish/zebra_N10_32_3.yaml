@@ -60,7 +60,6 @@ training:
     batch_ratio: 0.15
 
     sparsity: 'none'
-    rotation_augmentation: False
     data_augmentation_loop: 10
 
     learning_rate_W_start: 1.0E-3

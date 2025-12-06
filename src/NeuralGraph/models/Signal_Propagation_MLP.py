@@ -54,7 +54,7 @@ class Signal_Propagation_MLP(nn.Module):  # NOT MessagePassing
             requires_grad=True,
         )
     
-    def forward(self, x=[], data_id=[], mask=[], k=[], return_all=False):
+    def forward(self, x=[], data_id=[], k=[], return_all=False, **kwargs):
         # Extract features
 
         if self.calcium_type != "none":

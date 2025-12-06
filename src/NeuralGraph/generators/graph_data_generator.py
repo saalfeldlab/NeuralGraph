@@ -1126,6 +1126,7 @@ def data_generate_synaptic(
                 n_neuron_types,
                 dataset_name,
                 device,
+                connectivity_rank=simulation_config.connectivity_rank,
             )
             torch.save(edge_index, f"./graphs_data/{dataset_name}/edge_index.pt")
             torch.save(mask, f"./graphs_data/{dataset_name}/mask.pt")

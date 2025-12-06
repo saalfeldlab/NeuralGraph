@@ -52,7 +52,6 @@ training:
     n_runs: 2
 
     sparsity: 'none'
-    rotation_augmentation: False
     data_augmentation_loop: 100
     cluster_method: 'distance_embedding'
     cluster_distance_threshold: 0.2

@@ -1,4 +1,4 @@
-description: "test neuro-neuron dependent structure matrix modulation     noise_model_level: 1"
+description: "test neuro-neuron dependent structure matrix modulation     noise_model_level: 1  batch_size: 8"
 dataset: "signal_N5_1"
 
 simulation:
@@ -68,14 +68,9 @@ training:
   n_runs: 2
   device: "auto"
 
-  batch_size: 1
+  batch_size: 8
   small_init_batch_size: True
 
-  epoch_reset: 2
-  epoch_reset_freq: 999
-  n_epochs_init: 2
-
-  rotation_augmentation: False
   data_augmentation_loop: 20
 
   sparsity: "none"

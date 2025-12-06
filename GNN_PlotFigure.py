@@ -302,9 +302,8 @@ def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iterat
     # limit to true neurons (exclude excitatory neurons)
     n_plot = n_neurons - n_excitatory_neurons
 
-    i, j = torch.triu_indices(n_plot, n_plot, requires_grad=False, device=model.W.device)
     A = model.W[:n_plot, :n_plot].clone().detach()
-    A[i, i] = 0
+    A.fill_diagonal_(0)
 
     # compute and apply per-neuron correction on the fly
     if apply_weight_correction and xnorm is not None and device is not None:
@@ -1179,9 +1178,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     correction = torch.ones(n_neurons, device=device)
                     second_correction = 1.0
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach()
-                A[i, i] = 0
+                A.fill_diagonal_(0)
                 A = A.t()
 
                 # Apply per-neuron correction if enabled
@@ -1354,9 +1352,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
                 plt.close()
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach()
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 # apply per-neuron correction if enabled
                 if apply_weight_correction:
@@ -1713,14 +1710,11 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
-            print(f'net: {net}')
 
-            i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
             A = model.W.clone().detach()
-            A[i, i] = 0
+            A.fill_diagonal_(0)
             A = A.t()
             A = A[:n_neurons,:n_neurons]
-
 
             plt.figure(figsize=(10, 10))
             connectivity_plot = to_numpy(A)
@@ -1950,10 +1944,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             fig, ax = fig_init()
             for n in trange(n_neuron_types, ncols=90):
-                if model_config.signal_model_name == 'PDE_N5':
-                    true_func = true_model.func(rr, n, n, 'update')
-                else:
-                    true_func = true_model.func(rr, n, 'update')
+                true_func = true_model.func(rr, n, 'update')
                 plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
             phi_list = []
             for n in trange(n_neurons, ncols=90):
@@ -2112,7 +2103,113 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print(f'R² (corrected): \033[92m{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
             logger.info(f'R² (corrected): {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
+            # eigenvalue and eigenvector analysis
+            print('plot eigenvalue spectrum and eigenvector comparison ...')
 
+            # compute eigenvalues and eigenvectors
+            eig_true, V_true = np.linalg.eig(gt_weight)
+            eig_learned, V_learned = np.linalg.eig(pred_weight_corrected / lin_fit[0])
+
+            # sort by eigenvalue magnitude
+            idx_true = np.argsort(-np.abs(eig_true))
+            idx_learned = np.argsort(-np.abs(eig_learned))
+            eig_true_sorted = eig_true[idx_true]
+            eig_learned_sorted = eig_learned[idx_learned]
+            V_true = V_true[:, idx_true]
+            V_learned = V_learned[:, idx_learned]
+
+            # left eigenvectors (right eigenvectors of transpose)
+            _, L_true = np.linalg.eig(gt_weight.T)
+            _, L_learned = np.linalg.eig((pred_weight_corrected / lin_fit[0]).T)
+            L_true = L_true[:, idx_true]
+            L_learned = L_learned[:, idx_learned]
+
+            # compute alignment matrices
+            alignment_R = np.abs(V_true.conj().T @ V_learned)
+            alignment_L = np.abs(L_true.conj().T @ L_learned)
+
+            # best alignment score for each true eigenvector
+            best_alignment_R = np.max(alignment_R, axis=1)
+            best_alignment_L = np.max(alignment_L, axis=1)
+
+            # create 2x3 figure
+            fig, axes = plt.subplots(2, 3, figsize=(30, 20))
+
+            # Row 1: Eigenvalues
+            # (0,0) complex plane scatter
+            axes[0, 0].scatter(eig_true.real, eig_true.imag, s=100, c='b', alpha=0.7, label='true')
+            axes[0, 0].scatter(eig_learned.real, eig_learned.imag, s=100, c='r', alpha=0.7, label='learned')
+            axes[0, 0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0, 0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0, 0].set_xlabel('real', fontsize=32)
+            axes[0, 0].set_ylabel('imag', fontsize=32)
+            axes[0, 0].legend(fontsize=20)
+            axes[0, 0].tick_params(labelsize=20)
+            axes[0, 0].set_title('eigenvalues in complex plane', fontsize=28)
+
+            # (0,1) histogram of real parts
+            bins = np.linspace(min(eig_true.real.min(), eig_learned.real.min()),
+                              max(eig_true.real.max(), eig_learned.real.max()), 50)
+            axes[0, 1].hist(eig_true.real, bins=bins, alpha=0.5, label='true', color='b')
+            axes[0, 1].hist(eig_learned.real, bins=bins, alpha=0.5, label='learned', color='r')
+            axes[0, 1].set_xlabel('real eigenvalue', fontsize=32)
+            axes[0, 1].set_ylabel('count', fontsize=32)
+            axes[0, 1].legend(fontsize=20)
+            axes[0, 1].tick_params(labelsize=20)
+            axes[0, 1].set_title('real part distribution', fontsize=28)
+
+            # (0,2) eigenvalue magnitude comparison (sorted)
+            axes[0, 2].scatter(np.abs(eig_true_sorted), np.abs(eig_learned_sorted), s=100, c=mc, alpha=0.7)
+            max_val = max(np.abs(eig_true_sorted).max(), np.abs(eig_learned_sorted).max())
+            axes[0, 2].plot([0, max_val], [0, max_val], 'g--', linewidth=2)
+            axes[0, 2].set_xlabel('true |eigenvalue|', fontsize=32)
+            axes[0, 2].set_ylabel('learned |eigenvalue|', fontsize=32)
+            axes[0, 2].tick_params(labelsize=20)
+            axes[0, 2].set_title('eigenvalue magnitude comparison', fontsize=28)
+
+            # Row 2: Eigenvectors
+            # (1,0) right eigenvector alignment matrix
+            im = axes[1, 0].imshow(alignment_R, cmap='hot', vmin=0, vmax=1)
+            axes[1, 0].set_xlabel('learned eigenvector index', fontsize=28)
+            axes[1, 0].set_ylabel('true eigenvector index', fontsize=28)
+            axes[1, 0].set_title('right eigenvector alignment', fontsize=28)
+            axes[1, 0].tick_params(labelsize=16)
+            plt.colorbar(im, ax=axes[1, 0], fraction=0.046)
+
+            # (1,1) left eigenvector alignment matrix
+            im_L = axes[1, 1].imshow(alignment_L, cmap='hot', vmin=0, vmax=1)
+            axes[1, 1].set_xlabel('learned eigenvector index', fontsize=28)
+            axes[1, 1].set_ylabel('true eigenvector index', fontsize=28)
+            axes[1, 1].set_title('left eigenvector alignment', fontsize=28)
+            axes[1, 1].tick_params(labelsize=16)
+            plt.colorbar(im_L, ax=axes[1, 1], fraction=0.046)
+
+            # (1,2) best alignment scores
+            axes[1, 2].plot(range(len(best_alignment_R)), best_alignment_R, 'b-', linewidth=2, alpha=0.7, label=f'right (mean={np.mean(best_alignment_R):.2f})')
+            axes[1, 2].plot(range(len(best_alignment_L)), best_alignment_L, 'r-', linewidth=2, alpha=0.7, label=f'left (mean={np.mean(best_alignment_L):.2f})')
+            axes[1, 2].axhline(y=1/np.sqrt(n_plot), color='gray', linestyle='--', linewidth=2, label=f'random ({1/np.sqrt(n_plot):.2f})')
+            axes[1, 2].set_xlabel('eigenvector index (sorted by |eigenvalue|)', fontsize=28)
+            axes[1, 2].set_ylabel('best alignment score', fontsize=28)
+            axes[1, 2].set_title('best alignment per eigenvector', fontsize=28)
+            axes[1, 2].set_ylim([0, 1.05])
+            axes[1, 2].legend(fontsize=20)
+            axes[1, 2].tick_params(labelsize=16)
+
+            plt.tight_layout()
+            plt.savefig(f"./{log_dir}/results/eigen_comparison.png", dpi=87)
+            plt.close()
+
+            # spectral radius comparison
+            true_spectral_radius = np.max(np.abs(eig_true))
+            learned_spectral_radius = np.max(np.abs(eig_learned))
+            print(f'spectral radius - true: {true_spectral_radius:.3f}  learned: {learned_spectral_radius:.3f}')
+            logger.info(f'spectral radius - true: {true_spectral_radius:.3f}  learned: {learned_spectral_radius:.3f}')
+
+            # summary statistics
+            mean_align_R = np.mean(best_alignment_R)
+            mean_align_L = np.mean(best_alignment_L)
+            print(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
+            logger.info(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
 
             if n_excitatory_neurons > 0:
                 print('plot excitation function ...')
@@ -2187,6 +2284,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 print('plot field ...')
                 os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
+
+                # Load second_correction if available
+                second_correction_path = f'{log_dir}/second_correction.npy'
+                if os.path.exists(second_correction_path):
+                    second_correction = float(np.load(second_correction_path))
+                else:
+                    second_correction = 1.0
 
                 if 'derivative' in field_type:
 
@@ -2317,28 +2421,40 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     im_list = list([])
                     pred_list = list([])
 
+                    # Compute scale factor from first frame
+                    im_first = im[0].squeeze()
+                    im_first = np.sqrt(im_first)
+                    pred_first = model_f(time=0, enlarge=False) ** 2
+                    pred_first = torch.reshape(pred_first, (n_nodes_per_axis, n_nodes_per_axis))
+                    pred_first = to_numpy(torch.sqrt(pred_first))
+                    scale_factor = im_first.max() / (pred_first.max() + 1e-8)
+                    print(f'[DEBUG field] scale_factor={scale_factor:.4f} mc={mc} n_nodes_per_axis={n_nodes_per_axis}')
+
                     for frame in trange(0, n_frames, n_frames // 100, ncols=90):
 
+                        # true field - match training: sqrt + rot90
                         fig, ax = fig_init()
-                        im_ = np.zeros((44, 44))
+                        im_ = np.zeros((n_nodes_per_axis, n_nodes_per_axis))
                         if (frame >= 0) & (frame < n_frames):
                             im_ = im[int(frame / n_frames * 256)].squeeze()
-                        plt.imshow(im_, cmap='gray', vmin=0, vmax=2)
+                        im_ = np.sqrt(im_)
+                        im_ = np.rot90(im_, k=1)
+                        plt.imshow(im_, cmap='gray')
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
                         plt.savefig(f"./{log_dir}/results/field/true_field{epoch}_{frame}.png", dpi=80)
                         plt.close()
 
-                        pred = model_f(time=frame / n_frames, enlarge=False) ** 2 * second_correction / 10
+                        # reconstructed LR - match training: model_f**2, then sqrt, then rot90, then scale
+                        pred = model_f(time=frame / n_frames, enlarge=False) ** 2
                         pred = torch.reshape(pred, (n_nodes_per_axis, n_nodes_per_axis))
-
-                        pred = to_numpy(pred)
-                        pred = np.flipud(pred)
-                        pred = np.rot90(pred, 1)
-                        pred = np.fliplr(pred)
+                        pred = to_numpy(torch.sqrt(pred)) * scale_factor
+                        if frame == 0:
+                            print(f'[DEBUG LR] pred min={pred.min():.4f} max={pred.max():.4f} im_ min={im_.min():.4f} max={im_.max():.4f}')
+                        pred = np.rot90(pred, k=1)
                         fig, ax = fig_init()
-                        plt.imshow(pred, cmap='gray', vmin=0, vmax=2)
+                        plt.imshow(pred, cmap='gray')
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
@@ -2355,25 +2471,30 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         # print(f'R^2$: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
                         slope_list.append(lin_fit[0])
 
+                        if frame == 0:
+                            print(f'[DEBUG scatter] im_ shape={im_.shape} min={im_.min():.4f} max={im_.max():.4f}')
+                            print(f'[DEBUG scatter] pred shape={pred.shape} min={pred.min():.4f} max={pred.max():.4f}')
+                            print(f'[DEBUG scatter] x_data range=[{x_data.min():.4f}, {x_data.max():.4f}] y_data range=[{y_data.min():.4f}, {y_data.max():.4f}]')
+                            print(f'[DEBUG scatter] R^2={r_squared:.4f} slope={lin_fit[0]:.4f}')
                         fig, ax = fig_init()
                         plt.scatter(im_, pred, s=10, c=mc)
-                        plt.xlim([0.3, 1.6])
-                        # plt.ylim([0.3, 1.6])
                         plt.xlabel(r'true neuromodulation', fontsize=48)
                         plt.ylabel(r'learned neuromodulation', fontsize=48)
-                        plt.text(0.35, 1.5, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}', fontsize=42)
+                        ax.text(0.05, 0.95, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}',
+                                transform=ax.transAxes, fontsize=42, verticalalignment='top')
                         plt.tight_layout()
                         plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.png", dpi=80)
                         plt.close()
                         im_list.append(im_)
                         pred_list.append(pred)
 
-                        pred = model_f(time=frame / n_frames, enlarge=True) ** 2 * second_correction / 10 # /lin_fit[0]
+                        # reconstructed HR - same processing with scale
+                        pred = model_f(time=frame / n_frames, enlarge=True) ** 2
                         pred = torch.reshape(pred, (640, 640))
-                        pred = to_numpy(pred)
-                        pred = np.flipud(pred)
-                        pred = np.rot90(pred, 1)
-                        pred = np.fliplr(pred)
+                        pred = to_numpy(torch.sqrt(pred)) * scale_factor
+                        if frame == 0:
+                            print(f'[DEBUG HR] pred min={pred.min():.4f} max={pred.max():.4f}')
+                        pred = np.rot90(pred, k=1)
                         fig, ax = fig_init()
                         plt.imshow(pred, cmap='gray')
                         plt.xticks([])
@@ -2485,7 +2606,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 else:
                     x[:, 8:9] = torch.ones_like(x[:, 0:1])
                 dataset = data.Data(x=x, edge_index=edge_index)
-                pred, in_features_ = model(data=dataset, return_all=True)
+                data_id = torch.zeros(x.shape[0], dtype=torch.long, device=device)
+                pred, in_features_ = model(data=dataset, data_id=data_id, return_all=True)
                 feature_list = ['u', 'embedding0', 'embedding1', 'msg', 'field']
                 for n in range(in_features_.shape[1]):
                     print(f'feature {feature_list[n]}: {to_numpy(torch.mean(in_features_[:, n])):0.4f}  std: {to_numpy(torch.std(in_features_[:, n])):0.4f}')
@@ -2497,8 +2619,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 fig, ax = fig_init()
                 f = torch.reshape(x[:n_nodes, 8:9], (n_nodes_per_axis, n_nodes_per_axis))
-                plt.imshow(to_numpy(f), cmap='viridis', vmin=-1, vmax=10)
+                f = to_numpy(torch.sqrt(f))
+                f = np.rot90(f, k=1)
+                plt.imshow(f, cmap='grey')
+                plt.xticks([])
+                plt.yticks([])
                 plt.tight_layout()
+                plt.savefig(f"./{log_dir}/results/field/field_{epoch}.png", dpi=80)
                 plt.close()
 
 
@@ -2864,9 +2991,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 correction = torch.load(f'{log_dir}/correction.pt',map_location=device)
                 second_correction = np.load(f'{log_dir}/second_correction.npy')
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
                 ax = sns.heatmap(to_numpy(A)/second_correction, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=-0.1,vmax=0.1)
@@ -2937,9 +3063,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 adj_t = torch.abs(adjacency_) > 0
                 edge_index = adj_t.nonzero().t().contiguous()
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
                 gt_weight = to_numpy(adjacency)
@@ -3177,7 +3302,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
-            print(f'net: {net}')
+
 
             if has_field:
 
@@ -3441,9 +3566,8 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             plt.close()
 
 
-            i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
             A = model.W.clone().detach() / correction
-            A[i, i] = 0
+            A.fill_diagonal_(0)
 
             fig, ax = fig_init()
             gt_weight = to_numpy(adjacency)
@@ -3678,9 +3802,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     correction = torch.tensor(1.0, device=device)
                     second_correction = 1.0
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
                 A = A.t()
 
                 fig, ax = fig_init()
@@ -3823,9 +3946,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 adj_t = torch.abs(adjacency_) > 0
                 edge_index = adj_t.nonzero().t().contiguous()
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach() / correction
-                A[i, i] = 0
+                A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
                 gt_weight = to_numpy(adjacency)
@@ -4132,7 +4254,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
-            print(f'net: {net}')
+
 
             fig, ax = fig_init()
             for n in range(n_neurons):
@@ -4345,9 +4467,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 for k in range(min(20, model.W.shape[0] - 1)):
                     fig, ax = fig_init()
                     plt.axis('off')
-                    i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                     A = model.W[k].clone().detach()
-                    A[i, i] = 0
+                    A.fill_diagonal_(0)
                     pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
                     A[pos,:] = 0
                     A = torch.reshape(A, (n_neurons, n_neurons))
@@ -4360,9 +4481,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 fig, axes = plt.subplots(4, 5, figsize=(20, 16))
                 axes = axes.flatten()
                 for k in range(min(20, model.W.shape[0] - 1)):
-                    i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                     A = model.W[k].clone().detach()
-                    A[i, i] = 0
+                    A.fill_diagonal_(0)
                     pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
                     A[pos,:] = 0
                     larynx_pred_weight, index_larynx = map_matrix(larynx_neuron_list, all_neuron_list, A)
@@ -4387,9 +4507,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
             else:
 
-                i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
                 A = model.W.clone().detach()
-                A[i, i] = 0
+                A.fill_diagonal_(0)
                 A = A.t()
                 fig, ax = fig_init()
                 ax = sns.heatmap(to_numpy(A) , center=0, square=True, cmap='bwr',
@@ -4976,10 +5095,11 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                         fig, ax = fig_init()
                         plt.scatter(im_, pred, s=10, c=mc)
                         plt.xlim([0.3, 1.6])
-                        # plt.ylim([0.3, 1.6])
+                        plt.ylim([0.3, 1.6])
                         plt.xlabel(r'true neuromodulation', fontsize=48)
                         plt.ylabel(r'learned neuromodulation', fontsize=48)
-                        plt.text(0.35, 1.5, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}', fontsize=42)
+                        ax.text(0.05, 0.95, f'$R^2$: {r_squared:0.2f}  slope: {np.round(lin_fit[0], 2)}',
+                                transform=ax.transAxes, fontsize=42, verticalalignment='top')
                         plt.tight_layout()
                         plt.savefig(f"./{log_dir}/results/field/comparison {epoch}_{frame}.png", dpi=80)
                         plt.close()
@@ -4989,11 +5109,13 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                         pred = model_f(time=frame / n_frames, enlarge=True) ** 2 * second_correction / 10 # /lin_fit[0]
                         pred = torch.reshape(pred, (640, 640))
                         pred = to_numpy(pred)
+                        if frame == 0:
+                            print(f'[DEBUG HR] pred min={pred.min():.4f} max={pred.max():.4f}')
                         pred = np.flipud(pred)
                         pred = np.rot90(pred, 1)
                         pred = np.fliplr(pred)
                         fig, ax = fig_init()
-                        plt.imshow(pred, cmap='gray')
+                        plt.imshow(pred, cmap='gray', vmin=0, vmax=2)
                         plt.xticks([])
                         plt.yticks([])
                         plt.tight_layout()
@@ -5544,7 +5666,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             state_dict = torch.load(net, map_location=device)
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edges
-            print(f'net: {net}')
+
             logger.info(f'net: {net}')
 
             # print learnable parameters table
@@ -5755,12 +5877,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             fig = plt.figure(figsize=(10, 9))
             plt.scatter(gt_taus, learned_tau, c=mc, s=1, alpha=0.3)
-            lin_fit, lin_fitv = curve_fit(linear_model, gt_taus, learned_tau)
-            residuals = learned_tau - linear_model(gt_taus, *lin_fit)
+            lin_fit_tau, _ = curve_fit(linear_model, gt_taus, learned_tau)
+            residuals = learned_tau - linear_model(gt_taus, *lin_fit_tau)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_tau - np.mean(learned_tau)) ** 2)
-            r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
+            r_squared_tau = 1 - (ss_res / ss_tot)
+            plt.text(0.05, 0.95, f'R²: {r_squared_tau:.2f}\nslope: {lin_fit_tau[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $\tau$', fontsize=48)
             plt.ylabel(r'learned $\tau$', fontsize=48)
@@ -5772,9 +5894,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.savefig(f'{log_dir}/results/tau_comparison_{config_indices}.png', dpi=300)
             plt.close()
 
-            print(f"tau reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit[0]:.2f}")
-            logger.info(f"tau reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
-            torch.save(torch.tensor(learned_tau, dtype=torch.float32, device=device), f'{log_dir}/results/tau.pt')
 
             # V_rest comparison (reconstructed vs ground truth)
             learned_V_rest = np.where(slopes_lin_phi_array != 0, -offsets_array / slopes_lin_phi_array, 1)
@@ -5782,12 +5901,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             gt_V_rest = to_numpy(gt_V_Rest[:n_neurons])
             fig = plt.figure(figsize=(10, 9))
             plt.scatter(gt_V_rest, learned_V_rest, c=mc, s=1, alpha=0.3)
-            lin_fit, lin_fitv = curve_fit(linear_model, gt_V_rest, learned_V_rest)
-            residuals = learned_V_rest - linear_model(gt_V_rest, *lin_fit)
+            lin_fit_V_rest, _ = curve_fit(linear_model, gt_V_rest, learned_V_rest)
+            residuals = learned_V_rest - linear_model(gt_V_rest, *lin_fit_V_rest)
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((learned_V_rest - np.mean(learned_V_rest)) ** 2)
-            r_squared = 1 - (ss_res / ss_tot)
-            plt.text(0.05, 0.95, f'R²: {r_squared:.2f}\nslope: {lin_fit[0]:.2f}\nN: {n_edges}',
+            r_squared_V_rest = 1 - (ss_res / ss_tot)
+            plt.text(0.05, 0.95, f'R²: {r_squared_V_rest:.2f}\nslope: {lin_fit_V_rest[0]:.2f}\nN: {n_edges}',
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
             plt.xlabel(r'true $V_{rest}$', fontsize=48)
             plt.ylabel(r'learned $V_{rest}$', fontsize=48)
@@ -5798,11 +5917,6 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.tight_layout()
             plt.savefig(f'{log_dir}/results/V_rest_comparison_{config_indices}.png', dpi=300)
             plt.close()
-
-            print(f"V_rest reconstruction R²: \033[92m{r_squared:.3f}\033[0m  slope: {lin_fit[0]:.2f}")
-            logger.info(f"V_rest reconstruction R²: {r_squared:.3f}  slope: {lin_fit[0]:.2f}")
-
-            torch.save(torch.tensor(learned_V_rest, dtype=torch.float32, device=device), f'{log_dir}/results/V_rest.pt')
 
             fig = plt.figure(figsize=(10, 9))
             ax = plt.subplot(2, 1, 1)
@@ -5891,14 +6005,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             # Plot 4: Weight comparison using model.W and gt_weights
             # Check Dale's Law for learned weights
-            dale_results = check_dales_law(
-                edges=edges,
-                weights=model.W,
-                type_list=type_list,
-                n_neurons=n_neurons,
-                verbose=False,
-                logger=None
-            )
+            # dale_results = check_dales_law(
+            #     edges=edges,
+            #     weights=model.W,
+            #     type_list=type_list,
+            #     n_neurons=n_neurons,
+            #     verbose=False,
+            #     logger=None
+            # )
 
             fig = plt.figure(figsize=(10, 9))
             learned_weights = to_numpy(model.W.squeeze())
@@ -5913,14 +6027,14 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=24)
 
             # Add Dale's Law statistics
-            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
-                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
-                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
-                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
-                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
-                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
-            plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
-                     verticalalignment='bottom', fontsize=10)
+            # dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+            #              f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+            #              f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+            #              f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+            #              f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+            #              f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            # plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
+            #          verticalalignment='bottom', fontsize=10)
 
             plt.xlabel(r'true $W_{ij}$', fontsize=48)
             plt.ylabel(r'learned $W_{ij}$', fontsize=48)
@@ -6113,12 +6227,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                      transform=plt.gca().transAxes, verticalalignment='top', fontsize=32)
 
             # Add Dale's Law statistics (reusing dale_results from earlier)
-            dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
-                         f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
-                         f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
-                         f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
-                         f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
-                         f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
+            # dale_text = (f"excitatory neurons (all W>0): {dale_results['n_excitatory']} "
+            #              f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
+            #              f"inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
+            #              f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
+            #              f"mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
+            #              f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
             # plt.text(0.05, 0.05, dale_text, transform=plt.gca().transAxes,
             #          verticalalignment='bottom', fontsize=10)
 
@@ -6143,13 +6257,18 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
                     f'outliers: {len(outlier_residuals)}  mean residual: {np.mean(outlier_residuals):.4f}  std: {np.std(outlier_residuals):.4f}  min,max: {np.min(outlier_residuals):.4f}, {np.max(outlier_residuals):.4f}')
             else:
                 print('outliers: 0  (no outliers detected)')
+            print(f"tau reconstruction R²: \033[92m{r_squared_tau:.3f}\033[0m  slope: {lin_fit_tau[0]:.2f}")
+            logger.info(f"tau reconstruction R²: {r_squared_tau:.3f}  slope: {lin_fit_tau[0]:.2f}")
+            print(f"V_rest reconstruction R²: \033[92m{r_squared_V_rest:.3f}\033[0m  slope: {lin_fit_V_rest[0]:.2f}")
+            logger.info(f"V_rest reconstruction R²: {r_squared_V_rest:.3f}  slope: {lin_fit_V_rest[0]:.2f}")
+
 
             # Print Dale's Law check results
-            print("Dale's law check:")
-            print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
-            print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
-            print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} (\033[92m{100*dale_results['n_mixed']/n_neurons:.1f}%\033[0m)")
-            logger.info(f"Dale's Law - Excitatory: {dale_results['n_excitatory']}, Inhibitory: {dale_results['n_inhibitory']}, Mixed/Violations: {dale_results['n_mixed']}")
+            # print("Dale's law check:")
+            # print(f"  excitatory neurons (all W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.1f}%)")
+            # print(f"  inhibitory neurons (all W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.1f}%)")
+            # print(f"  mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} (\033[92m{100*dale_results['n_mixed']/n_neurons:.1f}%\033[0m)")
+
 
 
 
@@ -9061,31 +9180,13 @@ if __name__ == '__main__':
     #     pass
 
 
-    # config_list = ['fly_N9_44_24']
 
-    # config_list = ['fly_N9_62_5_9_1', 'fly_N9_62_5_9_2', 'fly_N9_62_5_9_3', 'fly_N9_62_5_9_4', 'fly_N9_62_5_19_1', 'fly_N9_62_5_19_2', 'fly_N9_62_5_19_3', 'fly_N9_62_5_19_4']
 
-    # config_list = ['fly_N9_62_5_10', 'fly_N9_62_5_11', 'fly_N9_62_5_12', 'fly_N9_62_5_13', 'fly_N9_62_5_14', 'fly_N9_62_5_15', 'fly_N9_62_5_16', 'fly_N9_62_5_17', 'fly_N9_62_5_18']
+    config_list = ['signal_N11_5_2', 'signal_N11_5_3', 'signal_N11_5_4', 'signal_N11_5_5', 'signal_N11_6_1']
 
-    # config_list = ['fly_N9_62_5_9_5', 'fly_N9_62_5_19_5', 'fly_N9_62_5_19_6']
+    # config_list = ['signal_N11_1_3']
 
-    # config_list = ['fly_N9_62_5_19_5']
-
-    # config_list = ['signal_N11_1_3_1'] 
-
-    # config_list = ['signal_N11_2_1_3'] # 'signal_N11_1_3'] # 'signal_N11_2_1_3', 'signal_N11_2_2_2']   
-    # config_list = ['signal_N11_1_8_1'] # 'signal_N11_1_8_2']      
-    # config_list = ['signal_N11_2_1_5']
-
-    # config_list = [ 'fly_N9_44_26', 'fly_N9_62_0', 'fly_N9_51_2', 'fly_N9_62_1']
-
-    # config_list = ['fly_N9_22_10', 'fly_N9_44_6', 'fly_N9_44_21', 'fly_N9_44_3']
-
-    # config_list = ['fly_N9_63_1', 'fly_N9_62_1']
-
-    # config_list = ['signal_N11_1_8_3']
-
-    config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
+    # config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
 
     for config_file_ in config_list:
         print(' ')
@@ -9121,6 +9222,8 @@ if __name__ == '__main__':
 
     # get_figures('results_51_2')
     # get_figures('figure_1_cosyne_2026')
+
+    
 
     print("analysis completed")
 

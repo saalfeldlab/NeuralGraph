@@ -60,7 +60,3 @@ training:
   learning_rate_embedding_start: 1.0E-16
 
   coeff_W_L1: 1.0E-4
-
-  # Gradient penalty for MLP smoothness
-  coeff_edge_gradient_penalty: 0.0005
-  coeff_phi_gradient_penalty: 0.0005

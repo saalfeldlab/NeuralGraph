@@ -58,7 +58,7 @@ class Signal_Propagation_MLP_ODE(nn.Module):
         return dv  # [N]
 
     # ---- forward: returns dv/dt (shape [N,1]) just like before ----
-    def forward(self, x=[], data_id=[], mask=[], k=[], return_all=False):
+    def forward(self, x=[], data_id=[], k=[], return_all=False, **kwargs):
         # Extract state and inputs from your layout
         if self.calcium_type != "none":
             v = x[:, 7:8]                    # [N,1]
