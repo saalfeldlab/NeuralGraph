@@ -1,4 +1,4 @@
-description: "RNN chaotic time_step=4"
+description: "RNN chaotic time_step=64"
 dataset: "signal_N11_1"
 
 simulation:
@@ -50,7 +50,7 @@ training:
   data_augmentation_loop: 50
 
   recurrent_training: True
-  time_step: 4
+  time_step: 64
 
   sparsity: "none"
 

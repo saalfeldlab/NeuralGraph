@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
         # config_list = ['signal_N2_3_1', 'signal_N2_3_2']
 
-        config_list = ['signal_N11_5_3']
+        config_list = ['signal_N11_5_2_5']
 
 
 

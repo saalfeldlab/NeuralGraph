@@ -2185,8 +2185,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.colorbar(im_L, ax=axes[1, 1], fraction=0.046)
 
             # (1,2) best alignment scores
-            axes[1, 2].plot(range(len(best_alignment_R)), best_alignment_R, 'b-', linewidth=2, alpha=0.7, label=f'right (mean={np.mean(best_alignment_R):.2f})')
-            axes[1, 2].plot(range(len(best_alignment_L)), best_alignment_L, 'r-', linewidth=2, alpha=0.7, label=f'left (mean={np.mean(best_alignment_L):.2f})')
+            axes[1, 2].scatter(range(len(best_alignment_R)), best_alignment_R, s=50, c='b', alpha=0.7, label=f'right (mean={np.mean(best_alignment_R):.2f})')
+            axes[1, 2].scatter(range(len(best_alignment_L)), best_alignment_L, s=50, c='r', alpha=0.7, label=f'left (mean={np.mean(best_alignment_L):.2f})')
             axes[1, 2].axhline(y=1/np.sqrt(n_plot), color='gray', linestyle='--', linewidth=2, label=f'random ({1/np.sqrt(n_plot):.2f})')
             axes[1, 2].set_xlabel('eigenvector index (sorted by |eigenvalue|)', fontsize=28)
             axes[1, 2].set_ylabel('best alignment score', fontsize=28)

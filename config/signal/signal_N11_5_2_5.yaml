@@ -1,5 +1,5 @@
-description: "RNN chaotic    noise_model_level 1"
-dataset: "signal_N11_5_2"
+description: "RNN chaotic    noise_model_level 0.1  time_step=4"
+dataset: "signal_N11_5_2_3"
 
 simulation:
   connectivity_type: "low_rank"
@@ -51,6 +51,9 @@ training:
 
   data_augmentation_loop: 400
 
+  recurrent_training: True
+  time_step: 4
+
   sparsity: "none"
 
   learning_rate_W_start: 1.0E-3
@@ -61,6 +64,6 @@ training:
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
 
-  noise_model_level: 1.0
+  noise_model_level: 0.1
 
   training_single_type: True

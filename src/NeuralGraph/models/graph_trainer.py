@@ -566,13 +566,6 @@ def data_train_signal(config, erase, best_model, style, device):
                         pred = model(batch, data_id=data_id, k=k_batch)
 
                 if neural_ODE_training:
-                    # Neural ODE training: use adjoint method for memory-efficient backprop
-                    # Memory is O(1) in number of rollout steps L (vs O(L) for BPTT)
-                    # Backward pass uses adjoint ODE solve, computes gradients w.r.t.:
-                    #   - model.W (connectivity weights)
-                    #   - model.lin_edge, model.lin_phi weights
-                    #   - embeddings model.a
-
                     ode_loss, pred_x = neural_ode_loss_Signal(
                         model=model,
                         dataset_batch=dataset_batch,
@@ -597,30 +590,22 @@ def data_train_signal(config, erase, best_model, style, device):
                     loss = loss + ode_loss
 
                 elif recurrent_training:
-                    # Multi-step training with loss only at final step (consistent with neural_ODE)
-                    # Initial prediction with noise
+
                     pred_x = x_batch + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
-                    # Rollout for remaining steps
                     if time_step > 1:
                         for step in range(1, time_step):
-                            # Update dataset_batch with predicted activity
                             dataset_batch_new = []
                             for b in range(batch_size):
                                 start_idx = b * n_neurons
                                 end_idx = (b + 1) * n_neurons
                                 dataset_batch[b].x[:, 6:7] = pred_x[start_idx:end_idx].reshape(-1, 1)
                                 dataset_batch_new.append(dataset_batch[b])
-
-                            # Forward pass with updated states
                             batch_loader_recur = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
                             for batch in batch_loader_recur:
                                 pred = model(batch, data_id=data_id, k=k_batch + step)
-
-                            # Integrate prediction with noise
                             pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
-                    # Compute loss only at final step (y_batch is target at k + time_step)
                     if (n_excitatory_neurons > 0) & (batch_size > 1):
                         loss = loss + ((pred_x - y_batch) / (delta_t * time_step)).norm(2)
                     else:

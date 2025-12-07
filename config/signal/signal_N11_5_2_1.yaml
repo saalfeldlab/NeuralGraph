@@ -1,5 +1,5 @@
-description: "RNN chaotic    noise_model_level 0.5"
-dataset: "signal_N11_5_3"
+description: "RNN chaotic    noise_model_level 1"
+dataset: "signal_N11_5_2_1"
 
 simulation:
   connectivity_type: "low_rank"
@@ -61,6 +61,6 @@ training:
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
 
-  noise_model_level: 0.5
+  noise_model_level: 1.0
 
   training_single_type: True

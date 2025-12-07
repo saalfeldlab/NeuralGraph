@@ -1,8 +1,9 @@
-description: "RNN chaotic time_step=4"
-dataset: "signal_N11_1"
+description: "RNN chaotic    noise_model_level 0.05"
+dataset: "signal_N11_5_2_4"
 
 simulation:
-  connectivity_type: "chaotic"
+  connectivity_type: "low_rank"
+  connectivity_rank: 5
   connectivity_init: [0, 0.1]
   connectivity_distribution: "Gaussian"
   params: [[7.0, 1.0], [1.0, 1.0], [1.0, 1.0], [1.0, 1.0]]
@@ -39,18 +40,16 @@ plotting:
   label_style: "MLP" # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
 training:
-  n_epochs: 20
+  n_epochs: 10
   n_runs: 2
   device: "auto"
 
   batch_size: 8
+  small_init_batch_size: False
 
   seed: 24
 
-  data_augmentation_loop: 50
-
-  recurrent_training: True
-  time_step: 4
+  data_augmentation_loop: 400
 
   sparsity: "none"
 
@@ -58,8 +57,10 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
 
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 0.0
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
+
+  noise_model_level: 0.05
 
   training_single_type: True
