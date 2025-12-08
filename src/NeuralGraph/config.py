@@ -311,6 +311,9 @@ class TrainingConfig(BaseModel):
     init_training_single_type: bool = False
     training_single_type: bool = False
 
+    low_rank_factorization: bool = False
+    low_rank: int = 20
+
     learning_rate_start: float = 0.001
     learning_rate_embedding_start: float = 0.001
     learning_rate_update_start: float = 0.0

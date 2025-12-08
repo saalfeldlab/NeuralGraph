@@ -73,6 +73,10 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.n_excitatory_neurons = simulation_config.n_excitatory_neurons
 
 
+        self.low_rank_factorization = config.training.low_rank_factorization
+        self.low_rank = config.training.low_rank
+
+
         if self.model == 'PDE_N3':
             self.embedding_evolves = True
         else:
@@ -106,11 +110,23 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             self.embedding_step = self.n_frames // 1000
             self.lin_modulation = MLP(input_size=self.input_size_modulation, output_size=self.output_size_modulation, nlayers=self.n_layers_modulation,
                                 hidden_size=self.hidden_dim_modulation, device=self.device)
+            
+
+
+
 
         if self.multi_connectivity:
             self.W = nn.Parameter(torch.zeros((int(self.n_dataset),int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
         else:
-            self.W = nn.Parameter(torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
+
+            if self.low_rank_factorization:
+
+                self.WL = nn.Parameter(torch.randn((int(self.n_neurons),int(self.low_rank)), device=self.device, requires_grad=True, dtype=torch.float32))
+                self.WR = nn.Parameter(torch.randn((int(self.low_rank),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
+
+            else:
+
+                self.W = nn.Parameter(torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
 
 
         self.mask = torch.ones((int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=False, dtype=torch.float32)
@@ -165,6 +181,9 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             if self.embedding_trial:
                 embedding = torch.cat((self.b[self.data_id, :], embedding), dim=1)
 
+        if self.low_rank_factorization:
+            self.W = self.WL @ self.WR  
+
         msg = self.propagate(edge_index, u=u, embedding=embedding, data_id=self.data_id[:,None])
 
         if 'generic' in self.update_type:        # MLP1(u, embedding, \sum MLP0(u, embedding), field)
@@ -211,7 +230,9 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             else:
                 return self.W[data_id_i.squeeze(), edge_index_i % (self.W.shape[1]), edge_index_j % (self.W.shape[1])][:, None] * self.mask[edge_index_i % (self.W.shape[1]), edge_index_j % (self.W.shape[1])][:, None] * lin_edge
         else:
+
             T = self.W * self.mask
+
             if (self.batch_size==1):
                 return T[edge_index_i, edge_index_j][:, None] * lin_edge
             else:

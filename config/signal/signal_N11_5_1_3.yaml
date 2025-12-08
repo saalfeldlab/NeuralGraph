@@ -1,5 +1,5 @@
-description: "RNN chaotic    noise_model_level 0.1  time_step=8  low_rank_factoization 5 "
-dataset: "signal_N11_5_2_3"
+description: "RNN chaotic"
+dataset: "signal_N11_5"
 
 simulation:
   connectivity_type: "low_rank"
@@ -40,19 +40,16 @@ plotting:
   label_style: "MLP" # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
 training:
-  n_epochs: 10
+  n_epochs: 20
   n_runs: 2
   device: "auto"
 
-  batch_size: 8
+  batch_size: 16
   small_init_batch_size: False
 
   seed: 24
 
-  data_augmentation_loop: 400
-
-  recurrent_training: True
-  time_step: 8
+  data_augmentation_loop: 1000
 
   sparsity: "none"
 
@@ -64,9 +61,7 @@ training:
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
 
-  noise_model_level: 0.1
-
   training_single_type: True
 
   low_rank_factorization: True
-  low_rank: 5
+  low_rank: 20
