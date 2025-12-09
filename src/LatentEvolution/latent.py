@@ -717,6 +717,7 @@ def train(cfg: ModelParams, run_dir: Path):
             writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
             writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
             writer.add_scalar("Loss/train_lp_norm", mean_losses.lp_norm, epoch)
+            writer.add_scalar("Loss/train_aug_loss", mean_losses.aug_loss, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
