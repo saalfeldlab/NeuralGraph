@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import random
 import sys
 import re
+import gc
 
 import torch
 import torch.nn as nn
@@ -516,7 +517,12 @@ def load_dataset(
     val_stim = torch.from_numpy(val_stim_np).to(device)
     test_stim = torch.from_numpy(test_stim_np).to(device)
 
-    return train_data, val_data, test_data, train_stim, val_stim, test_stim, sim_data.neuron_data
+    # Save neuron_data and free the large sim_data array
+    neuron_data = sim_data.neuron_data
+    del sim_data
+    gc.collect()
+
+    return train_data, val_data, test_data, train_stim, val_stim, test_stim, neuron_data
 
 
 # -------------------------------------------------------------------
@@ -686,8 +692,8 @@ def train(cfg: ModelParams, run_dir: Path):
             model.eval()
             with torch.no_grad():
                 start_indices = torch.arange(val_data.shape[0] - cfg.training.time_units, device=device)
-                empty_neurons = torch.empty(0, dtype=torch.long, device=device)
-                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, empty_neurons, empty_neurons, cfg)
+                all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
+                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, all_neurons, all_neurons, cfg)
                 val_loss = loss_tuple[0].item()
 
             model.train()
@@ -770,8 +776,8 @@ def train(cfg: ModelParams, run_dir: Path):
         model.eval()
         with torch.no_grad():
             start_indices = torch.arange(test_data.shape[0] - cfg.training.time_units, device=device)
-            empty_neurons = torch.empty(0, dtype=torch.long, device=device)
-            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, empty_neurons, empty_neurons, cfg)
+            all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
+            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, all_neurons, all_neurons, cfg)
             test_loss = loss_tuple[0].item()
 
         print(f"Final Test Loss: {test_loss:.4e}")

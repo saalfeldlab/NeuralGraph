@@ -116,15 +116,15 @@ class SimulationResults(NamedTuple):
             f"test_end ({split.test_end}) exceeds available time points ({total_time_points})"
         )
 
-        # Extract subsets
+        # Extract subsets (use .copy() to release reference to original array)
         if keep_first_n_limit is not None:
-            train = data[split.train_start : split.train_end, :keep_first_n_limit]
-            val = data[split.validation_start : split.validation_end, :keep_first_n_limit]
-            test = data[split.test_start : split.test_end, :keep_first_n_limit]
+            train = data[split.train_start : split.train_end, :keep_first_n_limit].copy()
+            val = data[split.validation_start : split.validation_end, :keep_first_n_limit].copy()
+            test = data[split.test_start : split.test_end, :keep_first_n_limit].copy()
         else:
-            train = data[split.train_start : split.train_end]
-            val = data[split.validation_start : split.validation_end]
-            test = data[split.test_start : split.test_end]
+            train = data[split.train_start : split.train_end].copy()
+            val = data[split.validation_start : split.validation_end].copy()
+            test = data[split.test_start : split.test_end].copy()
 
         return train, val, test
 
