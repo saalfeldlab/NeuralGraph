@@ -224,7 +224,7 @@ def neural_ode_loss_FlyVis(model, dataset_batch, x_list, run, k_batch,
         print(f"y_batch mean={y_batch[ids_batch].mean().item():.4f}, std={y_batch[ids_batch].std().item():.4f}")
         print(f"pred_x mean={pred_x[ids_batch].mean().item():.4f}, std={pred_x[ids_batch].std().item():.4f}")
         print(f"loss={loss.item():.4f}")
-        print(f"=== End Debug ===\n")
+        print("=== End Debug ===\n")
 
     return loss, pred_x
 
