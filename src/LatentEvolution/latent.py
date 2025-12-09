@@ -361,7 +361,8 @@ def train_step_nocompile(
         train_data: torch.Tensor,
         train_stim: torch.Tensor,
         batch_indices: torch.Tensor,
-        wmat: torch.Tensor,
+        wmat_indices: torch.Tensor,
+        wmat_indptr: torch.Tensor,
         cfg: ModelParams
     ):
 
@@ -416,11 +417,11 @@ def train_step_nocompile(
 
         x_t_aug = torch.zeros_like(x_t)
         selected_neurons = torch.randint(low=0, high=x_t.shape[1], size=(num_neurons_to_zero,), device=device)
-        indices = wmat.col_indices()
-        indptr = wmat.crow_indices()
+        # indices = wmat.col_indices()
+        # indptr = wmat.crow_indices()
         # based on the connectome, which neurons can actually impact the value
         # of the `selected_neurons`
-        needed_indices = torch.concatenate([indices[indptr[i]:indptr[i+1]] for i in selected_neurons])
+        needed_indices = torch.concatenate([wmat_indices[wmat_indptr[i]:wmat_indptr[i+1]] for i in selected_neurons])
         # also keep the actual selected neurons
         needed_indices = torch.unique(torch.concatenate([needed_indices, selected_neurons]))
 
@@ -563,7 +564,8 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # Load connectome weights
         wmat = load_connectome_graph(f"graphs_data/fly/{cfg.training.simulation_config}").to(device)
-
+        wmat_indices = wmat.col_indices()
+        wmat_indptr = wmat.crow_indices()
 
         metrics = {
             "val_loss_constant_model": torch.nn.functional.mse_loss(
@@ -649,7 +651,9 @@ def train(cfg: ModelParams, run_dir: Path):
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 batch_indices = next(batch_indices_iter)
-                loss_tuple = train_step_fn(model, train_data, train_stim, batch_indices, wmat, cfg)
+                loss_tuple = train_step_fn(
+                    model, train_data, train_stim, batch_indices, wmat_indices, wmat_indptr, cfg
+                )
                 loss_tuple[0].backward()
                 optimizer.step()
                 losses.accumulate(*loss_tuple)
@@ -660,7 +664,7 @@ def train(cfg: ModelParams, run_dir: Path):
             model.eval()
             with torch.no_grad():
                 start_indices = torch.arange(val_data.shape[0] - cfg.training.time_units, device=device)
-                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, wmat, cfg)
+                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, wmat_indices, wmat_indptr, cfg)
                 val_loss = loss_tuple[0].item()
 
             model.train()
@@ -743,7 +747,7 @@ def train(cfg: ModelParams, run_dir: Path):
         model.eval()
         with torch.no_grad():
             start_indices = torch.arange(test_data.shape[0] - cfg.training.time_units, device=device)
-            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, wmat, cfg)
+            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, wmat_indices, wmat_indptr, cfg)
             test_loss = loss_tuple[0].item()
 
         print(f"Final Test Loss: {test_loss:.4e}")
