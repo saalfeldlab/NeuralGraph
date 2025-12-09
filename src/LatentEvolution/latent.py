@@ -67,13 +67,7 @@ class ProfileConfig(BaseModel):
 
 class UnconnectedToZeroConfig(BaseModel):
     """Augmentation: add synthetic unconnected neurons with zero activity."""
-    num_neurons: int = Field(..., description="Number of unconnected neurons to add")
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-
-class ConnectomeAugmentationConfig(BaseModel):
-    """Configuration for connectome-based data augmentations."""
-    unconnected_to_zero: UnconnectedToZeroConfig | None = None
+    num_neurons: int = Field(0, description="Number of unconnected neurons to add")
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 class TrainingConfig(BaseModel):
@@ -113,9 +107,7 @@ class TrainingConfig(BaseModel):
     lp_norm_p: int = Field(
         8, description="P value for LP norm penalty (higher values penalize outliers more)", json_schema_extra={"short_name": "lp_p"}
     )
-    connectome_augmentation: ConnectomeAugmentationConfig | None = Field(
-        None, description="Connectome augmentation configuration"
-    )
+    unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -417,18 +409,21 @@ def train_step_nocompile(
     # apply connectome loss after evolving by 1 time step
     proj_t = model.evolver(proj_t, proj_stim_t[0])
     aug_loss = torch.tensor(0.0, device=device)
-    if cfg.training.connectome_augmentation is not None:
+    if cfg.training.unconnected_to_zero.num_neurons:
         # unconnected_to_zero strategy
-        num_neurons_to_zero = cfg.training.connectome_augmentation.num_neurons
+        num_neurons_to_zero = cfg.training.unconnected_to_zero.num_neurons
         pred_t_plus_1 = model.decoder(proj_t)
 
         x_t_aug = torch.zeros_like(x_t)
-        selected_neurons = torch.randint(low=0, high=x_t.shape[1], size=num_neurons_to_zero, device=device)
+        selected_neurons = torch.randint(low=0, high=x_t.shape[1], size=(num_neurons_to_zero,), device=device)
         indices = wmat.col_indices()
         indptr = wmat.crow_indices()
         # based on the connectome, which neurons can actually impact the value
         # of the `selected_neurons`
         needed_indices = torch.concatenate([indices[indptr[i]:indptr[i+1]] for i in selected_neurons])
+        # also keep the actual selected neurons
+        needed_indices = torch.unique(torch.concatenate([needed_indices, selected_neurons]))
+
         x_t_aug[:, needed_indices] = x_t[:, needed_indices]
         proj_t_aug = model.evolver(model.encoder(x_t_aug), proj_stim_t[0])
         pred_t_plus_1_aug = model.decoder(proj_t_aug)
@@ -441,9 +436,6 @@ def train_step_nocompile(
         proj_t = model.evolver(proj_t, proj_stim_t[i])
     pred_t_plus_dt = model.decoder(proj_t)
     evolve_loss = loss_fn(pred_t_plus_dt, x_t_plus)
-
-    # add data augmentation
-
 
     # LP norm penalty on prediction errors (for outlier control)
     lp_norm_loss = torch.tensor(0.0, device=device)

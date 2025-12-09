@@ -54,7 +54,9 @@
         "--training.data-passes-per-epoch",
         "1",
         "--training.train-step",
-        "train_step_nocompile"
+        "train_step_nocompile",
+        "--training.unconnected-to-zero.num-neurons",
+        "100"
       ]
     }
   ]
