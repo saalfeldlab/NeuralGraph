@@ -424,6 +424,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
         total_loss = 0
         total_loss_regul = 0
+        run = 0
 
 
         time.sleep(1.0)
@@ -440,7 +441,7 @@ def data_train_signal(config, erase, best_model, style, device):
             ids_index = 0
 
             loss = torch.zeros(1, device=device)
-            run = np.random.randint(n_runs-1)
+
             regularizer.reset_iteration()
 
             for batch in range(batch_size):
@@ -524,6 +525,9 @@ def data_train_signal(config, erase, best_model, style, device):
                             y = torch.cat((y, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
                     else:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
+                    if n_excitatory_neurons > 0:
+                        y = torch.cat((y, torch.zeros((n_excitatory_neurons, y.shape[1]), device=device)), dim=0)
+
 
                     if not (torch.isnan(y).any()):
 
@@ -2174,7 +2178,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
 
     dataset_name = config.dataset
     print(f"\033[92mdataset_name: {dataset_name}\033[0m")
-    print(f"\033[92mdevice: {config.description}\033[0m")
+    print(f"\033[92m{config.description}\033[0m")
 
     if test_mode == "":
         test_mode = "test_ablation_0"
@@ -2505,6 +2509,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 dataset_name,
                 device,
                 connectivity_rank=simulation_config.connectivity_rank,
+                Dale_law=simulation_config.Dale_law,
+                Dale_law_factor=simulation_config.Dale_law_factor,
             )
 
 
@@ -2612,7 +2618,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     n_test_frames = n_rollout_frames // 2
     it_step = step
 
-    for it in trange(start_it,start_it+n_test_frames * 2, ncols=150):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
+    print('rollout inference...')
+
+    for it in trange(start_it,start_it+n_test_frames * 2, ncols=100):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
 
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
@@ -3001,7 +3009,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     dataset_name_ = dataset_name.split('/')[-1]
-    generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20, log_dir=f"./{log_dir}")
+    generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
 
     # Copy the last PNG file before erasing Fig folder
     files = glob.glob(f'./{log_dir}/results/Fig/*.png')
@@ -3067,7 +3075,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/{dataset_name_}_activity.png", dpi=300)
     plt.close()
-    print('saved')
 
 
     if n_excitatory_neurons > 0:
@@ -3167,8 +3174,27 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             longest_run_start, longest_run_length = max(high_r2_runs, key=lambda x: x[1])
         else:
             longest_run_start, longest_run_length = 0, 0
-        print(f"mean R2: {r2_mean:.4f} +/- {r2_std:.4f}")
+        print(f"mean R2: \033[92m{r2_mean:.4f}\033[0m +/- {r2_std:.4f}")
         print(f"range: [{r2_min:.4f}, {r2_max:.4f}]")
+
+        # Compute Pearson correlation per neuron across time
+        from scipy.stats import pearsonr
+        neuron_gt_array = torch.stack(neuron_gt_list, dim=0).squeeze(-1)  # [n_frames, n_neurons]
+        neuron_pred_array = torch.stack(neuron_pred_list, dim=0).squeeze(-1)  # [n_frames, n_neurons]
+        neuron_gt_np = to_numpy(neuron_gt_array)
+        neuron_pred_np = to_numpy(neuron_pred_array)
+
+        pearson_list = []
+        for i in range(neuron_gt_np.shape[1]):
+            gt_trace = neuron_gt_np[:, i]
+            pred_trace = neuron_pred_np[:, i]
+            valid = ~(np.isnan(gt_trace) | np.isnan(pred_trace))
+            if valid.sum() > 1 and np.std(gt_trace[valid]) > 1e-8 and np.std(pred_trace[valid]) > 1e-8:
+                pearson_list.append(pearsonr(gt_trace[valid], pred_trace[valid])[0])
+            else:
+                pearson_list.append(np.nan)
+        pearson_array = np.array(pearson_list)
+        print(f"Pearson r: \033[92m{np.nanmean(pearson_array):.4f}\033[0m +/- {np.nanstd(pearson_array):.4f} [{np.nanmin(pearson_array):.4f}, {np.nanmax(pearson_array):.4f}]")
 
 
 

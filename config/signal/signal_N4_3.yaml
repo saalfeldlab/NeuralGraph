@@ -1,14 +1,21 @@
-description: "RNN chaotic    noise_model_level 0.1  time_step=8  low_rank_factoization 5 "
-dataset: "signal_N11_5_2_3"
+description: "RNN chaotic"
+dataset: "signal_N4_4"
 
 simulation:
-  connectivity_type: "low_rank"
-  connectivity_rank: 5
+  connectivity_type: "chaotic"
   connectivity_init: [0, 0.1]
   connectivity_distribution: "Gaussian"
-  params: [[7.0, 1.0], [1.0, 1.0], [1.0, 1.0], [1.0, 1.0]]
+  params:
+    [
+      [7.0, 0.0, 1.0, 1.0],
+      [1.0, 0.0, 1.0, 1.0],
+      [1.0, 0.0, 1.0, 1.0],
+      [1.0, 0.0, 1.0, 1.0],
+    ]
   phi: "tanh"
-  tau: 1.0
+  # Dale_law: True
+  # Dale_law_factor: 0.8
+
   n_neurons: 100
   n_neuron_types: 1
   n_frames: 10000
@@ -17,7 +24,7 @@ simulation:
   start_frame: 0
 
 graph_model:
-  signal_model_name: "PDE_N11"
+  signal_model_name: "PDE_N4"
   prediction: "first_derivative"
 
   input_size: 3
@@ -37,11 +44,10 @@ plotting:
   arrow_length: 1
   xlim: [-5, 5]
   ylim: [-2, 2]
-  label_style: "MLP" # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
 training:
   n_epochs: 10
-  n_runs: 2
+  n_runs: 1
   device: "auto"
 
   batch_size: 8
@@ -49,10 +55,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 400
-
-  recurrent_training: True
-  time_step: 8
+  data_augmentation_loop: 50
 
   sparsity: "none"
 
@@ -60,13 +63,7 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
 
-  coeff_W_L1: 0.0
+  coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0
-  coeff_edge_diff: 100
 
-  noise_model_level: 0.1
-
-  training_single_type: True
-
-  low_rank_factorization: True
-  low_rank: 5
+  init_training_single_type: True

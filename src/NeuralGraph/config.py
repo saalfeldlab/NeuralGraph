@@ -36,12 +36,21 @@ class SimulationConfig(BaseModel):
 
     noise_visual_input: float = 0.0
     only_noise_visual_input: float = 0.0
-    visual_input_type: str = ""
+    visual_input_type: str = ""  # for flyvis experiments
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
 
+
+    input_type: str = ""  # for signal experiments: "", "oscillatory", "triggered"
     oscillation_max_amplitude: float = 1.0
     oscillation_frequency: float = 5.0
+
+    # triggered oscillation parameters (input_type == "triggered")
+    triggered_n_input_neurons: int = 10  # number of neurons receiving impulse input
+    triggered_impulse_strength: float = 5.0  # strength of impulse
+    triggered_min_start_frame: int = 50  # minimum frame for trigger
+    triggered_max_start_frame: int = 150  # maximum frame for trigger
+    triggered_duration_frames: int = 200  # duration of oscillation response
 
     tile_contrast: float = 0.2
     tile_corr_strength: float = 0.0   # correlation knob for tile_mseq / tile_blue_noise
@@ -62,6 +71,9 @@ class SimulationConfig(BaseModel):
     connectivity_parameter: float = 1.0
     connectivity_distribution: str = "Gaussian"
     connectivity_distribution_params: float = 1
+
+    Dale_law: bool = False
+    Dale_law_factor: float = 0.5  # fraction of excitatory (positive) columns, rest are inhibitory
 
     excitation_value_map: Optional[str] = None
     excitation: str = "none"

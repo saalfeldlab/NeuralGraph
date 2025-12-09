@@ -1,4 +1,4 @@
-description: "Recurrent training time_step=16"
+description: "recurrent training time_step=16"
 dataset: "signal_N2_1"
 
 simulation:

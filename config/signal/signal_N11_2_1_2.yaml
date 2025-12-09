@@ -15,7 +15,7 @@ simulation:
   boundary: "no"
   start_frame: 0
 
-  visual_input_type: "oscillatory"
+  input_type: "oscillatory"
   oscillation_max_amplitude: 3.0
   oscillation_frequency: 10.0
 

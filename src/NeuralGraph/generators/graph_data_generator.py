@@ -1026,11 +1026,15 @@ def data_generate_synaptic(
     dataset_name = config.dataset
     noise_model_level = training_config.noise_model_level
     measurement_noise_level = training_config.measurement_noise_level
+    
     CustomColorMap(config=config)
-
-
     if 'black' in style:
-        plt.style.use("dark_background")
+        plt.style.use('dark_background')
+        mc = 'w'
+    else:
+        plt.style.use('default')
+        mc = 'k'
+
 
     field_type = model_config.field_type
     if field_type != "":
@@ -1127,10 +1131,68 @@ def data_generate_synaptic(
                 dataset_name,
                 device,
                 connectivity_rank=simulation_config.connectivity_rank,
+                Dale_law=simulation_config.Dale_law,
+                Dale_law_factor=simulation_config.Dale_law_factor,
             )
             torch.save(edge_index, f"./graphs_data/{dataset_name}/edge_index.pt")
             torch.save(mask, f"./graphs_data/{dataset_name}/mask.pt")
             torch.save(connectivity, f"./graphs_data/{dataset_name}/connectivity.pt")
+
+            # Plot eigenvalue spectrum of connectivity matrix (3 panels like eigen_comparison.png)
+            gt_weight = to_numpy(connectivity)
+            eig_true, _ = np.linalg.eig(gt_weight)
+
+            # Sort eigenvalues by magnitude
+            idx_true = np.argsort(-np.abs(eig_true))
+            eig_true_sorted = eig_true[idx_true]
+            spectral_radius = np.max(np.abs(eig_true))
+
+            fig, axes = plt.subplots(1, 3, figsize=(30, 10))
+
+            # (0) eigenvalues in complex plane
+            axes[0].scatter(eig_true.real, eig_true.imag, s=100, c=mc, alpha=0.7)
+            axes[0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0].set_xlabel('real', fontsize=32)
+            axes[0].set_ylabel('imag', fontsize=32)
+            axes[0].tick_params(labelsize=20)
+            axes[0].set_title('eigenvalues in complex plane', fontsize=28)
+            axes[0].text(0.05, 0.95, f'spectral radius: {spectral_radius:.3f}',
+                    transform=axes[0].transAxes, fontsize=20, verticalalignment='top')
+
+            # (1) eigenvalue magnitude (sorted)
+            axes[1].scatter(range(len(eig_true_sorted)), np.abs(eig_true_sorted), s=100, c=mc, alpha=0.7)
+            axes[1].set_xlabel('index', fontsize=32)
+            axes[1].set_ylabel('|eigenvalue|', fontsize=32)
+            axes[1].tick_params(labelsize=20)
+            axes[1].set_title('eigenvalue magnitude (sorted)', fontsize=28)
+
+            # (2) eigenvalue spectrum (log scale)
+            axes[2].plot(np.abs(eig_true_sorted), c=mc, linewidth=2)
+            axes[2].set_xlabel('index', fontsize=32)
+            axes[2].set_ylabel('|eigenvalue|', fontsize=32)
+            axes[2].set_yscale('log')
+            axes[2].tick_params(labelsize=20)
+            axes[2].set_title('eigenvalue spectrum (log scale)', fontsize=28)
+
+            plt.tight_layout()
+            plt.savefig(f"./graphs_data/{dataset_name}/eigenvalues.png", dpi=150)
+            plt.close()
+            print(f'spectral radius: {spectral_radius:.3f}')
+
+            # Plot connectivity matrix heatmap
+            fig, ax = plt.subplots(figsize=(10, 10))
+            im = ax.imshow(gt_weight, cmap='bwr', aspect='equal')
+            im.set_clim(-np.max(np.abs(gt_weight)), np.max(np.abs(gt_weight)))
+            cbar = plt.colorbar(im, ax=ax, fraction=0.046)
+            cbar.ax.tick_params(labelsize=16)
+            ax.set_xlabel('presynaptic neuron', fontsize=24)
+            ax.set_ylabel('postsynaptic neuron', fontsize=24)
+            ax.tick_params(labelsize=16)
+            ax.set_title('connectivity matrix', fontsize=28)
+            plt.tight_layout()
+            plt.savefig(f"./graphs_data/{dataset_name}/connectivity_matrix.png", dpi=150)
+            plt.close()
 
         if "modulation" in field_type:
             if run == 0:
@@ -1215,19 +1277,19 @@ def data_generate_synaptic(
 
                 # model prediction
                 if ("modulation" in field_type) & (it >= 0):
-                    y = model(dataset, has_field=True)
+                    y = model(dataset, has_field=True, frame=it)
                 elif ("visual" in field_type) & (it >= 0):
-                    y = model(dataset, has_field=True)
+                    y = model(dataset, has_field=True, frame=it)
                 elif "PDE_N3" in model_config.signal_model_name:
-                    y = model(dataset, has_field=False, alpha=it / n_frames)
+                    y = model(dataset, has_field=False, alpha=it / n_frames, frame=it)
                 elif "PDE_N6" in model_config.signal_model_name:
-                    (y,p,) = model(dataset, has_field=False)
+                    (y,p,) = model(dataset, has_field=False, frame=it)
                 elif "PDE_N7" in model_config.signal_model_name:
-                    (y,p,) = model(dataset, has_field=False)
+                    (y,p,) = model(dataset, has_field=False, frame=it)
                 elif "PDE_N11" in model_config.signal_model_name:
                     y = model(dataset, has_field=False, frame=it)
                 else:
-                    y = model(dataset, has_field=False)
+                    y = model(dataset, has_field=False, frame=it)
 
             # append list
             if (it >= 0) & bSave:
@@ -1517,7 +1579,33 @@ def data_generate_synaptic(
 
             activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
             plt.figure(figsize=(18, 12))
-            plt.plot(activity_plot.T, linewidth=2)
+
+            # Plot all traces
+            plt.plot(activity_plot.T, linewidth=2, alpha=0.7)
+
+            # Check if triggered input mode - add trigger markers and oscillation curve
+            if hasattr(model, 'has_triggered') and model.has_triggered:
+                # Add vertical line at trigger frame
+                plt.axvline(x=model.trigger_frame, color='red', linestyle='--', linewidth=2, label=f'trigger @ {model.trigger_frame}')
+                # Add vertical line at end of triggered duration
+                end_frame = model.trigger_frame + model.triggered_duration
+                plt.axvline(x=end_frame, color='orange', linestyle='--', linewidth=2, label=f'end @ {end_frame}')
+
+                # Plot the triggered oscillation input signal
+                frames = np.arange(n_frames)
+                osc_signal = np.zeros(n_frames)
+                e_mean = to_numpy(model.e).mean()  # average amplitude
+                w = to_numpy(model.w)
+                for f in range(n_frames):
+                    if model.trigger_frame <= f < model.trigger_frame + model.triggered_duration:
+                        t_since_trigger = f - model.trigger_frame
+                        osc_signal[f] = e_mean * np.sin((2*np.pi)*w*t_since_trigger / model.triggered_duration)
+                # Scale and offset the oscillation signal to fit in the plot
+                osc_scale = 50  # scale factor for visibility
+                osc_offset = activity_plot.max() + 50  # place above all traces
+                plt.plot(frames, osc_signal * osc_scale + osc_offset, color='cyan', linewidth=3, label='triggered oscillation')
+
+                plt.legend(fontsize=16, loc='upper right')
 
             for i in range(0, n_plot, 5):
                 plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')

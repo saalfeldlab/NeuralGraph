@@ -39,7 +39,7 @@ class PDE_N11(pyg.nn.MessagePassing):
 
         self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device = self.device)
 
-        self.has_oscillations = (config.simulation.visual_input_type == 'oscillatory')
+        self.has_oscillations = (config.simulation.input_type == 'oscillatory')
         self.max_frame = config.simulation.n_frames + 1
 
         if self.func_p is None:

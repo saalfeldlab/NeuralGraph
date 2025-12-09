@@ -1,5 +1,5 @@
 description: "RNN chaotic"
-dataset: "signal_N11_5"
+dataset: "signal_N11_5_1_3"
 
 simulation:
   connectivity_type: "low_rank"
@@ -44,7 +44,7 @@ training:
   n_runs: 2
   device: "auto"
 
-  batch_size: 16
+  batch_size: 32
   small_init_batch_size: False
 
   seed: 24
@@ -62,6 +62,3 @@ training:
   coeff_edge_diff: 100
 
   training_single_type: True
-
-  low_rank_factorization: True
-  low_rank: 20

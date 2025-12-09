@@ -1,4 +1,5 @@
 
+import numpy as np
 import torch_geometric as pyg
 import torch
 
@@ -9,7 +10,7 @@ class PDE_N4(pyg.nn.MessagePassing):
 
     """
     Compute network signaling, the transfer functions are neuron-dependent
-    
+
     Inputs
     ----------
     data : a torch_geometric.data object
@@ -18,21 +19,41 @@ class PDE_N4(pyg.nn.MessagePassing):
     -------
     du : float
     the update rate of the signals (dim 1)
-        
+
     """
 
-    def __init__(self, aggr_type=[], p=[], W=[], phi=[]):
+    def __init__(self, config=None, aggr_type=[], p=[], W=[], phi=[], device=None):
         super(PDE_N4, self).__init__(aggr=aggr_type)
 
         self.p = p
         self.W = W
         self.phi = phi
+        self.device = device
 
-    def forward(self, data=[], has_field=False, data_id=[]):
+        # oscillation parameters
+        self.n_neurons = config.simulation.n_neurons
+        self.A = config.simulation.oscillation_max_amplitude
+        self.e = self.A * (torch.rand((self.n_neurons, 1), device=self.device) * 2 - 1)
+        self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device=self.device)
+        self.has_oscillations = (config.simulation.input_type == 'oscillatory')
+        self.has_triggered = (config.simulation.input_type == 'triggered')
+        self.max_frame = config.simulation.n_frames + 1
+
+        # triggered oscillation parameters
+        if self.has_triggered:
+            self.triggered_n_input = config.simulation.triggered_n_input_neurons
+            self.triggered_strength = config.simulation.triggered_impulse_strength
+            self.triggered_min_start = config.simulation.triggered_min_start_frame
+            self.triggered_max_start = config.simulation.triggered_max_start_frame
+            self.triggered_duration = config.simulation.triggered_duration_frames
+            # randomly select which neurons receive input
+            self.input_neurons = torch.randperm(self.n_neurons, device=self.device)[:self.triggered_n_input]
+            # random trigger frame for each simulation
+            self.trigger_frame = torch.randint(self.triggered_min_start, self.triggered_max_start + 1, (1,), device=self.device).item()
+
+    def forward(self, data=[], has_field=False, data_id=[], frame=[]):
         x, edge_index = data.x, data.edge_index
         neuron_type = x[:, 5].long()
-
-        n_neuron_types = torch.max(neuron_type).item() + 1
 
         parameters = self.p[neuron_type]
         g = parameters[:, 0:1]
@@ -52,7 +73,22 @@ class PDE_N4(pyg.nn.MessagePassing):
 
         msg = self.propagate(edge_index, u=u, t=t, b=b, field=field)
 
-        du = -c * u + s * torch.tanh(u) + g * msg
+        if self.has_oscillations:
+            du = -c * u + s * torch.tanh(u) + g * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
+        elif self.has_triggered:
+            du = -c * u + s * torch.tanh(u) + g * msg
+            # add impulse input at trigger frame to selected neurons
+            if isinstance(frame, int) and frame == self.trigger_frame:
+                impulse = torch.zeros((self.n_neurons, 1), device=self.device)
+                impulse[self.input_neurons] = self.triggered_strength
+                du = du + impulse
+            # add oscillatory response after trigger for duration frames
+            if isinstance(frame, int) and self.trigger_frame <= frame < self.trigger_frame + self.triggered_duration:
+                t_since_trigger = frame - self.trigger_frame
+                osc = self.e * torch.sin((2*np.pi)*self.w*t_since_trigger / self.triggered_duration)
+                du = du + osc
+        else:
+            du = -c * u + s * torch.tanh(u) + g * msg
 
         return du
 
