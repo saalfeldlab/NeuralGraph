@@ -18,7 +18,7 @@ import yaml
 import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
+from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit, load_connectome_graph
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
@@ -65,6 +65,17 @@ class ProfileConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
+class UnconnectedToZeroConfig(BaseModel):
+    """Augmentation: add synthetic unconnected neurons with zero activity."""
+    num_neurons: int = Field(..., description="Number of unconnected neurons to add")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+
+class ConnectomeAugmentationConfig(BaseModel):
+    """Configuration for connectome-based data augmentations."""
+    unconnected_to_zero: UnconnectedToZeroConfig | None = None
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
 class TrainingConfig(BaseModel):
     time_units: int = Field(
         1,
@@ -101,6 +112,9 @@ class TrainingConfig(BaseModel):
     )
     lp_norm_p: int = Field(
         8, description="P value for LP norm penalty (higher values penalize outliers more)", json_schema_extra={"short_name": "lp_p"}
+    )
+    connectome_augmentation: ConnectomeAugmentationConfig | None = Field(
+        None, description="Connectome augmentation configuration"
     )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -302,6 +316,7 @@ class LossComponents:
     evolve: float = 0.0
     reg: float = 0.0
     lp_norm: float = 0.0
+    aug_loss: float = 0.0
     count: int = 0
 
     def accumulate(self, *losses):
@@ -311,6 +326,7 @@ class LossComponents:
         self.evolve += losses[2].detach().item()
         self.reg += losses[3].detach().item()
         self.lp_norm += losses[4].detach().item()
+        self.aug_loss += losses[5].detach().item()
         self.count += 1
 
     def mean(self) -> 'LossComponents':
@@ -321,6 +337,7 @@ class LossComponents:
             evolve=self.evolve / self.count,
             reg=self.reg / self.count,
             lp_norm=self.lp_norm / self.count,
+            aug_loss=self.aug_loss / self.count,
             count=self.count,
         )
 
@@ -352,14 +369,17 @@ def train_step_nocompile(
         train_data: torch.Tensor,
         train_stim: torch.Tensor,
         batch_indices: torch.Tensor,
+        wmat: torch.Tensor,
         cfg: ModelParams
     ):
+
+    device=train_data.device
 
     # Get loss function from config
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss
-    reg_loss = torch.tensor(0.0, device=train_data.device)
+    reg_loss = torch.tensor(0.0, device=device)
     if cfg.encoder_params.l1_reg_loss > 0.:
         for p in model.encoder.parameters():
             reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
@@ -379,7 +399,7 @@ def train_step_nocompile(
     x_t = train_data[batch_indices] # b x N
     proj_t = model.encoder(x_t) # b x L
 
-    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(dt, device=train_data.device), dim=1)
+    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(dt, device=device), dim=1)
     # dt x b x 1736
     stim_t = train_stim[stim_indices, :]
     dim_stim = train_stim.shape[1]
@@ -394,23 +414,46 @@ def train_step_nocompile(
     recon_t = model.decoder(proj_t)
     recon_loss = loss_fn(recon_t, x_t)
 
-    # evolution loss
-    # evolve proj_t by dt
-    for i in range(dt):
+    # apply connectome loss after evolving by 1 time step
+    proj_t = model.evolver(proj_t, proj_stim_t[0])
+    aug_loss = torch.tensor(0.0, device=device)
+    if cfg.training.connectome_augmentation is not None:
+        # unconnected_to_zero strategy
+        num_neurons_to_zero = cfg.training.connectome_augmentation.num_neurons
+        pred_t_plus_1 = model.decoder(proj_t)
+
+        x_t_aug = torch.zeros_like(x_t)
+        selected_neurons = torch.randint(low=0, high=x_t.shape[1], size=num_neurons_to_zero, device=device)
+        indices = wmat.col_indices()
+        indptr = wmat.crow_indices()
+        # based on the connectome, which neurons can actually impact the value
+        # of the `selected_neurons`
+        needed_indices = torch.concatenate([indices[indptr[i]:indptr[i+1]] for i in selected_neurons])
+        x_t_aug[:, needed_indices] = x_t[:, needed_indices]
+        proj_t_aug = model.evolver(model.encoder(x_t_aug), proj_stim_t[0])
+        pred_t_plus_1_aug = model.decoder(proj_t_aug)
+        aug_loss += loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
+
+    # evolution loss for remaining dt-1 time steps
+    # evolve proj_t by dt-1
+    # save one step update
+    for i in range(1, dt):
         proj_t = model.evolver(proj_t, proj_stim_t[i])
-    pred_t_plus = model.decoder(proj_t)
-    evolve_loss = loss_fn(pred_t_plus, x_t_plus)
+    pred_t_plus_dt = model.decoder(proj_t)
+    evolve_loss = loss_fn(pred_t_plus_dt, x_t_plus)
+
+    # add data augmentation
 
 
     # LP norm penalty on prediction errors (for outlier control)
-    lp_norm_loss = torch.tensor(0.0, device=x_t.device)
+    lp_norm_loss = torch.tensor(0.0, device=device)
     if cfg.training.lp_norm_weight > 0.:
-        lp_norm_evolve = torch.norm(pred_t_plus - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_evolve = torch.norm(pred_t_plus_dt - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_recon = torch.norm(recon_t - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
 
-    loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
-    return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss)
+    loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss + aug_loss
+    return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss, aug_loss)
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
@@ -526,6 +569,10 @@ def train(cfg: ModelParams, run_dir: Path):
             f"val {val_data.shape}, test {test_data.shape}"
         )
 
+        # Load connectome weights
+        wmat = load_connectome_graph(f"graphs_data/fly/{cfg.training.simulation_config}").to(device)
+
+
         metrics = {
             "val_loss_constant_model": torch.nn.functional.mse_loss(
                 val_data[: -cfg.training.time_units], val_data[cfg.training.time_units:]
@@ -610,7 +657,7 @@ def train(cfg: ModelParams, run_dir: Path):
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
                 batch_indices = next(batch_indices_iter)
-                loss_tuple = train_step_fn(model, train_data, train_stim, batch_indices, cfg)
+                loss_tuple = train_step_fn(model, train_data, train_stim, batch_indices, wmat, cfg)
                 loss_tuple[0].backward()
                 optimizer.step()
                 losses.accumulate(*loss_tuple)
@@ -621,7 +668,7 @@ def train(cfg: ModelParams, run_dir: Path):
             model.eval()
             with torch.no_grad():
                 start_indices = torch.arange(val_data.shape[0] - cfg.training.time_units, device=device)
-                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, cfg)
+                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, wmat, cfg)
                 val_loss = loss_tuple[0].item()
 
             model.train()
@@ -704,7 +751,7 @@ def train(cfg: ModelParams, run_dir: Path):
         model.eval()
         with torch.no_grad():
             start_indices = torch.arange(test_data.shape[0] - cfg.training.time_units, device=device)
-            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, cfg)
+            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, wmat, cfg)
             test_loss = loss_tuple[0].item()
 
         print(f"Final Test Loss: {test_loss:.4e}")

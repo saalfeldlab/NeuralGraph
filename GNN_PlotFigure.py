@@ -34,7 +34,6 @@ from NeuralGraph.models.utils import (
     get_index_particles,
     analyze_odor_responses_by_neuron,
     plot_odor_heatmaps,
-    check_dales_law,
 )
 from NeuralGraph.models.plot_utils import (
     analyze_mlp_edge_lines,
@@ -460,7 +459,7 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
         # Models with embeddings: multiple lines per type (PDE_N4, PDE_N5, PDE_N7, PDE_N8, PDE_N11, etc.)
         if apply_weight_correction:
             # First pass: compute per-neuron correction
-            
+
             rr = torch.linspace(0 , xnorm.squeeze() * 4 , 1000).to(device)
             func_list = []
             for n in range(0,n_neurons):
@@ -471,7 +470,7 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
                     elif config.graph_model.signal_model_name == 'PDE_N5':
                         in_features = torch.cat((rr[:, None], embedding_, embedding_), dim=1)
                     else:
-                        in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius)
+                        in_features = get_in_features(rr, embedding_, model, model_config.signal_model_name, max_radius) # noqa: F821
                 else:
                     in_features = rr[:,None]
                 with torch.no_grad():
@@ -1677,7 +1676,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             n_plot = n_neurons_plot
 
         activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
-        
+
         plt.figure(figsize=(18, 12))
         plt.plot(activity_plot.T, linewidth=1)
         for i in range(0, n_plot, 5):
@@ -9223,7 +9222,7 @@ if __name__ == '__main__':
     # get_figures('results_51_2')
     # get_figures('figure_1_cosyne_2026')
 
-    
+
 
     print("analysis completed")
 
