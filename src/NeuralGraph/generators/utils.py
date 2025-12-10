@@ -46,17 +46,17 @@ def choose_model(config=[], W=[], device=[]):
 
     match model_signal_name:
         case 'PDE_N2':
-            model = PDE_N2(aggr_type=aggr_type, p=p, W=W, phi=phi)
+            model = PDE_N2(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, device=device)
         case 'PDE_N3':
-            model = PDE_N3(aggr_type=aggr_type, p=p, W=W, phi=phi)
+            model = PDE_N3(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, device=device)
         case 'PDE_N4':
-            model = PDE_N4(aggr_type=aggr_type, p=p, W=W, phi=phi)
+            model = PDE_N4(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, device=device)
         case 'PDE_N5':
-            model = PDE_N5(aggr_type=aggr_type, p=p, W=W, phi=phi)
+            model = PDE_N5(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, device=device)
         case 'PDE_N6':
-            model = PDE_N6(aggr_type=aggr_type, p=p, W=W, phi=phi, short_term_plasticity_mode = short_term_plasticity_mode)
+            model = PDE_N6(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, short_term_plasticity_mode=short_term_plasticity_mode, device=device)
         case 'PDE_N7':
-            model = PDE_N7(aggr_type=aggr_type, p=p, W=W, phi=phi, short_term_plasticity_mode = short_term_plasticity_mode)
+            model = PDE_N7(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, short_term_plasticity_mode=short_term_plasticity_mode, device=device)
         case 'PDE_N11':
             func_p = config.simulation.func_params
             model = PDE_N11(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, func_p=func_p, device=device)
@@ -303,7 +303,7 @@ def init_mesh(config, device):
     return pos_mesh, dpos_mesh, type_mesh, node_value, a_mesh, node_id_mesh, mesh_data
 
 
-def init_connectivity(connectivity_file, connectivity_type, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device, connectivity_rank=1):
+def init_connectivity(connectivity_file, connectivity_type, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device, connectivity_rank=1, Dale_law=False, Dale_law_factor=0.5):
 
     if 'adjacency.pt' in connectivity_file:
         connectivity = torch.load(connectivity_file, map_location=device)
@@ -344,6 +344,8 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             U = np.random.randn(n_neurons, connectivity_rank)
             V = np.random.randn(connectivity_rank, n_neurons)
             connectivity = U @ V / np.sqrt(connectivity_rank * n_neurons)
+
+
         elif 'successor' in connectivity_type:
             # Successor Representation
             T = np.eye(n_neurons, k=1)
@@ -353,9 +355,7 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             connectivity = np.zeros((n_neurons, n_neurons))
 
         connectivity = torch.tensor(connectivity, dtype=torch.float32, device=device)
-        # make sure diagonal is zeros
-        i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
-        connectivity[i, i] = 0
+        connectivity.fill_diagonal_(0)
 
     else:
         if 'Gaussian' in connectivity_distribution:
@@ -384,6 +384,20 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             connectivity = connectivity - 0.5
         i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
         connectivity[i, i] = 0
+
+    # Apply Dale's law: each neuron (column) is either excitatory or inhibitory
+    if Dale_law:
+        n_excitatory = int(n_neurons * Dale_law_factor)
+        n_inhibitory = n_neurons - n_excitatory
+
+        # Take absolute values
+        connectivity = torch.abs(connectivity)
+
+        # First n_excitatory columns are positive (excitatory), rest are negative (inhibitory)
+        # Columns represent presynaptic neurons in W[post, pre] convention
+        connectivity[:, n_excitatory:] = -connectivity[:, n_excitatory:]
+
+        print(f"Dale's law applied: {n_excitatory} excitatory columns, {n_inhibitory} inhibitory columns")
 
     if connectivity_filling_factor != 1:
         mask = torch.rand(connectivity.shape) > connectivity_filling_factor

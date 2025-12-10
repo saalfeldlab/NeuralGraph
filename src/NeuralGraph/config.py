@@ -36,12 +36,24 @@ class SimulationConfig(BaseModel):
 
     noise_visual_input: float = 0.0
     only_noise_visual_input: float = 0.0
-    visual_input_type: str = ""
+    visual_input_type: str = ""  # for flyvis experiments
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
 
+
+    input_type: str = ""  # for signal experiments: "", "oscillatory", "triggered"
     oscillation_max_amplitude: float = 1.0
     oscillation_frequency: float = 5.0
+
+    # triggered oscillation parameters (input_type == "triggered")
+    triggered_n_impulses: int = 5  # number of impulse events
+    triggered_n_input_neurons: int = 10  # number of neurons receiving impulse input per event
+    triggered_impulse_strength: float = 5.0  # base strength of impulse (will vary randomly)
+    triggered_min_start_frame: int = 50  # minimum frame for first trigger
+    triggered_max_start_frame: int = 150  # maximum frame for first trigger (ignored if n_impulses > 1)
+    triggered_duration_frames: int = 200  # duration of oscillation response per impulse
+    triggered_amplitude_range: list[float] = [0.5, 2.0]  # min/max amplitude multiplier
+    triggered_frequency_range: list[float] = [0.5, 2.0]  # min/max frequency multiplier
 
     tile_contrast: float = 0.2
     tile_corr_strength: float = 0.0   # correlation knob for tile_mseq / tile_blue_noise
@@ -62,6 +74,9 @@ class SimulationConfig(BaseModel):
     connectivity_parameter: float = 1.0
     connectivity_distribution: str = "Gaussian"
     connectivity_distribution_params: float = 1
+
+    Dale_law: bool = False
+    Dale_law_factor: float = 0.5  # fraction of excitatory (positive) columns, rest are inhibitory
 
     excitation_value_map: Optional[str] = None
     excitation: str = "none"
@@ -310,6 +325,9 @@ class TrainingConfig(BaseModel):
 
     init_training_single_type: bool = False
     training_single_type: bool = False
+
+    low_rank_factorization: bool = False
+    low_rank: int = 20
 
     learning_rate_start: float = 0.001
     learning_rate_embedding_start: float = 0.001

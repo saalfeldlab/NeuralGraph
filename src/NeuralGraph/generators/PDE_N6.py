@@ -1,3 +1,4 @@
+import numpy as np
 import torch_geometric as pyg
 from NeuralGraph.utils import to_numpy
 import torch
@@ -21,15 +22,24 @@ class PDE_N6(pyg.nn.MessagePassing):
 
     """
 
-    def __init__(self, aggr_type=[], p=[], W=[], phi=[], short_term_plasticity_mode=''):
+    def __init__(self, config=None, aggr_type=[], p=[], W=[], phi=[], short_term_plasticity_mode='', device=None):
         super(PDE_N6, self).__init__(aggr=aggr_type)
 
         self.p = p
         self.W = W
         self.phi = phi
         self.short_term_plasticity_mode = short_term_plasticity_mode
+        self.device = device
 
-    def forward(self, data=[], has_field=False, data_id=[]):
+        # oscillation parameters
+        self.n_neurons = config.simulation.n_neurons
+        self.A = config.simulation.oscillation_max_amplitude
+        self.e = self.A * (torch.rand((self.n_neurons, 1), device=self.device) * 2 - 1)
+        self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device=self.device)
+        self.has_oscillations = (config.simulation.input_type == 'oscillatory')
+        self.max_frame = config.simulation.n_frames + 1
+
+    def forward(self, data=[], has_field=False, data_id=[], frame=[]):
         x, _edge_index = data.x, data.edge_index
         # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = to_numpy(x[:, 5])
@@ -46,7 +56,10 @@ class PDE_N6(pyg.nn.MessagePassing):
         self.msg = self.W * self.phi(u)
         msg = torch.matmul(self.W, self.phi(u))
 
-        du = -c * u + s * torch.tanh(u) + g * p * msg
+        if self.has_oscillations:
+            du = -c * u + s * torch.tanh(u) + g * p * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
+        else:
+            du = -c * u + s * torch.tanh(u) + g * p * msg
         dp = (1 - p) / tau - alpha * p * torch.abs(u)
 
         return du, dp
@@ -66,4 +79,3 @@ class PDE_N6(pyg.nn.MessagePassing):
         elif function == 'update':
             _g, s, c = self.p[type, 0:1], self.p[type, 1:2], self.p[type, 2:3]
             return -c * u + s * torch.tanh(u)
-

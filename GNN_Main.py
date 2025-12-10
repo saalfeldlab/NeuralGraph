@@ -25,6 +25,8 @@ if __name__ == "__main__":
         "-o", "--option", nargs="+", help="Option that takes multiple values"
     )
 
+
+    device=[]
     args = parser.parse_args()
 
     if args.option:
@@ -40,32 +42,21 @@ if __name__ == "__main__":
         best_model = ''
         task = 'generate'  #, 'train', 'test', 'generate', 'plot', 'NGP'
 
-        # config_list = ['fly_N9_64_1_1', 'fly_N9_64_1_2', 'fly_N9_64_1_3', 'fly_N9_64_1_4',
-        #                'fly_N9_64_2_1', 'fly_N9_64_2_2', 'fly_N9_64_2_3', 'fly_N9_64_2_4',
-        #                'fly_N9_64_3_1', 'fly_N9_64_3_2', 'fly_N9_64_3_3', 'fly_N9_64_3_4',
-        #                'fly_N9_64_4_1', 'fly_N9_64_4_2', 'fly_N9_64_4_3', 'fly_N9_64_4_4'
-        #                ]  
 
-        # config_list = ['fly_N9_62_5_29_1', 'fly_N9_62_5_39_1']
+        # config_list = [
+        #     # N2_2_x
+        #     # 'signal_N2_2_1', 'signal_N2_2_2', 'signal_N2_2_3', 'signal_N2_2_4',
+        #     # N2_3_x
+        #     # 'signal_N2_3_1', 'signal_N2_3_2', 'signal_N2_3_3', 'signal_N2_3_4',
+        #     # N11_1_3_x
+        #     # 'signal_N11_1_3_1', 'signal_N11_1_3_2', 'signal_N11_1_3_3', 'signal_N11_1_3_4', 'signal_N11_1_3_5',
+        #     # N11_5_x_x
+        #     'signal_N11_5_1_1', 'signal_N11_5_1_2', 'signal_N11_5_2_1', 'signal_N11_5_2_2', 'signal_N11_5_2_3',-
+        #     'signal_N11_5_2_4', 'signal_N11_5_2_5', 'signal_N11_5_2_6', 'signal_N11_5_4_1', 'signal_N11_5_4_2',
+        #     'signal_N11_5_5'
+        # ]
 
-        # config_list = ['fly_N9_62_23_1']
-        
-        # config_list = ['zebra_N10_34_1']
-
-        # config_list = ['fly_N9_64_2_1']
-
-        # config_list = ['fly_N9_22_10', 'fly_N9_44_6', 'fly_N9_62_1']
-
-        # config_list = ['fly_N9_22_10', 'fly_N9_44_21', 'fly_N9_44_6']
-
-        # config_list = ['fly_N9_44_6']
-
-        # config_list = ['fly_N9_62_24_2', 'fly_N9_62_24_3']
-
-        # config_list = ['signal_N2_3_1', 'signal_N2_3_2']
-
-        config_list = ['signal_N11_5_2_5']
-
+        config_list = ['signal_N4_9', 'signal_N4_10', 'signal_N4_11']
 
 
     for config_file_ in config_list:
@@ -75,10 +66,11 @@ if __name__ == "__main__":
         config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
         config.dataset = pre_folder + config.dataset
         config.config_file = pre_folder + config_file_
-        device = set_device(config.training.device)
-
         print(f"\033[92mconfig_file:  {config.config_file}\033[0m")
-        print(f"\033[92mdevice:  {device}\033[0m")
+        
+        if device==[]:
+            device = set_device(config.training.device)
+            print(f"\033[92mdevice:  {device}\033[0m")
 
         if "generate" in task:
             data_generate(

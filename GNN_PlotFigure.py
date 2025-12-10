@@ -12,6 +12,8 @@ import imageio.v2 as imageio
 from matplotlib import rc
 from scipy.optimize import curve_fit
 from sklearn.mixture import GaussianMixture
+from sklearn.decomposition import TruncatedSVD
+import scipy.sparse
 from shutil import copyfile
 from collections import defaultdict
 import scipy
@@ -84,6 +86,16 @@ import shutil
 #     from pysr import PySRRegressor
 # except (ImportError, subprocess.CalledProcessError):
 #     PySRRegressor = None
+
+
+def get_model_W(model):
+    """Get the weight matrix from a model, handling low-rank factorization."""
+    if hasattr(model, 'W'):
+        return model.W
+    elif hasattr(model, 'WL') and hasattr(model, 'WR'):
+        return model.WL @ model.WR
+    else:
+        raise AttributeError("Model has neither 'W' nor 'WL'/'WR' attributes")
 
 
 def get_training_files(log_dir, n_runs):
@@ -228,7 +240,7 @@ def determine_plot_limits_signal(config, log_dir, n_runs, device, n_neurons, typ
 
             # Weight comparison limits
             gt_weight = to_numpy(connectivity).flatten()
-            pred_weight = to_numpy(model.W).flatten()
+            pred_weight = to_numpy(get_model_W(model)).flatten()
             weight_min.extend([gt_weight.min(), pred_weight.min()])
             weight_max.extend([gt_weight.max(), pred_weight.max()])
 
@@ -301,7 +313,7 @@ def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iterat
     # limit to true neurons (exclude excitatory neurons)
     n_plot = n_neurons - n_excitatory_neurons
 
-    A = model.W[:n_plot, :n_plot].clone().detach()
+    A = get_model_W(model)[:n_plot, :n_plot].clone().detach()
     A.fill_diagonal_(0)
 
     # compute and apply per-neuron correction on the fly
@@ -611,7 +623,7 @@ def create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, devic
     exc_slope = 1.0
     if connectivity is not None:
         gt_weight_exc = to_numpy(connectivity[:-1, -1])
-        pred_weight_exc = -to_numpy(model.W[:-1, -1]) / second_correction
+        pred_weight_exc = -to_numpy(get_model_W(model)[:-1, -1]) / second_correction
         # Simple linear regression for slope
         x_mean = np.mean(gt_weight_exc)
         y_mean = np.mean(pred_weight_exc)
@@ -939,7 +951,7 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
             with torch.no_grad():
                 # Get learned weights
-                A = model.W[:n_plot, :n_plot]
+                A = get_model_W(model)[:n_plot, :n_plot]
                 learned_connectivity_plot = to_numpy(A)
 
                 # Left panel: true connectivity
@@ -1177,7 +1189,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     correction = torch.ones(n_neurons, device=device)
                     second_correction = 1.0
 
-                A = model.W.clone().detach()
+                A = get_model_W(model).clone().detach()
                 A.fill_diagonal_(0)
                 A = A.t()
 
@@ -1351,7 +1363,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.savefig(f"./{log_dir}/results/all/MLP0_{num}.png", dpi=80)
                 plt.close()
 
-                A = model.W.clone().detach()
+                A = get_model_W(model).clone().detach()
                 A.fill_diagonal_(0)
 
                 # apply per-neuron correction if enabled
@@ -1366,8 +1378,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 fig, ax = fig_init()
                 # use true_model.W for ground truth (like 'best' option)
-                if hasattr(true_model, 'W') and true_model.W is not None:
-                    gt_weight = to_numpy(true_model.W)
+                if hasattr(true_model, 'W') or (hasattr(true_model, 'WL') and hasattr(true_model, 'WR')):
+                    gt_weight = to_numpy(get_model_W(true_model))
                 else:
                     gt_weight = to_numpy(connectivity)
                 plt.scatter(gt_weight, pred_weight, s=0.1, c=mc, alpha=0.1)
@@ -1710,7 +1722,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             model.load_state_dict(state_dict['model_state_dict'])
             model.edges = edge_index
 
-            A = model.W.clone().detach()
+            A = get_model_W(model).clone().detach()
             A.fill_diagonal_(0)
             A = A.t()
             A = A[:n_neurons,:n_neurons]
@@ -1743,7 +1755,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             mlp0_params = sum(p.numel() for p in model.lin_phi.parameters())
             mlp1_params = sum(p.numel() for p in model.lin_edge.parameters())
             a_params = model.a.numel()
-            w_params = model.W.numel()
+            w_params = get_model_W(model).numel()
             print('learnable parameters:')
             print(f'  MLP0 (lin_phi): {mlp0_params:,}')
             print(f'  MLP1 (lin_edge): {mlp1_params:,}')
@@ -2033,8 +2045,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             fig, ax = fig_init()
             n_plot = n_neurons - n_excitatory_neurons if n_excitatory_neurons > 0 else n_neurons
-            if hasattr(true_model, 'W') and true_model.W is not None:
-                gt_weight = to_numpy(true_model.W[:n_plot, :n_plot])
+            if hasattr(true_model, 'W') or (hasattr(true_model, 'WL') and hasattr(true_model, 'WR')):
+                gt_weight = to_numpy(get_model_W(true_model)[:n_plot, :n_plot])
             else:
                 gt_weight = to_numpy(connectivity[:n_plot, :n_plot])
             pred_weight = to_numpy(A[:n_plot, :n_plot])
@@ -2146,25 +2158,24 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[0, 0].tick_params(labelsize=20)
             axes[0, 0].set_title('eigenvalues in complex plane', fontsize=28)
 
-            # (0,1) histogram of real parts
-            bins = np.linspace(min(eig_true.real.min(), eig_learned.real.min()),
-                              max(eig_true.real.max(), eig_learned.real.max()), 50)
-            axes[0, 1].hist(eig_true.real, bins=bins, alpha=0.5, label='true', color='b')
-            axes[0, 1].hist(eig_learned.real, bins=bins, alpha=0.5, label='learned', color='r')
-            axes[0, 1].set_xlabel('real eigenvalue', fontsize=32)
-            axes[0, 1].set_ylabel('count', fontsize=32)
-            axes[0, 1].legend(fontsize=20)
-            axes[0, 1].tick_params(labelsize=20)
-            axes[0, 1].set_title('real part distribution', fontsize=28)
-
-            # (0,2) eigenvalue magnitude comparison (sorted)
-            axes[0, 2].scatter(np.abs(eig_true_sorted), np.abs(eig_learned_sorted), s=100, c=mc, alpha=0.7)
+            # (0,1) eigenvalue magnitude comparison (sorted)
+            axes[0, 1].scatter(np.abs(eig_true_sorted), np.abs(eig_learned_sorted), s=100, c=mc, alpha=0.7)
             max_val = max(np.abs(eig_true_sorted).max(), np.abs(eig_learned_sorted).max())
-            axes[0, 2].plot([0, max_val], [0, max_val], 'g--', linewidth=2)
-            axes[0, 2].set_xlabel('true |eigenvalue|', fontsize=32)
-            axes[0, 2].set_ylabel('learned |eigenvalue|', fontsize=32)
+            axes[0, 1].plot([0, max_val], [0, max_val], 'g--', linewidth=2)
+            axes[0, 1].set_xlabel('true |eigenvalue|', fontsize=32)
+            axes[0, 1].set_ylabel('learned |eigenvalue|', fontsize=32)
+            axes[0, 1].tick_params(labelsize=20)
+            axes[0, 1].set_title('eigenvalue magnitude comparison', fontsize=28)
+
+            # (0,2) singular value spectrum (log scale)
+            axes[0, 2].plot(np.abs(eig_true_sorted), 'b-', linewidth=2, label='true')
+            axes[0, 2].plot(np.abs(eig_learned_sorted), 'r-', linewidth=2, label='learned')
+            axes[0, 2].set_xlabel('index', fontsize=32)
+            axes[0, 2].set_ylabel('|eigenvalue|', fontsize=32)
+            axes[0, 2].set_yscale('log')
+            axes[0, 2].legend(fontsize=20)
             axes[0, 2].tick_params(labelsize=20)
-            axes[0, 2].set_title('eigenvalue magnitude comparison', fontsize=28)
+            axes[0, 2].set_title('eigenvalue spectrum (log scale)', fontsize=28)
 
             # Row 2: Eigenvectors
             # (1,0) right eigenvector alignment matrix
@@ -2215,7 +2226,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                 # compute e_i scatter to get the slope for correction
                 gt_weight_exc = to_numpy(connectivity[:-1, -1])
-                pred_weight_exc = -to_numpy(model.W[:-1, -1])
+                pred_weight_exc = -to_numpy(get_model_W(model)[:-1, -1])
 
                 # R² and slope for excitation weights
                 x_data = gt_weight_exc.flatten()
@@ -2990,7 +3001,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 correction = torch.load(f'{log_dir}/correction.pt',map_location=device)
                 second_correction = np.load(f'{log_dir}/second_correction.npy')
 
-                A = model.W.clone().detach() / correction
+                A = get_model_W(model).clone().detach() / correction
                 A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
@@ -3062,7 +3073,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 adj_t = torch.abs(adjacency_) > 0
                 edge_index = adj_t.nonzero().t().contiguous()
 
-                A = model.W.clone().detach() / correction
+                A = get_model_W(model).clone().detach() / correction
                 A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
@@ -3565,7 +3576,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             plt.close()
 
 
-            A = model.W.clone().detach() / correction
+            A = get_model_W(model).clone().detach() / correction
             A.fill_diagonal_(0)
 
             fig, ax = fig_init()
@@ -3801,7 +3812,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     correction = torch.tensor(1.0, device=device)
                     second_correction = 1.0
 
-                A = model.W.clone().detach() / correction
+                A = get_model_W(model).clone().detach() / correction
                 A.fill_diagonal_(0)
                 A = A.t()
 
@@ -3945,7 +3956,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 adj_t = torch.abs(adjacency_) > 0
                 edge_index = adj_t.nonzero().t().contiguous()
 
-                A = model.W.clone().detach() / correction
+                A = get_model_W(model).clone().detach() / correction
                 A.fill_diagonal_(0)
 
                 fig, ax = fig_init()
@@ -4289,7 +4300,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     for run in range(n_runs):
                         print(f"top 20 pairs in CElegans #{run}:")
                         top_pairs = find_top_responding_pairs(
-                            model, all_neuron_list, to_numpy(adjacency), to_numpy(model.W[run]),
+                            model, all_neuron_list, to_numpy(adjacency), to_numpy(get_model_W(model)[run]),
                             signal_range=(0, 10), resolution=100, device=device, top_k=20
                         )
                         top_pairs_by_run[run] = top_pairs
@@ -4394,7 +4405,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     neuron_OI,  # Single neuron of interest
                     all_neuron_list,
                     to_numpy(adjacency),
-                    to_numpy(model.W[0]),  # Your 300x300 weight matrix
+                    to_numpy(get_model_W(model)[0]),  # Your 300x300 weight matrix
                     signal_range=(0, 10),
                     resolution=100,
                     device=device
@@ -4463,10 +4474,11 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
             if multi_connectivity:
                 os.makedirs(f"./{log_dir}/results/W", exist_ok=True)
-                for k in range(min(20, model.W.shape[0] - 1)):
+                model_W = get_model_W(model)
+                for k in range(min(20, model_W.shape[0] - 1)):
                     fig, ax = fig_init()
                     plt.axis('off')
-                    A = model.W[k].clone().detach()
+                    A = model_W[k].clone().detach()
                     A.fill_diagonal_(0)
                     pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
                     A[pos,:] = 0
@@ -4479,8 +4491,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 larynx_weights =[]
                 fig, axes = plt.subplots(4, 5, figsize=(20, 16))
                 axes = axes.flatten()
-                for k in range(min(20, model.W.shape[0] - 1)):
-                    A = model.W[k].clone().detach()
+                for k in range(min(20, model_W.shape[0] - 1)):
+                    A = model_W[k].clone().detach()
                     A.fill_diagonal_(0)
                     pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
                     A[pos,:] = 0
@@ -4506,7 +4518,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
             else:
 
-                A = model.W.clone().detach()
+                A = get_model_W(model).clone().detach()
                 A.fill_diagonal_(0)
                 A = A.t()
                 fig, ax = fig_init()
@@ -5672,7 +5684,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             mlp0_params = sum(p.numel() for p in model.lin_phi.parameters())
             mlp1_params = sum(p.numel() for p in model.lin_edge.parameters())
             a_params = model.a.numel()
-            w_params = model.W.numel()
+            w_params = get_model_W(model).numel()
             print('learnable parameters:')
             print(f'  MLP0 (lin_phi): {mlp0_params:,}')
             print(f'  MLP1 (lin_edge): {mlp1_params:,}')
@@ -6014,7 +6026,7 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             # )
 
             fig = plt.figure(figsize=(10, 9))
-            learned_weights = to_numpy(model.W.squeeze())
+            learned_weights = to_numpy(get_model_W(model).squeeze())
             true_weights = to_numpy(gt_weights)
             plt.scatter(true_weights, learned_weights, c=mc, s=0.1, alpha=0.1)
             lin_fit, lin_fitv = curve_fit(linear_model, true_weights, learned_weights)
@@ -6173,8 +6185,8 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             prior_neuron_ids = edges[0, :] % (model.n_edges + model.n_extra_null_edges)  # j
             slopes_lin_edge_per_edge = slopes_lin_edge_array[prior_neuron_ids]
 
-            corrected_W_ = -model.W / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge
-            corrected_W = -model.W / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge * slopes_lin_edge_per_edge.unsqueeze(1)
+            corrected_W_ = -get_model_W(model) / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge
+            corrected_W = -get_model_W(model) / slopes_lin_phi_per_edge[:, None] * grad_msg_per_edge * slopes_lin_edge_per_edge.unsqueeze(1)
             torch.save(corrected_W, f'{log_dir}/results/corrected_W.pt')
 
             learned_weights = to_numpy(corrected_W.squeeze())
@@ -6363,6 +6375,135 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             plt.savefig(f'{log_dir}/results/connectivity_comparison_L_to_R.png', dpi=150, bbox_inches='tight')
             plt.close()
 
+
+            # eigenvalue and singular value analysis using sparse matrices
+            print('plot eigenvalue spectrum and eigenvector comparison ...')
+
+            # build sparse matrices for true and learned weights
+            edges_np = to_numpy(edges)
+            true_sparse = scipy.sparse.csr_matrix(
+                (true_weights.flatten(), (edges_np[1], edges_np[0])),
+                shape=(n_neurons, n_neurons)
+            )
+            learned_sparse = scipy.sparse.csr_matrix(
+                (to_numpy(corrected_W.squeeze().flatten()), (edges_np[1], edges_np[0])),
+                shape=(n_neurons, n_neurons)
+            )
+
+            # compute SVD using TruncatedSVD (for large sparse matrices)
+            n_components = min(1000, n_neurons - 1)
+            svd_true = TruncatedSVD(n_components=n_components, random_state=42)
+            svd_learned = TruncatedSVD(n_components=n_components, random_state=42)
+
+            svd_true.fit(true_sparse)
+            svd_learned.fit(learned_sparse)
+
+            sv_true = svd_true.singular_values_
+            sv_learned = svd_learned.singular_values_
+
+            # get right singular vectors (V^T rows)
+            V_true = svd_true.components_
+            V_learned = svd_learned.components_
+
+            # compute alignment matrix
+            alignment = np.abs(V_true @ V_learned.T)
+            best_alignment = np.max(alignment, axis=1)
+
+            # compute eigenvalues using sparse eigensolver for complex plane plot
+            n_eigs = min(500, n_neurons - 2)
+            try:
+                eig_true, _ = scipy.sparse.linalg.eigs(true_sparse.astype(np.float64), k=n_eigs, which='LM')
+                eig_learned, _ = scipy.sparse.linalg.eigs(learned_sparse.astype(np.float64), k=n_eigs, which='LM')
+            except Exception:
+                # fallback: use smaller k if convergence issues
+                n_eigs = min(100, n_neurons - 2)
+                eig_true, _ = scipy.sparse.linalg.eigs(true_sparse.astype(np.float64), k=n_eigs, which='LM')
+                eig_learned, _ = scipy.sparse.linalg.eigs(learned_sparse.astype(np.float64), k=n_eigs, which='LM')
+
+            # create 2x3 figure
+            fig, axes = plt.subplots(2, 3, figsize=(30, 20))
+
+            # Row 1: Eigenvalues/Singular values
+            # (0,0) eigenvalues in complex plane
+            axes[0, 0].scatter(eig_true.real, eig_true.imag, s=100, c='b', alpha=0.7, label='true')
+            axes[0, 0].scatter(eig_learned.real, eig_learned.imag, s=100, c='r', alpha=0.7, label='learned')
+            axes[0, 0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0, 0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
+            axes[0, 0].set_xlabel('real', fontsize=32)
+            axes[0, 0].set_ylabel('imag', fontsize=32)
+            axes[0, 0].legend(fontsize=20)
+            axes[0, 0].tick_params(labelsize=20)
+            axes[0, 0].set_title('eigenvalues in complex plane', fontsize=28)
+
+            # (0,1) singular value magnitude comparison (scatter)
+            n_compare = min(len(sv_true), len(sv_learned))
+            axes[0, 1].scatter(sv_true[:n_compare], sv_learned[:n_compare], s=100, c='white', edgecolors='gray', alpha=0.7)
+            max_val = max(sv_true.max(), sv_learned.max())
+            axes[0, 1].plot([0, max_val], [0, max_val], 'g--', linewidth=2)
+            axes[0, 1].set_xlabel('true singular value', fontsize=32)
+            axes[0, 1].set_ylabel('learned singular value', fontsize=32)
+            axes[0, 1].tick_params(labelsize=20)
+            axes[0, 1].set_title('singular value comparison', fontsize=28)
+
+            # (0,2) singular value spectrum (log scale)
+            axes[0, 2].plot(sv_true, 'b-', linewidth=2, label='true')
+            axes[0, 2].plot(sv_learned, 'r-', linewidth=2, label='learned')
+            axes[0, 2].set_xlabel('index', fontsize=32)
+            axes[0, 2].set_ylabel('singular value', fontsize=32)
+            axes[0, 2].set_yscale('log')
+            axes[0, 2].legend(fontsize=20)
+            axes[0, 2].tick_params(labelsize=20)
+            axes[0, 2].set_title('singular value spectrum (log scale)', fontsize=28)
+
+            # Row 2: Singular vectors
+            # (1,0) right singular vector alignment matrix
+            n_show = min(100, n_components)
+            im = axes[1, 0].imshow(alignment[:n_show, :n_show], cmap='hot', vmin=0, vmax=1)
+            axes[1, 0].set_xlabel('learned eigenvector index', fontsize=28)
+            axes[1, 0].set_ylabel('true eigenvector index', fontsize=28)
+            axes[1, 0].set_title('right eigenvector alignment', fontsize=28)
+            axes[1, 0].tick_params(labelsize=16)
+            plt.colorbar(im, ax=axes[1, 0], fraction=0.046)
+
+            # (1,1) left eigenvector alignment (placeholder - SVD doesn't give left eigenvectors directly)
+            # For consistency with plot_signal, compute left singular vectors alignment
+            U_true = svd_true.transform(true_sparse)[:, :n_show]
+            U_learned = svd_learned.transform(learned_sparse)[:, :n_show]
+            # Normalize columns
+            U_true = U_true / (np.linalg.norm(U_true, axis=0, keepdims=True) + 1e-10)
+            U_learned = U_learned / (np.linalg.norm(U_learned, axis=0, keepdims=True) + 1e-10)
+            alignment_L = np.abs(U_true.T @ U_learned)
+            best_alignment_L = np.max(alignment_L, axis=1)
+            im_L = axes[1, 1].imshow(alignment_L, cmap='hot', vmin=0, vmax=1)
+            axes[1, 1].set_xlabel('learned eigenvector index', fontsize=28)
+            axes[1, 1].set_ylabel('true eigenvector index', fontsize=28)
+            axes[1, 1].set_title('left eigenvector alignment', fontsize=28)
+            axes[1, 1].tick_params(labelsize=16)
+            plt.colorbar(im_L, ax=axes[1, 1], fraction=0.046)
+
+            # (1,2) best alignment scores
+            best_alignment_R = np.max(alignment[:n_show, :n_show], axis=1)
+            axes[1, 2].scatter(range(len(best_alignment_R)), best_alignment_R, s=50, c='b', alpha=0.7, label=f'right (mean={np.mean(best_alignment_R):.2f})')
+            axes[1, 2].scatter(range(len(best_alignment_L)), best_alignment_L, s=50, c='r', alpha=0.7, label=f'left (mean={np.mean(best_alignment_L):.2f})')
+            axes[1, 2].axhline(y=1/np.sqrt(n_show), color='gray', linestyle='--', linewidth=2, label=f'random ({1/np.sqrt(n_show):.2f})')
+            axes[1, 2].set_xlabel('eigenvector index (sorted by singular value)', fontsize=28)
+            axes[1, 2].set_ylabel('best alignment score', fontsize=28)
+            axes[1, 2].set_title('best alignment per eigenvector', fontsize=28)
+            axes[1, 2].set_ylim([0, 1.05])
+            axes[1, 2].legend(fontsize=20)
+            axes[1, 2].tick_params(labelsize=16)
+
+            plt.tight_layout()
+            plt.savefig(f'{log_dir}/results/eigen_comparison.png', dpi=87)
+            plt.close()
+
+            # print spectral analysis results (consistent with plot_signal)
+            true_spectral_radius = np.max(np.abs(eig_true))
+            learned_spectral_radius = np.max(np.abs(eig_learned))
+            print(f'spectral radius - true: {true_spectral_radius:.3f}  learned: {learned_spectral_radius:.3f}')
+            logger.info(f'spectral radius - true: {true_spectral_radius:.3f}  learned: {learned_spectral_radius:.3f}')
+            print(f'eigenvector alignment - right: {np.mean(best_alignment_R):.3f}  left: {np.mean(best_alignment_L):.3f}')
+            logger.info(f'eigenvector alignment - right: {np.mean(best_alignment_R):.3f}  left: {np.mean(best_alignment_L):.3f}')
 
 
             # plot analyze_neuron_type_reconstruction
@@ -7305,7 +7446,7 @@ def calculate_corrected_weights(model, config, x_list, y_list, edges, ynorm, dev
 def create_weight_subplot(fig, model, gt_weights, mc, rows, cols, pos):
     """Create weight comparison subplot using uncorrected weights."""
     ax = fig.add_subplot(rows, cols, pos)
-    learned_weights = to_numpy(model.W.squeeze())
+    learned_weights = to_numpy(get_model_W(model).squeeze())
     true_weights = to_numpy(gt_weights)
 
     # Fit linear model for R² calculation
@@ -9181,11 +9322,12 @@ if __name__ == '__main__':
 
 
 
-    config_list = ['signal_N11_5_2', 'signal_N11_5_3', 'signal_N11_5_4', 'signal_N11_5_5', 'signal_N11_6_1']
+    # config_list = ['signal_N11_5_2', 'signal_N11_5_3', 'signal_N11_5_4', 'signal_N11_5_5', 'signal_N11_6_1']
 
     # config_list = ['signal_N11_1_3']
 
-    # config_list = ['fly_N9_62_5_19_6', 'fly_N9_62_5_19_7', 'fly_N9_62_5_19_8', 'fly_N9_62_5_19_9', 'fly_N9_62_5_19_10', 'fly_N9_62_5_19_11']
+    config_list = ['fly_N9_62_1', 'fly_N9_44_6']
+    # config_list = ['fly_N9_44_6']
 
     for config_file_ in config_list:
         print(' ')
