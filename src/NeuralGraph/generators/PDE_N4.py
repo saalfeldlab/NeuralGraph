@@ -93,12 +93,11 @@ class PDE_N4(pyg.nn.MessagePassing):
         s = parameters[:, 1:2]
         c = parameters[:, 2:3]
         t = parameters[:, 3:4]
-        if parameters.shape[1] < 5:
-            b = torch.zeros_like(t)
-        else:
-            b = parameters[:, 4:5]
+        b = parameters[:, 4:5]
+        a = parameters[:, 5:6]
 
         u = x[:, 6:7]
+        
         if has_field:
             field = x[:, 8:9]
         else:
@@ -106,10 +105,11 @@ class PDE_N4(pyg.nn.MessagePassing):
 
         msg = self.propagate(edge_index, u=u, t=t, b=b, field=field)
 
+        du = -c * u + a + s * torch.tanh(u) + g * msg
+
         if self.has_oscillations:
-            du = -c * u + s * torch.tanh(u) + g * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
+            du = du + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
         elif self.has_triggered:
-            du = -c * u + s * torch.tanh(u) + g * msg
             if isinstance(frame, int):
                 # check each impulse event
                 for i in range(self.triggered_n_impulses):
@@ -125,8 +125,7 @@ class PDE_N4(pyg.nn.MessagePassing):
                         freq_mult = self.trigger_frequencies[i]
                         osc = self.trigger_e[i] * torch.sin((2*np.pi)*self.w*freq_mult*t_since_trigger / self.triggered_duration)
                         du = du + osc
-        else:
-            du = -c * u + s * torch.tanh(u) + g * msg
+
 
 
         return du

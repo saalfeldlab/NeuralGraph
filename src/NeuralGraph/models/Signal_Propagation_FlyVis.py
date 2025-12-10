@@ -106,9 +106,6 @@ class Signal_Propagation_FlyVis(pyg.nn.MessagePassing):
         # )
 
 
-
-        
-
         if 'visual' in model_config.field_type:
 
             if 'instantNGP' in model_config.field_type:

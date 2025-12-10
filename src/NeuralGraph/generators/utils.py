@@ -566,6 +566,339 @@ def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=N
         print("ffmpeg not found. Please install ffmpeg to generate videos.")
 
 
+def plot_synaptic_frame_visual(X1, A1, H1, dataset_name, run, num):
+    """Plot frame for visual field type."""
+    plt.figure(figsize=(8, 8))
+    plt.axis("off")
+    plt.subplot(211)
+    plt.axis("off")
+    plt.title("$b_i$", fontsize=24)
+    plt.scatter(
+        to_numpy(X1[0:1024, 1]) * 0.95,
+        to_numpy(X1[0:1024, 0]) * 0.95,
+        s=15,
+        c=to_numpy(A1[0:1024, 0]),
+        cmap="viridis",
+        vmin=0,
+        vmax=2,
+    )
+    plt.scatter(
+        to_numpy(X1[1024:, 1]) * 0.95 + 0.2,
+        to_numpy(X1[1024:, 0]) * 0.95,
+        s=15,
+        c=to_numpy(A1[1024:, 0]),
+        cmap="viridis",
+        vmin=-4,
+        vmax=4,
+    )
+    plt.xticks([])
+    plt.yticks([])
+    plt.subplot(212)
+    plt.axis("off")
+    plt.title("$x_i$", fontsize=24)
+    plt.scatter(
+        to_numpy(X1[0:1024, 1]),
+        to_numpy(X1[0:1024, 0]),
+        s=15,
+        c=to_numpy(H1[0:1024, 0]),
+        cmap="viridis",
+        vmin=-10,
+        vmax=10,
+    )
+    plt.scatter(
+        to_numpy(X1[1024:, 1]) + 0.2,
+        to_numpy(X1[1024:, 0]),
+        s=15,
+        c=to_numpy(H1[1024:, 0]),
+        cmap="viridis",
+        vmin=-10,
+        vmax=10,
+    )
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.png", dpi=80)
+    plt.close()
+
+
+def plot_synaptic_frame_modulation(X1, A1, H1, dataset_name, run, num):
+    """Plot frame for modulation field type."""
+    plt.figure(figsize=(12, 12))
+    plt.subplot(221)
+    plt.scatter(
+        to_numpy(X1[:, 1]),
+        to_numpy(X1[:, 0]),
+        s=100,
+        c=to_numpy(A1[:, 0]),
+        cmap="viridis",
+        vmin=0,
+        vmax=2,
+    )
+    plt.subplot(222)
+    plt.scatter(
+        to_numpy(X1[:, 1]),
+        to_numpy(X1[:, 0]),
+        s=100,
+        c=to_numpy(H1[:, 0]),
+        cmap="viridis",
+        vmin=-5,
+        vmax=5,
+    )
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.png", dpi=80)
+    plt.close()
+
+
+def plot_synaptic_frame_plasticity(X1, x, dataset_name, run, num):
+    """Plot frame for PDE_N6/PDE_N7 with short term plasticity."""
+    plt.figure(figsize=(12, 5.6))
+    plt.axis("off")
+    plt.subplot(121)
+    plt.title("activity $x_i$", fontsize=24)
+    plt.scatter(
+        to_numpy(X1[:, 0]),
+        to_numpy(X1[:, 1]),
+        s=200,
+        c=to_numpy(x[:, 6]),
+        cmap="viridis",
+        vmin=-5,
+        vmax=5,
+        edgecolors="k",
+        alpha=1,
+    )
+    cbar = plt.colorbar()
+    cbar.ax.yaxis.set_tick_params(labelsize=12)
+    plt.xticks([])
+    plt.yticks([])
+    plt.subplot(122)
+    plt.title("short term plasticity $y_i$", fontsize=24)
+    plt.scatter(
+        to_numpy(X1[:, 0]),
+        to_numpy(X1[:, 1]),
+        s=200,
+        c=to_numpy(x[:, 8]),
+        cmap="grey",
+        vmin=0,
+        vmax=1,
+        edgecolors="k",
+        alpha=1,
+    )
+    cbar = plt.colorbar()
+    cbar.ax.yaxis.set_tick_params(labelsize=12)
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.tif", dpi=170)
+    plt.close()
+
+
+def plot_synaptic_frame_default(X1, x, dataset_name, run, num):
+    """Plot default frame for synaptic simulation."""
+    plt.figure(figsize=(10, 10))
+    plt.axis("off")
+    plt.scatter(
+        to_numpy(X1[:, 0]),
+        to_numpy(X1[:, 1]),
+        s=100,
+        c=to_numpy(x[:, 6]),
+        cmap="viridis",
+        vmin=-40,
+        vmax=40,
+    )
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.tif", dpi=170)
+    plt.close()
+
+    # Read back and create zoomed subplot
+    im_ = imread(f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.tif")
+    plt.figure(figsize=(10, 10))
+    plt.imshow(im_)
+    plt.xticks([])
+    plt.yticks([])
+    plt.subplot(3, 3, 1)
+    plt.imshow(im_[800:1000, 800:1000, :])
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/Fig/Fig_{run}_{num}.png", dpi=80)
+    plt.close()
+
+
+def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=None):
+    """Plot activity traces for synaptic simulation."""
+    print('plot activity ...')
+    activity = x_list[:, :, 6:7]
+    activity = activity.squeeze()
+    activity = activity.T
+
+    # Sample 100 traces if n_neurons > 100
+    if n_neurons > 100:
+        sampled_indices = np.random.choice(n_neurons, 100, replace=False)
+        sampled_indices = np.sort(sampled_indices)
+        activity_plot = activity[sampled_indices]
+        n_plot = 100
+    else:
+        activity_plot = activity
+        sampled_indices = np.arange(n_neurons)
+        n_plot = n_neurons
+
+    activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
+    plt.figure(figsize=(18, 12))
+
+    # Plot all traces
+    plt.plot(activity_plot.T, linewidth=2, alpha=0.7)
+
+    # Check if triggered input mode - add trigger markers and oscillation curve
+    if model is not None and hasattr(model, 'has_triggered') and model.has_triggered:
+        frames = np.arange(n_frames)
+        osc_signal = np.zeros(n_frames)
+        w = to_numpy(model.w)
+
+        # Sum up all impulse oscillations
+        for i in range(model.triggered_n_impulses):
+            trigger_frame = model.trigger_frames[i]
+            freq_mult = model.trigger_frequencies[i]
+            e_mean = to_numpy(model.trigger_e[i]).mean()
+            for f in range(n_frames):
+                if trigger_frame <= f < trigger_frame + model.triggered_duration:
+                    t_since_trigger = f - trigger_frame
+                    osc_signal[f] += e_mean * np.sin((2*np.pi)*w*freq_mult*t_since_trigger / model.triggered_duration)
+
+        # Scale and offset the oscillation signal to fit in the plot
+        osc_scale = 50
+        osc_offset = activity_plot.max() + 50
+        plt.plot(frames, osc_signal * osc_scale + osc_offset, color='cyan', linewidth=1)
+        plt.ylim([activity_plot.min() - 50, osc_offset + osc_scale + 50])
+
+    for i in range(0, n_plot, 5):
+        plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')
+
+    ax = plt.gca()
+    ax.text(-1500, activity_plot.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
+    plt.xlabel("time", fontsize=32)
+    plt.xticks(fontsize=24)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.yaxis.set_ticks_position('right')
+    ax.set_yticks([0, 20, 40])
+    ax.set_yticklabels(['0', '20', '40'], fontsize=16)
+    plt.xlim([0, min(n_frames, 10000)])
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
+    plt.close()
+
+
+def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap, device):
+    """Plot MLP0 and MLP1 functions for synaptic simulation."""
+    if not hasattr(model, 'func'):
+        return
+
+    print('plot MLP0 and MLP1 functions ...')
+    xnorm = np.std(x_list[:, :, 6])
+    import torch
+    rr = torch.linspace(-xnorm, xnorm, 1000).to(device)
+    neuron_types = x_list[0, :, 5].astype(int)
+    cmap = plt.cm.get_cmap(colormap)
+
+    # Plot MLP1 (message/phi function)
+    plt.figure(figsize=(10, 8))
+    for n in range(n_neurons):
+        neuron_type = neuron_types[n]
+        func_phi = model.func(rr, neuron_type, 'phi')
+        plt.plot(to_numpy(rr), to_numpy(func_phi), color=cmap(neuron_type), linewidth=1, alpha=0.5)
+    plt.xlabel('$x$', fontsize=32)
+    plt.ylabel(r'$\mathrm{MLP}_1(x)$', fontsize=32)
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/MLP1_function.png", dpi=300)
+    plt.close()
+
+    # Plot MLP0 (update function)
+    plt.figure(figsize=(10, 8))
+    for n in range(n_neurons):
+        neuron_type = neuron_types[n]
+        func_update = model.func(rr, neuron_type, 'update')
+        plt.plot(to_numpy(rr), to_numpy(func_update), color=cmap(neuron_type), linewidth=1, alpha=0.5)
+    plt.xlabel('$x$', fontsize=32)
+    plt.ylabel(r'$\mathrm{MLP}_0(x)$', fontsize=32)
+    plt.xticks(fontsize=24)
+    plt.yticks(fontsize=24)
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/MLP0_function.png", dpi=300)
+    plt.close()
+
+
+def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k'):
+    """Plot eigenvalue spectrum of connectivity matrix (3 panels)."""
+    gt_weight = to_numpy(connectivity)
+    eig_true, _ = np.linalg.eig(gt_weight)
+
+    # Sort eigenvalues by magnitude
+    idx_true = np.argsort(-np.abs(eig_true))
+    eig_true_sorted = eig_true[idx_true]
+    spectral_radius = np.max(np.abs(eig_true))
+
+    fig, axes = plt.subplots(1, 3, figsize=(30, 10))
+
+    # (0) eigenvalues in complex plane
+    axes[0].scatter(eig_true.real, eig_true.imag, s=100, c=mc, alpha=0.7)
+    axes[0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
+    axes[0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
+    axes[0].set_xlabel('real', fontsize=32)
+    axes[0].set_ylabel('imag', fontsize=32)
+    axes[0].tick_params(labelsize=20)
+    axes[0].set_title('eigenvalues in complex plane', fontsize=28)
+    axes[0].text(0.05, 0.95, f'spectral radius: {spectral_radius:.3f}',
+            transform=axes[0].transAxes, fontsize=20, verticalalignment='top')
+
+    # (1) eigenvalue magnitude (sorted)
+    axes[1].scatter(range(len(eig_true_sorted)), np.abs(eig_true_sorted), s=100, c=mc, alpha=0.7)
+    axes[1].set_xlabel('index', fontsize=32)
+    axes[1].set_ylabel('|eigenvalue|', fontsize=32)
+    axes[1].tick_params(labelsize=20)
+    axes[1].set_title('eigenvalue magnitude (sorted)', fontsize=28)
+
+    # (2) eigenvalue spectrum (log scale)
+    axes[2].plot(np.abs(eig_true_sorted), c=mc, linewidth=2)
+    axes[2].set_xlabel('index', fontsize=32)
+    axes[2].set_ylabel('|eigenvalue|', fontsize=32)
+    axes[2].set_yscale('log')
+    axes[2].tick_params(labelsize=20)
+    axes[2].set_title('eigenvalue spectrum (log scale)', fontsize=28)
+
+    plt.tight_layout()
+    plt.savefig(f"./graphs_data/{dataset_name}/eigenvalues.png", dpi=150)
+    plt.close()
+
+    print(f'spectral radius: {spectral_radius:.3f}')
+    return spectral_radius
+
+
+def plot_connectivity_matrix(connectivity, dataset_name):
+    """Plot connectivity matrix heatmap."""
+    gt_weight = to_numpy(connectivity)
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    im = ax.imshow(gt_weight, cmap='bwr', aspect='equal')
+    im.set_clim(-np.max(np.abs(gt_weight)), np.max(np.abs(gt_weight)))
+    cbar = plt.colorbar(im, ax=ax, fraction=0.046)
+    cbar.ax.tick_params(labelsize=16)
+    ax.set_xlabel('presynaptic neuron', fontsize=24)
+    ax.set_ylabel('postsynaptic neuron', fontsize=24)
+    ax.tick_params(labelsize=16)
+    ax.set_title('connectivity matrix', fontsize=28)
+    plt.tight_layout()
+    plt.savefig(f"./graphs_data/{dataset_name}/connectivity_matrix.png", dpi=150)
+    plt.close()
+
+
 def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
                      current_loss=None, current_regul=None, total_loss=None,
                      total_loss_regul=None):
