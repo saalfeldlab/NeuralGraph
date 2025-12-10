@@ -69,6 +69,7 @@ class ProfileConfig(BaseModel):
 class UnconnectedToZeroConfig(BaseModel):
     """Augmentation: add synthetic unconnected neurons with zero activity."""
     num_neurons: int = Field(0, description="Number of unconnected neurons to add")
+    loss_coeff: float = Field(1.0, description="Scalar weighting of the loss for unconnected neurons")
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 class TrainingConfig(BaseModel):
@@ -443,7 +444,10 @@ def train_step_nocompile(
     # apply connectome loss after evolving by 1 time step
     proj_t = model.evolver(proj_t, proj_stim_t[0])
     aug_loss = torch.tensor(0.0, device=device)
-    if cfg.training.unconnected_to_zero.num_neurons > 0:
+    if (
+            cfg.training.unconnected_to_zero.num_neurons > 0 and
+            cfg.training.unconnected_to_zero.loss_coeff > 0.
+    ):
         # unconnected_to_zero strategy
         pred_t_plus_1 = model.decoder(proj_t)
 
@@ -451,7 +455,7 @@ def train_step_nocompile(
         x_t_aug[:, needed_indices] = x_t[:, needed_indices]
         proj_t_aug = model.evolver(model.encoder(x_t_aug), proj_stim_t[0])
         pred_t_plus_1_aug = model.decoder(proj_t_aug)
-        aug_loss += loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
+        aug_loss += cfg.training.unconnected_to_zero.loss_coeff * loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
 
     # evolution loss for remaining dt-1 time steps
     # evolve proj_t by dt-1
@@ -471,7 +475,7 @@ def train_step_nocompile(
     loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss + aug_loss
     return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss, aug_loss)
 
-train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
+train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="max-autotune")
 
 # -------------------------------------------------------------------
 # Data Loading and Evaluation
