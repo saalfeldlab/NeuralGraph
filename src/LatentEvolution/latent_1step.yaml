@@ -36,7 +36,7 @@ training:
   time_units: 1 # Activity observed every step; evolver called once per forward pass
   simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 100
-  epochs: 200 # Total number of epochs
+  epochs: 100 # Total number of epochs
   save_best_checkpoint: True # Save model with lowest validation loss
   save_checkpoint_every_n_epochs: 0
   diagnostics_freq_epochs: 10 # Run ~ 13s of diagnostics every n epochs
