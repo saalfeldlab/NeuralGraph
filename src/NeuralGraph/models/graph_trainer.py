@@ -21,7 +21,6 @@ from NeuralGraph.models.utils import (
     constant_batch_size,
     set_trainable_parameters,
     get_in_features_update,
-    get_in_features_lin_edge,
     analyze_edge_function,
     plot_training_signal,
     plot_training_signal_field,
@@ -50,8 +49,7 @@ from NeuralGraph.models.Signal_Propagation_MLP_ODE import Signal_Propagation_MLP
 from NeuralGraph.models.Signal_Propagation_Zebra import Signal_Propagation_Zebra
 from NeuralGraph.models.Neural_ode_wrapper_FlyVis import (
     integrate_neural_ode_FlyVis, neural_ode_loss_FlyVis,
-    debug_check_gradients, debug_verify_forward_pass, debug_compare_ode_vs_recurrent,
-    DEBUG_ODE
+    debug_check_gradients, DEBUG_ODE
 )
 from NeuralGraph.models.Neural_ode_wrapper_Signal import integrate_neural_ode_Signal, neural_ode_loss_Signal
 from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal

@@ -4,7 +4,7 @@ from enum import IntEnum
 from typing import NamedTuple
 import numpy as np
 from pydantic import BaseModel, field_validator, ConfigDict
-
+import torch
 
 class FlyVisSim(IntEnum):
     """Column interpretation in flyvis simulation outputs."""
@@ -116,15 +116,15 @@ class SimulationResults(NamedTuple):
             f"test_end ({split.test_end}) exceeds available time points ({total_time_points})"
         )
 
-        # Extract subsets
+        # Extract subsets (use .copy() to release reference to original array)
         if keep_first_n_limit is not None:
-            train = data[split.train_start : split.train_end, :keep_first_n_limit]
-            val = data[split.validation_start : split.validation_end, :keep_first_n_limit]
-            test = data[split.test_start : split.test_end, :keep_first_n_limit]
+            train = data[split.train_start : split.train_end, :keep_first_n_limit].copy()
+            val = data[split.validation_start : split.validation_end, :keep_first_n_limit].copy()
+            test = data[split.test_start : split.test_end, :keep_first_n_limit].copy()
         else:
-            train = data[split.train_start : split.train_end]
-            val = data[split.validation_start : split.validation_end]
-            test = data[split.test_start : split.test_end]
+            train = data[split.train_start : split.train_end].copy()
+            val = data[split.validation_start : split.validation_end].copy()
+            test = data[split.test_start : split.test_end].copy()
 
         return train, val, test
 
@@ -156,3 +156,17 @@ class DataSplit(BaseModel):
         if "train_start" in d and v <= d["train_start"]:
             raise ValueError("train_end must be greater than train_start.")
         return v
+
+def load_connectome_graph(data_path: str):
+    """FlyVis connectome.
+
+    Matrix convention
+    wmat[i] lists the neurons j that influence i
+    rows = post-synaptic, cols = pre-synaptic
+    but flyvis paper has opposite conventions
+    """
+
+    edge_index = torch.load(f"{data_path}/edge_index.pt", map_location="cpu").numpy()[::-1].copy()
+    weights =  torch.load(f"{data_path}/weights.pt", map_location="cpu").numpy()
+    wmat = torch.sparse_coo_tensor(edge_index, weights).to_sparse_csr()
+    return wmat

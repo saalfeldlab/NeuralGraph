@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import random
 import sys
 import re
+import gc
 
 import torch
 import torch.nn as nn
@@ -18,7 +19,7 @@ import yaml
 import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit
+from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit, load_connectome_graph
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
@@ -65,6 +66,11 @@ class ProfileConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
+class UnconnectedToZeroConfig(BaseModel):
+    """Augmentation: add synthetic unconnected neurons with zero activity."""
+    num_neurons: int = Field(0, description="Number of unconnected neurons to add")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
 class TrainingConfig(BaseModel):
     time_units: int = Field(
         1,
@@ -102,6 +108,7 @@ class TrainingConfig(BaseModel):
     lp_norm_p: int = Field(
         8, description="P value for LP norm penalty (higher values penalize outliers more)", json_schema_extra={"short_name": "lp_p"}
     )
+    unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -274,9 +281,25 @@ class LatentModel(nn.Module):
 # -------------------------------------------------------------------
 
 def make_batches_random(
-    data: torch.Tensor, stim: torch.Tensor, batch_size: int, time_units: int
-) -> Iterator[torch.Tensor]:
-    """Randomly sample `batch_size` starting points."""
+    data: torch.Tensor,
+    stim: torch.Tensor,
+    wmat_indices: torch.Tensor,
+    wmat_indptr: torch.Tensor,
+    cfg: ModelParams,
+) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    """Randomly sample `batch_size` starting points and augmentation indices.
+
+    Returns:
+        Tuple of (batch_indices, selected_neurons, needed_indices)
+        - batch_indices: starting time indices for the batch
+        - selected_neurons: neurons selected for augmentation loss
+        - needed_indices: neurons that can impact selected_neurons (based on connectome)
+    """
+    batch_size = cfg.training.batch_size
+    time_units = cfg.training.time_units
+    num_neurons = data.shape[1]
+    num_neurons_to_zero = cfg.training.unconnected_to_zero.num_neurons
+
     total_time = data.shape[0]
     if total_time <= time_units:
         raise ValueError(
@@ -286,7 +309,23 @@ def make_batches_random(
         start_indices = torch.randint(
             low=0, high=total_time - time_units, size=(batch_size,), device=data.device
         )
-        yield start_indices
+
+        if num_neurons_to_zero > 0:
+            selected_neurons = torch.randint(
+                low=0, high=num_neurons, size=(num_neurons_to_zero,), device=data.device
+            )
+            # based on the connectome, which neurons can actually impact the value
+            # of the `selected_neurons`
+            needed_indices = torch.concatenate(
+                [wmat_indices[wmat_indptr[i]:wmat_indptr[i+1]] for i in selected_neurons]
+            )
+            # also keep the actual selected neurons
+            needed_indices = torch.unique(torch.concatenate([needed_indices, selected_neurons]))
+        else:
+            selected_neurons = torch.empty(0, dtype=torch.long, device=data.device)
+            needed_indices = torch.empty(0, dtype=torch.long, device=data.device)
+
+        yield start_indices, selected_neurons, needed_indices
 
 
 # -------------------------------------------------------------------
@@ -302,6 +341,7 @@ class LossComponents:
     evolve: float = 0.0
     reg: float = 0.0
     lp_norm: float = 0.0
+    aug_loss: float = 0.0
     count: int = 0
 
     def accumulate(self, *losses):
@@ -311,6 +351,7 @@ class LossComponents:
         self.evolve += losses[2].detach().item()
         self.reg += losses[3].detach().item()
         self.lp_norm += losses[4].detach().item()
+        self.aug_loss += losses[5].detach().item()
         self.count += 1
 
     def mean(self) -> 'LossComponents':
@@ -321,6 +362,7 @@ class LossComponents:
             evolve=self.evolve / self.count,
             reg=self.reg / self.count,
             lp_norm=self.lp_norm / self.count,
+            aug_loss=self.aug_loss / self.count,
             count=self.count,
         )
 
@@ -352,14 +394,18 @@ def train_step_nocompile(
         train_data: torch.Tensor,
         train_stim: torch.Tensor,
         batch_indices: torch.Tensor,
+        selected_neurons: torch.Tensor,
+        needed_indices: torch.Tensor,
         cfg: ModelParams
     ):
+
+    device=train_data.device
 
     # Get loss function from config
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss
-    reg_loss = torch.tensor(0.0, device=train_data.device)
+    reg_loss = torch.tensor(0.0, device=device)
     if cfg.encoder_params.l1_reg_loss > 0.:
         for p in model.encoder.parameters():
             reg_loss += torch.abs(p).mean()*cfg.encoder_params.l1_reg_loss
@@ -379,7 +425,7 @@ def train_step_nocompile(
     x_t = train_data[batch_indices] # b x N
     proj_t = model.encoder(x_t) # b x L
 
-    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(dt, device=train_data.device), dim=1)
+    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(dt, device=device), dim=1)
     # dt x b x 1736
     stim_t = train_stim[stim_indices, :]
     dim_stim = train_stim.shape[1]
@@ -394,23 +440,36 @@ def train_step_nocompile(
     recon_t = model.decoder(proj_t)
     recon_loss = loss_fn(recon_t, x_t)
 
-    # evolution loss
-    # evolve proj_t by dt
-    for i in range(dt):
-        proj_t = model.evolver(proj_t, proj_stim_t[i])
-    pred_t_plus = model.decoder(proj_t)
-    evolve_loss = loss_fn(pred_t_plus, x_t_plus)
+    # apply connectome loss after evolving by 1 time step
+    proj_t = model.evolver(proj_t, proj_stim_t[0])
+    aug_loss = torch.tensor(0.0, device=device)
+    if cfg.training.unconnected_to_zero.num_neurons > 0:
+        # unconnected_to_zero strategy
+        pred_t_plus_1 = model.decoder(proj_t)
 
+        x_t_aug = torch.zeros_like(x_t)
+        x_t_aug[:, needed_indices] = x_t[:, needed_indices]
+        proj_t_aug = model.evolver(model.encoder(x_t_aug), proj_stim_t[0])
+        pred_t_plus_1_aug = model.decoder(proj_t_aug)
+        aug_loss += loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
+
+    # evolution loss for remaining dt-1 time steps
+    # evolve proj_t by dt-1
+    # save one step update
+    for i in range(1, dt):
+        proj_t = model.evolver(proj_t, proj_stim_t[i])
+    pred_t_plus_dt = model.decoder(proj_t)
+    evolve_loss = loss_fn(pred_t_plus_dt, x_t_plus)
 
     # LP norm penalty on prediction errors (for outlier control)
-    lp_norm_loss = torch.tensor(0.0, device=x_t.device)
+    lp_norm_loss = torch.tensor(0.0, device=device)
     if cfg.training.lp_norm_weight > 0.:
-        lp_norm_evolve = torch.norm(pred_t_plus - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_evolve = torch.norm(pred_t_plus_dt - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_recon = torch.norm(recon_t - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
 
-    loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss
-    return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss)
+    loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss + aug_loss
+    return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss, aug_loss)
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
@@ -458,7 +517,12 @@ def load_dataset(
     val_stim = torch.from_numpy(val_stim_np).to(device)
     test_stim = torch.from_numpy(test_stim_np).to(device)
 
-    return train_data, val_data, test_data, train_stim, val_stim, test_stim, sim_data.neuron_data
+    # Save neuron_data and free the large sim_data array
+    neuron_data = sim_data.neuron_data
+    del sim_data
+    gc.collect()
+
+    return train_data, val_data, test_data, train_stim, val_stim, test_stim, neuron_data
 
 
 # -------------------------------------------------------------------
@@ -526,6 +590,11 @@ def train(cfg: ModelParams, run_dir: Path):
             f"val {val_data.shape}, test {test_data.shape}"
         )
 
+        # Load connectome weights
+        wmat = load_connectome_graph(f"graphs_data/fly/{cfg.training.simulation_config}").to(device)
+        wmat_indices = wmat.col_indices()
+        wmat_indptr = wmat.crow_indices()
+
         metrics = {
             "val_loss_constant_model": torch.nn.functional.mse_loss(
                 val_data[: -cfg.training.time_units], val_data[cfg.training.time_units:]
@@ -552,7 +621,7 @@ def train(cfg: ModelParams, run_dir: Path):
             max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
         )
         batch_indices_iter = make_batches_random(
-            train_data, train_stim, cfg.training.batch_size, cfg.training.time_units
+            train_data, train_stim, wmat_indices, wmat_indptr, cfg
         )
 
         # --- Initialize GPU monitoring ---
@@ -609,8 +678,10 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
-                batch_indices = next(batch_indices_iter)
-                loss_tuple = train_step_fn(model, train_data, train_stim, batch_indices, cfg)
+                batch_indices, selected_neurons, needed_indices = next(batch_indices_iter)
+                loss_tuple = train_step_fn(
+                    model, train_data, train_stim, batch_indices, selected_neurons, needed_indices, cfg
+                )
                 loss_tuple[0].backward()
                 optimizer.step()
                 losses.accumulate(*loss_tuple)
@@ -621,7 +692,8 @@ def train(cfg: ModelParams, run_dir: Path):
             model.eval()
             with torch.no_grad():
                 start_indices = torch.arange(val_data.shape[0] - cfg.training.time_units, device=device)
-                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, cfg)
+                all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
+                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, all_neurons, all_neurons, cfg)
                 val_loss = loss_tuple[0].item()
 
             model.train()
@@ -645,6 +717,7 @@ def train(cfg: ModelParams, run_dir: Path):
             writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
             writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
             writer.add_scalar("Loss/train_lp_norm", mean_losses.lp_norm, epoch)
+            writer.add_scalar("Loss/train_aug_loss", mean_losses.aug_loss, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
@@ -704,7 +777,8 @@ def train(cfg: ModelParams, run_dir: Path):
         model.eval()
         with torch.no_grad():
             start_indices = torch.arange(test_data.shape[0] - cfg.training.time_units, device=device)
-            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, cfg)
+            all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
+            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, all_neurons, all_neurons, cfg)
             test_loss = loss_tuple[0].item()
 
         print(f"Final Test Loss: {test_loss:.4e}")

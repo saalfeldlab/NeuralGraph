@@ -5,7 +5,6 @@ import os
 import scipy
 import subprocess
 import torch
-import torch_geometric.data as data
 import xarray as xr
 from NeuralGraph.generators import PDE_N2, PDE_N3, PDE_N4, PDE_N5, PDE_N6, PDE_N7, PDE_N11
 from NeuralGraph.utils import choose_boundary_values, get_equidistant_points, to_numpy, large_tensor_nonzero
@@ -14,7 +13,6 @@ from scipy.spatial import Delaunay
 from time import sleep
 from tifffile import imread
 from torch_geometric.utils import get_mesh_laplacian, dense_to_sparse
-from torch_geometric.utils.convert import to_networkx
 from tqdm import trange
 import seaborn as sns
 
