@@ -1,5 +1,5 @@
-description: "RNN chaotic   triggered oscillations"
-dataset: "signal_N4_4"
+description: "RNN chaotic   triggered oscillations  Dale_law"
+dataset: "signal_N4_5"
 
 simulation:
   connectivity_type: "chaotic"
@@ -13,6 +13,8 @@ simulation:
       [1.0, 0.0, 1.0, 1.0],
     ]
   phi: "tanh"
+  Dale_law: True
+  Dale_law_factor: 0.8
 
   n_neurons: 100
   n_neuron_types: 1
@@ -78,7 +80,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 500
+  data_augmentation_loop: 200
 
   sparsity: "none"
 

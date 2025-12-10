@@ -1,5 +1,5 @@
 description: "RNN chaotic"
-dataset: "signal_N4_4"
+dataset: "signal_N4_3"
 
 simulation:
   connectivity_type: "chaotic"
@@ -21,7 +21,7 @@ simulation:
   n_frames: 10000
   delta_t: 0.1
   boundary: "no"
-  start_frame: 0
+  start_frame: -500
 
 graph_model:
   signal_model_name: "PDE_N4"

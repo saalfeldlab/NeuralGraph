@@ -1585,27 +1585,28 @@ def data_generate_synaptic(
 
             # Check if triggered input mode - add trigger markers and oscillation curve
             if hasattr(model, 'has_triggered') and model.has_triggered:
-                # Add vertical line at trigger frame
-                plt.axvline(x=model.trigger_frame, color='red', linestyle='--', linewidth=2, label=f'trigger @ {model.trigger_frame}')
-                # Add vertical line at end of triggered duration
-                end_frame = model.trigger_frame + model.triggered_duration
-                plt.axvline(x=end_frame, color='orange', linestyle='--', linewidth=2, label=f'end @ {end_frame}')
-
-                # Plot the triggered oscillation input signal
+                # Plot the triggered oscillation input signal for all impulses
                 frames = np.arange(n_frames)
                 osc_signal = np.zeros(n_frames)
-                e_mean = to_numpy(model.e).mean()  # average amplitude
                 w = to_numpy(model.w)
-                for f in range(n_frames):
-                    if model.trigger_frame <= f < model.trigger_frame + model.triggered_duration:
-                        t_since_trigger = f - model.trigger_frame
-                        osc_signal[f] = e_mean * np.sin((2*np.pi)*w*t_since_trigger / model.triggered_duration)
+
+                # Sum up all impulse oscillations
+                for i in range(model.triggered_n_impulses):
+                    trigger_frame = model.trigger_frames[i]
+                    freq_mult = model.trigger_frequencies[i]
+                    e_mean = to_numpy(model.trigger_e[i]).mean()  # average amplitude for this impulse
+                    for f in range(n_frames):
+                        if trigger_frame <= f < trigger_frame + model.triggered_duration:
+                            t_since_trigger = f - trigger_frame
+                            osc_signal[f] += e_mean * np.sin((2*np.pi)*w*freq_mult*t_since_trigger / model.triggered_duration)
+
                 # Scale and offset the oscillation signal to fit in the plot
                 osc_scale = 50  # scale factor for visibility
                 osc_offset = activity_plot.max() + 50  # place above all traces
-                plt.plot(frames, osc_signal * osc_scale + osc_offset, color='cyan', linewidth=3, label='triggered oscillation')
+                plt.plot(frames, osc_signal * osc_scale + osc_offset, color='cyan', linewidth=1)
 
-                plt.legend(fontsize=16, loc='upper right')
+                # Extend ylim to make room for oscillation curve
+                plt.ylim([activity_plot.min() - 50, osc_offset + osc_scale + 50])
 
             for i in range(0, n_plot, 5):
                 plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')

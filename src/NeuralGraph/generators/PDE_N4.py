@@ -41,15 +41,48 @@ class PDE_N4(pyg.nn.MessagePassing):
 
         # triggered oscillation parameters
         if self.has_triggered:
+            self.triggered_n_impulses = config.simulation.triggered_n_impulses
             self.triggered_n_input = config.simulation.triggered_n_input_neurons
             self.triggered_strength = config.simulation.triggered_impulse_strength
             self.triggered_min_start = config.simulation.triggered_min_start_frame
-            self.triggered_max_start = config.simulation.triggered_max_start_frame
             self.triggered_duration = config.simulation.triggered_duration_frames
-            # randomly select which neurons receive input
-            self.input_neurons = torch.randperm(self.n_neurons, device=self.device)[:self.triggered_n_input]
-            # random trigger frame for each simulation
-            self.trigger_frame = torch.randint(self.triggered_min_start, self.triggered_max_start + 1, (1,), device=self.device).item()
+            self.amplitude_range = config.simulation.triggered_amplitude_range
+            self.frequency_range = config.simulation.triggered_frequency_range
+
+            # generate multiple impulse events spread throughout simulation
+            # leave buffer at start and end for oscillation duration
+            buffer = self.triggered_duration
+            available_frames = self.max_frame - 2 * buffer
+            spacing = available_frames // max(1, self.triggered_n_impulses)
+
+            self.trigger_frames = []
+            self.trigger_amplitudes = []
+            self.trigger_frequencies = []
+            self.trigger_neurons = []
+            self.trigger_e = []  # per-impulse neuron-specific amplitude
+
+            for i in range(self.triggered_n_impulses):
+                # spread triggers evenly with some random jitter
+                base_frame = buffer + i * spacing
+                jitter = torch.randint(-spacing//4, spacing//4 + 1, (1,), device=self.device).item() if spacing > 4 else 0
+                trigger_frame = max(buffer, min(self.max_frame - buffer, base_frame + jitter))
+                self.trigger_frames.append(trigger_frame)
+
+                # random amplitude multiplier
+                amp_mult = self.amplitude_range[0] + torch.rand(1, device=self.device).item() * (self.amplitude_range[1] - self.amplitude_range[0])
+                self.trigger_amplitudes.append(amp_mult)
+
+                # random frequency multiplier
+                freq_mult = self.frequency_range[0] + torch.rand(1, device=self.device).item() * (self.frequency_range[1] - self.frequency_range[0])
+                self.trigger_frequencies.append(freq_mult)
+
+                # randomly select which neurons receive input for this impulse
+                input_neurons = torch.randperm(self.n_neurons, device=self.device)[:self.triggered_n_input]
+                self.trigger_neurons.append(input_neurons)
+
+                # per-impulse neuron-specific random amplitude
+                e = self.A * amp_mult * (torch.rand((self.n_neurons, 1), device=self.device) * 2 - 1)
+                self.trigger_e.append(e)
 
     def forward(self, data=[], has_field=False, data_id=[], frame=[]):
         x, edge_index = data.x, data.edge_index
@@ -77,18 +110,24 @@ class PDE_N4(pyg.nn.MessagePassing):
             du = -c * u + s * torch.tanh(u) + g * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
         elif self.has_triggered:
             du = -c * u + s * torch.tanh(u) + g * msg
-            # add impulse input at trigger frame to selected neurons
-            if isinstance(frame, int) and frame == self.trigger_frame:
-                impulse = torch.zeros((self.n_neurons, 1), device=self.device)
-                impulse[self.input_neurons] = self.triggered_strength
-                du = du + impulse
-            # add oscillatory response after trigger for duration frames
-            if isinstance(frame, int) and self.trigger_frame <= frame < self.trigger_frame + self.triggered_duration:
-                t_since_trigger = frame - self.trigger_frame
-                osc = self.e * torch.sin((2*np.pi)*self.w*t_since_trigger / self.triggered_duration)
-                du = du + osc
+            if isinstance(frame, int):
+                # check each impulse event
+                for i in range(self.triggered_n_impulses):
+                    trigger_frame = self.trigger_frames[i]
+                    # add impulse input at trigger frame to selected neurons
+                    if frame == trigger_frame:
+                        impulse = torch.zeros((self.n_neurons, 1), device=self.device)
+                        impulse[self.trigger_neurons[i]] = self.triggered_strength * self.trigger_amplitudes[i]
+                        du = du + impulse
+                    # add oscillatory response after trigger for duration frames
+                    if trigger_frame <= frame < trigger_frame + self.triggered_duration:
+                        t_since_trigger = frame - trigger_frame
+                        freq_mult = self.trigger_frequencies[i]
+                        osc = self.trigger_e[i] * torch.sin((2*np.pi)*self.w*freq_mult*t_since_trigger / self.triggered_duration)
+                        du = du + osc
         else:
             du = -c * u + s * torch.tanh(u) + g * msg
+
 
         return du
 

@@ -1,5 +1,5 @@
 description: "RNN chaotic   triggered oscillations"
-dataset: "signal_N4_4"
+dataset: "signal_N4_7"
 
 simulation:
   connectivity_type: "chaotic"
@@ -14,7 +14,7 @@ simulation:
     ]
   phi: "tanh"
 
-  n_neurons: 100
+  n_neurons: 1000
   n_neuron_types: 1
   n_frames: 10000
   delta_t: 0.1
