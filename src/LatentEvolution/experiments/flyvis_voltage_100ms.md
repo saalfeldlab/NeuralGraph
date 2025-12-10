@@ -43,3 +43,14 @@ activity roll out remains stable over 100 steps. Just not the latent roll out.
 
 Next, optimize the augmentation weight as well as the number of neurons to sample
 for the augmentation.
+
+## Sweep weights
+
+```bash
+for n in 10 100; do
+    for x in 0.01 0.1; do
+        bsub -J ${x}_${n} -q gpu_a100 -gpu "num=1" -n 1 -o t5_${x}_${n}.log \
+            python src/LatentEvolution/latent.py test_aug latent_5step.yaml \
+            --training.unconnected-to-zero.num-neurons $n \
+            --training.unconnected-to-zero.loss-coeff $x
+```
