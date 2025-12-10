@@ -19,3 +19,11 @@ bsub -J t5_aug -q gpu_a100 -gpu "num=1" -n 1 -o t5_aug.log \
     python src/LatentEvolution/latent.py test_aug latent_5step.yaml \
     --training.unconnected-to-zero.num-neurons 100
 ```
+
+### t=1 results
+
+The total variance vs unexplained variance scatter is changed (optical flow):
+
+- cells types like T2 that have high raw variance get _worse_ with the connectome
+  constraint.
+- some improvements for Mi4 cell types that are at (0.6, 0.6) -> (0.6, 0.4) or so.
