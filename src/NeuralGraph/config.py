@@ -190,6 +190,18 @@ class GraphModelConfig(BaseModel):
     nnr_f_xy_period: float = 1.0
     nnr_f_T_period: float = 1.0
 
+    # INR type: "siren" or "ngp" (instantNGP hash encoding)
+    inr_type: str = "siren"
+
+    # InstantNGP (hash encoding) parameters
+    ngp_n_levels: int = 24
+    ngp_n_features_per_level: int = 2
+    ngp_log2_hashmap_size: int = 22
+    ngp_base_resolution: int = 16
+    ngp_per_level_scale: float = 1.4
+    ngp_n_neurons: int = 128
+    ngp_n_hidden_layers: int = 4
+
     input_size_modulation: int = 2
     n_layers_modulation: int = 3
     hidden_dim_modulation: int = 64
