@@ -7673,9 +7673,6 @@ def compare_gnn_results(config_list, varied_parameter):
 
     plt.style.use('default')
 
-    from NeuralGraph.config import NeuralGraphConfig
-    from NeuralGraph.models.utils import add_pre_folder
-
     results = []
 
     # Read & parse per-config files
