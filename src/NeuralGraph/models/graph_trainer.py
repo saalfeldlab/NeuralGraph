@@ -2172,7 +2172,8 @@ def data_train_zebra_fluo(config, erase, best_model, device):
 
 
 def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600,
-              ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
+              ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[],
+              rollout_without_noise: bool = False):
 
     dataset_name = config.dataset
     print(f"\033[92mdataset_name: {dataset_name}\033[0m")
@@ -2182,7 +2183,19 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         test_mode = "test_ablation_0"
 
     if 'fly' in config.dataset:
-        data_test_flyvis(config, visualize, style, verbose, best_model, step, n_rollout_frames, test_mode, new_params, device)
+        data_test_flyvis(
+            config,
+            visualize,
+            style,
+            verbose,
+            best_model,
+            step,
+            n_rollout_frames,
+            test_mode,
+            new_params,
+            device,
+            rollout_without_noise=rollout_without_noise,
+        )
 
     elif 'zebra' in config.dataset:
         data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
@@ -3196,7 +3209,19 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
 
-def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_model=None, step=5, n_rollout_frames=600, test_mode='', new_params = None, device=None):
+def data_test_flyvis(
+        config,
+        visualize=True,
+        style="color",
+        verbose=False,
+        best_model=None,
+        step=5,
+        n_rollout_frames=600,
+        test_mode='',
+        new_params=None,
+        device=None,
+        rollout_without_noise: bool = False,
+):
 
 
     if "black" in style:
@@ -3784,9 +3809,17 @@ def data_test_flyvis(config, visualize=True, style="color", verbose=False, best_
                         x_list.append(to_numpy(x.clone().detach()))
 
                     # Integration step
-                    if noise_model_level > 0:
-                        x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
-                        x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
+                    # Optionally disable process noise at test time, even if model was trained with noise
+                    effective_noise_level = 0.0 if rollout_without_noise else noise_model_level
+                    if effective_noise_level != noise_model_level:
+                        print(f"Effective noise level: {effective_noise_level} (rollout_without_noise: {rollout_without_noise})")
+                    if effective_noise_level > 0:
+                        x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated + torch.randn(
+                            (n_neurons, 1), dtype=torch.float32, device=device
+                        ) * effective_noise_level
+                        x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified + torch.randn(
+                            (n_neurons, 1), dtype=torch.float32, device=device
+                        ) * effective_noise_level
                     else:
                         x_generated[:, 3:4] = x_generated[:, 3:4] + delta_t * y_generated
                         x_generated_modified[:, 3:4] = x_generated_modified[:, 3:4] + delta_t * y_generated_modified
