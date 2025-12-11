@@ -21,6 +21,7 @@ import logging
 import re
 import matplotlib
 from torch_geometric.utils import dense_to_sparse
+import pandas as pd
 
 # os.environ["PATH"] += os.pathsep + '/usr/local/texlive/2023/bin/x86_64-linux'
 
@@ -7848,6 +7849,262 @@ def compare_gnn_results(config_list, varied_parameter):
     plt.show()
 
     return summary_results
+
+
+def collect_gnn_results_multimodel(config_list, varied_parameter=None):
+    """
+    Collect per-model GNN experiment metrics (parameter reconstruction +
+    rollout quality) for runs launched via GNN_Main_multimodel.py.
+
+    This version does NOT plot anything; it just returns a tidy pandas
+    DataFrame where each row corresponds to one (config, model_id).
+
+    Parameters
+    ----------
+    config_list : list[str]
+        Base config names, e.g. ['fly_N9_22_10', 'fly_N9_44_24'].
+        These are the same strings you pass to GNN_Main_multimodel.py.
+    varied_parameter : str or None
+        Optional 'section.parameter' name inside NeuralGraphConfig to treat
+        as the varied hyperparameter (e.g. 'training.noise_model_level').
+        If None, falls back to using the trailing token in the config name.
+    log_root : str
+        Root directory containing log folders (default: './log').
+
+    Returns
+    -------
+    pandas.DataFrame
+        Columns include:
+        - 'base_config', 'config_file', 'pre_folder', 'model_id'
+        - 'param_value'
+        - 'weights_r2', 'tau_r2', 'vrest_r2', 'clustering_acc'
+        - rollout metrics:
+          'rollout_rmse_mean', 'rollout_rmse_std', 'rollout_rmse_min', 'rollout_rmse_max'
+          'rollout_pearson_mean', 'rollout_pearson_std', 'rollout_pearson_min', 'rollout_pearson_max'
+          'rollout_r2_mean', 'rollout_r2_std', 'rollout_r2_min', 'rollout_r2_max'
+          'rollout_feve_mean', 'rollout_feve_std', 'rollout_feve_min', 'rollout_feve_max'
+          'rollout_n_neurons', 'rollout_start_frame', 'rollout_end_frame'
+    """
+    records = []
+
+    this_file_parent = os.path.dirname(__file__)
+    log_root = os.path.join(this_file_parent, "log")
+    config_root = os.path.join(this_file_parent, "config")
+
+    for base_config in config_list:
+        try:
+            config_file, pre_folder = add_pre_folder(base_config)
+            config = NeuralGraphConfig.from_yaml(f'{config_root}/{config_file}.yaml')
+        except Exception as e:
+            print(f"error loading base config '{base_config}': {e}")
+            continue
+
+        # Determine parameter value for this base config
+        if varied_parameter is None:
+            parts = base_config.split('_')
+            if len(parts) >= 2:
+                param_value = parts[-1]
+            else:
+                print(f"warning: cannot extract indices from config name '{base_config}'")
+                param_value = None
+        else:
+            if '.' not in varied_parameter:
+                raise ValueError("parameter must be in 'section.parameter' format")
+            section_name, param_name = varied_parameter.split('.', 1)
+            section = getattr(config, section_name, None)
+            if section is None:
+                print(f"warning: config section '{section_name}' not found in '{base_config}'")
+                param_value = None
+            else:
+                param_value = getattr(section, param_name, None)
+                if param_value is None:
+                    print(f"warning: parameter '{param_name}' not found in section '{section_name}' for '{base_config}'")
+
+        # Discover per-model log directories created by GNN_Main_multimodel
+        pre_log_root = os.path.join(log_root, pre_folder)
+        if not os.path.isdir(pre_log_root):
+            print(f"warning: log root '{pre_log_root}' not found for base config '{base_config}'")
+            continue
+
+        for entry in os.listdir(pre_log_root):
+            # Expect entries like 'fly_N9_22_10__mid_000'
+            if not entry.startswith(base_config + "__mid_"):
+                continue
+
+            model_id_str = entry.split("__mid_")[-1]
+            try:
+                model_id = int(model_id_str)
+            except ValueError:
+                model_id = None
+
+            config_file_with_mid = os.path.join(pre_folder, entry)
+            log_dir = os.path.join(log_root, pre_folder, entry)
+
+            results_log_path = os.path.join(log_dir, "results.log")
+            rollout_log_path = os.path.join(log_dir, "results_rollout.log")
+
+            if not os.path.exists(results_log_path):
+                print(f"warning: {results_log_path} not found, skipping")
+                continue
+            if not os.path.exists(rollout_log_path):
+                print(f"warning: {rollout_log_path} not found, skipping")
+                continue
+
+            # --- Parse results.log (parameter reconstructions, clustering) ---
+            try:
+                with open(results_log_path, "r") as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"error reading {results_log_path}: {e}")
+                continue
+
+            r2_match = re.search(r'second weights fit\s+R²:\s*([\d.eE+-]+)', content)
+            tau_r2_match = re.search(r'tau reconstruction R²:\s*([\d.eE+-]+)', content)
+            vrest_r2_match = re.search(r'V_rest reconstruction R²:\s*([\d.eE+-]+)', content)
+            acc_match = re.search(r'accuracy=([\d.eE+-]+)', content)
+
+            weights_r2 = float(r2_match.group(1)) if r2_match else None
+            tau_r2 = float(tau_r2_match.group(1)) if tau_r2_match else None
+            vrest_r2 = float(vrest_r2_match.group(1)) if vrest_r2_match else None
+            clustering_acc = float(acc_match.group(1)) if acc_match else None
+
+            # --- Parse results_rollout.log (rollout metrics) ---
+            try:
+                with open(rollout_log_path, "r") as f:
+                    r_content = f.read()
+            except Exception as e:
+                print(f"error reading {rollout_log_path}: {e}")
+                continue
+
+            def _parse_metric(line_prefix, text):
+                # Example line:
+                # RMSE: 0.0066 ± 0.0052 [0.0002, 0.0478]
+                pat = rf'{line_prefix}:\s*([\d.eE+-]+)\s*±\s*([\d.eE+-]+)\s*\[([\d.eE+-]+),\s*([\d.eE+-]+)\]'
+                m = re.search(pat, text)
+                if not m:
+                    return (None, None, None, None)
+                return tuple(float(g) for g in m.groups())
+
+            rmse_mean, rmse_std, rmse_min, rmse_max = _parse_metric("RMSE", r_content)
+            pearson_mean, pearson_std, pearson_min, pearson_max = _parse_metric("Pearson r", r_content)
+            r2_mean, r2_std, r2_min, r2_max = _parse_metric("R²", r_content)
+            feve_mean, feve_std, feve_min, feve_max = _parse_metric("FEVE", r_content)
+
+            n_neurons = None
+            start_frame = None
+            end_frame = None
+
+            m_neurons = re.search(r"Number of neurons evaluated:\s*(\d+)", r_content)
+            if m_neurons:
+                n_neurons = int(m_neurons.group(1))
+
+            m_frames = re.search(r"Frames evaluated:\s*(\d+)\s*to\s*(\d+)", r_content)
+            if m_frames:
+                start_frame = int(m_frames.group(1))
+                end_frame = int(m_frames.group(2))
+
+            # --- Compute per-neuron RMSEs and correlations from saved rollout traces ---
+            rollout_rmse_per_neuron = None
+            rollout_rmse_median = None
+            rollout_corr_per_neuron = None
+            rollout_corr_median = None
+            try:
+                results_dir = os.path.join(log_dir, "results")
+                # Prefer modified activity arrays; fall back to standard if present
+                act_mod = os.path.join(results_dir, "activity_modified.npy")
+                act_mod_pred = os.path.join(results_dir, "activity_modified_pred.npy")
+                act_true = os.path.join(results_dir, "activity_true.npy")
+                act_pred = os.path.join(results_dir, "activity_pred.npy")
+
+                if os.path.exists(act_mod) and os.path.exists(act_mod_pred):
+                    act_path_true, act_path_pred = act_mod, act_mod_pred
+                elif os.path.exists(act_true) and os.path.exists(act_pred):
+                    act_path_true, act_path_pred = act_true, act_pred
+                else:
+                    act_path_true = act_path_pred = None
+
+                if act_path_true is not None:
+                    a_true = np.load(act_path_true)
+                    a_pred = np.load(act_path_pred)
+                    if a_true.shape == a_pred.shape and a_true.ndim == 2:
+                        # Expect shape (n_neurons, n_frames)
+                        diff = a_true - a_pred
+                        mse_per_neuron = np.mean(diff ** 2, axis=1)
+                        rmse_per_neuron = np.sqrt(mse_per_neuron)
+                        rollout_rmse_per_neuron = rmse_per_neuron.tolist()
+                        rollout_rmse_median = float(np.median(rmse_per_neuron))
+
+                        # Vectorized per-neuron Pearson correlation over time
+                        # Center each neuron's trace
+                        x = a_true
+                        y = a_pred
+                        x_mean = x.mean(axis=1, keepdims=True)
+                        y_mean = y.mean(axis=1, keepdims=True)
+                        x_centered = x - x_mean
+                        y_centered = y - y_mean
+
+                        # Standard deviations per neuron
+                        x_std = x_centered.std(axis=1, ddof=0)
+                        y_std = y_centered.std(axis=1, ddof=0)
+
+                        # Mask neurons with zero variance in either trace
+                        valid = (x_std > 0) & (y_std > 0)
+                        corr = np.full(x_std.shape, np.nan, dtype=float)
+                        if np.any(valid):
+                            x_norm = x_centered[valid] / x_std[valid, None]
+                            y_norm = y_centered[valid] / y_std[valid, None]
+                            corr_valid = np.mean(x_norm * y_norm, axis=1)
+                            corr[valid] = corr_valid
+
+                        rollout_corr_per_neuron = corr.tolist()
+                        rollout_corr_median = float(np.nanmedian(corr))
+            except Exception as e:
+                print(f"warning: could not compute per-neuron RMSE for '{log_dir}': {e}")
+
+            records.append(
+                {
+                    "base_config": base_config,
+                    "config_file": config_file_with_mid,
+                    "pre_folder": pre_folder,
+                    "model_id": model_id,
+                    "param_value": param_value,
+                    # Parameter reconstruction metrics
+                    "weights_r2": weights_r2,
+                    "tau_r2": tau_r2,
+                    "vrest_r2": vrest_r2,
+                    "clustering_acc": clustering_acc,
+                    # Rollout metrics
+                    "rollout_rmse_mean": rmse_mean,
+                    "rollout_rmse_std": rmse_std,
+                    "rollout_rmse_min": rmse_min,
+                    "rollout_rmse_max": rmse_max,
+                    "rollout_pearson_mean": pearson_mean,
+                    "rollout_pearson_std": pearson_std,
+                    "rollout_pearson_min": pearson_min,
+                    "rollout_pearson_max": pearson_max,
+                    "rollout_r2_mean": r2_mean,
+                    "rollout_r2_std": r2_std,
+                    "rollout_r2_min": r2_min,
+                    "rollout_r2_max": r2_max,
+                    "rollout_feve_mean": feve_mean,
+                    "rollout_feve_std": feve_std,
+                    "rollout_feve_min": feve_min,
+                    "rollout_feve_max": feve_max,
+                    "rollout_n_neurons": n_neurons,
+                    "rollout_start_frame": start_frame,
+                    "rollout_end_frame": end_frame,
+                    "rollout_rmse_per_neuron": rollout_rmse_per_neuron,
+                    "rollout_rmse_median": rollout_rmse_median,
+                    "rollout_corr_per_neuron": rollout_corr_per_neuron,
+                    "rollout_corr_median": rollout_corr_median,
+                }
+            )
+
+    if len(records) == 0:
+        return pd.DataFrame()
+
+    df = pd.DataFrame.from_records(records)
+    return df
 
 
 def compare_ising_results(config_list, varied_parameter):
