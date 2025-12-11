@@ -1031,8 +1031,7 @@ def data_generate_synaptic(
     delta_t = simulation_config.delta_t
     n_frames = simulation_config.n_frames
     has_particle_dropout = training_config.particle_dropout > 0
-    has_visual_input = "visual" in field_type
-    has_modulation = "modulation" in field_type
+
     dataset_name = config.dataset
     noise_model_level = training_config.noise_model_level
     measurement_noise_level = training_config.measurement_noise_level
@@ -1050,6 +1049,8 @@ def data_generate_synaptic(
     if field_type != "":
         n_nodes = simulation_config.n_nodes
         n_nodes_per_axis = int(np.sqrt(n_nodes))
+    has_visual_input = "visual" in field_type
+    has_modulation = "modulation" in field_type
 
     folder = f"./graphs_data/{dataset_name}/"
 
@@ -1229,16 +1230,16 @@ def data_generate_synaptic(
         # x[:, 1:3] = positions (x, y)
         # x[:, 3]   = signal u (state)
         # x[:, 4]   = external_input
-        # x[:, 5]   = neuron_type
-        # x[:, 6]   = plasticity p (PDE_N6/N7)
+        # x[:, 5]   = plasticity p (PDE_N6/N7)
+        # x[:, 6]   = neuron_type
         # x[:, 7]   = calcium
         x = torch.zeros((n_neurons, 8), dtype=torch.float32, device=device)
         x[:, 0] = torch.arange(n_neurons, dtype=torch.float32, device=device)  # index
         x[:, 1:3] = X1.clone().detach()  # positions
         x[:, 3] = H1[:, 0].clone().detach()  # signal state u
         x[:, 4] = 0  # external input (set per frame)
-        x[:, 5] = T1.squeeze().clone().detach()  # neuron type
-        x[:, 6] = 1  # plasticity p (init to 1 for PDE_N6/N7)
+        x[:, 5] = 1  # plasticity p (init to 1 for PDE_N6/N7)
+        x[:, 6] = T1.squeeze().clone().detach()  # neuron_type
         x[:, 7] = 0  # calcium
 
         check_and_clear_memory(
@@ -1269,8 +1270,9 @@ def data_generate_synaptic(
                     external_input[:n_nodes, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
                     external_input[n_nodes:n_neurons, 0] = 1
                 elif has_oscillations:
-                    # Oscillatory external input
-                    external_input = e_global * torch.cos((2*np.pi)*oscillation_frequency*it / max_frame)
+                    # Oscillatory external input (frequency in cycles per time unit)
+                    t = it * delta_t
+                    external_input = e_global * torch.cos((2*np.pi)*oscillation_frequency*t)
                 elif has_triggered:
                     # Triggered oscillation input
                     for i in range(triggered_n_impulses):
@@ -1294,8 +1296,10 @@ def data_generate_synaptic(
                 dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
 
                 # model prediction
-                if has_modulation | has_visual_input | has_oscillations | has_triggered:
+                if has_modulation | has_visual_input:
                     y = model(dataset, has_field=True, frame=it)
+                elif has_oscillations | has_triggered:
+                    y = model(dataset, has_field=False, frame=it)  # additive input only
                 elif "PDE_N3" in model_config.signal_model_name:
                     y = model(dataset, has_field=False, alpha=it / n_frames, frame=it)
                 elif "PDE_N6" in model_config.signal_model_name:
@@ -1321,7 +1325,7 @@ def data_generate_synaptic(
                     x[:, 3] = x[:, 3] + torch.randn(n_neurons, device=device) * noise_model_level
                 # Plasticity update
                 dp = p_out.squeeze()
-                x[:, 6] = torch.relu(x[:, 6] + dp * delta_t)
+                x[:, 5] = torch.relu(x[:, 5] + dp * delta_t)
             else:
                 du = y.squeeze()
                 x[:, 3] = x[:, 3] + du * delta_t

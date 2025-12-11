@@ -15,8 +15,8 @@ class PDE_N4(pyg.nn.MessagePassing):
     x[:, 1:3] = positions (x, y)
     x[:, 3]   = signal u (state)
     x[:, 4]   = external_input
-    x[:, 5]   = neuron_type
-    x[:, 6]   = plasticity p (PDE_N6/N7)
+    x[:, 5]   = plasticity p (PDE_N6/N7)
+    x[:, 6]   = neuron_type
     x[:, 7]   = calcium
 
     Inputs
@@ -41,7 +41,7 @@ class PDE_N4(pyg.nn.MessagePassing):
 
     def forward(self, data=[], has_field=False, data_id=[], frame=None):
         x, edge_index = data.x, data.edge_index
-        neuron_type = x[:, 5].long()
+        neuron_type = x[:, 6].long()
 
         # Extract neuron-type-dependent parameters
         # params order: [a, b, g, s, w, h]
@@ -54,18 +54,18 @@ class PDE_N4(pyg.nn.MessagePassing):
         h = parameters[:, 5:6]  # threshold: baseline for activation function MLP1((u-h)/w)
 
         u = x[:, 3:4]  # signal state
-        external_input = x[:, 4:5]  # external input from data generator
 
         if has_field:
-            field = external_input  # use external_input as field when has_field=True
+            # Multiplicative field mode: external_input modulates the message
+            field = x[:, 4:5]
+            msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
+            du = -a * u + b + s * torch.tanh(u) + g * msg
         else:
+            # Additive input mode: external_input is added directly
             field = torch.ones_like(u)
-
-        msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
-
-        # du = -a*u + b + s*tanh(u) + g*msg + external_input
-        # decay + offset + self-recurrence + network input + external input
-        du = -a * u + b + s * torch.tanh(u) + g * msg + external_input
+            external_input = x[:, 4:5]
+            msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
+            du = -a * u + b + s * torch.tanh(u) + g * msg + external_input
 
         return du
 

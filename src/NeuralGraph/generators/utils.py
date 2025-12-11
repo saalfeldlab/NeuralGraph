@@ -678,7 +678,7 @@ def plot_synaptic_frame_plasticity(X1, x, dataset_name, run, num):
         to_numpy(X1[:, 0]),
         to_numpy(X1[:, 1]),
         s=200,
-        c=to_numpy(x[:, 6]),
+        c=to_numpy(x[:, 5]),
         cmap="grey",
         vmin=0,
         vmax=1,
@@ -752,27 +752,19 @@ def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, mod
     # Plot all traces
     plt.plot(activity_plot.T, linewidth=2, alpha=0.7)
 
-    # Check if triggered input mode - add trigger markers and oscillation curve
-    if model is not None and hasattr(model, 'has_triggered') and model.has_triggered:
-        frames = np.arange(n_frames)
-        osc_signal = np.zeros(n_frames)
-        w = to_numpy(model.w)
-
-        # Sum up all impulse oscillations
-        for i in range(model.triggered_n_impulses):
-            trigger_frame = model.trigger_frames[i]
-            freq_mult = model.trigger_frequencies[i]
-            e_mean = to_numpy(model.trigger_e[i]).mean()
-            for f in range(n_frames):
-                if trigger_frame <= f < trigger_frame + model.triggered_duration:
-                    t_since_trigger = f - trigger_frame
-                    osc_signal[f] += e_mean * np.sin((2*np.pi)*w*freq_mult*t_since_trigger / model.triggered_duration)
-
-        # Scale and offset the oscillation signal to fit in the plot
-        osc_scale = 50
-        osc_offset = activity_plot.max() + 50
-        plt.plot(frames, osc_signal * osc_scale + osc_offset, color='cyan', linewidth=1)
-        plt.ylim([activity_plot.min() - 50, osc_offset + osc_scale + 50])
+    # Plot external_input trace at the top (from x_list[:, :, 4])
+    external_input = x_list[:, :, 4]  # (n_frames, n_neurons)
+    if np.abs(external_input).max() > 1e-6:  # Only plot if there's external input
+        # Average external input across all neurons or use max
+        external_input_mean = np.mean(external_input, axis=1)  # (n_frames,)
+        # Scale and offset to show at top of plot
+        ext_scale = 20 / (np.abs(external_input_mean).max() + 1e-6)
+        ext_offset = activity_plot.max() + 50
+        frames = np.arange(min(n_frames, external_input.shape[0]))
+        plt.plot(frames, external_input_mean[:len(frames)] * ext_scale + ext_offset,
+                 color='yellow', linewidth=2, linestyle='--')
+        plt.text(-100, ext_offset, 'ext_in', fontsize=16, va='center', ha='right', color='yellow')
+        plt.ylim([activity_plot.min() - 50, ext_offset + 50])
 
     for i in range(0, n_plot, 5):
         plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')
@@ -801,10 +793,11 @@ def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap
     xnorm = np.std(x_list[:, :, 3])
     import torch
     rr = torch.linspace(-xnorm, xnorm, 1000).to(device)
-    neuron_types = x_list[0, :, 5].astype(int)
+    neuron_types = x_list[0, :, 6].astype(int)  # neuron_type is at column 6
+    n_neuron_types = int(neuron_types.max()) + 1
     cmap = plt.cm.get_cmap(colormap)
 
-    # Plot MLP1 (message/phi function)
+    # Plot MLP1 (message/phi function) - all neurons
     plt.figure(figsize=(10, 8))
     for n in range(n_neurons):
         neuron_type = neuron_types[n]
@@ -819,7 +812,7 @@ def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap
     plt.savefig(f"graphs_data/{dataset_name}/MLP1_function.png", dpi=300)
     plt.close()
 
-    # Plot MLP0 (update function)
+    # Plot MLP0 (update function) - all neurons
     plt.figure(figsize=(10, 8))
     for n in range(n_neurons):
         neuron_type = neuron_types[n]
@@ -848,7 +841,7 @@ def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k'):
     fig, axes = plt.subplots(1, 3, figsize=(30, 10))
 
     # (0) eigenvalues in complex plane
-    axes[0].scatter(eig_true.real, eig_true.imag, s=100, c=mc, alpha=0.7)
+    axes[0].scatter(eig_true.real, eig_true.imag, s=50, c=mc, alpha=0.7, edgecolors='none')
     axes[0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
     axes[0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
     axes[0].set_xlabel('real', fontsize=32)
@@ -859,7 +852,7 @@ def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k'):
             transform=axes[0].transAxes, fontsize=20, verticalalignment='top')
 
     # (1) eigenvalue magnitude (sorted)
-    axes[1].scatter(range(len(eig_true_sorted)), np.abs(eig_true_sorted), s=100, c=mc, alpha=0.7)
+    axes[1].scatter(range(len(eig_true_sorted)), np.abs(eig_true_sorted), s=50, c=mc, alpha=0.7, edgecolors='none')
     axes[1].set_xlabel('index', fontsize=32)
     axes[1].set_ylabel('|eigenvalue|', fontsize=32)
     axes[1].tick_params(labelsize=20)

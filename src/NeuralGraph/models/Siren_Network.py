@@ -6,47 +6,41 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-# from NeuralGraph.generators.utils import get_time_series
 import matplotlib
 from matplotlib import pyplot as plt
 from tqdm import trange
-# from torch.utils.data import DataLoader, Dataset
-# from PIL import Image
-# import skimage
-# from torchvision.transforms import Resize, Compose, ToTensor, Normalize
-
 
 
 class SineLayer(nn.Module):
     # See paper sec. 3.2, final paragraph, and supplement Sec. 1.5 for discussion of omega_0.
-    
-    # If is_first=True, omega_0 is a frequency factor which simply multiplies the activations before the 
-    # nonlinearity. Different signals may require different omega_0 in the first layer - this is a 
+
+    # If is_first=True, omega_0 is a frequency factor which simply multiplies the activations before the
+    # nonlinearity. Different signals may require different omega_0 in the first layer - this is a
     # hyperparameter.
-    
-    # If is_first=False, then the weights will be divided by omega_0 so as to keep the magnitude of 
+
+    # If is_first=False, then the weights will be divided by omega_0 so as to keep the magnitude of
     # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
-    
+
     def __init__(self, in_features, out_features, bias=True,
                  is_first=False, omega_0=30):
         super().__init__()
         self.omega_0 = omega_0
         self.is_first = is_first
-        
+
         self.in_features = in_features
         self.linear = nn.Linear(in_features, out_features, bias=bias)
-        
+
         self.init_weights()
-    
+
     def init_weights(self):
         with torch.no_grad():
             if self.is_first:
-                self.linear.weight.uniform_(-1 / self.in_features, 
-                                             1 / self.in_features)      
+                self.linear.weight.uniform_(-1 / self.in_features,
+                                             1 / self.in_features)
             else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0, 
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
                                              np.sqrt(6 / self.in_features) / self.omega_0)
-        
+
     def forward(self, input):
         return torch.sin(self.omega_0 * self.linear(input))
 
@@ -78,7 +72,6 @@ class Siren(nn.Module):
         self.net = nn.Sequential(*self.net)
 
     def forward(self, coords):
-        # coords = coords.clone().detach().requires_grad_(True)  # allows to take derivative w.r.t. input
         output = self.net(coords)
         return output
 
@@ -97,31 +90,31 @@ class small_Siren(nn.Module):
         return self.net(x)
 
 class Siren_Network(nn.Module):
-    def __init__(self, image_width, in_features, hidden_features, hidden_layers, out_features, outermost_linear=False, 
+    def __init__(self, image_width, in_features, hidden_features, hidden_layers, out_features, outermost_linear=False,
                  first_omega_0=30, hidden_omega_0=30., device='cuda:0'):
         super().__init__()
 
-        self.device = device 
+        self.device = device
         self.image_width = image_width
 
         self.net = []
-        self.net.append(SineLayer(in_features, hidden_features, 
+        self.net.append(SineLayer(in_features, hidden_features,
                                   is_first=True, omega_0=first_omega_0))
         for i in range(hidden_layers):
-            self.net.append(SineLayer(hidden_features, hidden_features, 
+            self.net.append(SineLayer(hidden_features, hidden_features,
                                       is_first=False, omega_0=hidden_omega_0))
 
         if outermost_linear:
             final_linear = nn.Linear(hidden_features, out_features)
-            
+
             with torch.no_grad():
-                final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0, 
+                final_linear.weight.uniform_(-np.sqrt(6 / hidden_features) / hidden_omega_0,
                                               np.sqrt(6 / hidden_features) / hidden_omega_0)
-                
+
             self.net.append(final_linear)
         else:
             self.net.append(SineLayer(hidden_features, out_features, is_first=False, omega_0=hidden_omega_0))
-        
+
         self.net = nn.Sequential(*self.net)
 
         self.net = self.net.to(device)
@@ -133,19 +126,18 @@ class Siren_Network(nn.Module):
         # Call forward method
         output, coords = self.__call__()
         return output.squeeze().reshape(self.image_width, self.image_width)
-    
+
     def coordinate_grid(self, n_points):
         coords = np.linspace(0, 1, n_points, endpoint=False)
         xy_grid = np.stack(np.meshgrid(coords, coords), -1)
         xy_grid = torch.tensor(xy_grid).unsqueeze(0).permute(0, 3, 1, 2).float().contiguous().to(self.device)
         return xy_grid
-    
+
     def get_mgrid(self, sidelen, dim=2, enlarge=False):
         '''Generates a flattened grid of (x,y,...) coordinates in a range of -1 to 1.
         sidelen: int
         dim: int'''
         if enlarge:
-            # tensors = tuple(dim * [torch.linspace(-0.2, 1.2, steps=sidelen*20)])
             tensors = tuple(dim * [torch.linspace(0, 1, steps=sidelen*20)])
         else:
             tensors = tuple(dim * [torch.linspace(0, 1, steps=sidelen)])
@@ -160,10 +152,6 @@ class Siren_Network(nn.Module):
             coords = self.get_mgrid(self.image_width, dim=2, enlarge=enlarge).to(self.device)
             if time != None:
                coords = torch.cat((coords, time * torch.ones_like(coords[:, 0:1])), 1)
-
-        # coords = coords.clone().detach().requires_grad_(True) # allows to take derivative w.r.t. input
-        output = self.net(coords)
-        return output
 
         output = self.net(coords)
         return output
@@ -219,111 +207,57 @@ class ImageFitting(Dataset):
 
     def __getitem__(self, idx):
         return self.coords, self.img.view(-1, 1)
-    
-if __name__ == '__main__':
 
+
+def run_cameraman_example():
+    """Default cameraman image fitting example."""
 
     device = 'cuda:0'
+
     try:
         matplotlib.use("Qt5Agg")
     except:
         pass
-    
-    from torch.utils.data import DataLoader
 
+    from torch.utils.data import DataLoader
 
     img_siren = Siren(in_features=2, out_features=1, hidden_features=512,
                       hidden_layers=3, outermost_linear=True, first_omega_0=220., hidden_omega_0=220.)
     img_siren.cuda()
 
-    total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
+    total_steps = 3000
     steps_til_summary = 250
 
     optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
 
-    if True:
-        import skimage
-        from PIL import Image
-        from torchvision.transforms import Resize, Compose, ToTensor
+    import skimage
+    from PIL import Image
+    from torchvision.transforms import Resize, Compose, ToTensor
 
-        sidelength = 128
-        img = Image.fromarray(skimage.data.camera())
-        transform = Compose([
-                ToTensor(),
-                Resize(sidelength)
-            ])
-        ground_truth = transform(img)
-        ground_truth = torch.cat((ground_truth, ground_truth.transpose(1, 2)), dim=2) 
-        # ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
-    else:
-        import re
-        import tensorstore as ts
-
-        def open_gcs_zarr(url: str):
-            # Strip accidental prefixes like:  'str = "gs://.../aligned"'
-            url = url.strip()
-            if url.startswith("str"):
-                # remove leading 'str ='
-                url = re.sub(r'^str\s*=\s*', '', url).strip()
-                # strip surrounding quotes
-                url = url.strip('\'"')
-
-            if not url.startswith("gs://"):
-                raise ValueError(f"Expected gs:// URL, got: {url}")
-
-            # First try zarr3 with a plain kvstore string
-            try:
-                return ts.open({'driver': 'zarr3', 'kvstore': url, 'open': True}).result()
-            except Exception:
-                pass
-
-            # Fall back to explicit GCS kvstore spec (works across TS versions), zarr3 → zarr2
-            bucket_path = url[len("gs://"):]
-            bucket, path = bucket_path.split('/', 1)
-            for drv in ('zarr3', 'zarr'):
-                try:
-                    return ts.open({
-                        'driver': drv,
-                        'kvstore': {'driver': 'gcs', 'bucket': bucket, 'path': path},
-                        'open': True
-                    }).result()
-                except Exception:
-                    continue
-            raise RuntimeError(f"Could not open Zarr at {url} with zarr3 or zarr2")
-
-        STORE = "gs://zapbench-release/volumes/20240930/aligned"
-        FRAME = 3736
-
-        ds = open_gcs_zarr(STORE)
-        vol_xyz = ds[..., FRAME].read().result()    
-
-        ground_truth = torch.tensor(vol_xyz, device=device, dtype=torch.float32) / 512
-        ground_truth = ground_truth[:,:,20:21]
-        ground_truth = ground_truth.permute(2,1,0)  # (1, H, W)
-        # ground_truth = ground_truth[:,0:1024,0:2048]
-
-        # down sample
-        factor = 2 
-        ground_truth = torch.nn.functional.interpolate(ground_truth.unsqueeze(0), size=(ground_truth.shape[1]//factor,ground_truth.shape[2]//factor), mode='bilinear', align_corners=False).squeeze(0)
-        # ground_truth = torch.cat((ground_truth, ground_truth), dim=1)  # (1, H, W)
-
+    sidelength = 128
+    img = Image.fromarray(skimage.data.camera())
+    transform = Compose([
+            ToTensor(),
+            Resize(sidelength)
+        ])
+    ground_truth = transform(img)
+    ground_truth = torch.cat((ground_truth, ground_truth.transpose(1, 2)), dim=2)
 
     _ , nx, ny = ground_truth.shape
 
     print(f'\nshape: {ground_truth.shape}')
 
-    side_length = max(nx,ny) 
+    side_length = max(nx,ny)
     iy, ix = torch.meshgrid(
         torch.arange(ny, device=device),
         torch.arange(nx, device=device),
         indexing='ij'
     )
-    model_input = torch.stack([iy.reshape(-1), ix.reshape(-1)], dim=1).to(torch.int32) / (side_length - 1)     # (N,2) / 2
+    model_input = torch.stack([iy.reshape(-1), ix.reshape(-1)], dim=1).to(torch.int32) / (side_length - 1)
     model_input = model_input.cuda()
 
     ground_truth = ground_truth.reshape([nx*ny, 1]).cuda()
 
-    
     batch_ratio = 0.25
 
     loss_list = []
@@ -333,15 +267,6 @@ if __name__ == '__main__':
         model_input_batch = model_input[sample_ids]
         ground_truth_batch = ground_truth[sample_ids]
         loss = ((img_siren(model_input_batch) - ground_truth_batch) ** 2).mean()
-
-        # model_output = img_siren(model_input)
-        # loss = ((model_output - ground_truth_batch) ** 2).mean()
-
-        # TV loss
-        # grad = gradient(model_output, model_input)
-        # grad_norm = torch.sqrt(torch.sum(grad ** 2, dim=-1, keepdim=True) + 1e-10)
-        # tv_loss = grad_norm.mean()
-        # loss += 1e-5 * tv_loss
 
         optim.zero_grad()
         loss.backward()
@@ -361,100 +286,17 @@ if __name__ == '__main__':
                 pred_img = model_output.cpu().detach().numpy().reshape(nx, ny)
                 im1 = axes[1].imshow(pred_img, cmap='gray')
                 plt.colorbar(im1, ax=axes[1])
-                error = np.linalg.norm(ground_truth.cpu().detach().numpy().reshape(nx, ny) - pred_img, ord=2)
-                # ground_truth_img = ground_truth.cpu().detach().numpy().reshape(nx, ny)
-                # im2 = axes[2].imshow(ground_truth_img-pred_img, cmap='gray')
-                # plt.colorbar(im2, ax=axes[2])
-                # axes[2].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9,color='w')
-                # plt.tight_layout(pad=1.0)
-                plt.show()     
+                plt.show()
 
     print("Step %d, Total loss %0.6f" % (step, loss))
-    # img_grad = gradient(model_output, coords)
-    # img_laplacian = laplace(model_output, coords)
-
-         
 
 
+if __name__ == '__main__':
 
-
-if False: # __name__ == '__main__':
-
-
-    device = 'cuda:0'
     try:
         matplotlib.use("Qt5Agg")
     except:
         pass
-    
-    from torch.utils.data import DataLoader
 
-    cameraman = ImageFitting(256)
-    dataloader = DataLoader(cameraman, batch_size=1, pin_memory=True, num_workers=0)
-
-    img_siren = Siren(in_features=2, out_features=1, hidden_features=512,
-                      hidden_layers=3, outermost_linear=True, first_omega_0=256., hidden_omega_0=256.)
-    img_siren.cuda()
-
-    total_steps = 3000  # Since the whole image is our dataset, this just means 500 gradient descent steps.
-    steps_til_summary = 1000
-
-    optim = torch.optim.Adam(lr=1e-5, params=img_siren.parameters())
-
-    loss_list = []
-    for step in trange(total_steps):
-        model_input, ground_truth = next(iter(dataloader))
-        model_input, ground_truth = model_input.cuda(), ground_truth.cuda()
-        model_input.requires_grad_(True)
-        model_output = img_siren(model_input)
-        loss = ((model_output - ground_truth) ** 2).mean()
-
-        # TV loss
-        # grad = gradient(model_output, model_input)
-        # grad_norm = torch.sqrt(torch.sum(grad ** 2, dim=-1, keepdim=True) + 1e-10)
-        # tv_loss = grad_norm.mean()
-        # loss += 1e-5 * tv_loss
-
-        optim.zero_grad()
-        loss.backward()
-        optim.step()
-
-        loss_list.append(loss.item())
-
-    print("Step %d, Total loss %0.6f" % (step, loss))
-    # img_grad = gradient(model_output, coords)
-    # img_laplacian = laplace(model_output, coords)
-
-    factor = 160
-
-    x_upsampled = np.linspace(0, 1, 256*factor)
-    y_upsampled = np.ones(256*factor)*(100/256)  
-    coords_upsampled = np.stack([x_upsampled, y_upsampled], axis=1)  # shape (2560, 2)
-    coords_upsampled_torch = torch.tensor(coords_upsampled, dtype=torch.float32, device=device)
-    pred_upsampled = img_siren(coords_upsampled_torch).cpu().detach().numpy().squeeze()
-    x_upsampled = np.linspace(0, 256, 256*factor)
-
-
-    gt_img = ground_truth.cpu().detach().numpy().reshape(256, 256)
-    pred_img = model_output.cpu().detach().numpy().reshape(256, 256)
-
-
-    fig, axes = plt.subplots(1, 4, figsize=(18, 4), gridspec_kw={'wspace': 0.3, 'hspace': 0})
-    axes[0].plot(loss_list, color='k')
-    axes[0].set_xlabel('step')
-    axes[0].set_ylabel('MSE Loss')
-    axes[1].imshow(pred_img, cmap='gray')
-    error = np.linalg.norm(gt_img - pred_img, ord=2)
-    axes[1].text(0.1, 0.95, f'L2 error: {error:.4f}', transform=axes[1].transAxes, fontsize=12, va='top', alpha=0.9)
-    axes[2].plot(gt_img[:,100], color='green', label='true')
-    axes[2].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
-    axes[3].plot(gt_img[:,100], color='green', label='true')
-    axes[3].scatter(x_upsampled,pred_upsampled, color='black', label='pred', s=1)
-    axes[3].set_xlim(200, 220)
-    axes[3].set_ylim(0, 0.4)
-    plt.tight_layout(pad=1.0)
-    plt.show()
-    # plt.close()
-
-
-
+    print("\n=== Running cameraman example ===\n")
+    run_cameraman_example()

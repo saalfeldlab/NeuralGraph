@@ -207,9 +207,9 @@ def data_train_signal(config, erase, best_model, style, device):
     x = x_list[0][n_frames - 10]
     n_neurons = x.shape[0]
     config.simulation.n_neurons =n_neurons
-    type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
+    type_list = torch.tensor(x[:, 6:7], device=device)  # neuron_type is at column 6
 
-    activity = torch.tensor(x_list[0][:, :, 6], device=device)
+    activity = torch.tensor(x_list[0][:, :, 3], device=device)  # signal state is at column 3
     distrib = activity.flatten()
     distrib = distrib[~torch.isnan(distrib)]
     if len(distrib) > 0:
@@ -792,7 +792,7 @@ def data_train_signal(config, erase, best_model, style, device):
                                                                      model_MLP=model_MLP, model=model,
                                                                      n_nodes=0,
                                                                      n_neurons=n_neurons, ynorm=ynorm,
-                                                                     type_list=to_numpy(x[:, 1 + 2 * dimension]),
+                                                                     type_list=to_numpy(x[:, 6]),  # neuron_type is at column 6
                                                                      cmap=cmap, update_type=update_type, device=device)
 
                 labels, n_clusters, new_labels = sparsify_cluster(train_config.cluster_method, proj_interaction, embedding, train_config.cluster_distance_threshold, type_list, n_neuron_types, embedding_cluster)
@@ -959,7 +959,7 @@ def data_train_flyvis(config, erase, best_model, device):
     print(f'n neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons =n_neurons
-    type_list = torch.tensor(x[:, 2 + 2 * dimension:3 + 2 * dimension], device=device)
+    type_list = torch.tensor(x[:, 6:7], device=device)  # neuron_type is at column 6
     ynorm = torch.tensor(1.0, device=device)
     torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
     time.sleep(0.5)
@@ -2238,6 +2238,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     if field_type != '':
         n_nodes = simulation_config.n_nodes
         n_nodes_per_axis = int(np.sqrt(n_nodes))
+    
     log_dir = 'log/' + config.config_file
     files = glob.glob(f"./{log_dir}/tmp_recons/*")
     for f in files:
@@ -2535,7 +2536,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             model_generator.W = torch.nn.Parameter(torch.tensor(connectivity, device=device))
             model.W = torch.nn.Parameter(model_generator.W.clone() * torch.tensor(second_correction, device=device))
 
-        cell_types = to_numpy(x[:, 5]).astype(int)
+        cell_types = to_numpy(x[:, 6]).astype(int)
         type_counts = [np.sum(cell_types == n) for n in range(n_neuron_types)]
         plt.figure(figsize=(10, 10))
         plt.bar(range(n_neuron_types), type_counts,
@@ -2562,15 +2563,15 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         id=0
         for n in range(n_neuron_types):
             print(f'neuron type {n}, first cell id {id}')
-            x[id:id+int(new_params[n+1]*n_neurons/100), 5] = n
-            x_generated[id:id+int(new_params[n+1]*n_neurons/100), 5] = n
+            x[id:id+int(new_params[n+1]*n_neurons/100), 6] = n
+            x_generated[id:id+int(new_params[n+1]*n_neurons/100), 6] = n
             id = id + int(new_params[n+1]*n_neurons/100)
         print(f'last cell id {id}, total number of neurons {n_neurons}')
 
         first_embedding = model.a.clone().detach()
         model_a_ = nn.Parameter(torch.tensor(np.ones((int(n_neurons), model.embedding_dim)), device=device, requires_grad=False,dtype=torch.float32))
         for n in range(n_neurons):
-            t = to_numpy(x[n, 5]).astype(int)
+            t = to_numpy(x[n, 6]).astype(int)
             index = first_cell_id_neurons[t][np.random.randint(len(first_cell_id_neurons[t]))]
             with torch.no_grad():
                 model_a_[n] = first_embedding[index].clone().detach()
@@ -2581,7 +2582,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             for n in range(model.a.shape[0]):
                 model.a[n] = model_a_[n]
 
-                cell_types = to_numpy(x[:, 5]).astype(int)
+                cell_types = to_numpy(x[:, 6]).astype(int)
         type_counts = [np.sum(cell_types == n) for n in range(n_neuron_types)]
         plt.figure(figsize=(10, 10))
         plt.bar(range(n_neuron_types), type_counts,
@@ -4470,6 +4471,175 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
 
 
+def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
+    """
+    Train nnr_f (SIREN/INR network) on external_input data from x_list.
 
-# watcher-test Wed Nov 12 07:52:16 PST 2025
-# watcher-test Wed Nov 12 07:53:26 PST 2025
+    This pre-trains the implicit neural representation (INR) network before
+    joint learning with GNN. The INR learns to map time -> external_input
+    for all neurons.
+
+    Args:
+        config: NeuralGraphConfig object
+        device: torch device
+        total_steps: Number of training steps (default: 5000)
+        erase: Whether to erase existing log files (default: False)
+
+    Returns:
+        nnr_f: Trained SIREN model
+        loss_list: List of training losses
+    """
+
+    # create log directory
+    log_dir, logger = create_log_dir(config, erase)
+    output_folder = os.path.join(log_dir, 'tmp_training', 'field')
+    os.makedirs(output_folder, exist_ok=True)
+
+    dataset_name = config.dataset
+    data_folder = f"./graphs_data/{dataset_name}/"
+    print(f"loading data from: {data_folder}")
+
+    # load x_list data
+    x_list = np.load(f"{data_folder}/x_list_0.npy")
+    print(f"x_list shape: {x_list.shape}")  # (n_frames, n_neurons, n_features)
+
+    n_frames, n_neurons, n_features = x_list.shape
+    print(f"n_frames: {n_frames}, n_neurons: {n_neurons}, n_features: {n_features}")
+
+    # Extract external_input from x_list (column 4)
+    external_input = x_list[:, :, 4]  # shape: (n_frames, n_neurons)
+    print(f"external_input shape: {external_input.shape}")
+    print(f"external_input range: [{external_input.min():.4f}, {external_input.max():.4f}]")
+
+    # get nnr_f config parameters
+    model_config = config.graph_model
+    input_size_nnr_f = getattr(model_config, 'input_size_nnr_f', 1)
+    hidden_dim_nnr_f = getattr(model_config, 'hidden_dim_nnr_f', 1024)
+    n_layers_nnr_f = getattr(model_config, 'n_layers_nnr_f', 3)
+    outermost_linear_nnr_f = getattr(model_config, 'outermost_linear_nnr_f', True)
+    output_size_nnr_f = getattr(model_config, 'output_size_nnr_f', n_neurons)
+    omega_f = getattr(model_config, 'omega_f', 1024)
+    nnr_f_T_period = getattr(model_config, 'nnr_f_T_period', 10000)
+
+    # get training config parameters
+    training_config = config.training
+    batch_size = getattr(training_config, 'batch_size', 8)
+    learning_rate = getattr(training_config, 'learning_rate_NNR_f', 1e-6)
+
+    # get simulation config for calculation check
+    sim_config = config.simulation
+    delta_t = getattr(sim_config, 'delta_t', 0.01)
+    oscillation_frequency = getattr(sim_config, 'oscillation_frequency', 0.1)
+
+    # calculation check
+    total_sim_time = n_frames * delta_t
+    period_time_units = 1.0 / oscillation_frequency if oscillation_frequency > 0 else float('inf')
+    period_frames = period_time_units / delta_t if oscillation_frequency > 0 else float('inf')
+    total_cycles = total_sim_time / period_time_units if oscillation_frequency > 0 else 0
+    normalized_time_max = n_frames / nnr_f_T_period
+    recommended_omega = 2 * np.pi * total_cycles
+
+    print(f"siren calculation check:")
+    print(f"  total simulation time: n_frames × delta_t = {n_frames} × {delta_t} = {total_sim_time:.1f} time units")
+    print(f"  period: 1 / oscillation_frequency = 1 / {oscillation_frequency} = {period_time_units:.1f} time units = {period_frames:.0f} frames")
+    print(f"  total cycles: {total_sim_time:.1f} / {period_time_units:.1f} = {total_cycles:.0f} cycles")
+    print(f"  normalized time range: [0, n_frames / nnr_f_T_period] = [0, {n_frames}/{nnr_f_T_period}] = [0, {normalized_time_max:.1f}]")
+    print(f"  omega_f rule: ≈ 2π × num_cycles = 2π × {total_cycles:.0f} ≈ {recommended_omega:.0f}")
+    print(f"  omega_f (config): {omega_f}")
+    print(f"siren architecture: {input_size_nnr_f} → {hidden_dim_nnr_f} × {n_layers_nnr_f} → {output_size_nnr_f}")
+    print(f"training: batch_size={batch_size}, learning_rate={learning_rate}")
+
+    # create SIREN model for nnr_f
+    nnr_f = Siren(
+        in_features=input_size_nnr_f,
+        hidden_features=hidden_dim_nnr_f,
+        hidden_layers=n_layers_nnr_f,
+        out_features=output_size_nnr_f,
+        outermost_linear=outermost_linear_nnr_f,
+        first_omega_0=omega_f,
+        hidden_omega_0=omega_f
+    )
+    nnr_f = nnr_f.to(device)
+
+    # prepare training data - normalize time by nnr_f_T_period
+    time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+    ground_truth = torch.tensor(external_input, dtype=torch.float32, device=device)  # (n_frames, n_neurons)
+
+    steps_til_summary = 5000
+
+    optim = torch.optim.Adam(lr=learning_rate, params=nnr_f.parameters())
+
+    print(f"training nnr_f for {total_steps} steps...")
+
+    loss_list = []
+    pbar = trange(total_steps + 1, ncols=150)
+    for step in pbar:
+
+        sample_ids = np.random.choice(n_frames, batch_size, replace=False)
+        time_batch = time_input[sample_ids]
+        gt_batch = ground_truth[sample_ids]
+
+        pred = nnr_f(time_batch)
+        loss = ((pred - gt_batch) ** 2).mean()
+
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
+
+        loss_list.append(loss.item())
+        pbar.set_postfix(loss=f"{loss.item():.6f}")
+
+        if step % steps_til_summary == 0:
+            with torch.no_grad():
+                pred_all = nnr_f(time_input)
+                gt_np = ground_truth.cpu().numpy()
+                pred_np = pred_all.cpu().numpy()
+
+                fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+                fig.patch.set_facecolor('black')
+
+                # Loss plot
+                axes[0].set_facecolor('black')
+                axes[0].plot(loss_list, color='white', lw=0.5)
+                axes[0].set_xlabel('step', color='white', fontsize=12)
+                axes[0].set_ylabel('MSE Loss', color='white', fontsize=12)
+                axes[0].set_yscale('log')
+                axes[0].tick_params(colors='white', labelsize=11)
+                for spine in axes[0].spines.values():
+                    spine.set_color('white')
+
+                # Traces plot (10 neurons, darkgreen=GT, white=pred)
+                axes[1].set_facecolor('black')
+                axes[1].set_axis_off()
+                n_traces = 10
+                trace_ids = np.linspace(0, n_neurons - 1, n_traces, dtype=int)
+                offset = np.abs(gt_np).max() * 1.5
+                t = np.arange(n_frames)
+
+                for j, n_idx in enumerate(trace_ids):
+                    y0 = j * offset
+                    axes[1].plot(t, gt_np[:, n_idx] + y0, color='darkgreen', lw=2.0, alpha=0.95)
+                    axes[1].plot(t, pred_np[:, n_idx] + y0, color='white', lw=0.5, alpha=0.95)
+
+                axes[1].set_xlim(0, min(10000, n_frames))
+                axes[1].set_ylim(-offset * 0.5, offset * (n_traces + 0.5))
+                mse = ((pred_np - gt_np) ** 2).mean()
+                axes[1].text(0.02, 0.98, f'MSE: {mse:.6f}',
+                            transform=axes[1].transAxes, va='top', ha='left',
+                            fontsize=12, color='white')
+
+                plt.tight_layout()
+                plt.savefig(f"{output_folder}/siren_{step}.png", dpi=150)
+                plt.close()
+
+    # Save trained model
+    save_path = f"{output_folder}/nnr_f_pretrained.pt"
+    torch.save(nnr_f.state_dict(), save_path)
+    print(f"\nSaved pretrained nnr_f to: {save_path}")
+
+    with torch.no_grad():
+        pred_all = nnr_f(time_input)
+        final_mse = ((pred_all - ground_truth) ** 2).mean().item()
+        print(f"Final MSE: {final_mse:.6f}")
+
+    return nnr_f, loss_list

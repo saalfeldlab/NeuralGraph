@@ -15,8 +15,8 @@ class PDE_N6(pyg.nn.MessagePassing):
     x[:, 1:3] = positions (x, y)
     x[:, 3]   = signal u (state)
     x[:, 4]   = external_input
-    x[:, 5]   = neuron_type
-    x[:, 6]   = plasticity p
+    x[:, 5]   = plasticity p
+    x[:, 6]   = neuron_type
     x[:, 7]   = calcium
 
     Inputs
@@ -42,7 +42,7 @@ class PDE_N6(pyg.nn.MessagePassing):
 
     def forward(self, data=[], has_field=False, data_id=[], frame=None):
         x, _edge_index = data.x, data.edge_index
-        neuron_type = to_numpy(x[:, 5])
+        neuron_type = to_numpy(x[:, 6])
         parameters = self.p[neuron_type]
         g = parameters[:, 0:1]
         s = parameters[:, 1:2]
@@ -51,7 +51,7 @@ class PDE_N6(pyg.nn.MessagePassing):
         alpha = parameters[:, 4:5]
 
         u = x[:, 3:4]  # signal state
-        p = x[:, 6:7]  # plasticity
+        p = x[:, 5:6]  # plasticity
         external_input = x[:, 4:5]  # external input
 
         self.msg = self.W * self.phi(u)

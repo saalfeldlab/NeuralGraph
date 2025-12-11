@@ -7,7 +7,7 @@ import os
 
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
-from NeuralGraph.models.graph_trainer import data_train, data_test
+from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
@@ -40,7 +40,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'generate'  #, 'train', 'test', 'generate', 'plot', 'NGP'
+        task = 'generate train_INR'  #, 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR'
 
 
         # config_list = [
@@ -56,7 +56,9 @@ if __name__ == "__main__":
         #     'signal_N11_5_5'
         # ]
 
-        config_list = ['signal_N4_1', 'signal_N4_2', 'signal_N4_3', 'signal_N2_1']
+        # config_list = ['signal_N4_1', 'signal_N4_2', 'signal_N4_3', 'signal_N4_4', 'signal_N2_1']
+
+        config_list = ['signal_N4_4']
 
 
     for config_file_ in config_list:
@@ -85,7 +87,16 @@ if __name__ == "__main__":
                 step=2
             ) 
 
-        if "train" in task:
+        if 'train_NGP' in task:
+            # Use new modular NGP trainer pipeline
+            data_train_NGP(config=config, device=device)
+
+        elif 'train_INR' in task:
+            print()
+            # Pre-train nnr_f (SIREN) on external_input data before joint GNN learning
+            data_train_INR(config=config, device=device, total_steps=50000)
+
+        elif "train" in task:
             data_train(
                 config=config, 
                 erase=False, 
@@ -122,12 +133,8 @@ if __name__ == "__main__":
             os.makedirs(folder_name, exist_ok=True)
             data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
 
-        if task == 'NGP':
-            # Use new modular NGP trainer pipeline
-            data_train_NGP(config=config, device=device)
 
 
-            
                   
 
 

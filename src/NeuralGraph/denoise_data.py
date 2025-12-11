@@ -24,10 +24,10 @@ def denoise_data(config, x_list, y_list, denoise_std, device):
     # Convert the list of denoised signals to a numpy array
     denoised_signals_array = np.stack(denoised_signals, axis=1)
     # Update the x_list array with the denoised values
-    x_list[:, :, 6] = denoised_signals_array
+    x_list[:, :, 3] = denoised_signals_array
 
     for k in range(1, x_list.shape[0] - 1):
-        y_list[k] = (x_list[k + 1, :, 6:7] - x_list[k, :, 6:7]).squeeze() / config.simulation.delta_t
+        y_list[k] = (x_list[k + 1, :, 3:4] - x_list[k, :, 3:4]).squeeze() / config.simulation.delta_t
 
     return x_list, y_list
 
@@ -115,10 +115,10 @@ if __name__ == '__main__':
     denoised_signals_array = np.stack(denoised_signals, axis=1)
 
     # Update the x_list array with the denoised values
-    x_list[:, :, 6] = denoised_signals_array
+    x_list[:, :, 3] = denoised_signals_array
 
 
-    activity = torch.tensor(x_list[:, :, 6:7])
+    activity = torch.tensor(x_list[:, :, 3:4])
     activity = activity.squeeze()
     activity = activity.t()
 

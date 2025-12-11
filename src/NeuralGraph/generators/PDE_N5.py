@@ -14,8 +14,8 @@ class PDE_N5(pyg.nn.MessagePassing):
     x[:, 1:3] = positions (x, y)
     x[:, 3]   = signal u (state)
     x[:, 4]   = external_input
-    x[:, 5]   = neuron_type
-    x[:, 6]   = plasticity p (PDE_N6/N7)
+    x[:, 5]   = plasticity p (PDE_N6/N7)
+    x[:, 6]   = neuron_type
     x[:, 7]   = calcium
 
     Inputs
@@ -41,7 +41,7 @@ class PDE_N5(pyg.nn.MessagePassing):
     def forward(self, data=[], has_field=False, data_id=[], frame=None):
         x, edge_index = data.x, data.edge_index
 
-        neuron_type = x[:, 5].long()
+        neuron_type = x[:, 6].long()
         parameters = self.p[neuron_type]
         g = parameters[:, 0:1]
         s = parameters[:, 1:2]
@@ -55,16 +55,17 @@ class PDE_N5(pyg.nn.MessagePassing):
             b = parameters[:, 4:5]
 
         u = x[:, 3:4]  # signal state
-        external_input = x[:, 4:5]  # external input
+        
 
         if has_field:
-            field = external_input
+            field = x[:, 4:5]
+            msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=field)
+            du = -c * u + s * torch.tanh(u) + g * msg
         else:
             field = torch.ones_like(u)
-
-        msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=field)
-
-        du = -c * u + s * torch.tanh(u) + g * msg + external_input
+            external_input = x[:, 4:5]  # external input
+            msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=field)
+            du = -c * u + s * torch.tanh(u) + g * msg + external_input
 
         return du
 

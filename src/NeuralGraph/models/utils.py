@@ -940,7 +940,7 @@ def get_index_particles(x, n_neuron_types, dimension):
     index_particles = []
     for n in range(n_neuron_types):
         if dimension == 2:
-            index = np.argwhere(x[:, 5].detach().cpu().numpy() == n)
+            index = np.argwhere(x[:, 6].detach().cpu().numpy() == n)
         elif dimension == 3:
             index = np.argwhere(x[:, 7].detach().cpu().numpy() == n)
         index_particles.append(index.squeeze())
