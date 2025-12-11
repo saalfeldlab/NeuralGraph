@@ -88,24 +88,28 @@ class PDE_N4(pyg.nn.MessagePassing):
         x, edge_index = data.x, data.edge_index
         neuron_type = x[:, 5].long()
 
+        # Extract neuron-type-dependent parameters
+        # params order: [a, b, g, s, w, h]
         parameters = self.p[neuron_type]
-        g = parameters[:, 0:1]
-        s = parameters[:, 1:2]
-        c = parameters[:, 2:3]
-        t = parameters[:, 3:4]
-        b = parameters[:, 4:5]
-        a = parameters[:, 5:6]
+        a = parameters[:, 0:1]  # decay: rate of signal decay (-a*u term)
+        b = parameters[:, 1:2]  # offset: constant input/drive term
+        g = parameters[:, 2:3]  # gain: coupling strength for incoming messages
+        s = parameters[:, 3:4]  # self-recurrence: strength of self-feedback
+        w = parameters[:, 4:5]  # width: temperature/scaling for activation function MLP1((u-h)/w)
+        h = parameters[:, 5:6]  # threshold: baseline for activation function MLP1((u-h)/w)
 
         u = x[:, 6:7]
-        
+
         if has_field:
             field = x[:, 8:9]
         else:
             field = torch.ones_like(x[:, 6:7])
 
-        msg = self.propagate(edge_index, u=u, t=t, b=b, field=field)
+        msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
 
-        du = -c * u + a + s * torch.tanh(u) + g * msg
+        # du = -a*u + b + s*tanh(u) + g*msg
+        # decay + offset + self-recurrence + network input
+        du = -a * u + b + s * torch.tanh(u) + g * msg
 
         if self.has_oscillations:
             du = du + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
@@ -130,25 +134,25 @@ class PDE_N4(pyg.nn.MessagePassing):
 
         return du
 
-    def message(self, edge_index_i, edge_index_j, u_j, t_j, b_j, field_i):
-
+    def message(self, edge_index_i, edge_index_j, u_j, w_j, h_j, field_i):
+        # Message from neuron j to neuron i: W_ij * φ((u_j - h_j) / w_j) * field_i
+        # W: connectivity matrix, φ: activation function, h: threshold, w: width
         T = self.W
 
-        return T[edge_index_i, edge_index_j][:, None] * self.phi((u_j-b_j) / t_j) * field_i
+        return T[edge_index_i, edge_index_j][:, None] * self.phi((u_j - h_j) / w_j) * field_i
 
     def func(self, u, type, function):
 
         if function=='phi':
+            # φ((u - h) / w): activation function with threshold h and width w
+            # params order: [a, b, g, s, w, h] = indices [0, 1, 2, 3, 4, 5]
+            w = self.p[type, 4:5]  # width
+            h = self.p[type, 5:6]  # threshold
 
-            t = self.p[type, 3:4]
-
-            if self.p.shape[1] < 5:
-                b = torch.zeros_like(t)
-            else:
-                b = self.p[type, 4:5]
-
-            return self.phi((u-b)/t)
+            return self.phi((u - h) / w)
 
         elif function=='update':
-            _g, s, c = self.p[type, 0:1], self.p[type, 1:2], self.p[type, 2:3]
-            return -c * u + s * torch.tanh(u)
+            # Self-dynamics: -a*u + s*tanh(u)
+            # params order: [a, b, g, s, w, h]
+            a, s = self.p[type, 0:1], self.p[type, 3:4]
+            return -a * u + s * torch.tanh(u)

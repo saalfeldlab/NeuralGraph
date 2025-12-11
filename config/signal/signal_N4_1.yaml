@@ -1,4 +1,4 @@
-description: "synaptic network 100.000 points  1000 000 iterations per epoch batchsize 8  coeff_W_L1: 1.0E-5    learning_rate_embedding_start: 7.5E-4"
+description: "heterogeneity MLP0"
 dataset: "signal_N4_1"
 
 simulation:
@@ -6,12 +6,14 @@ simulation:
   adjacency_matrix: ""
   connectivity_init: [0, 0.1]
   connectivity_distribution: "Lorentz"
+  # params: [a, b, g, s, w, h]
+  # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
   params:
     [
-      [10.0, 1.0, 1.0, 1.0, 1.0, 0.0],
-      [10.0, 2.0, 1.0, 1.0, 1.0, 0.0],
-      [10.0, 1.0, 2.0, 1.0, 1.0, 0.0],
-      [10.0, 2.0, 2.0, 1.0, 1.0, 0.0],
+      [1.0, 0.0, 10.0, 1.0, 1.0, 0.0],
+      [1.0, 0.0, 10.0, 2.0, 1.0, 0.0],
+      [2.0, 0.0, 10.0, 1.0, 1.0, 0.0],
+      [2.0, 0.0, 10.0, 2.0, 1.0, 0.0],
     ]
   phi: "tanh"
   tau: 1.0
@@ -57,17 +59,18 @@ training:
 
   batch_size: 8
   small_init_batch_size: False
+  init_training_single_type: True
 
   seed: 24
 
-  data_augmentation_loop: 25
+  data_augmentation_loop: 10
 
-  sparsity: "none"
+  sparsity: "replace_embedding_function"
   sparsity_freq: 4
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
-  learning_rate_embedding_start: 7.5E-4
+  learning_rate_embedding_start: 2.5E-4
   coeff_W_L1: 1.0E-5

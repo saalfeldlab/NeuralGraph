@@ -1,5 +1,5 @@
 description: 'small MLP, no extra null edges, noise_model_level: 0 training seed: 72'
-dataset: 'fly_N9_18_4_0'
+dataset: 'fly_N9_22_1'
 
 simulation:
     connectivity_file: 'to be specified'
