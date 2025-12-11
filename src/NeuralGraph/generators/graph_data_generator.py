@@ -1031,6 +1031,8 @@ def data_generate_synaptic(
     delta_t = simulation_config.delta_t
     n_frames = simulation_config.n_frames
     has_particle_dropout = training_config.particle_dropout > 0
+    has_visual_input = "visual" in field_type
+    has_modulation = "modulation" in field_type
     dataset_name = config.dataset
     noise_model_level = training_config.noise_model_level
     measurement_noise_level = training_config.measurement_noise_level
@@ -1101,6 +1103,58 @@ def data_generate_synaptic(
         )
 
 
+    # External input parameters (moved from PDE_N4)
+    input_type = simulation_config.input_type
+    has_oscillations = (input_type == 'oscillatory')
+    has_triggered = (input_type == 'triggered')
+    oscillation_amplitude = simulation_config.oscillation_max_amplitude
+    oscillation_frequency = torch.tensor(simulation_config.oscillation_frequency, dtype=torch.float32, device=device)
+    max_frame = n_frames + 1
+
+    # Initialize triggered oscillation parameters (if needed)
+    if has_triggered:
+        triggered_n_impulses = simulation_config.triggered_n_impulses
+        triggered_n_input = simulation_config.triggered_n_input_neurons
+        triggered_strength = simulation_config.triggered_impulse_strength
+        triggered_duration = simulation_config.triggered_duration_frames
+        amplitude_range = simulation_config.triggered_amplitude_range
+        frequency_range = simulation_config.triggered_frequency_range
+
+        # Generate per-neuron random amplitude
+        e_global = oscillation_amplitude * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
+
+        # Generate multiple impulse events spread throughout simulation
+        buffer = triggered_duration
+        available_frames = max_frame - 2 * buffer
+        spacing = available_frames // max(1, triggered_n_impulses)
+
+        trigger_frames = []
+        trigger_amplitudes = []
+        trigger_frequencies = []
+        trigger_neurons = []
+        trigger_e = []
+
+        for i in range(triggered_n_impulses):
+            base_frame = buffer + i * spacing
+            jitter = torch.randint(-spacing//4, spacing//4 + 1, (1,), device=device).item() if spacing > 4 else 0
+            trigger_frame = max(buffer, min(max_frame - buffer, base_frame + jitter))
+            trigger_frames.append(trigger_frame)
+
+            amp_mult = amplitude_range[0] + torch.rand(1, device=device).item() * (amplitude_range[1] - amplitude_range[0])
+            trigger_amplitudes.append(amp_mult)
+
+            freq_mult = frequency_range[0] + torch.rand(1, device=device).item() * (frequency_range[1] - frequency_range[0])
+            trigger_frequencies.append(freq_mult)
+
+            input_neurons = torch.randperm(n_neurons, device=device)[:triggered_n_input]
+            trigger_neurons.append(input_neurons)
+
+            e = oscillation_amplitude * amp_mult * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
+            trigger_e.append(e)
+    elif has_oscillations:
+        # Per-neuron random amplitude for oscillatory input
+        e_global = oscillation_amplitude * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
+
     for run in range(config.training.n_runs):
 
         id_fig = 0
@@ -1114,10 +1168,6 @@ def data_generate_synaptic(
         X1, V1, T1, H1, A1, N1 = init_neurons(
             config=config, scenario=scenario, ratio=ratio, device=device
         )
-
-        A1 = torch.ones((n_neurons, 1), dtype=torch.float32, device=device)
-        U1 = torch.rand_like(H1, device=device)
-        U1[:, 1] = 0
 
         if simulation_config.shuffle_neuron_types:
             if run == 0:
@@ -1150,21 +1200,21 @@ def data_generate_synaptic(
             plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc)
             plot_connectivity_matrix(connectivity, dataset_name)
 
-        if "modulation" in field_type:
+        if has_modulation:
             if run == 0:
                 X1_mesh, V1_mesh, T1_mesh, H1_mesh, A1_mesh, N1_mesh, mesh_data = (
                     init_mesh(config, device=device)
                 )
                 X1 = X1_mesh
-        elif "visual" in field_type:
+        elif has_visual_input:
             if run == 0:
                 X1_mesh, V1_mesh, T1_mesh, H1_mesh, A1_mesh, N1_mesh, mesh_data = (
                     init_mesh(config, device=device)
                 )
-                x, y = get_equidistant_points(n_points=1024)
+                pos_x, pos_y = get_equidistant_points(n_points=1024)
                 X1 = (
                     torch.tensor(
-                        np.stack((x, y), axis=1), dtype=torch.float32, device=device
+                        np.stack((pos_x, pos_y), axis=1), dtype=torch.float32, device=device
                     )
                     / 2
                 )
@@ -1174,17 +1224,23 @@ def data_generate_synaptic(
 
         model, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
 
-        x = torch.concatenate(
-            (
-                N1.clone().detach(),
-                X1.clone().detach(),
-                V1.clone().detach(),
-                T1.clone().detach(),
-                H1.clone().detach(),
-                A1.clone().detach(),
-            ),
-            1,
-        )
+        # NEW x tensor layout (like flyvis):
+        # x[:, 0]   = index (neuron ID)
+        # x[:, 1:3] = positions (x, y)
+        # x[:, 3]   = signal u (state)
+        # x[:, 4]   = external_input
+        # x[:, 5]   = neuron_type
+        # x[:, 6]   = plasticity p (PDE_N6/N7)
+        # x[:, 7]   = calcium
+        x = torch.zeros((n_neurons, 8), dtype=torch.float32, device=device)
+        x[:, 0] = torch.arange(n_neurons, dtype=torch.float32, device=device)  # index
+        x[:, 1:3] = X1.clone().detach()  # positions
+        x[:, 3] = H1[:, 0].clone().detach()  # signal state u
+        x[:, 4] = 0  # external input (set per frame)
+        x[:, 5] = T1.squeeze().clone().detach()  # neuron type
+        x[:, 6] = 1  # plasticity p (init to 1 for PDE_N6/N7)
+        x[:, 7] = 0  # calcium
+
         check_and_clear_memory(
             device=device,
             iteration_number=0,
@@ -1194,55 +1250,58 @@ def data_generate_synaptic(
 
         time.sleep(0.5)
         for it in trange(simulation_config.start_frame, n_frames + 1, ncols=150):
-            # calculate type change
             with torch.no_grad():
-                
-                if ("modulation" in field_type) & (it >= 0):
+
+                # Compute external input for this frame
+                external_input = torch.zeros((n_neurons, 1), device=device)
+
+                if (has_modulation) & (it >= 0):
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
                     im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
                     if "permutation" in model_config.field_type:
                         im_ = im_[permutation_indices]
-                    A1[:, 0:1] = torch.tensor(
-                        im_[:, None], dtype=torch.float32, device=device
-                    )
-                if ("visual" in field_type) & (it >= 0):
+                    external_input[:, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
+                elif (has_visual_input) & (it >= 0):
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
                     im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
-                    A1[:n_nodes, 0:1] = torch.tensor(
-                        im_[:, None], dtype=torch.float32, device=device
-                    )
-                    A1[n_nodes:n_neurons, 0:1] = 1
+                    external_input[:n_nodes, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
+                    external_input[n_nodes:n_neurons, 0] = 1
+                elif has_oscillations:
+                    # Oscillatory external input
+                    external_input = e_global * torch.cos((2*np.pi)*oscillation_frequency*it / max_frame)
+                elif has_triggered:
+                    # Triggered oscillation input
+                    for i in range(triggered_n_impulses):
+                        trig_frame = trigger_frames[i]
+                        # Add impulse at trigger frame
+                        if it == trig_frame:
+                            impulse = torch.zeros((n_neurons, 1), device=device)
+                            impulse[trigger_neurons[i]] = triggered_strength * trigger_amplitudes[i]
+                            external_input = external_input + impulse
+                        # Add oscillatory response after trigger
+                        if trig_frame <= it < trig_frame + triggered_duration:
+                            t_since_trigger = it - trig_frame
+                            freq_mult = trigger_frequencies[i]
+                            osc = trigger_e[i] * torch.sin((2*np.pi)*oscillation_frequency*freq_mult*t_since_trigger / triggered_duration)
+                            external_input = external_input + osc
 
-                    # plt.scatter(to_numpy(X1_mesh[:, 1]), to_numpy(X1_mesh[:, 0]), s=40, c=to_numpy(A1), cmap='grey', vmin=0,vmax=1)
+                # Update x tensor for this frame
+                x[:, 4] = external_input.squeeze()  # external input
 
-                x = torch.concatenate(
-                    (
-                        N1.clone().detach(),
-                        X1.clone().detach(),
-                        V1.clone().detach(),
-                        T1.clone().detach(),
-                        H1.clone().detach(),
-                        A1.clone().detach(),
-                        U1.clone().detach(),
-                    ),
-                    1,
-                )
-                X[:, it] = H1[:, 0].clone().detach()
+                X[:, it] = x[:, 3].clone().detach()  # store signal state
                 dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
 
                 # model prediction
-                if ("modulation" in field_type) & (it >= 0):
-                    y = model(dataset, has_field=True, frame=it)
-                elif ("visual" in field_type) & (it >= 0):
+                if has_modulation | has_visual_input | has_oscillations | has_triggered:
                     y = model(dataset, has_field=True, frame=it)
                 elif "PDE_N3" in model_config.signal_model_name:
                     y = model(dataset, has_field=False, alpha=it / n_frames, frame=it)
                 elif "PDE_N6" in model_config.signal_model_name:
-                    (y,p,) = model(dataset, has_field=False, frame=it)
+                    (y, p_out) = model(dataset, has_field=False, frame=it)
                 elif "PDE_N7" in model_config.signal_model_name:
-                    (y,p,) = model(dataset, has_field=False, frame=it)
+                    (y, p_out) = model(dataset, has_field=False, frame=it)
                 elif "PDE_N11" in model_config.signal_model_name:
                     y = model(dataset, has_field=False, frame=it)
                 else:
@@ -1253,22 +1312,21 @@ def data_generate_synaptic(
                 x_list.append(to_numpy(x))
                 y_list.append(to_numpy(y))
 
-            # field update
+            # field update - update x tensor directly
             if (config.graph_model.signal_model_name == "PDE_N6") | (config.graph_model.signal_model_name == "PDE_N7"):
-                H1[:, 1] = y.squeeze()
-                H1[:, 0] = H1[:, 0] + H1[:, 1] * delta_t
+                # Signal update
+                du = y.squeeze()
+                x[:, 3] = x[:, 3] + du * delta_t
                 if noise_model_level > 0:
-                    H1[:, 0] = (
-                        H1[:, 0]
-                        + torch.randn(n_neurons, device=device) * noise_model_level
-                    )
-                H1[:, 3] = p.squeeze()
-                H1[:, 2] = torch.relu(H1[:, 2] + H1[:, 3] * delta_t)
+                    x[:, 3] = x[:, 3] + torch.randn(n_neurons, device=device) * noise_model_level
+                # Plasticity update
+                dp = p_out.squeeze()
+                x[:, 6] = torch.relu(x[:, 6] + dp * delta_t)
             else:
-                H1[:, 1] = y.squeeze()
-                H1[:, 0] = H1[:, 0] + H1[:, 1] * delta_t
+                du = y.squeeze()
+                x[:, 3] = x[:, 3] + du * delta_t
                 if noise_model_level > 0:
-                    H1[:, 0] = (H1[:, 0]+ torch.randn(n_neurons, device=device) * noise_model_level)
+                    x[:, 3] = x[:, 3] + torch.randn(n_neurons, device=device) * noise_model_level
 
             # output plots
             if visualize & (run == run_vizualized) & (it % step == 0) & (it >= 0):
@@ -1282,16 +1340,16 @@ def data_generate_synaptic(
                 id_fig += 1
 
                 if "visual" in field_type:
-                    plot_synaptic_frame_visual(X1, A1, H1, dataset_name, run, num)
+                    plot_synaptic_frame_visual(x[:, 1:3], x[:, 4:5], x[:, 3:4], dataset_name, run, num)
                 elif "modulation" in field_type:
-                    plot_synaptic_frame_modulation(X1, A1, H1, dataset_name, run, num)
+                    plot_synaptic_frame_modulation(x[:, 1:3], x[:, 4:5], x[:, 3:4], dataset_name, run, num)
                 else:
                     if ("PDE_N6" in model_config.signal_model_name) | (
                         "PDE_N7" in model_config.signal_model_name
                     ):
-                        plot_synaptic_frame_plasticity(X1, x, dataset_name, run, num)
+                        plot_synaptic_frame_plasticity(x[:, 1:3], x, dataset_name, run, num)
                     else:
-                        plot_synaptic_frame_default(X1, x, dataset_name, run, num)
+                        plot_synaptic_frame_default(x[:, 1:3], x, dataset_name, run, num)
 
         print(f"generated {len(x_list)} frames total")
 
@@ -1324,11 +1382,11 @@ def data_generate_synaptic(
             np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
             torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
             for k in range(x_list.shape[0]):
-                x_list[k, :, 6] = x_list[k, :, 6] + np.random.normal(
+                x_list[k, :, 3] = x_list[k, :, 3] + np.random.normal(
                     0, measurement_noise_level, x_list.shape[1]
                 )
             for k in range(1, x_list.shape[0] - 1):
-                y_list[k] = (x_list[k + 1, :, 6:7] - x_list[k, :, 6:7]) / delta_t
+                y_list[k] = (x_list[k + 1, :, 3:4] - x_list[k, :, 3:4]) / delta_t
 
             np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)

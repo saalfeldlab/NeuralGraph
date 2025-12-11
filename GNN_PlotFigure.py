@@ -1046,13 +1046,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     config.simulation.n_neurons = n_neurons
     type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
 
-    activity = torch.tensor(x_list[0][:, :, 6:7],device=device)
+    activity = torch.tensor(x_list[0][:, :, 3:4],device=device)
     activity = activity.squeeze()
     to_numpy(activity.flatten())
     activity = activity.t()
 
     if os.path.exists(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy'):
-        raw_activity = torch.tensor(raw_x[:, :, 6:7], device=device)
+        raw_activity = torch.tensor(raw_x[:, :, 3:4], device=device)
         raw_activity = raw_activity.squeeze()
         raw_activity = raw_activity.t()
 
@@ -2602,19 +2602,19 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 x = torch.tensor(x_list[0][k], device=device)
                 if has_field:
                     if 'visual' in field_type:
-                        x[:n_nodes, 8:9] = model_f(time=k / n_frames) ** 2
-                        x[n_nodes:n_neurons, 8:9] = 1
+                        x[:n_nodes, 4:5] = model_f(time=k / n_frames) ** 2
+                        x[n_nodes:n_neurons, 4:5] = 1
                     elif 'learnable_short_term_plasticity' in field_type:
                         alpha = (k % model.embedding_step) / model.embedding_step
-                        x[:, 8] = alpha * model.b[:, k // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
+                        x[:, 4] = alpha * model.b[:, k // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
                                                                                                          k // model.embedding_step] ** 2
                     elif ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
                         t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
-                        x[:, 8] = model_f(t) ** 2
+                        x[:, 4] = model_f(t) ** 2
                     else:
-                        x[:, 8:9] = model_f(time=k / n_frames) ** 2
+                        x[:, 4:5] = model_f(time=k / n_frames) ** 2
                 else:
-                    x[:, 8:9] = torch.ones_like(x[:, 0:1])
+                    x[:, 4:5] = torch.ones_like(x[:, 0:1])
                 dataset = data.Data(x=x, edge_index=edge_index)
                 data_id = torch.zeros(x.shape[0], dtype=torch.long, device=device)
                 pred, in_features_ = model(data=dataset, data_id=data_id, return_all=True)
@@ -2628,7 +2628,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.close()
 
                 fig, ax = fig_init()
-                f = torch.reshape(x[:n_nodes, 8:9], (n_nodes_per_axis, n_nodes_per_axis))
+                f = torch.reshape(x[:n_nodes, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
                 f = to_numpy(torch.sqrt(f))
                 f = np.rot90(f, k=1)
                 plt.imshow(f, cmap='grey')
@@ -3696,13 +3696,13 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     config.simulation.n_neurons = n_neurons
     type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
 
-    activity = torch.tensor(x_list[0][:, :, 6:7],device=device)
+    activity = torch.tensor(x_list[0][:, :, 3:4],device=device)
     activity = activity.squeeze()
     activity = activity.t()
 
     activity_list = []
     for n in range(n_runs):
-        activity_ = torch.tensor(x_list[n][:, :, 6:7], device=device)
+        activity_ = torch.tensor(x_list[n][:, :, 3:4], device=device)
         activity_ = activity_.squeeze().t()
         activity_list.append(activity_)
 
@@ -4449,7 +4449,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     else:
                         t = torch.linspace(0, 1, n_frames_temp, dtype=torch.float32, device=device).unsqueeze(1)
                     prediction = model_missing_activity[run](t).t() + config.simulation.baseline_value
-                    activity = torch.tensor(x_list[run][:, :, 6:7], device=device).squeeze().t()
+                    activity = torch.tensor(x_list[run][:, :, 3:4], device=device).squeeze().t()
                     im = axes[run].imshow(to_numpy(prediction), aspect='auto', cmap='viridis', vmin=0, vmax=10)
                 plt.tight_layout()
                 plt.savefig(f"./{log_dir}/results/neural_fields_grid.png", dpi=150)
@@ -4462,8 +4462,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     t = torch.linspace(0, 1, n_frames_temp // 100 if n_frames_temp > 1000 else n_frames_temp,
                                        dtype=torch.float32, device=device).unsqueeze(1)
                     prediction = model_missing_activity[run](t).t() + config.simulation.baseline_value
-                    activity = torch.tensor(x_list[run][:, :, 6:7], device=device).squeeze().t()
-                    pos = np.argwhere(x_list[run][0][:, 6] == 6)
+                    activity = torch.tensor(x_list[run][:, :, 3:4], device=device).squeeze().t()
+                    pos = np.argwhere(x_list[run][0][:, 3] == 6)
                     axes[run].scatter(to_numpy(activity[pos, :prediction.shape[1]]),
                                       to_numpy(prediction[pos, :]), s=0.5, alpha=0.3, c=mc)
                     axes[run].set_xlim([0,10])
@@ -4480,7 +4480,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                     plt.axis('off')
                     A = model_W[k].clone().detach()
                     A.fill_diagonal_(0)
-                    pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
+                    pos = np.argwhere(x_list[k][100][:, 3] == config.simulation.baseline_value)
                     A[pos,:] = 0
                     A = torch.reshape(A, (n_neurons, n_neurons))
                     plt.imshow(to_numpy(A), aspect='auto', cmap='bwr', vmin=-0.5, vmax=0.5)
@@ -4494,7 +4494,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
                 for k in range(min(20, model_W.shape[0] - 1)):
                     A = model_W[k].clone().detach()
                     A.fill_diagonal_(0)
-                    pos = np.argwhere(x_list[k][100][:, 6] == config.simulation.baseline_value)
+                    pos = np.argwhere(x_list[k][100][:, 3] == config.simulation.baseline_value)
                     A[pos,:] = 0
                     larynx_pred_weight, index_larynx = map_matrix(larynx_neuron_list, all_neuron_list, A)
                     sns.heatmap(to_numpy(larynx_pred_weight), ax=axes[k], center=0, square=True,
@@ -6796,7 +6796,7 @@ def plot_synaptic_zebra(config, epoch_list, log_dir, logger, cc, style, extended
     np.save(f"./{log_dir}/results/recons_field.npy", generated_x_list)
 
     reconstructed = generated_x_list
-    true = to_numpy(x_list[0][:,:,6:7])
+    true = to_numpy(x_list[0][:,:,3:4])
     reconstructed = reconstructed.squeeze()
     true = true.squeeze()
 

@@ -140,7 +140,7 @@ def neural_ode_loss_Signal(model, dataset_batch, x_list, run, k_batch,
     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
     data_template = next(iter(batch_loader))
 
-    u0 = data_template.x[:, 6].flatten()
+    u0 = data_template.x[:, 3].flatten()
     neurons_per_sample = dataset_batch[0].x.shape[0]
 
     k_per_sample = torch.tensor([

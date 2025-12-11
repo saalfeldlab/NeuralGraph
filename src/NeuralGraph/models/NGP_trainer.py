@@ -1341,7 +1341,7 @@ def stage2_generate_activity_images(x_list, neuron_positions, n_frames, res, dev
             to_numpy(X1[:, 0]),
             -to_numpy(X1[:, 1]),  # Flip y-axis: y -> -y
             s=700,
-            c=to_numpy(x[:, 6]),
+            c=to_numpy(x[:, 3]),
             cmap="viridis",
             vmin=0,
             vmax=1,
@@ -2027,7 +2027,7 @@ def data_train_NGP(config=None, device=None):
     x = x_list[0][n_frames - 10]
     n_neurons = x.shape[0]
 
-    print(f"Activity range after shift: [{x[:, 6].min():.1f}, {x[:, 6].max():.1f}]")
+    print(f"Activity range after shift: [{x[:, 3].min():.1f}, {x[:, 3].max():.1f}]")
 
     # SIREN config
     siren_config = {

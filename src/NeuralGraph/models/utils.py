@@ -314,7 +314,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     else:
         fig = plt.figure(figsize=(8, 8))
         for n in range(n_neurons):
-            if x[n, 6] != config.simulation.baseline_value:
+            if x[n, 3] != config.simulation.baseline_value:
                 plt.scatter(to_numpy(model.a[n, 0]), to_numpy(model.a[n, 1]), s=100,
                             color=cmap.color(int(type_list[n])), alpha=1.0, edgecolors='none')
 
@@ -642,9 +642,9 @@ def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, fi
     else:
         n_nodes_per_axis = int(np.sqrt(n_nodes))
         if 'visual' in field_type:
-            tmp = torch.reshape(x[:n_nodes, 8:9], (n_nodes_per_axis, n_nodes_per_axis))
+            tmp = torch.reshape(x[:n_nodes, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
         else:
-            tmp = torch.reshape(x[:, 8:9], (n_nodes_per_axis, n_nodes_per_axis))
+            tmp = torch.reshape(x[:, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
         tmp = to_numpy(torch.sqrt(tmp))
         tmp = np.rot90(tmp, k=1)
         fig = plt.figure(figsize=(12, 12))
@@ -984,16 +984,16 @@ def sample_synaptic_data_and_predict(model, x_list, edges, n_runs, n_frames, tim
 
     # Handle missing activity if needed
     if has_missing_activity and model_missing_activity is not None:
-        pos = torch.argwhere(x[:, 6] == 6)
+        pos = torch.argwhere(x[:, 3] == 6)
         if len(pos) > 0:
             t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
             missing_activity = model_missing_activity[run](t).squeeze()
-            x[pos, 6] = missing_activity[pos]
+            x[pos, 3] = missing_activity[pos]
 
     # Handle neural field if needed
     if has_neural_field and model_f is not None:
         t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
-        x[:, 8] = model_f[run](t) ** 2
+        x[:, 4] = model_f[run](t) ** 2
 
     # Create dataset
     dataset = data.Data(x=x, edge_index=edges)

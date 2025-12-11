@@ -1,5 +1,4 @@
 
-import numpy as np
 import torch
 import torch_geometric as pyg
 
@@ -8,7 +7,16 @@ class PDE_N11(pyg.nn.MessagePassing):
     https://proceedings.neurips.cc/paper/2016/hash/3147da8ab4a0437c15ef51a5cc7f2dc4-Abstract.html"""
 
     """
-    Compute network signaling, the transfer functions are neuron-dependent
+    Compute network signaling with configurable activation functions per neuron type
+
+    X tensor layout:
+    x[:, 0]   = index (neuron ID)
+    x[:, 1:3] = positions (x, y)
+    x[:, 3]   = signal u (state)
+    x[:, 4]   = external_input
+    x[:, 5]   = neuron_type
+    x[:, 6]   = plasticity p (PDE_N6/N7)
+    x[:, 7]   = calcium
 
     Inputs
     ----------
@@ -33,27 +41,18 @@ class PDE_N11(pyg.nn.MessagePassing):
         self.n_neurons = config.simulation.n_neurons
         self.n_neuron_types = config.simulation.n_neuron_types
 
-        self.A = config.simulation.oscillation_max_amplitude
-
-        self.e = self.A * (torch.rand((self.n_neurons,1), device = self.device) * 2 -1)
-
-        self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device = self.device)
-
-        self.has_oscillations = (config.simulation.input_type == 'oscillatory')
-        self.max_frame = config.simulation.n_frames + 1
-
         if self.func_p is None:
             self.func_p = [['tanh', 1.0, 1.0] for n in range(self.n_neuron_types)]
 
-    def forward(self, data=[], has_field=False, data_id=[], frame=[]):
+    def forward(self, data=[], has_field=False, data_id=[], frame=None):
         x, _edge_index = data.x, data.edge_index
-        # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = x[:, 5].long()
         parameters = self.p[neuron_type]
 
         g = parameters[:, 0:1]
         c = parameters[:, 1:2]
-        u = x[:, 6:7]
+        u = x[:, 3:4]  # signal state
+        external_input = x[:, 4:5]  # external input
 
         msg = torch.zeros_like(u)
 
@@ -76,10 +75,7 @@ class PDE_N11(pyg.nn.MessagePassing):
                 msg_n = torch.matmul(self.W, activated_u)
                 msg[type_mask] = msg_n[type_mask]
 
-        if self.has_oscillations:
-            du = -c*u + g * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
-        else:
-            du = -c*u + g * msg
+        du = -c*u + g * msg + external_input
 
         return du
 

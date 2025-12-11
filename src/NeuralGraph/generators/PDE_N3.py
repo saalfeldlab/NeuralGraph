@@ -1,5 +1,4 @@
 
-import numpy as np
 import torch_geometric as pyg
 import torch
 
@@ -9,6 +8,16 @@ class PDE_N3(pyg.nn.MessagePassing):
 
     """
     Compute network signaling, the transfer functions are neuron-dependent
+    Uses alpha blending between two parameter sets.
+
+    X tensor layout:
+    x[:, 0]   = index (neuron ID)
+    x[:, 1:3] = positions (x, y)
+    x[:, 3]   = signal u (state)
+    x[:, 4]   = external_input
+    x[:, 5]   = neuron_type
+    x[:, 6]   = plasticity p (PDE_N6/N7)
+    x[:, 7]   = calcium
 
     Inputs
     ----------
@@ -28,33 +37,22 @@ class PDE_N3(pyg.nn.MessagePassing):
         self.W = W
         self.phi = phi
         self.device = device
-
-        # oscillation parameters
         self.n_neurons = config.simulation.n_neurons
-        self.A = config.simulation.oscillation_max_amplitude
-        self.e = self.A * (torch.rand((self.n_neurons, 1), device=self.device) * 2 - 1)
-        self.w = torch.tensor(config.simulation.oscillation_frequency, dtype=torch.float32, device=self.device)
-        self.has_oscillations = (config.simulation.input_type == 'oscillatory')
-        self.max_frame = config.simulation.n_frames + 1
 
-    def forward(self, data=[], has_field=False, alpha=1.0, data_id=[], frame=[]):
+    def forward(self, data=[], has_field=False, alpha=1.0, data_id=[], frame=None):
         x, _edge_index = data.x, data.edge_index
-        # edge_index, _ = pyg_utils.remove_self_loops(edge_index)
         neuron_type = x[:, 5].long()
         parameters = alpha * self.p[neuron_type + 1] + (1-alpha) * self.p[neuron_type]
         g = parameters[:, 0:1]
         s = parameters[:, 1:2]
         c = parameters[:, 2:3]
 
-        u = x[:, 6:7]
+        u = x[:, 3:4]  # signal state
+        external_input = x[:, 4:5]  # external input
 
-        # msg = self.propagate(edge_index, u=u, edge_attr=edge_attr)
         msg = torch.matmul(self.W, self.phi(u))
 
-        if self.has_oscillations:
-            du = -c * u + s * torch.tanh(u) + g * msg + self.e * torch.cos((2*np.pi)*self.w*frame / self.max_frame)
-        else:
-            du = -c * u + s * torch.tanh(u) + g * msg
+        du = -c * u + s * torch.tanh(u) + g * msg + external_input
 
         return du
 

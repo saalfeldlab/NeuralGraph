@@ -121,7 +121,7 @@ class Signal_Propagation_Zebra(pyg.nn.MessagePassing):
         if self.calcium_type!="none":
             data.x[:, 7:8]      # voltage is replaced by calcium concentration (observable)
         else:
-            data.x[:, 6:7]
+            data.x[:, 3:4]      # signal state
 
         particle_id = x[:, 0].long()
         self.a[particle_id].squeeze()

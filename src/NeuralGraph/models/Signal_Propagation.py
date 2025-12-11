@@ -170,7 +170,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
         self.data_id = data_id.squeeze().long().clone().detach()
 
-        u = data.x[:, 6:7]
+        u = data.x[:, 3:4]
 
         if self.model == 'PDE_N3':
             particle_id = x[:, 0:1].long()
@@ -187,7 +187,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         msg = self.propagate(edge_index, u=u, embedding=embedding, data_id=self.data_id[:,None])
 
         if 'generic' in self.update_type:        # MLP1(u, embedding, \sum MLP0(u, embedding), field)
-            field = x[:, 8:9]
+            field = x[:, 4:5]
             if 'excitation' in self.update_type:
                 excitation = x[:, 10: 10 + self.excitation_dim]
                 in_features = torch.cat([u, embedding, msg, field, excitation], dim=1)
@@ -195,7 +195,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
                 in_features = torch.cat([u, embedding, msg, field], dim=1)
             pred = self.lin_phi(in_features)
         else:
-            field = x[:, 8:9]
+            field = x[:, 4:5]
             in_features = torch.cat([u, embedding], dim=1)
             pred = self.lin_phi(in_features) + msg * field
             if 'excitation' in self.update_type:

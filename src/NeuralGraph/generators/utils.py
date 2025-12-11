@@ -661,7 +661,7 @@ def plot_synaptic_frame_plasticity(X1, x, dataset_name, run, num):
         to_numpy(X1[:, 0]),
         to_numpy(X1[:, 1]),
         s=200,
-        c=to_numpy(x[:, 6]),
+        c=to_numpy(x[:, 3]),
         cmap="viridis",
         vmin=-5,
         vmax=5,
@@ -678,7 +678,7 @@ def plot_synaptic_frame_plasticity(X1, x, dataset_name, run, num):
         to_numpy(X1[:, 0]),
         to_numpy(X1[:, 1]),
         s=200,
-        c=to_numpy(x[:, 8]),
+        c=to_numpy(x[:, 6]),
         cmap="grey",
         vmin=0,
         vmax=1,
@@ -702,7 +702,7 @@ def plot_synaptic_frame_default(X1, x, dataset_name, run, num):
         to_numpy(X1[:, 0]),
         to_numpy(X1[:, 1]),
         s=100,
-        c=to_numpy(x[:, 6]),
+        c=to_numpy(x[:, 3]),
         cmap="viridis",
         vmin=-40,
         vmax=40,
@@ -731,7 +731,7 @@ def plot_synaptic_frame_default(X1, x, dataset_name, run, num):
 def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=None):
     """Plot activity traces for synaptic simulation."""
     print('plot activity ...')
-    activity = x_list[:, :, 6:7]
+    activity = x_list[:, :, 3:4]
     activity = activity.squeeze()
     activity = activity.T
 
@@ -798,7 +798,7 @@ def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap
         return
 
     print('plot MLP0 and MLP1 functions ...')
-    xnorm = np.std(x_list[:, :, 6])
+    xnorm = np.std(x_list[:, :, 3])
     import torch
     rr = torch.linspace(-xnorm, xnorm, 1000).to(device)
     neuron_types = x_list[0, :, 5].astype(int)
