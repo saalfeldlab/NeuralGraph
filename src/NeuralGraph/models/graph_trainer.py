@@ -769,11 +769,11 @@ def data_train_signal(config, erase, best_model, style, device):
 
             # Plot 4: Last phi function
             ax = fig.add_subplot(2, 3, 4)
-            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/lin_phi/func_{last_epoch}_{last_N}.tif")
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/MLP0/func_{last_epoch}_{last_N}.tif")
 
             # Plot 5: Last edge function
             ax = fig.add_subplot(2, 3, 5)
-            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/MLP1/func_{last_epoch}_{last_N}.tif")
 
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
@@ -1489,14 +1489,14 @@ def data_train_flyvis(config, erase, best_model, device):
 
             # Plot 4: Last edge function
             fig.add_subplot(2, 3, 4)
-            img = imread(f"./{log_dir}/tmp_training/function/lin_edge/func_{last_epoch}_{last_N}.tif")
+            img = imread(f"./{log_dir}/tmp_training/function/MLP1/func_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Edge Function', fontsize=12)
 
             # Plot 5: Last phi function
             fig.add_subplot(2, 3, 5)
-            img = imread(f"./{log_dir}/tmp_training/function/lin_phi/func_{last_epoch}_{last_N}.tif")
+            img = imread(f"./{log_dir}/tmp_training/function/MLP0/func_{last_epoch}_{last_N}.tif")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Phi Function', fontsize=12)

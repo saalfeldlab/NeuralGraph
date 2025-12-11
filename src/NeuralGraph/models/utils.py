@@ -279,7 +279,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
                      linewidth=1, alpha=0.1)
     plt.xlim(config.plotting.xlim)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/function/lin_edge/func_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
     # Plot 4: Phi function visualization
@@ -301,7 +301,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
                      linewidth=1, alpha=0.1)
     plt.xlim(config.plotting.xlim)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
 def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device):
@@ -431,7 +431,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.xlabel(r'$x_i-x_j$', fontsize=18)
         plt.ylabel(r'$MLP_1(a_i, a_j, x_i, x_j)$', fontsize=18)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/function/lin_edge/func_{epoch}_{N}.tif", dpi=87)
+        plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.tif", dpi=87)
         plt.close()
 
     else:
@@ -485,7 +485,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.ylabel(ylabel, fontsize=48)
         plt.tight_layout()
 
-        plt.savefig(f"./{log_dir}/tmp_training/function/lin_edge/func_{epoch}_{N}.tif", dpi=87)
+        plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.tif", dpi=87)
         plt.close()
 
     rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
@@ -519,7 +519,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
 
     plt.tight_layout()
 
-    plt.savefig(f"./{log_dir}/tmp_training/function/lin_phi/func_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
     if config.simulation.n_excitatory_neurons > 0:
