@@ -378,7 +378,7 @@ def data_train_signal(config, erase, best_model, style, device):
     regularizer = LossRegularizer(
         train_config=train_config,
         model_config=model_config,
-        activity_column=6,  # signal uses column 6
+        activity_column=3,  # signal uses column 6
         plot_frequency=1,   # will be updated per epoch
         n_neurons=n_neurons,
         trainer_type='signal'
@@ -863,6 +863,8 @@ def data_train_signal(config, erase, best_model, style, device):
                                                                      lr_update=lr_update, lr_W=lr_W,
                                                                      lr_modulation=lr_modulation)
                 logger.info( f'learning rates: lr_W {lr_W}, lr {lr}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
+
+
 
 
 
@@ -2164,6 +2166,248 @@ def data_train_zebra_fluo(config, erase, best_model, device):
     viewer.dims.ndisplay = 3
     napari.run()
 
+
+
+def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
+    """
+    Train nnr_f (SIREN/INR network) on external_input data from x_list.
+
+    This pre-trains the implicit neural representation (INR) network before
+    joint learning with GNN. The INR learns to map time -> external_input
+    for all neurons.
+
+    Args:
+        config: NeuralGraphConfig object
+        device: torch device
+        total_steps: Number of training steps (default: 5000)
+        erase: Whether to erase existing log files (default: False)
+
+    Returns:
+        nnr_f: Trained SIREN model
+        loss_list: List of training losses
+    """
+
+    # create log directory
+    log_dir, logger = create_log_dir(config, erase)
+    output_folder = os.path.join(log_dir, 'tmp_training', 'field')
+    os.makedirs(output_folder, exist_ok=True)
+
+    dataset_name = config.dataset
+    data_folder = f"./graphs_data/{dataset_name}/"
+    print(f"loading data from: {data_folder}")
+
+    # load x_list data
+    x_list = np.load(f"{data_folder}/x_list_0.npy")
+    print(f"x_list shape: {x_list.shape}")  # (n_frames, n_neurons, n_features)
+
+    n_frames, n_neurons, n_features = x_list.shape
+    print(f"n_frames: {n_frames}, n_neurons: {n_neurons}, n_features: {n_features}")
+
+    # Extract external_input from x_list (column 4)
+    external_input = x_list[:, :, 4]  # shape: (n_frames, n_neurons)
+    print(f"external_input shape: {external_input.shape}")
+    print(f"external_input range: [{external_input.min():.4f}, {external_input.max():.4f}]")
+
+    # get nnr_f config parameters
+    model_config = config.graph_model
+    input_size_nnr_f = getattr(model_config, 'input_size_nnr_f', 1)
+    hidden_dim_nnr_f = getattr(model_config, 'hidden_dim_nnr_f', 1024)
+    n_layers_nnr_f = getattr(model_config, 'n_layers_nnr_f', 3)
+    outermost_linear_nnr_f = getattr(model_config, 'outermost_linear_nnr_f', True)
+    output_size_nnr_f = getattr(model_config, 'output_size_nnr_f', n_neurons)
+    omega_f = getattr(model_config, 'omega_f', 1024)
+    nnr_f_T_period = getattr(model_config, 'nnr_f_T_period', 10000)
+
+    # get training config parameters
+    training_config = config.training
+    batch_size = getattr(training_config, 'batch_size', 8)
+    learning_rate = getattr(training_config, 'learning_rate_NNR_f', 1e-6)
+
+    # get simulation config for calculation check
+    sim_config = config.simulation
+    delta_t = getattr(sim_config, 'delta_t', 0.01)
+    oscillation_frequency = getattr(sim_config, 'oscillation_frequency', 0.1)
+
+    # calculation check
+    total_sim_time = n_frames * delta_t
+    period_time_units = 1.0 / oscillation_frequency if oscillation_frequency > 0 else float('inf')
+    period_frames = period_time_units / delta_t if oscillation_frequency > 0 else float('inf')
+    total_cycles = total_sim_time / period_time_units if oscillation_frequency > 0 else 0
+    normalized_time_max = n_frames / nnr_f_T_period
+    recommended_omega = 2 * np.pi * total_cycles
+
+    # Get INR type from config (siren or ngp)
+    inr_type = getattr(model_config, 'inr_type', 'siren')
+
+    print(f"siren calculation check:")
+    print(f"  total simulation time: n_frames × delta_t = {n_frames} × {delta_t} = {total_sim_time:.1f} time units")
+    print(f"  period: 1 / oscillation_frequency = 1 / {oscillation_frequency} = {period_time_units:.1f} time units = {period_frames:.0f} frames")
+    print(f"  total cycles: {total_sim_time:.1f} / {period_time_units:.1f} = {total_cycles:.0f} cycles")
+    print(f"  normalized time range: [0, n_frames / nnr_f_T_period] = [0, {n_frames}/{nnr_f_T_period}] = [0, {normalized_time_max:.1f}]")
+    print(f"  omega_f rule: ≈ 2π × num_cycles = 2π × {total_cycles:.0f} ≈ {recommended_omega:.0f}")
+    print(f"  omega_f (config): {omega_f}")
+
+    # Data dimensions to learn
+    data_dims = n_frames * n_neurons
+    print(f"\ndata to learn: {n_frames:,} frames × {n_neurons:,} neurons = {data_dims:,.0f} values")
+
+    # Create INR model based on type
+    if inr_type == 'ngp':
+        if not TCNN_AVAILABLE:
+            print("WARNING: tinycudann not available, falling back to SIREN")
+            inr_type = 'siren'
+        else:
+            # Get NGP config parameters
+            ngp_n_levels = getattr(model_config, 'ngp_n_levels', 24)
+            ngp_n_features_per_level = getattr(model_config, 'ngp_n_features_per_level', 2)
+            ngp_log2_hashmap_size = getattr(model_config, 'ngp_log2_hashmap_size', 22)
+            ngp_base_resolution = getattr(model_config, 'ngp_base_resolution', 16)
+            ngp_per_level_scale = getattr(model_config, 'ngp_per_level_scale', 1.4)
+            ngp_n_neurons = getattr(model_config, 'ngp_n_neurons', 128)
+            ngp_n_hidden_layers = getattr(model_config, 'ngp_n_hidden_layers', 4)
+
+            nnr_f = HashEncodingMLP(
+                n_input_dims=input_size_nnr_f,
+                n_output_dims=output_size_nnr_f,
+                n_levels=ngp_n_levels,
+                n_features_per_level=ngp_n_features_per_level,
+                log2_hashmap_size=ngp_log2_hashmap_size,
+                base_resolution=ngp_base_resolution,
+                per_level_scale=ngp_per_level_scale,
+                n_neurons=ngp_n_neurons,
+                n_hidden_layers=ngp_n_hidden_layers,
+                output_activation='none'
+            )
+            nnr_f = nnr_f.to(device)
+
+            # Count parameters
+            encoding_params = sum(p.numel() for p in nnr_f.encoding.parameters())
+            mlp_params = sum(p.numel() for p in nnr_f.mlp.parameters())
+            total_params = encoding_params + mlp_params
+            encoding_dim = ngp_n_levels * ngp_n_features_per_level
+
+            print(f"\nusing HashEncodingMLP (instantNGP):")
+            print(f"  hash encoding: {ngp_n_levels} levels × {ngp_n_features_per_level} features")
+            print(f"  hash table: 2^{ngp_log2_hashmap_size} = {2**ngp_log2_hashmap_size:,} entries")
+            print(f"  mlp: {ngp_n_neurons} × {ngp_n_hidden_layers} hidden → {output_size_nnr_f}")
+            print(f"  parameters: {total_params:,} (encoding: {encoding_params:,}, mlp: {mlp_params:,})")
+            print(f"  compression ratio: {data_dims / total_params:.2f}x")
+
+    if inr_type == 'siren':
+        # create SIREN model for nnr_f
+        nnr_f = Siren(
+            in_features=input_size_nnr_f,
+            hidden_features=hidden_dim_nnr_f,
+            hidden_layers=n_layers_nnr_f,
+            out_features=output_size_nnr_f,
+            outermost_linear=outermost_linear_nnr_f,
+            first_omega_0=omega_f,
+            hidden_omega_0=omega_f
+        )
+        nnr_f = nnr_f.to(device)
+
+        # Count parameters
+        total_params = sum(p.numel() for p in nnr_f.parameters())
+
+        print(f"\nusing SIREN:")
+        print(f"  architecture: {input_size_nnr_f} → {hidden_dim_nnr_f} × {n_layers_nnr_f} hidden → {output_size_nnr_f}")
+        print(f"  omega_f: {omega_f}")
+        print(f"  parameters: {total_params:,}")
+        print(f"  compression ratio: {data_dims / total_params:.2f}x")
+
+    print(f"\ntraining: batch_size={batch_size}, learning_rate={learning_rate}")
+
+    # prepare training data - normalize time by nnr_f_T_period
+    time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+    ground_truth = torch.tensor(external_input, dtype=torch.float32, device=device)  # (n_frames, n_neurons)
+
+    steps_til_summary = 5000
+
+    optim = torch.optim.Adam(lr=learning_rate, params=nnr_f.parameters())
+
+    print(f"training nnr_f for {total_steps} steps...")
+
+    loss_list = []
+    pbar = trange(total_steps + 1, ncols=150)
+    for step in pbar:
+
+        sample_ids = np.random.choice(n_frames, batch_size, replace=False)
+        time_batch = time_input[sample_ids]
+        gt_batch = ground_truth[sample_ids]
+
+        pred = nnr_f(time_batch)
+
+        # Use relative L2 loss for NGP (like instantngp), standard MSE for SIREN
+        if inr_type == 'ngp':
+            # Relative L2 error - convert targets to match output dtype (tcnn uses float16)
+            relative_l2_error = (pred - gt_batch.to(pred.dtype)) ** 2 / (pred.detach() ** 2 + 0.01)
+            loss = relative_l2_error.mean()
+        else:
+            # Standard MSE for SIREN
+            loss = ((pred - gt_batch) ** 2).mean()
+
+        optim.zero_grad()
+        loss.backward()
+        optim.step()
+
+        loss_list.append(loss.item())
+        pbar.set_postfix(loss=f"{loss.item():.6f}")
+
+        if step % steps_til_summary == 0:
+            with torch.no_grad():
+                pred_all = nnr_f(time_input)
+                gt_np = ground_truth.cpu().numpy()
+                pred_np = pred_all.cpu().numpy()
+
+                fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+                fig.patch.set_facecolor('black')
+
+                # Loss plot
+                axes[0].set_facecolor('black')
+                axes[0].plot(loss_list, color='white', lw=0.5)
+                axes[0].set_xlabel('step', color='white', fontsize=12)
+                loss_label = 'Relative L2 Loss' if inr_type == 'ngp' else 'MSE Loss'
+                axes[0].set_ylabel(loss_label, color='white', fontsize=12)
+                axes[0].set_yscale('log')
+                axes[0].tick_params(colors='white', labelsize=11)
+                for spine in axes[0].spines.values():
+                    spine.set_color('white')
+
+                # Traces plot (10 neurons, darkgreen=GT, white=pred)
+                axes[1].set_facecolor('black')
+                axes[1].set_axis_off()
+                n_traces = 10
+                trace_ids = np.linspace(0, n_neurons - 1, n_traces, dtype=int)
+                offset = np.abs(gt_np).max() * 1.5
+                t = np.arange(n_frames)
+
+                for j, n_idx in enumerate(trace_ids):
+                    y0 = j * offset
+                    axes[1].plot(t, gt_np[:, n_idx] + y0, color='darkgreen', lw=2.0, alpha=0.95)
+                    axes[1].plot(t, pred_np[:, n_idx] + y0, color='white', lw=0.5, alpha=0.95)
+
+                axes[1].set_xlim(0, min(20000, n_frames))
+                axes[1].set_ylim(-offset * 0.5, offset * (n_traces + 0.5))
+                mse = ((pred_np - gt_np) ** 2).mean()
+                axes[1].text(0.02, 0.98, f'MSE: {mse:.6f}',
+                            transform=axes[1].transAxes, va='top', ha='left',
+                            fontsize=12, color='white')
+
+                plt.tight_layout()
+                plt.savefig(f"{output_folder}/{inr_type}_{step}.png", dpi=150)
+                plt.close()
+
+    # Save trained model
+    save_path = f"{output_folder}/nnr_f_{inr_type}_pretrained.pt"
+    torch.save(nnr_f.state_dict(), save_path)
+    print(f"\nSaved pretrained nnr_f to: {save_path}")
+
+    with torch.no_grad():
+        pred_all = nnr_f(time_input)
+        final_mse = ((pred_all - ground_truth) ** 2).mean().item()
+        print(f"Final MSE: {final_mse:.6f}")
+
+    return nnr_f, loss_list
 
 
 
@@ -4470,176 +4714,3 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     true = true.squeeze()
 
 
-
-def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
-    """
-    Train nnr_f (SIREN/INR network) on external_input data from x_list.
-
-    This pre-trains the implicit neural representation (INR) network before
-    joint learning with GNN. The INR learns to map time -> external_input
-    for all neurons.
-
-    Args:
-        config: NeuralGraphConfig object
-        device: torch device
-        total_steps: Number of training steps (default: 5000)
-        erase: Whether to erase existing log files (default: False)
-
-    Returns:
-        nnr_f: Trained SIREN model
-        loss_list: List of training losses
-    """
-
-    # create log directory
-    log_dir, logger = create_log_dir(config, erase)
-    output_folder = os.path.join(log_dir, 'tmp_training', 'field')
-    os.makedirs(output_folder, exist_ok=True)
-
-    dataset_name = config.dataset
-    data_folder = f"./graphs_data/{dataset_name}/"
-    print(f"loading data from: {data_folder}")
-
-    # load x_list data
-    x_list = np.load(f"{data_folder}/x_list_0.npy")
-    print(f"x_list shape: {x_list.shape}")  # (n_frames, n_neurons, n_features)
-
-    n_frames, n_neurons, n_features = x_list.shape
-    print(f"n_frames: {n_frames}, n_neurons: {n_neurons}, n_features: {n_features}")
-
-    # Extract external_input from x_list (column 4)
-    external_input = x_list[:, :, 4]  # shape: (n_frames, n_neurons)
-    print(f"external_input shape: {external_input.shape}")
-    print(f"external_input range: [{external_input.min():.4f}, {external_input.max():.4f}]")
-
-    # get nnr_f config parameters
-    model_config = config.graph_model
-    input_size_nnr_f = getattr(model_config, 'input_size_nnr_f', 1)
-    hidden_dim_nnr_f = getattr(model_config, 'hidden_dim_nnr_f', 1024)
-    n_layers_nnr_f = getattr(model_config, 'n_layers_nnr_f', 3)
-    outermost_linear_nnr_f = getattr(model_config, 'outermost_linear_nnr_f', True)
-    output_size_nnr_f = getattr(model_config, 'output_size_nnr_f', n_neurons)
-    omega_f = getattr(model_config, 'omega_f', 1024)
-    nnr_f_T_period = getattr(model_config, 'nnr_f_T_period', 10000)
-
-    # get training config parameters
-    training_config = config.training
-    batch_size = getattr(training_config, 'batch_size', 8)
-    learning_rate = getattr(training_config, 'learning_rate_NNR_f', 1e-6)
-
-    # get simulation config for calculation check
-    sim_config = config.simulation
-    delta_t = getattr(sim_config, 'delta_t', 0.01)
-    oscillation_frequency = getattr(sim_config, 'oscillation_frequency', 0.1)
-
-    # calculation check
-    total_sim_time = n_frames * delta_t
-    period_time_units = 1.0 / oscillation_frequency if oscillation_frequency > 0 else float('inf')
-    period_frames = period_time_units / delta_t if oscillation_frequency > 0 else float('inf')
-    total_cycles = total_sim_time / period_time_units if oscillation_frequency > 0 else 0
-    normalized_time_max = n_frames / nnr_f_T_period
-    recommended_omega = 2 * np.pi * total_cycles
-
-    print(f"siren calculation check:")
-    print(f"  total simulation time: n_frames × delta_t = {n_frames} × {delta_t} = {total_sim_time:.1f} time units")
-    print(f"  period: 1 / oscillation_frequency = 1 / {oscillation_frequency} = {period_time_units:.1f} time units = {period_frames:.0f} frames")
-    print(f"  total cycles: {total_sim_time:.1f} / {period_time_units:.1f} = {total_cycles:.0f} cycles")
-    print(f"  normalized time range: [0, n_frames / nnr_f_T_period] = [0, {n_frames}/{nnr_f_T_period}] = [0, {normalized_time_max:.1f}]")
-    print(f"  omega_f rule: ≈ 2π × num_cycles = 2π × {total_cycles:.0f} ≈ {recommended_omega:.0f}")
-    print(f"  omega_f (config): {omega_f}")
-    print(f"siren architecture: {input_size_nnr_f} → {hidden_dim_nnr_f} × {n_layers_nnr_f} → {output_size_nnr_f}")
-    print(f"training: batch_size={batch_size}, learning_rate={learning_rate}")
-
-    # create SIREN model for nnr_f
-    nnr_f = Siren(
-        in_features=input_size_nnr_f,
-        hidden_features=hidden_dim_nnr_f,
-        hidden_layers=n_layers_nnr_f,
-        out_features=output_size_nnr_f,
-        outermost_linear=outermost_linear_nnr_f,
-        first_omega_0=omega_f,
-        hidden_omega_0=omega_f
-    )
-    nnr_f = nnr_f.to(device)
-
-    # prepare training data - normalize time by nnr_f_T_period
-    time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
-    ground_truth = torch.tensor(external_input, dtype=torch.float32, device=device)  # (n_frames, n_neurons)
-
-    steps_til_summary = 5000
-
-    optim = torch.optim.Adam(lr=learning_rate, params=nnr_f.parameters())
-
-    print(f"training nnr_f for {total_steps} steps...")
-
-    loss_list = []
-    pbar = trange(total_steps + 1, ncols=150)
-    for step in pbar:
-
-        sample_ids = np.random.choice(n_frames, batch_size, replace=False)
-        time_batch = time_input[sample_ids]
-        gt_batch = ground_truth[sample_ids]
-
-        pred = nnr_f(time_batch)
-        loss = ((pred - gt_batch) ** 2).mean()
-
-        optim.zero_grad()
-        loss.backward()
-        optim.step()
-
-        loss_list.append(loss.item())
-        pbar.set_postfix(loss=f"{loss.item():.6f}")
-
-        if step % steps_til_summary == 0:
-            with torch.no_grad():
-                pred_all = nnr_f(time_input)
-                gt_np = ground_truth.cpu().numpy()
-                pred_np = pred_all.cpu().numpy()
-
-                fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-                fig.patch.set_facecolor('black')
-
-                # Loss plot
-                axes[0].set_facecolor('black')
-                axes[0].plot(loss_list, color='white', lw=0.5)
-                axes[0].set_xlabel('step', color='white', fontsize=12)
-                axes[0].set_ylabel('MSE Loss', color='white', fontsize=12)
-                axes[0].set_yscale('log')
-                axes[0].tick_params(colors='white', labelsize=11)
-                for spine in axes[0].spines.values():
-                    spine.set_color('white')
-
-                # Traces plot (10 neurons, darkgreen=GT, white=pred)
-                axes[1].set_facecolor('black')
-                axes[1].set_axis_off()
-                n_traces = 10
-                trace_ids = np.linspace(0, n_neurons - 1, n_traces, dtype=int)
-                offset = np.abs(gt_np).max() * 1.5
-                t = np.arange(n_frames)
-
-                for j, n_idx in enumerate(trace_ids):
-                    y0 = j * offset
-                    axes[1].plot(t, gt_np[:, n_idx] + y0, color='darkgreen', lw=2.0, alpha=0.95)
-                    axes[1].plot(t, pred_np[:, n_idx] + y0, color='white', lw=0.5, alpha=0.95)
-
-                axes[1].set_xlim(0, min(10000, n_frames))
-                axes[1].set_ylim(-offset * 0.5, offset * (n_traces + 0.5))
-                mse = ((pred_np - gt_np) ** 2).mean()
-                axes[1].text(0.02, 0.98, f'MSE: {mse:.6f}',
-                            transform=axes[1].transAxes, va='top', ha='left',
-                            fontsize=12, color='white')
-
-                plt.tight_layout()
-                plt.savefig(f"{output_folder}/siren_{step}.png", dpi=150)
-                plt.close()
-
-    # Save trained model
-    save_path = f"{output_folder}/nnr_f_pretrained.pt"
-    torch.save(nnr_f.state_dict(), save_path)
-    print(f"\nSaved pretrained nnr_f to: {save_path}")
-
-    with torch.no_grad():
-        pred_all = nnr_f(time_input)
-        final_mse = ((pred_all - ground_truth) ** 2).mean().item()
-        print(f"Final MSE: {final_mse:.6f}")
-
-    return nnr_f, loss_list
