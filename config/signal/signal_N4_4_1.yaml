@@ -1,4 +1,4 @@
-description: "heterogeneity MLP0 with oscillatory input"
+description: "heterogeneity MLP0 with oscillatory input - no external input learning"
 dataset: "signal_N4_4"
 
 simulation:
@@ -41,6 +41,10 @@ graph_model:
   mesh_model_name: ""
   prediction: "first_derivative"
 
+  # External input configuration
+  external_input_type: "signals"
+  external_input_mode: "additive"
+
   input_size: 3
   output_size: 1
   hidden_dim: 64
@@ -54,19 +58,6 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # SIREN (INR) parameters for learning external_input
-  # Normalized time range: [0, n_frames / nnr_f_T_period] = [0, 100000/100000] = [0, 1]
-  # Cycles in normalized range: 100 cycles in [0, 1]
-  # omega_f rule: omega_f ≈ 2π × num_cycles = 2π × 100 ≈ 628
-  input_size_nnr_f: 1
-  hidden_dim_nnr_f: 1024
-  n_layers_nnr_f: 2
-  outermost_linear_nnr_f: True
-  output_size_nnr_f: 1000
-  nnr_f_xy_period: 1.0
-  nnr_f_T_period: 100000
-  omega_f: 600
-
 plotting:
   colormap: "tab10"
   arrow_length: 1
@@ -77,6 +68,8 @@ training:
   n_epochs: 20
   n_runs: 1
   device: "auto"
+
+  learn_external_input: False
 
   batch_size: 48
   small_init_batch_size: False
@@ -94,6 +87,5 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
-  learning_rate_NNR_f: 1.0E-6
 
   coeff_W_L1: 1.0E-5
