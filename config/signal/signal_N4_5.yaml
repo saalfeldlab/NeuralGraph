@@ -62,17 +62,31 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # SIREN (INR) parameters for learning triggered external_input
-  # Triggered is harder than fly - sharp transitions, sparse bursts
-  # Try longer duration, more impulses for better coverage
+  # INR parameters for learning triggered external_input
+  # Triggered is harder than oscillatory - sharp transitions, sparse bursts
+  # Use instantNGP hash encoding which handles local features better than SIREN
   input_size_nnr_f: 1
+  output_size_nnr_f: 1000
+  nnr_f_T_period: 100000
+
+  # INR type: "siren" or "ngp" (instantNGP hash encoding)
+  inr_type: "ngp"
+
+  # SIREN parameters (used if inr_type: "siren")
   hidden_dim_nnr_f: 4096
   n_layers_nnr_f: 2
   outermost_linear_nnr_f: True
-  output_size_nnr_f: 1000
   nnr_f_xy_period: 1.0
-  nnr_f_T_period: 100000
   omega_f: 4096
+
+  # InstantNGP parameters (used if inr_type: "ngp")
+  ngp_n_levels: 24
+  ngp_n_features_per_level: 2
+  ngp_log2_hashmap_size: 22
+  ngp_base_resolution: 16
+  ngp_per_level_scale: 1.4
+  ngp_n_neurons: 256
+  ngp_n_hidden_layers: 4
 
 plotting:
   colormap: "tab10"
@@ -101,6 +115,6 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
-  learning_rate_NNR_f: 1.0E-8
+  learning_rate_NNR_f: 1.0E-3 # NGP can use higher LR than SIREN
 
   coeff_W_L1: 1.0E-5
