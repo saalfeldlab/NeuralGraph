@@ -41,7 +41,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.MLP_activation = config.graph_model.MLP_activation
-        self.external_input_mode = getattr(config.graph_model, 'external_input_mode', 'none')
+        self.external_input_mode = getattr(config.simulation, 'external_input_mode', 'none')
 
         self.input_size = model_config.input_size
         self.output_size = model_config.output_size

@@ -31,9 +31,10 @@ simulation:
   # Total simulation time: n_frames * delta_t = 100000 * 0.01 = 1000 time units
   # Period = 1 / oscillation_frequency = 1 / 0.1 = 10 time units = 1000 frames
   # Total cycles = 1000 / 10 = 100 cycles over the full simulation
-  input_type: "oscillatory"
+  external_input_type: "oscillatory"
   oscillation_max_amplitude: 3.0
   oscillation_frequency: 0.1
+  external_input_mode: "additive"
 
 graph_model:
   signal_model_name: "PDE_N4"
@@ -41,9 +42,7 @@ graph_model:
   mesh_model_name: ""
   prediction: "first_derivative"
 
-  # External input configuration
-  external_input_type: "signals"
-  external_input_mode: "additive"
+
 
   input_size: 3
   output_size: 1

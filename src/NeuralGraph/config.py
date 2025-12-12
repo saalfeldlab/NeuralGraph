@@ -39,8 +39,18 @@ class SimulationConfig(BaseModel):
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
 
+    # external_input_type: what kind of external input is in x[:, 4]
+    #   "none": no external input
+    #   "signals": oscillatory/triggered signals (from simulation.input_type)
+    #   "visual": visual input from image/movie (load from node_value_map)
+    external_input_type: Literal["none", "oscillatory", "triggered", "visual"] = "none"
+    
+    # external_input_mode: how x[:, 4] affects the PDE dynamics
+    # additive: du = f(u) + g*msg + external_input
+    # multiplicative: du = f(u) + g*msg * external_input
+    # none: du = f(u) + g*msg (external_input ignored)
+    external_input_mode: Literal["additive", "multiplicative", "none"] = "none"
 
-    input_type: str = ""  # for signal experiments: "", "oscillatory", "triggered"
     oscillation_max_amplitude: float = 1.0
     oscillation_frequency: float = 5.0
 
@@ -118,18 +128,7 @@ class GraphModelConfig(BaseModel):
     field_type: str = ""  # deprecated, use external_input_type instead
     field_grid: Optional[str] = ""
 
-    # External input configuration for signal models
-    # external_input_type: what kind of external input is in x[:, 4]
-    #   "none": no external input
-    #   "signals": oscillatory/triggered signals (from simulation.input_type)
-    #   "visual": visual input from image/movie (load from node_value_map)
-    external_input_type: Literal["none", "signals", "visual"] = "none"
 
-    # external_input_mode: how x[:, 4] affects the PDE dynamics
-    external_input_mode: Literal["additive", "multiplicative", "none"] = "none"
-    # additive: du = f(u) + g*msg + external_input
-    # multiplicative: du = f(u) + g*msg * external_input
-    # none: du = f(u) + g*msg (external_input ignored)
 
     input_size: int = 1
     output_size: int = 1

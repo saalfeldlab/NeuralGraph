@@ -298,6 +298,13 @@ def data_train_signal(config, erase, best_model, style, device):
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
+    external_input_type = getattr(simulation_config, 'external_input_type', 'none')
+    has_visual_input = (external_input_type == 'visual')
+    has_oscillations = (external_input_type == 'oscillatory')
+    has_triggered = (external_input_type == 'triggered')
+
+    learn_external_input = train_config.learn_external_input
+
     field_type = model_config.field_type
 
     embedding_cluster = EmbeddingCluster(config)
@@ -546,7 +553,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
-            if has_neural_field:
+            if learn_external_input:
                 optimizer_f.zero_grad()
             optimizer.zero_grad()
 
@@ -581,8 +588,8 @@ def data_train_signal(config, erase, best_model, style, device):
                             loss = loss + regul_term
                         ids_missing = torch.argwhere(x[:, 3] == baseline_value)
                         x[ids_missing,3] = missing_activity[ids_missing]
-                    if has_neural_field:
-                        if 'visual' in field_type:
+                    if learn_external_input:
+                        if has_visual_input:
                             x[:n_nodes, 4:5] = model_f(time=k / n_frames) ** 2
                             x[n_nodes:n_neurons, 4:5] = 1
                         elif 'learnable_short_term_plasticity' in field_type:
@@ -732,7 +739,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
                 if has_missing_activity:
                     optimizer_missing_activity.step()
-                if has_neural_field:
+                if learn_external_input:
                     optimizer_f.step()
 
                 regul_total_this_iter = regularizer.get_iteration_total()
@@ -961,8 +968,7 @@ def data_train_signal(config, erase, best_model, style, device):
                 lr = train_config.learning_rate_start
                 lr_embedding = train_config.learning_rate_embedding_start
                 optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr,
-                                                                     lr_update=lr_update, lr_W=lr_W,
-                                                                     lr_modulation=lr_modulation)
+                                                                     lr_update=lr_update, lr_W=lr_W)
                 logger.info( f'learning rates: lr_W {lr_W}, lr {lr}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
 
@@ -1001,7 +1007,7 @@ def data_train_flyvis(config, erase, best_model, device):
     time_step = train_config.time_step
 
     replace_with_cluster = 'replace' in train_config.sparsity
-    sparsity_freq = train_config.sparsity_freq
+    sparsity_freq = train_config.sparsity_freq0
 
 
     if config.training.seed != 42:
@@ -1197,10 +1203,13 @@ def data_train_flyvis(config, erase, best_model, device):
                     x_temporal = x_list[run][k - time_window + 1: k + 1, :, 3:4].transpose(1, 0, 2).squeeze(-1)
                     x = torch.cat((x, torch.tensor(x_temporal.reshape(n_neurons, time_window), dtype=torch.float32, device=device)), dim=1)
 
-                if has_visual_field:
-                    visual_input = model.forward_visual(x,k)
-                    x[:model.n_input_neurons, 4:5] = visual_input
-                    x[model.n_input_neurons:, 4:5] = 0
+                if learn_external_input:
+
+                    if has_visual_input: 
+
+                        visual_input = model.forward_visual(x,k)
+                        x[:model.n_input_neurons, 4:5] = visual_input
+                        x[model.n_input_neurons:, 4:5] = 0
 
                 loss = torch.zeros(1, device=device)
                 regularizer.reset_iteration()
@@ -1259,18 +1268,12 @@ def data_train_flyvis(config, erase, best_model, device):
                 total_loss_regul += loss.item()
 
 
-                if test_neural_field:
-                    loss = loss + (visual_input_batch - y_batch).norm(2)
-
-
-
-                elif 'MLP_ODE' in signal_model_name:
+                if 'MLP_ODE' in signal_model_name:
                     batch_loader = DataLoader(dataset_batch, batch_size=batch_size, shuffle=False)
                     for batch in batch_loader:
                         pred = model(batch.x, data_id=data_id, return_all=False)
 
                     loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)
-
 
 
                 elif 'MLP' in signal_model_name:
@@ -1358,9 +1361,7 @@ def data_train_flyvis(config, erase, best_model, device):
                         loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
 
-
                     else:
-
 
 
                         loss = loss + (pred[ids_batch] - y_batch[ids_batch]).norm(2)

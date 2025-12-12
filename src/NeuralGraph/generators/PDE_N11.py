@@ -40,7 +40,7 @@ class PDE_N11(pyg.nn.MessagePassing):
         self.device = device
         self.n_neurons = config.simulation.n_neurons
         self.n_neuron_types = config.simulation.n_neuron_types
-        self.external_input_mode = getattr(config.graph_model, 'external_input_mode', 'none')
+        self.external_input_mode = getattr(config.simulation, 'external_input_mode', 'none')
 
         if self.func_p is None:
             self.func_p = [['tanh', 1.0, 1.0] for n in range(self.n_neuron_types)]

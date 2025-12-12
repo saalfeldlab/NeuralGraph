@@ -39,7 +39,7 @@ class PDE_N6(pyg.nn.MessagePassing):
         self.short_term_plasticity_mode = short_term_plasticity_mode
         self.device = device
         self.n_neurons = config.simulation.n_neurons
-        self.external_input_mode = getattr(config.graph_model, 'external_input_mode', 'none')
+        self.external_input_mode = getattr(config.simulation, 'external_input_mode', 'none')
 
     def forward(self, data=[]):
         x, _edge_index = data.x, data.edge_index

@@ -1041,7 +1041,7 @@ def data_generate_synaptic(
     measurement_noise_level = training_config.measurement_noise_level
     
     # external input configuration
-    external_input_type = getattr(model_config, 'external_input_type', 'none')
+    external_input_type = getattr(simulation_config, 'external_input_type', 'none')
     has_visual_input = external_input_type == 'visual'
     has_permutation = getattr(model_config, 'visual_input_permutation', False)
 
@@ -1089,8 +1089,8 @@ def data_generate_synaptic(
 
     # external input parameters (moved from pde_n4)
     input_type = simulation_config.input_type
-    has_oscillations = (input_type == 'oscillatory')
-    has_triggered = (input_type == 'triggered')
+    has_oscillations = (external_input_type == 'oscillatory')
+    has_triggered = (external_input_type == 'triggered')
     oscillation_amplitude = simulation_config.oscillation_max_amplitude
     oscillation_frequency = torch.tensor(simulation_config.oscillation_frequency, dtype=torch.float32, device=device)
     max_frame = n_frames + 1
