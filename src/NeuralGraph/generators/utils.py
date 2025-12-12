@@ -844,7 +844,7 @@ def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k'):
     fig, axes = plt.subplots(1, 3, figsize=(30, 10))
 
     # (0) eigenvalues in complex plane
-    axes[0].scatter(eig_true.real, eig_true.imag, s=50, c=mc, alpha=0.7, edgecolors='none')
+    axes[0].scatter(eig_true.real, eig_true.imag, s=30, c=mc, alpha=0.7, edgecolors='none')
     axes[0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
     axes[0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
     axes[0].set_xlabel('real', fontsize=32)
@@ -855,7 +855,7 @@ def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k'):
             transform=axes[0].transAxes, fontsize=20, verticalalignment='top')
 
     # (1) eigenvalue magnitude (sorted)
-    axes[1].scatter(range(len(eig_true_sorted)), np.abs(eig_true_sorted), s=50, c=mc, alpha=0.7, edgecolors='none')
+    axes[1].scatter(range(len(eig_true_sorted)), np.abs(eig_true_sorted), s=10, c=mc, edgecolors='none')
     axes[1].set_xlabel('index', fontsize=32)
     axes[1].set_ylabel('|eigenvalue|', fontsize=32)
     axes[1].tick_params(labelsize=20)

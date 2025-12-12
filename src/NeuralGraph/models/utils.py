@@ -518,7 +518,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
-def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, external_input_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, device):
+def plot_training_signal_external_input(x, n_nodes, kk, time_step, x_list, run, model, external_input_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, device):
     """Plot learned external input field during training."""
 
     if external_input_type == 'visual':

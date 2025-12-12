@@ -131,10 +131,6 @@ class GraphModelConfig(BaseModel):
     # multiplicative: du = f(u) + g*msg * external_input
     # none: du = f(u) + g*msg (external_input ignored)
 
-    learn_external_input: bool = False
-    # True: learn external_input using INR (SIREN/NGP) during training
-    # False: use external_input from data (generated or loaded)
-
     input_size: int = 1
     output_size: int = 1
     hidden_dim: int = 1
@@ -297,6 +293,10 @@ class TrainingConfig(BaseModel):
     multi_connectivity: bool = False
     with_connectivity_mask: bool = False
     has_missing_activity: bool = False
+
+    learn_external_input: bool = False
+    # True: learn external_input using INR (SIREN/NGP) during training
+    # False: use external_input from data (generated or loaded)
 
     epoch_distance_replace: int = 20
     warm_up_length: int = 10
