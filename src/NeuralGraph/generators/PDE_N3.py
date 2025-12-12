@@ -38,8 +38,9 @@ class PDE_N3(pyg.nn.MessagePassing):
         self.phi = phi
         self.device = device
         self.n_neurons = config.simulation.n_neurons
+        self.external_input_mode = getattr(config.graph_model, 'external_input_mode', 'none')
 
-    def forward(self, data=[], has_field=False, alpha=1.0, data_id=[], frame=None):
+    def forward(self, data=[], alpha=1.0):
         x, _edge_index = data.x, data.edge_index
         neuron_type = x[:, 6].long()
         parameters = alpha * self.p[neuron_type + 1] + (1-alpha) * self.p[neuron_type]
@@ -52,7 +53,12 @@ class PDE_N3(pyg.nn.MessagePassing):
 
         msg = torch.matmul(self.W, self.phi(u))
 
-        du = -c * u + s * torch.tanh(u) + g * msg + external_input
+        if self.external_input_mode == "multiplicative":
+            du = -c * u + s * torch.tanh(u) + g * msg * external_input
+        elif self.external_input_mode == "additive":
+            du = -c * u + s * torch.tanh(u) + g * msg + external_input
+        else:  # none
+            du = -c * u + s * torch.tanh(u) + g * msg
 
         return du
 

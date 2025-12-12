@@ -16,7 +16,7 @@ from NeuralGraph.generators.utils import (
     init_connectivity,
     get_equidistant_points,
     plot_synaptic_frame_visual,
-    plot_synaptic_frame_modulation,
+    plot_synaptic_frame_external_input,
     plot_synaptic_frame_plasticity,
     plot_synaptic_frame_default,
     plot_synaptic_activity_traces,
@@ -29,7 +29,7 @@ from tifffile import imread
 from tqdm import tqdm, trange
 import os
 
-# from fa2_modified import ForceAtlas2
+# from fa2_modified import forceatlas2
 # import h5py as h5
 # import zarr
 # import xarray as xr
@@ -99,7 +99,7 @@ def generate_from_data(config, device, visualize=True, step=None, cmap=None, sty
     if "wormvae" in data_folder_name:
         load_wormvae_data(config, device, visualize, step)
     elif "NeuroPAL" in data_folder_name:
-        # load_neuropal_data(config, device, visualize, step)  # TODO: Function not yet implemented
+        # load_neuropal_data(config, device, visualize, step)  # todo: function not yet implemented
         raise NotImplementedError("NeuroPAL data loading not yet implemented")
     elif 'Zapbench' in data_folder_name:
         load_zebrafish_data(config, device, visualize, step, cmap, style)
@@ -194,17 +194,17 @@ def apply_pairwise_knobs_torch(code_pm1: torch.Tensor,
     """
     out = code_pm1.clone()
 
-    # Torch RNG on correct device
+    # torch rng on correct device
     gen = torch.Generator(device=out.device)
     gen.manual_seed(int(seed) & 0x7FFFFFFF)
 
-    # (1) Optional global shared component
+    # (1) optional global shared component
     if corr_strength > 0.0:
         g = torch.randint(0, 2, (1,), generator=gen, device=out.device, dtype=torch.int64)
         g = g.float().mul_(2.0).add_(-1.0)  # {0,1} -> {-1,+1}
         out.mul_(1.0 - float(corr_strength)).add_(float(corr_strength) * g)
 
-    # (2) Optional per-tile random flips
+    # (2) optional per-tile random flips
     if flip_prob > 0.0:
         flips = torch.rand(out.shape, generator=gen, device=out.device) < float(flip_prob)
         out[flips] = -out[flips]
@@ -269,14 +269,14 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     plt.style.use("dark_background")
     extent = 8
 
-    # Import only what's needed for mixed functionality
+    # import only what's needed for mixed functionality
     from flyvis.datasets.sintel import AugmentedSintel
     from flyvis import NetworkView, Network
     from flyvis.utils.config_utils import get_default_config, CONFIG_PATH
     from NeuralGraph.generators.PDE_N9 import PDE_N9, get_photoreceptor_positions_from_net, \
         group_by_direction_and_function
 
-    # Initialize datasets
+    # initialize datasets
     if "DAVIS" in visual_input_type or "mixed" in visual_input_type:
 
         datavis_root = os.path.join(get_datavis_root_dir(), "JPEGImages/480p")
@@ -316,7 +316,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         }
         stimulus_dataset = AugmentedSintel(**sintel_config)
 
-    # Initialize network
+    # initialize network
     config_net = get_default_config(overrides=[], path=f"{CONFIG_PATH}/network/network.yaml")
     config_net.connectome.extent = extent
     net = Network(**config_net)
@@ -338,33 +338,33 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         import random
         extra_edges = []
 
-        # If n_extra_null_edges > 424*424, prioritize L1-L2 (receiver) and R1-R2 (sender) connections
+        # if n_extra_null_edges > 424*424, prioritize l1-l2 (receiver) and r1-r2 (sender) connections
         if n_extra_null_edges > 424 * 424:
-            print("Prioritizing L1-L2 and R1-R2 connections...")
-            # R1 R2 (sender): columns 0 to 433
+            print("prioritizing l1-l2 and r1-r2 connections...")
+            # r1 r2 (sender): columns 0 to 433
             col_start = 0
             col_end = 217 * 2  # 434
-            # L1 L2 (receiver): rows 1736 to 2159
+            # l1 l2 (receiver): rows 1736 to 2159
             row_start = 1736
             row_end = 1736 + 217 * 2  # 2160
 
-            # Generate all possible edges in the priority region
+            # generate all possible edges in the priority region
             priority_edges = []
             for source in range(col_start, col_end):
                 for target in range(row_start, row_end):
                     if (source, target) not in existing_edges and source != target:
                         priority_edges.append([source, target])
 
-            # Add priority edges first
+            # add priority edges first
             n_priority = min(len(priority_edges), n_extra_null_edges)
             random.shuffle(priority_edges)
             extra_edges.extend(priority_edges[:n_priority])
-            print(f"Added {len(extra_edges)} priority edges from R1-R2 to L1-L2")
+            print(f"added {len(extra_edges)} priority edges from r1-r2 to l1-l2")
 
-            # Fill remaining with random edges if needed
+            # fill remaining with random edges if needed
             remaining = n_extra_null_edges - len(extra_edges)
             if remaining > 0:
-                print(f"Filling remaining {remaining} edges randomly...")
+                print(f"filling remaining {remaining} edges randomly...")
                 existing_edges.update([(e[0], e[1]) for e in extra_edges])
                 max_attempts = remaining * 10
                 attempts = 0
@@ -376,7 +376,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         existing_edges.add((source, target))
                     attempts += 1
         else:
-            # Original random edge generation
+            # original random edge generation
             max_attempts = n_extra_null_edges * 10
             attempts = 0
             while len(extra_edges) < n_extra_null_edges and attempts < max_attempts:
@@ -390,7 +390,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             extra_edge_index = torch.tensor(extra_edges, dtype=torch.long, device=device).t()
             edge_index = torch.cat([edge_index, extra_edge_index], dim=1)
             p["w"] = torch.cat([p["w"], torch.zeros(len(extra_edges), device=device)])
-            print(f"Total extra edges added: {len(extra_edges)}")
+            print(f"total extra edges added: {len(extra_edges)}")
 
     pde = PDE_N9(p=p, f=torch.nn.functional.relu, params=simulation_config.params,
                  model_type=model_config.signal_model_name, n_neuron_types=n_neuron_types, device=device)
@@ -438,10 +438,10 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     x[:, 7] = torch.rand(n_neurons, dtype=torch.float32, device=device)                             # calcium concentration
     x[:, 8] = calcium_alpha * x[:, 7] + calcium_beta                                                # fluorescence activity
 
-    # Mixed sequence setup
+    # mixed sequence setup
     if "mixed" in visual_input_type:
         mixed_types = ["sintel", "davis", "blank", "noise"]
-        mixed_cycle_lengths = [60, 60, 30, 60]  # Different lengths for each type
+        mixed_cycle_lengths = [60, 60, 30, 60]  # different lengths for each type
         mixed_current_type = 0
         mixed_frame_count = 0
         current_cycle_length = mixed_cycle_lengths[mixed_current_type]
@@ -496,9 +496,9 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
                 sequences = data["lum"]
 
-                # Sample flash parameters for each subsequence if flash stimulus is requested
+                # sample flash parameters for each subsequence if flash stimulus is requested
                 if "flash" in visual_input_type:
-                    # Sample flash duration from specific values: 1, 2, 5, 10, 20 frames
+                    # sample flash duration from specific values: 1, 2, 5, 10, 20 frames
                     flash_duration_options = [1, 2, 5] #, 10, 20]
                     flash_cycle_frames = flash_duration_options[
                         torch.randint(0, len(flash_duration_options), (1,), device=device).item()
@@ -538,16 +538,16 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                     else:
                         start_frame = 0
 
-                # Determine sequence length based on stimulus type
+                # determine sequence length based on stimulus type
                 if "flash" in visual_input_type:
-                    sequence_length = 60  # Fixed 60 frames for flash sequences
+                    sequence_length = 60  # fixed 60 frames for flash sequences
                 else:
                     sequence_length = sequences.shape[0]
 
                 for frame_id in range(sequence_length):
                     if "flash" in visual_input_type:
-                        # Generate repeating flash stimulus
-                        current_flash_frame = frame_id % (flash_cycle_frames * 2)  # Create on/off cycle
+                        # generate repeating flash stimulus
+                        current_flash_frame = frame_id % (flash_cycle_frames * 2)  # create on/off cycle
                         x[:, 4] = 0
                         if current_flash_frame < flash_cycle_frames:
                             x[:n_input_neurons, 4] = flash_intensity
@@ -571,18 +571,18 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         mixed_frame_count += 1
                     elif "tile_mseq" in visual_input_type:
                         if tile_codes_torch is None:
-                            # 1) Cluster photoreceptors into columns based on (u,v)
+                            # 1) cluster photoreceptors into columns based on (u,v)
                             tile_labels_np = assign_columns_from_uv(
                                 u_coords, v_coords, n_columns, random_state=tile_seed
                             )  # shape: (n_input_neurons,)
     
-                            # 2) Build per-column m-sequences (±1) with random phase per column
+                            # 2) build per-column m-sequences (±1) with random phase per column
                             base = mseq_bits(p=8, seed=tile_seed).astype(np.float32)  # ±1, shape (255,)
                             rng = np.random.RandomState(tile_seed)
                             phases = rng.randint(0, base.shape[0], size=n_columns)
                             tile_codes_np = np.stack([np.roll(base, ph) for ph in phases], axis=0)  # (n_columns, 255), ±1
     
-                            # 3) Convert to torch on the right device/dtype; keep as ±1 (no [0,1] mapping here)
+                            # 3) convert to torch on the right device/dtype; keep as ±1 (no [0,1] mapping here)
                             tile_codes_torch = torch.from_numpy(tile_codes_np).to(x.device,
                                                                                   dtype=x.dtype)  # (n_columns, 255), ±1
                             tile_labels = torch.from_numpy(tile_labels_np).to(x.device,
@@ -590,26 +590,26 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                             tile_period = tile_codes_torch.shape[1]
                             tile_idx = 0
     
-                        # 4) Baseline for all neurons (mean luminance), then write per-column values to PRs
+                        # 4) baseline for all neurons (mean luminance), then write per-column values to prs
                         x[:, 4] = 0.5
                         col_vals_pm1 = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,), ±1 before knobs
     
-                        # Apply the two simple knobs per frame on ±1 codes
+                        # apply the two simple knobs per frame on ±1 codes
                         col_vals_pm1 = apply_pairwise_knobs_torch(
                             code_pm1=col_vals_pm1,
                             corr_strength=float(simulation_config.tile_corr_strength),
                             flip_prob=float(simulation_config.tile_flip_prob),
                             seed=int(simulation_config.seed) + int(tile_idx)
                         )
-    
-                        # Map to [0,1] with your contrast convention and broadcast via labels
+
+                        # map to [0,1] with your contrast convention and broadcast via labels
                         col_vals_01 = 0.5 + (tile_contrast * 0.5) * col_vals_pm1
                         x[:n_input_neurons, 4] = col_vals_01[tile_labels]
     
                         tile_idx += 1
                     elif "tile_blue_noise" in visual_input_type:
                         if tile_codes_torch is None:
-                            # Label columns and build neighborhood graph
+                            # label columns and build neighborhood graph
                             tile_labels_np, col_centers = compute_column_labels(u_coords, v_coords, n_columns, seed=tile_seed)
                             try:
                                 adj = build_neighbor_graph(col_centers, k=6)
@@ -625,28 +625,28 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                             tile_period = 257
                             tile_idx = 0
         
-                            # Pre-generate ±1 codes (keep ±1; no [0,1] mapping here)
+                            # pre-generate ±1 codes (keep ±1; no [0,1] mapping here)
                             tile_codes_torch = torch.empty((n_columns, tile_period), dtype=x.dtype, device=x.device)
                             rng = np.random.RandomState(tile_seed)
                             for t in range(tile_period):
                                 mask = greedy_blue_mask(adj, n_columns, target_density=0.5, rng=rng)  # boolean mask
                                 vals = np.where(mask, 1.0, -1.0).astype(np.float32)  # ±1
-                                # NOTE: do not apply flip prob here; we do it uniformly via the helper per frame below
+                                # note: do not apply flip prob here; we do it uniformly via the helper per frame below
                                 tile_codes_torch[:, t] = torch.from_numpy(vals).to(x.device, dtype=x.dtype)
         
-                        # Baseline luminance
+                        # baseline luminance
                         x[:, 4] = 0.5
                         col_vals_pm1 = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,), ±1 before knobs
         
-                        # Apply the two simple knobs per frame on ±1 codes
+                        # apply the two simple knobs per frame on ±1 codes
                         col_vals_pm1 = apply_pairwise_knobs_torch(
                             code_pm1=col_vals_pm1,
                             corr_strength=float(simulation_config.tile_corr_strength),
                             flip_prob=float(simulation_config.tile_flip_prob),
                             seed=int(simulation_config.seed) + int(tile_idx)
                         )
-        
-                        # Map to [0,1] with contrast and broadcast via labels
+
+                        # map to [0,1] with contrast and broadcast via labels
                         col_vals_01 = 0.5 + (tile_contrast * 0.5) * col_vals_pm1
                         x[:n_input_neurons, 4] = col_vals_01[tile_labels]
         
@@ -684,7 +684,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         x[:, 3:4] = x[:, 3:4] + delta_t * y
 
                     if calcium_type == "leaky":
-                        # Voltage-driven activation
+                        # voltage-driven activation
                         if calcium_activation == "softplus":
                             s = torch.nn.functional.softplus(x[:, 3:4])
                         elif calcium_activation == "relu":
@@ -694,7 +694,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         elif calcium_activation == "identity":
                             s = x[:, 3:4].clone()
 
-                        x[:, 7:8] = x[:, 7:8] + (delta_t / calcium_tau) * (-x[:, 7:8] + s)              # calcium ODE to be checked
+                        x[:, 7:8] = x[:, 7:8] + (delta_t / calcium_tau) * (-x[:, 7:8] + s)              # calcium ode to be checked
                         # x[:, 7:8] = torch.clamp(x[:, 7:8], min=0.0)
                         x[:, 8:9] = calcium_alpha * x[:, 7:8] + calcium_beta
 
@@ -744,9 +744,9 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                 axes_flat[panel_idx].set_visible(False)
                                 axes_flat[panel_idx].set_visible(False)
 
-                            # Add row labels
-                            # fig.text(0.5, 0.95, 'Voltage', ha='center', va='center', fontsize=22, color='white')
-                            # fig.text(0.5, 0.48, 'Calcium', ha='center', va='center', fontsize=22, color='white')
+                            # add row labels
+                            # fig.text(0.5, 0.95, 'voltage', ha='center', va='center', fontsize=22, color='white')
+                            # fig.text(0.5, 0.48, 'calcium', ha='center', va='center', fontsize=22, color='white')
 
                             panel_idx = 0
                             for type_idx in anatomical_order:
@@ -768,7 +768,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                                      cmap='viridis', vmin=-2, vmax=2, marker='h', alpha=1,
                                                      linewidths=0, edgecolors='black')
                                     ax_v.set_title(index_to_name.get(type_idx, f"Type_{type_idx}"), fontsize=18,
-                                                    color='white')  # increased fontsize
+                                                    color='white')  # increased font size
 
                                 ax_v.set_facecolor('black')
                                 ax_v.set_xticks([])
@@ -793,12 +793,12 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                         positions_y = to_numpy(X1[:np.sum(mask), 1])
                                         ax_ca.scatter(positions_x, positions_y, s=72, c=calcium_values,
                                                       cmap='plasma', vmin=0, vmax=2, marker='h',
-                                                      alpha=1, linewidths=0, edgecolors='black')  # green LUT
+                                                      alpha=1, linewidths=0, edgecolors='black')  # green lut
                                     else:
                                         ax_ca.text(0.5, 0.5, 'No neurons', transform=ax_ca.transAxes, ha='center',
                                                    va='center', color='red', fontsize=10)
                                     ax_ca.set_title(index_to_name.get(type_idx, f"Type_{type_idx}"), fontsize=18,
-                                                    color='white')  # increased fontsize
+                                                    color='white')  # increased font size
 
                                 ax_ca.set_facecolor('black')
                                 ax_ca.set_xticks([])
@@ -912,7 +912,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
             print("data saved ...")
 
-    # Neuron type index to name mapping
+    # neuron type index to name mapping
     index_to_name = {
         0: 'Am', 1: 'C2', 2: 'C3', 3: 'CT1(Lo1)', 4: 'CT1(M10)', 5: 'L1', 6: 'L2', 7: 'L3', 8: 'L4', 9: 'L5',
         10: 'Lawf1', 11: 'Lawf2', 12: 'Mi1', 13: 'Mi10', 14: 'Mi11', 15: 'Mi12', 16: 'Mi13', 17: 'Mi14',
@@ -933,7 +933,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     target_type_name_list = ['R1', 'R7', 'C2', 'Mi11', 'Tm1', 'Tm4', 'Tm30']
     type_list = torch.tensor(x[:, 6:7], device=device)
 
-    # Lazy import to avoid circular dependency
+    # lazy import to avoid circular dependency
     from GNN_PlotFigure import plot_neuron_activity_analysis
     plot_neuron_activity_analysis(activity, target_type_name_list, type_list, index_to_name, n_neurons, n_frames, delta_t, f'graphs_data/{dataset_name}/')
 
@@ -1021,21 +1021,6 @@ def data_generate_synaptic(
     torch.random.fork_rng(devices=device)
     torch.random.manual_seed(simulation_config.seed)
 
-    print(
-        f"generating data ... {model_config.particle_model_name} {model_config.mesh_model_name}"
-    )
-
-    n_neuron_types = simulation_config.n_neuron_types
-    n_neurons = simulation_config.n_neurons
-
-    delta_t = simulation_config.delta_t
-    n_frames = simulation_config.n_frames
-    has_particle_dropout = training_config.particle_dropout > 0
-
-    dataset_name = config.dataset
-    noise_model_level = training_config.noise_model_level
-    measurement_noise_level = training_config.measurement_noise_level
-    
     CustomColorMap(config=config)
     if 'black' in style:
         plt.style.use('dark_background')
@@ -1045,15 +1030,26 @@ def data_generate_synaptic(
         mc = 'k'
 
 
-    field_type = model_config.field_type
-    if field_type != "":
+    dataset_name = config.dataset
+    n_neuron_types = simulation_config.n_neuron_types
+    n_neurons = simulation_config.n_neurons
+
+    delta_t = simulation_config.delta_t
+    n_frames = simulation_config.n_frames
+
+    noise_model_level = training_config.noise_model_level
+    measurement_noise_level = training_config.measurement_noise_level
+    
+    # external input configuration
+    external_input_type = getattr(model_config, 'external_input_type', 'none')
+    has_visual_input = external_input_type == 'visual'
+    has_permutation = getattr(model_config, 'visual_input_permutation', False)
+
+    if has_visual_input:
         n_nodes = simulation_config.n_nodes
         n_nodes_per_axis = int(np.sqrt(n_nodes))
-    has_visual_input = "visual" in field_type
-    has_modulation = "modulation" in field_type
 
     folder = f"./graphs_data/{dataset_name}/"
-
     if config.data_folder_name != "none":
         print("generating from data ...")
         generate_from_data(
@@ -1071,7 +1067,6 @@ def data_generate_synaptic(
                 & (f[-3:] != "Fig")
                 & (f[-14:] != "generated_data")
                 & (f != "p.pt")
-                & (f != "cycle_length.pt")
                 & (f != "model_config.json")
                 & (f != "generation_code.py")
             ):
@@ -1081,30 +1076,18 @@ def data_generate_synaptic(
     files = glob.glob(f"./graphs_data/{dataset_name}/Fig/*")
     for f in files:
         os.remove(f)
+        
 
-    if has_particle_dropout:
-        draw = np.random.permutation(np.arange(n_neurons))
-        cut = int(n_neurons * (1 - training_config.particle_dropout))
-        particle_dropout_mask = draw[0:cut]
-        inv_particle_dropout_mask = draw[cut:]
-        x_removed_list = []
-    else:
-        particle_dropout_mask = np.arange(n_neurons)
-    if ("modulation" in model_config.field_type) | ("visual" in model_config.field_type):
+    if has_visual_input:
         im = imread(f"graphs_data/{simulation_config.node_value_map}")
-    if "permutation" in field_type:
+    if has_permutation:
         permutation_indices = torch.randperm(n_neurons)
         inverse_permutation_indices = torch.argsort(permutation_indices)
-        torch.save(
-            permutation_indices, f"./graphs_data/{dataset_name}/permutation_indices.pt"
-        )
-        torch.save(
-            inverse_permutation_indices,
-            f"./graphs_data/{dataset_name}/inverse_permutation_indices.pt",
-        )
+        torch.save(permutation_indices, f"./graphs_data/{dataset_name}/permutation_indices.pt")
+        torch.save(inverse_permutation_indices, f"./graphs_data/{dataset_name}/inverse_permutation_indices.pt",)
 
 
-    # External input parameters (moved from PDE_N4)
+    # external input parameters (moved from pde_n4)
     input_type = simulation_config.input_type
     has_oscillations = (input_type == 'oscillatory')
     has_triggered = (input_type == 'triggered')
@@ -1112,7 +1095,7 @@ def data_generate_synaptic(
     oscillation_frequency = torch.tensor(simulation_config.oscillation_frequency, dtype=torch.float32, device=device)
     max_frame = n_frames + 1
 
-    # Initialize triggered oscillation parameters (if needed)
+    # initialize triggered oscillation parameters (if needed)
     if has_triggered:
         triggered_n_impulses = simulation_config.triggered_n_impulses
         triggered_n_input = simulation_config.triggered_n_input_neurons
@@ -1121,10 +1104,10 @@ def data_generate_synaptic(
         amplitude_range = simulation_config.triggered_amplitude_range
         frequency_range = simulation_config.triggered_frequency_range
 
-        # Generate per-neuron random amplitude
+        # generate per-neuron random amplitude
         e_global = oscillation_amplitude * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
 
-        # Generate multiple impulse events spread throughout simulation
+        # generate multiple impulse events spread throughout simulation
         buffer = triggered_duration
         available_frames = max_frame - 2 * buffer
         spacing = available_frames // max(1, triggered_n_impulses)
@@ -1153,8 +1136,12 @@ def data_generate_synaptic(
             e = oscillation_amplitude * amp_mult * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
             trigger_e.append(e)
     elif has_oscillations:
-        # Per-neuron random amplitude for oscillatory input
+        # per-neuron random amplitude for oscillatory input
         e_global = oscillation_amplitude * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
+
+
+
+    print(f"generating data ... {config.dataset}")
 
     for run in range(config.training.n_runs):
 
@@ -1197,40 +1184,37 @@ def data_generate_synaptic(
             torch.save(mask, f"./graphs_data/{dataset_name}/mask.pt")
             torch.save(connectivity, f"./graphs_data/{dataset_name}/connectivity.pt")
 
-            # Plot eigenvalue spectrum and connectivity matrix
+            # plot eigenvalue spectrum and connectivity matrix
             plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc)
             plot_connectivity_matrix(connectivity, dataset_name)
 
-        if has_modulation:
+        if has_visual_input:
             if run == 0:
                 X1_mesh, V1_mesh, T1_mesh, H1_mesh, A1_mesh, N1_mesh, mesh_data = (
                     init_mesh(config, device=device)
                 )
-                X1 = X1_mesh
-        elif has_visual_input:
-            if run == 0:
-                X1_mesh, V1_mesh, T1_mesh, H1_mesh, A1_mesh, N1_mesh, mesh_data = (
-                    init_mesh(config, device=device)
-                )
-                pos_x, pos_y = get_equidistant_points(n_points=1024)
-                X1 = (
-                    torch.tensor(
-                        np.stack((pos_x, pos_y), axis=1), dtype=torch.float32, device=device
+                if n_neurons > n_nodes:
+                    # visual input with extra neurons beyond mesh
+                    pos_x, pos_y = get_equidistant_points(n_points=1024)
+                    X1 = (
+                        torch.tensor(
+                            np.stack((pos_x, pos_y), axis=1), dtype=torch.float32, device=device
+                        )
+                        / 2
                     )
-                    / 2
-                )
-                X1[:, 1] = X1[:, 1] + 1.5
-                X1[:, 0] = X1[:, 0] + 0.5
-                X1 = torch.cat((X1_mesh, X1[0 : n_neurons - n_nodes]), 0)
+                    X1[:, 1] = X1[:, 1] + 1.5
+                    X1[:, 0] = X1[:, 0] + 0.5
+                    X1 = torch.cat((X1_mesh, X1[0 : n_neurons - n_nodes]), 0)
+                else:
+                    X1 = X1_mesh
 
         model, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
 
-        # NEW x tensor layout (like flyvis):
-        # x[:, 0]   = index (neuron ID)
+        # x[:, 0]   = index (neuron id)
         # x[:, 1:3] = positions (x, y)
         # x[:, 3]   = signal u (state)
         # x[:, 4]   = external_input
-        # x[:, 5]   = plasticity p (PDE_N6/N7)
+        # x[:, 5]   = plasticity p (pde_n6/n7)
         # x[:, 6]   = neuron_type
         # x[:, 7]   = calcium
         x = torch.zeros((n_neurons, 8), dtype=torch.float32, device=device)
@@ -1238,7 +1222,7 @@ def data_generate_synaptic(
         x[:, 1:3] = X1.clone().detach()  # positions
         x[:, 3] = H1[:, 0].clone().detach()  # signal state u
         x[:, 4] = 0  # external input (set per frame)
-        x[:, 5] = 1  # plasticity p (init to 1 for PDE_N6/N7)
+        x[:, 5] = 1  # plasticity p (init to 1 for pde_n6/n7)
         x[:, 6] = T1.squeeze().clone().detach()  # neuron_type
         x[:, 7] = 0  # calcium
 
@@ -1253,63 +1237,51 @@ def data_generate_synaptic(
         for it in trange(simulation_config.start_frame, n_frames + 1, ncols=150):
             with torch.no_grad():
 
-                # Compute external input for this frame
+                # compute external input for this frame
                 external_input = torch.zeros((n_neurons, 1), device=device)
 
-                if (has_modulation) & (it >= 0):
+                if (has_visual_input) & (it >= 0):
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
                     im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
-                    if "permutation" in model_config.field_type:
+                    if has_permutation:
                         im_ = im_[permutation_indices]
-                    external_input[:, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
-                elif (has_visual_input) & (it >= 0):
-                    im_ = im[int(it / n_frames * 256)].squeeze()
-                    im_ = np.rot90(im_, 3)
-                    im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
                     external_input[:n_nodes, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
-                    external_input[n_nodes:n_neurons, 0] = 1
+                    if n_nodes < n_neurons:
+                        external_input[n_nodes:n_neurons, 0] = 1
                 elif has_oscillations:
-                    # Oscillatory external input (frequency in cycles per time unit)
+                    # oscillatory external input (frequency in cycles per time unit)
                     t = it * delta_t
                     external_input = e_global * torch.cos((2*np.pi)*oscillation_frequency*t)
                 elif has_triggered:
-                    # Triggered oscillation input
+                    # triggered oscillation input
                     for i in range(triggered_n_impulses):
                         trig_frame = trigger_frames[i]
-                        # Add impulse at trigger frame
+                        # add impulse at trigger frame
                         if it == trig_frame:
                             impulse = torch.zeros((n_neurons, 1), device=device)
                             impulse[trigger_neurons[i]] = triggered_strength * trigger_amplitudes[i]
                             external_input = external_input + impulse
-                        # Add oscillatory response after trigger
+                        # add oscillatory response after trigger
                         if trig_frame <= it < trig_frame + triggered_duration:
                             t_since_trigger = it - trig_frame
                             freq_mult = trigger_frequencies[i]
                             osc = trigger_e[i] * torch.sin((2*np.pi)*oscillation_frequency*freq_mult*t_since_trigger / triggered_duration)
                             external_input = external_input + osc
 
-                # Update x tensor for this frame
+                # update x tensor for this frame
                 x[:, 4] = external_input.squeeze()  # external input
 
                 X[:, it] = x[:, 3].clone().detach()  # store signal state
                 dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
 
-                # model prediction
-                if has_modulation | has_visual_input:
-                    y = model(dataset, has_field=True, frame=it)
-                elif has_oscillations | has_triggered:
-                    y = model(dataset, has_field=False, frame=it)  # additive input only
-                elif "PDE_N3" in model_config.signal_model_name:
-                    y = model(dataset, has_field=False, alpha=it / n_frames, frame=it)
-                elif "PDE_N6" in model_config.signal_model_name:
-                    (y, p_out) = model(dataset, has_field=False, frame=it)
-                elif "PDE_N7" in model_config.signal_model_name:
-                    (y, p_out) = model(dataset, has_field=False, frame=it)
-                elif "PDE_N11" in model_config.signal_model_name:
-                    y = model(dataset, has_field=False, frame=it)
+                # model prediction - uses external_input_mode from config (stored in model)
+                if "PDE_N3" in model_config.signal_model_name:
+                    y = model(dataset, alpha=it / n_frames)
+                elif ("PDE_N6" in model_config.signal_model_name) | ("PDE_N7" in model_config.signal_model_name):
+                    (y, p_out) = model(dataset)
                 else:
-                    y = model(dataset, has_field=False, frame=it)
+                    y = model(dataset)
 
             # append list
             if (it >= 0) & bSave:
@@ -1318,12 +1290,12 @@ def data_generate_synaptic(
 
             # field update - update x tensor directly
             if (config.graph_model.signal_model_name == "PDE_N6") | (config.graph_model.signal_model_name == "PDE_N7"):
-                # Signal update
+                # signal update
                 du = y.squeeze()
                 x[:, 3] = x[:, 3] + du * delta_t
                 if noise_model_level > 0:
                     x[:, 3] = x[:, 3] + torch.randn(n_neurons, device=device) * noise_model_level
-                # Plasticity update
+                # plasticity update
                 dp = p_out.squeeze()
                 x[:, 5] = torch.relu(x[:, 5] + dp * delta_t)
             else:
@@ -1343,10 +1315,8 @@ def data_generate_synaptic(
                 num = f"{id_fig:06}"
                 id_fig += 1
 
-                if "visual" in field_type:
+                if has_visual_input:
                     plot_synaptic_frame_visual(x[:, 1:3], x[:, 4:5], x[:, 3:4], dataset_name, run, num)
-                elif "modulation" in field_type:
-                    plot_synaptic_frame_modulation(x[:, 1:3], x[:, 4:5], x[:, 3:4], dataset_name, run, num)
                 else:
                     if ("PDE_N6" in model_config.signal_model_name) | (
                         "PDE_N7" in model_config.signal_model_name
@@ -1373,7 +1343,7 @@ def data_generate_synaptic(
             for f in files:
                 os.remove(f)
 
-            print('Ising analysis ...')
+            print('ising analysis ...')
             x_list = np.array(x_list)
             y_list = np.array(y_list)
 
@@ -1394,26 +1364,9 @@ def data_generate_synaptic(
 
             np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-        else:
-            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-            if has_particle_dropout:
-                torch.save(
-                    x_removed_list,
-                    f"graphs_data/{dataset_name}/x_removed_list_{run}.pt",
-                )
-                np.save(
-                    f"graphs_data/{dataset_name}/particle_dropout_mask.npy",
-                    particle_dropout_mask,
-                )
-                np.save(
-                    f"graphs_data/{dataset_name}/inv_particle_dropout_mask.npy",
-                    inv_particle_dropout_mask,
-                )
+
 
         torch.save(model.p, f"graphs_data/{dataset_name}/model_p_{run}.pt")
-        if simulation_config.n_excitatory_neurons> 0:
-            torch.save(model.e, f"graphs_data/{dataset_name}/model_e_{run}.pt")
 
         print("data saved ...")
 

@@ -38,7 +38,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.n_neurons = simulation_config.n_neurons
         self.n_dataset = config.training.n_runs
         self.n_frames = simulation_config.n_frames
-        self.field_type = model_config.field_type
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.MLP_activation = config.graph_model.MLP_activation
@@ -54,11 +53,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.hidden_dim_update = model_config.hidden_dim_update
         self.input_size_update = model_config.input_size_update
 
-        self.input_size_modulation = model_config.input_size_modulation
-        self.output_size_modulation = model_config.output_size_modulation
-        self.hidden_dim_modulation = model_config.hidden_dim_modulation
-        self.n_layers_modulation = model_config.n_layers_modulation
-
         self.batch_size = config.training.batch_size
         self.update_type = model_config.update_type
 
@@ -69,9 +63,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.n_layers_excitation = model_config.n_layers_excitation
         self.hidden_dim_excitation = model_config.hidden_dim_excitation
         self.input_size_excitation = model_config.input_size_excitation
-
-        self.n_excitatory_neurons = simulation_config.n_excitatory_neurons
-
 
         self.low_rank_factorization = config.training.low_rank_factorization
         self.low_rank = config.training.low_rank
@@ -108,8 +99,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         if (self.model == 'PDE_N6') | (self.model == 'PDE_N7'):
             self.b = nn.Parameter(torch.ones((int(self.n_neurons), 1000 + 10), device=self.device, requires_grad=True,dtype=torch.float32)*0.44)
             self.embedding_step = self.n_frames // 1000
-            self.lin_modulation = MLP(input_size=self.input_size_modulation, output_size=self.output_size_modulation, nlayers=self.n_layers_modulation,
-                                hidden_size=self.hidden_dim_modulation, device=self.device)
             
 
 
@@ -132,37 +121,12 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.mask = torch.ones((int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=False, dtype=torch.float32)
         self.mask.fill_diagonal_(0)
 
-        if self.n_excitatory_neurons > 0:
-
-            # self.excitation = nn.Parameter(torch.ones((self.n_frames, int(self.n_excitatory_neurons)), device=self.device, requires_grad=True,dtype=torch.float32))
-
-            self.NNR_f = Siren(in_features=model_config.input_size_nnr_f, out_features=model_config.output_size_nnr_f,
-                hidden_features=model_config.hidden_dim_nnr_f,
-                hidden_layers=model_config.n_layers_nnr_f, first_omega_0=model_config.omega_f,
-                hidden_omega_0=model_config.omega_f,
-                outermost_linear=model_config.outermost_linear_nnr_f)
-            self.NNR_f.to(self.device)
-
-            self.NNR_f_T_period = model_config.nnr_f_T_period / (2*np.pi)
-
     def get_interp_a(self, k, particle_id):
 
         id = particle_id * 100 + k // self.embedding_step
         alpha = (k % self.embedding_step) / self.embedding_step
 
         return alpha * self.a[id.squeeze()+1, :] + (1 - alpha) * self.a[id.squeeze(), :]
-    
-
-    def forward_excitation(self,  k = []):
-
-
-        kk = torch.full((1, 1), float(k), device=self.device, dtype=torch.float32)
-
-        in_features = torch.tensor(kk / self.NNR_f_T_period, dtype=torch.float32, device=self.device)
-        excitation_field = self.NNR_f(in_features)
-
-        return excitation_field
-
 
     def forward(self, data=[], data_id=[], k = [], return_all=False):
         self.return_all = return_all

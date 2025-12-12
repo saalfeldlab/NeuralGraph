@@ -26,7 +26,6 @@ class SimulationConfig(BaseModel):
     n_neurons: int = 1000
     n_neuron_types: int = 5
     n_input_neurons: int = 0
-    n_excitatory_neurons: int = 0
     n_edges: int = 0
     max_edges: float = 1.0e6
     n_extra_null_edges: int = 0
@@ -116,8 +115,25 @@ class GraphModelConfig(BaseModel):
     aggr_type: str
     embedding_dim: int = 2
 
-    field_type: str = ""
+    field_type: str = ""  # deprecated, use external_input_type instead
     field_grid: Optional[str] = ""
+
+    # External input configuration for signal models
+    # external_input_type: what kind of external input is in x[:, 4]
+    #   "none": no external input
+    #   "signals": oscillatory/triggered signals (from simulation.input_type)
+    #   "visual": visual input from image/movie (load from node_value_map)
+    external_input_type: Literal["none", "signals", "visual"] = "none"
+
+    # external_input_mode: how x[:, 4] affects the PDE dynamics
+    external_input_mode: Literal["additive", "multiplicative", "none"] = "none"
+    # additive: du = f(u) + g*msg + external_input
+    # multiplicative: du = f(u) + g*msg * external_input
+    # none: du = f(u) + g*msg (external_input ignored)
+
+    learn_external_input: bool = False
+    # True: learn external_input using INR (SIREN/NGP) during training
+    # False: use external_input from data (generated or loaded)
 
     input_size: int = 1
     output_size: int = 1
@@ -201,11 +217,6 @@ class GraphModelConfig(BaseModel):
     ngp_per_level_scale: float = 1.4
     ngp_n_neurons: int = 128
     ngp_n_hidden_layers: int = 4
-
-    input_size_modulation: int = 2
-    n_layers_modulation: int = 3
-    hidden_dim_modulation: int = 64
-    output_size_modulation: int = 1
 
     input_size_excitation: int = 3
     n_layers_excitation: int = 5
@@ -305,7 +316,7 @@ class TrainingConfig(BaseModel):
     clamp: float = 0
     pred_limit: float = 1.0e10
 
-    particle_dropout: float = 0
+    neuron_dropout: float = 0
     n_ghosts: int = 0
     ghost_method: Literal["none", "tensor", "MLP"] = "none"
     ghost_logvar: float = -12
@@ -344,12 +355,10 @@ class TrainingConfig(BaseModel):
     learning_rate_start: float = 0.001
     learning_rate_embedding_start: float = 0.001
     learning_rate_update_start: float = 0.0
-    learning_rate_modulation_start: float = 0.0001
     learning_rate_W_start: float = 0.0001
 
     learning_rate_end: float = 0.0005
     learning_rate_embedding_end: float = 0.0001
-    learning_rate_modulation_end: float = 0.0001
     Learning_rate_W_end: float = 0.0001
 
     learning_rate_missing_activity: float = 0.0001
@@ -394,7 +403,6 @@ class TrainingConfig(BaseModel):
 
     coeff_model_a: float = 0
     coeff_model_b: float = 0
-    coeff_lin_modulation: float = 0
     coeff_continuous: float = 0
 
     noise_level: float = 0

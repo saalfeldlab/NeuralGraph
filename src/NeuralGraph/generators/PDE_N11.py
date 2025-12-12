@@ -40,11 +40,12 @@ class PDE_N11(pyg.nn.MessagePassing):
         self.device = device
         self.n_neurons = config.simulation.n_neurons
         self.n_neuron_types = config.simulation.n_neuron_types
+        self.external_input_mode = getattr(config.graph_model, 'external_input_mode', 'none')
 
         if self.func_p is None:
             self.func_p = [['tanh', 1.0, 1.0] for n in range(self.n_neuron_types)]
 
-    def forward(self, data=[], has_field=False, data_id=[], frame=None):
+    def forward(self, data=[]):
         x, _edge_index = data.x, data.edge_index
         neuron_type = x[:, 6].long()
         parameters = self.p[neuron_type]
@@ -75,7 +76,12 @@ class PDE_N11(pyg.nn.MessagePassing):
                 msg_n = torch.matmul(self.W, activated_u)
                 msg[type_mask] = msg_n[type_mask]
 
-        du = -c*u + g * msg + external_input
+        if self.external_input_mode == "multiplicative":
+            du = -c * u + g * msg * external_input
+        elif self.external_input_mode == "additive":
+            du = -c * u + g * msg + external_input
+        else:  # none
+            du = -c * u + g * msg
 
         return du
 

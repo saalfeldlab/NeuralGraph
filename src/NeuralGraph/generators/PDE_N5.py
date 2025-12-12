@@ -37,8 +37,9 @@ class PDE_N5(pyg.nn.MessagePassing):
         self.phi = phi
         self.device = device
         self.n_neurons = config.simulation.n_neurons
+        self.external_input_mode = getattr(config.graph_model, 'external_input_mode', 'none')
 
-    def forward(self, data=[], has_field=False, data_id=[], frame=None):
+    def forward(self, data=[]):
         x, edge_index = data.x, data.edge_index
 
         neuron_type = x[:, 6].long()
@@ -55,17 +56,19 @@ class PDE_N5(pyg.nn.MessagePassing):
             b = parameters[:, 4:5]
 
         u = x[:, 3:4]  # signal state
-        
+        external_input = x[:, 4:5]
 
-        if has_field:
-            field = x[:, 4:5]
-            msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=field)
+        if self.external_input_mode == "multiplicative":
+            msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=external_input)
             du = -c * u + s * torch.tanh(u) + g * msg
-        else:
+        elif self.external_input_mode == "additive":
             field = torch.ones_like(u)
-            external_input = x[:, 4:5]  # external input
             msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=field)
             du = -c * u + s * torch.tanh(u) + g * msg + external_input
+        else:  # none
+            field = torch.ones_like(u)
+            msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=field)
+            du = -c * u + s * torch.tanh(u) + g * msg
 
         return du
 

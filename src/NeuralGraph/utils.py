@@ -2286,7 +2286,7 @@ class LossRegularizer:
         'W_L1', 'W_L2', 'W_sign',
         'edge_diff', 'edge_norm', 'edge_weight', 'phi_weight',
         'phi_zero', 'update_diff', 'update_msg_diff', 'update_u_diff', 'update_msg_sign',
-        'missing_activity', 'model_a', 'model_b', 'modulation'
+        'missing_activity', 'model_a', 'model_b'
     ]
 
     def __init__(self, train_config, model_config, activity_column: int,
@@ -2356,7 +2356,6 @@ class LossRegularizer:
         self._coeffs['missing_activity'] = tc.coeff_missing_activity
         self._coeffs['model_a'] = tc.coeff_model_a
         self._coeffs['model_b'] = tc.coeff_model_b
-        self._coeffs['modulation'] = tc.coeff_lin_modulation
 
     def set_epoch(self, epoch: int, plot_frequency: int = None):
         """Set current epoch and update annealed coefficients."""
@@ -2394,7 +2393,7 @@ class LossRegularizer:
             self._iter_tracker[name] += val
 
     def compute(self, model, x, in_features, ids, ids_batch, edges, device,
-                xnorm=1.0, index_weight=None, n_excitatory_neurons=0):
+                xnorm=1.0, index_weight=None):
         """
         Compute all regularization terms internally.
 
@@ -2408,7 +2407,6 @@ class LossRegularizer:
             device: Torch device
             xnorm: Normalization value
             index_weight: Index for W_sign computation (signal only)
-            n_excitatory_neurons: Number of excitatory neurons (signal only)
 
         Returns:
             Total regularization loss tensor
@@ -2431,18 +2429,12 @@ class LossRegularizer:
 
         # --- W regularization ---
         if self._coeffs['W_L1'] > 0 and model_W is not None:
-            if n_excitatory_neurons > 0:
-                regul_term = model_W[:n_neurons - n_excitatory_neurons, :n_neurons - n_excitatory_neurons].norm(1) * self._coeffs['W_L1']
-            else:
-                regul_term = model_W.norm(1) * self._coeffs['W_L1']
+            regul_term = model_W.norm(1) * self._coeffs['W_L1']
             total_regul = total_regul + regul_term
             self._add('W_L1', regul_term)
 
         if self._coeffs['W_L2'] > 0 and model_W is not None:
-            if n_excitatory_neurons > 0:
-                regul_term = model_W[:n_neurons - n_excitatory_neurons, :n_neurons - n_excitatory_neurons].norm(2) * self._coeffs['W_L2']
-            else:
-                regul_term = model_W.norm(2) * self._coeffs['W_L2']
+            regul_term = model_W.norm(2) * self._coeffs['W_L2']
             total_regul = total_regul + regul_term
             self._add('W_L2', regul_term)
 

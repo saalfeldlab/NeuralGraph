@@ -21,7 +21,7 @@ simulation:
   max_radius: 1.0E6
   n_neurons: 1000
   n_neuron_types: 4
-  n_frames: 100000
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -67,7 +67,8 @@ graph_model:
   # Use instantNGP hash encoding which handles local features better than SIREN
   input_size_nnr_f: 1
   output_size_nnr_f: 1000
-  nnr_f_T_period: 100000
+
+  nnr_f_T_period: 10000
 
   # INR type: "siren" or "ngp" (instantNGP hash encoding)
   inr_type: "ngp"
@@ -82,7 +83,7 @@ graph_model:
   # InstantNGP parameters (used if inr_type: "ngp")
   ngp_n_levels: 24
   ngp_n_features_per_level: 2
-  ngp_log2_hashmap_size: 22
+  ngp_log2_hashmap_size: 20
   ngp_base_resolution: 16
   ngp_per_level_scale: 1.4
   ngp_n_neurons: 256
@@ -100,6 +101,7 @@ training:
   device: "auto"
 
   batch_size: 96
+  batch_ratio: 0.5
   small_init_batch_size: False
   init_training_single_type: True
 
@@ -115,6 +117,7 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
-  learning_rate_NNR_f: 1.0E-3 # NGP can use higher LR than SIREN
+
+  learning_rate_NNR_f: 5.0E-4 # NGP can use higher LR than SIREN
 
   coeff_W_L1: 1.0E-5

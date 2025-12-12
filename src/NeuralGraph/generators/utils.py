@@ -621,8 +621,8 @@ def plot_synaptic_frame_visual(X1, A1, H1, dataset_name, run, num):
     plt.close()
 
 
-def plot_synaptic_frame_modulation(X1, A1, H1, dataset_name, run, num):
-    """Plot frame for modulation field type."""
+def plot_synaptic_frame_external_input(X1, A1, H1, dataset_name, run, num):
+    """Plot frame showing external input and signal state."""
     plt.figure(figsize=(12, 12))
     plt.subplot(221)
     plt.scatter(
@@ -752,19 +752,22 @@ def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, mod
     # Plot all traces
     plt.plot(activity_plot.T, linewidth=2, alpha=0.7)
 
-    # Plot external_input trace at the top (from x_list[:, :, 4])
+    # Plot external_input traces at the top (from x_list[:, :, 4])
     external_input = x_list[:, :, 4]  # (n_frames, n_neurons)
     if np.abs(external_input).max() > 1e-6:  # Only plot if there's external input
-        # Average external input across all neurons or use max
-        external_input_mean = np.mean(external_input, axis=1)  # (n_frames,)
-        # Scale and offset to show at top of plot
-        ext_scale = 20 / (np.abs(external_input_mean).max() + 1e-6)
-        ext_offset = activity_plot.max() + 50
+        # Use random neuron traces instead of mean (mean is flat for triggered input)
+        n_ext_traces = 5
+        ext_neuron_ids = np.random.choice(n_neurons, n_ext_traces, replace=False)
+        ext_offset_base = activity_plot.max() + 50
         frames = np.arange(min(n_frames, external_input.shape[0]))
-        plt.plot(frames, external_input_mean[:len(frames)] * ext_scale + ext_offset,
-                 color='yellow', linewidth=2, linestyle='--')
-        plt.text(-100, ext_offset, 'ext_in', fontsize=16, va='center', ha='right', color='yellow')
-        plt.ylim([activity_plot.min() - 50, ext_offset + 50])
+        for idx, neuron_id in enumerate(ext_neuron_ids):
+            ext_trace = external_input[:len(frames), neuron_id]
+            ext_scale = 15 / (np.abs(ext_trace).max() + 1e-6)
+            ext_offset = ext_offset_base + idx * 20
+            plt.plot(frames, ext_trace * ext_scale + ext_offset,
+                     color='yellow', linewidth=1.5, alpha=0.8)
+        plt.text(-100, ext_offset_base + n_ext_traces * 10, 'ext_in', fontsize=16, va='center', ha='right', color='yellow')
+        plt.ylim([activity_plot.min() - 50, ext_offset_base + n_ext_traces * 25])
 
     for i in range(0, n_plot, 5):
         plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')

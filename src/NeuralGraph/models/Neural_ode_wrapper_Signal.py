@@ -130,8 +130,7 @@ def neural_ode_loss_Signal(model, dataset_batch, x_list, run, k_batch,
                            time_step, batch_size, n_neurons, ids_batch,
                            delta_t, device, data_id=None, y_batch=None,
                            noise_level=0.0, ode_method='dopri5',
-                           rtol=1e-4, atol=1e-5, adjoint=True,
-                           n_excitatory_neurons=0):
+                           rtol=1e-4, atol=1e-5, adjoint=True):
     """
     Compute loss using Neural ODE integration.
     Replaces explicit autoregressive rollout in data_train_signal.
@@ -170,9 +169,6 @@ def neural_ode_loss_Signal(model, dataset_batch, x_list, run, k_batch,
 
     pred_x = u_final.view(-1, 1)
 
-    if (n_excitatory_neurons > 0) and (batch_size > 1):
-        loss = ((pred_x - y_batch) / (delta_t * time_step)).norm(2)
-    else:
-        loss = ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
+    loss = ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
     return loss, pred_x

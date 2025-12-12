@@ -94,7 +94,7 @@ if __name__ == "__main__":
         elif 'train_INR' in task:
             print()
             # Pre-train nnr_f (SIREN) on external_input data before joint GNN learning
-            data_train_INR(config=config, device=device, total_steps=50000)
+            data_train_INR(config=config, device=device, total_steps=200000)
 
         elif "train" in task:
             data_train(
