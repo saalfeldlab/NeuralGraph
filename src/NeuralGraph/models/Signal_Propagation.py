@@ -41,6 +41,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.MLP_activation = config.graph_model.MLP_activation
+        self.external_input_mode = getattr(config.graph_model, 'external_input_mode', 'none')
 
         self.input_size = model_config.input_size
         self.output_size = model_config.output_size
@@ -99,10 +100,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         if (self.model == 'PDE_N6') | (self.model == 'PDE_N7'):
             self.b = nn.Parameter(torch.ones((int(self.n_neurons), 1000 + 10), device=self.device, requires_grad=True,dtype=torch.float32)*0.44)
             self.embedding_step = self.n_frames // 1000
-            
-
-
-
 
         if self.multi_connectivity:
             self.W = nn.Parameter(torch.zeros((int(self.n_dataset),int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
@@ -149,22 +146,22 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             self.W = self.WL @ self.WR  
 
         msg = self.propagate(edge_index, u=u, embedding=embedding, data_id=self.data_id[:,None])
+        external_input = x[:, 4:5]
 
         if 'generic' in self.update_type:        # MLP1(u, embedding, \sum MLP0(u, embedding), field)
-            field = x[:, 4:5]
-            if 'excitation' in self.update_type:
-                excitation = x[:, 10: 10 + self.excitation_dim]
-                in_features = torch.cat([u, embedding, msg, field, excitation], dim=1)
-            else:
-                in_features = torch.cat([u, embedding, msg, field], dim=1)
+
+            in_features = torch.cat([u, embedding, msg, external_input], dim=1)
             pred = self.lin_phi(in_features)
+
         else:
-            field = x[:, 4:5]
+
             in_features = torch.cat([u, embedding], dim=1)
-            pred = self.lin_phi(in_features) + msg * field
-            if 'excitation' in self.update_type:
-                excitation = x[:, 10: 10 + self.excitation_dim]
-                pred = pred  + excitation
+            if self.external_input_mode == "multiplicative":
+                pred = self.lin_phi(in_features) + msg * external_input
+            elif self.external_input_mode == "additive":
+                pred = self.lin_phi(in_features) + msg + external_input
+            else: # none
+                pred = self.lin_phi(in_features) + msg
 
 
         if return_all:

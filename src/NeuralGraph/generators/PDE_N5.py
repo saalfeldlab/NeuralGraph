@@ -60,7 +60,7 @@ class PDE_N5(pyg.nn.MessagePassing):
 
         if self.external_input_mode == "multiplicative":
             msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=external_input)
-            du = -c * u + s * torch.tanh(u) + g * msg
+            du = -c * u + s * torch.tanh(u) + g * msg * external_input
         elif self.external_input_mode == "additive":
             field = torch.ones_like(u)
             msg = self.propagate(edge_index, u=u, t=t, l=l, b=b, field=field)

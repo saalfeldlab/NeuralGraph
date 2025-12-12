@@ -60,7 +60,7 @@ class PDE_N4(pyg.nn.MessagePassing):
         if self.external_input_mode == "multiplicative":
             # Multiplicative mode: external_input modulates the message
             msg = self.propagate(edge_index, u=u, w=w, h=h, field=external_input)
-            du = -a * u + b + s * torch.tanh(u) + g * msg
+            du = -a * u + b + s * torch.tanh(u) + g * msg * external_input
         elif self.external_input_mode == "additive":
             # Additive mode: external_input is added directly
             field = torch.ones_like(u)

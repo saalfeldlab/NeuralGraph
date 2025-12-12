@@ -298,8 +298,6 @@ def data_train_signal(config, erase, best_model, style, device):
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
-    n_excitatory_neurons = 0 # simulation_config.n_excitatory_neurons
-
     field_type = model_config.field_type
 
     embedding_cluster = EmbeddingCluster(config)
@@ -364,10 +362,6 @@ def data_train_signal(config, erase, best_model, style, device):
 
     print(f'N neurons: {n_neurons}, xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
     logger.info(f'N neurons: {n_neurons}, xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
-
-    if n_excitatory_neurons > 0:
-        config.simulation.n_neurons = n_neurons + n_excitatory_neurons
-        n_neurons = n_neurons + n_excitatory_neurons
 
     print('create models ...')
     model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device)
@@ -478,22 +472,6 @@ def data_train_signal(config, erase, best_model, style, device):
         edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
         edges_all = edges.clone().detach()
 
-        if n_excitatory_neurons > 0:
-
-            adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
-            edges, edge_attr = dense_to_sparse(adj_matrix)
-            edges_all = edges.clone().detach()
-
-            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_{run}.pt", map_location=device)
-            N = connectivity.shape[0]
-            expanded = torch.zeros((n_neurons, n_neurons), device=device)
-            expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
-            expanded[:n_neurons-n_excitatory_neurons, -1] = model_e.t().squeeze()
-            connectivity = expanded.clone().detach()
-
-
-            type_list  = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device)) * (simulation_config.n_neuron_types + 1), dim=0)
-
     if train_config.coeff_W_sign > 0:
         index_weight = []
         for i in range(n_neurons):
@@ -589,13 +567,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
                 x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
 
-                if n_excitatory_neurons > 0:
-                    excitation_values = model.forward_excitation(k)
-                    x = torch.cat((x, torch.zeros((n_excitatory_neurons, x.shape[1]), device=device)), dim=0)
-                    x[-1, 6] = excitation_values.squeeze()
-                    x[-1, 0] = n_neurons-1
-
-                ids = np.arange(n_neurons-n_excitatory_neurons)
+                ids = np.arange(n_neurons)
 
                 if not (torch.isnan(x).any()):
 
@@ -656,12 +628,8 @@ def data_train_signal(config, erase, best_model, style, device):
 
                     if recurrent_training or neural_ODE_training:
                         y = torch.tensor(x_list[run][k + time_step, :, 3:4], dtype=torch.float32, device=device).detach()
-                        if n_excitatory_neurons > 0:
-                            y = torch.cat((y, torch.zeros((n_excitatory_neurons, 1), dtype=torch.float32, device=device)), dim=0)
                     else:
                         y = torch.tensor(y_list[run][k], device=device) / ynorm
-                    if n_excitatory_neurons > 0:
-                        y = torch.cat((y, torch.zeros((n_excitatory_neurons, y.shape[1]), device=device)), dim=0)
 
 
                     if not (torch.isnan(y).any()):
@@ -723,8 +691,7 @@ def data_train_signal(config, erase, best_model, style, device):
                         ode_method=ode_method,
                         rtol=ode_rtol,
                         atol=ode_atol,
-                        adjoint=ode_adjoint,
-                        n_excitatory_neurons=n_excitatory_neurons
+                        adjoint=ode_adjoint
                     )
                     loss = loss + ode_loss
 
@@ -745,10 +712,7 @@ def data_train_signal(config, erase, best_model, style, device):
                                 pred = model(batch, data_id=data_id, k=k_batch + step)
                             pred_x = pred_x + delta_t * pred + noise_recurrent_level * torch.randn_like(pred)
 
-                    if (n_excitatory_neurons > 0) & (batch_size > 1):
-                        loss = loss + ((pred_x - y_batch) / (delta_t * time_step)).norm(2)
-                    else:
-                        loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
+                    loss = loss + ((pred_x[ids_batch] - y_batch[ids_batch]) / (delta_t * time_step)).norm(2)
 
                 else:
 
@@ -2582,7 +2546,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     n_neuron_types = simulation_config.n_neuron_types
     n_neurons = simulation_config.n_neurons
-    n_excitatory_neurons = simulation_config.n_excitatory_neurons
     n_nodes = simulation_config.n_nodes
     n_runs = training_config.n_runs
     n_frames = simulation_config.n_frames
@@ -2715,17 +2678,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     model_generator, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
 
-
-    if n_excitatory_neurons > 0:
-        config.simulation.n_neurons = n_neurons + n_excitatory_neurons
-        n_neurons = n_neurons + n_excitatory_neurons
-        adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
-        edge_index, edge_attr = dense_to_sparse(adj_matrix)
-        e = torch.load(f'./graphs_data/{dataset_name}/model_e_{run}.pt', map_location=device)
-        model_generator.e = torch.nn.Parameter(e)
-
-
-
     model, bc_pos, bc_dpos = choose_training_model(config, device)
     model.ynorm = ynorm
     model.vnorm = vnorm
@@ -2800,10 +2752,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     x = x_list[0][start_it].clone().detach()
     x_generated = x_list[0][start_it].clone().detach()
-
-    if n_excitatory_neurons > 0:
-        x_excitatory = torch.zeros((n_excitatory_neurons, x.shape[1]), dtype=torch.float32, device=device)
-        x = torch.cat((x, x_excitatory), dim=0)
 
     if 'test_ablation' in test_mode:
         #  test_mode="test_ablation_0 by default
@@ -3018,14 +2966,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         x_inference_list.append(x[:, 3:4].clone().detach())
         x_generated_list.append(x_generated[:, 3:4].clone().detach())
 
-        if (n_excitatory_neurons > 0) & (it<200):
-            x[:n_neurons - n_excitatory_neurons, 3] = x0[:, 3].clone().detach()
-
-
         if ablation_ratio > 0:
             rmserr = torch.sqrt(torch.mean((x_generated[:n_neurons, 3] - x0[:, 3]) ** 2))
         else:
-            rmserr = torch.sqrt(torch.mean((x[:n_neurons-n_excitatory_neurons, 3] - x0[:, 3]) ** 2))
+            rmserr = torch.sqrt(torch.mean((x[:n_neurons, 3] - x0[:, 3]) ** 2))
 
         neuron_gt_list.append(x0[:, 3:4])
         neuron_pred_list.append(x[:n_neurons, 3:4].clone().detach())
@@ -3045,10 +2989,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         if 'visual' in field_type:
             x[:n_nodes, 4:5] = model_f(time=it / n_frames) ** 2
             x[n_nodes:n_neurons, 4:5] = 1
-        elif n_excitatory_neurons > 0:
-            excitation_values = model.forward_excitation(it)
-            x[-1, 3] = excitation_values
-            x[-1, 0] = n_neurons-1
         elif 'learnable_short_term_plasticity' in field_type:
             alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 4] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
@@ -3226,7 +3166,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             id_fig += 1
 
             if n_neurons <= 101:
-                n = np.arange(0,n_neurons-n_excitatory_neurons,4)
+                n = np.arange(0,n_neurons,4)
             elif 'CElegans' in dataset_name:
                 n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
             else:
@@ -3235,9 +3175,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             neuron_gt_list_ = torch.cat(neuron_gt_list, 0)
             neuron_pred_list_ = torch.cat(neuron_pred_list, 0)
             neuron_generated_list_ = torch.cat(neuron_generated_list, 0)
-            neuron_gt_list_ = torch.reshape(neuron_gt_list_, (neuron_gt_list_.shape[0] // (n_neurons-n_excitatory_neurons), n_neurons-n_excitatory_neurons))
+            neuron_gt_list_ = torch.reshape(neuron_gt_list_, (neuron_gt_list_.shape[0] // n_neurons, n_neurons))
             neuron_pred_list_ = torch.reshape(neuron_pred_list_, (neuron_pred_list_.shape[0] // n_neurons, n_neurons))
-            neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // (n_neurons-n_excitatory_neurons), (n_neurons-n_excitatory_neurons)))
+            neuron_generated_list_ = torch.reshape(neuron_generated_list_, (neuron_generated_list_.shape[0] // n_neurons, n_neurons))
 
             mpl.rcParams.update({
                 "text.usetex": False,
@@ -3302,10 +3242,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
             ax = plt.subplot(222)
             x_data = to_numpy(neuron_generated_list_[-1, :])
-            if n_excitatory_neurons> 0 :
-                y_data = to_numpy(neuron_pred_list_[-1, :-n_excitatory_neurons])
-            else:
-                y_data = to_numpy(neuron_pred_list_[-1, :])
+            y_data = to_numpy(neuron_pred_list_[-1, :])
 
             # print(f"x: [{x_data.min():.2e}, {x_data.max():.2e}]")
             # print(f"y: [{y_data.min():.2e}, {y_data.max():.2e}], std={y_data.std():.2e}")
@@ -3415,11 +3352,11 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     print('plot activity ...')
     activity = to_numpy(x_generated_list)
-    activity = activity - 10 * np.arange(n_neurons-n_excitatory_neurons)[:, None] + 200
+    activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
     plt.figure(figsize=(30, 20))
     plt.subplot(121)
     plt.plot(activity.T, linewidth=2)
-    for i in range(0, n_neurons-n_excitatory_neurons, 5):
+    for i in range(0, n_neurons, 5):
         plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
@@ -3435,10 +3372,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     plt.subplot(122)
     activity = to_numpy(x_inference_list)
-    activity = activity[:n_neurons-n_excitatory_neurons]
-    activity = activity - 10 * np.arange(n_neurons-n_excitatory_neurons)[:, None] + 200
+    activity = activity[:n_neurons]
+    activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
     plt.plot(activity.T, linewidth=2)
-    for i in range(0, n_neurons-n_excitatory_neurons, 5):
+    for i in range(0, n_neurons, 5):
         plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
@@ -3456,57 +3393,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/{dataset_name_}_activity.png", dpi=300)
     plt.close()
-
-
-    if n_excitatory_neurons > 0:
-
-        fig = plt.figure(figsize=(16, 8))
-        ax = fig.add_subplot(121)
-
-        with torch.no_grad():
-            kk = torch.arange(0, config.simulation.n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
-            excitation_field = model.NNR_f(kk[:,None])
-            model_a = model.a[-1] * torch.ones((10000,1), device=device)
-            in_features = torch.cat([excitation_field, model_a], dim=1)
-            msg = model.lin_edge(in_features)
-
-        excitation=to_numpy(msg.squeeze())
-
-        frame_ = np.arange(0, len(excitation)) / len(excitation)
-        gt_excitation=np.cos((2*np.pi)*config.simulation.oscillation_frequency*frame_)
-        plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
-        plt.plot(excitation, c=mc, linewidth=1)
-        plt.xlabel('time', fontsize=48)
-        plt.ylabel('excitation', fontsize=48)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        ax = fig.add_subplot(122)
-        plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
-        plt.plot(excitation, c=mc, linewidth=1)
-        plt.xlabel('time', fontsize=48)
-        plt.ylabel('excitation', fontsize=48)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.xlim([0, 2000])
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/excitation.tif", dpi=87)
-        plt.close()
-
-        gt_weight = to_numpy(model_generator.e.squeeze())
-        pred_weight = to_numpy(model.W[:,-1][:n_neurons - n_excitatory_neurons])
-
-        fig = plt.figure(figsize=(8, 8))
-        fig, ax = fig_init()
-        plt.scatter(gt_weight, pred_weight, s=10, c=mc)
-        plt.xlabel(r'true $W_{ij}$', fontsize=48)
-        plt.ylabel(r'learned $W_{ij}$', fontsize=48)
-        plt.title('Excitatory neuron weights', fontsize=24)
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/results/comparison_exc.tif", dpi=87)
-        plt.close()
-
-
-
 
     if 'PDE_N' in model_config.signal_model_name:
         torch.save(neuron_gt_list, f"./{log_dir}/neuron_gt_list.pt")
