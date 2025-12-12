@@ -2253,45 +2253,42 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
     # Create INR model based on type
     if inr_type == 'ngp':
-        if not TCNN_AVAILABLE:
-            print("WARNING: tinycudann not available, falling back to SIREN")
-            inr_type = 'siren'
-        else:
-            # Get NGP config parameters
-            ngp_n_levels = getattr(model_config, 'ngp_n_levels', 24)
-            ngp_n_features_per_level = getattr(model_config, 'ngp_n_features_per_level', 2)
-            ngp_log2_hashmap_size = getattr(model_config, 'ngp_log2_hashmap_size', 22)
-            ngp_base_resolution = getattr(model_config, 'ngp_base_resolution', 16)
-            ngp_per_level_scale = getattr(model_config, 'ngp_per_level_scale', 1.4)
-            ngp_n_neurons = getattr(model_config, 'ngp_n_neurons', 128)
-            ngp_n_hidden_layers = getattr(model_config, 'ngp_n_hidden_layers', 4)
 
-            nnr_f = HashEncodingMLP(
-                n_input_dims=input_size_nnr_f,
-                n_output_dims=output_size_nnr_f,
-                n_levels=ngp_n_levels,
-                n_features_per_level=ngp_n_features_per_level,
-                log2_hashmap_size=ngp_log2_hashmap_size,
-                base_resolution=ngp_base_resolution,
-                per_level_scale=ngp_per_level_scale,
-                n_neurons=ngp_n_neurons,
-                n_hidden_layers=ngp_n_hidden_layers,
-                output_activation='none'
-            )
-            nnr_f = nnr_f.to(device)
+        # Get NGP config parameters
+        ngp_n_levels = getattr(model_config, 'ngp_n_levels', 24)
+        ngp_n_features_per_level = getattr(model_config, 'ngp_n_features_per_level', 2)
+        ngp_log2_hashmap_size = getattr(model_config, 'ngp_log2_hashmap_size', 22)
+        ngp_base_resolution = getattr(model_config, 'ngp_base_resolution', 16)
+        ngp_per_level_scale = getattr(model_config, 'ngp_per_level_scale', 1.4)
+        ngp_n_neurons = getattr(model_config, 'ngp_n_neurons', 128)
+        ngp_n_hidden_layers = getattr(model_config, 'ngp_n_hidden_layers', 4)
 
-            # Count parameters
-            encoding_params = sum(p.numel() for p in nnr_f.encoding.parameters())
-            mlp_params = sum(p.numel() for p in nnr_f.mlp.parameters())
-            total_params = encoding_params + mlp_params
-            encoding_dim = ngp_n_levels * ngp_n_features_per_level
+        nnr_f = HashEncodingMLP(
+            n_input_dims=input_size_nnr_f,
+            n_output_dims=output_size_nnr_f,
+            n_levels=ngp_n_levels,
+            n_features_per_level=ngp_n_features_per_level,
+            log2_hashmap_size=ngp_log2_hashmap_size,
+            base_resolution=ngp_base_resolution,
+            per_level_scale=ngp_per_level_scale,
+            n_neurons=ngp_n_neurons,
+            n_hidden_layers=ngp_n_hidden_layers,
+            output_activation='none'
+        )
+        nnr_f = nnr_f.to(device)
 
-            print(f"\nusing HashEncodingMLP (instantNGP):")
-            print(f"  hash encoding: {ngp_n_levels} levels × {ngp_n_features_per_level} features")
-            print(f"  hash table: 2^{ngp_log2_hashmap_size} = {2**ngp_log2_hashmap_size:,} entries")
-            print(f"  mlp: {ngp_n_neurons} × {ngp_n_hidden_layers} hidden → {output_size_nnr_f}")
-            print(f"  parameters: {total_params:,} (encoding: {encoding_params:,}, mlp: {mlp_params:,})")
-            print(f"  compression ratio: {data_dims / total_params:.2f}x")
+        # Count parameters
+        encoding_params = sum(p.numel() for p in nnr_f.encoding.parameters())
+        mlp_params = sum(p.numel() for p in nnr_f.mlp.parameters())
+        total_params = encoding_params + mlp_params
+        encoding_dim = ngp_n_levels * ngp_n_features_per_level
+
+        print(f"\nusing HashEncodingMLP (instantNGP):")
+        print(f"  hash encoding: {ngp_n_levels} levels × {ngp_n_features_per_level} features")
+        print(f"  hash table: 2^{ngp_log2_hashmap_size} = {2**ngp_log2_hashmap_size:,} entries")
+        print(f"  mlp: {ngp_n_neurons} × {ngp_n_hidden_layers} hidden → {output_size_nnr_f}")
+        print(f"  parameters: {total_params:,} (encoding: {encoding_params:,}, mlp: {mlp_params:,})")
+        print(f"  compression ratio: {data_dims / total_params:.2f}x")
 
     if inr_type == 'siren':
         # create SIREN model for nnr_f
