@@ -1088,7 +1088,7 @@ def data_generate_synaptic(
 
 
     # external input parameters (moved from pde_n4)
-    input_type = simulation_config.input_type
+    external_input_type = simulation_config.external_input_type
     has_oscillations = (external_input_type == 'oscillatory')
     has_triggered = (external_input_type == 'triggered')
     oscillation_amplitude = simulation_config.oscillation_max_amplitude

@@ -60,12 +60,12 @@ graph_model:
   # Cycles in normalized range: 100 cycles in [0, 1]
   # omega_f rule: omega_f ≈ 2π × num_cycles = 2π × 100 ≈ 628
   inr_type: "siren"
-  input_size_nnr: 1
-  hidden_dim_nnr: 1024
-  n_layers_nnr: 2
-  outermost_linear_nnr: True
-  output_size_nnr: 1000
-  omega_nnr: 600
+  input_size_nnr_f: 1
+  hidden_dim_nnr_f: 1024
+  n_layers_nnr_f: 2
+  outermost_linear_nnr_f: True
+  output_size_nnr_f: 1000
+  omega_f: 600
 
 plotting:
   colormap: "tab10"

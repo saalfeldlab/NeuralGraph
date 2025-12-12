@@ -300,8 +300,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
     external_input_type = getattr(simulation_config, 'external_input_type', 'none')
     has_visual_input = (external_input_type == 'visual')
-    has_oscillations = (external_input_type == 'oscillatory')
-    has_triggered = (external_input_type == 'triggered')
+    inr_type = getattr(model_config, 'inr_type', 'siren')
 
     learn_external_input = train_config.learn_external_input
 
@@ -322,17 +321,12 @@ def data_train_signal(config, erase, best_model, style, device):
         plt.style.use("default")
         mc = 'black'
 
-    if config.training.seed != 42:
-        torch.random.fork_rng(devices=device)
-        torch.random.manual_seed(config.training.seed)
-        np.random.seed(config.training.seed)
 
-    if field_type != '':
-        n_nodes = simulation_config.n_nodes
-        has_neural_field = True
-    else:
-        n_nodes = simulation_config.n_neurons
-        has_neural_field = False
+    torch.random.fork_rng(devices=device)
+    torch.random.manual_seed(config.training.seed)
+    np.random.seed(config.training.seed)
+
+
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading graph files N: {n_runs} ...')
@@ -388,34 +382,89 @@ def data_train_signal(config, erase, best_model, style, device):
         optimizer_missing_activity = torch.optim.Adam(lr=train_config.learning_rate_missing_activity,
                                                       params=model_missing_activity.parameters())
         model_missing_activity.train()
-    if has_neural_field:
-        modulation = None
-        if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
-            model_f = nn.ModuleList([
-                Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
-                      hidden_features=model_config.hidden_dim_nnr,
-                      hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
-                      hidden_omega_0=model_config.omega,
-                      outermost_linear=model_config.outermost_linear_nnr)
-                for n in range(n_runs)
-            ])
-            if ('short_term_plasticity' in field_type):
-                modulation = torch.tensor(x_list[0], device=device)
-                modulation = modulation[:, :, 8:9].squeeze()
-                modulation = modulation.t()
-                modulation = modulation.clone().detach()
-                (modulation[:, 1:] - modulation[:, :-1]) / delta_t
-                torch.tensor(1.0E-2, device=device)
-        elif 'visual' in field_type:
+    
+    if learn_external_input:
+
+        if has_visual_input:
+            n_nodes = simulation_config.n_nodes
             n_nodes_per_axis = int(np.sqrt(n_nodes))
-            model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
+            nnr_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
                                     out_features=model_config.output_size_nnr,
                                     hidden_features=model_config.hidden_dim_nnr,
                                     hidden_layers=model_config.n_layers_nnr, outermost_linear=True, device=device,
                                     first_omega_0=model_config.omega, hidden_omega_0=model_config.omega)
-        model_f.to(device=device)
-        optimizer_f = torch.optim.Adam(lr=train_config.learning_rate_NNR, params=model_f.parameters())
-        model_f.train()
+            nnr_f.to(device=device)
+            optimizer_f = torch.optim.Adam(lr=train_config.learning_rate_NNR, params=nnr_f.parameters())
+        
+        else:
+
+            # create INR model based on type
+            if inr_type == 'ngp':
+                if not TCNN_AVAILABLE:
+                    print("WARNING: tinycudann not available, falling back to SIREN")
+                    inr_type = 'siren'
+                else:
+                    # Get NGP config parameters
+                    ngp_n_levels = getattr(model_config, 'ngp_n_levels', 24)
+                    ngp_n_features_per_level = getattr(model_config, 'ngp_n_features_per_level', 2)
+                    ngp_log2_hashmap_size = getattr(model_config, 'ngp_log2_hashmap_size', 22)
+                    ngp_base_resolution = getattr(model_config, 'ngp_base_resolution', 16)
+                    ngp_per_level_scale = getattr(model_config, 'ngp_per_level_scale', 1.4)
+                    ngp_n_neurons = getattr(model_config, 'ngp_n_neurons', 128)
+                    ngp_n_hidden_layers = getattr(model_config, 'ngp_n_hidden_layers', 4)
+
+                    model_f = HashEncodingMLP(
+                        n_input_dims=input_size_nnr_f,
+                        n_output_dims=output_size_nnr_f,
+                        n_levels=ngp_n_levels,
+                        n_features_per_level=ngp_n_features_per_level,
+                        log2_hashmap_size=ngp_log2_hashmap_size,
+                        base_resolution=ngp_base_resolution,
+                        per_level_scale=ngp_per_level_scale,
+                        n_neurons=ngp_n_neurons,
+                        n_hidden_layers=ngp_n_hidden_layers,
+                        output_activation='none'
+                    )
+                    nnr_f = nnr_f.to(device)
+
+                    # Count parameters
+                    encoding_params = sum(p.numel() for p in nnr_f.encoding.parameters())
+                    mlp_params = sum(p.numel() for p in nnr_f.mlp.parameters())
+                    total_params = encoding_params + mlp_params
+                    encoding_dim = ngp_n_levels * ngp_n_features_per_level
+
+                    print(f"\nusing HashEncodingMLP (instantNGP):")
+                    print(f"  hash encoding: {ngp_n_levels} levels × {ngp_n_features_per_level} features")
+                    print(f"  hash table: 2^{ngp_log2_hashmap_size} = {2**ngp_log2_hashmap_size:,} entries")
+                    print(f"  mlp: {ngp_n_neurons} × {ngp_n_hidden_layers} hidden → {output_size_nnr_f}")
+                    print(f"  parameters: {total_params:,} (encoding: {encoding_params:,}, mlp: {mlp_params:,})")
+                    print(f"  compression ratio: {data_dims / total_params:.2f}x")
+
+            if inr_type == 'siren':
+                # create SIREN model for nnr_f
+                nnr_f = Siren(
+                    in_features=input_size_nnr_f,
+                    hidden_features=hidden_dim_nnr_f,
+                    hidden_layers=n_layers_nnr_f,
+                    out_features=output_size_nnr_f,
+                    outermost_linear=outermost_linear_nnr_f,
+                    first_omega_0=omega_f,
+                    hidden_omega_0=omega_f
+                )
+                nnr_f = nnr_f.to(device)
+
+                # Count parameters
+                total_params = sum(p.numel() for p in nnr_f.parameters())
+
+                print(f"\nusing SIREN:")
+                print(f"  architecture: {input_size_nnr_f} → {hidden_dim_nnr_f} × {n_layers_nnr_f} hidden → {output_size_nnr_f}")
+                print(f"  omega_f: {omega_f}")
+                print(f"  parameters: {total_params:,}")
+                print(f"  compression ratio: {data_dims / total_params:.2f}x")
+
+            optimizer_f = torch.optim.Adam(lr=train_config.learning_rate_NNR, params=nnr_f.parameters())
+
+        nnr_f.train()
 
     if (best_model != None) & (best_model != '') & (best_model != 'None'):
         net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
@@ -588,15 +637,18 @@ def data_train_signal(config, erase, best_model, style, device):
                             loss = loss + regul_term
                         ids_missing = torch.argwhere(x[:, 3] == baseline_value)
                         x[ids_missing,3] = missing_activity[ids_missing]
+                    
                     if learn_external_input:
                         if has_visual_input:
-                            x[:n_nodes, 4:5] = model_f(time=k / n_frames) ** 2
+                            x[:n_nodes, 4:5] = nnr_f(time=k / n_frames) ** 2
                             x[n_nodes:n_neurons, 4:5] = 1
+                    
                         elif 'learnable_short_term_plasticity' in field_type:
                             alpha = (k % model.embedding_step) / model.embedding_step
                             x[:, 4] = alpha * model.b[:, k // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
                                                                                                              k // model.embedding_step] ** 2
                             loss = loss + (model.b[:, 1:] - model.b[:, :-1]).norm(2) * coeff_model_b
+                    
                         elif ('short_term_plasticity' in field_type) | ('modulation' in field_type):
                             t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
                             if 'derivative' in field_type:
@@ -607,10 +659,9 @@ def data_train_signal(config, erase, best_model, style, device):
                                 in_modulation = torch.cat((x[:, 3:4].clone().detach(), m[:, None]), dim=1)
                                 pred_modulation = model.lin_modulation(in_modulation)
                                 loss += (grad - pred_modulation.squeeze()).norm(2) * coeff_lin_modulation
-                            else:
-                                x[:, 4] = model_f[run](t) ** 2
-                    else:
-                        x[:, 4:5] = torch.ones_like(x[:, 0:1])
+                        
+                        else:
+                            x[:, 4] = nnr_f[run](t / n_frames)
 
                     regul_loss = regularizer.compute(
                         model=model,
@@ -759,44 +810,9 @@ def data_train_signal(config, erase, best_model, style, device):
                                    current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
 
-                    if time_step > 1:
-                        fig = plt.figure(figsize=(10, 10))
-                        plt.scatter(to_numpy(y_batch), to_numpy(x_batch + pred * delta_t * time_step), s=10, color='k')
-                        plt.scatter(to_numpy(y_batch), to_numpy(x_batch), s=1, color='b', alpha=0.5)
-                        plt.plot(to_numpy(y_batch), to_numpy(y_batch), color='g')
-
-                        x_data = y_batch
-                        y_data = x_batch
-                        err0 = torch.sqrt((y_data - x_data).norm(2))
-
-                        y_data = (x_batch + pred * delta_t * time_step)
-                        err = torch.sqrt((y_data - x_data).norm(2))
-
-                        plt.text(0.05, 0.95, f'data: {run}   frame: {k}',
-                                 transform=plt.gca().transAxes, fontsize=12,
-                                 verticalalignment='top')
-                        plt.text(0.05, 0.9, f'err: {err.item():0.4f}  err0: {err0.item():0.4f}',
-                                 transform=plt.gca().transAxes, fontsize=12,
-                                 verticalalignment='top')
-
-                        x_data = to_numpy(x_data.squeeze())
-                        y_data = to_numpy(y_data.squeeze())
-                        lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-
-                        residuals = y_data - linear_model(x_data, *lin_fit)
-                        ss_res = np.sum(residuals ** 2)
-                        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                        r_squared = 1 - (ss_res / ss_tot)
-                        plt.text(0.05, 0.85, f'R2: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}',
-                                 transform=plt.gca().transAxes, fontsize=12,
-                                 verticalalignment='top')
-                        plt.tight_layout()
-                        plt.savefig(f'{log_dir}/tmp_training/prediction/pred_{epoch}_{N}.tif')
-                        plt.close()
-
-                    if has_neural_field:
+                    if learn_external_input:
                         with torch.no_grad():
-                            plot_training_signal_field(x, n_nodes, k, time_step,
+                            plot_training_signal_external_input(x, n_nodes, k, time_step,
                                                        x_list, run, model, field_type, model_f,
                                                        edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N,
                                                        recurrent_parameters, modulation, device)
