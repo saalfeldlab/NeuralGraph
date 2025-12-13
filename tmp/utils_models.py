@@ -583,7 +583,7 @@ def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, m
         prediction_[pos[:,0]]=0
         plt.imshow(to_numpy(prediction_), aspect='auto', cmap='viridis')
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/missing_activity_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/external_input/missing_activity_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
 def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], model=None, n_nodes=0, n_neurons=None, ynorm=None, type_list=None, cmap=None, update_type=None, device=None):

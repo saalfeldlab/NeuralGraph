@@ -21,7 +21,7 @@ simulation:
   max_radius: 1.0E6
   n_neurons: 1000
   n_neuron_types: 4
-  n_frames: 100000
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -60,7 +60,7 @@ graph_model:
   hidden_dim_nnr_f: 1024
   n_layers_nnr_f: 2
   outermost_linear_nnr_f: True
-  nnr_f_T_period: 100000
+  nnr_f_T_period: 10000
   omega_f: 600
 
 plotting:

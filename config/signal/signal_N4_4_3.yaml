@@ -1,4 +1,4 @@
-description: "heterogeneity MLP0 with oscillatory input - siren_x"
+description: "heterogeneity MLP0 with oscillatory input - siren_t"
 dataset: "signal_N4_4"
 
 simulation:
@@ -21,7 +21,7 @@ simulation:
   max_radius: 1.0E6
   n_neurons: 1000
   n_neuron_types: 4
-  n_frames: 100000
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -53,15 +53,15 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # INR type: siren_x (input=(t, x, y), output=1)
-  inr_type: "siren_x"
+  # INR type: siren_t (input=t, output=n_neurons)
+  inr_type: "siren_t"
 
   # SIREN parameters
   hidden_dim_nnr_f: 1024
   n_layers_nnr_f: 2
   outermost_linear_nnr_f: True
-  nnr_f_T_period: 100000
-  omega_f: 600
+  nnr_f_T_period: 10000
+  omega_f: 300
 
 plotting:
   colormap: "tab10"
@@ -80,7 +80,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 2
+  data_augmentation_loop: 10
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
@@ -90,7 +90,6 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
+  learning_rate_NNR_f: 1.0E-6
 
-  learning_rate_NNR_f: 1.0E-7
-
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 1.0E-6

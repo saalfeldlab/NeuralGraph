@@ -577,10 +577,8 @@ def create_log_dir(config=[], erase=True):
     os.makedirs(log_dir, exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'models'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'results'), exist_ok=True)
-    os.makedirs(os.path.join(log_dir, 'tmp_training/particle'), exist_ok=True)
-    os.makedirs(os.path.join(log_dir, 'tmp_training/field'), exist_ok=True)
+    os.makedirs(os.path.join(log_dir, 'tmp_training/external_input'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'tmp_training/matrix'), exist_ok=True)
-    os.makedirs(os.path.join(log_dir, 'tmp_training/prediction'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'tmp_training/function'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'tmp_training/function/MLP0'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'tmp_training/function/MLP1'), exist_ok=True)
@@ -596,7 +594,7 @@ def create_log_dir(config=[], erase=True):
         files = glob.glob(f"{log_dir}/tmp_training/particle/*")
         for f in files:
             os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/field/*")
+        files = glob.glob(f"{log_dir}/tmp_training/external_input/*")
         for f in files:
             os.remove(f)
         files = glob.glob(f"{log_dir}/tmp_training/matrix/*")

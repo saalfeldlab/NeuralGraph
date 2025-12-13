@@ -1,4 +1,4 @@
-description: "heterogeneity MLP0 with triggered input - siren_t"
+description: "heterogeneity MLP0 with triggered input - lowrank rank=56"
 dataset: "signal_N4_5"
 
 simulation:
@@ -21,7 +21,7 @@ simulation:
   max_radius: 1.0E6
   n_neurons: 1000
   n_neuron_types: 4
-  n_frames: 100000
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -61,15 +61,15 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # INR type: siren_t (input=t, output=n_neurons)
-  inr_type: "siren_t"
+  # INR type: lowrank (matrix factorization U @ V)
+  inr_type: "lowrank"
 
-  # SIREN parameters
-  hidden_dim_nnr_f: 4096
-  n_layers_nnr_f: 2
-  outermost_linear_nnr_f: True
-  nnr_f_T_period: 100000
-  omega_f: 4096
+  # LowRank parameters
+  # rank=56 captures 99% variance based on SVD analysis
+  # params = 56 * (10000 + 1000) = 616,000
+  # compression = 10M / 616K = 16.2x
+  lowrank_rank: 56
+  lowrank_svd_init: True
 
 plotting:
   colormap: "tab10"
@@ -88,7 +88,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 10
+  data_augmentation_loop: 2
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
@@ -98,7 +98,6 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
-
-  learning_rate_NNR_f: 1.0E-7
+  learning_rate_NNR_f: 1.0E-3
 
   coeff_W_L1: 1.0E-5

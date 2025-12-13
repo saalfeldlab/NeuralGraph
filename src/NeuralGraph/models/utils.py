@@ -549,7 +549,7 @@ def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, fi
         for ind in ind_list:
             plt.plot(to_numpy(model.b[ind, :] ** 2))
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
     elif ('short_term_plasticity' in field_type) | ('modulation' in field_type):
@@ -587,7 +587,7 @@ def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, fi
         # for ind in ind_list:
         #     plt.plot(to_numpy(prediction[ind, :]))
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
     else:
@@ -603,7 +603,7 @@ def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, fi
         plt.xticks([])
         plt.yticks([])
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
 def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, model_missing_activity, log_dir, epoch, N, device):
@@ -638,7 +638,7 @@ def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, m
         prediction_[pos[:,0]]=0
         plt.imshow(to_numpy(prediction_), aspect='auto', cmap='viridis')
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/missing_activity_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/external_input/missing_activity_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
 def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], model=None, n_nodes=0, n_neurons=None, ynorm=None, type_list=None, cmap=None, update_type=None, device=None):

@@ -199,7 +199,12 @@ class GraphModelConfig(BaseModel):
     # siren_id: input=(t, id), output=1 (scales better for large n_neurons)
     # siren_x: input=(t, x, y), output=1 (uses neuron positions)
     # ngp: instantNGP hash encoding
-    inr_type: Literal["siren_t", "siren_id", "siren_x", "ngp"] = "siren_t"
+    # lowrank: low-rank matrix factorization U @ V (not a neural network)
+    inr_type: Literal["siren_t", "siren_id", "siren_x", "ngp", "lowrank"] = "siren_t"
+
+    # LowRank factorization parameters
+    lowrank_rank: int = 64  # rank of the factorization (params = rank * (n_frames + n_neurons))
+    lowrank_svd_init: bool = True  # initialize with SVD of the data
 
     # InstantNGP (hash encoding) parameters
     ngp_n_levels: int = 24

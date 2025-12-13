@@ -43,6 +43,7 @@ from NeuralGraph.utils import (
     LossRegularizer,
 )
 from NeuralGraph.models.Siren_Network import Siren, Siren_Network
+from NeuralGraph.models.LowRank_INR import LowRankINR
 from NeuralGraph.models.Signal_Propagation_FlyVis import Signal_Propagation_FlyVis
 from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
 from NeuralGraph.models.Signal_Propagation_MLP_ODE import Signal_Propagation_MLP_ODE
@@ -1301,7 +1302,7 @@ def data_train_flyvis(config, erase, best_model, device):
                             writer = FFMpegWriter(fps=fps, metadata=metadata)
                             fig = plt.figure(figsize=(12, 4))
 
-                            out_dir = f"./{log_dir}/tmp_training/field"
+                            out_dir = f"./{log_dir}/tmp_training/external_input"
                             os.makedirs(out_dir, exist_ok=True)
                             out_path = f"{out_dir}/field_movie_{epoch}_{N}.mp4"
                             if os.path.exists(out_path):
@@ -1947,7 +1948,7 @@ def data_train_zebra(config, erase, best_model, device):
             if (N % plot_frequency == 0):
                 x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
                 with torch.no_grad():
-                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100, plot_batch_size)
+                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.png", 100, plot_batch_size)
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
@@ -1969,7 +1970,7 @@ def data_train_zebra(config, erase, best_model, device):
         plt.ylabel('loss', fontsize=12)
         plt.xlabel('epochs', fontsize=12)
         fig.add_subplot(1, 2, 2)
-        field_files = glob.glob(f"./{log_dir}/tmp_training/field/*.png")
+        field_files = glob.glob(f"./{log_dir}/tmp_training/external_input/*.png")
         last_file = max(field_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
         filename = os.path.basename(last_file)
         filename = filename.replace('.png', '')
@@ -1979,7 +1980,7 @@ def data_train_zebra(config, erase, best_model, device):
             last_N = parts[2]
         else:
             last_epoch, last_N = parts[-2], parts[-1]
-        img = imageio.imread(f"./{log_dir}/tmp_training/field/field_{last_epoch}_{last_N}.png")
+        img = imageio.imread(f"./{log_dir}/tmp_training/external_input/field_{last_epoch}_{last_N}.png")
         plt.imshow(img)
         plt.axis('off')
         plt.tight_layout()
@@ -2158,7 +2159,7 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
     # create log directory
     log_dir, logger = create_log_dir(config, erase)
-    output_folder = os.path.join(log_dir, 'tmp_training', 'field')
+    output_folder = os.path.join(log_dir, 'tmp_training', 'external_input')
     os.makedirs(output_folder, exist_ok=True)
 
     dataset_name = config.dataset
@@ -2174,12 +2175,37 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
     # extract external_input from x_list (column 4)
     external_input = x_list[:, :, 4]  # shape: (n_frames, n_neurons)
-    print(f"external_input shape: {external_input.shape}")
-    print(f"external_input range: [{external_input.min():.4f}, {external_input.max():.4f}]")
+
+    # SVD analysis
+    U, S, Vt = np.linalg.svd(external_input, full_matrices=False)
+
+    # effective rank
+    cumvar = np.cumsum(S**2) / np.sum(S**2)
+    rank_90 = np.searchsorted(cumvar, 0.90) + 1
+    rank_99 = np.searchsorted(cumvar, 0.99) + 1
+
+    print(f"effective rank (90% var): {rank_90}")
+    print(f"effective rank (99% var): {rank_99}")
+    print(f"compression: {n_frames * n_neurons / (rank_99 * (n_frames + n_neurons)):.1f}x")
+    print()
+
+    # plot
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    axes[0].semilogy(S[:100], 'k-')
+    axes[0].axhline(S[rank_90], color='cyan', ls='--', label=f'90%: k={rank_90}')
+    axes[0].axhline(S[rank_99], color='lime', ls='--', label=f'99%: k={rank_99}')
+    axes[0].set_xlabel('component'); axes[0].set_ylabel('singular value')
+    axes[0].legend()
+
+    axes[1].plot(cumvar[:100], 'k-')
+    axes[1].axhline(0.99, color='lime', ls='--')
+    axes[1].set_xlabel('component'); axes[1].set_ylabel('cumulative variance')
+    plt.savefig(f"{output_folder}/svd_analysis.png", dpi=150)
+    plt.close()
 
     # extract neuron positions from x_list (columns 1, 2) - use first frame as reference
     neuron_positions = x_list[0, :, 1:3]  # shape: (n_neurons, 2)
-    print(f"neuron_positions shape: {neuron_positions.shape}")
+
 
     # extract neuron ids from x_list (column 0)
     neuron_ids = x_list[0, :, 0]  # shape: (n_neurons,)
@@ -2208,18 +2234,22 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
     period_frames = period_time_units / delta_t if oscillation_frequency > 0 else float('inf')
     total_cycles = total_sim_time / period_time_units if oscillation_frequency > 0 else 0
     normalized_time_max = n_frames / nnr_f_T_period
-    recommended_omega = 2 * np.pi * total_cycles
+    cycles_in_normalized_range = total_cycles * normalized_time_max
+    recommended_omega = 2 * np.pi * cycles_in_normalized_range
 
     # get INR type from config
     inr_type = getattr(model_config, 'inr_type', 'siren_t')
 
     print(f"siren calculation check:")
-    print(f"  total simulation time: n_frames × delta_t = {n_frames} × {delta_t} = {total_sim_time:.1f} time units")
-    print(f"  period: 1 / oscillation_frequency = 1 / {oscillation_frequency} = {period_time_units:.1f} time units = {period_frames:.0f} frames")
-    print(f"  total cycles: {total_sim_time:.1f} / {period_time_units:.1f} = {total_cycles:.0f} cycles")
-    print(f"  normalized time range: [0, n_frames / nnr_f_T_period] = [0, {n_frames}/{nnr_f_T_period}] = [0, {normalized_time_max:.1f}]")
-    print(f"  omega_f rule: ≈ 2π × num_cycles = 2π × {total_cycles:.0f} ≈ {recommended_omega:.0f}")
+    print(f"  total simulation time: {n_frames} × {delta_t} = {total_sim_time:.1f} time units")
+    print(f"  period: 1/{oscillation_frequency} = {period_time_units:.1f} time units = {period_frames:.0f} frames")
+    print(f"  total cycles: {total_cycles:.0f}")
+    print(f"  normalized input range: [0, {n_frames}/{nnr_f_T_period}] = [0, {normalized_time_max:.2f}]")
+    print(f"  cycles in normalized range: {total_cycles:.0f} × {normalized_time_max:.2f} = {cycles_in_normalized_range:.1f}")
+    print(f"  recommended omega_f: 2π × {cycles_in_normalized_range:.1f} ≈ {recommended_omega:.0f}")
     print(f"  omega_f (config): {omega_f}")
+    if omega_f > 5 * recommended_omega:
+        print(f"  ⚠️  omega_f is {omega_f/recommended_omega:.1f}× recommended — may cause slow convergence")
 
     # data dimensions to learn
     data_dims = n_frames * n_neurons
@@ -2238,6 +2268,9 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
     elif inr_type == 'ngp':
         input_size_nnr_f = getattr(model_config, 'input_size_nnr_f', 1)
         output_size_nnr_f = getattr(model_config, 'output_size_nnr_f', n_neurons)
+    elif inr_type == 'lowrank':
+        # lowrank doesn't use input/output sizes in the same way
+        pass
     else:
         raise ValueError(f"unknown inr_type: {inr_type}")
 
@@ -2300,6 +2333,31 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
         print(f"  omega_f: {omega_f}")
         print(f"  parameters: {total_params:,}")
         print(f"  compression ratio: {data_dims / total_params:.2f}x")
+
+    elif inr_type == 'lowrank':
+        # get lowrank config parameters
+        lowrank_rank = getattr(model_config, 'lowrank_rank', 64)
+        lowrank_svd_init = getattr(model_config, 'lowrank_svd_init', True)
+
+        # create LowRankINR model
+        init_data = external_input if lowrank_svd_init else None
+        nnr_f = LowRankINR(
+            n_frames=n_frames,
+            n_neurons=n_neurons,
+            rank=lowrank_rank,
+            init_data=init_data
+        )
+        nnr_f = nnr_f.to(device)
+
+        # count parameters
+        total_params = sum(p.numel() for p in nnr_f.parameters())
+
+        print(f"\nusing LowRankINR:")
+        print(f"  rank: {lowrank_rank}")
+        print(f"  U: ({n_frames}, {lowrank_rank}), V: ({lowrank_rank}, {n_neurons})")
+        print(f"  parameters: {total_params:,}")
+        print(f"  compression ratio: {data_dims / total_params:.2f}x")
+        print(f"  SVD init: {lowrank_svd_init}")
 
     print(f"\ntraining: batch_size={batch_size}, learning_rate={learning_rate}")
 
@@ -2369,6 +2427,13 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
             gt_batch = ground_truth[sample_ids]
             pred = nnr_f(time_batch)
 
+        elif inr_type == 'lowrank':
+            # sample batch_size time frames
+            sample_ids = np.random.choice(n_frames, batch_size, replace=False)
+            t_indices = torch.tensor(sample_ids, dtype=torch.long, device=device)
+            gt_batch = ground_truth[sample_ids]  # (batch_size, n_neurons)
+            pred = nnr_f(t_indices)  # (batch_size, n_neurons)
+
         # compute loss
         if inr_type == 'ngp':
             # relative L2 error - convert targets to match output dtype (tcnn uses float16)
@@ -2414,6 +2479,9 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
                 elif inr_type == 'ngp':
                     time_all = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
                     pred_all = nnr_f(time_all)
+
+                elif inr_type == 'lowrank':
+                    pred_all = nnr_f()  # returns full (n_frames, n_neurons) matrix
 
                 gt_np = ground_truth.cpu().numpy()
                 pred_np = pred_all.cpu().numpy()

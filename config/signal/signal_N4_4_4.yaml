@@ -1,5 +1,5 @@
-description: "heterogeneity MLP0 with triggered input - siren_x"
-dataset: "signal_N4_5"
+description: "heterogeneity MLP0 with oscillatory input - siren_t"
+dataset: "signal_N4_4"
 
 simulation:
   connectivity_file: "random"
@@ -21,7 +21,7 @@ simulation:
   max_radius: 1.0E6
   n_neurons: 1000
   n_neuron_types: 4
-  n_frames: 100000
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -30,17 +30,9 @@ simulation:
   # external input configuration
   external_input_type: "signal"
   external_input_mode: "additive"
-  signal_input_type: "triggered"
-  triggered_n_impulses: 200
-  triggered_n_input_neurons: 500
-  triggered_impulse_strength: 3.0
-  triggered_min_start_frame: 100
-  triggered_max_start_frame: 500
-  triggered_duration_frames: 2000
-  triggered_amplitude_range: [0.5, 2.0]
-  triggered_frequency_range: [0.5, 2.0]
-  oscillation_frequency: 3.0
-  oscillation_max_amplitude: 5.0
+  signal_input_type: "oscillatory"
+  oscillation_max_amplitude: 3.0
+  oscillation_frequency: 0.1
 
 graph_model:
   signal_model_name: "PDE_N4"
@@ -61,15 +53,15 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # INR type: siren_x (input=(t, x, y), output=1)
-  inr_type: "siren_x"
+  # INR type: siren_t (input=t, output=n_neurons)
+  inr_type: "siren_t"
 
   # SIREN parameters
-  hidden_dim_nnr_f: 4096
+  hidden_dim_nnr_f: 1024
   n_layers_nnr_f: 2
   outermost_linear_nnr_f: True
-  nnr_f_T_period: 100000
-  omega_f: 4096
+  nnr_f_T_period: 10000
+  omega_f: 2048
 
 plotting:
   colormap: "tab10"
@@ -82,13 +74,13 @@ training:
   n_runs: 1
   device: "auto"
 
-  batch_size: 96
+  batch_size: 48
   small_init_batch_size: False
   init_training_single_type: True
 
   seed: 24
 
-  data_augmentation_loop: 2
+  data_augmentation_loop: 10
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
@@ -98,7 +90,6 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
+  learning_rate_NNR_f: 1.0E-6
 
-  learning_rate_NNR_f: 1.0E-7
-
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 1.0E-6

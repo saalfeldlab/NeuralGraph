@@ -1454,7 +1454,7 @@ def data_train_flyvis(config, erase, best_model, device):
                             writer = FFMpegWriter(fps=fps, metadata=metadata)
                             fig = plt.figure(figsize=(12, 4))
 
-                            out_dir = f"./{log_dir}/tmp_training/field"
+                            out_dir = f"./{log_dir}/tmp_training/external_input"
                             os.makedirs(out_dir, exist_ok=True)
                             out_path = f"{out_dir}/field_movie_{epoch}_{N}.mp4"
                             if os.path.exists(out_path):
@@ -2345,7 +2345,7 @@ def data_train_zebra(config, erase, best_model, device):
             if (N % plot_frequency == 0):
                 x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
                 with torch.no_grad():
-                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100, plot_batch_size)
+                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.png", 100, plot_batch_size)
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
@@ -2367,7 +2367,7 @@ def data_train_zebra(config, erase, best_model, device):
         plt.ylabel('loss', fontsize=12)
         plt.xlabel('epochs', fontsize=12)
         fig.add_subplot(1, 2, 2)
-        field_files = glob.glob(f"./{log_dir}/tmp_training/field/*.png")
+        field_files = glob.glob(f"./{log_dir}/tmp_training/external_input/*.png")
         last_file = max(field_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
         filename = os.path.basename(last_file)
         filename = filename.replace('.png', '')
@@ -2377,7 +2377,7 @@ def data_train_zebra(config, erase, best_model, device):
             last_N = parts[2]
         else:
             last_epoch, last_N = parts[-2], parts[-1]
-        img = imageio.imread(f"./{log_dir}/tmp_training/field/field_{last_epoch}_{last_N}.png")
+        img = imageio.imread(f"./{log_dir}/tmp_training/external_input/field_{last_epoch}_{last_N}.png")
         plt.imshow(img)
         plt.axis('off')
         plt.tight_layout()
@@ -5227,7 +5227,7 @@ def data_train_flyvis(config, erase, best_model, device):
                             writer = FFMpegWriter(fps=fps, metadata=metadata)
                             fig = plt.figure(figsize=(12, 4))
 
-                            out_dir = f"./{log_dir}/tmp_training/field"
+                            out_dir = f"./{log_dir}/tmp_training/external_input"
                             os.makedirs(out_dir, exist_ok=True)
                             out_path = f"{out_dir}/field_movie_{epoch}_{N}.mp4"
                             if os.path.exists(out_path):
@@ -6122,7 +6122,7 @@ def data_train_zebra(config, erase, best_model, device):
             if (N % plot_frequency == 0):
                 x = torch.tensor(x_list[run][20], dtype=torch.float32, device=device)
                 with torch.no_grad():
-                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.png", 100, plot_batch_size)
+                    plot_field_comparison(x, model, 20, n_frames, ones, f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.png", 100, plot_batch_size)
 
                 torch.save({'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
 
@@ -6144,7 +6144,7 @@ def data_train_zebra(config, erase, best_model, device):
         plt.ylabel('loss', fontsize=12)
         plt.xlabel('epochs', fontsize=12)
         fig.add_subplot(1, 2, 2)
-        field_files = glob.glob(f"./{log_dir}/tmp_training/field/*.png")
+        field_files = glob.glob(f"./{log_dir}/tmp_training/external_input/*.png")
         last_file = max(field_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
         filename = os.path.basename(last_file)
         filename = filename.replace('.png', '')
@@ -6154,7 +6154,7 @@ def data_train_zebra(config, erase, best_model, device):
             last_N = parts[2]
         else:
             last_epoch, last_N = parts[-2], parts[-1]
-        img = imageio.imread(f"./{log_dir}/tmp_training/field/field_{last_epoch}_{last_N}.png")
+        img = imageio.imread(f"./{log_dir}/tmp_training/external_input/field_{last_epoch}_{last_N}.png")
         plt.imshow(img)
         plt.axis('off')
         plt.tight_layout()
