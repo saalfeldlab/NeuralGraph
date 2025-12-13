@@ -300,19 +300,17 @@ def determine_plot_limits_signal(config, log_dir, n_runs, device, n_neurons, typ
     return limits
 
 
-def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iteration, config, limits, second_correction=1.0, n_excitatory_neurons=0, apply_weight_correction=False, xnorm=None, device=None):
+def create_signal_weight_subplot(fig, ax, model, connectivity, mc, epoch, iteration, config, limits, second_correction=1.0, apply_weight_correction=False, xnorm=None, device=None):
     """Create weight comparison scatter plot for signal models.
 
     Args:
         second_correction: Correction factor to apply to predicted weights (default 1.0 = no correction)
-        n_excitatory_neurons: Number of excitatory neurons to exclude from plot (default 0)
         apply_weight_correction: Compute and apply per-neuron correction on the fly (default False)
         xnorm: Normalization value for computing correction (required if apply_weight_correction=True)
         device: Torch device (required if apply_weight_correction=True)
     """
     n_neurons = connectivity.shape[0]
-    # limit to true neurons (exclude excitatory neurons)
-    n_plot = n_neurons - n_excitatory_neurons
+    n_plot = n_neurons
 
     A = get_model_W(model)[:n_plot, :n_plot].clone().detach()
     A.fill_diagonal_(0)
@@ -597,12 +595,12 @@ def create_signal_lin_phi_subplot(fig, ax, model, config, n_neurons, type_list, 
 
 def create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, device,
                                       connectivity=None, second_correction=1.0):
-    """Create excitation function plot for signal models with n_excitatory_neurons > 0.
+    """Create excitation function plot for signal models.
 
     Shows learned oscillation excitation function vs ground truth cosine.
 
     Args:
-        connectivity: Expanded connectivity matrix (used for computing e_i slope correction)
+        connectivity: Connectivity matrix (used for computing e_i slope correction)
         second_correction: Correction factor from weight comparison (default 1.0)
     """
     simulation_config = config.simulation
@@ -746,7 +744,7 @@ def get_epoch_from_file(file_path, n_runs):
 
 def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_types, type_list,
                          cmap, connectivity, xnorm, ynorm, mc, fps=10,
-                         true_model=None, n_excitatory_neurons=0, apply_weight_correction=False):
+                         true_model=None, apply_weight_correction=False):
     """
     Create movies for signal model training visualization.
 
@@ -764,7 +762,6 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
         mc: Marker color ('k' or 'w')
         fps: Frames per second for movies
         true_model: Ground truth model for plotting true curves (optional)
-        n_excitatory_neurons: Number of excitatory neurons (default 0)
         apply_weight_correction: Apply per-neuron correction from correction.pt (default False)
     """
     # Get label_style from config (default to 'MLP')
@@ -809,10 +806,6 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
         ('lin_phi', (8, 8), 'lin_phi'),
     ]
 
-    # add excitation movie if n_excitatory_neurons > 0
-    if n_excitatory_neurons > 0:
-        movie_configs.append(('excitation', (8, 8), 'excitation'))
-
     r_squared_list = []
     slope_list = []
 
@@ -842,7 +835,6 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
                     if plot_type == 'weight':
                         r2, slope = create_signal_weight_subplot(fig, ax, model, connectivity, mc,
                                                                   epoch, file_id_, config, limits, second_correction,
-                                                                  n_excitatory_neurons=n_excitatory_neurons,
                                                                   apply_weight_correction=apply_weight_correction,
                                                                   xnorm=xnorm, device=device)
                         if movie_name == 'weights':
@@ -859,9 +851,6 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
                         create_signal_lin_phi_subplot(fig, ax, model, config, n_neurons, type_list,
                                                       cmap, device, xnorm, ynorm, limits, label_style,
                                                       true_model=true_model, n_neuron_types=n_neuron_types)
-                    elif plot_type == 'excitation':
-                        create_signal_excitation_subplot(fig, ax, model, config, n_frames, mc, device,
-                                                         connectivity=connectivity, second_correction=second_correction)
 
                 plt.tight_layout()
                 writer.grab_frame()
@@ -898,7 +887,6 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
                 # Weights subplot (top-left)
                 ax1 = fig.add_subplot(2, 2, 1)
                 create_signal_weight_subplot(fig, ax1, model, connectivity, mc, epoch, file_id_, config, limits, second_correction,
-                                             n_excitatory_neurons=n_excitatory_neurons,
                                              apply_weight_correction=apply_weight_correction,
                                              xnorm=xnorm, device=device)
 
@@ -936,7 +924,7 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
     fig = plt.figure(figsize=(16, 8))
 
     # prepare true connectivity heatmap data
-    n_plot = n_neurons - n_excitatory_neurons if n_excitatory_neurons > 0 else n_neurons
+    n_plot = n_neurons
     true_connectivity_plot = to_numpy(connectivity[:n_plot, :n_plot])
 
     first_frame_saved = False
@@ -994,7 +982,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     n_frames = config.simulation.n_frames
     n_runs = config.training.n_runs
     n_neuron_types = config.simulation.n_neuron_types
-    n_excitatory_neurons = simulation_config.n_excitatory_neurons
     delta_t = config.simulation.delta_t
     p = config.simulation.params
     omega = model_config.omega
@@ -1038,11 +1025,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     x = x_list[0][n_frames - 5]
     n_neurons = x.shape[0]
 
-    if n_excitatory_neurons > 0:
-        config.simulation.n_neurons = n_neurons + n_excitatory_neurons
-        n_neurons = n_neurons + n_excitatory_neurons
-
-    print(f'N neurons: {n_neurons}')
+    print(f'n neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons = n_neurons
     type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
@@ -1110,19 +1093,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         # Load connectivity for movie generation and create true_model for plotting true curves
         connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
 
-        # Expand connectivity and type_list if n_excitatory_neurons > 0
-        if n_excitatory_neurons > 0:
-            # Use run=0 for model_e since the model learns from run 0 primarily
-            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_0.pt", map_location=device)
-            expanded = torch.zeros((n_neurons, n_neurons), device=device)
-            expanded[:n_neurons - n_excitatory_neurons, :n_neurons - n_excitatory_neurons] = connectivity
-            expanded[:n_neurons - n_excitatory_neurons, -1] = model_e.t().squeeze()
-            connectivity = expanded.clone().detach()
-
-            # Expand type_list for excitatory neurons
-            type_list = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device) * (simulation_config.n_neuron_types + 1)), dim=0)
-            n_neuron_types = n_neuron_types + n_excitatory_neurons
-
         true_model, _, _ = choose_model(config=config, W=connectivity, device=device)
 
         # create movies with stable axes
@@ -1141,7 +1111,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             mc=mc,
             fps=10,
             true_model=true_model,
-            n_excitatory_neurons=n_excitatory_neurons,
             apply_weight_correction=apply_weight_correction
         )
 
@@ -1629,33 +1598,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         else:
             weight_var = '$W_{ij}$'
 
-        if n_excitatory_neurons > 0:
-            # update to full connectivity including excitatory neurons
-
-            adj_matrix = torch.ones((n_neurons, n_neurons), device=device)
-            edges, edge_attr = dense_to_sparse(adj_matrix)
-            edges_all = edges.clone().detach()
-
-            # Use run=0 for model_e since the model learns from run 0 primarily
-            model_e = torch.load(f"graphs_data/{dataset_name}/model_e_0.pt", map_location=device)
-            N = connectivity.shape[0]
-            expanded = torch.zeros((n_neurons, n_neurons), device=device)
-            expanded[:n_neurons-n_excitatory_neurons, :n_neurons-n_excitatory_neurons] = connectivity
-            expanded[:n_neurons-n_excitatory_neurons, -1] = model_e.t().squeeze()
-            connectivity = expanded.clone().detach()
-
-            type_list = torch.cat((type_list, torch.ones((n_excitatory_neurons, 1), device=device) * (simulation_config.n_neuron_types + 1)), dim=0)
-            n_neuron_types = n_neuron_types + n_excitatory_neurons
-
         adjacency = connectivity.t().clone().detach()
         adj_t = torch.abs(adjacency) > 0
         edge_index = adj_t.nonzero().t().contiguous()
 
-        edge_index = adj_t.nonzero().t().contiguous()
-
         # Compute weight limits from actual data
-        # Limit weight plots to n_plot neurons (exclude excitatory neuron if present)
-        n_plot = n_neurons - n_excitatory_neurons if n_excitatory_neurons > 0 else n_neurons
+        n_plot = n_neurons
         gt_weight_flat = to_numpy(connectivity[:n_plot, :n_plot]).flatten()
         weight_max = np.max(np.abs(gt_weight_flat)) * 1.1
         weight_lim = (-weight_max, weight_max)
@@ -1677,16 +1625,15 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         plt.close()
 
         # Sample 100 traces if n_neurons > 200
-        n_neurons_plot = n_neurons - n_excitatory_neurons
-        if n_neurons_plot >= 200:
-            sampled_indices = np.random.choice(n_neurons_plot, 100, replace=False)
+        if n_neurons >= 200:
+            sampled_indices = np.random.choice(n_neurons, 100, replace=False)
             sampled_indices = np.sort(sampled_indices)
             activity_plot = to_numpy(activity[sampled_indices])
             n_plot = 100
         else:
-            sampled_indices = np.arange(n_neurons_plot)
-            activity_plot = to_numpy(activity[:n_neurons_plot])
-            n_plot = n_neurons_plot
+            sampled_indices = np.arange(n_neurons)
+            activity_plot = to_numpy(activity[:n_neurons])
+            n_plot = n_neurons
 
         activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
 
@@ -2045,7 +1992,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print('plot weights ...')
 
             fig, ax = fig_init()
-            n_plot = n_neurons - n_excitatory_neurons if n_excitatory_neurons > 0 else n_neurons
+            n_plot = n_neurons
             if hasattr(true_model, 'W') or (hasattr(true_model, 'WL') and hasattr(true_model, 'WR')):
                 gt_weight = to_numpy(get_model_W(true_model)[:n_plot, :n_plot])
             else:
@@ -2221,75 +2168,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             mean_align_L = np.mean(best_alignment_L)
             print(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
             logger.info(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
-
-            if n_excitatory_neurons > 0:
-                print('plot excitation function ...')
-
-                # compute e_i scatter to get the slope for correction
-                gt_weight_exc = to_numpy(connectivity[:-1, -1])
-                pred_weight_exc = -to_numpy(get_model_W(model)[:-1, -1])
-
-                # R² and slope for excitation weights
-                x_data = gt_weight_exc.flatten()
-                y_data = pred_weight_exc.flatten()
-                lin_fit_exc, lin_fitv_exc = curve_fit(linear_model, x_data, y_data)
-                residuals = y_data - linear_model(x_data, *lin_fit_exc)
-                ss_res = np.sum(residuals ** 2)
-                ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                r_squared_exc = 1 - (ss_res / ss_tot)
-                exc_slope = lin_fit_exc[0]
-                print(f'Excitation weights R²: {r_squared_exc:0.4f}  slope: {np.round(exc_slope, 4)}')
-                logger.info(f'Excitation weights R²: {np.round(r_squared_exc, 4)}  slope: {np.round(exc_slope, 4)}')
-
-                # Plot e_i scatter with slope correction applied
-                fig, ax = fig_init()
-                plt.scatter(gt_weight_exc, pred_weight_exc / exc_slope, s=10, c=mc)
-                plt.xlabel(r'true $u_i$', fontsize=48)
-                plt.ylabel(r'learned $u_i$', fontsize=48)
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/comparison_exc.png", dpi=170)
-                plt.close()
-
-                # Plot learned excitation function vs ground truth oscillation
-                # Apply exc_slope correction from e_i comparison
-                fig = plt.figure(figsize=(16, 8))
-                ax = fig.add_subplot(121)
-
-                with torch.no_grad():
-                    kk = torch.arange(0, n_frames, dtype=torch.float32, device=device) / model.NNR_f_T_period
-                    excitation_field = model.NNR_f(kk[:, None])
-                    model_a = model.a[-1] * torch.ones((n_frames, 1), device=device)
-                    in_features = torch.cat([excitation_field, model_a], dim=1)
-                    msg = model.lin_edge(in_features)
-
-                msg_raw = to_numpy(msg.squeeze())
-                frame_ = np.arange(0, len(msg_raw)) / len(msg_raw)
-                # Ground truth uses oscillation_max_amplitude from config
-                gt_max_amplitude = getattr(simulation_config, 'oscillation_max_amplitude', 1.0)
-                gt_excitation = gt_max_amplitude * np.cos((2 * np.pi) * simulation_config.oscillation_frequency * frame_)
-
-                # Apply minus sign and exc_slope correction (same normalization as e_i)
-                excitation = -msg_raw / exc_slope
-
-                plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5, label='ground truth')
-                plt.plot(excitation, c=mc, linewidth=1, label='learned')
-                plt.xlabel('time', fontsize=48)
-                plt.ylabel('excitation', fontsize=48)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.legend(fontsize=16)
-
-                ax = fig.add_subplot(122)
-                plt.plot(gt_excitation, c='g', linewidth=5, alpha=0.5)
-                plt.plot(excitation, c=mc, linewidth=1)
-                plt.xlabel('time', fontsize=48)
-                plt.ylabel('excitation', fontsize=48)
-                plt.xticks(fontsize=12)
-                plt.yticks(fontsize=12)
-                plt.xlim([0, 2000])
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/excitation.png", dpi=170)
-                plt.close()
 
             if has_field:
 

@@ -68,11 +68,11 @@ if __name__ == "__main__":
         config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
         config.dataset = pre_folder + config.dataset
         config.config_file = pre_folder + config_file_
-        print(f"\033[92mconfig_file:  {config.config_file}\033[0m")
+        # print(f"\033[92mconfig_file:  {config.config_file}\033[0m")
         
         if device==[]:
             device = set_device(config.training.device)
-            print(f"\033[92mdevice:  {device}\033[0m")
+            # print(f"\033[92mdevice:  {device}\033[0m")
 
         if "generate" in task:
             data_generate(

@@ -24,3 +24,7 @@
 2. `graph_data_generator.py` calls appropriate `data_generate_*()` based on config
 3. PDE_N\* model simulates dynamics with external inputs
 4. `graph_trainer.py` trains on generated data
+
+## Code
+
+1. use lower case in comments and print

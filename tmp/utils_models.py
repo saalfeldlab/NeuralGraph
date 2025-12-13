@@ -518,84 +518,13 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
+def plot_training_signal_external_input(x, n_nodes, kk, time_step, x_list, run, model, external_input_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, device):
+    """Plot learned external input field during training."""
 
-def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):
-
-
-    if 'learnable_short_term_plasticity' in field_type:
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(2, 2, 1)
-        plt.imshow(to_numpy(modulation), aspect='auto')
-        ax = fig.add_subplot(2, 2, 2)
-        plt.imshow(to_numpy(model.b ** 2), aspect='auto')
-        ax.text(0.01, 0.99, f'recurrent_parameter {recurrent_parameters[0]:0.3f} ', transform=ax.transAxes,
-                verticalalignment='top', horizontalalignment='left', color='w')
-        ax = fig.add_subplot(2, 2, 3)
-        plt.scatter(to_numpy(modulation[:, np.arange(0, n_frames, n_frames//1000)]), to_numpy(model.b[:, 0:1000] ** 2), s=0.1, color='k', alpha=0.01)
-        x_data = to_numpy(modulation[:, np.arange(0, n_frames, n_frames//1000)]).flatten()
-        y_data = to_numpy(model.b[:, 0:1000] ** 2).flatten()
-        lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-        residuals = y_data - linear_model(x_data, *lin_fit)
-        ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot)
-        ax.text(0.01, 0.99, f'$R^2$ {r_squared:0.3f}   slope {lin_fit[0]:0.3f}', transform=ax.transAxes,
-                verticalalignment='top', horizontalalignment='left')
-        ind_list = [10, 124, 148, 200, 250, 300]
-        ax = fig.add_subplot(4, 2, 6)
-        for ind in ind_list:
-            plt.plot(to_numpy(modulation[ind, :]))
-        ax = fig.add_subplot(4, 2, 8)
-        for ind in ind_list:
-            plt.plot(to_numpy(model.b[ind, :] ** 2))
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
-
-    elif ('short_term_plasticity' in field_type) | ('modulation' in field_type):
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(2, 2, 1)
-        plt.imshow(to_numpy(modulation), aspect='auto')
-        ax = fig.add_subplot(2, 2, 2)
-        if n_frames > 1000:
-            t = torch.linspace(0, 1, n_frames//100, dtype=torch.float32, device=device).unsqueeze(1)
-        else:
-            t = torch.linspace(0, 1, n_frames, dtype=torch.float32, device=device).unsqueeze(1)
-        prediction = model_f[0](t) ** 2
-        prediction = prediction.t()
-        plt.imshow(to_numpy(prediction), aspect='auto', cmap='viridis')
-        ax = fig.add_subplot(2, 2, 3)
-        # if n_frames > 1000:
-        #     ids = np.arange(0, n_frames, 100).astype(int)
-        # else:
-        #     ids = np.arange(0, n_frames, 1).astype(int)
-        # plt.scatter(to_numpy(modulation[:, ids[:-1]]), to_numpy(prediction[:modulation.shape[0], :]), s=0.1, color='k', alpha=0.01)
-        # x_data = to_numpy(modulation[:, ids[:-1]]).flatten()
-        # y_data = to_numpy(prediction[:modulation.shape[0], :]).flatten()
-        # lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-        # residuals = y_data - linear_model(x_data, *lin_fit)
-        # ss_res = np.sum(residuals ** 2)
-        # ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-        # r_squared = 1 - (ss_res / ss_tot)
-        # ax.text(0.01, 0.99, f'$R^2$ {r_squared:0.3f}   slope {lin_fit[0]:0.3f}', transform=ax.transAxes,
-        #         verticalalignment='top', horizontalalignment='left')
-        # ind_list = [10, 24, 48, 120, 150, 180]
-        # ax = fig.add_subplot(4, 2, 6)
-        # for ind in ind_list:
-        #     plt.plot(to_numpy(modulation[ind, :]))
-        # ax = fig.add_subplot(4, 2, 8)
-        # for ind in ind_list:
-        #     plt.plot(to_numpy(prediction[ind, :]))
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
-
-    else:
+    if external_input_type == 'visual':
+        # Visual input: show spatial field
         n_nodes_per_axis = int(np.sqrt(n_nodes))
-        if 'visual' in field_type:
-            tmp = torch.reshape(x[:n_nodes, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
-        else:
-            tmp = torch.reshape(x[:, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
+        tmp = torch.reshape(x[:n_nodes, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
         tmp = to_numpy(torch.sqrt(tmp))
         tmp = np.rot90(tmp, k=1)
         fig = plt.figure(figsize=(12, 12))
@@ -603,7 +532,23 @@ def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, fi
         plt.xticks([])
         plt.yticks([])
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/field/field_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/external_inputs/field_{epoch}_{N}.tif", dpi=80)
+        plt.close()
+    else:
+        # Signal input: show temporal field prediction
+        fig = plt.figure(figsize=(12, 12))
+        if n_frames > 1000:
+            t = torch.linspace(0, 1, n_frames//100, dtype=torch.float32, device=device).unsqueeze(1)
+        else:
+            t = torch.linspace(0, 1, n_frames, dtype=torch.float32, device=device).unsqueeze(1)
+        prediction = model_f[0](t) ** 2
+        prediction = prediction.t()
+        plt.imshow(to_numpy(prediction), aspect='auto', cmap='viridis')
+        plt.title('Learned external input')
+        plt.xlabel('Time')
+        plt.ylabel('Neuron')
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/tmp_training/external_inputs/field_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
 def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, model_missing_activity, log_dir, epoch, N, device):
@@ -838,7 +783,7 @@ def increasing_batch_size(batch_size):
     return get_batch_size
 
 
-def set_trainable_parameters(model=[], lr_embedding=[], lr=[],  lr_update=[], lr_W=[], lr_modulation=[], learning_rate_NNR=[], learning_rate_NNR_f=[], learning_rate_NNR_E=[], learning_rate_NNR_b=[]):
+def set_trainable_parameters(model=[], lr_embedding=[], lr=[],  lr_update=[], lr_W=[], learning_rate_NNR=[], learning_rate_NNR_f=[], learning_rate_NNR_E=[], learning_rate_NNR_b=[]):
 
     trainable_params = [param for _, param in model.named_parameters() if param.requires_grad]
     n_total_params = sum(p.numel() for p in trainable_params)
@@ -856,8 +801,6 @@ def set_trainable_parameters(model=[], lr_embedding=[], lr=[],  lr_update=[], lr
         if parameter.requires_grad:
             if name == 'a':
                 param_groups.append({'params': parameter, 'lr': lr_embedding})
-            elif (name=='b') or ('lin_modulation' in name):
-                param_groups.append({'params': parameter, 'lr': lr_modulation})
             elif 'lin_phi' in name:
                 param_groups.append({'params': parameter, 'lr': lr_update})
             elif 'W' in name:

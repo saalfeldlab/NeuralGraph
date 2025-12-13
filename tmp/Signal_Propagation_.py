@@ -38,10 +38,10 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.n_neurons = simulation_config.n_neurons
         self.n_dataset = config.training.n_runs
         self.n_frames = simulation_config.n_frames
-        self.field_type = model_config.field_type
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.MLP_activation = config.graph_model.MLP_activation
+        self.external_input_mode = getattr(config.simulation, 'external_input_mode', 'none')
 
         self.input_size = model_config.input_size
         self.output_size = model_config.output_size
@@ -53,11 +53,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.n_layers_update = model_config.n_layers_update
         self.hidden_dim_update = model_config.hidden_dim_update
         self.input_size_update = model_config.input_size_update
-
-        self.input_size_modulation = model_config.input_size_modulation
-        self.output_size_modulation = model_config.output_size_modulation
-        self.hidden_dim_modulation = model_config.hidden_dim_modulation
-        self.n_layers_modulation = model_config.n_layers_modulation
 
         self.batch_size = config.training.batch_size
         self.update_type = model_config.update_type
@@ -105,12 +100,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         if (self.model == 'PDE_N6') | (self.model == 'PDE_N7'):
             self.b = nn.Parameter(torch.ones((int(self.n_neurons), 1000 + 10), device=self.device, requires_grad=True,dtype=torch.float32)*0.44)
             self.embedding_step = self.n_frames // 1000
-            self.lin_modulation = MLP(input_size=self.input_size_modulation, output_size=self.output_size_modulation, nlayers=self.n_layers_modulation,
-                                hidden_size=self.hidden_dim_modulation, device=self.device)
-            
-
-
-
 
         if self.multi_connectivity:
             self.W = nn.Parameter(torch.zeros((int(self.n_dataset),int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
@@ -135,18 +124,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         alpha = (k % self.embedding_step) / self.embedding_step
 
         return alpha * self.a[id.squeeze()+1, :] + (1 - alpha) * self.a[id.squeeze(), :]
-    
-
-    def forward_excitation(self,  k = []):
-
-
-        kk = torch.full((1, 1), float(k), device=self.device, dtype=torch.float32)
-
-        in_features = torch.tensor(kk / self.NNR_f_T_period, dtype=torch.float32, device=self.device)
-        excitation_field = self.NNR_f(in_features)
-
-        return excitation_field
-
 
     def forward(self, data=[], data_id=[], k = [], return_all=False):
         self.return_all = return_all
@@ -169,22 +146,22 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             self.W = self.WL @ self.WR  
 
         msg = self.propagate(edge_index, u=u, embedding=embedding, data_id=self.data_id[:,None])
+        external_input = x[:, 4:5]
 
         if 'generic' in self.update_type:        # MLP1(u, embedding, \sum MLP0(u, embedding), field)
-            field = x[:, 4:5]
-            if 'excitation' in self.update_type:
-                excitation = x[:, 10: 10 + self.excitation_dim]
-                in_features = torch.cat([u, embedding, msg, field, excitation], dim=1)
-            else:
-                in_features = torch.cat([u, embedding, msg, field], dim=1)
+
+            in_features = torch.cat([u, embedding, msg, external_input], dim=1)
             pred = self.lin_phi(in_features)
+
         else:
-            field = x[:, 4:5]
+
             in_features = torch.cat([u, embedding], dim=1)
-            pred = self.lin_phi(in_features) + msg * field
-            if 'excitation' in self.update_type:
-                excitation = x[:, 10: 10 + self.excitation_dim]
-                pred = pred  + excitation
+            if self.external_input_mode == "multiplicative":
+                pred = self.lin_phi(in_features) + msg * external_input
+            elif self.external_input_mode == "additive":
+                pred = self.lin_phi(in_features) + msg + external_input
+            else: # none
+                pred = self.lin_phi(in_features) + msg
 
 
         if return_all:

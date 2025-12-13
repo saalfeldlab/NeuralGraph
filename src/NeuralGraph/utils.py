@@ -113,9 +113,9 @@ def set_device(device: str = 'auto'):
                 # Ensure the device count matches
                 num_gpus = torch.cuda.device_count()
                 if num_gpus != len(free_mem_list):
-                    print(f"Mismatch in GPU count between PyTorch ({num_gpus}) and nvidia-smi ({len(free_mem_list)})")
+                    print(f"mismatch in GPU count between PyTorch ({num_gpus}) and nvidia-smi ({len(free_mem_list)})")
                     device = 'cpu'
-                    print(f"Using device: {device}")
+                    print(f"using device: {device}")
                 else:
                     # Find the GPU with the most free memory
                     max_free_memory = -1
@@ -2394,7 +2394,7 @@ class LossRegularizer:
             self._iter_tracker[name] += val
 
     def compute(self, model, x, in_features, ids, ids_batch, edges, device,
-                xnorm=1.0, index_weight=None, n_excitatory_neurons=0):
+                xnorm=1.0, index_weight=None):
         """
         Compute all regularization terms internally.
 
@@ -2408,7 +2408,6 @@ class LossRegularizer:
             device: Torch device
             xnorm: Normalization value
             index_weight: Index for W_sign computation (signal only)
-            n_excitatory_neurons: Number of excitatory neurons (signal only)
 
         Returns:
             Total regularization loss tensor
@@ -2431,18 +2430,12 @@ class LossRegularizer:
 
         # --- W regularization ---
         if self._coeffs['W_L1'] > 0 and model_W is not None:
-            if n_excitatory_neurons > 0:
-                regul_term = model_W[:n_neurons - n_excitatory_neurons, :n_neurons - n_excitatory_neurons].norm(1) * self._coeffs['W_L1']
-            else:
-                regul_term = model_W.norm(1) * self._coeffs['W_L1']
+            regul_term = model_W.norm(1) * self._coeffs['W_L1']
             total_regul = total_regul + regul_term
             self._add('W_L1', regul_term)
 
         if self._coeffs['W_L2'] > 0 and model_W is not None:
-            if n_excitatory_neurons > 0:
-                regul_term = model_W[:n_neurons - n_excitatory_neurons, :n_neurons - n_excitatory_neurons].norm(2) * self._coeffs['W_L2']
-            else:
-                regul_term = model_W.norm(2) * self._coeffs['W_L2']
+            regul_term = model_W.norm(2) * self._coeffs['W_L2']
             total_regul = total_regul + regul_term
             self._add('W_L2', regul_term)
 
