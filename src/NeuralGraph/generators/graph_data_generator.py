@@ -1104,15 +1104,17 @@ def data_generate_synaptic(
         )
 
 
-    # External input parameters (moved from PDE_N4)
-    input_type = simulation_config.input_type
-    has_oscillations = (input_type == 'oscillatory')
-    has_triggered = (input_type == 'triggered')
+    # external input parameters
+    external_input_type = getattr(simulation_config, 'external_input_type', 'none')
+    signal_input_type = getattr(simulation_config, 'signal_input_type', 'oscillatory')
+    has_signal_input = (external_input_type == 'signal')
+    has_oscillations = has_signal_input and (signal_input_type == 'oscillatory')
+    has_triggered = has_signal_input and (signal_input_type == 'triggered')
     oscillation_amplitude = simulation_config.oscillation_max_amplitude
     oscillation_frequency = torch.tensor(simulation_config.oscillation_frequency, dtype=torch.float32, device=device)
     max_frame = n_frames + 1
 
-    # Initialize triggered oscillation parameters (if needed)
+    # initialize triggered oscillation parameters (if needed)
     if has_triggered:
         triggered_n_impulses = simulation_config.triggered_n_impulses
         triggered_n_input = simulation_config.triggered_n_input_neurons
@@ -1121,10 +1123,10 @@ def data_generate_synaptic(
         amplitude_range = simulation_config.triggered_amplitude_range
         frequency_range = simulation_config.triggered_frequency_range
 
-        # Generate per-neuron random amplitude
+        # generate per-neuron random amplitude
         e_global = oscillation_amplitude * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
 
-        # Generate multiple impulse events spread throughout simulation
+        # generate multiple impulse events spread throughout simulation
         buffer = triggered_duration
         available_frames = max_frame - 2 * buffer
         spacing = available_frames // max(1, triggered_n_impulses)
@@ -1253,7 +1255,7 @@ def data_generate_synaptic(
         for it in trange(simulation_config.start_frame, n_frames + 1, ncols=150):
             with torch.no_grad():
 
-                # Compute external input for this frame
+                # compute external input for this frame
                 external_input = torch.zeros((n_neurons, 1), device=device)
 
                 if (has_modulation) & (it >= 0):
@@ -1270,46 +1272,40 @@ def data_generate_synaptic(
                     external_input[:n_nodes, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
                     external_input[n_nodes:n_neurons, 0] = 1
                 elif has_oscillations:
-                    # Oscillatory external input (frequency in cycles per time unit)
+                    # oscillatory external input (frequency in cycles per time unit)
                     t = it * delta_t
                     external_input = e_global * torch.cos((2*np.pi)*oscillation_frequency*t)
                 elif has_triggered:
-                    # Triggered oscillation input
+                    # triggered oscillation input
                     for i in range(triggered_n_impulses):
                         trig_frame = trigger_frames[i]
-                        # Add impulse at trigger frame
+                        # add impulse at trigger frame
                         if it == trig_frame:
                             impulse = torch.zeros((n_neurons, 1), device=device)
                             impulse[trigger_neurons[i]] = triggered_strength * trigger_amplitudes[i]
                             external_input = external_input + impulse
-                        # Add oscillatory response after trigger
+                        # add oscillatory response after trigger
                         if trig_frame <= it < trig_frame + triggered_duration:
                             t_since_trigger = it - trig_frame
                             freq_mult = trigger_frequencies[i]
                             osc = trigger_e[i] * torch.sin((2*np.pi)*oscillation_frequency*freq_mult*t_since_trigger / triggered_duration)
                             external_input = external_input + osc
 
-                # Update x tensor for this frame
+                # update x tensor for this frame
                 x[:, 4] = external_input.squeeze()  # external input
 
                 X[:, it] = x[:, 3].clone().detach()  # store signal state
                 dataset = data.Data(x=x, pos=x[:, 1:3], edge_index=edge_index)
 
-                # model prediction
-                if has_modulation | has_visual_input:
-                    y = model(dataset, has_field=True, frame=it)
-                elif has_oscillations | has_triggered:
-                    y = model(dataset, has_field=False, frame=it)  # additive input only
-                elif "PDE_N3" in model_config.signal_model_name:
+                # model prediction (PDE_N4 uses external_input_mode from config)
+                if "PDE_N3" in model_config.signal_model_name:
                     y = model(dataset, has_field=False, alpha=it / n_frames, frame=it)
                 elif "PDE_N6" in model_config.signal_model_name:
                     (y, p_out) = model(dataset, has_field=False, frame=it)
                 elif "PDE_N7" in model_config.signal_model_name:
                     (y, p_out) = model(dataset, has_field=False, frame=it)
-                elif "PDE_N11" in model_config.signal_model_name:
-                    y = model(dataset, has_field=False, frame=it)
                 else:
-                    y = model(dataset, has_field=False, frame=it)
+                    y = model(dataset, frame=it)
 
             # append list
             if (it >= 0) & bSave:

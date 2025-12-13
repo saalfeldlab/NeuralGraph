@@ -40,11 +40,16 @@ class SimulationConfig(BaseModel):
     simulation_initial_state: bool = False
 
 
-    input_type: str = ""  # for signal experiments: "", "oscillatory", "triggered"
+    # external input configuration
+    external_input_type: Literal["none", "signal", "visual"] = "none"
+    external_input_mode: Literal["additive", "multiplicative", "none"] = "none"
+
+    # signal input parameters (external_input_type == "signal")
+    signal_input_type: Literal["oscillatory", "triggered"] = "oscillatory"
     oscillation_max_amplitude: float = 1.0
     oscillation_frequency: float = 5.0
 
-    # triggered oscillation parameters (input_type == "triggered")
+    # triggered oscillation parameters (signal_input_type == "triggered")
     triggered_n_impulses: int = 5  # number of impulse events
     triggered_n_input_neurons: int = 10  # number of neurons receiving impulse input per event
     triggered_impulse_strength: float = 5.0  # base strength of impulse (will vary randomly)
@@ -189,8 +194,12 @@ class GraphModelConfig(BaseModel):
     nnr_f_xy_period: float = 1.0
     nnr_f_T_period: float = 1.0
 
-    # INR type: "siren" or "ngp" (instantNGP hash encoding)
-    inr_type: str = "siren"
+    # INR type for external input learning
+    # siren_t: input=t, output=n_neurons (current implementation, works for n_neurons < 100)
+    # siren_id: input=(t, id), output=1 (scales better for large n_neurons)
+    # siren_x: input=(t, x, y), output=1 (uses neuron positions)
+    # ngp: instantNGP hash encoding
+    inr_type: Literal["siren_t", "siren_id", "siren_x", "ngp"] = "siren_t"
 
     # InstantNGP (hash encoding) parameters
     ngp_n_levels: int = 24

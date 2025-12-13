@@ -1,4 +1,4 @@
-description: "heterogeneity MLP0 with oscillatory input"
+description: "heterogeneity MLP0 with oscillatory input - siren_t"
 dataset: "signal_N4_4"
 
 simulation:
@@ -28,9 +28,6 @@ simulation:
   start_frame: -1000
 
   # external input configuration
-  # total simulation time: n_frames * delta_t = 100000 * 0.01 = 1000 time units
-  # period = 1 / oscillation_frequency = 1 / 0.1 = 10 time units = 1000 frames
-  # total cycles = 1000 / 10 = 100 cycles over the full simulation
   external_input_type: "signal"
   external_input_mode: "additive"
   signal_input_type: "oscillatory"
@@ -56,16 +53,13 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # SIREN (INR) parameters for learning external_input
-  # Normalized time range: [0, n_frames / nnr_f_T_period] = [0, 100000/100000] = [0, 1]
-  # Cycles in normalized range: 100 cycles in [0, 1]
-  # omega_f rule: omega_f ≈ 2π × num_cycles = 2π × 100 ≈ 628
-  input_size_nnr_f: 1
+  # INR type: siren_t (input=t, output=n_neurons)
+  inr_type: "siren_t"
+
+  # SIREN parameters
   hidden_dim_nnr_f: 1024
   n_layers_nnr_f: 2
   outermost_linear_nnr_f: True
-  output_size_nnr_f: 1000
-  nnr_f_xy_period: 1.0
   nnr_f_T_period: 100000
   omega_f: 600
 
@@ -98,4 +92,4 @@ training:
   learning_rate_embedding_start: 2.5E-4
   learning_rate_NNR_f: 1.0E-6
 
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 1.0E-6

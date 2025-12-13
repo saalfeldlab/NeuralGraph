@@ -27,11 +27,13 @@ simulation:
   boundary: "no"
   start_frame: -1000
 
-  # Triggered input parameters
-  # Each impulse has: random start frame, duration, amplitude, frequency
-  # Total simulation time: n_frames * delta_t = 100000 * 0.01 = 1000 time units
-  # Triggered signals are sparse localized oscillatory bursts
-  input_type: "triggered"
+  # external input configuration
+  # each impulse has: random start frame, duration, amplitude, frequency
+  # total simulation time: n_frames * delta_t = 100000 * 0.01 = 1000 time units
+  # triggered signals are sparse localized oscillatory bursts
+  external_input_type: "signal"
+  external_input_mode: "additive"
+  signal_input_type: "triggered"
   triggered_n_impulses: 200
   triggered_n_input_neurons: 500
   triggered_impulse_strength: 3.0
@@ -69,10 +71,10 @@ graph_model:
   output_size_nnr_f: 1000
   nnr_f_T_period: 100000
 
-  # INR type: "siren" or "ngp" (instantNGP hash encoding)
+  # INR type: "siren_t", "siren_id", "siren_x", or "ngp"
   inr_type: "ngp"
 
-  # SIREN parameters (used if inr_type: "siren")
+  # SIREN parameters (used if inr_type: "siren_t", "siren_id", or "siren_x")
   hidden_dim_nnr_f: 4096
   n_layers_nnr_f: 2
   outermost_linear_nnr_f: True

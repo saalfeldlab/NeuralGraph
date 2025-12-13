@@ -1,5 +1,5 @@
-description: "heterogeneity MLP0 with oscillatory input"
-dataset: "signal_N4_4"
+description: "heterogeneity MLP0 with triggered input - siren_x"
+dataset: "signal_N4_5"
 
 simulation:
   connectivity_file: "random"
@@ -28,14 +28,19 @@ simulation:
   start_frame: -1000
 
   # external input configuration
-  # total simulation time: n_frames * delta_t = 100000 * 0.01 = 1000 time units
-  # period = 1 / oscillation_frequency = 1 / 0.1 = 10 time units = 1000 frames
-  # total cycles = 1000 / 10 = 100 cycles over the full simulation
   external_input_type: "signal"
   external_input_mode: "additive"
-  signal_input_type: "oscillatory"
-  oscillation_max_amplitude: 3.0
-  oscillation_frequency: 0.1
+  signal_input_type: "triggered"
+  triggered_n_impulses: 200
+  triggered_n_input_neurons: 500
+  triggered_impulse_strength: 3.0
+  triggered_min_start_frame: 100
+  triggered_max_start_frame: 500
+  triggered_duration_frames: 2000
+  triggered_amplitude_range: [0.5, 2.0]
+  triggered_frequency_range: [0.5, 2.0]
+  oscillation_frequency: 3.0
+  oscillation_max_amplitude: 5.0
 
 graph_model:
   signal_model_name: "PDE_N4"
@@ -56,18 +61,15 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # SIREN (INR) parameters for learning external_input
-  # Normalized time range: [0, n_frames / nnr_f_T_period] = [0, 100000/100000] = [0, 1]
-  # Cycles in normalized range: 100 cycles in [0, 1]
-  # omega_f rule: omega_f ≈ 2π × num_cycles = 2π × 100 ≈ 628
-  input_size_nnr_f: 1
-  hidden_dim_nnr_f: 1024
+  # INR type: siren_x (input=(t, x, y), output=1)
+  inr_type: "siren_x"
+
+  # SIREN parameters
+  hidden_dim_nnr_f: 4096
   n_layers_nnr_f: 2
   outermost_linear_nnr_f: True
-  output_size_nnr_f: 1000
-  nnr_f_xy_period: 1.0
   nnr_f_T_period: 100000
-  omega_f: 600
+  omega_f: 4096
 
 plotting:
   colormap: "tab10"
@@ -80,13 +82,13 @@ training:
   n_runs: 1
   device: "auto"
 
-  batch_size: 48
+  batch_size: 96
   small_init_batch_size: False
   init_training_single_type: True
 
   seed: 24
 
-  data_augmentation_loop: 10
+  data_augmentation_loop: 2
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4

@@ -38,12 +38,13 @@ class PDE_N4(pyg.nn.MessagePassing):
         self.phi = phi
         self.device = device
         self.n_neurons = config.simulation.n_neurons
+        self.external_input_mode = getattr(config.simulation, 'external_input_mode', 'none')
 
     def forward(self, data=[], has_field=False, data_id=[], frame=None):
         x, edge_index = data.x, data.edge_index
         neuron_type = x[:, 6].long()
 
-        # Extract neuron-type-dependent parameters
+        # extract neuron-type-dependent parameters
         # params order: [a, b, g, s, w, h]
         parameters = self.p[neuron_type]
         a = parameters[:, 0:1]  # decay: rate of signal decay (-a*u term)
@@ -54,18 +55,21 @@ class PDE_N4(pyg.nn.MessagePassing):
         h = parameters[:, 5:6]  # threshold: baseline for activation function MLP1((u-h)/w)
 
         u = x[:, 3:4]  # signal state
+        external_input = x[:, 4:5]
 
-        if has_field:
-            # Multiplicative field mode: external_input modulates the message
-            field = x[:, 4:5]
-            msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
-            du = -a * u + b + s * torch.tanh(u) + g * msg
-        else:
-            # Additive input mode: external_input is added directly
+        if self.external_input_mode == "multiplicative":
+            # multiplicative mode: external_input modulates the message
+            msg = self.propagate(edge_index, u=u, w=w, h=h, field=external_input)
+            du = -a * u + b + s * torch.tanh(u) + g * msg * external_input
+        elif self.external_input_mode == "additive":
+            # additive mode: external_input is added directly
             field = torch.ones_like(u)
-            external_input = x[:, 4:5]
             msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
             du = -a * u + b + s * torch.tanh(u) + g * msg + external_input
+        else:  # none
+            field = torch.ones_like(u)
+            msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
+            du = -a * u + b + s * torch.tanh(u) + g * msg
 
         return du
 
