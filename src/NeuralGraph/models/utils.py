@@ -1750,7 +1750,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
 
     # 1. analyze activity (u) - column 3
     activity = x_list_sampled[:, :, 3]  # shape: (n_frames_sampled, n_neurons)
-    log_print(f"\n--- activity ---")
+    log_print(f"--- activity ---")
     log_print(f"  shape: {activity.shape}")
     log_print(f"  range: [{activity.min():.3f}, {activity.max():.3f}]")
 
@@ -1817,7 +1817,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         # for visual stimuli, only analyze input neurons (first n_input_neurons)
         if is_flyvis and n_input_neurons is not None and n_input_neurons < n_neurons:
             external_input = x_list_sampled[:, :n_input_neurons, 4]  # shape: (n_frames_sampled, n_input_neurons)
-            log_print(f"\n--- {input_label} (first {n_input_neurons} input neurons) ---")
+            log_print(f"--- {input_label} (first {n_input_neurons} input neurons) ---")
         else:
             external_input = x_list_sampled[:, :, 4]  # shape: (n_frames_sampled, n_neurons)
 
@@ -1825,7 +1825,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         ext_range = external_input.max() - external_input.min()
         if ext_range > 1e-6:
             if not (is_flyvis and n_input_neurons is not None):
-                log_print(f"\n--- {input_label} ---")
+                log_print(f"--- {input_label} ---")
             log_print(f"  shape: {external_input.shape}")
             log_print(f"  range: [{external_input.min():.3f}, {external_input.max():.3f}]")
 
@@ -1878,14 +1878,14 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
             ax.tick_params(axis='both', labelsize=TICK_SIZE)
             ax.grid(True, alpha=0.3)
         else:
-            log_print(f"\n--- {input_label} ---")
+            log_print(f"--- {input_label} ---")
             log_print(f"  no signal detected (range < 1e-6)")
             axes[1, 0].set_visible(False)
             axes[1, 1].set_visible(False)
             results_key = 'visual_stimuli' if is_flyvis else 'external_input'
             results[results_key] = None
     else:
-        log_print(f"\n--- {input_label} ---")
+        log_print(f"--- {input_label} ---")
         log_print(f"  not present in data")
         axes[1, 0].set_visible(False)
         axes[1, 1].set_visible(False)
@@ -1905,7 +1905,5 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     if style:
         plt.style.use('default')
 
-    log_print(f"\nsvd analysis saved to: {save_path}")
-    log_print(f"{'='*60}\n")
 
     return results

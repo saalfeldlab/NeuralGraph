@@ -708,7 +708,7 @@ def data_train_signal(config, erase, best_model, style, device):
         fig = plt.figure(figsize=(15, 10))
 
         fig.add_subplot(2, 3, 1)
-        plt.plot(list_loss, color='k', linewidth=1)
+        plt.plot(list_loss, color=mc, linewidth=1)
         plt.xlim([0, n_epochs])
         plt.ylabel('loss', fontsize=24)
         plt.xlabel('epochs', fontsize=24)
@@ -1439,7 +1439,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
         # Plot 1: Loss
         fig.add_subplot(2, 3, 1)
-        plt.plot(list_loss, color='k', linewidth=1)
+        plt.plot(list_loss, color=mc, linewidth=1)
         plt.xlim([0, n_epochs])
         plt.ylabel('loss', fontsize=12)
         plt.xlabel('epochs', fontsize=12)
@@ -1741,6 +1741,7 @@ def data_train_zebra(config, erase, best_model, device):
 
     CustomColorMap(config=config)
     plt.style.use('dark_background')
+    mc = 'w'
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading graph files N: {n_runs} ...')
@@ -1978,7 +1979,7 @@ def data_train_zebra(config, erase, best_model, device):
 
         fig = plt.figure(figsize=(20, 10))
         fig.add_subplot(1, 2, 1)
-        plt.plot(list_loss, color='w', linewidth=1)
+        plt.plot(list_loss, color=mc, linewidth=1)
         plt.xlim([0, n_epochs])
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
