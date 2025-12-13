@@ -28,6 +28,7 @@ from NeuralGraph.models.utils import (
     plot_training_flyvis,
     plot_weight_comparison,
     get_index_particles,
+    analyze_data_svd,
 )
 from NeuralGraph.utils import (
     to_numpy,
@@ -223,6 +224,13 @@ def data_train_signal(config, erase, best_model, style, device):
     torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
     torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
     time.sleep(0.5)
+
+    # SVD analysis of activity and external_input (skip if already exists)
+    svd_plot_path = os.path.join(log_dir, 'results', 'svd_analysis.png')
+    if not os.path.exists(svd_plot_path):
+        analyze_data_svd(x_list[0], log_dir, config=config, logger=logger)
+    else:
+        print(f'svd analysis already exists: {svd_plot_path}')
 
     print('create models ...')
     model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device)
@@ -931,6 +939,13 @@ def data_train_flyvis(config, erase, best_model, device):
     time.sleep(0.5)
     print(f'ynorm: {to_numpy(ynorm)}')
     logger.info(f'ynorm: {to_numpy(ynorm)}')
+
+    # SVD analysis of activity and visual stimuli (skip if already exists)
+    svd_plot_path = os.path.join(log_dir, 'results', 'svd_analysis.png')
+    if not os.path.exists(svd_plot_path):
+        analyze_data_svd(x_list[0], log_dir, config=config, logger=logger, is_flyvis=True)
+    else:
+        print(f'svd analysis already exists: {svd_plot_path}')
 
     print('create models ...')
     if time_window >0:

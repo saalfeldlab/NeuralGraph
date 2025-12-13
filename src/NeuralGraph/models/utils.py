@@ -1677,3 +1677,235 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
         'violations': dale_violations,
         'neuron_signs': neuron_signs
     }
+
+
+def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=50_000_000, is_flyvis=False, style=None):
+    """
+    Perform SVD analysis on activity data and external_input/visual stimuli (if present).
+    Uses randomized SVD for large datasets for efficiency.
+    Subsamples frames if data is too large.
+
+    Args:
+        x_list: numpy array of shape (n_frames, n_neurons, n_features)
+                features: [id, x, y, u, external_input, ...]
+        output_folder: path to save plots (will save to results/ subfolder)
+        config: config object (optional, for metadata)
+        max_components: maximum number of SVD components to compute
+        logger: optional logger
+        max_data_size: maximum data size before subsampling (default 50M elements)
+        is_flyvis: if True, use "visual stimuli" label instead of "external input"
+        style: matplotlib style to use (e.g., 'dark_background' for dark mode)
+
+    Returns:
+        dict with SVD analysis results
+    """
+    from sklearn.utils.extmath import randomized_svd
+
+    n_frames, n_neurons, n_features = x_list.shape
+    results = {}
+
+    def log_print(msg):
+        print(msg)
+        if logger:
+            logger.info(msg)
+    log_print(f"data shape: ({n_frames}, {n_neurons}, {n_features})")
+
+    # subsample frames if data is too large
+    data_size = n_frames * n_neurons
+    if data_size > max_data_size:
+        subsample_factor = int(np.ceil(data_size / max_data_size))
+        frame_indices = np.arange(0, n_frames, subsample_factor)
+        x_list_sampled = x_list[frame_indices]
+        n_frames_sampled = len(frame_indices)
+        log_print(f"subsampling: {n_frames} -> {n_frames_sampled} frames (every {subsample_factor}th)")
+        data_size_sampled = n_frames_sampled * n_neurons
+    else:
+        x_list_sampled = x_list
+        n_frames_sampled = n_frames
+        data_size_sampled = data_size
+        subsample_factor = 1
+
+    # decide whether to use randomized SVD
+    use_randomized = data_size_sampled > 1e6  # use randomized for > 1M elements
+
+    if use_randomized:
+        log_print(f"using randomized SVD (data size: {data_size_sampled:,.0f})")
+    else:
+        log_print(f"using full SVD (data size: {data_size_sampled:,.0f})")
+
+    # apply style if provided
+    if style:
+        plt.style.use(style)
+
+    # font sizes
+    TITLE_SIZE = 16
+    LABEL_SIZE = 14
+    TICK_SIZE = 12
+    LEGEND_SIZE = 12
+    SUPTITLE_SIZE = 18
+
+    # prepare figure
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    fig.suptitle('SVD analysis', fontsize=SUPTITLE_SIZE, fontweight='bold')
+
+    # 1. analyze activity (u) - column 3
+    activity = x_list_sampled[:, :, 3]  # shape: (n_frames_sampled, n_neurons)
+    log_print(f"\n--- activity ---")
+    log_print(f"  shape: {activity.shape}")
+    log_print(f"  range: [{activity.min():.3f}, {activity.max():.3f}]")
+
+    k = min(max_components, min(n_frames_sampled, n_neurons) - 1)
+
+    if use_randomized:
+        U_act, S_act, Vt_act = randomized_svd(activity, n_components=k, random_state=42)
+    else:
+        U_act, S_act, Vt_act = np.linalg.svd(activity, full_matrices=False)
+        S_act = S_act[:k]
+
+    # compute cumulative variance
+    cumvar_act = np.cumsum(S_act**2) / np.sum(S_act**2)
+    rank_90_act = np.searchsorted(cumvar_act, 0.90) + 1
+    rank_99_act = np.searchsorted(cumvar_act, 0.99) + 1
+
+    log_print(f"  effective rank (90% var): {rank_90_act}")
+    log_print(f"  effective rank (99% var): \033[92m{rank_99_act}\033[0m")
+
+    # compression ratio
+    if rank_99_act < k:
+        compression_act = (n_frames * n_neurons) / (rank_99_act * (n_frames + n_neurons))
+        log_print(f"  compression (rank-{rank_99_act}): {compression_act:.1f}x")
+    else:
+        log_print(f"  compression: need more components to reach 99% variance")
+
+    results['activity'] = {
+        'singular_values': S_act,
+        'cumulative_variance': cumvar_act,
+        'rank_90': rank_90_act,
+        'rank_99': rank_99_act,
+    }
+
+    # plot activity SVD
+    ax = axes[0, 0]
+    ax.semilogy(S_act, 'b-', lw=1.5)
+    ax.set_xlabel('component', fontsize=LABEL_SIZE)
+    ax.set_ylabel('singular value', fontsize=LABEL_SIZE)
+    ax.set_title(f'activity: singular values', fontsize=TITLE_SIZE)
+    ax.tick_params(axis='both', labelsize=TICK_SIZE)
+    ax.grid(True, alpha=0.3)
+
+    ax = axes[0, 1]
+    ax.plot(cumvar_act, 'b-', lw=1.5)
+    ax.axhline(0.90, color='orange', ls='--', label='90%')
+    ax.axhline(0.99, color='green', ls='--', label='99%')
+    ax.axvline(rank_90_act, color='orange', ls=':', alpha=0.7)
+    ax.axvline(rank_99_act, color='green', ls=':', alpha=0.7)
+    ax.set_xlabel('component', fontsize=LABEL_SIZE)
+    ax.set_ylabel('cumulative variance', fontsize=LABEL_SIZE)
+    ax.set_title(f'activity: rank(90%)={rank_90_act}, rank(99%)={rank_99_act}', fontsize=TITLE_SIZE)
+    ax.legend(loc='lower right', fontsize=LEGEND_SIZE)
+    ax.tick_params(axis='both', labelsize=TICK_SIZE)
+    ax.grid(True, alpha=0.3)
+
+    # 2. Analyze external_input / visual stimuli (if present and non-zero) - column 4
+    # Determine label based on is_flyvis parameter
+    n_input_neurons = None
+    if is_flyvis:
+        n_input_neurons = getattr(config.simulation, 'n_input_neurons', None) if config else None
+    input_label = "visual stimuli" if is_flyvis else "external input"
+
+    if n_features > 4:
+        # for visual stimuli, only analyze input neurons (first n_input_neurons)
+        if is_flyvis and n_input_neurons is not None and n_input_neurons < n_neurons:
+            external_input = x_list_sampled[:, :n_input_neurons, 4]  # shape: (n_frames_sampled, n_input_neurons)
+            log_print(f"\n--- {input_label} (first {n_input_neurons} input neurons) ---")
+        else:
+            external_input = x_list_sampled[:, :, 4]  # shape: (n_frames_sampled, n_neurons)
+
+        # check if external_input has actual signal
+        ext_range = external_input.max() - external_input.min()
+        if ext_range > 1e-6:
+            if not (is_flyvis and n_input_neurons is not None):
+                log_print(f"\n--- {input_label} ---")
+            log_print(f"  shape: {external_input.shape}")
+            log_print(f"  range: [{external_input.min():.3f}, {external_input.max():.3f}]")
+
+            if use_randomized:
+                U_ext, S_ext, Vt_ext = randomized_svd(external_input, n_components=k, random_state=42)
+            else:
+                U_ext, S_ext, Vt_ext = np.linalg.svd(external_input, full_matrices=False)
+                S_ext = S_ext[:k]
+
+            cumvar_ext = np.cumsum(S_ext**2) / np.sum(S_ext**2)
+            rank_90_ext = np.searchsorted(cumvar_ext, 0.90) + 1
+            rank_99_ext = np.searchsorted(cumvar_ext, 0.99) + 1
+
+            log_print(f"  effective rank (90% var): {rank_90_ext}")
+            log_print(f"  effective rank (99% var): \033[92m{rank_99_ext}\033[0m")
+
+            if rank_99_ext < k:
+                compression_ext = (n_frames * n_neurons) / (rank_99_ext * (n_frames + n_neurons))
+                log_print(f"  compression (rank-{rank_99_ext}): {compression_ext:.1f}x")
+            else:
+                log_print(f"  compression: need more components to reach 99% variance")
+
+            results_key = 'visual_stimuli' if is_flyvis else 'external_input'
+            results[results_key] = {
+                'singular_values': S_ext,
+                'cumulative_variance': cumvar_ext,
+                'rank_90': rank_90_ext,
+                'rank_99': rank_99_ext,
+            }
+
+            # plot external_input / visual stimuli SVD
+            ax = axes[1, 0]
+            ax.semilogy(S_ext, 'r-', lw=1.5)
+            ax.set_xlabel('component', fontsize=LABEL_SIZE)
+            ax.set_ylabel('singular value', fontsize=LABEL_SIZE)
+            ax.set_title(f'{input_label}: singular values', fontsize=TITLE_SIZE)
+            ax.tick_params(axis='both', labelsize=TICK_SIZE)
+            ax.grid(True, alpha=0.3)
+
+            ax = axes[1, 1]
+            ax.plot(cumvar_ext, 'r-', lw=1.5)
+            ax.axhline(0.90, color='orange', ls='--', label='90%')
+            ax.axhline(0.99, color='green', ls='--', label='99%')
+            ax.axvline(rank_90_ext, color='orange', ls=':', alpha=0.7)
+            ax.axvline(rank_99_ext, color='green', ls=':', alpha=0.7)
+            ax.set_xlabel('component', fontsize=LABEL_SIZE)
+            ax.set_ylabel('cumulative variance', fontsize=LABEL_SIZE)
+            ax.set_title(f'{input_label}: rank(90%)={rank_90_ext}, rank(99%)={rank_99_ext}', fontsize=TITLE_SIZE)
+            ax.legend(loc='lower right', fontsize=LEGEND_SIZE)
+            ax.tick_params(axis='both', labelsize=TICK_SIZE)
+            ax.grid(True, alpha=0.3)
+        else:
+            log_print(f"\n--- {input_label} ---")
+            log_print(f"  no signal detected (range < 1e-6)")
+            axes[1, 0].set_visible(False)
+            axes[1, 1].set_visible(False)
+            results_key = 'visual_stimuli' if is_flyvis else 'external_input'
+            results[results_key] = None
+    else:
+        log_print(f"\n--- {input_label} ---")
+        log_print(f"  not present in data")
+        axes[1, 0].set_visible(False)
+        axes[1, 1].set_visible(False)
+        results_key = 'visual_stimuli' if is_flyvis else 'external_input'
+        results[results_key] = None
+
+    plt.tight_layout()
+
+    # save to results subfolder
+    results_folder = os.path.join(output_folder, 'results')
+    os.makedirs(results_folder, exist_ok=True)
+    save_path = os.path.join(results_folder, 'svd_analysis.png')
+    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    # reset style to default if we changed it
+    if style:
+        plt.style.use('default')
+
+    log_print(f"\nsvd analysis saved to: {save_path}")
+    log_print(f"{'='*60}\n")
+
+    return results
