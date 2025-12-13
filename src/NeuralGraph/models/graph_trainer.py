@@ -62,6 +62,8 @@ from NeuralGraph.models.utils_zebra import (
     plot_field_discrete_xy_slices_grid,
 )
 
+from NeuralGraph.models.HashEncoding_Network import HashEncodingMLP, create_hash_encoding_mlp, TCNN_AVAILABLE
+
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.fitting_models import linear_model
 
