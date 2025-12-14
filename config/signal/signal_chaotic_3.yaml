@@ -1,8 +1,8 @@
-description: "heterogeneity MLP0 with oscillatory input - siren_t"
-dataset: "signal_N4_4"
+description: "4 types  1000 neurons"
+dataset: "signal_chaotic_3"
 
 simulation:
-  connectivity_type: "Lorentz"
+  connectivity_type: "chaotic"
   connectivity_init: [0, 0.1]
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
@@ -15,22 +15,13 @@ simulation:
     ]
   phi: "tanh"
   tau: 1.0
-  min_radius: 1.0
-  max_radius: 1.0E6
   n_neurons: 1000
   n_neuron_types: 4
-  n_frames: 10000
+  n_frames: 100000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
-  start_frame: -1000
-
-  # external input configuration
-  external_input_type: "signal"
-  external_input_mode: "additive"
-  signal_input_type: "oscillatory"
-  oscillation_max_amplitude: 3.0
-  oscillation_frequency: 0.1
+  start_frame: -100
 
 graph_model:
   signal_model_name: "PDE_N4"
@@ -51,34 +42,24 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  # INR type: siren_t (input=t, output=n_neurons)
-  inr_type: "siren_t"
-
-  # SIREN parameters
-  hidden_dim_nnr_f: 1024
-  n_layers_nnr_f: 2
-  outermost_linear_nnr_f: True
-  nnr_f_T_period: 10000
-  omega_f: 2048
-
 plotting:
   colormap: "tab10"
   arrow_length: 1
   xlim: [-5, 5]
-  ylim: [-8, 8]
+  ylim: [-2, 2]
 
 training:
-  n_epochs: 20
+  n_epochs: 5
   n_runs: 1
   device: "auto"
 
-  batch_size: 48
+  batch_size: 8
   small_init_batch_size: False
   init_training_single_type: True
 
   seed: 24
 
-  data_augmentation_loop: 10
+  data_augmentation_loop: 20
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
@@ -88,6 +69,7 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
-  learning_rate_NNR_f: 1.0E-6
 
-  coeff_W_L1: 1.0E-6
+  coeff_W_L1: 1.0E-5
+  coeff_edge_norm: 0.0
+  coeff_edge_diff: 100

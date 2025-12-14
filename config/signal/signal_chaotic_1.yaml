@@ -1,5 +1,5 @@
-description: "heterogeneity MLP0"
-dataset: "signal_N4_7"
+description: "one type"
+dataset: "signal_chaotic_1"
 
 simulation:
   connectivity_type: "chaotic"
@@ -43,7 +43,7 @@ plotting:
   ylim: [-2, 2]
 
 training:
-  n_epochs: 2
+  n_epochs: 5
   n_runs: 1
   device: "auto"
 
