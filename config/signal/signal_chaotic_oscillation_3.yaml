@@ -92,6 +92,7 @@ training:
   learning_rate_embedding_start: 2.5E-4
 
   learning_rate_NNR_f: 1.0E-6
+  learning_rate_omega_f: 1.0E-3
 
   coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0
