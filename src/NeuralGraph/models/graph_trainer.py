@@ -641,6 +641,44 @@ def data_train_signal(config, erase, best_model, style, device):
                                     'optimizer_state_dict': optimizer_f.state_dict()},
                                    os.path.join(log_dir, 'models',
                                                 f'best_model_f_with_{n_runs - 1}_graphs_{epoch}_{N}.pt'))
+                        # plot external_input learned vs ground truth (like train_INR)
+                        with torch.no_grad():
+                            external_input_gt = x_list[0][:, :, 4]  # (n_frames, n_neurons)
+                            nnr_f_T_period = model_config.nnr_f_T_period
+                            if inr_type == 'siren_t':
+                                time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+                                pred_all = model_f(time_input).cpu().numpy()
+                            elif inr_type == 'lowrank':
+                                pred_all = model_f().cpu().numpy()
+                            elif inr_type == 'ngp':
+                                time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+                                pred_all = model_f(time_input).cpu().numpy()
+                            else:
+                                pred_all = None
+                            if pred_all is not None:
+                                gt_np = external_input_gt[:n_frames]  # ensure same length as pred
+                                pred_np = pred_all
+                                fig, ax = plt.subplots(1, 1, figsize=(8, 6))
+                                fig.patch.set_facecolor('black')
+                                ax.set_facecolor('black')
+                                ax.set_axis_off()
+                                n_traces = 10
+                                trace_ids = np.linspace(0, n_neurons - 1, n_traces, dtype=int)
+                                offset = np.abs(gt_np).max() * 1.5
+                                t = np.arange(gt_np.shape[0])
+                                for j, n_idx in enumerate(trace_ids):
+                                    y0 = j * offset
+                                    ax.plot(t, gt_np[:, n_idx] + y0, color='darkgreen', lw=2.0, alpha=0.95)
+                                    ax.plot(t, pred_np[:, n_idx] + y0, color='white', lw=0.5, alpha=0.95)
+                                ax.set_xlim(0, min(20000, gt_np.shape[0]))
+                                ax.set_ylim(-offset * 0.5, offset * (n_traces + 0.5))
+                                mse = ((pred_np - gt_np) ** 2).mean()
+                                ax.text(0.02, 0.98, f'MSE: {mse:.6f}', transform=ax.transAxes, va='top', ha='left', fontsize=12, color='white')
+                                out_dir = os.path.join(log_dir, 'tmp_training', 'external_input')
+                                os.makedirs(out_dir, exist_ok=True)
+                                plt.tight_layout()
+                                plt.savefig(f"{out_dir}/inr_{epoch}_{N}.png", dpi=150)
+                                plt.close()
 
                     if has_missing_activity:
                         with torch.no_grad():
@@ -2178,20 +2216,6 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
     print(f"compression: {n_frames * n_neurons / (rank_99 * (n_frames + n_neurons)):.1f}x")
     print()
 
-    # plot
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    axes[0].semilogy(S[:100], 'k-')
-    axes[0].axhline(S[rank_90], color='cyan', ls='--', label=f'90%: k={rank_90}')
-    axes[0].axhline(S[rank_99], color='lime', ls='--', label=f'99%: k={rank_99}')
-    axes[0].set_xlabel('component'); axes[0].set_ylabel('singular value')
-    axes[0].legend()
-
-    axes[1].plot(cumvar[:100], 'k-')
-    axes[1].axhline(0.99, color='lime', ls='--')
-    axes[1].set_xlabel('component'); axes[1].set_ylabel('cumulative variance')
-    plt.savefig(f"{output_folder}/svd_analysis.png", dpi=150)
-    plt.close()
-
     # extract neuron positions from x_list (columns 1, 2) - use first frame as reference
     neuron_positions = x_list[0, :, 1:3]  # shape: (n_neurons, 2)
 
@@ -2480,7 +2504,7 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
                 # loss plot
                 axes[0].set_facecolor('black')
-                axes[0].plot(loss_list, color='white', lw=0.5)
+                axes[0].plot(loss_list, color='white', lw=0.1)
                 axes[0].set_xlabel('step', color='white', fontsize=12)
                 loss_label = 'Relative L2 Loss' if inr_type == 'ngp' else 'MSE Loss'
                 axes[0].set_ylabel(loss_label, color='white', fontsize=12)
