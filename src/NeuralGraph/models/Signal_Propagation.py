@@ -7,21 +7,38 @@ from NeuralGraph.models.Siren_Network import Siren
 
 
 class Signal_Propagation(pyg.nn.MessagePassing):
-    """Interaction Network as proposed in this paper:
-    https://proceedings.neurips.cc/paper/2016/hash/3147da8ab4a0437c15ef51a5cc7f2dc4-Abstract.html"""
-
     """
-    Model learning the first derivative of a scalar field on a mesh.
-    The node embedding is defined by a table self.a
+    graph neural network for learning neural signal dynamics.
 
-    Inputs
+    based on interaction networks (Battaglia et al., NeurIPS 2016).
+    https://proceedings.neurips.cc/paper/2016/hash/3147da8ab4a0437c15ef51a5cc7f2dc4-Abstract.html
+
+    learns the first derivative of neural activity (du/dt) using:
+    - MLP0 (lin_edge): message function on edges
+    - MLP1 (lin_phi): node update function
+    - W: learnable connectivity matrix (n_neurons x n_neurons)
+    - a: learnable node embeddings (n_neurons x embedding_dim)
+
+    external input modes (x[:,4]):
+    - "none": no external input
+    - "additive": du/dt = MLP1(u, a) + W @ MLP0(u, a) + external_input
+    - "multiplicative": du/dt = MLP1(u, a) + W @ MLP0(u, a) * external_input
+
+    inputs
     ----------
-    data : a torch_geometric.data object
+    data : torch_geometric.data.Data
+        x[:,0]: particle_id
+        x[:,3]: u (neural activity)
+        x[:,4]: external_input
+    data_id : int
+        dataset/trial index
+    k : int
+        frame index
 
-    Returns
+    returns
     -------
-    pred : float
-        the first derivative of a scalar field on a mesh (dimension 3).
+    pred : torch.Tensor
+        first derivative du/dt (n_neurons x 1)
     """
 
     def __init__(self, aggr_type=None, config=None, device=None, bc_dpos=None, projections=None):
@@ -37,7 +54,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.n_neurons = simulation_config.n_neurons
         self.n_dataset = config.training.n_runs
         self.n_frames = simulation_config.n_frames
-        self.field_type = model_config.field_type
         self.embedding_trial = config.training.embedding_trial
         self.multi_connectivity = config.training.multi_connectivity
         self.MLP_activation = config.graph_model.MLP_activation
@@ -108,6 +124,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
         if self.multi_connectivity:
             self.W = nn.Parameter(torch.zeros((int(self.n_dataset),int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
+        
         else:
 
             if self.low_rank_factorization:

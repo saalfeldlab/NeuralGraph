@@ -28,6 +28,7 @@ from torch_geometric.utils import dense_to_sparse
 
 from NeuralGraph.models.utils import (
     choose_training_model,
+    choose_inr_model,
     increasing_batch_size,
     constant_batch_size,
     set_trainable_parameters,
@@ -175,7 +176,12 @@ def data_train_signal(config, erase, best_model, style, device):
     replace_with_cluster = 'replace' in train_config.sparsity
     sparsity_freq = train_config.sparsity_freq
 
-    field_type = model_config.field_type
+    # external input configuration (hierarchy: visual > signal > none)
+    external_input_type = simulation_config.external_input_type
+    external_input_mode = simulation_config.external_input_mode
+    signal_input_type = simulation_config.signal_input_type
+    learn_external_input = train_config.learn_external_input
+    inr_type = model_config.inr_type
 
     embedding_cluster = EmbeddingCluster(config)
 
@@ -196,13 +202,6 @@ def data_train_signal(config, erase, best_model, style, device):
         torch.random.fork_rng(devices=device)
         torch.random.manual_seed(config.training.seed)
         np.random.seed(config.training.seed)
-
-    if field_type != '':
-        n_nodes = simulation_config.n_nodes
-        has_neural_field = True
-    else:
-        n_nodes = simulation_config.n_neurons
-        has_neural_field = False
 
     log_dir, logger = create_log_dir(config, erase)
     print(f'loading data...')
@@ -261,33 +260,11 @@ def data_train_signal(config, erase, best_model, style, device):
         optimizer_missing_activity = torch.optim.Adam(lr=train_config.learning_rate_missing_activity,
                                                       params=model_missing_activity.parameters())
         model_missing_activity.train()
-    if has_neural_field:
-        modulation = None
-        if ('short_term_plasticity' in field_type) | ('modulation' in field_type):
-            model_f = nn.ModuleList([
-                Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
-                      hidden_features=model_config.hidden_dim_nnr,
-                      hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
-                      hidden_omega_0=model_config.omega,
-                      outermost_linear=model_config.outermost_linear_nnr)
-                for n in range(n_runs)
-            ])
-            if ('short_term_plasticity' in field_type):
-                modulation = torch.tensor(x_list[0], device=device)
-                modulation = modulation[:, :, 8:9].squeeze()
-                modulation = modulation.t()
-                modulation = modulation.clone().detach()
-                (modulation[:, 1:] - modulation[:, :-1]) / delta_t
-                torch.tensor(1.0E-2, device=device)
-        elif 'visual' in field_type:
-            n_nodes_per_axis = int(np.sqrt(n_nodes))
-            model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
-                                    out_features=model_config.output_size_nnr,
-                                    hidden_features=model_config.hidden_dim_nnr,
-                                    hidden_layers=model_config.n_layers_nnr, outermost_linear=True, device=device,
-                                    first_omega_0=model_config.omega, hidden_omega_0=model_config.omega)
-        model_f.to(device=device)
-        optimizer_f = torch.optim.Adam(lr=train_config.learning_rate_NNR, params=model_f.parameters())
+    # external input model (model_f) for learning external_input reconstruction
+    model_f = choose_inr_model(config=config, n_neurons=n_neurons, n_frames=n_frames, x_list=x_list, device=device)
+    optimizer_f = None
+    if model_f is not None:
+        optimizer_f = torch.optim.Adam(lr=train_config.learning_rate_NNR_f, params=model_f.parameters())
         model_f.train()
 
     if (best_model != None) & (best_model != '') & (best_model != 'None'):
@@ -298,7 +275,7 @@ def data_train_signal(config, erase, best_model, style, device):
         start_epoch = int(best_model.split('_')[0])
         print(f'best_model: {best_model}  start_epoch: {start_epoch}')
         logger.info(f'best_model: {best_model}  start_epoch: {start_epoch}')
-        if has_neural_field:
+        if model_f is not None:
             net = f'{log_dir}/models/best_model_f_with_{n_runs - 1}_graphs_{best_model}.pt'
             state_dict = torch.load(net, map_location=device)
             model_f.load_state_dict(state_dict['model_state_dict'])
@@ -367,10 +344,6 @@ def data_train_signal(config, erase, best_model, style, device):
         pos = torch.argwhere(ind_a % 100 != 99).squeeze()
         ind_a = ind_a[pos]
 
-    # coefficients kept outside regularizer (special cases)
-    coeff_lin_modulation = train_config.coeff_lin_modulation
-    coeff_model_b = train_config.coeff_model_b
-
     # initialize regularizer
     regularizer = LossRegularizer(
         train_config=train_config,
@@ -428,7 +401,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
-            if has_neural_field:
+            if model_f is not None:
                 optimizer_f.zero_grad()
             optimizer.zero_grad()
 
@@ -463,29 +436,23 @@ def data_train_signal(config, erase, best_model, style, device):
                             loss = loss + regul_term
                         ids_missing = torch.argwhere(x[:, 3] == baseline_value)
                         x[ids_missing,3] = missing_activity[ids_missing]
-                    if has_neural_field:
-                        if 'visual' in field_type:
-                            x[:n_nodes, 4:5] = model_f(time=k / n_frames) ** 2
-                            x[n_nodes:n_neurons, 4:5] = 1
-                        elif 'learnable_short_term_plasticity' in field_type:
-                            alpha = (k % model.embedding_step) / model.embedding_step
-                            x[:, 4] = alpha * model.b[:, k // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
-                                                                                                             k // model.embedding_step] ** 2
-                            loss = loss + (model.b[:, 1:] - model.b[:, :-1]).norm(2) * coeff_model_b
-                        elif ('short_term_plasticity' in field_type) | ('modulation' in field_type):
-                            t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
-                            if 'derivative' in field_type:
-                                m = model_f[run](t) ** 2
-                                x[:, 4] = m
-                                m_next = model_f[run](t + 1.0E-3).squeeze() ** 2
-                                grad = (m_next - m) / 1.0E-3
-                                in_modulation = torch.cat((x[:, 3:4].clone().detach(), m[:, None]), dim=1)
-                                pred_modulation = model.lin_modulation(in_modulation)
-                                loss += (grad - pred_modulation.squeeze()).norm(2) * coeff_lin_modulation
-                            else:
-                                x[:, 4] = model_f[run](t) ** 2
-                    else:
-                        x[:, 4:5] = torch.ones_like(x[:, 0:1])
+                    # external input reconstruction (when learn_external_input=True)
+                    if model_f is not None:
+                        nnr_f_T_period = model_config.nnr_f_T_period
+                        if external_input_type == 'visual':
+                            n_input_neurons = simulation_config.n_input_neurons
+                            x[:n_input_neurons, 4:5] = model_f(time=k / n_frames) ** 2
+                            x[n_input_neurons:n_neurons, 4:5] = 1
+                        elif external_input_type == 'signal':
+                            t_norm = torch.tensor([[k / nnr_f_T_period]], dtype=torch.float32, device=device)
+                            if inr_type == 'siren_t':
+                                x[:, 4] = model_f(t_norm).squeeze()
+                            elif inr_type == 'lowrank':
+                                t_idx = torch.tensor([k], dtype=torch.long, device=device)
+                                x[:, 4] = model_f(t_idx).squeeze()
+                            elif inr_type == 'ngp':
+                                x[:, 4] = model_f(t_norm).squeeze()
+                            # siren_id and siren_x would need position/id info - not implemented in training loop yet
 
                     regul_loss = regularizer.compute(
                         model=model,
@@ -614,7 +581,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
                 if has_missing_activity:
                     optimizer_missing_activity.step()
-                if has_neural_field:
+                if model_f is not None:
                     optimizer_f.step()
 
                 regul_total_this_iter = regularizer.get_iteration_total()
@@ -669,12 +636,7 @@ def data_train_signal(config, erase, best_model, style, device):
                         plt.savefig(f'{log_dir}/tmp_training/prediction/pred_{epoch}_{N}.tif')
                         plt.close()
 
-                    if has_neural_field:
-                        with torch.no_grad():
-                            plot_training_signal_field(x, n_nodes, k, time_step,
-                                                       x_list, run, model, field_type, model_f,
-                                                       edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N,
-                                                       recurrent_parameters, modulation, device)
+                    if model_f is not None:
                         torch.save({'model_state_dict': model_f.state_dict(),
                                     'optimizer_state_dict': optimizer_f.state_dict()},
                                    os.path.join(log_dir, 'models',
@@ -706,7 +668,7 @@ def data_train_signal(config, erase, best_model, style, device):
         logger.info(f'recurrent_parameters: {recurrent_parameters[0]:.2f}')
         torch.save({'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict()}, os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt'))
-        if has_neural_field:
+        if model_f is not None:
             torch.save({'model_state_dict': model_f.state_dict(),
                         'optimizer_state_dict': optimizer_f.state_dict()},
                        os.path.join(log_dir, 'models', f'best_model_f_with_{n_runs - 1}_graphs_{epoch}.pt'))
@@ -2915,7 +2877,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         edge_index_, connectivity, mask = init_connectivity(
                 simulation_config.connectivity_file,
                 simulation_config.connectivity_type,
-                simulation_config.connectivity_distribution,
                 simulation_config.connectivity_filling_factor,
                 new_params[0],
                 n_neurons,

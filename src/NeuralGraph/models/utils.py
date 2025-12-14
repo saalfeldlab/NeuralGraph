@@ -5,6 +5,9 @@ import torch_geometric.data as data
 
 from NeuralGraph.models import Signal_Propagation
 from NeuralGraph.models.Signal_Propagation_MLP import Signal_Propagation_MLP
+from NeuralGraph.models.Siren_Network import Siren, Siren_Network
+from NeuralGraph.models.LowRank_INR import LowRankINR
+from NeuralGraph.models.HashEncoding_Network import HashEncodingMLP
 from NeuralGraph.utils import to_numpy, fig_init, map_matrix, choose_boundary_values
 import warnings
 import numpy as np
@@ -824,6 +827,109 @@ def choose_training_model(model_config=None, device=None):
         raise ValueError(f'Unknown model {model_name}')
 
     return model, bc_pos, bc_dpos
+
+
+def choose_inr_model(config=None, n_neurons=None, n_frames=None, x_list=None, device=None):
+    """
+    create INR model for external input reconstruction.
+
+    hierarchy: visual > signal > none
+    for signal input: use inr_type to select representation (siren_t, siren_id, siren_x, ngp, lowrank)
+    for visual input: use Siren_Network with nnr_f params
+
+    returns None if learn_external_input is False or external_input_type is 'none'
+    """
+    simulation_config = config.simulation
+    model_config = config.graph_model
+    train_config = config.training
+
+    external_input_type = simulation_config.external_input_type
+    learn_external_input = train_config.learn_external_input
+    inr_type = model_config.inr_type
+
+    if not learn_external_input or external_input_type == 'none':
+        return None
+
+    model_f = None
+
+    if external_input_type == 'visual':
+        # visual input: use Siren_Network with nnr_f params
+        n_input_neurons = simulation_config.n_input_neurons
+        n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+        model_f = Siren_Network(
+            image_width=n_input_neurons_per_axis,
+            in_features=model_config.input_size_nnr_f,
+            out_features=model_config.output_size_nnr_f,
+            hidden_features=model_config.hidden_dim_nnr_f,
+            hidden_layers=model_config.n_layers_nnr_f,
+            outermost_linear=model_config.outermost_linear_nnr_f,
+            device=device,
+            first_omega_0=model_config.omega_f,
+            hidden_omega_0=model_config.omega_f
+        )
+
+    elif external_input_type == 'signal':
+        # signal input: use inr_type to select representation
+        if inr_type == 'siren_t':
+            model_f = Siren(
+                in_features=1,
+                hidden_features=model_config.hidden_dim_nnr_f,
+                hidden_layers=model_config.n_layers_nnr_f,
+                out_features=n_neurons,
+                outermost_linear=model_config.outermost_linear_nnr_f,
+                first_omega_0=model_config.omega_f,
+                hidden_omega_0=model_config.omega_f
+            )
+        elif inr_type == 'siren_id':
+            model_f = Siren(
+                in_features=2,  # (t, id)
+                hidden_features=model_config.hidden_dim_nnr_f,
+                hidden_layers=model_config.n_layers_nnr_f,
+                out_features=1,
+                outermost_linear=model_config.outermost_linear_nnr_f,
+                first_omega_0=model_config.omega_f,
+                hidden_omega_0=model_config.omega_f
+            )
+        elif inr_type == 'siren_x':
+            model_f = Siren(
+                in_features=3,  # (t, x, y)
+                hidden_features=model_config.hidden_dim_nnr_f,
+                hidden_layers=model_config.n_layers_nnr_f,
+                out_features=1,
+                outermost_linear=model_config.outermost_linear_nnr_f,
+                first_omega_0=model_config.omega_f,
+                hidden_omega_0=model_config.omega_f
+            )
+        elif inr_type == 'ngp':
+            model_f = HashEncodingMLP(
+                n_input_dims=1,
+                n_output_dims=n_neurons,
+                n_levels=model_config.ngp_n_levels,
+                n_features_per_level=model_config.ngp_n_features_per_level,
+                log2_hashmap_size=model_config.ngp_log2_hashmap_size,
+                base_resolution=model_config.ngp_base_resolution,
+                per_level_scale=model_config.ngp_per_level_scale,
+                n_neurons=model_config.ngp_n_neurons,
+                n_hidden_layers=model_config.ngp_n_hidden_layers,
+                output_activation='none'
+            )
+        elif inr_type == 'lowrank':
+            # extract external_input for SVD init
+            external_input_data = x_list[0][:, :, 4] if x_list is not None else None
+            init_data = external_input_data if model_config.lowrank_svd_init else None
+            model_f = LowRankINR(
+                n_frames=n_frames,
+                n_neurons=n_neurons,
+                rank=model_config.lowrank_rank,
+                init_data=init_data
+            )
+
+    if model_f is not None:
+        model_f.to(device=device)
+        print(f'external input model: {inr_type}, external_input_type={external_input_type}')
+
+    return model_f
+
 
 def constant_batch_size(batch_size):
     def get_batch_size(epoch):

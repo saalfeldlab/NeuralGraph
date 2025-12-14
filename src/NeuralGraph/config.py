@@ -73,11 +73,9 @@ class SimulationConfig(BaseModel):
     connectivity_file: str = ""
     connectivity_init: list[float] = [-1]
     connectivity_filling_factor: float = 1
-    connectivity_type: Literal["none", "distance", "voronoi", "k_nearest", 'chaotic', 'ring attractor', 'low_rank', 'successor', 'null'] = "none"
+    connectivity_type: str = "none"  # none, Lorentz, Gaussian, uniform, chaotic, ring attractor, low_rank, successor, null, Lorentz_structured_X_Y
     connectivity_rank: int = 1
     connectivity_parameter: float = 1.0
-    connectivity_distribution: str = "Gaussian"
-    connectivity_distribution_params: float = 1
 
     Dale_law: bool = False
     Dale_law_factor: float = 0.5  # fraction of excitatory (positive) columns, rest are inhibitory
@@ -415,6 +413,8 @@ class TrainingConfig(BaseModel):
     noise_model_level: float = 0
     loss_noise_level: float = 0.0
 
+    # external input learning
+    learn_external_input: bool = False
 
     data_augmentation_loop: int = 40
 
