@@ -1705,10 +1705,8 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     results = {}
 
     def log_print(msg):
-        print(msg)
         if logger:
             logger.info(msg)
-    log_print(f"data shape: ({n_frames}, {n_neurons}, {n_features})")
 
     # subsample frames if data is too large
     data_size = n_frames * n_neurons
@@ -1728,25 +1726,31 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     # decide whether to use randomized SVD
     use_randomized = data_size_sampled > 1e6  # use randomized for > 1M elements
 
-    if use_randomized:
-        log_print(f"using randomized SVD (data size: {data_size_sampled:,.0f})")
+    # store data size info for later printing with results
+    if subsample_factor > 1:
+        data_info = f"using {n_frames_sampled:,} of {n_frames:,} frames ({n_neurons:,} neurons)"
     else:
-        log_print(f"using full SVD (data size: {data_size_sampled:,.0f})")
+        data_info = f"using full data ({n_frames:,} frames, {n_neurons:,} neurons)"
 
-    # apply style if provided
+    # save current style context and apply new style if provided
+    # We use context manager approach to avoid resetting global style
     if style:
         plt.style.use(style)
+
+    # main color based on style
+    mc = 'w' if style == 'dark_background' else 'k'
+    bg_color = 'k' if style == 'dark_background' else 'w'
 
     # font sizes
     TITLE_SIZE = 16
     LABEL_SIZE = 14
     TICK_SIZE = 12
     LEGEND_SIZE = 12
-    SUPTITLE_SIZE = 18
 
     # prepare figure
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle('SVD analysis', fontsize=SUPTITLE_SIZE, fontweight='bold')
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10), facecolor=bg_color)
+    for ax in axes.flat:
+        ax.set_facecolor(bg_color)
 
     # 1. analyze activity (u) - column 3
     activity = x_list_sampled[:, :, 3]  # shape: (n_frames_sampled, n_neurons)
@@ -1786,7 +1790,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
 
     # plot activity SVD
     ax = axes[0, 0]
-    ax.semilogy(S_act, 'b-', lw=1.5)
+    ax.semilogy(S_act, color=mc, lw=1.5)
     ax.set_xlabel('component', fontsize=LABEL_SIZE)
     ax.set_ylabel('singular value', fontsize=LABEL_SIZE)
     ax.set_title(f'activity: singular values', fontsize=TITLE_SIZE)
@@ -1794,7 +1798,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     ax.grid(True, alpha=0.3)
 
     ax = axes[0, 1]
-    ax.plot(cumvar_act, 'b-', lw=1.5)
+    ax.plot(cumvar_act, color=mc, lw=1.5)
     ax.axhline(0.90, color='orange', ls='--', label='90%')
     ax.axhline(0.99, color='green', ls='--', label='99%')
     ax.axvline(rank_90_act, color='orange', ls=':', alpha=0.7)
@@ -1858,7 +1862,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
 
             # plot external_input / visual stimuli SVD
             ax = axes[1, 0]
-            ax.semilogy(S_ext, 'r-', lw=1.5)
+            ax.semilogy(S_ext, color=mc, lw=1.5)
             ax.set_xlabel('component', fontsize=LABEL_SIZE)
             ax.set_ylabel('singular value', fontsize=LABEL_SIZE)
             ax.set_title(f'{input_label}: singular values', fontsize=TITLE_SIZE)
@@ -1866,7 +1870,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
             ax.grid(True, alpha=0.3)
 
             ax = axes[1, 1]
-            ax.plot(cumvar_ext, 'r-', lw=1.5)
+            ax.plot(cumvar_ext, color=mc, lw=1.5)
             ax.axhline(0.90, color='orange', ls='--', label='90%')
             ax.axhline(0.99, color='green', ls='--', label='99%')
             ax.axvline(rank_90_ext, color='orange', ls=':', alpha=0.7)
@@ -1879,7 +1883,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
             ax.grid(True, alpha=0.3)
         else:
             log_print(f"--- {input_label} ---")
-            log_print(f"  no signal detected (range < 1e-6)")
+            log_print(f"  no external input found (range < 1e-6)")
             axes[1, 0].set_visible(False)
             axes[1, 1].set_visible(False)
             results_key = 'visual_stimuli' if is_flyvis else 'external_input'
@@ -1897,13 +1901,15 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     # save to results subfolder
     results_folder = os.path.join(output_folder, 'results')
     os.makedirs(results_folder, exist_ok=True)
-    save_path = os.path.join(results_folder, 'svd_analysis.png')
-    plt.savefig(save_path, dpi=150, bbox_inches='tight')
+    save_path = os.path.join(results_folder, 'svd_analysis.pdf')
+    plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor=bg_color)
     plt.close()
 
-    # reset style to default if we changed it
-    if style:
-        plt.style.use('default')
-
+    # print SVD results: data info (white) + rank results (green)
+    ext_key = 'visual_stimuli' if is_flyvis else 'external_input'
+    if results.get(ext_key):
+        print(f"svd analysis: {data_info}, \033[92mactivity rank(99%)={results['activity']['rank_99']}, {ext_key} rank(99%)={results[ext_key]['rank_99']}\033[0m")
+    else:
+        print(f"svd analysis: {data_info}, \033[92mactivity rank(99%)={results['activity']['rank_99']}\033[0m")
 
     return results

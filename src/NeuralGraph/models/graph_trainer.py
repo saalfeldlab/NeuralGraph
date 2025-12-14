@@ -2723,8 +2723,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     if vnorm == 0:
         vnorm = ynorm
 
-
-
     connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
     if training_config.with_connectivity_mask:
         model_mask = (connectivity > 0) * 1.0

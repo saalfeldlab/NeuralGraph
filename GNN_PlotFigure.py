@@ -37,6 +37,7 @@ from NeuralGraph.models.utils import (
     get_index_particles,
     analyze_odor_responses_by_neuron,
     plot_odor_heatmaps,
+    analyze_data_svd,
 )
 from NeuralGraph.models.plot_utils import (
     analyze_mlp_edge_lines,
@@ -1030,7 +1031,18 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         xnorm = torch.tensor([5], device=device)
     print(f'xnorm: {to_numpy(xnorm)}, vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
 
-    print('update variables ...')
+    # SVD analysis of activity and external_input (skip if already exists)
+    svd_plot_path = os.path.join(log_dir, 'results', 'svd_analysis.pdf')
+    if not os.path.exists(svd_plot_path):
+        svd_style = 'dark_background' if 'black' in style else None
+        try:
+            analyze_data_svd(x_list[0], log_dir, config=config, logger=logger, style=svd_style)
+        except Exception as e:
+            import traceback
+            print(f'SVD analysis failed: {e}')
+            traceback.print_exc()
+
+    
     x = x_list[0][n_frames - 5]
     n_neurons = x.shape[0]
 
@@ -1576,7 +1588,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
         files = glob.glob(f'./{log_dir}/results/*.png')
         for f in files:
-            os.remove(f)
+            if 'svd' not in f:
+                os.remove(f)
 
         connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
 
@@ -2785,7 +2798,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
     ynorm = torch.load(os.path.join(log_dir, 'ynorm.pt'))
     print(f'vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
 
-    print('update variables ...')
+    
     x = x_list[0][n_frames - 1]
     n_neurons = x.shape[0]
     print(f'N neurons: {n_neurons}')
@@ -3598,7 +3611,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     edges.clone().detach()
 
-    print('update variables ...')
+    
     x = x_list[0][n_frames - 5]
     n_neurons = x.shape[0]
     print(f'N neurons: {n_neurons}')
@@ -4101,7 +4114,8 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
         files = glob.glob(f'./{log_dir}/results/*.png')
         for f in files:
-            os.remove(f)
+            if 'svd' not in f:
+                os.remove(f)
 
         adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
         adjacency_ = adjacency.t().clone().detach()

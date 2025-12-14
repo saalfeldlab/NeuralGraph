@@ -589,7 +589,7 @@ def create_log_dir(config=[], erase=True):
     if erase:
         files = glob.glob(f"{log_dir}/results/*")
         for f in files:
-            if ('all' not in f) & ('field' not in f):
+            if ('all' not in f) & ('field' not in f) & ('svd' not in f):
                 os.remove(f)
         files = glob.glob(f"{log_dir}/tmp_training/particle/*")
         for f in files:
