@@ -870,6 +870,7 @@ def choose_inr_model(config=None, n_neurons=None, n_frames=None, x_list=None, de
 
     elif external_input_type == 'signal':
         # signal input: use inr_type to select representation
+        learnable_omega = model_config.omega_f_learning
         if inr_type == 'siren_t':
             model_f = Siren(
                 in_features=1,
@@ -878,7 +879,8 @@ def choose_inr_model(config=None, n_neurons=None, n_frames=None, x_list=None, de
                 out_features=n_neurons,
                 outermost_linear=model_config.outermost_linear_nnr_f,
                 first_omega_0=model_config.omega_f,
-                hidden_omega_0=model_config.omega_f
+                hidden_omega_0=model_config.omega_f,
+                learnable_omega=learnable_omega
             )
         elif inr_type == 'siren_id':
             model_f = Siren(
@@ -888,7 +890,8 @@ def choose_inr_model(config=None, n_neurons=None, n_frames=None, x_list=None, de
                 out_features=1,
                 outermost_linear=model_config.outermost_linear_nnr_f,
                 first_omega_0=model_config.omega_f,
-                hidden_omega_0=model_config.omega_f
+                hidden_omega_0=model_config.omega_f,
+                learnable_omega=learnable_omega
             )
         elif inr_type == 'siren_x':
             model_f = Siren(
@@ -898,7 +901,8 @@ def choose_inr_model(config=None, n_neurons=None, n_frames=None, x_list=None, de
                 out_features=1,
                 outermost_linear=model_config.outermost_linear_nnr_f,
                 first_omega_0=model_config.omega_f,
-                hidden_omega_0=model_config.omega_f
+                hidden_omega_0=model_config.omega_f,
+                learnable_omega=learnable_omega
             )
         elif inr_type == 'ngp':
             model_f = HashEncodingMLP(

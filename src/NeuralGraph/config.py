@@ -188,6 +188,7 @@ class GraphModelConfig(BaseModel):
     output_size_nnr_f: int = 1
     outermost_linear_nnr_f: bool = True
     omega_f: float = 80.0
+    omega_f_learning: bool = False  # make omega learnable during training
 
     nnr_f_xy_period: float = 1.0
     nnr_f_T_period: float = 1.0

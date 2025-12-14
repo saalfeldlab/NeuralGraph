@@ -673,7 +673,12 @@ def data_train_signal(config, erase, best_model, style, device):
                                 ax.set_xlim(0, min(20000, gt_np.shape[0]))
                                 ax.set_ylim(-offset * 0.5, offset * (n_traces + 0.5))
                                 mse = ((pred_np - gt_np) ** 2).mean()
-                                ax.text(0.02, 0.98, f'MSE: {mse:.6f}', transform=ax.transAxes, va='top', ha='left', fontsize=12, color='white')
+                                omega_str = ''
+                                if hasattr(model_f, 'get_omegas'):
+                                    omegas = model_f.get_omegas()
+                                    if omegas:
+                                        omega_str = f'  ω: {omegas[0]:.1f}'
+                                ax.text(0.02, 0.98, f'MSE: {mse:.6f}{omega_str}', transform=ax.transAxes, va='top', ha='left', fontsize=12, color='white')
                                 out_dir = os.path.join(log_dir, 'tmp_training', 'external_input')
                                 os.makedirs(out_dir, exist_ok=True)
                                 plt.tight_layout()
@@ -2341,9 +2346,12 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
         # count parameters
         total_params = sum(p.numel() for p in nnr_f.parameters())
 
+        omega_f_learning = getattr(model_config, 'omega_f_learning', False)
         print(f"\nusing SIREN ({inr_type}):")
         print(f"  architecture: {input_size_nnr_f} → {hidden_dim_nnr_f} × {n_layers_nnr_f} hidden → {output_size_nnr_f}")
-        print(f"  omega_f: {omega_f}")
+        print(f"  omega_f: {omega_f} (learnable: {omega_f_learning})")
+        if omega_f_learning and hasattr(nnr_f, 'get_omegas'):
+            print(f"  initial omegas: {nnr_f.get_omegas()}")
         print(f"  parameters: {total_params:,}")
         print(f"  compression ratio: {data_dims / total_params:.2f}x")
 
@@ -2529,7 +2537,12 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
                 axes[1].set_xlim(0, min(20000, n_frames))
                 axes[1].set_ylim(-offset * 0.5, offset * (n_traces + 0.5))
                 mse = ((pred_np - gt_np) ** 2).mean()
-                axes[1].text(0.02, 0.98, f'MSE: {mse:.6f}',
+                omega_str = ''
+                if hasattr(nnr_f, 'get_omegas'):
+                    omegas = nnr_f.get_omegas()
+                    if omegas:
+                        omega_str = f'  ω: {omegas[0]:.1f}'
+                axes[1].text(0.02, 0.98, f'MSE: {mse:.6f}{omega_str}',
                             transform=axes[1].transAxes, va='top', ha='left',
                             fontsize=12, color='white')
 
@@ -2568,6 +2581,8 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
         final_mse = ((pred_all - ground_truth) ** 2).mean().item()
         print(f"final MSE: {final_mse:.6f}")
+        if hasattr(nnr_f, 'get_omegas'):
+            print(f"final omegas: {nnr_f.get_omegas()}")
 
     return nnr_f, loss_list
 

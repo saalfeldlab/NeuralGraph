@@ -58,7 +58,8 @@ graph_model:
   output_size_nnr_f: 1000
   nnr_f_xy_period: 1.0
   nnr_f_T_period: 10000
-  omega_f: 600
+  omega_f: 100
+  omega_f_learning: False
 
 plotting:
   colormap: "tab10"
@@ -67,7 +68,7 @@ plotting:
   ylim: [-2, 2]
 
 training:
-  n_epochs: 5
+  n_epochs: 10
   n_runs: 1
   device: "auto"
 
@@ -90,7 +91,7 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
 
-  learning_rate_NNR_f: 1.0E-7
+  learning_rate_NNR_f: 1.0E-6
 
   coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0

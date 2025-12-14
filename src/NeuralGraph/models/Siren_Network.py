@@ -22,40 +22,46 @@ class SineLayer(nn.Module):
     # activations constant, but boost gradients to the weight matrix (see supplement Sec. 1.5)
 
     def __init__(self, in_features, out_features, bias=True,
-                 is_first=False, omega_0=30):
+                 is_first=False, omega_0=30, learnable_omega=False):
         super().__init__()
-        self.omega_0 = omega_0
         self.is_first = is_first
-
         self.in_features = in_features
+        self.learnable_omega = learnable_omega
+
+        if learnable_omega:
+            self.omega_0 = nn.Parameter(torch.tensor(float(omega_0)))
+        else:
+            self.omega_0 = omega_0
+
         self.linear = nn.Linear(in_features, out_features, bias=bias)
 
-        self.init_weights()
+        self.init_weights(omega_0)
 
-    def init_weights(self):
+    def init_weights(self, omega_0):
         with torch.no_grad():
             if self.is_first:
                 self.linear.weight.uniform_(-1 / self.in_features,
                                              1 / self.in_features)
             else:
-                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / self.omega_0,
-                                             np.sqrt(6 / self.in_features) / self.omega_0)
+                self.linear.weight.uniform_(-np.sqrt(6 / self.in_features) / omega_0,
+                                             np.sqrt(6 / self.in_features) / omega_0)
 
     def forward(self, input):
         return torch.sin(self.omega_0 * self.linear(input))
 
 class Siren(nn.Module):
     def __init__(self, in_features, hidden_features, hidden_layers, out_features, outermost_linear=False,
-                 first_omega_0=30, hidden_omega_0=30.):
+                 first_omega_0=30, hidden_omega_0=30., learnable_omega=False):
         super().__init__()
 
+        self.learnable_omega = learnable_omega
         self.net = []
         self.net.append(SineLayer(in_features, hidden_features,
-                                  is_first=True, omega_0=first_omega_0))
+                                  is_first=True, omega_0=first_omega_0, learnable_omega=learnable_omega))
 
         for i in range(hidden_layers):
             self.net.append(SineLayer(hidden_features, hidden_features,
-                                      is_first=False, omega_0=hidden_omega_0))
+                                      is_first=False, omega_0=hidden_omega_0, learnable_omega=learnable_omega))
 
         if outermost_linear:
             final_linear = nn.Linear(hidden_features, out_features)
@@ -67,13 +73,24 @@ class Siren(nn.Module):
             self.net.append(final_linear)
         else:
             self.net.append(SineLayer(hidden_features, out_features,
-                                      is_first=False, omega_0=hidden_omega_0))
+                                      is_first=False, omega_0=hidden_omega_0, learnable_omega=learnable_omega))
 
         self.net = nn.Sequential(*self.net)
 
     def forward(self, coords):
         output = self.net(coords)
         return output
+
+    def get_omegas(self):
+        """Return current omega values for monitoring (only useful when learnable_omega=True)."""
+        omegas = []
+        for layer in self.net:
+            if hasattr(layer, 'omega_0') and hasattr(layer, 'learnable_omega'):
+                if isinstance(layer.omega_0, nn.Parameter):
+                    omegas.append(layer.omega_0.item())
+                else:
+                    omegas.append(layer.omega_0)
+        return omegas
 
 class small_Siren(nn.Module):
     def __init__(self, in_features=1, hidden_features=128, hidden_layers=3, out_features=1, outermost_linear=True,
