@@ -264,8 +264,25 @@ def data_train_signal(config, erase, best_model, style, device):
     model_f = choose_inr_model(config=config, n_neurons=n_neurons, n_frames=n_frames, x_list=x_list, device=device)
     optimizer_f = None
     if model_f is not None:
-        optimizer_f = torch.optim.Adam(lr=train_config.learning_rate_NNR_f, params=model_f.parameters())
+        # Separate omega parameters from other parameters for different learning rates
+        omega_params = [(name, p) for name, p in model_f.named_parameters() if 'omega' in name]
+        other_params = [p for name, p in model_f.named_parameters() if 'omega' not in name]
+        if omega_params:
+            print(f"model_f omega parameters found: {[name for name, p in omega_params]}")
+            optimizer_f = torch.optim.Adam([
+                {'params': other_params, 'lr': train_config.learning_rate_NNR_f},
+                {'params': [p for name, p in omega_params], 'lr': train_config.learning_rate_omega_f}
+            ])
+        else:
+            print("model_f: no omega parameters found (omega_f_learning=False or non-SIREN model)")
+            optimizer_f = torch.optim.Adam(lr=train_config.learning_rate_NNR_f, params=model_f.parameters())
         model_f.train()
+        # Print initial omega values if learnable
+        if hasattr(model_f, 'get_omegas'):
+            omegas = model_f.get_omegas()
+            if omegas:
+                print(f"model_f initial omegas: {omegas}")
+                print(f"model_f omega LR: {train_config.learning_rate_omega_f}, L2 coeff: {train_config.coeff_omega_f_L2}")
 
     if (best_model != None) & (best_model != '') & (best_model != 'None'):
         net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
@@ -555,6 +572,29 @@ def data_train_signal(config, erase, best_model, style, device):
                                 start_idx = b * n_neurons
                                 end_idx = (b + 1) * n_neurons
                                 dataset_batch[b].x[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
+
+                                # update external_input for next time step during rollout
+                                k_current = k_batch[start_idx, 0].item() + step
+                                if model_f is not None:
+                                    nnr_f_T_period = model_config.nnr_f_T_period
+                                    if external_input_type == 'visual':
+                                        n_input_neurons = simulation_config.n_input_neurons
+                                        dataset_batch[b].x[:n_input_neurons, 4:5] = model_f(time=k_current / n_frames) ** 2
+                                        dataset_batch[b].x[n_input_neurons:n_neurons, 4:5] = 1
+                                    elif external_input_type == 'signal':
+                                        t_norm = torch.tensor([[k_current / nnr_f_T_period]], dtype=torch.float32, device=device)
+                                        if inr_type == 'siren_t':
+                                            dataset_batch[b].x[:, 4] = model_f(t_norm).squeeze()
+                                        elif inr_type == 'lowrank':
+                                            t_idx = torch.tensor([k_current], dtype=torch.long, device=device)
+                                            dataset_batch[b].x[:, 4] = model_f(t_idx).squeeze()
+                                        elif inr_type == 'ngp':
+                                            dataset_batch[b].x[:, 4] = model_f(t_norm).squeeze()
+                                else:
+                                    # use ground truth external_input from x_list
+                                    x_next = torch.tensor(x_list[run][k_current], dtype=torch.float32, device=device)
+                                    dataset_batch[b].x[:, 4:5] = x_next[:, 4:5]
+
                                 dataset_batch_new.append(dataset_batch[b])
                             batch_loader_recur = DataLoader(dataset_batch_new, batch_size=batch_size, shuffle=False)
                             for batch in batch_loader_recur:
@@ -573,7 +613,11 @@ def data_train_signal(config, erase, best_model, style, device):
                 if 'PDE_N3' in model_config.signal_model_name:
                     loss = loss + train_config.coeff_model_a * (model.a[ind_a + 1] - model.a[ind_a]).norm(2)
 
-
+                # omega L2 regularization for learnable omega in SIREN (encourages smaller omega)
+                if model_f is not None and train_config.coeff_omega_f_L2 > 0:
+                    if hasattr(model_f, 'get_omega_L2_loss'):
+                        omega_L2_loss = model_f.get_omega_L2_loss()
+                        loss = loss + train_config.coeff_omega_f_L2 * omega_L2_loss
 
                 loss.backward()
                 optimizer.step()
@@ -600,41 +644,6 @@ def data_train_signal(config, erase, best_model, style, device):
                     plot_signal_loss(plot_dict, log_dir, epoch=epoch, Niter=N, debug=False,
                                    current_loss=current_loss / n_neurons, current_regul=regul_total_this_iter / n_neurons,
                                    total_loss=total_loss, total_loss_regul=total_loss_regul)
-
-                    if time_step > 1:
-                        fig = plt.figure(figsize=(10, 10))
-                        plt.scatter(to_numpy(y_batch), to_numpy(x_batch + pred * delta_t * time_step), s=10, color='k')
-                        plt.scatter(to_numpy(y_batch), to_numpy(x_batch), s=1, color='b', alpha=0.5)
-                        plt.plot(to_numpy(y_batch), to_numpy(y_batch), color='g')
-
-                        x_data = y_batch
-                        y_data = x_batch
-                        err0 = torch.sqrt((y_data - x_data).norm(2))
-
-                        y_data = (x_batch + pred * delta_t * time_step)
-                        err = torch.sqrt((y_data - x_data).norm(2))
-
-                        plt.text(0.05, 0.95, f'data: {run}   frame: {k}',
-                                 transform=plt.gca().transAxes, fontsize=12,
-                                 verticalalignment='top')
-                        plt.text(0.05, 0.9, f'err: {err.item():0.4f}  err0: {err0.item():0.4f}',
-                                 transform=plt.gca().transAxes, fontsize=12,
-                                 verticalalignment='top')
-
-                        x_data = to_numpy(x_data.squeeze())
-                        y_data = to_numpy(y_data.squeeze())
-                        lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-
-                        residuals = y_data - linear_model(x_data, *lin_fit)
-                        ss_res = np.sum(residuals ** 2)
-                        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-                        r_squared = 1 - (ss_res / ss_tot)
-                        plt.text(0.05, 0.85, f'R2: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}',
-                                 transform=plt.gca().transAxes, fontsize=12,
-                                 verticalalignment='top')
-                        plt.tight_layout()
-                        plt.savefig(f'{log_dir}/tmp_training/prediction/pred_{epoch}_{N}.tif')
-                        plt.close()
 
                     if model_f is not None:
                         torch.save({'model_state_dict': model_f.state_dict(),
@@ -715,6 +724,11 @@ def data_train_signal(config, erase, best_model, style, device):
             torch.save({'model_state_dict': model_f.state_dict(),
                         'optimizer_state_dict': optimizer_f.state_dict()},
                        os.path.join(log_dir, 'models', f'best_model_f_with_{n_runs - 1}_graphs_{epoch}.pt'))
+            # Print omega values at end of each epoch
+            if hasattr(model_f, 'get_omegas'):
+                omegas = model_f.get_omegas()
+                if omegas:
+                    print(f"  model_f omegas after epoch {epoch}: {omegas}")
 
         list_loss.append(epoch_pred_loss)
         list_loss_regul.append(epoch_regul_loss)
@@ -2332,6 +2346,7 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
     elif inr_type in ['siren_t', 'siren_id', 'siren_x']:
         # create SIREN model for nnr_f
+        omega_f_learning = getattr(model_config, 'omega_f_learning', False)
         nnr_f = Siren(
             in_features=input_size_nnr_f,
             hidden_features=hidden_dim_nnr_f,
@@ -2339,14 +2354,14 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
             out_features=output_size_nnr_f,
             outermost_linear=outermost_linear_nnr_f,
             first_omega_0=omega_f,
-            hidden_omega_0=omega_f
+            hidden_omega_0=omega_f,
+            learnable_omega=omega_f_learning
         )
         nnr_f = nnr_f.to(device)
 
         # count parameters
         total_params = sum(p.numel() for p in nnr_f.parameters())
 
-        omega_f_learning = getattr(model_config, 'omega_f_learning', False)
         print(f"\nusing SIREN ({inr_type}):")
         print(f"  architecture: {input_size_nnr_f} → {hidden_dim_nnr_f} × {n_layers_nnr_f} hidden → {output_size_nnr_f}")
         print(f"  omega_f: {omega_f} (learnable: {omega_f_learning})")
@@ -2402,7 +2417,19 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
     steps_til_summary = 5000
 
-    optim = torch.optim.Adam(lr=learning_rate, params=nnr_f.parameters())
+    # Separate omega parameters from other parameters for different learning rates
+    omega_f_learning = getattr(model_config, 'omega_f_learning', False)
+    learning_rate_omega_f = getattr(training_config, 'learning_rate_omega_f', learning_rate)
+    omega_params = [p for name, p in nnr_f.named_parameters() if 'omega' in name]
+    other_params = [p for name, p in nnr_f.named_parameters() if 'omega' not in name]
+    if omega_params and omega_f_learning:
+        optim = torch.optim.Adam([
+            {'params': other_params, 'lr': learning_rate},
+            {'params': omega_params, 'lr': learning_rate_omega_f}
+        ])
+        print(f"using separate learning rates: network={learning_rate}, omega={learning_rate_omega_f}")
+    else:
+        optim = torch.optim.Adam(lr=learning_rate, params=nnr_f.parameters())
 
     print(f"training nnr_f for {total_steps} steps...")
 
@@ -2463,6 +2490,12 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
         else:
             # standard MSE for SIREN
             loss = ((pred - gt_batch) ** 2).mean()
+
+        # omega L2 regularization for learnable omega in SIREN (encourages smaller omega)
+        coeff_omega_f_L2 = getattr(training_config, 'coeff_omega_f_L2', 0.0)
+        if omega_f_learning and coeff_omega_f_L2 > 0 and hasattr(nnr_f, 'get_omega_L2_loss'):
+            omega_L2_loss = nnr_f.get_omega_L2_loss()
+            loss = loss + coeff_omega_f_L2 * omega_L2_loss
 
         optim.zero_grad()
         loss.backward()

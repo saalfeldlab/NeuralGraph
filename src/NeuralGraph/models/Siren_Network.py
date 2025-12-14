@@ -92,6 +92,15 @@ class Siren(nn.Module):
                     omegas.append(layer.omega_0)
         return omegas
 
+    def get_omega_L2_loss(self):
+        """Return L2 regularization loss on omega parameters (encourages smaller omega)."""
+        loss = 0.0
+        for layer in self.net:
+            if hasattr(layer, 'omega_0') and hasattr(layer, 'learnable_omega'):
+                if layer.learnable_omega and isinstance(layer.omega_0, nn.Parameter):
+                    loss = loss + layer.omega_0 ** 2
+        return loss
+
 class small_Siren(nn.Module):
     def __init__(self, in_features=1, hidden_features=128, hidden_layers=3, out_features=1, outermost_linear=True,
                  first_omega_0=30, hidden_omega_0=30):

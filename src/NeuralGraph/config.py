@@ -368,6 +368,8 @@ class TrainingConfig(BaseModel):
     learning_rate_NNR: float = 0.0001
     learning_rate_NNR_f_start: float = 0.0
     learning_rate_NNR_f: float = 0.0001
+    learning_rate_omega_f: float = 0.0001
+    coeff_omega_f_L2: float = 0.0
     training_NNR_start_epoch: int = 0
 
     learning_rate_encoder: float = 0.0001

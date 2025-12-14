@@ -42,20 +42,6 @@ if __name__ == "__main__":
         best_model = ''
         task = 'generate'  #, 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR'
 
-
-        # config_list = [
-        #     # N2_2_x
-        #     # 'signal_N2_2_1', 'signal_N2_2_2', 'signal_N2_2_3', 'signal_N2_2_4',
-        #     # N2_3_x
-        #     # 'signal_N2_3_1', 'signal_N2_3_2', 'signal_N2_3_3', 'signal_N2_3_4',
-        #     # N11_1_3_x
-        #     # 'signal_N11_1_3_1', 'signal_N11_1_3_2', 'signal_N11_1_3_3', 'signal_N11_1_3_4', 'signal_N11_1_3_5',
-        #     # N11_5_x_x
-        #     'signal_N11_5_1_1', 'signal_N11_5_1_2', 'signal_N11_5_2_1', 'signal_N11_5_2_2', 'signal_N11_5_2_3',-
-        #     'signal_N11_5_2_4', 'signal_N11_5_2_5', 'signal_N11_5_2_6', 'signal_N11_5_4_1', 'signal_N11_5_4_2',
-        #     'signal_N11_5_5'
-        # ]
-
         config_list = ['signal_N4_1']
 
 
