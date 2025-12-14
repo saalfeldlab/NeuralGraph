@@ -69,7 +69,7 @@ graph_model:
   # params = 56 * (10000 + 1000) = 616,000
   # compression = 10M / 616K = 16.2x
   lowrank_rank: 56
-  lowrank_svd_init: True
+  lowrank_svd_init: False
 
 plotting:
   colormap: "tab10"

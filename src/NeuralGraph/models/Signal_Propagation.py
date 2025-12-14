@@ -73,6 +73,8 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.low_rank_factorization = config.training.low_rank_factorization
         self.low_rank = config.training.low_rank
 
+        self.external_input_mode = getattr(config.simulation, 'external_input_mode', 'none')
+
 
         if self.model == 'PDE_N3':
             self.embedding_evolves = True
@@ -84,10 +86,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
         self.lin_phi = MLP(input_size=self.input_size_update, output_size=self.output_size, nlayers=self.n_layers_update,
                             hidden_size=self.hidden_dim_update, activation=self.MLP_activation, device=self.device)
-
-        if 'excitation' in self.update_type:
-
-            self.lin_exc = MLP(input_size=self.input_size_excitation, output_size= 1, nlayers=self.n_layers_excitation, hidden_size=self.hidden_dim_excitation, activation=self.MLP_activation, device=self.device)
 
         if self.embedding_trial:
             self.b = nn.Parameter(
@@ -108,9 +106,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             self.lin_modulation = MLP(input_size=self.input_size_modulation, output_size=self.output_size_modulation, nlayers=self.n_layers_modulation,
                                 hidden_size=self.hidden_dim_modulation, device=self.device)
             
-
-
-
 
         if self.multi_connectivity:
             self.W = nn.Parameter(torch.zeros((int(self.n_dataset),int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
@@ -155,6 +150,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.data_id = data_id.squeeze().long().clone().detach()
 
         u = data.x[:, 3:4]
+        external_input = x[:, 4:5]
 
         if self.model == 'PDE_N3':
             particle_id = x[:, 0:1].long()
@@ -170,14 +166,21 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
         msg = self.propagate(edge_index, u=u, embedding=embedding, data_id=self.data_id[:,None])
 
+
         if 'generic' in self.update_type:        # MLP1(u, embedding, \sum MLP0(u, embedding), field)
-            field = x[:, 4:5]
-            in_features = torch.cat([u, embedding, msg, field], dim=1)
+            in_features = torch.cat([u, embedding, msg, external_input], dim=1)
             pred = self.lin_phi(in_features)
         else:
-            # field = x[:, 4:5]
             in_features = torch.cat([u, embedding], dim=1)
-            pred = self.lin_phi(in_features) + msg  # * field
+
+            if self.external_input_mode == "multiplicative":
+                pred = self.lin_phi(in_features) + msg * external_input
+            elif self.external_input_mode == "additive":
+                pred = self.lin_phi(in_features) + msg + external_input
+            else:
+                pred = self.lin_phi(in_features)
+
+        
 
 
         if return_all:
