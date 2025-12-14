@@ -303,7 +303,7 @@ def init_mesh(config, device):
     return pos_mesh, dpos_mesh, type_mesh, node_value, a_mesh, node_id_mesh, mesh_data
 
 
-def init_connectivity(connectivity_file, connectivity_type, connectivity_distribution, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device, connectivity_rank=1, Dale_law=False, Dale_law_factor=0.5):
+def init_connectivity(connectivity_file, connectivity_type, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device, connectivity_rank=1, Dale_law=False, Dale_law_factor=0.5):
 
     if 'adjacency.pt' in connectivity_file:
         connectivity = torch.load(connectivity_file, map_location=device)
@@ -328,8 +328,8 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
         # n_neurons = connectivity.shape[0]
         # TODO: config parameter not passed to this function
         # config.simulation.n_neurons = n_neurons
-
     elif connectivity_type != 'none':
+
         if 'chaotic' in connectivity_type:
             # Chaotic network 
             connectivity = np.random.randn(n_neurons,n_neurons) * np.sqrt(1/n_neurons)
@@ -344,8 +344,6 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             U = np.random.randn(n_neurons, connectivity_rank)
             V = np.random.randn(connectivity_rank, n_neurons)
             connectivity = U @ V / np.sqrt(connectivity_rank * n_neurons)
-
-
         elif 'successor' in connectivity_type:
             # Successor Representation
             T = np.eye(n_neurons, k=1)
@@ -353,16 +351,11 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             connectivity = np.linalg.inv(np.eye(n_neurons) - gamma*T)
         elif 'null' in connectivity_type:
             connectivity = np.zeros((n_neurons, n_neurons))
-
-        connectivity = torch.tensor(connectivity, dtype=torch.float32, device=device)
-        connectivity.fill_diagonal_(0)
-
-    else:
-        if 'Gaussian' in connectivity_distribution:
+        elif 'Gaussian' in connectivity_type:
             connectivity = torch.randn((n_neurons, n_neurons), dtype=torch.float32, device=device)
             connectivity = connectivity / np.sqrt(n_neurons)
             print(f"Gaussian   1/sqrt(N)  {1/np.sqrt(n_neurons)}    std {torch.std(connectivity.flatten())}")
-        elif 'Lorentz' in connectivity_distribution:
+        elif 'Lorentz' in connectivity_type:
             s = np.random.standard_cauchy(n_neurons**2)
             s[(s < -25) | (s > 25)] = 0
             if n_neurons < 2000:
@@ -376,14 +369,14 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
             elif n_neurons > 8000:
                 s = s / n_neurons**0.5
             print(f"Lorentz   1/sqrt(N)  {1/np.sqrt(n_neurons):0.3f}    std {np.std(s):0.3f}")
-
             connectivity = torch.tensor(s, dtype=torch.float32, device=device)
             connectivity = torch.reshape(connectivity, (n_neurons, n_neurons))
-        elif 'uniform' in connectivity_distribution:
+        elif 'uniform' in connectivity_type:
             connectivity = torch.rand((n_neurons, n_neurons), dtype=torch.float32, device=device)
             connectivity = connectivity - 0.5
-        i, j = torch.triu_indices(n_neurons, n_neurons, requires_grad=False, device=device)
-        connectivity[i, i] = 0
+
+        connectivity = torch.tensor(connectivity, dtype=torch.float32, device=device)
+        connectivity.fill_diagonal_(0)
 
     # Apply Dale's law: each neuron (column) is either excitatory or inhibitory
     if Dale_law:
@@ -424,8 +417,8 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_distrib
         edge_index, edge_attr = dense_to_sparse(adj_matrix)
         mask = (adj_matrix != 0).float()
 
-    if 'structured' in connectivity_distribution:
-        parts = connectivity_distribution.split('_')
+    if 'structured' in connectivity_type:
+        parts = connectivity_type.split('_')
         float_value1 = float(parts[-2])  # repartition pos/neg
         float_value2 = float(parts[-1])  # filling factor
 

@@ -2,10 +2,8 @@ description: "heterogeneity MLP0"
 dataset: "signal_N2_1"
 
 simulation:
-  connectivity_file: "random"
-  adjacency_matrix: ""
+  connectivity_type: "Lorentz"
   connectivity_init: [0, 0.1]
-  connectivity_distribution: "Lorentz"
   params:
     [[10.0, 1.0, 1.0], [10.0, 2.0, 1.0], [10.0, 1.0, 2.0], [10.0, 2.0, 2.0]]
   phi: "tanh"
@@ -66,4 +64,4 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 7.5E-4
 
-  coeff_W_L1: 1.0E-6
+  coeff_W_L1: 0

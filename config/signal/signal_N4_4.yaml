@@ -2,10 +2,8 @@ description: "heterogeneity MLP0 with oscillatory input"
 dataset: "signal_N4_4"
 
 simulation:
-  connectivity_file: "random"
-  adjacency_matrix: ""
+  connectivity_type: "Lorentz"
   connectivity_init: [0, 0.1]
-  connectivity_distribution: "Lorentz"
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
   params:

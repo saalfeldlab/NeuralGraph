@@ -40,7 +40,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'train_INR'  #, 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR'
+        task = 'generate'  #, 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR'
 
 
         # config_list = [
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         #     'signal_N11_5_5'
         # ]
 
-        config_list = ['signal_N4_5_1', 'signal_N4_5_2', 'signal_N4_5_3', 'signal_N4_5_4']
+        config_list = ['signal_N4_1']
 
 
 

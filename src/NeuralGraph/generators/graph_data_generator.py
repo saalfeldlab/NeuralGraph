@@ -1184,7 +1184,6 @@ def data_generate_synaptic(
             edge_index, connectivity, mask = init_connectivity(
                 simulation_config.connectivity_file,
                 simulation_config.connectivity_type,
-                simulation_config.connectivity_distribution,
                 simulation_config.connectivity_filling_factor,
                 T1,
                 n_neurons,
