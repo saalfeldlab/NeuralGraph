@@ -122,7 +122,7 @@ def data_train(config=None, erase=False, best_model=None, style=None, device=Non
 
     dataset_name = config.dataset
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
-    print(f"\033[92{config.description}\033[0m")
+    print(f"\033[92m{config.description}\033[0m")
 
     if 'fly' in config.dataset:
         if 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
@@ -237,11 +237,11 @@ def data_train_signal(config, erase, best_model, style, device):
     time.sleep(0.5)
 
     # SVD analysis of activity and external_input (skip if already exists)
-    svd_plot_path = os.path.join(log_dir, 'results', 'svd_analysis.png')
-    if not os.path.exists(svd_plot_path):
-        analyze_data_svd(x_list[0], log_dir, config=config, logger=logger)
-    else:
-        print(f'svd analysis already exists: {svd_plot_path}')
+    # svd_plot_path = os.path.join(log_dir, 'results', 'svd_analysis.png')
+    # if not os.path.exists(svd_plot_path):
+    #     analyze_data_svd(x_list[0], log_dir, config=config, logger=logger)
+    # else:
+    #     print(f'svd analysis already exists: {svd_plot_path}')
 
     print('create models ...')
     model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device)

@@ -13,7 +13,6 @@ class Signal_Propagation(pyg.nn.MessagePassing):
     """
     Model learning the first derivative of a scalar field on a mesh.
     The node embedding is defined by a table self.a
-    Note the Laplacian coeeficients are in data.edge_attr
 
     Inputs
     ----------
@@ -178,7 +177,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             elif self.external_input_mode == "additive":
                 pred = self.lin_phi(in_features) + msg + external_input
             else:
-                pred = self.lin_phi(in_features)
+                pred = self.lin_phi(in_features) + msg
 
         
 
