@@ -82,6 +82,15 @@ from tifffile import imread
 import matplotlib.ticker as ticker
 import shutil
 
+# Suppress matplotlib/PDF warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
+warnings.filterwarnings('ignore', message='.*Glyph.*')
+warnings.filterwarnings('ignore', message='.*Missing.*')
+
+# Suppress fontTools logging (PDF font subsetting messages)
+logging.getLogger('fontTools').setLevel(logging.ERROR)
+logging.getLogger('fontTools.subset').setLevel(logging.ERROR)
+
 # Optional dependency
 # try:
 #     from pysr import PySRRegressor
@@ -999,20 +1008,20 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
     x_list = []
     y_list = []
-    for run in trange(1,2, ncols=90):
-        if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
-            x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
-            y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
-            x = to_numpy(torch.stack(x))
-            y = to_numpy(torch.stack(y))
+    run =0
+    if os.path.exists(f'graphs_data/{dataset_name}/x_list_{run}.pt'):
+        x = torch.load(f'graphs_data/{dataset_name}/x_list_{run}.pt', map_location=device)
+        y = torch.load(f'graphs_data/{dataset_name}/y_list_{run}.pt', map_location=device)
+        x = to_numpy(torch.stack(x))
+        y = to_numpy(torch.stack(y))
 
-        else:
-            x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
-            y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
-            if os.path.exists(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy'):
-                raw_x = np.load(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy')
-        x_list.append(x)
-        y_list.append(y)
+    else:
+        x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
+        y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+        if os.path.exists(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy'):
+            raw_x = np.load(f'graphs_data/{dataset_name}/raw_x_list_{run}.npy')
+    x_list.append(x)
+    y_list.append(y)
     vnorm = torch.load(os.path.join(log_dir, 'vnorm.pt'))
     ynorm = torch.load(os.path.join(log_dir, 'ynorm.pt'))
     if os.path.exists(os.path.join(log_dir, 'xnorm.pt')):
@@ -1028,7 +1037,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     print(f'n neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons = n_neurons
-    type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
+    type_list = torch.tensor(x[:, 6:7], device=device)  # neuron_type at index 6
 
     activity = torch.tensor(x_list[0][:, :, 3:4],device=device)
     activity = activity.squeeze()
@@ -1657,7 +1666,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         # ax.set_yticklabels(['0', '20', '40'], fontsize=16)
         plt.xlim([0, 10000])
         plt.tight_layout()
-        plt.savefig(f'./{log_dir}/results/activity.png', dpi=300)
+        plt.savefig(f'./{log_dir}/results/activity_gt.pdf', dpi=300)
         plt.close()
 
         true_model, bc_pos, bc_dpos = choose_model(config=config, W=adjacency, device=device)
@@ -1674,25 +1683,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             A.fill_diagonal_(0)
             A = A.t()
             A = A[:n_neurons,:n_neurons]
-
-            plt.figure(figsize=(10, 10))
-            connectivity_plot = to_numpy(A)
-            connectivity_plot = connectivity_plot[:n_plot, :n_plot]
-            ax = sns.heatmap(to_numpy(connectivity_plot), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
-            cbar = ax.collections[0].colorbar
-            cbar.ax.tick_params(labelsize=32)
-            plt.xticks([0, n_plot - 1], [1, n_plot], fontsize=48)
-            plt.yticks([0, n_plot - 1], [1, n_plot], fontsize=48)
-            plt.xticks(rotation=0)
-            plt.subplot(2, 2, 1)
-            ax = sns.heatmap(to_numpy(connectivity_plot[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
-            plt.xticks([])
-            plt.yticks([])
-            plt.tight_layout()
-            plt.savefig(f'./{log_dir}/results/connectivity_learned .png', dpi=300)
-            plt.close()
-
-
 
             if has_field:
                 net = f'{log_dir}/models/best_model_f_with_{n_runs - 1}_graphs_{epoch}.pt'
@@ -1793,7 +1783,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.xlabel(r'$a_{0}$', fontsize=68)
                 plt.ylabel(r'$a_{1}$', fontsize=68)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/all_embedding.png", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/embedding.pdf", dpi=170.7)
             plt.close()
 
             if 'excitation' in model_config.update_type:
@@ -1815,7 +1805,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.close()
 
 
-            rr = torch.linspace(0 , xnorm.squeeze() * 4 , 1000).to(device)
+            # Sample v in range [0.8*xnorm, xnorm] to get the plateau value within visible plot range
+            rr = torch.linspace(0.8 * xnorm.squeeze(), xnorm.squeeze(), 1000).to(device)
             func_list = []
             for n in trange(0,n_neurons, ncols=90):
                 if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
@@ -1835,7 +1826,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 func_list.append(func)
             func_list = torch.stack(func_list).squeeze()
 
-            upper = torch.median(func_list[:,850:1000], dim=1)[0]
+            # Calculate normalization - use mean of plateau region
+            upper = func_list.mean(dim=1)
+
+            print(f'normalization (v range: {0.8 * xnorm.squeeze():.2f} to {xnorm.squeeze():.2f}):')
+            print(f'  mean:   min={upper.min():.4f}, max={upper.max():.4f}, mean={upper.mean():.4f}')
+            print(f'  correction will be: {(1/upper.mean()):.4f}')
+
             correction = 1 / (upper + 1E-16)
             torch.save(correction, f'{log_dir}/correction.pt')
 
@@ -1845,6 +1842,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             rr = torch.linspace(-xnorm.squeeze()  , xnorm.squeeze() , 1000).to(device)
             # MLP1 raw (without correction)
             fig, ax = fig_init()
+            func_vals = []
             for n in range(n_neurons):
                 if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
                     embedding_ = model.a[n, :] * torch.ones((1000, config.graph_model.embedding_dim), device=device)
@@ -1853,12 +1851,21 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     in_features = rr[:, None]
                 with torch.no_grad():
                     func = model.lin_edge(in_features.float()) ** 2 if config.graph_model.lin_edge_positive else model.lin_edge(in_features.float())
+                func_vals.append(func)
                 plt.plot(to_numpy(rr), to_numpy(func), color='w', linewidth=1, alpha=0.25)
+            func_vals = torch.stack(func_vals)
+            ymin, ymax = func_vals.min().item(), func_vals.max().item()
+            margin = (ymax - ymin) * 0.05
             plt.xlabel(r'$v_i$', fontsize=68)
             plt.ylabel(r'$\mathrm{MLP_1}$ (raw)', fontsize=68)
             plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
+            plt.ylim([ymin - margin, ymax + margin])
+            # Create yticks based on actual data range
+            yticks = np.linspace(ymin, ymax, 11)
+            ax.set_yticks(yticks)
+            ax.tick_params(axis='y', labelsize=24)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/MLP1_raw.png", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/MLP1_raw.pdf", dpi=170.7)
             plt.close()
 
             fig, ax = fig_init()
@@ -1895,8 +1902,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
             plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim([-1.1, 1.1])
+            ax.set_yticks([-1.0, 0.0, 1.0])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/MLP1_corrected.png", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/MLP1_corrected.pdf", dpi=170.7)
             plt.close()
 
 
@@ -1929,7 +1937,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.tight_layout()
             # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim(phi_ylim)
-            plt.savefig(f'./{log_dir}/results/MLP0.png', dpi=300)
+            plt.savefig(f'./{log_dir}/results/MLP0.pdf', dpi=300)
             plt.close()
 
 
@@ -1955,7 +1963,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.xlim([-0.2, 1.2])
             plt.ylim([-0.2, 1.2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/UMAP.png", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/UMAP.pdf", dpi=170.7)
             plt.close()
 
             config.training.cluster_distance_threshold = 0.1
@@ -1970,22 +1978,29 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             dot_size = 400 if n_neurons < 1000 else 150
 
-            plt.figure(figsize=(10, 10))
-            plt.scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(to_numpy(type_list).astype(int)))
-            plt.xticks([])
-            plt.yticks([])
-            plt.axis('off')
-            plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/true_types.png", dpi=170.7)
-            plt.close()
+            # Combined plot: true types (left) and learned types (right) with accuracy
+            fig, axes = plt.subplots(1, 2, figsize=(20, 12))
 
-            plt.figure(figsize=(10, 10))
-            plt.scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(new_labels[:n_neurons].astype(int)))
-            plt.xticks([])
-            plt.yticks([])
-            plt.axis('off')
+            # Left panel: true types
+            axes[0].scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(to_numpy(type_list).astype(int)))
+            axes[0].set_xticks([])
+            axes[0].set_yticks([])
+            axes[0].axis('off')
+            axes[0].set_aspect('equal')
+            axes[0].set_title('true types', fontsize=24, color=mc)
+
+            # Right panel: learned types
+            axes[1].scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(new_labels[:n_neurons].astype(int)))
+            axes[1].set_xticks([])
+            axes[1].set_yticks([])
+            axes[1].axis('off')
+            axes[1].set_aspect('equal')
+            axes[1].set_title('learned types', fontsize=24, color=mc)
+
+            # Add accuracy and cluster info as suptitle
+            fig.suptitle(f'accuracy: {accuracy:.3f}   n_clusters: {n_clusters}', fontsize=28, color=mc)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/learned_types.png", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/types_comparison.pdf", dpi=170.7)
             plt.close()
 
 
@@ -2062,6 +2077,24 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print(f'R² (corrected): \033[92m{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
             logger.info(f'R² (corrected): {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
 
+            # Connectivity heatmap corrected by slope (for comparison with true)
+            # Same format as connectivity_true.png with zoom-in subplot
+            connectivity_corrected = pred_weight_corrected / lin_fit[0]
+            plt.figure(figsize=(10, 10))
+            ax = sns.heatmap(connectivity_corrected, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
+            cbar = ax.collections[0].colorbar
+            cbar.ax.tick_params(labelsize=32)
+            plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+            plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+            plt.xticks(rotation=0)
+            plt.subplot(2, 2, 1)
+            ax = sns.heatmap(connectivity_corrected[0:20, 0:20], cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
+            plt.xticks([])
+            plt.yticks([])
+            plt.tight_layout()
+            plt.savefig(f'./{log_dir}/results/connectivity_learned.png', dpi=300)
+            plt.close()
+
             # eigenvalue and eigenvector analysis
             print('plot eigenvalue spectrum and eigenvector comparison ...')
 
@@ -2096,8 +2129,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             # Row 1: Eigenvalues
             # (0,0) complex plane scatter
-            axes[0, 0].scatter(eig_true.real, eig_true.imag, s=100, c='b', alpha=0.7, label='true')
-            axes[0, 0].scatter(eig_learned.real, eig_learned.imag, s=100, c='r', alpha=0.7, label='learned')
+            axes[0, 0].scatter(eig_true.real, eig_true.imag, s=100, c='green', alpha=0.7, label='true')
+            axes[0, 0].scatter(eig_learned.real, eig_learned.imag, s=100, c=mc, alpha=0.7, label='learned')
             axes[0, 0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
             axes[0, 0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
             axes[0, 0].set_xlabel('real', fontsize=32)
@@ -2107,7 +2140,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[0, 0].set_title('eigenvalues in complex plane', fontsize=28)
 
             # (0,1) eigenvalue magnitude comparison (sorted)
-            axes[0, 1].scatter(np.abs(eig_true_sorted), np.abs(eig_learned_sorted), s=100, c=mc, alpha=0.7)
+            axes[0, 1].scatter(np.abs(eig_true_sorted), np.abs(eig_learned_sorted), s=20, c=mc, alpha=0.7)
             max_val = max(np.abs(eig_true_sorted).max(), np.abs(eig_learned_sorted).max())
             axes[0, 1].plot([0, max_val], [0, max_val], 'g--', linewidth=2)
             axes[0, 1].set_xlabel('true |eigenvalue|', fontsize=32)
@@ -2116,8 +2149,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[0, 1].set_title('eigenvalue magnitude comparison', fontsize=28)
 
             # (0,2) singular value spectrum (log scale)
-            axes[0, 2].plot(np.abs(eig_true_sorted), 'b-', linewidth=2, label='true')
-            axes[0, 2].plot(np.abs(eig_learned_sorted), 'r-', linewidth=2, label='learned')
+            axes[0, 2].plot(np.abs(eig_true_sorted), color='green', linewidth=2, label='true')
+            axes[0, 2].plot(np.abs(eig_learned_sorted), color=mc, linewidth=2, label='learned')
             axes[0, 2].set_xlabel('index', fontsize=32)
             axes[0, 2].set_ylabel('|eigenvalue|', fontsize=32)
             axes[0, 2].set_yscale('log')
@@ -2154,7 +2187,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[1, 2].tick_params(labelsize=16)
 
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/eigen_comparison.png", dpi=87)
+            plt.savefig(f"./{log_dir}/results/eigen_comparison.pdf", dpi=87)
             plt.close()
 
             # spectral radius comparison
@@ -2172,7 +2205,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             if has_field:
 
                 print('plot field ...')
-                os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
 
                 # Load second_correction if available
                 second_correction_path = f'{log_dir}/second_correction.npy'
@@ -2759,7 +2791,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
     print(f'N neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons = n_neurons
-    type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
+    type_list = torch.tensor(x[:, 6:7], device=device)  # neuron_type at index 6
 
     activity = torch.tensor(x_list[0],device=device)
     activity = activity[:, :, 6:7].squeeze()
@@ -3201,7 +3233,6 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
                 state_dict = torch.load(net, map_location=device)
                 model_f.load_state_dict(state_dict['model_state_dict'])
 
-                os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
                 x = x_list[0][0]
 
                 slope_list = list([])
@@ -3573,7 +3604,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     print(f'N neurons: {n_neurons}')
     logger.info(f'N neurons: {n_neurons}')
     config.simulation.n_neurons = n_neurons
-    type_list = torch.tensor(x[:, 1 + 2 * dimension:2 + 2 * dimension], device=device)
+    type_list = torch.tensor(x[:, 6:7], device=device)  # neuron_type at index 6
 
     activity = torch.tensor(x_list[0][:, :, 3:4],device=device)
     activity = activity.squeeze()
@@ -4779,7 +4810,6 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
             if False: # has_field:
 
                 print('plot field ...')
-                os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
 
                 if 'derivative' in field_type:
 
@@ -8453,16 +8483,6 @@ def data_plot(config, config_file, epoch_list, style, extended, device, apply_we
     log_dir, logger = create_log_dir(config=config, erase=False)
 
     os.makedirs(os.path.join(log_dir, 'results'), exist_ok=True)
-    os.makedirs(os.path.join(log_dir, 'results/all'), exist_ok=True)
-    os.makedirs(os.path.join(log_dir, 'results/training'), exist_ok=True)
-
-    files = glob.glob(f"{log_dir}/results/training/*")
-    for f in files:
-        os.remove(f)
-    os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
-    files = glob.glob(f"{log_dir}/results/field/*")
-    for f in files:
-        os.remove(f)
 
     if epoch_list==['best']:
         files = glob.glob(f"{log_dir}/models/*")

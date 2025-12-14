@@ -122,7 +122,7 @@ if __name__ == "__main__":
                 test_mode="",
                 sample_embedding=False,
                 step=10,
-                n_rollout_frames=2000,
+                n_rollout_frames=1000,
                 device=device,
                 particle_of_interest=0,
                 new_params = None,

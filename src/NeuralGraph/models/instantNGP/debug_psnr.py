@@ -48,7 +48,7 @@ def main():
     print("==========================")
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(f"Using device: {device}")
+    print(f"using device: {device}")
     
     # Test different configurations and resolutions
     configs_to_test = [

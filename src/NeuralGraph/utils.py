@@ -132,18 +132,18 @@ def set_device(device: str = 'auto'):
                     total_memory_gb = torch.cuda.get_device_properties(best_device_id).total_memory / 1024 ** 3
                     free_memory_gb = max_free_memory / 1024 ** 3
                     print(
-                        f"Using device: {device}, name: {torch.cuda.get_device_name(best_device_id)}, "
+                        f"using device: {device}, name: {torch.cuda.get_device_name(best_device_id)}, "
                         f"total memory: {total_memory_gb:.2f} GB, free memory: {free_memory_gb:.2f} GB")
             except Exception as e:
                 print(f"Failed to get GPU information: {e}")
                 device = 'cpu'
-                print(f"Using device: {device}")
+                print(f"using device: {device}")
         elif torch.backends.mps.is_available():
             device = 'mps'
-            print(f"Using device: {device}")
+            print(f"using device: {device}")
         else:
             device = 'cpu'
-            print(f"Using device: {device}")
+            print(f"using device: {device}")
     return device
 
 

@@ -1,6 +1,17 @@
 import os
 import time
 import glob
+import warnings
+import logging
+
+# Suppress matplotlib/PDF warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='matplotlib')
+warnings.filterwarnings('ignore', message='.*Glyph.*')
+warnings.filterwarnings('ignore', message='.*Missing.*')
+
+# Suppress fontTools logging (PDF font subsetting messages)
+logging.getLogger('fontTools').setLevel(logging.ERROR)
+logging.getLogger('fontTools.subset').setLevel(logging.ERROR)
 
 import matplotlib.pyplot as plt
 from matplotlib import rc
@@ -3020,12 +3031,12 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     id_fig = 0
 
 
-    n_test_frames = n_rollout_frames // 2
+    n_test_frames = n_rollout_frames
     it_step = step
 
     print('rollout inference...')
 
-    for it in trange(start_it,start_it+n_test_frames * 2, ncols=100):  # start_it + min(9600+start_it,stop_it-time_step)): #  start_it+200): # min(9600+start_it,stop_it-time_step)):
+    for it in trange(start_it, start_it + n_test_frames, ncols=100):
 
         if it < n_frames - 4:
             x0 = x_list[0][it].clone().detach()
@@ -3426,48 +3437,69 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
 
-    print('plot activity ...')
-    activity = to_numpy(x_generated_list)
-    activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
-    plt.figure(figsize=(30, 20))
-    plt.subplot(121)
-    plt.plot(activity.T, linewidth=2)
-    for i in range(0, n_neurons, 5):
-        plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
+    print('plot prediction ...')
+    # Single panel plot: green=GT, white=prediction, R² on the right
+    # Limit to max 50 traces evenly spaced across neurons
+    n_traces = min(50, n_neurons)
+    trace_ids = np.linspace(0, n_neurons - 1, n_traces, dtype=int)
 
-    ax = plt.gca()
-    ax.text(-500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
-    plt.xlabel("time", fontsize=32)
-    plt.xticks(fontsize=24)
+    # Stack ground truth and prediction lists
+    neuron_gt_stacked = torch.cat(neuron_gt_list, dim=0).reshape(-1, n_neurons).T  # [n_neurons, n_frames]
+    neuron_pred_stacked = torch.cat(neuron_pred_list, dim=0).reshape(-1, n_neurons).T  # [n_neurons, n_frames]
+
+    activity_gt = to_numpy(neuron_gt_stacked)  # ground truth
+    activity_pred = to_numpy(neuron_pred_stacked)  # prediction
+    n_frames_plot = activity_gt.shape[1]
+
+    # Compute per-neuron R² for selected traces
+    r2_per_neuron = []
+    for idx in trace_ids:
+        gt_trace = activity_gt[idx]
+        pred_trace = activity_pred[idx]
+        ss_res = np.sum((gt_trace - pred_trace) ** 2)
+        ss_tot = np.sum((gt_trace - np.mean(gt_trace)) ** 2)
+        r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+        r2_per_neuron.append(r2)
+
+    fig, ax = plt.subplots(1, 1, figsize=(20, 12))
+
+    # Compute offset based on data range
+    offset = np.abs(activity_gt[trace_ids]).max() * 1.5
+    if offset == 0:
+        offset = 1.0
+
+    for j, n_idx in enumerate(trace_ids):
+        y0 = j * offset
+        baseline = np.mean(activity_gt[n_idx])
+        # Ground truth in green (thicker line)
+        ax.plot(activity_gt[n_idx] - baseline + y0, color='green', lw=4.0, alpha=0.9)
+        # Prediction in white (or mc for style consistency)
+        ax.plot(activity_pred[n_idx] - baseline + y0, color=mc, lw=0.8, alpha=0.9)
+
+        # Neuron index on the left
+        ax.text(-n_frames_plot * 0.02, y0, str(n_idx), fontsize=10, va='center', ha='right')
+
+        # R² on the right with color coding
+        r2_val = r2_per_neuron[j]
+        r2_color = 'red' if r2_val < 0.5 else ('orange' if r2_val < 0.8 else mc)
+        ax.text(n_frames_plot * 1.02, y0, f'R²:{r2_val:.2f}', fontsize=9, va='center', ha='left', color=r2_color)
+
+    ax.set_xlim([-n_frames_plot * 0.05, n_frames_plot * 1.1])
+    ax.set_ylim([-offset, n_traces * offset])
+    ax.set_xlabel('frame', fontsize=24)
+    ax.set_ylabel('neuron', fontsize=24)
     ax.spines['left'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    ax.yaxis.set_ticks_position('right')
-    ax.set_yticks([0, 20, 40])
-    ax.set_yticklabels(['0', '20', '40'], fontsize=20)
-    ax.text(x_inference_list.shape[1] * 1.1, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_bounds(0, n_frames_plot)
+    ax.set_yticks([])
 
-    plt.subplot(122)
-    activity = to_numpy(x_inference_list)
-    activity = activity[:n_neurons]
-    activity = activity - 10 * np.arange(n_neurons)[:, None] + 200
-    plt.plot(activity.T, linewidth=2)
-    for i in range(0, n_neurons, 5):
-        plt.text(-20, activity[i, 0], str(i), fontsize=24, va='center', ha='right')
-
-    ax = plt.gca()
-    ax.text(-500, activity.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
-    plt.xlabel("time", fontsize=32)
-    plt.xticks(fontsize=24)
-    ax.spines['left'].set_visible(False)
-    ax.spines['top'].set_visible(False)
-    ax.yaxis.set_ticks_position('right')
-    ax.set_yticks([0, 20, 40])
-    ax.set_yticklabels(['0', '20', '40'], fontsize=20)
-    ax.text(x_inference_list.shape[1] * 1.1, 24, 'voltage', fontsize=24, va='center', ha='left', rotation=90)
-    ax.set
+    # Add overall R² in title
+    mean_r2 = np.mean(r2_per_neuron)
+    ax.set_title(f'Activity traces (n={n_traces} of {n_neurons} neurons) | mean R²={mean_r2:.3f}', fontsize=20)
 
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/{dataset_name_}_activity.png", dpi=300)
+    plt.savefig(f"./{log_dir}/results/{dataset_name_}_prediction.pdf", dpi=300)
     plt.close()
 
 

@@ -209,7 +209,7 @@ def main():
     
     # Setup device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print(f"using device: {device}")
     
     # Check if model file exists
     if not os.path.exists(args.model_path):
