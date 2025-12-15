@@ -610,6 +610,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
 
                  # PDE_N3 is special, embedding changes over time
+                
                 if 'PDE_N3' in model_config.signal_model_name:
                     loss = loss + train_config.coeff_model_a * (model.a[ind_a + 1] - model.a[ind_a]).norm(2)
 
@@ -841,9 +842,9 @@ def data_train_signal(config, erase, best_model, style, device):
                         pred = []
                         optimizer.zero_grad()
                         for n in range(n_neurons):
-                            model.a[n, :].clone().detach() * torch.ones((1000, model_config.embedding_dim),
+                            embedding = model.a[n, :].clone().detach() * torch.ones((1000, model_config.embedding_dim),
                                                                                      device=device)
-                            in_features = get_in_features_update(rr=rr[:, None], model=model, device=device)
+                            in_features = get_in_features_update(rr=rr[:, None], model=model, embedding=embedding, device=device)
                             pred.append(model.lin_phi(in_features.float()))
                         pred = torch.stack(pred)
                         loss = (pred[:, :, 0] - y_func_list.clone().detach()).norm(2)

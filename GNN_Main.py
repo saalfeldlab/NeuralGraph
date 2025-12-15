@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use('Agg')  # Set non-interactive backend before other imports
 import argparse
 import os
+import subprocess
 
 
 
@@ -40,9 +41,9 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'generate'  #, 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR'
+        task = 'Claude_experiment'  #, 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude_experiment'
 
-        config_list = ['signal_N4_1']
+        config_list = ['signal_chaotic_1']
 
 
 
@@ -118,6 +119,76 @@ if __name__ == "__main__":
             folder_name = './log/' + pre_folder + '/tmp_results/'
             os.makedirs(folder_name, exist_ok=True)
             data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
+
+        if 'Claude_experiment' in task:
+            # Automated experiment workflow for Claude analysis
+            # Step 1: Generate data
+            print(f"\033[94mClaude experiment: {config_file_} ===\033[0m")
+            print(f"\033[93mStep 1: Generating data...\033[0m")
+            data_generate(
+                config,
+                device=device,
+                visualize=False,
+                run_vizualized=0,
+                style="black color",
+                alpha=1,
+                erase=False,
+                bSave=True,
+                step=2
+            )
+
+            # Step 2: Output paths for Claude analysis
+            root_dir = os.path.dirname(os.path.abspath(__file__))
+            activity_path = f"{root_dir}/graphs_data/{pre_folder}{config.dataset}/activity.png"
+            config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
+            analysis_path = f"{root_dir}/analysis.md"
+            experiment_path = f"{root_dir}/experiment.md"
+
+            # Step 2: Call Claude CLI for analysis
+            print(f"\n\033[93mStep 2: Calling Claude for analysis...\033[0m")
+
+            claude_prompt = f"""Analyze the neural activity experiment results.
+
+1. Read and analyze the activity plot: {activity_path}
+2. Follow the analysis protocol in: {experiment_path}
+3. Classify the dynamics as: Steady State, Chaotic, or Oscillatory
+4. Append your analysis to: {analysis_path}
+5. Based on analysis, modify the config file if needed: {config_path}
+
+Dataset: {config.dataset}
+Config: {config_file_}
+
+After analyzing activity.png, update analysis.md with your findings and recommend/apply config changes to improve the dynamics if needed."""
+
+            # Run claude CLI with the prompt
+            claude_cmd = [
+                'claude',
+                '-p', claude_prompt,
+                '--output-format', 'text',
+                '--max-turns', '10',
+                '--allowedTools',
+                'Read', 'Edit'
+            ]
+
+            print(f"\033[92mRunning Claude CLI...\033[0m")
+            print(f"\033[90mCommand: claude -p '...' --output-format text --max-turns 10 --allowedTools Read Edit\033[0m")
+
+            # Run with real-time output streaming
+            process = subprocess.Popen(
+                claude_cmd,
+                cwd=root_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+
+            # Stream output line by line
+            for line in process.stdout:
+                print(line, end='', flush=True)
+
+            process.wait()
+            print(f"\n\033[94m=== Claude analysis complete (exit code: {process.returncode}) ===\033[0m")
 
 
 

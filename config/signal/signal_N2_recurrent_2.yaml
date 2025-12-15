@@ -1,4 +1,4 @@
-description: "recurrent training time_step=4"
+description: "recurrent training time_step=8"
 dataset: "signal_N2_1"
 
 simulation:
@@ -46,7 +46,7 @@ training:
   device: "auto"
 
   recurrent_training: True
-  time_step: 4
+  time_step: 8
 
   batch_size: 8
   small_init_batch_size: False

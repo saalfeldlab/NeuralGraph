@@ -1,4 +1,4 @@
-description: "one type oscillation   siren INR   omega_f_learning"
+description: "one type oscillation  low-rank INR"
 dataset: "signal_chaotic_oscillation_1"
 
 simulation:
@@ -45,21 +45,14 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
-  inr_type: "siren_t"
+  inr_type: "lowrank"
 
-  # SIREN (INR) parameters for learning external_input
-  # Normalized time range: [0, n_frames / nnr_f_T_period] = [0, 100000/100000] = [0, 1]
-  # Cycles in normalized range: 100 cycles in [0, 1]
-  # omega_f rule: omega_f ≈ 2π × num_cycles = 2π × 100 ≈ 628
-  input_size_nnr_f: 1
-  hidden_dim_nnr_f: 1024
-  n_layers_nnr_f: 2
-  outermost_linear_nnr_f: True
-  output_size_nnr_f: 1000
-  nnr_f_xy_period: 1.0
-  nnr_f_T_period: 10000
-  omega_f: 30
-  omega_f_learning: True
+  # LowRank parameters
+  # rank=56 captures 99% variance based on SVD analysis
+  # params = 56 * (10000 + 1000) = 616,000
+  # compression = 10M / 616K = 16.2x
+  lowrank_rank: 1
+  lowrank_svd_init: False
 
 plotting:
   colormap: "tab10"
@@ -91,10 +84,8 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
 
-  learning_rate_NNR_f: 1.0E-6
-  learning_rate_omega_f: 1.0E-2
+  learning_rate_NNR_f: 1.0E-3
 
   coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
-  coeff_omega_f_L2: 1.0E-2
