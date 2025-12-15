@@ -8521,8 +8521,9 @@ def data_plot(config, config_file, epoch_list, style, extended, device, apply_we
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/results/loss.png", dpi=170.7)
         plt.close()
-        # print('final loss {:.3e}'.format(loss[-1]))
-        # logger.info('final loss {:.3e}'.format(loss[-1]))
+        # Log final loss to analysis.log
+        if log_file and len(loss) > 0:
+            log_file.write(f"final_loss: {loss[-1]:.4e}\n")
 
 
 

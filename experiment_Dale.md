@@ -2,7 +2,11 @@
 
 ## Goal
 
-Full training pipeline study: generate data, train GNN, test rollout, and evaluate connectivity recovery under Dale's law.
+Explore neural activity dynamics under Dale's law constraints and evaluate the GNN's ability to recover the true connectivity matrix W and faithfully reproduce the observed dynamics.
+
+Key questions:
+- How do E/I ratio and neuron type heterogeneity affect dynamics?
+- Under what conditions can the GNN recover W and predict activity?
 
 ## Starting Point
 
@@ -32,6 +36,7 @@ n_neuron_types: 2 # number of neuron types (1, 2, or 4)
   - `test_R2`: R² between ground truth and rollout prediction
   - `test_pearson`: Pearson correlation per neuron (mean)
   - `connectivity_R2`: R² of learned vs true connectivity weights
+  - `final_loss`: final training loss (lower is better)
 
 ## Classification
 
@@ -56,7 +61,7 @@ n_neuron_types: 2 # number of neuron types (1, 2, or 4)
 ```
 ## Iter N: [good/moderate/poor]
 Config: factor=X, gain=Y, n_types=Z
-Metrics: spectral_radius=X, svd_rank=Y, test_R2=Z, test_pearson=W, connectivity_R2=V
+Metrics: spectral_radius=X, svd_rank=Y, test_R2=Z, test_pearson=W, connectivity_R2=V, final_loss=L
 Observation: [one line about training quality]
 Change: [param: old -> new]
 ```
