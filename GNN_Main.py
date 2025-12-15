@@ -3,6 +3,7 @@ matplotlib.use('Agg')  # Set non-interactive backend before other imports
 import argparse
 import os
 import subprocess
+import time
 
 # Redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
 if os.path.isdir('/scratch'):
@@ -48,7 +49,7 @@ if __name__ == "__main__":
         best_model = ''
         task = 'Claude_experiment'  #, 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude_experiment'
 
-        config_list = ['signal_chaotic_1']
+        config_list = ['signal_chaotic_Claude']
 
 
 
@@ -128,7 +129,9 @@ if __name__ == "__main__":
         if 'Claude_experiment' in task:
             # Automated experiment workflow for Claude analysis - 20 iterations
             root_dir = os.path.dirname(os.path.abspath(__file__))
-            activity_path = f"{root_dir}/graphs_data/{pre_folder}{config.dataset}/activity.png"
+            data_folder = f"{root_dir}/graphs_data/{config.dataset}"
+            activity_path = f"{data_folder}/activity.png"
+            analysis_log_path = f"{data_folder}/analysis.log"
             config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
             analysis_path = f"{root_dir}/analysis.md"
             experiment_path = f"{root_dir}/experiment.md"
@@ -137,9 +140,10 @@ if __name__ == "__main__":
             with open(analysis_path, 'w') as f:
                 f.write(f"# Experiment Log: {config_file_}\n\n")
             print(f"\033[93mcleared analysis.md\033[0m")
+            print(f"\033[93mdata folder: {data_folder}\033[0m")
 
             for iteration in range(1, 21):
-                print(f"\033[94miteration {iteration}/20: {config_file_} ===\033[0m")
+                print(f"\n\n\n\033[94miteration {iteration}/20: {config_file_} ===\033[0m")
 
 
                 # Step 1: Generate data
@@ -162,20 +166,28 @@ if __name__ == "__main__":
                     step=2
                 )
 
-                # Step 2: Call Claude CLI for analysis
-                print(f"\n\033[93mstep 2: Claude analysis...\033[0m")
+                # pause to ensure files are written
+                time.sleep(2)
 
-                claude_prompt = f"""Iteration {iteration}/20: Analyze neural activity.
+                # check that files are ready
+                if not os.path.exists(activity_path):
+                    print(f"\033[91merror: activity.png not found at {activity_path}\033[0m")
+                    continue
+                if not os.path.exists(analysis_log_path):
+                    print(f"\033[91merror: analysis.log not found at {analysis_log_path}\033[0m")
+                    continue
+                print(f"\033[92mfiles ready: activity.png, analysis.log\033[0m")
+
+                # Step 2: Call Claude CLI for analysis
+                print(f"\033[93mstep 2: Claude analysis...\033[0m")
+
+                claude_prompt = f"""Iteration {iteration}/20: Parameter study.
 
 1. Read activity image: {activity_path}
-2. Read analysis protocol: {experiment_path}
-3. Classify dynamics and determine what config change would help (per experiment.md guidelines)
-4. Append to {analysis_path}:
-   ## Iter {iteration}: [Steady State/Chaotic]
-   Observation: [one line]
-   Change: [parameter: old -> new] or None
-
-5. If not chaotic, edit {config_path} based on experiment.md recommendations.
+2. Read analysis log: {analysis_log_path}
+3. Read protocol: {experiment_path}
+4. Append to {analysis_path} using log format from protocol
+5. Edit {config_path} to explore next parameter combination per protocol
 
 Config file: {config_file_}"""
 
@@ -204,21 +216,7 @@ Config file: {config_file_}"""
 
                 process.wait()
 
-                # Print latest analysis entry in yellow
-                try:
-                    with open(analysis_path, 'r') as f:
-                        lines = f.readlines()
-                    # Find lines containing current iteration
-                    for line in lines:
-                        if f'Iter {iteration}' in line:
-                            print(f"\033[93m{'─'*60}\033[0m")
-                            print(f"\033[93m{line.strip()}\033[0m")
-                            print(f"\033[93m{'─'*60}\033[0m")
-                            break
-                except:
-                    pass
 
-                print(f"\033[92m--- Iteration {iteration} complete ---\033[0m")
 
 
 

@@ -821,7 +821,7 @@ def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap
     plt.close()
 
 
-def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k'):
+def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k', log_file=None):
     """Plot eigenvalue spectrum of connectivity matrix (3 panels)."""
     gt_weight = to_numpy(connectivity)
     eig_true, _ = np.linalg.eig(gt_weight)
@@ -863,7 +863,10 @@ def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k'):
     plt.savefig(f"./graphs_data/{dataset_name}/eigenvalues.png", dpi=150)
     plt.close()
 
-    print(f'spectral radius: {spectral_radius:.3f}')
+    msg = f'spectral radius: {spectral_radius:.3f}'
+    print(msg)
+    if log_file:
+        log_file.write(msg + '\n')
     return spectral_radius
 
 

@@ -1158,6 +1158,9 @@ def data_generate_synaptic(
         # Per-neuron random amplitude for oscillatory input
         e_global = oscillation_amplitude * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
 
+    # open logfile for analysis results
+    log_file = open(f"{folder}/analysis.log", 'w')
+
     for run in range(config.training.n_runs):
 
         id_fig = 0
@@ -1199,7 +1202,7 @@ def data_generate_synaptic(
             torch.save(connectivity, f"./graphs_data/{dataset_name}/connectivity.pt")
 
             # Plot eigenvalue spectrum and connectivity matrix
-            plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc)
+            plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc, log_file=log_file)
             plot_connectivity_matrix(connectivity, dataset_name)
 
         if has_modulation:
@@ -1414,4 +1417,11 @@ def data_generate_synaptic(
             plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=model)
             plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, config.plotting.colormap, device)
 
+            # SVD analysis of activity
+            print('svd analysis ...')
+            from NeuralGraph.models.utils import analyze_data_svd
+            style_param = 'dark_background' if 'black' in style else None
+            analyze_data_svd(x_list, folder, config=config, style=style_param, save_in_subfolder=False, log_file=log_file)
 
+    # close logfile
+    log_file.close()

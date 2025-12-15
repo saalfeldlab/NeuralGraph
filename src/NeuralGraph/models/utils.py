@@ -1789,7 +1789,7 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
     }
 
 
-def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=50_000_000, is_flyvis=False, style=None):
+def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=50_000_000, is_flyvis=False, style=None, save_in_subfolder=True, log_file=None):
     """
     Perform SVD analysis on activity data and external_input/visual stimuli (if present).
     Uses randomized SVD for large datasets for efficiency.
@@ -1798,13 +1798,15 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     Args:
         x_list: numpy array of shape (n_frames, n_neurons, n_features)
                 features: [id, x, y, u, external_input, ...]
-        output_folder: path to save plots (will save to results/ subfolder)
+        output_folder: path to save plots
         config: config object (optional, for metadata)
         max_components: maximum number of SVD components to compute
-        logger: optional logger
+        logger: optional logger (for training)
         max_data_size: maximum data size before subsampling (default 50M elements)
         is_flyvis: if True, use "visual stimuli" label instead of "external input"
         style: matplotlib style to use (e.g., 'dark_background' for dark mode)
+        save_in_subfolder: if True, save to results/ subfolder; if False, save directly to output_folder
+        log_file: optional file handle to write results
 
     Returns:
         dict with SVD analysis results
@@ -1814,9 +1816,14 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     n_frames, n_neurons, n_features = x_list.shape
     results = {}
 
+    import re
     def log_print(msg):
         if logger:
             logger.info(msg)
+        if log_file:
+            # strip ANSI color codes for log file
+            clean_msg = re.sub(r'\033\[[0-9;]*m', '', msg)
+            log_file.write(clean_msg + '\n')
 
     # subsample frames if data is too large
     data_size = n_frames * n_neurons
@@ -2008,18 +2015,21 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
 
     plt.tight_layout()
 
-    # save to results subfolder
-    results_folder = os.path.join(output_folder, 'results')
-    os.makedirs(results_folder, exist_ok=True)
-    save_path = os.path.join(results_folder, 'svd_analysis.pdf')
+    # save plot
+    if save_in_subfolder:
+        save_folder = os.path.join(output_folder, 'results')
+        os.makedirs(save_folder, exist_ok=True)
+    else:
+        save_folder = output_folder
+    save_path = os.path.join(save_folder, 'svd_analysis.png')
     plt.savefig(save_path, dpi=150, bbox_inches='tight', facecolor=bg_color)
     plt.close()
 
     # print SVD results: data info (white) + rank results (green)
     ext_key = 'visual_stimuli' if is_flyvis else 'external_input'
     if results.get(ext_key):
-        print(f"svd analysis: {data_info}, \033[92mactivity rank(99%)={results['activity']['rank_99']}, {ext_key} rank(99%)={results[ext_key]['rank_99']}\033[0m")
+        print(f"{data_info}, \033[92mactivity rank(99%)={results['activity']['rank_99']}, {ext_key} rank(99%)={results[ext_key]['rank_99']}\033[0m")
     else:
-        print(f"svd analysis: {data_info}, \033[92mactivity rank(99%)={results['activity']['rank_99']}\033[0m")
+        print(f"{data_info}, \033[92mactivity rank(99%)={results['activity']['rank_99']}\033[0m")
 
     return results

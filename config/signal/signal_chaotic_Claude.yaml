@@ -1,15 +1,24 @@
 description: "one type"
-dataset: "signal_chaotic_1"
+dataset: "signal_chaotic_Claude"
 
 simulation:
   connectivity_type: "chaotic"
   connectivity_init: [0, 0.1]
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
-  params: [[1.0, 0.0, 7.0, 0.0, 1.0, 0.0], [1.0, 0.0, 7.0, 0.0, 1.0, 0.0]]
+  params:
+    [
+      [1.0, 0.0, 10.0, 0.0, 1.0, 0.0],
+      [2.0, 0.0, 10.0, 0.0, 1.0, 1.0],
+      [3.0, 0.0, 7.0, 0.0, 1.0, 2.0],
+      [4.0, 0.0, 7.0, 0.0, 1.0, 3.0],
+    ]
+  Dale_law: True
+  Dale_law_factor: 0.3
+
   phi: "tanh"
   n_neurons: 100
-  n_neuron_types: 1
+  n_neuron_types: 4
   n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
