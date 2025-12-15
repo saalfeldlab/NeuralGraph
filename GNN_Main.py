@@ -4,6 +4,11 @@ import argparse
 import os
 import subprocess
 
+# Redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
+if os.path.isdir('/scratch'):
+    os.environ['TMPDIR'] = '/scratch/allierc'
+    os.makedirs('/scratch/allierc', exist_ok=True)
+
 
 
 from NeuralGraph.config import NeuralGraphConfig
@@ -121,74 +126,99 @@ if __name__ == "__main__":
             data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
 
         if 'Claude_experiment' in task:
-            # Automated experiment workflow for Claude analysis
-            # Step 1: Generate data
-            print(f"\033[94mClaude experiment: {config_file_} ===\033[0m")
-            print(f"\033[93mStep 1: Generating data...\033[0m")
-            data_generate(
-                config,
-                device=device,
-                visualize=False,
-                run_vizualized=0,
-                style="black color",
-                alpha=1,
-                erase=False,
-                bSave=True,
-                step=2
-            )
-
-            # Step 2: Output paths for Claude analysis
+            # Automated experiment workflow for Claude analysis - 20 iterations
             root_dir = os.path.dirname(os.path.abspath(__file__))
             activity_path = f"{root_dir}/graphs_data/{pre_folder}{config.dataset}/activity.png"
             config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
             analysis_path = f"{root_dir}/analysis.md"
             experiment_path = f"{root_dir}/experiment.md"
 
-            # Step 2: Call Claude CLI for analysis
-            print(f"\n\033[93mStep 2: Calling Claude for analysis...\033[0m")
+            # Clear analysis.md at start
+            with open(analysis_path, 'w') as f:
+                f.write(f"# Experiment Log: {config_file_}\n\n")
+            print(f"\033[93mcleared analysis.md\033[0m")
 
-            claude_prompt = f"""Analyze the neural activity experiment results.
+            for iteration in range(1, 21):
+                print(f"\033[94miteration {iteration}/20: {config_file_} ===\033[0m")
 
-1. Read and analyze the activity plot: {activity_path}
-2. Follow the analysis protocol in: {experiment_path}
-3. Classify the dynamics as: Steady State, Chaotic, or Oscillatory
-4. Append your analysis to: {analysis_path}
-5. Based on analysis, modify the config file if needed: {config_path}
 
-Dataset: {config.dataset}
-Config: {config_file_}
+                # Step 1: Generate data
+                print(f"\033[93mstep 1: generating data...\033[0m")
 
-After analyzing activity.png, update analysis.md with your findings and recommend/apply config changes to improve the dynamics if needed."""
+                # Reload config to pick up any changes from previous iteration
+                config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
+                config.dataset = pre_folder + config.dataset
+                config.config_file = pre_folder + config_file_
 
-            # Run claude CLI with the prompt
-            claude_cmd = [
-                'claude',
-                '-p', claude_prompt,
-                '--output-format', 'text',
-                '--max-turns', '10',
-                '--allowedTools',
-                'Read', 'Edit'
-            ]
+                data_generate(
+                    config,
+                    device=device,
+                    visualize=False,
+                    run_vizualized=0,
+                    style="black color",
+                    alpha=1,
+                    erase=True,  # Erase old data to regenerate with new config
+                    bSave=True,
+                    step=2
+                )
 
-            print(f"\033[92mRunning Claude CLI...\033[0m")
-            print(f"\033[90mCommand: claude -p '...' --output-format text --max-turns 10 --allowedTools Read Edit\033[0m")
+                # Step 2: Call Claude CLI for analysis
+                print(f"\n\033[93mstep 2: Claude analysis...\033[0m")
 
-            # Run with real-time output streaming
-            process = subprocess.Popen(
-                claude_cmd,
-                cwd=root_dir,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1
-            )
+                claude_prompt = f"""Iteration {iteration}/20: Analyze neural activity.
 
-            # Stream output line by line
-            for line in process.stdout:
-                print(line, end='', flush=True)
+1. Read activity image: {activity_path}
+2. Read analysis protocol: {experiment_path}
+3. Classify dynamics and determine what config change would help (per experiment.md guidelines)
+4. Append to {analysis_path}:
+   ## Iter {iteration}: [Steady State/Chaotic]
+   Observation: [one line]
+   Change: [parameter: old -> new] or None
 
-            process.wait()
-            print(f"\n\033[94m=== Claude analysis complete (exit code: {process.returncode}) ===\033[0m")
+5. If not chaotic, edit {config_path} based on experiment.md recommendations.
+
+Config file: {config_file_}"""
+
+                claude_cmd = [
+                    'claude',
+                    '-p', claude_prompt,
+                    '--output-format', 'text',
+                    '--max-turns', '20',
+                    '--allowedTools',
+                    'Read', 'Edit'
+                ]
+
+                # Run with real-time output streaming
+                process = subprocess.Popen(
+                    claude_cmd,
+                    cwd=root_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
+
+                # Stream output line by line
+                for line in process.stdout:
+                    print(line, end='', flush=True)
+
+                process.wait()
+
+                # Print latest analysis entry in yellow
+                try:
+                    with open(analysis_path, 'r') as f:
+                        lines = f.readlines()
+                    # Find lines containing current iteration
+                    for line in lines:
+                        if f'Iter {iteration}' in line:
+                            print(f"\033[93m{'─'*60}\033[0m")
+                            print(f"\033[93m{line.strip()}\033[0m")
+                            print(f"\033[93m{'─'*60}\033[0m")
+                            break
+                except:
+                    pass
+
+                print(f"\033[92m--- Iteration {iteration} complete ---\033[0m")
 
 
 
