@@ -983,7 +983,7 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
 
 
 
-def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device, apply_weight_correction=False):
+def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device, apply_weight_correction=False, log_file=None):
 
     dataset_name = config.dataset
     model_config = config.graph_model
@@ -2089,6 +2089,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.close()
             print(f'R² (corrected): \033[92m{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
             logger.info(f'R² (corrected): {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
+            if log_file:
+                log_file.write(f"connectivity_R2: {r_squared:.4f}\n")
 
             # Connectivity heatmap corrected by slope (for comparison with true)
             # Same format as connectivity_true.png with zoom-in subplot
@@ -8475,7 +8477,7 @@ def plot_loss_curves(log_dir, ylim=None):
 
 
 
-def data_plot(config, config_file, epoch_list, style, extended, device, apply_weight_correction=False):
+def data_plot(config, config_file, epoch_list, style, extended, device, apply_weight_correction=False, log_file=None):
 
     # plt.rcParams['text.usetex'] = False  # LaTeX disabled
     # rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
@@ -8536,7 +8538,7 @@ def data_plot(config, config_file, epoch_list, style, extended, device, apply_we
     elif ('PDE_N3' in config.graph_model.signal_model_name):
         plot_synaptic3(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     else:
-        plot_signal(config, epoch_list, log_dir, logger, 'viridis', style, extended, device, apply_weight_correction)
+        plot_signal(config, epoch_list, log_dir, logger, 'viridis', style, extended, device, apply_weight_correction, log_file)
 
     for handler in logger.handlers[:]:
         handler.close()

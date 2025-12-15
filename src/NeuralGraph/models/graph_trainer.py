@@ -2628,7 +2628,7 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
 
 def data_test(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600,
               ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[],
-              rollout_without_noise: bool = False):
+              rollout_without_noise: bool = False, log_file=None):
 
     dataset_name = config.dataset
     print(f"\033[92mdataset_name: {dataset_name}\033[0m")
@@ -2656,11 +2656,11 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
         data_test_zebra(config, visualize, style, verbose, best_model, step, test_mode, device)
 
     else:
-        data_test_signal(config, config_file, visualize, style, verbose, best_model, step, n_rollout_frames,ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device)
+        data_test_signal(config, config_file, visualize, style, verbose, best_model, step, n_rollout_frames,ratio, run, test_mode, sample_embedding, particle_of_interest, new_params, device, log_file)
 
 
 
-def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[]):
+def data_test_signal(config=None, config_file=None, visualize=False, style='color frame', verbose=True, best_model=20, step=15, n_rollout_frames=600, ratio=1, run=0, test_mode='', sample_embedding=False, particle_of_interest=1, new_params = None, device=[], log_file=None):
     dataset_name = config.dataset
     simulation_config = config.simulation
     model_config = config.graph_model
@@ -3585,6 +3585,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             longest_run_start, longest_run_length = 0, 0
         print(f"mean R2: \033[92m{r2_mean:.4f}\033[0m +/- {r2_std:.4f}")
         print(f"range: [{r2_min:.4f}, {r2_max:.4f}]")
+        if log_file:
+            log_file.write(f"test_R2: {r2_mean:.4f}\n")
 
         # Compute Pearson correlation per neuron across time
         from scipy.stats import pearsonr
@@ -3604,6 +3606,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 pearson_list.append(np.nan)
         pearson_array = np.array(pearson_list)
         print(f"Pearson r: \033[92m{np.nanmean(pearson_array):.4f}\033[0m +/- {np.nanstd(pearson_array):.4f} [{np.nanmin(pearson_array):.4f}, {np.nanmax(pearson_array):.4f}]")
+        if log_file:
+            log_file.write(f"test_pearson: {np.nanmean(pearson_array):.4f}\n")
 
 
 

@@ -51,7 +51,7 @@ plotting:
   ylim: [-2, 2]
 
 training:
-  n_epochs: 10
+  n_epochs: 1
   n_runs: 1
   device: "auto"
 
@@ -61,7 +61,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 100
+  data_augmentation_loop: 200
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4

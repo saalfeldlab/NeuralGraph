@@ -50,6 +50,7 @@ def data_generate(
     best_model=None,
     device=None,
     bSave=True,
+    log_file=None,
 ):
 
     has_signal = "PDE_N" in config.graph_model.signal_model_name
@@ -88,6 +89,7 @@ def data_generate(
             step=step,
             device=device,
             bSave=bSave,
+            log_file=log_file,
         )
 
     plt.style.use("default")
@@ -1013,6 +1015,7 @@ def data_generate_synaptic(
     scenario="none",
     device=None,
     bSave=True,
+    log_file=None,
 ):
     simulation_config = config.simulation
     training_config = config.training
@@ -1158,8 +1161,10 @@ def data_generate_synaptic(
         # Per-neuron random amplitude for oscillatory input
         e_global = oscillation_amplitude * (torch.rand((n_neurons, 1), device=device) * 2 - 1)
 
-    # open logfile for analysis results
-    log_file = open(f"{folder}/analysis.log", 'w')
+    # open logfile for analysis results (use provided or create local)
+    local_log_file = log_file is None
+    if local_log_file:
+        log_file = open(f"{folder}/analysis.log", 'w')
 
     for run in range(config.training.n_runs):
 
@@ -1423,5 +1428,6 @@ def data_generate_synaptic(
             style_param = 'dark_background' if 'black' in style else None
             analyze_data_svd(x_list, folder, config=config, style=style_param, save_in_subfolder=False, log_file=log_file)
 
-    # close logfile
-    log_file.close()
+    # close logfile only if we created it locally
+    if local_log_file:
+        log_file.close()

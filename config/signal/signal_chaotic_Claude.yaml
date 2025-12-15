@@ -1,4 +1,4 @@
-description: "one type"
+description: "Dale's law: factor=0.3, n_types=1"
 dataset: "signal_chaotic_Claude"
 
 simulation:
@@ -10,15 +10,15 @@ simulation:
     [
       [1.0, 0.0, 10.0, 0.0, 1.0, 0.0],
       [2.0, 0.0, 10.0, 0.0, 1.0, 1.0],
-      [3.0, 0.0, 7.0, 0.0, 1.0, 2.0],
-      [4.0, 0.0, 7.0, 0.0, 1.0, 3.0],
+      [3.0, 0.0, 10.0, 0.0, 1.0, 2.0],
+      [4.0, 0.0, 10.0, 0.0, 1.0, 3.0],
     ]
   Dale_law: True
   Dale_law_factor: 0.3
 
   phi: "tanh"
   n_neurons: 100
-  n_neuron_types: 4
+  n_neuron_types: 1
   n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
@@ -51,7 +51,7 @@ plotting:
   ylim: [-2, 2]
 
 training:
-  n_epochs: 10
+  n_epochs: 1
   n_runs: 1
   device: "auto"
 
@@ -61,7 +61,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 100
+  data_augmentation_loop: 200
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
