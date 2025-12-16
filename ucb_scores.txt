@@ -1,3 +1,19 @@
-=== UCB Scores (N_total=1, c=1.414) ===
+=== UCB Scores (N_total=17, c=1.414) ===
 
-Node 1: UCB=inf, parent=0, visits=1, mean_R2=0.934, this_R2=0.934
+Node 16: UCB=3.380, parent=14, visits=1, R2=1.000
+Node 17: UCB=3.380, parent=15, visits=1, R2=1.000
+Node 10: UCB=3.326, parent=9, visits=1, R2=0.946
+Node 8: UCB=3.243, parent=5, visits=1, R2=0.863
+Node 15: UCB=2.683, parent=13, visits=2, R2=1.000
+Node 14: UCB=2.668, parent=13, visits=2, R2=0.971
+Node 7: UCB=2.393, parent=5, visits=1, R2=0.013
+Node 6: UCB=2.383, parent=5, visits=1, R2=0.003
+Node 3: UCB=2.383, parent=2, visits=1, R2=0.003
+Node 4: UCB=2.380, parent=2, visits=1, R2=0.000
+Node 13: UCB=2.059, parent=12, visits=5, R2=1.000
+Node 12: UCB=1.967, parent=11, visits=6, R2=1.000
+Node 11: UCB=1.895, parent=9, visits=7, R2=1.000
+Node 9: UCB=1.784, parent=5, visits=9, R2=1.000
+Node 5: UCB=1.491, parent=2, visits=13, R2=1.000
+Node 2: UCB=1.332, parent=1, visits=16, R2=0.997
+Node 1: UCB=1.330, parent=0, visits=17, R2=1.000

@@ -361,17 +361,20 @@ def plot_exploration_tree(nodes: list[ExperimentNode],
 
 def plot_data_exploration(nodes: list[ExperimentNode],
                           output_path: Optional[str] = None,
-                          title: str = "Data Exploration"):
+                          title: str = "Data Exploration",
+                          ucb_path: Optional[str] = None):
     """
-    Visualize relationship between data characteristics and GNN recovery ability.
+    Visualize data exploration with 2 panels:
 
     Panels:
-    - Top left: svd_rank vs connectivity_R2 (activity complexity vs recovery)
-    - Top right: spectral_radius vs connectivity_R2 (dynamics stability vs recovery)
-    - Bottom left: svd_rank vs test_pearson (activity complexity vs prediction)
-    - Bottom right: exploration tree (iteration vs connectivity_R2)
+    - Left: svd_rank vs spectral_radius (colored by R2: red/orange/green)
+    - Right: Parent-child UCB tree structure
 
-    Markers indicate connectivity_type: 'o' for chaotic, 's' for low_rank
+    Args:
+        nodes: List of ExperimentNode objects
+        output_path: Path to save the plot
+        title: Plot title
+        ucb_path: Path to ucb_scores.txt file (optional)
     """
     if not nodes:
         print("No nodes to plot")
@@ -389,14 +392,13 @@ def plot_data_exploration(nodes: list[ExperimentNode],
         'low_rank': 's',   # square
     }
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 12))
-    ax1, ax2, ax3, ax4 = axes.flatten()
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    ax1, ax2 = axes
 
     # extract metrics from nodes
     svd_ranks = []
     spectral_radii = []
     conn_r2s = []
-    test_pearsons = []
     colors = []
     iterations = []
     conn_types = []
@@ -405,122 +407,173 @@ def plot_data_exploration(nodes: list[ExperimentNode],
         svd_rank = node.metrics.get('svd_rank', None)
         spectral_radius = node.metrics.get('spectral_radius', None)
         conn_r2 = node.metrics.get('connectivity_R2', None)
-        test_pearson = node.metrics.get('test_pearson', None)
         conn_type = node.config.get('connectivity_type', 'chaotic')
 
-        if svd_rank is not None and conn_r2 is not None:
+        # Debug: print node metrics
+        print(f"[plot_data_exploration] Node {node.iteration}: svd_rank={svd_rank}, spectral_radius={spectral_radius}, status={node.status}")
+
+        if svd_rank is not None and spectral_radius is not None:
             svd_ranks.append(float(svd_rank))
-            conn_r2s.append(float(conn_r2))
+            spectral_radii.append(float(spectral_radius))
+            conn_r2s.append(float(conn_r2) if conn_r2 is not None else 0.0)
             colors.append(status_colors.get(node.status, '#95a5a6'))
             iterations.append(node.iteration)
             conn_types.append(conn_type)
 
-            if spectral_radius is not None:
-                spectral_radii.append(float(spectral_radius))
-            else:
-                spectral_radii.append(None)
-
-            if test_pearson is not None:
-                test_pearsons.append(float(test_pearson))
-            else:
-                test_pearsons.append(None)
-
-    if not svd_ranks:
-        print("No metrics found in nodes")
-        return
-
-    # --- top left: svd_rank vs connectivity_R2 ---
-    for i, (sr, cr, c, it, ct) in enumerate(zip(svd_ranks, conn_r2s, colors, iterations, conn_types)):
-        marker = connectivity_markers.get(ct, 'o')
-        ax1.scatter(sr, cr, c=c, s=100, marker=marker, edgecolors='black', linewidths=0.5, alpha=0.8)
-        ax1.annotate(str(it), (sr, cr), ha='center', va='bottom', fontsize=7, fontweight='bold')
-
-    ax1.axhline(y=0.9, color='green', linestyle=':', alpha=0.5)
-    ax1.axhline(y=0.1, color='red', linestyle=':', alpha=0.5)
-    ax1.axvline(x=10, color='blue', linestyle=':', alpha=0.5)
-    ax1.set_xlabel('svd_rank (activity complexity)', fontsize=11)
-    ax1.set_ylabel('connectivity_R2 (recovery)', fontsize=11)
-    ax1.set_title('Activity Complexity vs Recovery', fontsize=12)
-    ax1.set_ylim(-0.05, 1.05)
-    ax1.grid(True, alpha=0.3)
-
-    # --- top right: spectral_radius vs connectivity_R2 ---
-    valid_sr = [(sr, cr, c, it, ct) for sr, cr, c, it, ct in zip(spectral_radii, conn_r2s, colors, iterations, conn_types) if sr is not None]
-    if valid_sr:
-        for sr, cr, c, it, ct in valid_sr:
+    # --- Panel 1: svd_rank vs spectral_radius (colored by R2) ---
+    # Debug: print what we found
+    print(f"[plot_data_exploration] Found {len(svd_ranks)} nodes with svd_rank/spectral_radius data")
+    if svd_ranks:
+        for sr, spec, cr, c, it, ct in zip(svd_ranks, spectral_radii, conn_r2s, colors, iterations, conn_types):
             marker = connectivity_markers.get(ct, 'o')
-            ax2.scatter(sr, cr, c=c, s=100, marker=marker, edgecolors='black', linewidths=0.5, alpha=0.8)
-            ax2.annotate(str(it), (sr, cr), ha='center', va='bottom', fontsize=7, fontweight='bold')
+            ax1.scatter(sr, spec, c=c, s=120, marker=marker, edgecolors='black', linewidths=0.5, alpha=0.8, zorder=2)
+            ax1.annotate(str(it), (sr, spec), ha='center', va='bottom', fontsize=7, fontweight='bold', xytext=(0, 5), textcoords='offset points')
 
-        ax2.axhline(y=0.9, color='green', linestyle=':', alpha=0.5)
-        ax2.axhline(y=0.1, color='red', linestyle=':', alpha=0.5)
-        ax2.axvline(x=1.0, color='orange', linestyle=':', alpha=0.5)
-        ax2.set_xlabel('spectral_radius', fontsize=11)
-        ax2.set_ylabel('connectivity_R2 (recovery)', fontsize=11)
-        ax2.set_title('Spectral Radius vs Recovery', fontsize=12)
-        ax2.set_ylim(-0.05, 1.05)
-        ax2.grid(True, alpha=0.3)
+        ax1.axhline(y=1.0, color='orange', linestyle=':', alpha=0.5, label='edge of chaos')
+        ax1.axvline(x=10, color='blue', linestyle=':', alpha=0.5, label='min complexity')
+        ax1.set_xlabel('svd_rank (activity complexity)', fontsize=11)
+        ax1.set_ylabel('spectral_radius', fontsize=11)
+        ax1.set_title('Activity Complexity vs Dynamics Stability', fontsize=12)
+        ax1.grid(True, alpha=0.3)
+
+        # legend for status colors
+        legend_elements = []
+        for s, c in status_colors.items():
+            if s in [n.status for n in nodes]:
+                legend_elements.append(mpatches.Patch(color=c, label=s.capitalize()))
+        legend_elements.append(Line2D([0], [0], marker='o', color='gray', label='chaotic',
+                                       markerfacecolor='gray', markersize=8, linestyle='None'))
+        legend_elements.append(Line2D([0], [0], marker='s', color='gray', label='low_rank',
+                                       markerfacecolor='gray', markersize=8, linestyle='None'))
+        ax1.legend(handles=legend_elements, loc='upper right', fontsize=8)
     else:
-        ax2.text(0.5, 0.5, 'No spectral_radius data', ha='center', va='center', transform=ax2.transAxes)
-        ax2.set_title('Spectral Radius vs Recovery', fontsize=12)
+        ax1.text(0.5, 0.5, 'No data', ha='center', va='center', transform=ax1.transAxes)
+        ax1.set_title('Activity Complexity vs Dynamics Stability', fontsize=12)
 
-    # --- bottom left: svd_rank vs test_pearson ---
-    valid_tp = [(sr, tp, c, it, ct) for sr, tp, c, it, ct in zip(svd_ranks, test_pearsons, colors, iterations, conn_types) if tp is not None]
-    if valid_tp:
-        for sr, tp, c, it, ct in valid_tp:
-            marker = connectivity_markers.get(ct, 'o')
-            ax3.scatter(sr, tp, c=c, s=100, marker=marker, edgecolors='black', linewidths=0.5, alpha=0.8)
-            ax3.annotate(str(it), (sr, tp), ha='center', va='bottom', fontsize=7, fontweight='bold')
+    # --- Panel 2: UCB Tree Structure (parent-child relationships) ---
+    # Build tree structure from parent field in analysis log
+    node_map = {n.iteration: n for n in nodes}
 
-        ax3.axvline(x=10, color='blue', linestyle=':', alpha=0.5)
-        ax3.set_xlabel('svd_rank (activity complexity)', fontsize=11)
-        ax3.set_ylabel('test_pearson (prediction)', fontsize=11)
-        ax3.set_title('Activity Complexity vs Prediction', fontsize=12)
-        ax3.set_ylim(-0.05, 1.05)
-        ax3.grid(True, alpha=0.3)
-    else:
-        ax3.text(0.5, 0.5, 'No test_pearson data', ha='center', va='center', transform=ax3.transAxes)
-        ax3.set_title('Activity Complexity vs Prediction', fontsize=12)
+    # Parse parent from Node line in analysis (stored during parse_experiment_log)
+    # Build children dict from the parent relationships
+    children = defaultdict(list)
+    parent_map = {}
 
-    # --- bottom right: exploration tree (iteration vs connectivity_R2) ---
-    positions = compute_tree_layout(nodes)
-
-    # draw edges
     for node in nodes:
-        if node.parent is not None and node.parent in positions:
-            x1, y1 = positions[node.parent]
-            x2, y2 = positions[node.iteration]
-            ax4.plot([x1, x2], [y1, y2], color='#34495e', linestyle='-', linewidth=1.5, alpha=0.6, zorder=1)
+        # Get parent from the node's parent field (set during build_tree_structure)
+        parent_id = node.parent
+        parent_map[node.iteration] = parent_id
+        if parent_id is not None:
+            children[parent_id].append(node.iteration)
 
-    # draw nodes with connectivity_type markers
+    # Compute UCB for display
+    def get_subtree_stats(node_id):
+        if node_id not in node_map:
+            return 0, 0.0
+        visits = 1
+        rewards = node_map[node_id].metrics.get('connectivity_R2', 0.0)
+        for child_id in children[node_id]:
+            child_visits, child_rewards = get_subtree_stats(child_id)
+            visits += child_visits
+            rewards += child_rewards
+        return visits, rewards
+
+    n_total = len(nodes)
+    c = 1.414
+
+    ucb_values = {}
     for node in nodes:
-        x, y = positions[node.iteration]
+        visits, sum_rewards = get_subtree_stats(node.iteration)
+        mean_reward = sum_rewards / visits if visits > 0 else 0.0
+        if visits > 0 and n_total > 1:
+            exploration_term = c * math.sqrt(math.log(n_total) / visits)
+        else:
+            exploration_term = float('inf')
+        ucb = mean_reward + exploration_term
+        ucb_values[node.iteration] = {
+            'ucb': ucb if ucb != float('inf') else 10.0,
+            'visits': visits
+        }
+
+    # Compute tree layout: x = depth from root, y = spread within depth level
+    depth_map = {}
+
+    def compute_depth(node_id, current_depth=0):
+        depth_map[node_id] = current_depth
+        for child_id in children[node_id]:
+            compute_depth(child_id, current_depth + 1)
+
+    # Find root nodes
+    root_nodes = [n.iteration for n in nodes if parent_map.get(n.iteration) is None]
+    for root in root_nodes:
+        compute_depth(root, 0)
+
+    # Assign y positions: leaves get sequential positions, parents center on children
+    y_positions = {}
+    leaf_counter = [0]
+
+    def assign_y_dfs(node_id):
+        child_list = sorted(children.get(node_id, []))
+        if not child_list:
+            # Leaf node
+            y_positions[node_id] = leaf_counter[0]
+            leaf_counter[0] += 1
+        else:
+            # Process children first
+            for child_id in child_list:
+                assign_y_dfs(child_id)
+            # Parent y = center of children
+            y_positions[node_id] = np.mean([y_positions[c] for c in child_list])
+
+    for root in root_nodes:
+        assign_y_dfs(root)
+
+    # Draw edges (parent -> child)
+    for node in nodes:
+        parent_id = parent_map.get(node.iteration)
+        if parent_id is not None and parent_id in depth_map and node.iteration in depth_map:
+            x1, y1 = depth_map[parent_id], y_positions[parent_id]
+            x2, y2 = depth_map[node.iteration], y_positions[node.iteration]
+            ax2.plot([x1, x2], [y1, y2], color='#34495e', linestyle='-', linewidth=2, alpha=0.7, zorder=1)
+
+    # Draw nodes
+    max_ucb = max(ucb_values[n.iteration]['ucb'] for n in nodes)
+    min_ucb = min(ucb_values[n.iteration]['ucb'] for n in nodes)
+    ucb_range = max_ucb - min_ucb if max_ucb > min_ucb else 1.0
+
+    for node in nodes:
+        if node.iteration not in depth_map:
+            continue
+        x = depth_map[node.iteration]
+        y = y_positions[node.iteration]
         color = status_colors.get(node.status, '#95a5a6')
+        ucb = ucb_values[node.iteration]['ucb']
+
+        # Size proportional to UCB
+        size = 100 + 150 * (ucb - min_ucb) / ucb_range
+
         conn_type = node.config.get('connectivity_type', 'chaotic')
         marker = connectivity_markers.get(conn_type, 'o')
-        ax4.scatter(x, y, c=color, s=100, marker=marker, edgecolors='black', linewidths=0.5, zorder=2)
-        ax4.annotate(str(node.iteration), (x, y), ha='center', va='center', fontsize=6, fontweight='bold')
+        ax2.scatter(x, y, c=color, s=size, marker=marker, edgecolors='black', linewidths=1, zorder=2)
 
-    ax4.axhline(y=0.9, color='green', linestyle=':', alpha=0.5)
-    ax4.axhline(y=0.1, color='red', linestyle=':', alpha=0.5)
-    ax4.set_xlabel('Iteration', fontsize=11)
-    ax4.set_ylabel('connectivity_R2', fontsize=11)
-    ax4.set_title('Exploration Tree', fontsize=12)
-    ax4.set_ylim(-0.05, 1.05)
-    ax4.grid(True, alpha=0.3)
+        # Label: node id on top, UCB below
+        ax2.annotate(str(node.iteration), (x, y), ha='center', va='center',
+                    fontsize=7, fontweight='bold', color='white')
 
-    # combined legend for status and connectivity type
-    legend_elements = []
-    # status colors
-    for s, c in status_colors.items():
-        if s in [n.status for n in nodes]:
-            legend_elements.append(mpatches.Patch(color=c, label=s.capitalize()))
-    # connectivity type markers
-    legend_elements.append(Line2D([0], [0], marker='o', color='gray', label='chaotic',
-                                   markerfacecolor='gray', markersize=8, linestyle='None'))
-    legend_elements.append(Line2D([0], [0], marker='s', color='gray', label='low_rank',
-                                   markerfacecolor='gray', markersize=8, linestyle='None'))
-    ax4.legend(handles=legend_elements, loc='lower right', fontsize=8)
+    # Add UCB values as text next to nodes (closer to dot)
+    for node in nodes:
+        if node.iteration not in depth_map:
+            continue
+        x = depth_map[node.iteration]
+        y = y_positions[node.iteration]
+        ucb = ucb_values[node.iteration]['ucb']
+        ax2.annotate(f'{ucb:.1f}', (x, y), ha='left', va='center', fontsize=6, xytext=(8, 0), textcoords='offset points')
+
+    ax2.set_xlabel('Tree Depth', fontsize=11)
+    ax2.set_ylabel('Branch', fontsize=11)
+    ax2.set_title('Parent-Child Tree (size = UCB)', fontsize=12)
+    ax2.set_xlim(-0.5, max(depth_map.values()) + 0.5 if depth_map else 1)
+    ax2.grid(True, alpha=0.3)
 
     fig.suptitle(title, fontsize=14, y=0.98)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
@@ -693,7 +746,11 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.414, current_log_path=None, 
             if node_match and current_node is not None:
                 current_node['id'] = int(node_match.group(1))
                 parent_str = node_match.group(2)
-                current_node['parent'] = None if parent_str == 'None' else int(parent_str)
+                # Treat parent=0 or parent=None as root (no parent)
+                if parent_str == 'None' or parent_str == '0':
+                    current_node['parent'] = None
+                else:
+                    current_node['parent'] = int(parent_str)
                 continue
 
             # Match Metrics line for connectivity_R2

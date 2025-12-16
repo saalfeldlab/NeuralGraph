@@ -57,16 +57,17 @@ n_neuron_types: 2 # number of neuron types (1, 2, or 4)
 
 ## UCB Tree Exploration
 
-After iteration 1, `ucb_scores.txt` provides pre-computed UCB scores for all nodes:
+`ucb_scores.txt` provides pre-computed UCB scores for all nodes including current iteration:
 
 ```
-Node 3: UCB=1.420, parent=1, visits=2, mean_R2=0.850, this_R2=0.900
+Node 2: UCB=2.175, parent=1, visits=1, R2=0.997 [CURRENT]
+Node 1: UCB=2.110, parent=root, visits=2, R2=0.934
 ```
 
 - **Higher UCB = more promising to explore from** (balances exploitation vs exploration)
-- To explore from a node: use its config as parent, change ONE parameter
-- `visits`: how many times this subtree was explored
-- `mean_R2`: average connectivity_R2 in subtree
+- `[CURRENT]` marks the current iteration's node
+- `visits`: how many times this node's subtree was explored
+- `R2`: connectivity_R2 for this node
 
 ## Protocol
 
@@ -82,10 +83,14 @@ Node 3: UCB=1.420, parent=1, visits=2, mean_R2=0.850, this_R2=0.900
 
 ```
 ## Iter N: [converged/partial/failed]
-Node: id=N, parent=P, V=1, N_total=N
+Node: id=N, parent=P, V=1, N_total=N  # parent=0 for root node (iteration 1)
 Config: connectivity_type=X, connectivity_rank=R, factor=X, gain=Y, n_types=Z, Dale_law=T/F
 Metrics: spectral_radius=X, svd_rank=Y, test_R2=Z, test_pearson=W, connectivity_R2=V, final_loss=L
 RankScore: 0.XX  # = (rank - 1) / (N_total - 1), ascending order
 Observation: [one line]
 Change: [param: old -> new]
 ```
+
+## Meta-analysis
+
+Every 10 iteration make a meta-analysis of the results

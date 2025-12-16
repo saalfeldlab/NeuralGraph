@@ -1878,7 +1878,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             ax.set_yticks(yticks)
             ax.tick_params(axis='y', labelsize=24)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/MLP1_raw.pdf", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/MLP1_raw.png", dpi=170.7)
             plt.close()
 
             fig, ax = fig_init()
@@ -1917,7 +1917,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.ylim([-1.1, 1.1])
             ax.set_yticks([-1.0, 0.0, 1.0])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/MLP1_corrected.pdf", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/MLP1_corrected.png", dpi=170.7)
             plt.close()
 
 
@@ -1950,7 +1950,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.tight_layout()
             # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim(phi_ylim)
-            plt.savefig(f'./{log_dir}/results/MLP0.pdf', dpi=300)
+            plt.savefig(f'./{log_dir}/results/MLP0.png', dpi=300)
             plt.close()
 
 
