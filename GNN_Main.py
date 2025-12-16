@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('Agg')  # Set non-interactive backend before other imports
+matplotlib.use('Agg')  # set non-interactive backend before other imports
 import argparse
 import glob
 import os
@@ -7,31 +7,28 @@ import shutil
 import subprocess
 import time
 
-# Redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
+# redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
 if os.path.isdir('/scratch'):
     os.environ['TMPDIR'] = '/scratch/allierc'
     os.makedirs('/scratch/allierc', exist_ok=True)
 
 
-
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
+from NeuralGraph.models.exploration_tree import compute_ucb_scores
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
-# os.environ["MPLBACKEND"] = "Agg"
-# os.environ["QT_API"] = "pyside6"
-# os.environ["VISPY_BACKEND"] = "pyside6"
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
     parser = argparse.ArgumentParser(description="NeuralGraph")
     parser.add_argument(
-        "-o", "--option", nargs="+", help="Option that takes multiple values"
+        "-o", "--option", nargs="+", help="option that takes multiple values"
     )
 
 
@@ -47,7 +44,7 @@ if __name__ == "__main__":
             best_model = args.option[2]
         else:
             best_model = None
-        # Parse additional parameters from remaining args (e.g. iterations=20, experiment=dale)
+        # parse additional parameters from remaining args (e.g. iterations=20, experiment=dale)
         task_params = {}
         for arg in args.option[2:]:
             if '=' in arg:
@@ -55,17 +52,27 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
+        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
         task_params = {'iterations': 48, 'experiment': 'experiment_Dale_1'}
-        config_list = ['signal_LLM']
+        config_list = ['signal_Claude']
 
-    # Parse parameters from task_params
+    # parse parameters from task_params
     n_iterations = task_params.get('iterations', 5)
     experiment_name = task_params.get('experiment', 'experiment')
 
-    # If Claude in task, determine iteration range; otherwise single iteration
+    # if Claude in task, determine iteration range; otherwise single iteration
     if 'Claude' in task:
         iteration_range = range(1, n_iterations + 1)
+        # copy signal_Claude_first.yaml to signal_Claude.yaml at start
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        config_root = root_dir + "/config"
+        for cfg in config_list:
+            cfg_file, pre = add_pre_folder(cfg)
+            first_config = f"{config_root}/{pre}{cfg}_first.yaml"
+            target_config = f"{config_root}/{pre}{cfg}.yaml"
+            if os.path.exists(first_config):
+                shutil.copy2(first_config, target_config)
+                print(f"\033[93mcopied {first_config} -> {target_config}\033[0m")
     else:
         iteration_range = range(1, 2)  # single iteration
 
@@ -74,13 +81,13 @@ if __name__ == "__main__":
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
         config_file, pre_folder = add_pre_folder(config_file_)
 
-        # Setup for Claude analysis (paths needed before iteration loop)
+        # setup for Claude analysis (paths needed before iteration loop)
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
             experiment_path = f"{root_dir}/{experiment_name}.md"
             analysis_path = f"{root_dir}/analysis_{experiment_name}.md"
 
-            # Check experiment file exists
+            # check experiment file exists
             if not os.path.exists(experiment_path):
                 print(f"\033[91merror: experiment file not found: {experiment_path}\033[0m")
                 print(f"\033[93mavailable experiment files:\033[0m")
@@ -89,13 +96,13 @@ if __name__ == "__main__":
                         print(f"  - {f[:-3]}")
                 continue
 
-            # Clear analysis file at start
+            # clear analysis file at start
             with open(analysis_path, 'w') as f:
                 f.write(f"# Experiment Log: {config_file_}\n\n")
             print(f"\033[93mcleared {analysis_path}\033[0m")
             print(f"\033[93mexperiment: {experiment_name} ({n_iterations} iterations)\033[0m")
 
-        # Analysis log file in root folder (for Claude to read)
+        # analysis log file in root folder (for Claude to read)
         root_dir = os.path.dirname(os.path.abspath(__file__))
         analysis_log_path = f"{root_dir}/analysis.log"
 
@@ -103,7 +110,7 @@ if __name__ == "__main__":
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
 
-            # Reload config to pick up any changes from previous iteration
+            # reload config to pick up any changes from previous iteration
             config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
             config.dataset = pre_folder + config.dataset
             config.config_file = pre_folder + config_file_
@@ -111,11 +118,11 @@ if __name__ == "__main__":
             if device==[]:
                 device = set_device(config.training.device)
 
-            # Open analysis.log for this iteration (append mode for test/plot to add metrics)
+            # open analysis.log for this iteration (append mode for test/plot to add metrics)
             log_file = open(analysis_log_path, 'w')
 
             if "generate" in task:
-                erase = 'Claude' in task  # erase when iterating with Claude
+                erase = 'Claude' in task  # erase when iterating with claude
                 data_generate(
                     config,
                     device=device,
@@ -130,12 +137,12 @@ if __name__ == "__main__":
                 )
 
             if 'train_NGP' in task:
-                # Use new modular NGP trainer pipeline
+                # use new modular NGP trainer pipeline
                 data_train_NGP(config=config, device=device)
 
             elif 'train_INR' in task:
                 print()
-                # Pre-train nnr_f (SIREN) on external_input data before joint GNN learning
+                # pre-train nnr_f (SIREN) on external_input data before joint GNN learning
                 data_train_INR(config=config, device=device, total_steps=50000)
 
             elif "train" in task:
@@ -179,16 +186,16 @@ if __name__ == "__main__":
             log_file.close()
 
             if 'Claude' in task:
-                # Save exploration artifacts before Claude analysis
-                exploration_dir = f"{root_dir}/log/LLM_exploration/{experiment_name}"
+                # save exploration artifacts before Claude analysis
+                exploration_dir = f"{root_dir}/log/Claude_exploration/{experiment_name}"
                 config_save_dir = f"{exploration_dir}/config"
                 scatter_save_dir = f"{exploration_dir}/connectivity_scatter"
                 heatmap_save_dir = f"{exploration_dir}/connectivity_heatmap"
                 activity_save_dir = f"{exploration_dir}/activity"
 
-                # Create directories at start of experiment
+                # create directories at start of experiment
                 if iteration == 1:
-                    # Clear and recreate exploration folder
+                    # clear and recreate exploration folder
                     if os.path.exists(exploration_dir):
                         shutil.rmtree(exploration_dir)
                     os.makedirs(config_save_dir, exist_ok=True)
@@ -196,38 +203,47 @@ if __name__ == "__main__":
                     os.makedirs(heatmap_save_dir, exist_ok=True)
                     os.makedirs(activity_save_dir, exist_ok=True)
 
-                # Save config file
+                # save config file
                 src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
                 dst_config = f"{config_save_dir}/iter_{iteration:03d}.yaml"
                 if os.path.exists(src_config):
                     shutil.copy2(src_config, dst_config)
 
-                # Save connectivity scatterplot (most recent comparison_*.tif from matrix folder)
+                # save connectivity scatterplot (most recent comparison_*.tif from matrix folder)
                 matrix_dir = f"{root_dir}/log/{pre_folder}{config_file_}/tmp_training/matrix"
                 scatter_files = glob.glob(f"{matrix_dir}/comparison_*.tif")
                 if scatter_files:
-                    # Get most recent file
+                    # get most recent file
                     latest_scatter = max(scatter_files, key=os.path.getmtime)
                     dst_scatter = f"{scatter_save_dir}/iter_{iteration:03d}.tif"
                     shutil.copy2(latest_scatter, dst_scatter)
 
-                # Save connectivity heatmap
+                # save connectivity heatmap
                 data_folder = f"{root_dir}/graphs_data/{config.dataset}"
                 src_heatmap = f"{data_folder}/connectivity_matrix.png"
                 dst_heatmap = f"{heatmap_save_dir}/iter_{iteration:03d}.png"
                 if os.path.exists(src_heatmap):
                     shutil.copy2(src_heatmap, dst_heatmap)
 
-                # Save activity plot
+                # save activity plot
                 activity_path = f"{data_folder}/activity.png"
                 dst_activity = f"{activity_save_dir}/iter_{iteration:03d}.png"
                 if os.path.exists(activity_path):
                     shutil.copy2(activity_path, dst_activity)
 
-                # Claude analysis: reads activity.png and analysis.log, updates config per experiment protocol
+                # claude analysis: reads activity.png and analysis.log, updates config per experiment protocol
                 config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
+                ucb_path = f"{root_dir}/ucb_scores.txt"
 
-                # Check files are ready (generated by data_generate above)
+                # compute UCB scores from previous iterations (if any)
+                if iteration > 1:
+                    ucb_computed = compute_ucb_scores(analysis_path, ucb_path)
+                    if ucb_computed:
+                        print(f"\033[92mUCB scores computed: {ucb_path}\033[0m")
+                else:
+                    ucb_computed = False
+
+                # check files are ready (generated by data_generate above)
                 time.sleep(2)  # pause to ensure files are written
                 if not os.path.exists(activity_path):
                     print(f"\033[91merror: activity.png not found at {activity_path}\033[0m")
@@ -237,7 +253,7 @@ if __name__ == "__main__":
                     continue
                 print(f"\033[92mfiles ready: activity.png, analysis.log\033[0m")
 
-                # Call Claude CLI for analysis
+                # call Claude CLI for analysis
                 print(f"\033[93mClaude analysis...\033[0m")
 
                 claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
@@ -245,8 +261,9 @@ if __name__ == "__main__":
 1. Read activity image: {activity_path}
 2. Read analysis log: {analysis_log_path}
 3. Read protocol: {experiment_path}
-4. Append to {analysis_path} using log format from protocol
-5. Edit {config_path} to explore next parameter combination per protocol
+4. Read UCB scores: {ucb_path}
+5. Append to {analysis_path} using log format from protocol
+6. Edit {config_path} to explore next parameter combination per protocol
 
 Config file: {config_file_}"""
 
@@ -259,7 +276,7 @@ Config file: {config_file_}"""
                     'Read', 'Edit'
                 ]
 
-                # Run with real-time output streaming
+                # run with real-time output streaming
                 process = subprocess.Popen(
                     claude_cmd,
                     cwd=root_dir,
@@ -269,7 +286,7 @@ Config file: {config_file_}"""
                     bufsize=1
                 )
 
-                # Stream output line by line
+                # stream output line by line
                 for line in process.stdout:
                     print(line, end='', flush=True)
 

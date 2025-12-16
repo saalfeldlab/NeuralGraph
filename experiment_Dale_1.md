@@ -6,8 +6,8 @@ You execute one experimental iteration in an iterative exploration loop.
 
 ## Goal
 
-Explore neural activity dynamics under Dale's law constraints and evaluate the GNN's ability to recover the true connectivity matrix W (onnectivity_R2) and faithfully reproduce the observed dynamics (test_pearson).
-Obvioulsy if the activity generated is flat then the GNN recovery is not possible. Try to favor activity complexity, with vd_rank > 10
+Explore neural activity dynamics under Dale's law constraints and evaluate the GNN's ability to recover the true connectivity matrix W (onnectivity_R2) and faithfully reproduce the observed dynamics (test_pearson). Obvioulsy if the activity generated is flat then the GNN recovery is not possible. Try to favor activity complexity, with svd_rank > 10.
+You should be excited, you are trying to understand how to recover connectivity matrix from different neural activity.
 
 Key questions:
 
@@ -55,14 +55,28 @@ n_neuron_types: 2 # number of neuron types (1, 2, or 4)
 - **Partial**: connectivity_R2 0.1-0.9 (grey zone)
 - **Failed**: connectivity_R2 < 0.1
 
+## UCB Tree Exploration
+
+After iteration 1, `ucb_scores.txt` provides pre-computed UCB scores for all nodes:
+
+```
+Node 3: UCB=1.420, parent=1, visits=2, mean_R2=0.850, this_R2=0.900
+```
+
+- **Higher UCB = more promising to explore from** (balances exploitation vs exploration)
+- To explore from a node: use its config as parent, change ONE parameter
+- `visits`: how many times this subtree was explored
+- `mean_R2`: average connectivity_R2 in subtree
+
 ## Protocol
 
 **IMPORTANT: Change only ONE parameter per iteration** to isolate effects.
 
 1. Start with baseline: Dale_law=False, factor=0.5, gain=7, n_types=1
 2. Enable Dale_law (keep all else same)
-3. Then vary ONE parameter at a time
-4. If training fails, revert and try different parameter
+3. Read `ucb_scores.txt` to decide which node to explore from
+4. Then vary ONE parameter at a time from chosen parent
+5. If training fails, revert and try different parameter
 
 ## Log Format
 

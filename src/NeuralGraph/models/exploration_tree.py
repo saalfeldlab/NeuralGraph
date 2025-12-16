@@ -12,14 +12,18 @@ Example:
     python exploration_tree.py analysis_experiment_convergence.md --output tree.png
 """
 
+import math
+import os
 import re
 import argparse
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Optional
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
 import numpy as np
 
 
@@ -355,6 +359,181 @@ def plot_exploration_tree(nodes: list[ExperimentNode],
     plt.close()
 
 
+def plot_data_exploration(nodes: list[ExperimentNode],
+                          output_path: Optional[str] = None,
+                          title: str = "Data Exploration"):
+    """
+    Visualize relationship between data characteristics and GNN recovery ability.
+
+    Panels:
+    - Top left: svd_rank vs connectivity_R2 (activity complexity vs recovery)
+    - Top right: spectral_radius vs connectivity_R2 (dynamics stability vs recovery)
+    - Bottom left: svd_rank vs test_pearson (activity complexity vs prediction)
+    - Bottom right: exploration tree (iteration vs connectivity_R2)
+
+    Markers indicate connectivity_type: 'o' for chaotic, 's' for low_rank
+    """
+    if not nodes:
+        print("No nodes to plot")
+        return
+
+    status_colors = {
+        'converged': '#2ecc71',  # green
+        'partial': '#f39c12',    # orange
+        'failed': '#e74c3c',     # red
+    }
+
+    # marker based on connectivity_type
+    connectivity_markers = {
+        'chaotic': 'o',    # circle
+        'low_rank': 's',   # square
+    }
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 12))
+    ax1, ax2, ax3, ax4 = axes.flatten()
+
+    # extract metrics from nodes
+    svd_ranks = []
+    spectral_radii = []
+    conn_r2s = []
+    test_pearsons = []
+    colors = []
+    iterations = []
+    conn_types = []
+
+    for node in nodes:
+        svd_rank = node.metrics.get('svd_rank', None)
+        spectral_radius = node.metrics.get('spectral_radius', None)
+        conn_r2 = node.metrics.get('connectivity_R2', None)
+        test_pearson = node.metrics.get('test_pearson', None)
+        conn_type = node.config.get('connectivity_type', 'chaotic')
+
+        if svd_rank is not None and conn_r2 is not None:
+            svd_ranks.append(float(svd_rank))
+            conn_r2s.append(float(conn_r2))
+            colors.append(status_colors.get(node.status, '#95a5a6'))
+            iterations.append(node.iteration)
+            conn_types.append(conn_type)
+
+            if spectral_radius is not None:
+                spectral_radii.append(float(spectral_radius))
+            else:
+                spectral_radii.append(None)
+
+            if test_pearson is not None:
+                test_pearsons.append(float(test_pearson))
+            else:
+                test_pearsons.append(None)
+
+    if not svd_ranks:
+        print("No metrics found in nodes")
+        return
+
+    # --- top left: svd_rank vs connectivity_R2 ---
+    for i, (sr, cr, c, it, ct) in enumerate(zip(svd_ranks, conn_r2s, colors, iterations, conn_types)):
+        marker = connectivity_markers.get(ct, 'o')
+        ax1.scatter(sr, cr, c=c, s=100, marker=marker, edgecolors='black', linewidths=0.5, alpha=0.8)
+        ax1.annotate(str(it), (sr, cr), ha='center', va='bottom', fontsize=7, fontweight='bold')
+
+    ax1.axhline(y=0.9, color='green', linestyle=':', alpha=0.5)
+    ax1.axhline(y=0.1, color='red', linestyle=':', alpha=0.5)
+    ax1.axvline(x=10, color='blue', linestyle=':', alpha=0.5)
+    ax1.set_xlabel('svd_rank (activity complexity)', fontsize=11)
+    ax1.set_ylabel('connectivity_R2 (recovery)', fontsize=11)
+    ax1.set_title('Activity Complexity vs Recovery', fontsize=12)
+    ax1.set_ylim(-0.05, 1.05)
+    ax1.grid(True, alpha=0.3)
+
+    # --- top right: spectral_radius vs connectivity_R2 ---
+    valid_sr = [(sr, cr, c, it, ct) for sr, cr, c, it, ct in zip(spectral_radii, conn_r2s, colors, iterations, conn_types) if sr is not None]
+    if valid_sr:
+        for sr, cr, c, it, ct in valid_sr:
+            marker = connectivity_markers.get(ct, 'o')
+            ax2.scatter(sr, cr, c=c, s=100, marker=marker, edgecolors='black', linewidths=0.5, alpha=0.8)
+            ax2.annotate(str(it), (sr, cr), ha='center', va='bottom', fontsize=7, fontweight='bold')
+
+        ax2.axhline(y=0.9, color='green', linestyle=':', alpha=0.5)
+        ax2.axhline(y=0.1, color='red', linestyle=':', alpha=0.5)
+        ax2.axvline(x=1.0, color='orange', linestyle=':', alpha=0.5)
+        ax2.set_xlabel('spectral_radius', fontsize=11)
+        ax2.set_ylabel('connectivity_R2 (recovery)', fontsize=11)
+        ax2.set_title('Spectral Radius vs Recovery', fontsize=12)
+        ax2.set_ylim(-0.05, 1.05)
+        ax2.grid(True, alpha=0.3)
+    else:
+        ax2.text(0.5, 0.5, 'No spectral_radius data', ha='center', va='center', transform=ax2.transAxes)
+        ax2.set_title('Spectral Radius vs Recovery', fontsize=12)
+
+    # --- bottom left: svd_rank vs test_pearson ---
+    valid_tp = [(sr, tp, c, it, ct) for sr, tp, c, it, ct in zip(svd_ranks, test_pearsons, colors, iterations, conn_types) if tp is not None]
+    if valid_tp:
+        for sr, tp, c, it, ct in valid_tp:
+            marker = connectivity_markers.get(ct, 'o')
+            ax3.scatter(sr, tp, c=c, s=100, marker=marker, edgecolors='black', linewidths=0.5, alpha=0.8)
+            ax3.annotate(str(it), (sr, tp), ha='center', va='bottom', fontsize=7, fontweight='bold')
+
+        ax3.axvline(x=10, color='blue', linestyle=':', alpha=0.5)
+        ax3.set_xlabel('svd_rank (activity complexity)', fontsize=11)
+        ax3.set_ylabel('test_pearson (prediction)', fontsize=11)
+        ax3.set_title('Activity Complexity vs Prediction', fontsize=12)
+        ax3.set_ylim(-0.05, 1.05)
+        ax3.grid(True, alpha=0.3)
+    else:
+        ax3.text(0.5, 0.5, 'No test_pearson data', ha='center', va='center', transform=ax3.transAxes)
+        ax3.set_title('Activity Complexity vs Prediction', fontsize=12)
+
+    # --- bottom right: exploration tree (iteration vs connectivity_R2) ---
+    positions = compute_tree_layout(nodes)
+
+    # draw edges
+    for node in nodes:
+        if node.parent is not None and node.parent in positions:
+            x1, y1 = positions[node.parent]
+            x2, y2 = positions[node.iteration]
+            ax4.plot([x1, x2], [y1, y2], color='#34495e', linestyle='-', linewidth=1.5, alpha=0.6, zorder=1)
+
+    # draw nodes with connectivity_type markers
+    for node in nodes:
+        x, y = positions[node.iteration]
+        color = status_colors.get(node.status, '#95a5a6')
+        conn_type = node.config.get('connectivity_type', 'chaotic')
+        marker = connectivity_markers.get(conn_type, 'o')
+        ax4.scatter(x, y, c=color, s=100, marker=marker, edgecolors='black', linewidths=0.5, zorder=2)
+        ax4.annotate(str(node.iteration), (x, y), ha='center', va='center', fontsize=6, fontweight='bold')
+
+    ax4.axhline(y=0.9, color='green', linestyle=':', alpha=0.5)
+    ax4.axhline(y=0.1, color='red', linestyle=':', alpha=0.5)
+    ax4.set_xlabel('Iteration', fontsize=11)
+    ax4.set_ylabel('connectivity_R2', fontsize=11)
+    ax4.set_title('Exploration Tree', fontsize=12)
+    ax4.set_ylim(-0.05, 1.05)
+    ax4.grid(True, alpha=0.3)
+
+    # combined legend for status and connectivity type
+    legend_elements = []
+    # status colors
+    for s, c in status_colors.items():
+        if s in [n.status for n in nodes]:
+            legend_elements.append(mpatches.Patch(color=c, label=s.capitalize()))
+    # connectivity type markers
+    legend_elements.append(Line2D([0], [0], marker='o', color='gray', label='chaotic',
+                                   markerfacecolor='gray', markersize=8, linestyle='None'))
+    legend_elements.append(Line2D([0], [0], marker='s', color='gray', label='low_rank',
+                                   markerfacecolor='gray', markersize=8, linestyle='None'))
+    ax4.legend(handles=legend_elements, loc='lower right', fontsize=8)
+
+    fig.suptitle(title, fontsize=14, y=0.98)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+    if output_path:
+        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        print(f"Saved data exploration plot to {output_path}")
+    else:
+        plt.show()
+
+    plt.close()
+
+
 def plot_parameter_space(nodes: list[ExperimentNode],
                          param_x: str = 'lr_W',
                          param_y: str = 'lr',
@@ -472,6 +651,124 @@ def generate_summary_stats(nodes: list[ExperimentNode]) -> dict:
     stats['parameters_explored'] = list(stats['parameters_explored'])
 
     return stats
+
+
+def compute_ucb_scores(analysis_path, ucb_path, c=1.414):
+    """
+    Parse analysis file, build exploration tree, compute UCB scores.
+
+    Args:
+        analysis_path: Path to analysis_experiment_*.md file
+        ucb_path: Path to write UCB scores output
+        c: Exploration constant (default sqrt(2) ~= 1.414)
+
+    Returns:
+        True if UCB scores were computed, False if no nodes found
+    """
+    if not os.path.exists(analysis_path):
+        return False
+
+    with open(analysis_path, 'r') as f:
+        content = f.read()
+
+    # Parse nodes from analysis file
+    # Format: Node: id=N, parent=P, V=1, N_total=N
+    # Metrics: ..., connectivity_R2=V, ...
+    nodes = {}
+    current_node = None
+
+    lines = content.split('\n')
+    for i, line in enumerate(lines):
+        # Match iteration header: ## Iter N: [status]
+        iter_match = re.match(r'## Iter (\d+):', line)
+        if iter_match:
+            current_iter = int(iter_match.group(1))
+            current_node = {'iter': current_iter}
+            continue
+
+        # Match Node line
+        node_match = re.match(r'Node: id=(\d+), parent=(\d+|None)', line)
+        if node_match and current_node is not None:
+            current_node['id'] = int(node_match.group(1))
+            parent_str = node_match.group(2)
+            current_node['parent'] = None if parent_str == 'None' else int(parent_str)
+            continue
+
+        # Match Metrics line for connectivity_R2
+        metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
+        if metrics_match and current_node is not None:
+            r2_str = metrics_match.group(1)
+            current_node['connectivity_R2'] = float(r2_str) if r2_str != 'nan' else 0.0
+            # Node complete, store it
+            if 'id' in current_node:
+                nodes[current_node['id']] = current_node
+            current_node = None
+
+    if not nodes:
+        return False
+
+    # Build tree structure: for each node, track children and compute stats
+    children = defaultdict(list)
+    for node_id, node in nodes.items():
+        if node['parent'] is not None:
+            children[node['parent']].append(node_id)
+
+    # Compute visits and mean reward for each node (including subtree)
+    def get_subtree_stats(node_id):
+        """Return (total_visits, sum_rewards) for node and all descendants."""
+        if node_id not in nodes:
+            return 0, 0.0
+
+        visits = 1
+        rewards = nodes[node_id].get('connectivity_R2', 0.0)
+
+        for child_id in children[node_id]:
+            child_visits, child_rewards = get_subtree_stats(child_id)
+            visits += child_visits
+            rewards += child_rewards
+
+        return visits, rewards
+
+    # Total number of nodes
+    n_total = len(nodes)
+
+    # Compute UCB for each node
+    ucb_scores = []
+    for node_id, node in nodes.items():
+        visits, sum_rewards = get_subtree_stats(node_id)
+        mean_reward = sum_rewards / visits if visits > 0 else 0.0
+
+        # UCB formula: mean + c * sqrt(ln(N_total) / visits)
+        if visits > 0 and n_total > 1:
+            exploration_term = c * math.sqrt(math.log(n_total) / visits)
+        else:
+            exploration_term = float('inf')  # Unvisited nodes get priority
+
+        ucb = mean_reward + exploration_term
+
+        ucb_scores.append({
+            'id': node_id,
+            'parent': node['parent'],
+            'visits': visits,
+            'mean_R2': mean_reward,
+            'ucb': ucb,
+            'connectivity_R2': node.get('connectivity_R2', 0.0)
+        })
+
+    # Sort by UCB descending (highest UCB = most promising to explore)
+    ucb_scores.sort(key=lambda x: x['ucb'], reverse=True)
+
+    # Write UCB scores to file
+    with open(ucb_path, 'w') as f:
+        f.write(f"=== UCB Scores (N_total={n_total}, c={c}) ===\n\n")
+        for score in ucb_scores:
+            parent_str = score['parent'] if score['parent'] is not None else 'root'
+            f.write(f"Node {score['id']}: UCB={score['ucb']:.3f}, "
+                    f"parent={parent_str}, visits={score['visits']}, "
+                    f"mean_R2={score['mean_R2']:.3f}, "
+                    f"this_R2={score['connectivity_R2']:.3f}\n")
+
+    return True
 
 
 def print_recommendations():

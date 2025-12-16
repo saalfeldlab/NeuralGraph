@@ -1,5 +1,5 @@
 description: "one type"
-dataset: "signal_chaotic_Claude"
+dataset: "signal_Claude"
 
 simulation:
   connectivity_type: "chaotic"
@@ -14,7 +14,7 @@ simulation:
       [4.0, 0.0, 7.0, 0.0, 1.0, 3.0],
     ]
   Dale_law: True
-  Dale_law_factor: 0.3
+  Dale_law_factor: 0.5
 
   phi: "tanh"
   n_neurons: 100
