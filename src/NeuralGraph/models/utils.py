@@ -1611,6 +1611,7 @@ def analyze_type_neighbors(
         },
     }
 
+
 def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', ylabel='modified $W$', color='white'):
     w_true_np = w_true.detach().cpu().numpy().flatten()
     w_modified_np = w_modified.detach().cpu().numpy().flatten()
@@ -1637,6 +1638,7 @@ def plot_weight_comparison(w_true, w_modified, output_path, xlabel='true $W$', y
     plt.savefig(output_path, dpi=150)
     plt.close()
     return slope, r_squared
+
 
 def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True, logger=None):
     """

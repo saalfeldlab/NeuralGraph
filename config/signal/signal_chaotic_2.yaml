@@ -59,8 +59,8 @@ training:
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
-  learning_rate_W_start: 1.0E-3
-  learning_rate_start: 5.0E-4
+  learning_rate_W_start: 2.0E-3
+  learning_rate_start: 1.0E-4
   learning_rate_embedding_start: 2.5E-4
 
   learning_rate_NNR_f: 1.0E-6
