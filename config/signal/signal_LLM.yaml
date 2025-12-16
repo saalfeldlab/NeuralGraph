@@ -13,8 +13,8 @@ simulation:
       [3.0, 0.0, 7.0, 0.0, 1.0, 2.0],
       [4.0, 0.0, 7.0, 0.0, 1.0, 3.0],
     ]
-  Dale_law: False
-  Dale_law_factor: 0.5
+  Dale_law: True
+  Dale_law_factor: 0.3
 
   phi: "tanh"
   n_neurons: 100
@@ -72,6 +72,6 @@ training:
   learning_rate_start: 1.0E-4
   learning_rate_embedding_start: 2.5E-4
 
-  coeff_W_L1: 0
+  coeff_W_L1: 5.0E-6
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
