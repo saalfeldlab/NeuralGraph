@@ -653,7 +653,7 @@ def generate_summary_stats(nodes: list[ExperimentNode]) -> dict:
     return stats
 
 
-def compute_ucb_scores(analysis_path, ucb_path, c=1.414):
+def compute_ucb_scores(analysis_path, ucb_path, c=1.414, current_log_path=None, current_iteration=None):
     """
     Parse analysis file, build exploration tree, compute UCB scores.
 
@@ -661,48 +661,75 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.414):
         analysis_path: Path to analysis_experiment_*.md file
         ucb_path: Path to write UCB scores output
         c: Exploration constant (default sqrt(2) ~= 1.414)
+        current_log_path: Path to current iteration's analysis.log (optional)
+        current_iteration: Current iteration number (optional)
 
     Returns:
         True if UCB scores were computed, False if no nodes found
     """
-    if not os.path.exists(analysis_path):
-        return False
-
-    with open(analysis_path, 'r') as f:
-        content = f.read()
-
-    # Parse nodes from analysis file
-    # Format: Node: id=N, parent=P, V=1, N_total=N
-    # Metrics: ..., connectivity_R2=V, ...
     nodes = {}
-    current_node = None
 
-    lines = content.split('\n')
-    for i, line in enumerate(lines):
-        # Match iteration header: ## Iter N: [status]
-        iter_match = re.match(r'## Iter (\d+):', line)
-        if iter_match:
-            current_iter = int(iter_match.group(1))
-            current_node = {'iter': current_iter}
-            continue
+    # parse previous iterations from analysis markdown file
+    if os.path.exists(analysis_path):
+        with open(analysis_path, 'r') as f:
+            content = f.read()
 
-        # Match Node line
-        node_match = re.match(r'Node: id=(\d+), parent=(\d+|None)', line)
-        if node_match and current_node is not None:
-            current_node['id'] = int(node_match.group(1))
-            parent_str = node_match.group(2)
-            current_node['parent'] = None if parent_str == 'None' else int(parent_str)
-            continue
+        # Parse nodes from analysis file
+        # Format: Node: id=N, parent=P, V=1, N_total=N
+        # Metrics: ..., connectivity_R2=V, ...
+        current_node = None
 
-        # Match Metrics line for connectivity_R2
-        metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
-        if metrics_match and current_node is not None:
-            r2_str = metrics_match.group(1)
-            current_node['connectivity_R2'] = float(r2_str) if r2_str != 'nan' else 0.0
-            # Node complete, store it
-            if 'id' in current_node:
-                nodes[current_node['id']] = current_node
-            current_node = None
+        lines = content.split('\n')
+        for i, line in enumerate(lines):
+            # Match iteration header: ## Iter N: [status]
+            iter_match = re.match(r'## Iter (\d+):', line)
+            if iter_match:
+                current_iter = int(iter_match.group(1))
+                current_node = {'iter': current_iter}
+                continue
+
+            # Match Node line
+            node_match = re.match(r'Node: id=(\d+), parent=(\d+|None)', line)
+            if node_match and current_node is not None:
+                current_node['id'] = int(node_match.group(1))
+                parent_str = node_match.group(2)
+                current_node['parent'] = None if parent_str == 'None' else int(parent_str)
+                continue
+
+            # Match Metrics line for connectivity_R2
+            metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
+            if metrics_match and current_node is not None:
+                r2_str = metrics_match.group(1)
+                current_node['connectivity_R2'] = float(r2_str) if r2_str != 'nan' else 0.0
+                # Node complete, store it
+                if 'id' in current_node:
+                    nodes[current_node['id']] = current_node
+                current_node = None
+
+    # add current iteration from analysis.log if provided
+    if current_log_path and current_iteration and os.path.exists(current_log_path):
+        with open(current_log_path, 'r') as f:
+            log_content = f.read()
+
+        # parse connectivity_R2 from analysis.log
+        r2_match = re.search(r'connectivity_R2=([\d.]+|nan)', log_content)
+        if r2_match:
+            r2_str = r2_match.group(1)
+            conn_r2 = float(r2_str) if r2_str != 'nan' else 0.0
+
+            # determine parent: previous iteration if exists, else None (for iter 1) or last node
+            if current_iteration == 1:
+                parent_id = None
+            else:
+                # parent is the previous node (simple linear assumption)
+                parent_id = current_iteration - 1 if (current_iteration - 1) in nodes else None
+
+            nodes[current_iteration] = {
+                'iter': current_iteration,
+                'id': current_iteration,
+                'parent': parent_id,
+                'connectivity_R2': conn_r2
+            }
 
     if not nodes:
         return False
@@ -752,7 +779,8 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.414):
             'visits': visits,
             'mean_R2': mean_reward,
             'ucb': ucb,
-            'connectivity_R2': node.get('connectivity_R2', 0.0)
+            'connectivity_R2': node.get('connectivity_R2', 0.0),
+            'is_current': node_id == current_iteration
         })
 
     # Sort by UCB descending (highest UCB = most promising to explore)
@@ -763,10 +791,10 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.414):
         f.write(f"=== UCB Scores (N_total={n_total}, c={c}) ===\n\n")
         for score in ucb_scores:
             parent_str = score['parent'] if score['parent'] is not None else 'root'
+            current_marker = " [CURRENT]" if score['is_current'] else ""
             f.write(f"Node {score['id']}: UCB={score['ucb']:.3f}, "
                     f"parent={parent_str}, visits={score['visits']}, "
-                    f"mean_R2={score['mean_R2']:.3f}, "
-                    f"this_R2={score['connectivity_R2']:.3f}\n")
+                    f"R2={score['connectivity_R2']:.3f}{current_marker}\n")
 
     return True
 
