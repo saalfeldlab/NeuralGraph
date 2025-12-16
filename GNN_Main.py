@@ -16,7 +16,7 @@ if os.path.isdir('/scratch'):
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
-from NeuralGraph.models.exploration_tree import compute_ucb_scores
+from NeuralGraph.models.exploration_tree import compute_ucb_scores, parse_experiment_log, build_tree_structure, plot_data_exploration
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
@@ -290,3 +290,15 @@ Config file: {config_file_}"""
                     print(line, end='', flush=True)
 
                 process.wait()
+
+                # plot data exploration tree after each iteration
+                if os.path.exists(analysis_path):
+                    try:
+                        nodes = parse_experiment_log(analysis_path)
+                        if nodes:
+                            nodes = build_tree_structure(nodes)
+                            plot_path = f"{exploration_dir}/data_exploration.png"
+                            plot_data_exploration(nodes, output_path=plot_path,
+                                                  title=f"{experiment_name} - Iteration {iteration}")
+                    except Exception as e:
+                        print(f"\033[93mwarning: could not plot exploration tree: {e}\033[0m")
