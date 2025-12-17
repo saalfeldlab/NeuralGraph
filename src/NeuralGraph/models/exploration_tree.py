@@ -742,12 +742,12 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                 continue
 
             # Match Node line
-            node_match = re.match(r'Node: id=(\d+), parent=(\d+|None)', line)
+            node_match = re.match(r'Node: id=(\d+), parent=(\d+|None|root)', line)
             if node_match and current_node is not None:
                 current_node['id'] = int(node_match.group(1))
                 parent_str = node_match.group(2)
-                # Treat parent=0 or parent=None as root (no parent)
-                if parent_str == 'None' or parent_str == '0':
+                # Treat parent=0, parent=None, or parent=root as root (no parent)
+                if parent_str in ('None', '0', 'root'):
                     current_node['parent'] = None
                 else:
                     current_node['parent'] = int(parent_str)
@@ -768,8 +768,8 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         with open(current_log_path, 'r') as f:
             log_content = f.read()
 
-        # parse connectivity_R2 from analysis.log
-        r2_match = re.search(r'connectivity_R2=([\d.]+|nan)', log_content)
+        # parse connectivity_R2 from analysis.log (handles both = and : formats)
+        r2_match = re.search(r'connectivity_R2[=:]\s*([\d.]+|nan)', log_content)
         if r2_match:
             r2_str = r2_match.group(1)
             conn_r2 = float(r2_str) if r2_str != 'nan' else 0.0

@@ -591,12 +591,11 @@ def create_log_dir(config=[], erase=True):
         files = glob.glob(f"{log_dir}/models/*")
         for f in files:
             os.remove(f)
-        # erase results (except 'all', 'field', 'svd' folders)
-        files = glob.glob(f"{log_dir}/results/*")
-        for f in files:
-            if ('all' not in f) & ('field' not in f) & ('svd' not in f):
-                if os.path.isfile(f):
-                    os.remove(f)
+        # erase entire results folder and recreate
+        results_dir = os.path.join(log_dir, 'results')
+        if os.path.exists(results_dir):
+            shutil.rmtree(results_dir)
+        os.makedirs(results_dir, exist_ok=True)
         # erase entire tmp_training folder and recreate
         tmp_training_dir = os.path.join(log_dir, 'tmp_training')
         if os.path.exists(tmp_training_dir):

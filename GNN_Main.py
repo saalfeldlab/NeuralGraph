@@ -201,6 +201,7 @@ if __name__ == "__main__":
                 matrix_save_dir = f"{exploration_dir}/connectivity_matrix"
                 activity_save_dir = f"{exploration_dir}/activity"
                 mlp_save_dir = f"{exploration_dir}/mlp"
+                tree_save_dir = f"{exploration_dir}/exploration_tree"
 
                 # create directories at start of experiment
                 if iteration == 1:
@@ -212,6 +213,7 @@ if __name__ == "__main__":
                     os.makedirs(matrix_save_dir, exist_ok=True)
                     os.makedirs(activity_save_dir, exist_ok=True)
                     os.makedirs(mlp_save_dir, exist_ok=True)
+                    os.makedirs(tree_save_dir, exist_ok=True)
 
                 # save config file
                 src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
@@ -284,6 +286,9 @@ if __name__ == "__main__":
                             plot_ucb_tree(ucb_nodes, ucb_tree_path,
                                          title=f"UCB Tree - {experiment_name} (iter {iteration})")
                             print(f"\033[92mUCB tree saved: {ucb_tree_path}\033[0m")
+                            # archive to exploration_tree folder
+                            archive_tree_path = f"{tree_save_dir}/iter_{iteration:03d}.png"
+                            shutil.copy2(ucb_tree_path, archive_tree_path)
                     except Exception as e:
                         print(f"\033[93mwarning: could not plot UCB tree: {e}\033[0m")
 

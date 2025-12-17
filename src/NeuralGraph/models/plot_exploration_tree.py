@@ -162,6 +162,10 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
     fig, ax = plt.subplots(figsize=(16, 12))
 
+    # Set white background explicitly
+    fig.patch.set_facecolor('white')
+    ax.set_facecolor('white')
+
     # Draw edges first (so they're behind nodes)
     for node in nodes:
         if node.parent is not None and node.parent in positions and node.id in positions:
@@ -209,10 +213,11 @@ def plot_ucb_tree(nodes: list[UCBNode],
                    fontsize=5, xytext=(0, -12), textcoords='offset points',
                    color='#555555', zorder=3)
 
-    # Axis labels and title
-    ax.set_xlabel('Tree Depth', fontsize=12)
-    ax.set_ylabel('Branch', fontsize=12)
-    ax.set_title(title, fontsize=14)
+    # Axis labels and title (explicit black color for white background)
+    ax.set_xlabel('Tree Depth', fontsize=12, color='black')
+    ax.set_ylabel('Branch', fontsize=12, color='black')
+    ax.set_title(title, fontsize=14, color='black')
+    ax.tick_params(colors='black')
 
     # Set axis limits with padding
     if positions:
@@ -221,7 +226,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
         ax.set_xlim(min(x_vals) - 0.5, max(x_vals) + 0.5)
         ax.set_ylim(min(y_vals) - 1, max(y_vals) + 1)
 
-    ax.grid(True, alpha=0.3)
+    ax.grid(False)
 
     # Legend
     legend_elements = [

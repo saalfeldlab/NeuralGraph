@@ -411,10 +411,12 @@ def data_train_signal(config, erase, best_model, style, device):
         total_loss = 0
         total_loss_regul = 0
         run = 0
+        last_connectivity_r2 = None  # track last R² for progress display
 
 
         time.sleep(1.0)
-        for N in trange(Niter, ncols=150):
+        pbar = trange(Niter, ncols=150)
+        for N in pbar:
 
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
@@ -638,7 +640,18 @@ def data_train_signal(config, erase, best_model, style, device):
                     current_loss = loss.item()
                     loss_components['loss'].append((current_loss - regul_total_this_iter) / n_neurons)
 
-                    plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device)
+                    last_connectivity_r2 = plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device)
+                    if last_connectivity_r2 is not None:
+                        # color code: green (>0.95), yellow (0.7-0.95), orange (0.3-0.7), red (<0.3)
+                        if last_connectivity_r2 > 0.95:
+                            r2_color = '\033[92m'  # green
+                        elif last_connectivity_r2 > 0.7:
+                            r2_color = '\033[93m'  # yellow
+                        elif last_connectivity_r2 > 0.3:
+                            r2_color = '\033[38;5;208m'  # orange
+                        else:
+                            r2_color = '\033[91m'  # red
+                        pbar.set_postfix_str(f'{r2_color}R²={last_connectivity_r2:.3f}\033[0m')
 
                     # merge loss_components with regularizer history for plotting
                     plot_dict = {**regularizer.get_history(), **loss_components}

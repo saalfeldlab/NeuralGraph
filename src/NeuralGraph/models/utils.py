@@ -386,12 +386,15 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
     r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
     ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
-            fontsize=24, verticalalignment='top', color=mc)
-    ax.text(0.05, 0.9, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
-            fontsize=24, verticalalignment='top', color=mc)
+            fontsize=24, verticalalignment='top', fontweight='bold', color=mc)
+    ax.text(0.05, 0.85, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+            fontsize=24, verticalalignment='top', fontweight='bold', color=mc)
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
     plt.close()
+
+    # Return r_squared for progress tracking
+    connectivity_r2 = r_squared
 
     if ('PDE_N8' in config.graph_model.signal_model_name):
         os.makedirs(f"./{log_dir}/tmp_training/matrix/larynx", exist_ok=True)
@@ -532,6 +535,8 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
 
     plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.tif", dpi=87)
     plt.close()
+
+    return connectivity_r2
 
 
 def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):

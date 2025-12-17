@@ -63,6 +63,6 @@ training:
   learning_rate_start: 1.0E-4
   learning_rate_embedding_start: 2.5E-4
 
-  coeff_W_L1: 5.0E-6
+  coeff_W_L1: 5.0E-4
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
