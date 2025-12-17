@@ -28,7 +28,6 @@ training:
   learning_rate_W_start: 1.0E-3 # LR for connectivity weights W
   learning_rate_start: 5.0E-4 # LR for model parameters
   learning_rate_embedding_start: 2.5E-4 # LR for embeddings
-
   coeff_W_L1: 5.0E-6 # L1 regularization on W (sparsity)
   batch_size: 8 # batch size for training
 ```
@@ -72,6 +71,7 @@ Goal: Find robust configurations and map the boundaries of the working parameter
 **Validation**: When a good config is found (connectivity_R2 > 0.9), repeat it 3 times without changes to confirm robustness. Only mark as "robust" if all 3 runs converge.
 
 **After validation succeeds**: Don't stop! Search for other working points:
+
 - Move away from the current working config to find alternative solutions
 - Try significantly different parameter combinations (not just small perturbations)
 - Goal: discover if there are multiple distinct working regions in parameter space

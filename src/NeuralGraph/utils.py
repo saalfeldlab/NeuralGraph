@@ -1,7 +1,7 @@
 import glob
 import logging
 import os
-
+import shutil
 
 import imageio
 import matplotlib.pyplot as plt
@@ -587,31 +587,28 @@ def create_log_dir(config=[], erase=True):
         os.makedirs(os.path.join(log_dir, 'tmp_training/ghost'), exist_ok=True)
 
     if erase:
+        # erase old models to avoid mismatch with new ground truth
+        files = glob.glob(f"{log_dir}/models/*")
+        for f in files:
+            os.remove(f)
+        # erase results (except 'all', 'field', 'svd' folders)
         files = glob.glob(f"{log_dir}/results/*")
         for f in files:
             if ('all' not in f) & ('field' not in f) & ('svd' not in f):
-                os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/particle/*")
-        for f in files:
-            os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/external_input/*")
-        for f in files:
-            os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/matrix/*")
-        for f in files:
-            os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/function/MLP1/*")
-        for f in files:
-            os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/function/MLP0s/*")
-        for f in files:
-            os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/embedding/*")
-        for f in files:
-            os.remove(f)
-        files = glob.glob(f"{log_dir}/tmp_training/ghost/*")
-        for f in files:
-            os.remove(f)
+                if os.path.isfile(f):
+                    os.remove(f)
+        # erase entire tmp_training folder and recreate
+        tmp_training_dir = os.path.join(log_dir, 'tmp_training')
+        if os.path.exists(tmp_training_dir):
+            shutil.rmtree(tmp_training_dir)
+        os.makedirs(os.path.join(log_dir, 'tmp_training/external_input'), exist_ok=True)
+        os.makedirs(os.path.join(log_dir, 'tmp_training/matrix'), exist_ok=True)
+        os.makedirs(os.path.join(log_dir, 'tmp_training/function'), exist_ok=True)
+        os.makedirs(os.path.join(log_dir, 'tmp_training/function/MLP0'), exist_ok=True)
+        os.makedirs(os.path.join(log_dir, 'tmp_training/function/MLP1'), exist_ok=True)
+        os.makedirs(os.path.join(log_dir, 'tmp_training/embedding'), exist_ok=True)
+        if config.training.n_ghosts > 0:
+            os.makedirs(os.path.join(log_dir, 'tmp_training/ghost'), exist_ok=True)
     os.makedirs(os.path.join(log_dir, 'tmp_recons'), exist_ok=True)
 
     logging.basicConfig(filename=os.path.join(log_dir, 'training.log'),

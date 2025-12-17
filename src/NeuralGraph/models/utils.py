@@ -238,26 +238,27 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     )
 
     # Plot 2: Weight comparison scatter plot
-    plt.figure(figsize=(8, 8))
+    fig, ax = plt.subplots(figsize=(8, 8))
 
-    plt.scatter(to_numpy(gt_weights), to_numpy(model.W.squeeze()), s=0.1, c='k', alpha=0.01)
-    plt.xlabel(r'true $W_{ij}$', fontsize=18)
-    plt.ylabel(r'learned $W_{ij}$', fontsize=18)
+    ax.scatter(to_numpy(gt_weights), to_numpy(model.W.squeeze()), s=0.1, c='k', alpha=0.01)
+    ax.set_xlabel(r'true $W_{ij}$', fontsize=18)
+    ax.set_ylabel(r'learned $W_{ij}$', fontsize=18)
 
-    # Add R² and slope
-    plt.text(-0.9, 4.5, f'$R^2$: {np.round(r_squared, 3)}\nslope: {np.round(lin_fit[0], 2)}', fontsize=12)
+    # Add R² and slope using axes transform for consistent positioning
+    ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
+            fontsize=14, verticalalignment='top', fontweight='bold')
+    ax.text(0.05, 0.88, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+            fontsize=14, verticalalignment='top', fontweight='bold')
 
     # Add Dale's Law statistics
-    dale_text = (f"Excitatory neurons (all W>0): {dale_results['n_excitatory']} "
-                 f"({100*dale_results['n_excitatory']/n_neurons:.1f}%)\n"
-                 f"Inhibitory neurons (all W<0): {dale_results['n_inhibitory']} "
-                 f"({100*dale_results['n_inhibitory']/n_neurons:.1f}%)\n"
-                 f"Mixed/zero neurons (violates Dale's Law): {dale_results['n_mixed']} "
-                 f"({100*dale_results['n_mixed']/n_neurons:.1f}%)")
-    plt.text(-0.9, -4.5, dale_text, fontsize=8, verticalalignment='bottom')
+    dale_text = (f"Exc (W>0): {dale_results['n_excitatory']} ({100*dale_results['n_excitatory']/n_neurons:.0f}%)\n"
+                 f"Inh (W<0): {dale_results['n_inhibitory']} ({100*dale_results['n_inhibitory']/n_neurons:.0f}%)\n"
+                 f"Mixed: {dale_results['n_mixed']} ({100*dale_results['n_mixed']/n_neurons:.0f}%)")
+    ax.text(0.95, 0.05, dale_text, transform=ax.transAxes,
+            fontsize=9, verticalalignment='bottom', horizontalalignment='right')
 
-    plt.xlim([-1, 5])
-    plt.ylim([-5, 5])
+    ax.set_xlim([-1, 5])
+    ax.set_ylim([-5, 5])
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif",
                 dpi=87, bbox_inches='tight', pad_inches=0)
@@ -364,19 +365,30 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
-    fig = plt.figure(figsize=(8, 8))
     fig, ax = fig_init()
     if n_neurons<1000:
-        plt.scatter(gt_weight, pred_weight / 10, s=1.0, c=mc, alpha=1.0)
+        ax.scatter(gt_weight, pred_weight / 10, s=1.0, c=mc, alpha=1.0)
     else:
-        plt.scatter(gt_weight, pred_weight / 10, s=0.1, c=mc, alpha=0.1)
-    plt.xlabel(r'true $J_{ij}$', fontsize=48)
-    plt.ylabel(r'learned $J_{ij}$', fontsize=48)
+        ax.scatter(gt_weight, pred_weight / 10, s=0.1, c=mc, alpha=0.1)
+    ax.set_xlabel(r'true $J_{ij}$', fontsize=48)
+    ax.set_ylabel(r'learned $J_{ij}$', fontsize=48)
     if n_neurons == 8000:
-        plt.xlim([-0.05, 0.05])
+        ax.set_xlim([-0.05, 0.05])
     else:
-        plt.ylim([-0.2, 0.2])
-        plt.xlim([-0.2, 0.2])
+        ax.set_ylim([-0.2, 0.2])
+        ax.set_xlim([-0.2, 0.2])
+    # Compute and display R² and slope
+    x_data = gt_weight.flatten()
+    y_data = (pred_weight / 10).flatten()
+    lin_fit, _ = curve_fit(linear_model, x_data, y_data)
+    residuals = y_data - linear_model(x_data, *lin_fit)
+    ss_res = np.sum(residuals ** 2)
+    ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+    ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
+            fontsize=24, verticalalignment='top', color=mc)
+    ax.text(0.05, 0.9, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+            fontsize=24, verticalalignment='top', color=mc)
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
     plt.close()

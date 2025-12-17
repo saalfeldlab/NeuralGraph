@@ -706,7 +706,7 @@ def generate_summary_stats(nodes: list[ExperimentNode]) -> dict:
     return stats
 
 
-def compute_ucb_scores(analysis_path, ucb_path, c=1.414, current_log_path=None, current_iteration=None):
+def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, current_iteration=None):
     """
     Parse analysis file, build exploration tree, compute UCB scores.
 
@@ -791,52 +791,50 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.414, current_log_path=None, 
     if not nodes:
         return False
 
-    # Build tree structure: for each node, track children and compute stats
+    # Build tree structure: for each node, track children
     children = defaultdict(list)
     for node_id, node in nodes.items():
         if node['parent'] is not None:
             children[node['parent']].append(node_id)
 
-    # Compute visits and mean reward for each node (including subtree)
-    def get_subtree_stats(node_id):
-        """Return (total_visits, sum_rewards) for node and all descendants."""
-        if node_id not in nodes:
-            return 0, 0.0
-
-        visits = 1
-        rewards = nodes[node_id].get('connectivity_R2', 0.0)
-
-        for child_id in children[node_id]:
-            child_visits, child_rewards = get_subtree_stats(child_id)
-            visits += child_visits
-            rewards += child_rewards
-
-        return visits, rewards
-
     # Total number of nodes
     n_total = len(nodes)
 
+    # Compute visits using PUCT backpropagation semantics:
+    # - Each node starts with V=1 (its own creation visit)
+    # - When a child is created, parent and all ancestors get V += 1
+    # This means V(node) = 1 + number of descendants
+    visits = {node_id: 1 for node_id in nodes}
+
+    # Sort nodes by id to process in creation order (children after parents)
+    sorted_node_ids = sorted(nodes.keys())
+
+    # Backpropagate: for each node, increment all ancestors
+    for node_id in sorted_node_ids:
+        parent_id = nodes[node_id]['parent']
+        while parent_id is not None and parent_id in nodes:
+            visits[parent_id] += 1
+            parent_id = nodes[parent_id]['parent']
+
     # Compute UCB for each node
+    # Google PUCT formula: UCB(u) = RankScore(u) + c * sqrt(N_total) / (1 + V(u))
     ucb_scores = []
     for node_id, node in nodes.items():
-        visits, sum_rewards = get_subtree_stats(node_id)
-        mean_reward = sum_rewards / visits if visits > 0 else 0.0
+        v = visits[node_id]
+        reward = node.get('connectivity_R2', 0.0)
 
-        # UCB formula: mean + c * sqrt(ln(N_total) / visits)
-        if visits > 0 and n_total > 1:
-            exploration_term = c * math.sqrt(math.log(n_total) / visits)
-        else:
-            exploration_term = float('inf')  # Unvisited nodes get priority
+        # PUCT exploration term: c * sqrt(N_total) / (1 + V)
+        exploration_term = c * math.sqrt(n_total) / (1 + v)
 
-        ucb = mean_reward + exploration_term
+        ucb = reward + exploration_term
 
         ucb_scores.append({
             'id': node_id,
             'parent': node['parent'],
-            'visits': visits,
-            'mean_R2': mean_reward,
+            'visits': v,
+            'mean_R2': reward,
             'ucb': ucb,
-            'connectivity_R2': node.get('connectivity_R2', 0.0),
+            'connectivity_R2': reward,
             'is_current': node_id == current_iteration
         })
 

@@ -42,7 +42,7 @@ plotting:
   ylim: [-2, 2]
 
 training:
-  n_epochs: 10
+  n_epochs: 1
   n_runs: 1
   device: "auto"
 
@@ -63,6 +63,6 @@ training:
   learning_rate_start: 1.0E-4
   learning_rate_embedding_start: 2.5E-4
 
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 5.0E-6
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
