@@ -88,10 +88,29 @@ Node 105: UCB=1.892, parent=root, visits=4, R2=0.921
 Node 99: UCB=1.234, parent=97, visits=8, R2=0.654
 ```
 
-**Decision rule**:
+### Parent Selection Rule (CRITICAL)
 
-- If UCB file is empty → use `parent=root` (first iteration of new block)
-- Otherwise → pick node with highest UCB as parent
+**The `parent` field indicates which node's CONFIG you are modifying not the iteration number**
+
+**Step 1: Find parent node**
+
+- If UCB file is empty → `parent=root`
+- Otherwise → select node with **highest UCB** as parent
+
+**Step 2: Choose exploration strategy**
+
+| Condition | Strategy | Action |
+|---|---|---|
+| Default | **exploit** | Use highest UCB node as parent, try new mutation |
+| 3+ consecutive successes (R² ≥ 0.9) | **failure-probe** | Deliberately try extreme parameter to find failure boundary |
+| Found good config | **robustness-test** | Re-run same config (no mutation) to verify reproducibility |
+
+**failure-probe**: After multiple successes, intentionally push parameters to extremes (e.g., 10x lr, 0.1x lr) to map where the config breaks. This helps understand the stability region.
+
+**robustness-test**: Duplicate the best iteration with identical config to verify the result is reproducible, not due to lucky initialization.
+
+**Reversion check**: If reverting a parameter to match a previous node's value, use that node as parent.
+Example: If reverting `lr` back to `1E-4` (Node 2's value), use `parent=2`.
 
 ## Protocol
 
@@ -110,23 +129,6 @@ Simulation exploration order (suggested):
 - Block 5: chaotic, Dale_law=True, factor=0.2, noise=0.0 (mostly inhibitory)
 - Block 6: low_rank (rank=20), Dale_law=False, noise=0.0
 - etc.
-
-### Within Block (regular iterations)
-
-1. Read `ucb_scores.txt` to pick parent node (highest UCB)
-2. Change **ONE training parameter** from parent config
-3. Run training, log results
-
-### Parent Selection Rule (CRITICAL)
-
-**The `parent` field indicates which node's CONFIG you are modifying, NOT the previous iteration.**
-
-- When branching from a successful node: `parent` = that node's id
-- When a node fails and you try a different direction: `parent` = the last GOOD node you're branching from
-- Example: If node 3 fails, and you want to try a different mutation from node 2's config, set `parent=2` (not `parent=3`)
-
-**Wrong**: Node 3 fails → Node 4 tries different config → `parent=3` (incorrect!)
-**Right**: Node 3 fails → Node 4 branches from node 2's config → `parent=2` (correct!)
 
 ### Block Summary
 
@@ -150,13 +152,12 @@ Optimum training parameters: [learning_rate_W_start, learning_rate_start, learni
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode: [success-exploit/failure-probe]
-Observation: [one line about result]
 Strategy: [exploit/explore/boundary]
-Config: lr_W=X, lr=Y, coeff_W_L1=Z, batch_size=B
+Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, final_loss=D
 Activity: [brief description of dynamics]
 Mutation: [param]: [old] -> [new]
-
+Observation: [one line about result]
 ```
 
 For block boundaries, add:
