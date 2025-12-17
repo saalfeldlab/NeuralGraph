@@ -706,7 +706,7 @@ def generate_summary_stats(nodes: list[ExperimentNode]) -> dict:
     return stats
 
 
-def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, current_iteration=None, block_size=48):
+def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, current_iteration=None, block_size=12):
     """
     Parse analysis file, build exploration tree, compute UCB scores.
 
@@ -716,7 +716,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         c: Exploration constant (default sqrt(2) ~= 1.414)
         current_log_path: Path to current iteration's analysis.log (optional)
         current_iteration: Current iteration number (optional)
-        block_size: Size of each simulation block (default 48)
+        block_size: Size of each simulation block (default 12)
 
     Returns:
         True if UCB scores were computed, False if no nodes found

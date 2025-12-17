@@ -138,13 +138,15 @@ def compute_layout(tree: dict) -> dict[int, tuple[float, float]]:
 
 def plot_ucb_tree(nodes: list[UCBNode],
                   output_path: Optional[str] = None,
-                  title: str = "UCB Exploration Tree"):
+                  title: str = "UCB Exploration Tree",
+                  simulation_info: Optional[str] = None):
     """
     Plot the UCB exploration tree.
 
     - Circle (o) for nodes with children
     - Cross (x) for leaf nodes
     - Shows node ID, visits, and R2
+    - Shows simulation parameters near root node
     """
     if not nodes:
         print("No nodes to plot")
@@ -216,6 +218,23 @@ def plot_ucb_tree(nodes: list[UCBNode],
         ax.annotate(label_text, (x, y), ha='center', va='top',
                    fontsize=5, xytext=(0, -12), textcoords='offset points',
                    color='#555555', zorder=3)
+
+    # Add simulation info below root node(s)
+    if simulation_info:
+        roots = tree['roots']
+        if roots and roots[0] in positions:
+            root_x, root_y = positions[roots[0]]
+            # Format: remove "Simulation: " prefix, replace underscores with spaces, split into lines
+            sim_text = simulation_info.replace('Simulation:', '').strip()
+            sim_text = sim_text.replace('_', ' ')
+            # Split by comma and join with newlines
+            sim_lines = [p.strip() for p in sim_text.split(',')]
+            sim_formatted = '\n'.join(sim_lines)
+            ax.annotate(sim_formatted, (root_x, root_y), ha='left', va='top',
+                       fontsize=6, xytext=(5, -25), textcoords='offset points',
+                       color='#555555',
+                       bbox=dict(boxstyle='round,pad=0.3', facecolor='#ecf0f1', edgecolor='#bdc3c7'),
+                       zorder=4)
 
     # Axis labels (explicit black color for white background, no title)
     ax.set_xlabel('Tree Depth', fontsize=12, color='black')

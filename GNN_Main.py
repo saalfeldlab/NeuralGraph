@@ -20,6 +20,7 @@ from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
 from NeuralGraph.models.exploration_tree import compute_ucb_scores, parse_experiment_log, build_tree_structure, plot_data_exploration
 from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
+import re
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
@@ -118,8 +119,8 @@ if __name__ == "__main__":
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
 
-                # block boundary: erase UCB at start of each 48-iteration block (except iter 1, already handled)
-                if iteration > 1 and (iteration - 1) % 48 == 0:
+                # block boundary: erase UCB at start of each 12-iteration block (except iter 1, already handled)
+                if iteration > 1 and (iteration - 1) % 12 == 0:
                     ucb_file = f"{root_dir}/ucb_scores.txt"
                     if os.path.exists(ucb_file):
                         os.remove(ucb_file)
@@ -289,9 +290,18 @@ if __name__ == "__main__":
                     try:
                         ucb_nodes = parse_ucb_scores(ucb_path)
                         if ucb_nodes:
+                            # Extract simulation info from analysis markdown
+                            sim_info = None
+                            if os.path.exists(analysis_path):
+                                with open(analysis_path, 'r') as f:
+                                    for line in f:
+                                        if line.startswith('Simulation:'):
+                                            sim_info = line.strip()
+                                            break
                             ucb_tree_path = f"{exploration_dir}/ucb_scores_tree.png"
                             plot_ucb_tree(ucb_nodes, ucb_tree_path,
-                                         title=f"UCB Tree - {experiment_name} (iter {iteration})")
+                                         title=f"UCB Tree - {experiment_name} (iter {iteration})",
+                                         simulation_info=sim_info)
                             print(f"\033[92mUCB tree saved: {ucb_tree_path}\033[0m")
                             # archive to exploration_tree folder
                             archive_tree_path = f"{tree_save_dir}/iter_{iteration:03d}.png"
@@ -352,15 +362,3 @@ Config file: {config_file_}"""
                     print(line, end='', flush=True)
 
                 process.wait()
-
-                # plot data exploration tree after each iteration
-                # if os.path.exists(analysis_path):
-                #     try:
-                #         nodes = parse_experiment_log(analysis_path)
-                #         if nodes:
-                #             nodes = build_tree_structure(nodes)
-                #             plot_path = f"{exploration_dir}/data_exploration.png"
-                #             plot_data_exploration(nodes, output_path=plot_path,
-                #                                   title=f"{experiment_name} - Iteration {iteration}")
-                #     except Exception as e:
-                #         print(f"\033[93mwarning: could not plot exploration tree: {e}\033[0m")

@@ -3,8 +3,8 @@
 ## Context
 
 You execute one experimental iteration in an iterative exploration loop.
-Each **block of 48 iterations** explores training hyperparameters for a fixed simulation configuration.
-At block boundaries (iter 1, 49, 97, 145, ...), you create a new simulation and reset the UCB tree.
+Each **block of 12 iterations** explores training hyperparameters for a fixed simulation configuration.
+At block boundaries (iter 1, 13, 25, 37, ...), you create a new simulation and reset the UCB tree.
 
 ## Goal
 
@@ -19,9 +19,9 @@ Key questions:
 
 ## Block Structure
 
-- **Block 0**: iterations 1-48 (first simulation)
-- **Block 1**: iterations 49-96 (second simulation)
-- **Block 2**: iterations 97-144 (third simulation)
+- **Block 0**: iterations 1-12 (first simulation)
+- **Block 1**: iterations 13-24 (second simulation)
+- **Block 2**: iterations 25-36 (third simulation)
 - etc.
 
 At block boundaries, the UCB file will be empty (erased). When UCB file is empty, use `parent=root`.
@@ -81,11 +81,11 @@ Parameter ranges:
 Example:
 
 ```
-=== UCB Scores (Block 2, iters 97-144, N=12, c=1.0) ===
+=== UCB Scores (Block 2, iters 25-36, N=8, c=1.0) ===
 
-Node 108: UCB=2.156, parent=105, visits=1, R2=0.873
-Node 105: UCB=1.892, parent=root, visits=4, R2=0.921
-Node 99: UCB=1.234, parent=97, visits=8, R2=0.654
+Node 32: UCB=2.156, parent=29, visits=1, R2=0.873
+Node 29: UCB=1.892, parent=root, visits=4, R2=0.921
+Node 25: UCB=1.234, parent=25, visits=8, R2=0.654
 ```
 
 ### Parent Selection Rule (CRITICAL)
@@ -114,7 +114,7 @@ Example: If reverting `lr` back to `1E-4` (Node 2's value), use `parent=2`.
 
 ## Protocol
 
-### Block Start (iter 1, 49, 97, ...)
+### Block Start (iter 1, 13, 25, ...)
 
 When starting a new block:
 
@@ -132,7 +132,7 @@ Simulation exploration order (suggested):
 
 ### Block Summary
 
-At the end of each block (iter 48, 96, 144, ...), write a brief summary:
+At the end of each block (iter 12, 24, 36, ...), write a brief summary:
 
 1. Did this simulation regime converge?
 2. What training configs worked best?
@@ -188,13 +188,13 @@ Mutation: baseline config (first run)
 Observation: partial convergence with noise=2.0; lr may need tuning
 ```
 
-**Iter 49** (Block 1 start):
+**Iter 13** (Block 1 start):
 
 ```
-## Iter 49: partial
+## Iter 13: partial
 --- NEW BLOCK ---
 Simulation: connectivity_type=chaotic, Dale_law=False, noise_model_level=0.0
-Node: id=49, parent=root
+Node: id=13, parent=root
 Mode: success-exploit
 Strategy: explore
 Config: lr_W=2.0E-3, lr=5.0E-4, coeff_W_L1=1.0E-5, batch_size=8
@@ -204,13 +204,13 @@ Mutation: baseline (carried from block 0 best)
 Observation: attempting hard target (noise=0) with config that worked for noise=2
 ```
 
-**Iter 97** (Block 2 start - Dale's Law):
+**Iter 25** (Block 2 start - Dale's Law):
 
 ```
-## Iter 97: partial
+## Iter 25: partial
 --- NEW BLOCK ---
 Simulation: connectivity_type=chaotic, Dale_law=True, Dale_law_factor=0.5, noise_model_level=2.0
-Node: id=97, parent=root
+Node: id=25, parent=root
 Mode: success-exploit
 Strategy: explore
 Config: lr_W=2.0E-3, lr=5.0E-4, coeff_W_L1=1.0E-5, batch_size=8
