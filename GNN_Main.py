@@ -56,7 +56,7 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        task_params = {'iterations': 96, 'experiment': 'experiment_convergence_3'}
+        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_4'}
         config_list = ['signal_Claude']
 
     # parse parameters from task_params
@@ -117,6 +117,13 @@ if __name__ == "__main__":
         for iteration in iteration_range:
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
+
+                # block boundary: erase UCB at start of each 48-iteration block (except iter 1, already handled)
+                if iteration > 1 and (iteration - 1) % 48 == 0:
+                    ucb_file = f"{root_dir}/ucb_scores.txt"
+                    if os.path.exists(ucb_file):
+                        os.remove(ucb_file)
+                        print(f"\033[93mblock boundary: deleted {ucb_file} (new simulation block)\\033[0m")
 
             # reload config to pick up any changes from previous iteration
             config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")

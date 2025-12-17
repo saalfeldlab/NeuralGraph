@@ -1,62 +1,45 @@
 # Experiment Log: signal_Claude
 
-## Iter 1: converged
+## Iter 1: partial
+--- NEW BLOCK ---
+Simulation: connectivity_type=chaotic, Dale_law=False, noise_model_level=0.0
 Node: id=1, parent=root
 Mode: success-exploit
-Strategy: baseline
+
+Strategy: explore
 Config: lr_W=2.0E-3, lr=1.0E-4, coeff_W_L1=1.0E-5, batch_size=8
-Metrics: test_R2=0.9987, test_pearson=0.9980, connectivity_R2=0.9999, final_loss=4.44E+02
-Activity: range=[-19.1, 20.3], effective_rank=13-36, spectral_radius=1.05
-Mutation: baseline config (starting point)
-Observation: excellent convergence with baseline - this establishes our working region center
+Metrics: test_R2=0.4022, test_pearson=0.2498, connectivity_R2=0.6731, final_loss=1.09e+03
+Activity: healthy oscillatory dynamics with effective rank 8-28; range [-25.7, 19.8]
+Mutation: baseline config (first run of block 0)
+Observation: partial convergence; lr_W may need increase to push connectivity_R2 higher
 
 ## Iter 2: converged
 Node: id=2, parent=1
 Mode: success-exploit
-Strategy: explore
+Strategy: exploit
 Config: lr_W=5.0E-3, lr=1.0E-4, coeff_W_L1=1.0E-5, batch_size=8
-Metrics: test_R2=0.8466, test_pearson=0.8062, connectivity_R2=0.9999, final_loss=2.09E+02
-Activity: range=[-23.0, 20.5], effective_rank=11-33, spectral_radius=1.025
-Mutation: lr_W: 2.0E-3 → 5.0E-3 (2.5x increase)
-Observation: higher lr_W still converges perfectly (connectivity_R2=0.9999) with lower final_loss, but slightly lower test_R2 - faster W learning trades off some dynamics prediction
+Metrics: test_R2=0.9638, test_pearson=0.9398, connectivity_R2=0.9838, final_loss=4.05e+02
+Activity: healthy oscillatory dynamics with effective rank 11-32; range [-26.3, 23.9]
+Mutation: lr_W: 2.0E-3 -> 5.0E-3
+Observation: excellent convergence! increasing lr_W from 2E-3 to 5E-3 dramatically improved R2 from 0.67 to 0.98
 
-## Iter 3: converged
+## Iter 3: failed
 Node: id=3, parent=2
 Mode: failure-probe
-Strategy: boundary (push lr_W to extreme)
-Config: lr_W=1.0E-2, lr=1.0E-4, coeff_W_L1=1.0E-5, batch_size=8
-Metrics: test_R2=0.9333, test_pearson=0.8991, connectivity_R2=0.9998, final_loss=2.70E+02
-Activity: range=[-20.6, 18.6], effective_rank=12-33, spectral_radius=1.025
-Mutation: lr_W: 5.0E-3 → 1.0E-2 (2x increase)
-Observation: lr_W=1E-2 still converges well - upper boundary not yet found, need to push higher
+Strategy: explore
+Config: lr_W=5.0E-3, lr=2.0E-4, coeff_W_L1=1.0E-5, batch_size=8
+Metrics: test_R2=0.3377, test_pearson=-0.0042, connectivity_R2=0.1410, final_loss=1.58e+03
+Activity: healthy oscillatory dynamics with effective rank 11-31; range [-26.3, 26.9]
+Mutation: lr: 1.0E-4 -> 2.0E-4
+Observation: severe degradation from doubling lr; model lr highly sensitive - 2x increase caused R2 to drop from 0.98 to 0.14
 
 ## Iter 4: converged
-Node: id=4, parent=3
-Mode: failure-probe
-Strategy: boundary (push lr_W to extreme)
-Config: lr_W=2.0E-2, lr=1.0E-4, coeff_W_L1=1.0E-5, batch_size=8
-Metrics: test_R2=0.9026, test_pearson=0.8646, connectivity_R2=0.9993, final_loss=3.59E+02
-Activity: range=[-19.6, 20.0], effective_rank=10-33, spectral_radius=1.025
-Mutation: lr_W: 1.0E-2 → 2.0E-2 (2x increase)
-Observation: lr_W=2E-2 still converges (connectivity_R2=0.9993) but test_R2 dropped to 0.90 - approaching upper boundary, lr_W sweet spot appears to be around 1E-2
-
-## Iter 5: converged
-Node: id=5, parent=4
+Node: id=4, parent=2
 Mode: success-exploit
-Strategy: explore
-Config: lr_W=2.0E-2, lr=2.5E-4, coeff_W_L1=1.0E-5, batch_size=8
-Metrics: test_R2=0.9011, test_pearson=0.8709, connectivity_R2=0.9930, final_loss=4.16E+02
-Activity: range=[-20.4, 20.4], effective_rank=10-33, spectral_radius=1.025
-Mutation: lr: 1.0E-4 → 2.5E-4 (2.5x increase)
-Observation: higher lr with high lr_W maintains convergence (connectivity_R2=0.993), similar performance - lr=2.5E-4 is compatible with lr_W=2E-2
-
-## Iter 6: converged
-Node: id=6, parent=5
-Mode: failure-probe
-Strategy: boundary (push lr_W to extreme)
-Config: lr_W=5.0E-2, lr=2.5E-4, coeff_W_L1=1.0E-5, batch_size=8
-Metrics: test_R2=0.7126, test_pearson=0.5874, connectivity_R2=0.9916, final_loss=6.12E+02
-Activity: range=[-19.6, 21.5], effective_rank=10-33, spectral_radius=1.025
-Mutation: lr_W: 2.0E-2 → 5.0E-2 (2.5x increase)
-Observation: lr_W=5E-2 still converges for W (connectivity_R2=0.992) but test_R2 dropped to 0.71 - dynamics prediction significantly degraded. this marks the practical upper boundary for lr_W where W learning is too fast relative to dynamics learning
+Strategy: exploit
+Config: lr_W=1.0E-2, lr=1.0E-4, coeff_W_L1=1.0E-5, batch_size=8
+Metrics: test_R2=0.9488, test_pearson=0.9293, connectivity_R2=0.9982, final_loss=1.95e+02
+Activity: healthy oscillatory dynamics with effective rank 11-32; range [-26.3, 23.2]
+Mutation: lr_W: 5.0E-3 -> 1.0E-2
+Observation: best result so far! further increasing lr_W from 5E-3 to 1E-2 improved connectivity_R2 from 0.984 to 0.998
 

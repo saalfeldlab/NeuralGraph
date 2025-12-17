@@ -29,6 +29,7 @@ class UCBNode:
     parent: Optional[int]
     visits: int
     r2: float
+    pearson: float = 0.0
 
 
 def parse_ucb_scores(filepath: str) -> list[UCBNode]:
@@ -38,8 +39,9 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX
-    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)'
+    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX
+    # Pearson is optional for backward compatibility
+    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?'
 
     for match in re.finditer(pattern, content):
         node_id = int(match.group(1))
@@ -48,13 +50,15 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
         parent = None if parent_str == 'root' else int(parent_str)
         visits = int(match.group(4))
         r2 = float(match.group(5))
+        pearson = float(match.group(6)) if match.group(6) else 0.0
 
         nodes.append(UCBNode(
             id=node_id,
             ucb=ucb,
             parent=parent,
             visits=visits,
-            r2=r2
+            r2=r2,
+            pearson=pearson
         ))
 
     return nodes
@@ -204,19 +208,18 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
         # Label: node id inside/near the marker (always black)
         ax.annotate(str(node.id), (x, y), ha='center', va='center',
-                   fontsize=7, fontweight='bold',
+                   fontsize=7,
                    color='black', zorder=3)
 
-        # Annotation: visits and R2 below the node
-        label_text = f"V={node.visits}\nR²={node.r2:.2f}"
+        # Annotation: UCB/V and R2/Pearson below the node
+        label_text = f"UCB={node.ucb:.2f} V={node.visits}\nR²={node.r2:.2f} ρ={node.pearson:.2f}"
         ax.annotate(label_text, (x, y), ha='center', va='top',
                    fontsize=5, xytext=(0, -12), textcoords='offset points',
                    color='#555555', zorder=3)
 
-    # Axis labels and title (explicit black color for white background)
+    # Axis labels (explicit black color for white background, no title)
     ax.set_xlabel('Tree Depth', fontsize=12, color='black')
     ax.set_ylabel('Branch', fontsize=12, color='black')
-    ax.set_title(title, fontsize=14, color='black')
     ax.tick_params(colors='black')
 
     # Set axis limits with padding

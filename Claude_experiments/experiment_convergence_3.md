@@ -133,6 +133,17 @@ When in `failure-probe` mode:
 2. Read `ucb_scores.txt` to decide which node to explore from
 3. Then vary ONE parameter at a time from chosen parent
 
+### Parent Selection Rule (CRITICAL)
+
+**The `parent` field indicates which node's CONFIG you are modifying, NOT the previous iteration.**
+
+- When branching from a successful node: `parent` = that node's id
+- When a node fails and you try a different direction: `parent` = the last GOOD node you're branching from
+- Example: If node 3 fails, and you want to try a different mutation from node 2's config, set `parent=2` (not `parent=3`)
+
+**Wrong**: Node 3 fails → Node 4 tries different config → `parent=3` (incorrect!)
+**Right**: Node 3 fails → Node 4 branches from node 2's config → `parent=2` (correct!)
+
 ### Handling Stochastic Failures
 
 When expanding from node P:

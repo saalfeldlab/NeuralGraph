@@ -706,7 +706,7 @@ def generate_summary_stats(nodes: list[ExperimentNode]) -> dict:
     return stats
 
 
-def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, current_iteration=None):
+def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, current_iteration=None, block_size=48):
     """
     Parse analysis file, build exploration tree, compute UCB scores.
 
@@ -716,9 +716,15 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         c: Exploration constant (default sqrt(2) ~= 1.414)
         current_log_path: Path to current iteration's analysis.log (optional)
         current_iteration: Current iteration number (optional)
+        block_size: Size of each simulation block (default 48)
 
     Returns:
         True if UCB scores were computed, False if no nodes found
+
+    Note:
+        When block_size > 0 and current_iteration is provided, only nodes
+        from the current block are included in UCB scores. Block N covers
+        iterations (N*block_size)+1 to (N+1)*block_size.
     """
     nodes = {}
 
@@ -753,40 +759,77 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                     current_node['parent'] = int(parent_str)
                 continue
 
-            # Match Metrics line for connectivity_R2
+            # Match Metrics line for connectivity_R2 and test_pearson
             metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
             if metrics_match and current_node is not None:
                 r2_str = metrics_match.group(1)
                 current_node['connectivity_R2'] = float(r2_str) if r2_str != 'nan' else 0.0
+                # Also extract test_pearson from same line
+                pearson_match = re.search(r'test_pearson=([\d.]+|nan)', line)
+                if pearson_match:
+                    p_str = pearson_match.group(1)
+                    current_node['test_pearson'] = float(p_str) if p_str != 'nan' else 0.0
+                else:
+                    current_node['test_pearson'] = 0.0
                 # Node complete, store it
                 if 'id' in current_node:
                     nodes[current_node['id']] = current_node
                 current_node = None
 
-    # add current iteration from analysis.log if provided
+    # add current iteration from analysis.log if provided AND not already parsed from markdown
+    # (markdown has correct parent info; analysis.log only has metrics)
     if current_log_path and current_iteration and os.path.exists(current_log_path):
-        with open(current_log_path, 'r') as f:
-            log_content = f.read()
+        # Only add if not already in nodes (preserve parent from markdown)
+        if current_iteration not in nodes:
+            with open(current_log_path, 'r') as f:
+                log_content = f.read()
 
-        # parse connectivity_R2 from analysis.log (handles both = and : formats)
-        r2_match = re.search(r'connectivity_R2[=:]\s*([\d.]+|nan)', log_content)
-        if r2_match:
-            r2_str = r2_match.group(1)
-            conn_r2 = float(r2_str) if r2_str != 'nan' else 0.0
+            # parse connectivity_R2 from analysis.log (handles both = and : formats)
+            r2_match = re.search(r'connectivity_R2[=:]\s*([\d.]+|nan)', log_content)
+            if r2_match:
+                r2_str = r2_match.group(1)
+                conn_r2 = float(r2_str) if r2_str != 'nan' else 0.0
 
-            # determine parent: previous iteration if exists, else None (for iter 1) or last node
-            if current_iteration == 1:
-                parent_id = None
-            else:
-                # parent is the previous node (simple linear assumption)
-                parent_id = current_iteration - 1 if (current_iteration - 1) in nodes else None
+                # parse test_pearson from analysis.log
+                pearson_match = re.search(r'test_pearson[=:]\s*([\d.]+|nan)', log_content)
+                test_pearson = 0.0
+                if pearson_match:
+                    p_str = pearson_match.group(1)
+                    test_pearson = float(p_str) if p_str != 'nan' else 0.0
 
-            nodes[current_iteration] = {
-                'iter': current_iteration,
-                'id': current_iteration,
-                'parent': parent_id,
-                'connectivity_R2': conn_r2
-            }
+                # determine parent: previous iteration if exists, else None (for iter 1) or last node
+                if current_iteration == 1:
+                    parent_id = None
+                else:
+                    # parent is the previous node (simple linear assumption)
+                    parent_id = current_iteration - 1 if (current_iteration - 1) in nodes else None
+
+                nodes[current_iteration] = {
+                    'iter': current_iteration,
+                    'id': current_iteration,
+                    'parent': parent_id,
+                    'connectivity_R2': conn_r2,
+                    'test_pearson': test_pearson
+                }
+
+    if not nodes:
+        return False
+
+    # Filter nodes to current block if block_size > 0 and current_iteration is provided
+    # Block N covers iterations (N*block_size)+1 to (N+1)*block_size
+    if block_size > 0 and current_iteration is not None:
+        current_block = (current_iteration - 1) // block_size
+        block_start = current_block * block_size + 1
+        block_end = (current_block + 1) * block_size
+
+        # Filter nodes to only include those in current block
+        nodes = {node_id: node for node_id, node in nodes.items()
+                 if block_start <= node_id <= block_end}
+
+        # Update parent references: if parent is outside block, set to None (root)
+        for node_id, node in nodes.items():
+            if node['parent'] is not None and node['parent'] not in nodes:
+                node['parent'] = None
 
     if not nodes:
         return False
@@ -835,6 +878,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             'mean_R2': reward,
             'ucb': ucb,
             'connectivity_R2': reward,
+            'test_pearson': node.get('test_pearson', 0.0),
             'is_current': node_id == current_iteration
         })
 
@@ -843,13 +887,21 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
 
     # Write UCB scores to file
     with open(ucb_path, 'w') as f:
-        f.write(f"=== UCB Scores (N_total={n_total}, c={c}) ===\n\n")
+        # Include block information if block_size > 0
+        if block_size > 0 and current_iteration is not None:
+            current_block = (current_iteration - 1) // block_size
+            block_start = current_block * block_size + 1
+            block_end = (current_block + 1) * block_size
+            f.write(f"=== UCB Scores (Block {current_block}, iters {block_start}-{block_end}, N={n_total}, c={c}) ===\n\n")
+        else:
+            f.write(f"=== UCB Scores (N_total={n_total}, c={c}) ===\n\n")
         for score in ucb_scores:
             parent_str = score['parent'] if score['parent'] is not None else 'root'
             current_marker = " [CURRENT]" if score['is_current'] else ""
             f.write(f"Node {score['id']}: UCB={score['ucb']:.3f}, "
                     f"parent={parent_str}, visits={score['visits']}, "
-                    f"R2={score['connectivity_R2']:.3f}{current_marker}\n")
+                    f"R2={score['connectivity_R2']:.3f}, "
+                    f"Pearson={score['test_pearson']:.3f}{current_marker}\n")
 
     return True
 
