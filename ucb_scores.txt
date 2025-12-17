@@ -1,0 +1,4 @@
+=== UCB Scores (N_total=2, c=1.0) ===
+
+Node 2: UCB=1.580, parent=1, visits=1, R2=0.873 [CURRENT]
+Node 1: UCB=1.229, parent=root, visits=2, R2=0.758

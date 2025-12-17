@@ -52,7 +52,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 50
+  data_augmentation_loop: 25
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4

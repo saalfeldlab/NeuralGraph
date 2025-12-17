@@ -244,7 +244,6 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
     if output_path:
         plt.savefig(output_path, dpi=150, bbox_inches='tight')
-        print(f"Saved UCB tree to {output_path}")
     else:
         plt.show()
 

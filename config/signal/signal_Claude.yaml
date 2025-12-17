@@ -52,7 +52,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 50
+  data_augmentation_loop: 25
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
@@ -60,9 +60,9 @@ training:
   fix_cluster_embedding: True
 
   learning_rate_W_start: 2.0E-3
-  learning_rate_start: 1.0E-4
+  learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 2.5E-4
 
-  coeff_W_L1: 5.0E-4
+  coeff_W_L1: 5.0E-6
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
