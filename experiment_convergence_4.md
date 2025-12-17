@@ -30,16 +30,16 @@ At block boundaries, the UCB file will be empty (erased). When UCB file is empty
 
 ```yaml
 simulation:
-  connectivity_type: "chaotic"  # or "low_rank"
-  Dale_law: True                # enforce excitatory/inhibitory separation
-  Dale_law_factor: 0.5          # fraction excitatory (0.1 to 0.9)
+  connectivity_type: "chaotic" # or "low_rank"
+  Dale_law: True # enforce excitatory/inhibitory separation
+  Dale_law_factor: 0.5 # fraction excitatory (0.1 to 0.9)
   # low_rank specific:
   # connectivity_rank: 5-100 (only when connectivity_type="low_rank")
 ```
 
 ```yaml
 training:
-  noise_model_level: 0.0        # 0 to 5 (0 = hard target, >0 = verify solvability)
+  noise_model_level: 0.0 # 0 to 5 (0 = hard target, >0 = verify solvability)
 ```
 
 **Dale's Law**: When `Dale_law=True`, each neuron is either excitatory (positive weights) or inhibitory (negative weights). `Dale_law_factor` controls the fraction of excitatory neurons (e.g., 0.8 = 80% excitatory, 20% inhibitory).
@@ -50,13 +50,14 @@ training:
 
 ```yaml
 training:
-  learning_rate_W_start: 2.0E-3   # LR for connectivity weights W
-  learning_rate_start: 1.0E-4    # LR for model parameters
-  coeff_W_L1: 1.0E-5             # L1 regularization on W
-  batch_size: 8                  # batch size
+  learning_rate_W_start: 2.0E-3 # LR for connectivity weights W
+  learning_rate_start: 1.0E-4 # LR for model parameters
+  coeff_W_L1: 1.0E-5 # L1 regularization on W
+  batch_size: 8 # batch size
 ```
 
 Parameter ranges:
+
 - `learning_rate_W_start`: 1E-4 to 1E-2
 - `learning_rate_start`: 1E-5 to 1E-3
 - `coeff_W_L1`: 0 to 1E-4
@@ -78,6 +79,7 @@ Parameter ranges:
 `ucb_scores.txt` shows nodes from **current block only**.
 
 Example:
+
 ```
 === UCB Scores (Block 2, iters 97-144, N=12, c=1.0) ===
 
@@ -87,6 +89,7 @@ Node 99: UCB=1.234, parent=97, visits=8, R2=0.654
 ```
 
 **Decision rule**:
+
 - If UCB file is empty → use `parent=root` (first iteration of new block)
 - Otherwise → pick node with highest UCB as parent
 
@@ -101,10 +104,8 @@ When starting a new block:
 3. **Start with baseline training config** or carry over best config from previous block
 
 Simulation exploration order (suggested):
-- Block 0: chaotic, Dale_law=False, noise=2.0 (verify solvability)
-- Block 1: chaotic, Dale_law=False, noise=0.0 (hard target)
-- Block 2: chaotic, Dale_law=True, factor=0.5, noise=2.0
-- Block 3: chaotic, Dale_law=True, factor=0.5, noise=0.0
+
+- Block 0: chaotic, Dale_law=True, factor=0.5, noise=0.0
 - Block 4: chaotic, Dale_law=True, factor=0.8, noise=0.0 (mostly excitatory)
 - Block 5: chaotic, Dale_law=True, factor=0.2, noise=0.0 (mostly inhibitory)
 - Block 6: low_rank (rank=20), Dale_law=False, noise=0.0
@@ -131,11 +132,16 @@ Simulation exploration order (suggested):
 
 At the end of each block (iter 48, 96, 144, ...), write a brief summary:
 
+1. Did this simulation regime converge?
+2. What training configs worked best?
+3. Comparison to previous blocks
+
 ```
 ### Block N Summary (iters X-Y)
 Simulation: [connectivity_type], [n_types] types, noise=[level]
 Best R2: [value] at iter [N]
-Observation: [one line about what worked/failed for this simulation]
+Observation: [four lines about what worked/failed for this simulation]
+Optimum training parameters: [learning_rate_W_start, learning_rate_start, learning_rate_embedding_start, coeff_W_L1: 1.0E-5]
 ```
 
 ## Log Format
@@ -144,15 +150,17 @@ Observation: [one line about what worked/failed for this simulation]
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode: [success-exploit/failure-probe]
+Observation: [one line about result]
 Strategy: [exploit/explore/boundary]
 Config: lr_W=X, lr=Y, coeff_W_L1=Z, batch_size=B
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, final_loss=D
 Activity: [brief description of dynamics]
 Mutation: [param]: [old] -> [new]
-Observation: [one line about result]
+
 ```
 
 For block boundaries, add:
+
 ```
 ## Iter N: [status]
 --- NEW BLOCK ---
@@ -164,6 +172,7 @@ Node: id=N, parent=root
 ## Example Workflow
 
 **Iter 1** (Block 0 start):
+
 ```
 ## Iter 1: partial
 --- NEW BLOCK ---
@@ -179,6 +188,7 @@ Observation: partial convergence with noise=2.0; lr may need tuning
 ```
 
 **Iter 49** (Block 1 start):
+
 ```
 ## Iter 49: partial
 --- NEW BLOCK ---
@@ -194,6 +204,7 @@ Observation: attempting hard target (noise=0) with config that worked for noise=
 ```
 
 **Iter 97** (Block 2 start - Dale's Law):
+
 ```
 ## Iter 97: partial
 --- NEW BLOCK ---
@@ -207,10 +218,3 @@ Activity: ...
 Mutation: baseline (carried from block 1 best)
 Observation: first Dale's Law block with balanced E/I (50/50)
 ```
-
-## Meta-Analysis
-
-Every 48 iterations (end of block), summarize:
-1. Did this simulation regime converge?
-2. What training configs worked best?
-3. Comparison to previous blocks

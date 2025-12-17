@@ -46,7 +46,7 @@ training:
   n_runs: 1
   device: "auto"
 
-  batch_size: 16
+  batch_size: 8
   small_init_batch_size: False
   training_single_type: True
 
@@ -59,7 +59,7 @@ training:
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
-  learning_rate_W_start: 1.0E-2
+  learning_rate_W_start: 5.0E-3
   learning_rate_start: 1.0E-4
   learning_rate_embedding_start: 2.5E-4
 
