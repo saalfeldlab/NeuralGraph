@@ -1,7 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')  # set non-interactive backend before other imports
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 import argparse
 import glob
 import os
@@ -20,7 +19,7 @@ from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
 from NeuralGraph.models.exploration_tree import compute_ucb_scores, parse_experiment_log, build_tree_structure, plot_data_exploration
 from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
-import re
+from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
@@ -57,7 +56,7 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_4'}
+        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_5'}
         config_list = ['signal_Claude']
 
     # parse parameters from task_params
@@ -204,76 +203,12 @@ if __name__ == "__main__":
             if 'Claude' in task:
                 # save exploration artifacts before Claude analysis
                 exploration_dir = f"{root_dir}/log/Claude_exploration/{experiment_name}"
-                config_save_dir = f"{exploration_dir}/config"
-                scatter_save_dir = f"{exploration_dir}/connectivity_scatter"
-                matrix_save_dir = f"{exploration_dir}/connectivity_matrix"
-                activity_save_dir = f"{exploration_dir}/activity"
-                mlp_save_dir = f"{exploration_dir}/mlp"
-                tree_save_dir = f"{exploration_dir}/exploration_tree"
-
-                # create directories at start of experiment
-                if iteration == 1:
-                    # clear and recreate exploration folder
-                    if os.path.exists(exploration_dir):
-                        shutil.rmtree(exploration_dir)
-                    os.makedirs(config_save_dir, exist_ok=True)
-                    os.makedirs(scatter_save_dir, exist_ok=True)
-                    os.makedirs(matrix_save_dir, exist_ok=True)
-                    os.makedirs(activity_save_dir, exist_ok=True)
-                    os.makedirs(mlp_save_dir, exist_ok=True)
-                    os.makedirs(tree_save_dir, exist_ok=True)
-
-                # save config file
-                src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
-                dst_config = f"{config_save_dir}/iter_{iteration:03d}.yaml"
-                if os.path.exists(src_config):
-                    shutil.copy2(src_config, dst_config)
-
-                # save connectivity scatterplot (most recent comparison_*.tif from matrix folder)
-                matrix_dir = f"{root_dir}/log/{pre_folder}{config_file_}/tmp_training/matrix"
-                scatter_files = glob.glob(f"{matrix_dir}/comparison_*.tif")
-                if scatter_files:
-                    # get most recent file
-                    latest_scatter = max(scatter_files, key=os.path.getmtime)
-                    dst_scatter = f"{scatter_save_dir}/iter_{iteration:03d}.tif"
-                    shutil.copy2(latest_scatter, dst_scatter)
-
-                # save connectivity matrix heatmap
-                data_folder = f"{root_dir}/graphs_data/{config.dataset}"
-                src_matrix = f"{data_folder}/connectivity_matrix.png"
-                dst_matrix = f"{matrix_save_dir}/iter_{iteration:03d}.png"
-                if os.path.exists(src_matrix):
-                    shutil.copy2(src_matrix, dst_matrix)
-
-                # save activity plot
-                activity_path = f"{data_folder}/activity.png"
-                dst_activity = f"{activity_save_dir}/iter_{iteration:03d}.png"
-                if os.path.exists(activity_path):
-                    shutil.copy2(activity_path, dst_activity)
-
-                # save combined MLP plot (MLP0 + MLP1 side by side) using PNG files from results
-                results_dir = f"{root_dir}/log/{pre_folder}{config_file_}/results"
-                src_mlp0 = f"{results_dir}/MLP0.png"
-                src_mlp1 = f"{results_dir}/MLP1_corrected.png"
-                if os.path.exists(src_mlp0) and os.path.exists(src_mlp1):
-                    try:
-                        # Load PNG images
-                        img0 = mpimg.imread(src_mlp0)
-                        img1 = mpimg.imread(src_mlp1)
-
-                        # Create combined figure
-                        fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-                        axes[0].imshow(img0)
-                        axes[0].set_title('MLP0 (φ)', fontsize=12)
-                        axes[0].axis('off')
-                        axes[1].imshow(img1)
-                        axes[1].set_title('MLP1 (edge)', fontsize=12)
-                        axes[1].axis('off')
-                        plt.tight_layout()
-                        plt.savefig(f"{mlp_save_dir}/iter_{iteration:03d}_MLP.png", dpi=150, bbox_inches='tight')
-                        plt.close()
-                    except Exception as e:
-                        print(f"\033[93mwarning: could not combine MLP plots: {e}\033[0m")
+                artifact_paths = save_exploration_artifacts(
+                    root_dir, exploration_dir, config, config_file_, pre_folder, iteration
+                )
+                tree_save_dir = artifact_paths['tree_save_dir']
+                protocol_save_dir = artifact_paths['protocol_save_dir']
+                activity_path = artifact_paths['activity_path']
 
                 # claude analysis: reads activity.png and analysis.log, updates config per experiment protocol
                 config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
@@ -362,3 +297,8 @@ Config file: {config_file_}"""
                     print(line, end='', flush=True)
 
                 process.wait()
+
+                # save protocol file after Claude task
+                dst_protocol = f"{protocol_save_dir}/iter_{iteration:03d}.md"
+                if os.path.exists(experiment_path):
+                    shutil.copy2(experiment_path, dst_protocol)

@@ -229,17 +229,27 @@ def plot_ucb_tree(nodes: list[UCBNode],
             sim_text = sim_text.replace('_', ' ')
             # Split by comma and join with newlines
             sim_lines = [p.strip() for p in sim_text.split(',')]
-            sim_formatted = '\n'.join(sim_lines)
-            ax.annotate(sim_formatted, (root_x, root_y), ha='left', va='top',
-                       fontsize=6, xytext=(5, -25), textcoords='offset points',
-                       color='#555555',
-                       bbox=dict(boxstyle='round,pad=0.3', facecolor='#ecf0f1', edgecolor='#bdc3c7'),
-                       zorder=4)
+            # Filter lines: keep connectivity type, Dale law, noise; add rank only if low_rank
+            filtered_lines = []
+            for line in sim_lines:
+                if 'connectivity type' in line:
+                    filtered_lines.append(line)
+                elif 'Dale law=' in line:
+                    filtered_lines.append(line)
+                elif 'noise model level' in line:
+                    filtered_lines.append(line)
+                elif 'connectivity rank' in line and 'low rank' in sim_text.lower():
+                    filtered_lines.append(line)
+            sim_formatted = '\n'.join(filtered_lines) if filtered_lines else '\n'.join(sim_lines)
+            ax.annotate(sim_formatted, (root_x, root_y), ha='left', va='bottom',
+                       fontsize=5, xytext=(5, 15), textcoords='offset points',
+                       color='#555555', zorder=4)
 
-    # Axis labels (explicit black color for white background, no title)
-    ax.set_xlabel('Tree Depth', fontsize=12, color='black')
-    ax.set_ylabel('Branch', fontsize=12, color='black')
-    ax.tick_params(colors='black')
+    # Remove axis labels and ticks
+    ax.set_xlabel('')
+    ax.set_ylabel('')
+    ax.set_xticks([])
+    ax.set_yticks([])
 
     # Set axis limits with padding
     if positions:
@@ -249,6 +259,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
         ax.set_ylim(min(y_vals) - 1, max(y_vals) + 1)
 
     ax.grid(False)
+    ax.axis('off')
 
     # Legend
     legend_elements = [

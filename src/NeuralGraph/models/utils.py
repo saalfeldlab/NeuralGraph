@@ -2052,3 +2052,107 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         print(f"{data_info}, \033[92mactivity rank(99%)={results['activity']['rank_99']}\033[0m")
 
     return results
+
+
+def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, pre_folder, iteration):
+    """
+    Save exploration artifacts for Claude analysis.
+
+    Args:
+        root_dir: Root directory of the project
+        exploration_dir: Base directory for exploration artifacts
+        config: Configuration object
+        config_file_: Config file name (without extension)
+        pre_folder: Prefix folder for config
+        iteration: Current iteration number
+
+    Returns:
+        dict with paths to saved directories
+    """
+    import glob
+    import shutil
+    import matplotlib.image as mpimg
+
+    config_save_dir = f"{exploration_dir}/config"
+    scatter_save_dir = f"{exploration_dir}/connectivity_scatter"
+    matrix_save_dir = f"{exploration_dir}/connectivity_matrix"
+    activity_save_dir = f"{exploration_dir}/activity"
+    mlp_save_dir = f"{exploration_dir}/mlp"
+    tree_save_dir = f"{exploration_dir}/exploration_tree"
+    protocol_save_dir = f"{exploration_dir}/protocol"
+
+    # create directories at start of experiment
+    if iteration == 1:
+        # clear and recreate exploration folder
+        if os.path.exists(exploration_dir):
+            shutil.rmtree(exploration_dir)
+        os.makedirs(config_save_dir, exist_ok=True)
+        os.makedirs(scatter_save_dir, exist_ok=True)
+        os.makedirs(matrix_save_dir, exist_ok=True)
+        os.makedirs(activity_save_dir, exist_ok=True)
+        os.makedirs(mlp_save_dir, exist_ok=True)
+        os.makedirs(tree_save_dir, exist_ok=True)
+        os.makedirs(protocol_save_dir, exist_ok=True)
+
+    # save config file
+    src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
+    dst_config = f"{config_save_dir}/iter_{iteration:03d}.yaml"
+    if os.path.exists(src_config):
+        shutil.copy2(src_config, dst_config)
+
+    # save connectivity scatterplot (most recent comparison_*.tif from matrix folder)
+    matrix_dir = f"{root_dir}/log/{pre_folder}{config_file_}/tmp_training/matrix"
+    scatter_files = glob.glob(f"{matrix_dir}/comparison_*.tif")
+    if scatter_files:
+        # get most recent file
+        latest_scatter = max(scatter_files, key=os.path.getmtime)
+        dst_scatter = f"{scatter_save_dir}/iter_{iteration:03d}.tif"
+        shutil.copy2(latest_scatter, dst_scatter)
+
+    # save connectivity matrix heatmap
+    data_folder = f"{root_dir}/graphs_data/{config.dataset}"
+    src_matrix = f"{data_folder}/connectivity_matrix.png"
+    dst_matrix = f"{matrix_save_dir}/iter_{iteration:03d}.png"
+    if os.path.exists(src_matrix):
+        shutil.copy2(src_matrix, dst_matrix)
+
+    # save activity plot
+    activity_path = f"{data_folder}/activity.png"
+    dst_activity = f"{activity_save_dir}/iter_{iteration:03d}.png"
+    if os.path.exists(activity_path):
+        shutil.copy2(activity_path, dst_activity)
+
+    # save combined MLP plot (MLP0 + MLP1 side by side) using PNG files from results
+    results_dir = f"{root_dir}/log/{pre_folder}{config_file_}/results"
+    src_mlp0 = f"{results_dir}/MLP0.png"
+    src_mlp1 = f"{results_dir}/MLP1_corrected.png"
+    if os.path.exists(src_mlp0) and os.path.exists(src_mlp1):
+        try:
+            # Load PNG images
+            img0 = mpimg.imread(src_mlp0)
+            img1 = mpimg.imread(src_mlp1)
+
+            # Create combined figure
+            fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+            axes[0].imshow(img0)
+            axes[0].set_title('MLP0 (φ)', fontsize=12)
+            axes[0].axis('off')
+            axes[1].imshow(img1)
+            axes[1].set_title('MLP1 (edge)', fontsize=12)
+            axes[1].axis('off')
+            plt.tight_layout()
+            plt.savefig(f"{mlp_save_dir}/iter_{iteration:03d}_MLP.png", dpi=150, bbox_inches='tight')
+            plt.close()
+        except Exception as e:
+            print(f"\033[93mwarning: could not combine MLP plots: {e}\033[0m")
+
+    return {
+        'config_save_dir': config_save_dir,
+        'scatter_save_dir': scatter_save_dir,
+        'matrix_save_dir': matrix_save_dir,
+        'activity_save_dir': activity_save_dir,
+        'mlp_save_dir': mlp_save_dir,
+        'tree_save_dir': tree_save_dir,
+        'protocol_save_dir': protocol_save_dir,
+        'activity_path': activity_path
+    }
