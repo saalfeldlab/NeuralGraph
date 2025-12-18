@@ -771,6 +771,12 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                     next_parent_map[current_node['iter']] = int(next_parent_str)
                 continue
 
+            # Match Mutation line
+            mutation_match = re.match(r'Mutation: (.+)', line)
+            if mutation_match and current_node is not None:
+                current_node['mutation'] = mutation_match.group(1).strip()
+                continue
+
             # Match Metrics line for connectivity_R2 and test_pearson
             metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
             if metrics_match and current_node is not None:
@@ -896,6 +902,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             'ucb': ucb,
             'connectivity_R2': reward,
             'test_pearson': node.get('test_pearson', 0.0),
+            'mutation': node.get('mutation', ''),
             'is_current': node_id == current_iteration
         })
 
@@ -914,11 +921,14 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             f.write(f"=== UCB Scores (N_total={n_total}, c={c}) ===\n\n")
         for score in ucb_scores:
             parent_str = score['parent'] if score['parent'] is not None else 'root'
-            current_marker = " [CURRENT]" if score['is_current'] else ""
-            f.write(f"Node {score['id']}: UCB={score['ucb']:.3f}, "
+            mutation_str = score.get('mutation', '')
+            line = (f"Node {score['id']}: UCB={score['ucb']:.3f}, "
                     f"parent={parent_str}, visits={score['visits']}, "
                     f"R2={score['connectivity_R2']:.3f}, "
-                    f"Pearson={score['test_pearson']:.3f}{current_marker}\n")
+                    f"Pearson={score['test_pearson']:.3f}")
+            if mutation_str:
+                line += f", Mutation={mutation_str}"
+            f.write(line + "\n")
 
     return True
 

@@ -30,6 +30,7 @@ class UCBNode:
     visits: int
     r2: float
     pearson: float = 0.0
+    mutation: str = ""
 
 
 def parse_ucb_scores(filepath: str) -> list[UCBNode]:
@@ -39,9 +40,9 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX
-    # Pearson is optional for backward compatibility
-    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?'
+    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX, Mutation=...
+    # Pearson and Mutation are optional for backward compatibility
+    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?(?:, Mutation=([^\n\[]+))?'
 
     for match in re.finditer(pattern, content):
         node_id = int(match.group(1))
@@ -51,6 +52,7 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
         visits = int(match.group(4))
         r2 = float(match.group(5))
         pearson = float(match.group(6)) if match.group(6) else 0.0
+        mutation = match.group(7).strip() if match.group(7) else ""
 
         nodes.append(UCBNode(
             id=node_id,
@@ -58,7 +60,8 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
             parent=parent,
             visits=visits,
             r2=r2,
-            pearson=pearson
+            pearson=pearson,
+            mutation=mutation
         ))
 
     return nodes
@@ -212,6 +215,12 @@ def plot_ucb_tree(nodes: list[UCBNode],
         ax.annotate(str(node.id), (x, y), ha='center', va='center',
                    fontsize=7,
                    color='black', zorder=3)
+
+        # Mutation above the node (for nodes with id > 1)
+        if node.id > 1 and node.mutation:
+            ax.annotate(node.mutation, (x, y), ha='center', va='bottom',
+                       fontsize=4, xytext=(0, 12), textcoords='offset points',
+                       color='#333333', zorder=3)
 
         # Annotation: UCB/V and R2/Pearson below the node
         label_text = f"UCB={node.ucb:.2f} V={node.visits}\nR²={node.r2:.2f} ρ={node.pearson:.2f}"
