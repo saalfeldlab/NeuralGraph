@@ -85,9 +85,13 @@ if __name__ == "__main__":
                 content = re.sub(r"dataset:\s*['\"]?[\w_]+['\"]?", "dataset: 'signal_Claude'", content)
                 # update n_epochs to 1
                 content = re.sub(r"n_epochs:\s*\d+", "n_epochs: 1", content)
+                # update data_augmentation_loop to 50
+                content = re.sub(r"data_augmentation_loop:\s*\d+", "data_augmentation_loop: 50", content)
+                # update description
+                content = re.sub(r'description:\s*["\'][^"\']*["\']', 'description: "designed by Claude"', content)
                 with open(target_config, 'w') as f:
                     f.write(content)
-                print(f"\033[93mmodified {target_config}: dataset='signal_Claude', n_epochs=1\033[0m")
+                print(f"\033[93mmodified {target_config}: dataset='signal_Claude', n_epochs=1, data_augmentation_loop=50, description='designed by Claude'\033[0m")
 
         # delete ucb_scores.txt at start of experiment
         ucb_file = f"{root_dir}/ucb_scores.txt"

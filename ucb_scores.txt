@@ -1,0 +1,6 @@
+=== UCB Scores (Block 0, iters 1-24, N=4, c=1.0) ===
+
+Node 4: UCB=1.999, parent=3, visits=1, R2=0.999, Pearson=0.933
+Node 3: UCB=1.658, parent=2, visits=2, R2=0.991, Pearson=0.931
+Node 2: UCB=1.483, parent=1, visits=3, R2=0.983, Pearson=0.982
+Node 1: UCB=1.399, parent=root, visits=4, R2=0.999, Pearson=0.999

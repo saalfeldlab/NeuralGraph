@@ -743,8 +743,12 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         lines = content.split('\n')
         for i, line in enumerate(lines):
             # Match iteration header: ## Iter N: [status]
+            # When we hit a new iteration, save the previous node if complete
             iter_match = re.match(r'## Iter (\d+):', line)
             if iter_match:
+                # Save previous node if it has required fields
+                if current_node is not None and 'id' in current_node and 'connectivity_R2' in current_node:
+                    nodes[current_node['id']] = current_node
                 current_iter = int(iter_match.group(1))
                 current_node = {'iter': current_iter}
                 continue
@@ -789,10 +793,12 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                     current_node['test_pearson'] = float(p_str) if p_str != 'nan' else 0.0
                 else:
                     current_node['test_pearson'] = 0.0
-                # Node complete, store it
-                if 'id' in current_node:
-                    nodes[current_node['id']] = current_node
-                current_node = None
+                # Don't store node yet - continue collecting fields (Mutation comes after Metrics)
+                continue
+
+        # Save the last node if complete
+        if current_node is not None and 'id' in current_node and 'connectivity_R2' in current_node:
+            nodes[current_node['id']] = current_node
 
     # Apply next_parent_map: if iteration N-1 specified "Next: parent=P", use P as parent for node N
     for node_id, node in nodes.items():
@@ -916,7 +922,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             current_block = (current_iteration - 1) // block_size
             block_start = current_block * block_size + 1
             block_end = (current_block + 1) * block_size
-            f.write(f"=== UCB Scores (Block {current_block}, iters {block_start}-{block_end}, N={n_total}, c={c}) ===\n\n")
+            f.write(f"=== UCB Scores (Simulation block {current_block}, iters {block_start}-{block_end}, N={n_total}, c={c}) ===\n\n")
         else:
             f.write(f"=== UCB Scores (N_total={n_total}, c={c}) ===\n\n")
         for score in ucb_scores:

@@ -52,15 +52,15 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 100
+  data_augmentation_loop: 50
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
-  learning_rate_W_start: 2.0E-3
-  learning_rate_start: 1.0E-4
+  learning_rate_W_start: 3.0E-2
+  learning_rate_start: 2.0E-4
   learning_rate_embedding_start: 2.5E-4
 
   coeff_W_L1: 1.0E-5

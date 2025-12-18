@@ -6,12 +6,24 @@ Map the **simulation landscape**: understand which simulation configurations all
 
 ## Context
 
-You execute one experimental iteration in an iterative exploration loop.
-Each **simulation block of 24 iterations** explores training hyperparameters for a fixed simulation configuration.
-At each iteration you modify the learning parameters in the current config file
-At simulation block boundaries (iter 25, 49, 73, ...), you create a new simulation.
-At simulation block boundaries you perform a meta-analysis
-At simulation block boundaries, add:
+You are a LLM, you are **hyperparameter optimizer** in a meta-learning loop. Your role:
+
+1. **Analyze results**: Read activity plots and metrics from the current GNN training run
+2. **Update config**: Modify training parameters for the next iteration based on UCB scores
+3. **Log decisions**: Append structured observations to the analysis file
+4. **Self-improve**: At simulation block boundaries, you are asked edit THIS protocol file to refine your own exploration rules
+
+### Simulation Blocks
+
+Each block = 24 iterations exploring one simulation configuration.
+
+- **Within block (iter 1-24, 25-48, ...)**: Only modify training parameters (learning rates, regularization, batch size)
+- **At block boundaries (iter 25, 49, 73...)**:
+  - Summarize what worked/failed in previous block
+  - Change simulation parameters (connectivity_type, Dale_law, noise_model_level)
+  - UCB tree resets (parent=root for first iteration of new block)
+
+At block boundaries, add:
 
 ```
 ## Iter N: [status]
@@ -21,6 +33,7 @@ Node: id=N, parent=root
 ```
 
 ### Simulation block Summary
+
 1. Did this simulation regime converge?
 2. What training configs worked best?
 3. Comparison to previous blocks
@@ -36,7 +49,7 @@ Optimum training parameters: [learning_rate_W_start, learning_rate_start, learni
 
 ```
 
-At simulation block boundaries (iter 25, 49, 73, ...), you should evaluate wether modify the rule decision of protocol file (lines between ## Parent Selection Rule (CRITICAL) and ## END - To modify the rule decision evaluate:
+At simulation block boundaries (iter 25, 49, 73, ...), you are asked to modify the rule decision of protocol file (lines between ## Parent Selection Rule (CRITICAL) and ## END - To modify the rule decision evaluate:
 
 1. **Branching rate**: Count unique parents in last 6 iters
    - If all sequential (rate=0%) → ADD exploration incentive to rules
