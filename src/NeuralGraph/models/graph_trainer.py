@@ -2644,7 +2644,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
               rollout_without_noise: bool = False, log_file=None):
 
     dataset_name = config.dataset
-    print(f"\033[92mdataset_name: {dataset_name}\033[0m")
+    print(f"\033[94m\dataset_name: {dataset_name}\033[0m")
     print(f"\033[92m{config.description}\033[0m")
 
     if test_mode == "":

@@ -1,8 +1,9 @@
-# GNN Simulation Landscape Study
+# Simulation-GNN training Landscape Study
 
 ## Goal
 
-Map the **simulation landscape**: understand which simulation configurations allow successful GNN training (connectivity_R2 > 0.9) and which simulation configurations are fundamentally harder.
+Map the **simulation-GNN training landscape**: understand which simulation configurations allow successful GNN training (connectivity_R2 > 0.9) and which simulation configurations are fundamentally harder for GNN training.
+When Can GNN recover synaptic weights from simulated data?
 
 ## Context
 

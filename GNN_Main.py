@@ -299,7 +299,13 @@ Config file: {config_file_}"""
                 if os.path.exists(experiment_path):
                     shutil.copy2(experiment_path, dst_protocol)
 
-                # generate UCB tree visualization from ucb_scores.txt (already computed pre-Claude)
+                # recompute UCB scores after Claude to pick up mutations from analysis markdown
+                compute_ucb_scores(analysis_path, ucb_path,
+                                   current_log_path=analysis_log_path,
+                                   current_iteration=iteration,
+                                   block_size=24)
+
+                # generate UCB tree visualization from ucb_scores.txt
                 ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
                 nodes = parse_ucb_scores(ucb_path)
                 if nodes:
