@@ -3,6 +3,9 @@ dataset: "signal_Claude"
 
 simulation:
   connectivity_type: "chaotic"
+  connectivity_rank: 20
+  Dale_law: True
+  Dale_law_factor: 0.4
   connectivity_init: [0, 0.1]
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
@@ -46,11 +49,10 @@ training:
   n_runs: 1
   device: "auto"
 
-  batch_size: 8
   small_init_batch_size: False
   training_single_type: True
 
-  seed: 24
+  seed: 42
 
   data_augmentation_loop: 25
 
@@ -59,10 +61,13 @@ training:
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
-  learning_rate_W_start: 3.0E-3
-  learning_rate_start: 1.0E-4
+  learning_rate_W_start: 1.0E-2
+  learning_rate_start: 2.0E-3
   learning_rate_embedding_start: 2.5E-4
+
+  batch_size: 8
 
   coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
+  noise_model_level: 0.1

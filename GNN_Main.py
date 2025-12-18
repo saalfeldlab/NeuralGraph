@@ -66,21 +66,36 @@ if __name__ == "__main__":
     # if Claude in task, determine iteration range; otherwise single iteration
     if 'Claude' in task:
         iteration_range = range(1, n_iterations + 1)
-        # copy signal_Claude_first.yaml to signal_Claude.yaml at start
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
+
+        # copy source config to signal_Claude.yaml and modify for Claude exploration
         for cfg in config_list:
             cfg_file, pre = add_pre_folder(cfg)
-            first_config = f"{config_root}/{pre}{cfg}_first.yaml"
-            target_config = f"{config_root}/{pre}{cfg}.yaml"
-            if os.path.exists(first_config):
-                shutil.copy2(first_config, target_config)
-                print(f"\033[93mcopied {first_config} -> {target_config}\033[0m")
+            source_config = f"{config_root}/{pre}{cfg}.yaml"
+            target_config = f"{config_root}/{pre}signal_Claude.yaml"
+            if os.path.exists(source_config):
+                shutil.copy2(source_config, target_config)
+                print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
+                # modify target config: set dataset and n_epochs
+                with open(target_config, 'r') as f:
+                    content = f.read()
+                # update dataset to signal_Claude
+                content = re.sub(r"dataset:\s*['\"]?[\w_]+['\"]?", "dataset: 'signal_Claude'", content)
+                # update n_epochs to 1
+                content = re.sub(r"n_epochs:\s*\d+", "n_epochs: 1", content)
+                with open(target_config, 'w') as f:
+                    f.write(content)
+                print(f"\033[93mmodified {target_config}: dataset='signal_Claude', n_epochs=1\033[0m")
+
         # delete ucb_scores.txt at start of experiment
         ucb_file = f"{root_dir}/ucb_scores.txt"
         if os.path.exists(ucb_file):
             os.remove(ucb_file)
             print(f"\033[93mdeleted {ucb_file}\033[0m")
+
+        # use signal_Claude as the config for all iterations
+        config_list = ['signal_Claude']
     else:
         iteration_range = range(1, 2)  # single iteration
 
@@ -214,39 +229,14 @@ if __name__ == "__main__":
                 config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
                 ucb_path = f"{root_dir}/ucb_scores.txt"
 
-                # compute UCB scores including current iteration's connectivity_R2 from analysis.log
-                ucb_computed = compute_ucb_scores(analysis_path, ucb_path,
-                                                   current_log_path=analysis_log_path,
-                                                   current_iteration=iteration)
-                if ucb_computed:
-                    print(f"\033[92mUCB scores computed: {ucb_path}\033[0m")
-
-                    # generate UCB tree visualization
-                    try:
-                        ucb_nodes = parse_ucb_scores(ucb_path)
-                        if ucb_nodes:
-                            # Extract simulation info from analysis markdown
-                            sim_info = None
-                            if os.path.exists(analysis_path):
-                                with open(analysis_path, 'r') as f:
-                                    for line in f:
-                                        if line.startswith('Simulation:'):
-                                            sim_info = line.strip()
-                                            break
-                            ucb_tree_path = f"{exploration_dir}/ucb_scores_tree.png"
-                            plot_ucb_tree(ucb_nodes, ucb_tree_path,
-                                         title=f"UCB Tree - {experiment_name} (iter {iteration})",
-                                         simulation_info=sim_info)
-                            print(f"\033[92mUCB tree saved: {ucb_tree_path}\033[0m")
-                            # archive to exploration_tree folder
-                            archive_tree_path = f"{tree_save_dir}/iter_{iteration:03d}.png"
-                            shutil.copy2(ucb_tree_path, archive_tree_path)
-                    except Exception as e:
-                        print(f"\033[93mwarning: could not plot UCB tree: {e}\033[0m")
-
-                    # copy ucb_scores.txt to exploration folder
-                    dst_ucb = f"{exploration_dir}/ucb_scores.txt"
-                    shutil.copy2(ucb_path, dst_ucb)
+                # compute UCB scores for Claude to read
+                # - parses nodes 1 to N-1 from markdown
+                # - gets parent for node N from iter N-1's "Next: parent=P"
+                # - creates node N with metrics from analysis.log
+                compute_ucb_scores(analysis_path, ucb_path,
+                                   current_log_path=analysis_log_path,
+                                   current_iteration=iteration)
+                print(f"\033[92mUCB scores computed: {ucb_path}\033[0m")
 
                 # check files are ready (generated by data_generate above)
                 time.sleep(2)  # pause to ensure files are written
@@ -302,3 +292,21 @@ Config file: {config_file_}"""
                 dst_protocol = f"{protocol_save_dir}/iter_{iteration:03d}.md"
                 if os.path.exists(experiment_path):
                     shutil.copy2(experiment_path, dst_protocol)
+
+                # generate UCB tree visualization from ucb_scores.txt (already computed pre-Claude)
+                ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
+                nodes = parse_ucb_scores(ucb_path)
+                if nodes:
+                    # get simulation info from config for tree annotation
+                    sim_info = f"connectivity_type={config.simulation.connectivity_type}"
+                    if hasattr(config.simulation, 'Dale_law'):
+                        sim_info += f", Dale_law={config.simulation.Dale_law}"
+                    if hasattr(config.simulation, 'noise_model_level'):
+                        sim_info += f", noise_model_level={config.simulation.noise_model_level}"
+                    if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
+                        sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
+
+                    plot_ucb_tree(nodes, ucb_tree_path,
+                                  title=f"UCB Tree - Iter {iteration}",
+                                  simulation_info=sim_info)
+                    # print(f"\033[92mUCB tree saved: {ucb_tree_path}\033[0m")

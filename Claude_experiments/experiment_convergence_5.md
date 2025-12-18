@@ -5,7 +5,7 @@
 You execute one experimental iteration in an iterative exploration loop.
 Each **block of 12 iterations** explores training hyperparameters for a fixed simulation configuration.
 At each iteration you modify the learning parameters in the current config file
-At each iteration if necessary you modify the rule decision block of protocol file (lines between ## Parent Selection Rule (CRITICAL) and ## END Parent selection Rule (CRITICAL))
+At each iteration to perform better exploration you can modify the rule decision block of protocol file (lines between ## Parent Selection Rule (CRITICAL) and ## END Parent selection Rule (CRITICAL)), indicate if the protocol file is changed or not
 At block boundaries (iter 1, 13, 25, 37, ...), you create a new simulation.
 
 ## Goal
@@ -27,6 +27,11 @@ Map the **simulation landscape**: understand which simulation configurations all
   Node 2: UCB=2.175, parent=1, visits=1, R2=0.997 [CURRENT]
   Node 1: UCB=2.110, parent=root, visits=2, R2=0.934
   ```
+  - `Node N`:
+  - `UCB`: Upper Confidence Bound score = R² + c×√(log(N_total)/visits); higher = more promising to explore
+  - `parent`: which node's config was mutated to create this node (root = baseline config)
+  - `visits`: how many times this node or its descendants have been explored
+  - `R2`: connectivity_R2 achieved by this node's config
 
 ## Classification
 
@@ -58,10 +63,9 @@ training:
 
 ## Parent Selection Rule (CRITICAL)
 
-**The `parent` field indicates which node's CONFIG you are modifying not the iteration number**
+**Step 1: select parent node to ccontinue**
 
-**Step 1: Find parent node**
-
+- Use `ucb_scores.txt` to select a new node
 - If UCB file is empty → `parent=root`
 - Otherwise → select node with **highest UCB** as parent
 
@@ -69,7 +73,7 @@ training:
 
 | Condition                           | Strategy            | Action                                                      |
 | ----------------------------------- | ------------------- | ----------------------------------------------------------- |
-| Default                             | **exploit**         | Use highest UCB node as parent, try new mutation            |
+| Default                             | **exploit**         | Use highest UCB node, try new mutation                      |
 | 3+ consecutive successes (R² ≥ 0.9) | **failure-probe**   | Deliberately try extreme parameter to find failure boundary |
 | Found good config                   | **robustness-test** | Re-run same config (no mutation) to verify reproducibility  |
 
@@ -87,13 +91,14 @@ Example: If reverting `lr` back to `1E-4` (Node 2's value), use `parent=2`.
 ```
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
-Mode: [success-exploit/failure-probe]
-Strategy: [exploit/explore/boundary]
+Mode/Strategy: [success-exploit/failure-probe]/[exploit/explore/boundary]
 Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, final_loss=D
 Activity: [brief description of dynamics]
 Mutation: [param]: [old] -> [new]
+Parent rule: [brief description of Parent Selection Rule]
 Observation: [one line about result]
+Next: parent=P [CRITICAL: specify which node the NEXT iteration should branch from]
 ```
 
 For block boundaries, add:
@@ -101,7 +106,7 @@ For block boundaries, add:
 ```
 ## Iter N: [status]
 --- NEW BLOCK ---
-Simulation: connectivity_type=[type], Dale_law=[True/False], Dale_law_factor=[F], noise_model_level=[L]
+Simulation: connectivity_type=[type], Dale_law=[True/False], Dale_law_factor=[F], connectivity_rank = [R] if connectivity_type='low_rank', noise_model_level=[L]
 Node: id=N, parent=root
 ...
 ```
@@ -113,6 +118,7 @@ At the end of each block (iter 12, 24, 36, ...), write a brief summary:
 1. Did this simulation regime converge?
 2. What training configs worked best?
 3. Comparison to previous blocks
+4. Remains to be explored
 
 ```
 ### Block N Summary (iters X-Y)

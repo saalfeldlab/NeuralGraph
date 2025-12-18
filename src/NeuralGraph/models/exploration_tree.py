@@ -727,6 +727,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         iterations (N*block_size)+1 to (N+1)*block_size.
     """
     nodes = {}
+    next_parent_map = {}  # maps iteration N -> parent for iteration N+1 (from "Next: parent=P")
 
     # parse previous iterations from analysis markdown file
     if os.path.exists(analysis_path):
@@ -736,6 +737,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         # Parse nodes from analysis file
         # Format: Node: id=N, parent=P, V=1, N_total=N
         # Metrics: ..., connectivity_R2=V, ...
+        # Next: parent=P (specifies parent for next iteration)
         current_node = None
 
         lines = content.split('\n')
@@ -759,6 +761,16 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                     current_node['parent'] = int(parent_str)
                 continue
 
+            # Match Next line: specifies parent for the NEXT iteration
+            next_match = re.match(r'Next: parent=(\d+|root)', line)
+            if next_match and current_node is not None:
+                next_parent_str = next_match.group(1)
+                if next_parent_str == 'root':
+                    next_parent_map[current_node['iter']] = None
+                else:
+                    next_parent_map[current_node['iter']] = int(next_parent_str)
+                continue
+
             # Match Metrics line for connectivity_R2 and test_pearson
             metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
             if metrics_match and current_node is not None:
@@ -776,40 +788,45 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                     nodes[current_node['id']] = current_node
                 current_node = None
 
-    # add current iteration from analysis.log if provided AND not already parsed from markdown
-    # (markdown has correct parent info; analysis.log only has metrics)
+    # Apply next_parent_map: if iteration N-1 specified "Next: parent=P", use P as parent for node N
+    for node_id, node in nodes.items():
+        prev_iter = node_id - 1
+        if prev_iter in next_parent_map:
+            node['parent'] = next_parent_map[prev_iter]
+
+    # Add current iteration from analysis.log if not yet in markdown
+    # Use parent from next_parent_map (from previous iteration's "Next: parent=P")
     if current_log_path and current_iteration and os.path.exists(current_log_path):
-        # Only add if not already in nodes (preserve parent from markdown)
-        if current_iteration not in nodes:
-            with open(current_log_path, 'r') as f:
-                log_content = f.read()
+        with open(current_log_path, 'r') as f:
+            log_content = f.read()
 
-            # parse connectivity_R2 from analysis.log (handles both = and : formats)
-            r2_match = re.search(r'connectivity_R2[=:]\s*([\d.]+|nan)', log_content)
-            if r2_match:
-                r2_str = r2_match.group(1)
-                conn_r2 = float(r2_str) if r2_str != 'nan' else 0.0
+        # parse connectivity_R2 from analysis.log (handles both = and : formats)
+        r2_match = re.search(r'connectivity_R2[=:]\s*([\d.]+|nan)', log_content)
+        if r2_match:
+            r2_str = r2_match.group(1)
+            r2_value = float(r2_str) if r2_str != 'nan' else 0.0
 
-                # parse test_pearson from analysis.log
-                pearson_match = re.search(r'test_pearson[=:]\s*([\d.]+|nan)', log_content)
-                test_pearson = 0.0
-                if pearson_match:
-                    p_str = pearson_match.group(1)
-                    test_pearson = float(p_str) if p_str != 'nan' else 0.0
+            # parse test_pearson from analysis.log
+            pearson_value = 0.0
+            pearson_match = re.search(r'test_pearson[=:]\s*([\d.]+|nan)', log_content)
+            if pearson_match:
+                p_str = pearson_match.group(1)
+                pearson_value = float(p_str) if p_str != 'nan' else 0.0
 
-                # determine parent: previous iteration if exists, else None (for iter 1) or last node
-                if current_iteration == 1:
-                    parent_id = None
-                else:
-                    # parent is the previous node (simple linear assumption)
-                    parent_id = current_iteration - 1 if (current_iteration - 1) in nodes else None
-
+            if current_iteration in nodes:
+                # Update existing node's metrics
+                nodes[current_iteration]['connectivity_R2'] = r2_value
+                nodes[current_iteration]['test_pearson'] = pearson_value
+            else:
+                # Create new node using parent from previous iteration's "Next: parent=P"
+                prev_iter = current_iteration - 1
+                parent = next_parent_map.get(prev_iter, prev_iter if prev_iter in nodes else None)
                 nodes[current_iteration] = {
                     'iter': current_iteration,
                     'id': current_iteration,
-                    'parent': parent_id,
-                    'connectivity_R2': conn_r2,
-                    'test_pearson': test_pearson
+                    'parent': parent,
+                    'connectivity_R2': r2_value,
+                    'test_pearson': pearson_value
                 }
 
     if not nodes:
