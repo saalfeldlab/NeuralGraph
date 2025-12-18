@@ -219,7 +219,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
         # Mutation above the node (for nodes with id > 1)
         if node.id > 1 and node.mutation:
             ax.annotate(node.mutation, (x, y), ha='center', va='bottom',
-                       fontsize=4, xytext=(0, 12), textcoords='offset points',
+                       fontsize=5, xytext=(0, 12), textcoords='offset points',
                        color='#333333', zorder=3)
 
         # Annotation: UCB/V and R2/Pearson below the node
@@ -251,7 +251,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
                     filtered_lines.append(line)
             sim_formatted = '\n'.join(filtered_lines) if filtered_lines else '\n'.join(sim_lines)
             ax.annotate(sim_formatted, (root_x, root_y), ha='left', va='bottom',
-                       fontsize=5, xytext=(5, 15), textcoords='offset points',
+                       fontsize=6, xytext=(5, 15), textcoords='offset points',
                        color='#555555', zorder=4)
 
     # Remove axis labels and ticks
@@ -285,7 +285,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
     plt.tight_layout()
 
     if output_path:
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
     else:
         plt.show()
 

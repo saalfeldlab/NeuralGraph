@@ -50,7 +50,18 @@ Optimum training parameters: [learning_rate_W_start, learning_rate_start, learni
 
 ```
 
-At simulation block boundaries (iter 25, 49, 73, ...), you are asked to modify the rule decision of protocol file (lines between ## Parent Selection Rule (CRITICAL) and ## END - To modify the rule decision evaluate:
+## MANDATORY: Block Boundary Actions (iter 25, 49, 73, ...)
+
+At the **first iteration of each new block**, you MUST complete ALL of these actions:
+
+### Checklist (complete in order):
+
+- [ ] **1. Write block summary** for the previous block (see "Simulation block Summary" format above)
+- [ ] **2. Evaluate exploration rules** using metrics below
+- [ ] **3. EDIT THIS PROTOCOL FILE** - modify the rules between `## Parent Selection Rule (CRITICAL)` and `## END Parent selection Rule (CRITICAL)`
+- [ ] **4. Document your edit** - in the analysis file, state what you changed and why (or state "No changes needed" with justification)
+
+### Evaluation Metrics for Rule Modification:
 
 1. **Branching rate**: Count unique parents in last 6 iters
    - If all sequential (rate=0%) → ADD exploration incentive to rules
@@ -59,7 +70,25 @@ At simulation block boundaries (iter 25, 49, 73, ...), you are asked to modify t
    - If >80% improving → INCREASE exploration (probe boundaries)
 3. **Stuck detection**: Same R² plateau (±0.05) for 3+ iters?
    - If yes → ADD forced branching rule
-     indicate if the protocol file is changed or not
+
+### Example Protocol Edit:
+
+If branching rate was 0% (all sequential), you might add a new row to the strategy table:
+
+**Before:**
+```
+| Default                             | **exploit**         | Use highest UCB node, try new mutation                      |
+```
+
+**After:**
+```
+| Default                             | **exploit**         | Use highest UCB node, try new mutation                      |
+| Branching rate < 20% in last block  | **force-branch**    | Select random node from top 3 UCB, not the sequential parent|
+```
+
+Or modify threshold values, add new conditions, remove ineffective rules, etc.
+
+**IMPORTANT**: You must actually use the Edit tool to modify this file. Simply stating what you would change is NOT sufficient.
 
 ## Analysis of Files
 
@@ -94,24 +123,28 @@ Node 1: UCB=2.110, parent=root, visits=2, R2=0.934
 
 ## Simulation Parameters to explore
 
+These parameters affect the **data generation** (simulation). Only change at block boundaries.
+
 ```yaml
 simulation:
-connectivity_type: "chaotic" # or "low_rank"
-Dale_law: True # enforce excitatory/inhibitory separation
-Dale_law_factor: 0.5 # fraction excitatory/inhibitory (0.1 to 0.9)
-low_rank specific:
-connectivity_rank: 20 # only used when connectivity_type="low_rank", range 5-100
+  connectivity_type: "chaotic" # or "low_rank"
+  Dale_law: True # enforce excitatory/inhibitory separation
+  Dale_law_factor: 0.5 # fraction excitatory/inhibitory (0.1 to 0.9)
+  connectivity_rank: 20 # only used when connectivity_type="low_rank", range 5-100
+#   noise_model_level: 0.0 # noise added during simulation, affects data complexity. values: 0, 0.5, 1
 ```
 
 ## Training Parameters to explore
 
+These parameters affect the **GNN training**. Can be changed within a block.
+
 ```yaml
 training:
   learning_rate_W_start: 2.0E-3 # LR for connectivity weights W range: 1.0E-4 to 1.0E-2
-  learning_rate_start: 1.0E-4 # LR for model parameters range:1.0E-5 to 1.0E-3
-  coeff_W_L1: 1.0E-5 # L1 regularization on W range: 1.0E-3 to 1.0E-6
-  batch_size: 8 # batch size values: 8, 16 ,32
-  noise_model_level: 0.0 # add noise to data, it's a good regularizer values: 0, 0.5, 1
+  learning_rate_start: 1.0E-4 # LR for model parameters range: 1.0E-5 to 1.0E-3
+  learning_rate_embedding_start: 2.5E-4 # LR for embeddings range: 1.0E-5 to 1.0E-3, only if n_neuron_types > 1
+  coeff_W_L1: 1.0E-5 # L1 regularization on W range: 1.0E-6 to 1.0E-3
+  batch_size: 8 # batch size values: 8, 16, 32
 ```
 
 ## Parent Selection Rule (CRITICAL)

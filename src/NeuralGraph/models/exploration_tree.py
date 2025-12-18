@@ -351,7 +351,7 @@ def plot_exploration_tree(nodes: list[ExperimentNode],
     plt.tight_layout(rect=[0, 0, 1, 0.96])
 
     if output_path:
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.savefig(output_path, dpi=300, bbox_inches='tight')
         print(f"Saved exploration tree to {output_path}")
     else:
         plt.show()

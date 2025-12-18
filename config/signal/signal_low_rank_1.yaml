@@ -1,8 +1,9 @@
-description: "designed by Claude"
-dataset: 'signal_Claude'
+description: "one type low_rank 20"
+dataset: "signal_low_rank_1"
 
 simulation:
-  connectivity_type: "chaotic"
+  connectivity_type: "low_rank"
+  connectivity_rank: 20
   connectivity_init: [0, 0.1]
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
@@ -42,7 +43,7 @@ plotting:
   ylim: [-2, 2]
 
 training:
-  n_epochs: 1
+  n_epochs: 10
   n_runs: 1
   device: "auto"
 
@@ -52,7 +53,7 @@ training:
 
   seed: 24
 
-  data_augmentation_loop: 50
+  data_augmentation_loop: 100
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
