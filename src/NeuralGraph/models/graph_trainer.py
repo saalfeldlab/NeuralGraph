@@ -380,7 +380,7 @@ def data_train_signal(config, erase, best_model, style, device):
     list_loss_regul = []
     time.sleep(1.0)
 
-    for epoch in range(start_epoch, n_epochs + 1):
+    for epoch in range(start_epoch, n_epochs):
 
         if (epoch == train_config.epoch_reset):
             with torch.no_grad():
