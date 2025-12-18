@@ -56,7 +56,7 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
+        task = 'train'   #  'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
         task_params = {'iterations': 512, 'experiment': 'experiment_convergence_6'}
         config_list = ['signal_chaotic_1']
 

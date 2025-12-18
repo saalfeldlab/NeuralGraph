@@ -244,6 +244,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
     print('create models ...')
     model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device)
+    model.to(device)  # Ensure all model parameters are on the correct device
     model.train()
 
     if has_missing_activity:

@@ -111,7 +111,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             self.embedding_step =  self.n_frames // 100
         else:
             if train_config.training_single_type:
-                self.a = torch.ones((self.n_neurons, self.embedding_dim), device=self.device, requires_grad=False, dtype=torch.float32)
+                self.register_buffer('a', torch.ones((self.n_neurons, self.embedding_dim), requires_grad=False, dtype=torch.float32))
             else:
                 self.a = nn.Parameter(torch.ones(self.n_neurons, self.embedding_dim, device=self.device, requires_grad=True, dtype=torch.float32))
 
@@ -137,7 +137,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
                 self.W = nn.Parameter(torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=True, dtype=torch.float32))
 
 
-        self.mask = torch.ones((int(self.n_neurons),int(self.n_neurons)), device=self.device, requires_grad=False, dtype=torch.float32)
+        self.register_buffer('mask', torch.ones((int(self.n_neurons),int(self.n_neurons)), requires_grad=False, dtype=torch.float32))
         self.mask.fill_diagonal_(0)
 
     def get_interp_a(self, k, particle_id):
