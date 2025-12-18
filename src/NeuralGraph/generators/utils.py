@@ -81,7 +81,7 @@ def init_neurons(config=[], scenario='none', ratio=1, device=[]):
 
     xc, yc = get_equidistant_points(n_points=n_neurons)
     pos = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
-    perm = torch.randperm(pos.size(0))
+    perm = torch.randperm(pos.size(0), device=device)
     pos = pos[perm]
 
     dpos = dpos_init * torch.randn((n_neurons, dimension), device=device)

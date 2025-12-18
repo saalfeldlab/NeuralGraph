@@ -56,9 +56,9 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'train'   #  'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_7', 'llm_task': 'signal_Claude'}
-        config_list = ['signal_chaotic_1']
+        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
+        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_7', 'llm_task': 'signal_Claude_bis'}
+        config_list = ['signal_chaotic_2']
 
     # parse parameters from task_params
     n_iterations = task_params.get('iterations', 5)
@@ -95,7 +95,7 @@ if __name__ == "__main__":
                 print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs=1, data_augmentation_loop=50, description='designed by Claude'\033[0m")
 
         # delete ucb_scores.txt at start of experiment
-        ucb_file = f"{root_dir}/ucb_scores.txt"
+        ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
         if os.path.exists(ucb_file):
             os.remove(ucb_file)
             print(f"\033[93mdeleted {ucb_file}\033[0m")
@@ -114,7 +114,7 @@ if __name__ == "__main__":
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
             experiment_path = f"{root_dir}/{experiment_name}.md"
-            analysis_path = f"{root_dir}/analysis_{experiment_name}.md"
+            analysis_path = f"{root_dir}/{llm_task_name}_analysis_{experiment_name}.md"
 
             # check experiment file exists
             if not os.path.exists(experiment_path):
@@ -133,7 +133,7 @@ if __name__ == "__main__":
 
         # analysis log file in root folder (for Claude to read)
         root_dir = os.path.dirname(os.path.abspath(__file__))
-        analysis_log_path = f"{root_dir}/analysis.log"
+        analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
 
         for iteration in iteration_range:
             if 'Claude' in task:
@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
                 # block boundary: erase UCB at start of each 24-iteration block (except iter 1, already handled)
                 if iteration > 1 and (iteration - 1) % 24 == 0:
-                    ucb_file = f"{root_dir}/ucb_scores.txt"
+                    ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
                     if os.path.exists(ucb_file):
                         os.remove(ucb_file)
                         print(f"\033[93msimulation block boundary: deleted {ucb_file} (new simulation block)\\033[0m")
@@ -233,7 +233,7 @@ if __name__ == "__main__":
 
                 # claude analysis: reads activity.png and analysis.log, updates config per experiment protocol
                 config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
-                ucb_path = f"{root_dir}/ucb_scores.txt"
+                ucb_path = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
 
                 # compute UCB scores for Claude to read
                 compute_ucb_scores(analysis_path, ucb_path,
