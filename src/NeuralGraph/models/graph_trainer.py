@@ -320,6 +320,15 @@ def data_train_signal(config, erase, best_model, style, device):
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
+    # Debug: check all parameter and buffer devices
+    print(f'Target device: {device}')
+    for name, param in model.named_parameters():
+        if str(param.device) != str(device):
+            print(f'PARAM on wrong device: {name} is on {param.device}')
+    for name, buf in model.named_buffers():
+        if str(buf.device) != str(device):
+            print(f'BUFFER on wrong device: {name} is on {buf.device}')
+
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
     logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
@@ -624,6 +633,35 @@ def data_train_signal(config, erase, best_model, style, device):
                         loss = loss + train_config.coeff_omega_f_L2 * omega_L2_loss
 
                 loss.backward()
+                # Debug: check gradient devices before optimizer step
+                for name, param in model.named_parameters():
+                    if param.grad is not None and str(param.grad.device) != str(device):
+                        print(f'GRAD on wrong device: {name}.grad is on {param.grad.device}')
+                # Debug: check optimizer state devices before step
+                if N == 0 and epoch == start_epoch:
+                    print(f'=== Optimizer debug (first iteration) ===')
+                    print(f'Target device: {device}')
+                    # Check ALL params and grads in optimizer param_groups
+                    device_set = set()
+                    for group_idx, group in enumerate(optimizer.param_groups):
+                        for param_idx, p in enumerate(group['params']):
+                            device_set.add(str(p.device))
+                            if p.grad is not None:
+                                device_set.add(str(p.grad.device))
+                                if str(p.device) != str(p.grad.device):
+                                    print(f'MISMATCH: group[{group_idx}] param[{param_idx}] on {p.device}, grad on {p.grad.device}')
+                            # Check optimizer state
+                            state = optimizer.state.get(p, {})
+                            for state_key, state_val in state.items():
+                                if hasattr(state_val, 'device'):
+                                    device_set.add(str(state_val.device))
+                                    if str(state_val.device) != str(p.device):
+                                        print(f'STATE MISMATCH: group[{group_idx}] param[{param_idx}] state[{state_key}] on {state_val.device}, param on {p.device}')
+                    print(f'All devices in optimizer: {device_set}')
+                    # Also check all named parameters with their devices
+                    for name, param in model.named_parameters():
+                        print(f'  {name}: param={param.device}, grad={param.grad.device if param.grad is not None else None}')
+                    print(f'=== End optimizer debug ===')
                 optimizer.step()
                 regularizer.finalize_iteration()
 

@@ -57,12 +57,13 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'train'   #  'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_6'}
+        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_7', 'llm_task': 'signal_Claude'}
         config_list = ['signal_chaotic_1']
 
     # parse parameters from task_params
     n_iterations = task_params.get('iterations', 5)
     experiment_name = task_params.get('experiment', 'experiment')
+    llm_task_name = task_params.get('llm_task', 'signal_Claude')
 
     # if Claude in task, determine iteration range; otherwise single iteration
     if 'Claude' in task:
@@ -70,19 +71,19 @@ if __name__ == "__main__":
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
 
-        # copy source config to signal_Claude.yaml and modify for Claude exploration
+        # copy source config to LLM task yaml and modify for Claude exploration
         for cfg in config_list:
             cfg_file, pre = add_pre_folder(cfg)
             source_config = f"{config_root}/{pre}{cfg}.yaml"
-            target_config = f"{config_root}/{pre}signal_Claude.yaml"
+            target_config = f"{config_root}/{pre}{llm_task_name}.yaml"
             if os.path.exists(source_config):
                 shutil.copy2(source_config, target_config)
                 print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
                 # modify target config: set dataset and n_epochs
                 with open(target_config, 'r') as f:
                     content = f.read()
-                # update dataset to signal_Claude
-                content = re.sub(r"dataset:\s*['\"]?[\w_]+['\"]?", "dataset: 'signal_Claude'", content)
+                # update dataset to llm_task_name
+                content = re.sub(r"dataset:\s*['\"]?[\w_]+['\"]?", f"dataset: '{llm_task_name}'", content)
                 # update n_epochs to 1
                 content = re.sub(r"n_epochs:\s*\d+", "n_epochs: 1", content)
                 # update data_augmentation_loop to 50
@@ -91,7 +92,7 @@ if __name__ == "__main__":
                 content = re.sub(r'description:\s*["\'][^"\']*["\']', 'description: "designed by Claude"', content)
                 with open(target_config, 'w') as f:
                     f.write(content)
-                print(f"\033[93mmodified {target_config}: dataset='signal_Claude', n_epochs=1, data_augmentation_loop=50, description='designed by Claude'\033[0m")
+                print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs=1, data_augmentation_loop=50, description='designed by Claude'\033[0m")
 
         # delete ucb_scores.txt at start of experiment
         ucb_file = f"{root_dir}/ucb_scores.txt"
@@ -99,8 +100,8 @@ if __name__ == "__main__":
             os.remove(ucb_file)
             print(f"\033[93mdeleted {ucb_file}\033[0m")
 
-        # use signal_Claude as the config for all iterations
-        config_list = ['signal_Claude']
+        # use llm_task_name as the config for all iterations
+        config_list = [llm_task_name]
     else:
         iteration_range = range(1, 2)  # single iteration
 
