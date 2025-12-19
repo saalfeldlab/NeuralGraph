@@ -55,7 +55,11 @@ training:
   learning_rate_embedding_start: 2.5E-4 # LR for embeddings range: 1.0E-5 to 1.0E-3, only if n_neuron_types > 1
   coeff_W_L1: 1.0E-5 # L1 regularization on W range: 1.0E-6 to 1.0E-3
   batch_size: 8 # batch size values: 8, 16, 32
+  low_rank_factorization: False # enable low-rank W factorization (W = U @ V.T) for recovering low-rank connectivity
+  low_rank: 20 # rank of factorization when low_rank_factorization=True, range: 5-100, should match simulation connectivity_rank
 ```
+
+**Note on low-rank connectivity**: When simulation uses `connectivity_type: "low_rank"`, the ground truth W matrix has low rank. Setting `low_rank_factorization: True` with matching `low_rank` value helps recover such matrices by constraining learned W to be low-rank.
 
 ## Simulation Parameters to explore
 
@@ -103,7 +107,7 @@ Example: If reverting `lr` back to `1E-4` (Node 2's value), use `parent=2`.
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode/Strategy: [success-exploit/failure-probe]/[exploit/explore/boundary]
-Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B
+Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B, low_rank_factorization=[T/F], low_rank=R
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, final_loss=D
 Activity: [brief description of dynamics]
 Mutation: [param]: [old] -> [new]
@@ -133,7 +137,7 @@ Simulation: connectivity_type=[type], Dale_law=[True/False], Dale_law_factor=[F]
 Best R2: [value] at iter [N]
 Converged: [Yes/No]
 Observation: [what worked/failed for this simulation]
-Optimum training: lr_W=[X], lr=[Y], lr_emb=[Z], coeff_W_L1=[W]
+Optimum training: lr_W=[X], lr=[Y], lr_emb=[Z], coeff_W_L1=[W], low_rank_factorization=[T/F], low_rank=[R]
 
 --- NEW SIMULATION BLOCK ---
 Next simulation: connectivity_type=[type], Dale_law=[True/False], ...
