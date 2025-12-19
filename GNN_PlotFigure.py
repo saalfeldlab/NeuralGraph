@@ -5396,7 +5396,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
 
 
-def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extended, device):
+def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extended, device, log_file=None):
     dataset_name = config.dataset
     model_config = config.graph_model
     config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
@@ -6198,6 +6198,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             print(f"V_rest reconstruction R²: \033[92m{r_squared_V_rest:.3f}\033[0m  slope: {lin_fit_V_rest[0]:.2f}")
             logger.info(f"V_rest reconstruction R²: {r_squared_V_rest:.3f}  slope: {lin_fit_V_rest[0]:.2f}")
 
+            # Write to analysis log file for Claude
+            if log_file:
+                log_file.write(f"connectivity_R2: {r_squared:.4f}\n")
+                log_file.write(f"tau_R2: {r_squared_tau:.4f}\n")
+                log_file.write(f"V_rest_R2: {r_squared_V_rest:.4f}\n")
+
 
             # Print Dale's Law check results
             # print("Dale's law check:")
@@ -6579,6 +6585,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             print(f"best: n_components={best_n}, accuracy=\033[92m{best_acc:.3f}\033[0m")
             logger.info(f"GMM best: n_components={best_n}, accuracy={best_acc:.3f}")
+
+            # Write cluster accuracy to analysis log file for Claude
+            if log_file:
+                log_file.write(f"cluster_accuracy: {best_acc:.4f}\n")
 
             reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
             a_umap = reducer.fit_transform(a_aug)
@@ -8533,7 +8543,7 @@ def data_plot(config, config_file, epoch_list, style, extended, device, apply_we
         if config.simulation.calcium_type != 'none':
             plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, 'viridis', style, extended, device) # noqa: F821
         else:
-            plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
+            plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device, log_file=log_file)
     elif 'zebra' in config.dataset:
         plot_synaptic_zebra(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     elif ('PDE_N3' in config.graph_model.signal_model_name):

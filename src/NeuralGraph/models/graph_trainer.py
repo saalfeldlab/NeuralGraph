@@ -2664,6 +2664,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             new_params,
             device,
             rollout_without_noise=rollout_without_noise,
+            log_file=log_file,
         )
 
     elif 'zebra' in config.dataset:
@@ -3638,6 +3639,7 @@ def data_test_flyvis(
         new_params=None,
         device=None,
         rollout_without_noise: bool = False,
+        log_file=None,
 ):
 
 
@@ -4594,6 +4596,11 @@ def data_test_flyvis(
             f.write(f"FEVE: {np.mean(feve_all):.3f} ± {np.std(feve_all):.3f} [{np.min(feve_all):.3f}, {np.max(feve_all):.3f}]\n")
             f.write(f"\nNumber of neurons evaluated: {len(activity_true)}\n")
             f.write(f"Frames evaluated: {start_frame} to {end_frame}\n")
+
+        # Write to analysis log file for Claude
+        if log_file:
+            log_file.write(f"test_R2: {np.nanmean(r2_all):.4f}\n")
+            log_file.write(f"test_pearson: {np.nanmean(pearson_all):.4f}\n")
 
         filename_ = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
 
