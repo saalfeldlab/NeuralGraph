@@ -35,6 +35,8 @@ if __name__ == "__main__":
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
 
+
+
     print()
     device=[]
     args = parser.parse_args()
@@ -48,7 +50,6 @@ if __name__ == "__main__":
             best_model = args.option[2]
         else:
             best_model = None
-        # parse additional parameters from remaining args (e.g. iterations=20, experiment=dale)
         task_params = {}
         for arg in args.option[2:]:
             if '=' in arg:
@@ -57,23 +58,26 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        config_list = ['signal_chaotic_2']
+        config_list = ['signal_N5_1']
         task_params = {'iterations': 1024}
 
-    # parse parameters from task_params
+
+
+
     n_iterations = task_params.get('iterations', 5)
-    # derive experiment_name and llm_task_name from config_file (can be overridden via task_params)
     base_config_name = config_list[0] if config_list else 'signal'
     experiment_name = task_params.get('experiment', f'experiment_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
-    # if Claude in task, determine iteration range; otherwise single iteration
+
+
+
     if 'Claude' in task:
         iteration_range = range(1, n_iterations + 1)
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
 
-        # copy source config to LLM task yaml and modify for Claude exploration
+
         for cfg in config_list:
             cfg_file, pre = add_pre_folder(cfg)
             source_config = f"{config_root}/{pre}{cfg}.yaml"
@@ -81,58 +85,47 @@ if __name__ == "__main__":
             if os.path.exists(source_config):
                 shutil.copy2(source_config, target_config)
                 print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
-
-                # load config to read claude section parameters
                 with open(target_config, 'r') as f:
                     config_data = yaml.safe_load(f)
-
-                # get claude parameters (use defaults if section missing)
                 claude_cfg = config_data.get('claude', {})
                 claude_n_epochs = claude_cfg.get('n_epochs', 1)
                 claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
                 claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
-
-                # update dataset
                 config_data['dataset'] = llm_task_name
-                # update training parameters from claude config
                 config_data['training']['n_epochs'] = claude_n_epochs
                 config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
-                # update description
                 config_data['description'] = 'designed by Claude'
-
-                # ensure claude section exists with all parameters
                 config_data['claude'] = {
                     'n_epochs': claude_n_epochs,
                     'data_augmentation_loop': claude_data_augmentation_loop,
                     'n_iter_block': claude_n_iter_block
                 }
-
-                # write back the config
                 with open(target_config, 'w') as f:
                     yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-
                 print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}\033[0m")
 
-        # store n_iter_block for use in iteration loop (read from first config)
         n_iter_block = claude_n_iter_block
 
-        # delete ucb_scores.txt at start of experiment
         ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
         if os.path.exists(ucb_file):
             os.remove(ucb_file)
             print(f"\033[93mdeleted {ucb_file}\033[0m")
 
-        # use llm_task_name as the config for all iterations
         config_list = [llm_task_name]
     else:
-        iteration_range = range(1, 2)  # single iteration
+
+        iteration_range = range(1, 2)  
+
+
+
 
     for config_file_ in config_list:
         print(" ")
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
         config_file, pre_folder = add_pre_folder(config_file_)
 
-        # setup for Claude analysis (paths needed before iteration loop)
+
+
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
             experiment_path = f"{root_dir}/{experiment_name}.md"
@@ -153,14 +146,16 @@ if __name__ == "__main__":
             print(f"\033[93mcleared {analysis_path}\033[0m")
             print(f"\033[93m{experiment_name} ({n_iterations} iterations)\033[0m")
 
-        # analysis log file in root folder (for Claude to read)
         root_dir = os.path.dirname(os.path.abspath(__file__))
         analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
 
+
+
         for iteration in iteration_range:
+
+
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
-
                 # block boundary: erase UCB at start of each n_iter_block-iteration block (except iter 1, already handled)
                 if iteration > 1 and (iteration - 1) % n_iter_block == 0:
                     ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
@@ -178,6 +173,9 @@ if __name__ == "__main__":
 
             # open analysis.log for this iteration (append mode for test/plot to add metrics)
             log_file = open(analysis_log_path, 'w')
+
+
+
 
             if "generate" in task:
                 erase = 'Claude' in task  # erase when iterating with claude
@@ -245,13 +243,10 @@ if __name__ == "__main__":
 
             if 'Claude' in task:
 
-                # compute block boundaries for prompt
                 block_number = (iteration - 1) // n_iter_block + 1
                 iter_in_block = (iteration - 1) % n_iter_block + 1
                 is_block_end = iter_in_block == n_iter_block
 
-
-                # save exploration artifacts before Claude analysis
                 exploration_dir = f"{root_dir}/log/Claude_exploration/{experiment_name}"
                 artifact_paths = save_exploration_artifacts(
                     root_dir, exploration_dir, config, config_file_, pre_folder, iteration,
@@ -356,4 +351,3 @@ Config file: {config_file_}"""
                     plot_ucb_tree(nodes, ucb_tree_path,
                                   title=f"UCB Tree - Iter {iteration}",
                                   simulation_info=sim_info)
-                    # print(f"\033[92mUCB tree saved: {ucb_tree_path}\033[0m")

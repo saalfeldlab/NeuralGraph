@@ -1,0 +1,4 @@
+=== UCB Scores (Simulation block 0, iters 1-24, N=2, c=1.0) ===
+
+Node 2: UCB=1.165, parent=1, visits=1, R2=0.458, Pearson=0.437, Mutation=lr_W: 0.002 -> 0.005
+Node 1: UCB=0.749, parent=root, visits=2, R2=0.278, Pearson=0.480, Mutation=baseline (no mutation, first iter)

@@ -261,6 +261,8 @@ def data_train_signal(config, erase, best_model, style, device):
         optimizer_missing_activity = torch.optim.Adam(lr=train_config.learning_rate_missing_activity,
                                                       params=model_missing_activity.parameters())
         model_missing_activity.train()
+
+        
     # external input model (model_f) for learning external_input reconstruction
     model_f = choose_inr_model(config=config, n_neurons=n_neurons, n_frames=n_frames, x_list=x_list, device=device)
     optimizer_f = None
@@ -2683,7 +2685,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     n_neuron_types = simulation_config.n_neuron_types
     n_neurons = simulation_config.n_neurons
-    n_nodes = simulation_config.n_nodes
+    n_input_neurons = simulation_config.n_input_neurons
     n_runs = training_config.n_runs
     n_frames = simulation_config.n_frames
     delta_t = simulation_config.delta_t
@@ -2718,8 +2720,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     field_type = model_config.field_type
     if field_type != '':
-        n_nodes = simulation_config.n_nodes
-        n_nodes_per_axis = int(np.sqrt(n_nodes))
+        n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
     
     log_dir = 'log/' + config.config_file
     files = glob.glob(f"./{log_dir}/tmp_recons/*")
@@ -2833,7 +2834,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     model.eval()
 
 
-    if ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
+    # only load model_f if learn_external_input was True during training
+    learn_external_input = train_config.learn_external_input
+    if learn_external_input and (('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type)):
         model_f = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
                         hidden_features=model_config.hidden_dim_nnr,
                         hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
@@ -2844,13 +2847,18 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         model_f.load_state_dict(state_dict['model_state_dict'])
         model_f.to(device=device)
         model_f.eval()
-    if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
-        model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
-                                out_features=model_config.output_size_nnr,
-                                hidden_features=model_config.hidden_dim_nnr,
-                                hidden_layers=model_config.n_layers_nnr, outermost_linear=True,
+    if learn_external_input and (('modulation' in model_config.field_type) | ('visual' in model_config.field_type)):
+        # use _nnr_f params to match choose_inr_model in training
+        # use n_input_neurons (same as training) for image_width
+        n_input_neurons = simulation_config.n_input_neurons
+        n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+        model_f = Siren_Network(image_width=n_input_neurons_per_axis, in_features=model_config.input_size_nnr_f,
+                                out_features=model_config.output_size_nnr_f,
+                                hidden_features=model_config.hidden_dim_nnr_f,
+                                hidden_layers=model_config.n_layers_nnr_f,
+                                outermost_linear=model_config.outermost_linear_nnr_f,
                                 device=device,
-                                first_omega_0=model_config.omega, hidden_omega_0=model_config.omega)
+                                first_omega_0=model_config.omega_f, hidden_omega_0=model_config.omega_f)
         net = f'{log_dir}/models/best_model_f_with_1_graphs_{best_model}.pt'
         state_dict = torch.load(net, map_location=device)
         model_f.load_state_dict(state_dict['model_state_dict'])
@@ -3122,8 +3130,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
         # update calculations
         if 'visual' in field_type:
-            x[:n_nodes, 4:5] = model_f(time=it / n_frames) ** 2
-            x[n_nodes:n_neurons, 4:5] = 1
+            x[:n_input_neurons, 4:5] = model_f(time=it / n_frames) ** 2
+            x[n_input_neurons:n_neurons, 4:5] = 1
         elif 'learnable_short_term_plasticity' in field_type:
             alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 4] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
@@ -3203,12 +3211,12 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
-                    im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
+                    im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
                     if ('modulation' in field_type):
                         A1[:, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
                     if ('visual' in field_type):
-                        A1[:n_nodes, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
-                        A1[n_nodes:n_neurons, 0:1] = 1
+                        A1[:n_input_neurons, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
+                        A1[n_input_neurons:n_neurons, 0:1] = 1
 
                 fig = plt.figure(figsize=(8, 12))
                 plt.subplot(211)

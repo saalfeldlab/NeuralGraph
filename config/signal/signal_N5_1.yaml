@@ -4,6 +4,7 @@ dataset: "signal_N5_1"
 simulation:
   connectivity_type: "Lorentz"
   connectivity_init: [0, 0.1]
+  external_input_type: "visual"
   params:
     [
       [10.0, 1.0, 1.0, 1.0, 0.0],
@@ -14,6 +15,7 @@ simulation:
   phi: "tanh"
   n_neurons: 2048
   n_nodes: 1024
+  n_input_neurons: 1024
   n_neuron_types: 4
   n_frames: 50000
   delta_t: 0.01
@@ -45,6 +47,13 @@ graph_model:
   outermost_linear_nnr: True
   omega: 30
 
+  input_size_nnr_f: 3
+  n_layers_nnr_f: 5
+  hidden_dim_nnr_f: 128
+  output_size_nnr_f: 1
+  outermost_linear_nnr_f: True
+  omega_f: 30
+
   aggr_type: "add"
   embedding_dim: 2
   update_type: "generic"
@@ -72,13 +81,15 @@ training:
 
   data_augmentation_loop: 20
 
+  learn_external_input: True
+
   sparsity: "none"
   sparsity_freq: 4
   cluster_method: "distance_plot"
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: True
 
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 1.0E-6
   coeff_edge_diff: 10
   coeff_update_diff: 5
 
@@ -86,6 +97,6 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
 
-  learning_rate_NNR: 1.0E-5
+  learning_rate_NNR_f: 1.0E-5
 
   noise_model_level: 1
