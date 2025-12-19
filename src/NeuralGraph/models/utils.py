@@ -539,92 +539,22 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     return connectivity_r2
 
 
-def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):
+def plot_training_signal_visual_input(x, n_input_neurons, external_input_type, log_dir, epoch, N):
 
-
-    if 'learnable_short_term_plasticity' in field_type:
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(2, 2, 1)
-        plt.imshow(to_numpy(modulation), aspect='auto')
-        ax = fig.add_subplot(2, 2, 2)
-        plt.imshow(to_numpy(model.b ** 2), aspect='auto')
-        ax.text(0.01, 0.99, f'recurrent_parameter {recurrent_parameters[0]:0.3f} ', transform=ax.transAxes,
-                verticalalignment='top', horizontalalignment='left', color='w')
-        ax = fig.add_subplot(2, 2, 3)
-        plt.scatter(to_numpy(modulation[:, np.arange(0, n_frames, n_frames//1000)]), to_numpy(model.b[:, 0:1000] ** 2), s=0.1, color='k', alpha=0.01)
-        x_data = to_numpy(modulation[:, np.arange(0, n_frames, n_frames//1000)]).flatten()
-        y_data = to_numpy(model.b[:, 0:1000] ** 2).flatten()
-        lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-        residuals = y_data - linear_model(x_data, *lin_fit)
-        ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot)
-        ax.text(0.01, 0.99, f'$R^2$ {r_squared:0.3f}   slope {lin_fit[0]:0.3f}', transform=ax.transAxes,
-                verticalalignment='top', horizontalalignment='left')
-        ind_list = [10, 124, 148, 200, 250, 300]
-        ax = fig.add_subplot(4, 2, 6)
-        for ind in ind_list:
-            plt.plot(to_numpy(modulation[ind, :]))
-        ax = fig.add_subplot(4, 2, 8)
-        for ind in ind_list:
-            plt.plot(to_numpy(model.b[ind, :] ** 2))
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
-
-    elif ('short_term_plasticity' in field_type) | ('modulation' in field_type):
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(2, 2, 1)
-        plt.imshow(to_numpy(modulation), aspect='auto')
-        ax = fig.add_subplot(2, 2, 2)
-        if n_frames > 1000:
-            t = torch.linspace(0, 1, n_frames//100, dtype=torch.float32, device=device).unsqueeze(1)
-        else:
-            t = torch.linspace(0, 1, n_frames, dtype=torch.float32, device=device).unsqueeze(1)
-        prediction = model_f[0](t) ** 2
-        prediction = prediction.t()
-        plt.imshow(to_numpy(prediction), aspect='auto', cmap='viridis')
-        ax = fig.add_subplot(2, 2, 3)
-        # if n_frames > 1000:
-        #     ids = np.arange(0, n_frames, 100).astype(int)
-        # else:
-        #     ids = np.arange(0, n_frames, 1).astype(int)
-        # plt.scatter(to_numpy(modulation[:, ids[:-1]]), to_numpy(prediction[:modulation.shape[0], :]), s=0.1, color='k', alpha=0.01)
-        # x_data = to_numpy(modulation[:, ids[:-1]]).flatten()
-        # y_data = to_numpy(prediction[:modulation.shape[0], :]).flatten()
-        # lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-        # residuals = y_data - linear_model(x_data, *lin_fit)
-        # ss_res = np.sum(residuals ** 2)
-        # ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-        # r_squared = 1 - (ss_res / ss_tot)
-        # ax.text(0.01, 0.99, f'$R^2$ {r_squared:0.3f}   slope {lin_fit[0]:0.3f}', transform=ax.transAxes,
-        #         verticalalignment='top', horizontalalignment='left')
-        # ind_list = [10, 24, 48, 120, 150, 180]
-        # ax = fig.add_subplot(4, 2, 6)
-        # for ind in ind_list:
-        #     plt.plot(to_numpy(modulation[ind, :]))
-        # ax = fig.add_subplot(4, 2, 8)
-        # for ind in ind_list:
-        #     plt.plot(to_numpy(prediction[ind, :]))
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
-
+    n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+    if 'visual' in external_input_type:
+        tmp = torch.reshape(x[:n_input_neurons, 4:5], (n_input_neurons_per_axis, n_input_neurons_per_axis))
     else:
-        n_nodes_per_axis = int(np.sqrt(n_nodes))
-        if 'visual' in field_type:
-            tmp = torch.reshape(x[:n_nodes, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
-        else:
-            tmp = torch.reshape(x[:, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
-        tmp = to_numpy(torch.sqrt(tmp))
-        tmp = np.rot90(tmp, k=1)
-        fig = plt.figure(figsize=(12, 12))
-        plt.imshow(tmp, cmap='grey')
-        plt.xticks([])
-        plt.yticks([])
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
+        tmp = torch.reshape(x[:, 4:5], (n_input_neurons_per_axis, n_input_neurons_per_axis))
+    tmp = to_numpy(torch.sqrt(tmp))
+    tmp = np.rot90(tmp, k=1)
+    fig = plt.figure(figsize=(12, 12))
+    plt.imshow(tmp, cmap='grey')
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
+    plt.close()
 
 def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, model_missing_activity, log_dir, epoch, N, device):
 

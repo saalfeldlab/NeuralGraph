@@ -176,3 +176,36 @@ Parent rule: exploit from node 15 (highest UCB=2.936), filled gap between lr_W=5
 Observation: lr_W=1E-2 achieves excellent connectivity R² (0.998); confirms entire lr_W range from 5E-3 to 2E-2 works well; 6 consecutive successes (nodes 11-16)
 Next: parent=9 (UCB=2.328, explore-branch to unexplored path since 6 consecutive successes warrant forced branching)
 
+## Iter 17: converged
+Node: id=17, parent=9
+Mode/Strategy: explore (7 consecutive successes, branching from node 9)
+Config: lr_W=2.0E-2, lr=5.0E-4, lr_emb=2.5E-4, coeff_W_L1=1.0E-5, batch_size=32, low_rank_factorization=False
+Metrics: test_R2=0.9222, test_pearson=0.8869, connectivity_R2=0.9973, final_loss=1.88E+03
+Activity: chaotic dynamics, 100 neurons, range [-19.6, 21.2], effective rank 34 (99% var), spectral radius 1.025
+Mutation: coeff_W_L1: 1.0E-4 -> 1.0E-5 (10x decrease, reverted to baseline)
+Parent rule: explore from node 9 (UCB=2.025), 7 consecutive successes triggered explore strategy; reverted L1 to baseline while keeping batch_size=32
+Observation: coeff_W_L1=1E-5 achieves excellent connectivity R² (0.997); confirms L1 range 1E-5 to 1E-4 both work well; 8 consecutive successes (nodes 11-17); landscape is very robust
+Next: parent=16 (highest UCB=3.060, exploit with failure-probe on unexplored dimension; try lr=1E-3 to find upper model lr boundary)
+
+## Iter 18: converged
+Node: id=18, parent=16
+Mode/Strategy: failure-probe (testing upper model lr boundary)
+Config: lr_W=1.0E-2, lr=1.0E-3, lr_emb=2.5E-4, coeff_W_L1=1.0E-4, batch_size=32, low_rank_factorization=False
+Metrics: test_R2=0.9848, test_pearson=0.9737, connectivity_R2=0.9992, final_loss=1.40E+03
+Activity: chaotic dynamics, 100 neurons, range [-19.6, 19.3], effective rank 34 (99% var), spectral radius 1.025
+Mutation: lr: 5.0E-4 -> 1.0E-3 (2x increase)
+Parent rule: failure-probe from node 16 (highest UCB=3.060), probed upper model lr boundary with lr=1E-3
+Observation: lr=1E-3 achieves excellent connectivity R² (0.999) with best pearson yet (0.974) and lowest final_loss (1.40E+03); model lr range extends to 1E-3; 9 consecutive successes (nodes 11-18); this is the best config so far
+Next: parent=9 (explore strategy, UCB=2.055, 9 consecutive successes triggers explore; branch to successful node outside last 6)
+
+## Iter 19: converged
+Node: id=19, parent=9
+Mode/Strategy: explore (10 consecutive successes, branching from node 9)
+Config: lr_W=2.0E-2, lr=1.0E-3, lr_emb=2.5E-4, coeff_W_L1=1.0E-4, batch_size=32, low_rank_factorization=False
+Metrics: test_R2=0.9335, test_pearson=0.8998, connectivity_R2=0.9969, final_loss=1.28E+03
+Activity: chaotic dynamics, 100 neurons, range [-19.6, 17.9], effective rank 35 (99% var), spectral radius 1.025
+Mutation: lr: 5.0E-4 -> 1.0E-3 (2x increase, inherited from explore branch)
+Parent rule: explore from node 9 (UCB=1.866), 10 consecutive successes triggered explore strategy; combined node 9's batch_size=32 with node 18's optimal lr=1E-3
+Observation: combined best settings from explore branch; achieves excellent connectivity R² (0.997) with lowest final_loss yet (1.28E+03); 11 consecutive successes (nodes 9-19); landscape extremely robust across lr/lr_W/batch_size/L1 combinations
+Next: parent=18 (highest UCB=3.179, try failure-probe with extreme lr=2E-3 to find upper model lr boundary)
+

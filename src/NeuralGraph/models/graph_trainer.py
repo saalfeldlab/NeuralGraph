@@ -35,7 +35,7 @@ from NeuralGraph.models.utils import (
     get_in_features_update,
     analyze_edge_function,
     plot_training_signal,
-    plot_training_signal_field,
+    plot_training_signal_visual_input,
     plot_training_signal_missing_activity,
     plot_training_flyvis,
     plot_weight_comparison,
@@ -262,7 +262,7 @@ def data_train_signal(config, erase, best_model, style, device):
                                                       params=model_missing_activity.parameters())
         model_missing_activity.train()
 
-        
+
     # external input model (model_f) for learning external_input reconstruction
     model_f = choose_inr_model(config=config, n_neurons=n_neurons, n_frames=n_frames, x_list=x_list, device=device)
     optimizer_f = None
@@ -670,17 +670,24 @@ def data_train_signal(config, erase, best_model, style, device):
                         # plot external_input learned vs ground truth (like train_INR)
                         with torch.no_grad():
                             external_input_gt = x_list[0][:, :, 4]  # (n_frames, n_neurons)
-                            nnr_f_T_period = model_config.nnr_f_T_period
-                            if inr_type == 'siren_t':
-                                time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
-                                pred_all = model_f(time_input).cpu().numpy()
-                            elif inr_type == 'lowrank':
-                                pred_all = model_f().cpu().numpy()
-                            elif inr_type == 'ngp':
-                                time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
-                                pred_all = model_f(time_input).cpu().numpy()
+                            if external_input_type == 'visual':
+                                # for visual input, just plot spatial snapshot (skip slow frame-by-frame loop)
+                                n_input_neurons = simulation_config.n_input_neurons
+                                plot_training_signal_visual_input(x, n_input_neurons, external_input_type, log_dir, epoch, N)
+                                pred_all = None  # skip time series plot for visual
                             else:
-                                pred_all = None
+                                nnr_f_T_period = model_config.nnr_f_T_period
+                                if inr_type == 'siren_t':
+                                    time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+                                    pred_all = model_f(time_input).cpu().numpy()
+                                elif inr_type == 'lowrank':
+                                    pred_all = model_f().cpu().numpy()
+                                elif inr_type == 'ngp':
+                                    time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+                                    pred_all = model_f(time_input).cpu().numpy()
+                                else:
+                                    pred_all = None
+                            # plot predicted vs ground truth external input
                             if pred_all is not None:
                                 gt_np = external_input_gt[:n_frames]  # ensure same length as pred
                                 pred_np = pred_all
@@ -2787,7 +2794,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
-        print('load b_i movie ...')
+        print('load gt movie ...')
         im = imread(f"graphs_data/{simulation_config.node_value_map}")
         A1 = torch.zeros((n_neurons, 1), device=device)
 
@@ -2835,14 +2842,15 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     # only load model_f if learn_external_input was True during training
-    learn_external_input = train_config.learn_external_input
+    model_f = None  # initialize to None, will be loaded if needed
+    learn_external_input = training_config.learn_external_input
     if learn_external_input and (('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type)):
         model_f = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
                         hidden_features=model_config.hidden_dim_nnr,
                         hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
                         hidden_omega_0=model_config.omega,
                         outermost_linear=model_config.outermost_linear_nnr)
-        net = f'{log_dir}/models/best_model_f_with_1_graphs_{best_model}.pt'
+        net = f'{log_dir}/models/best_model_f_with_0_graphs_{best_model}.pt'
         state_dict = torch.load(net, map_location=device)
         model_f.load_state_dict(state_dict['model_state_dict'])
         model_f.to(device=device)
@@ -2859,7 +2867,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                                 outermost_linear=model_config.outermost_linear_nnr_f,
                                 device=device,
                                 first_omega_0=model_config.omega_f, hidden_omega_0=model_config.omega_f)
-        net = f'{log_dir}/models/best_model_f_with_1_graphs_{best_model}.pt'
+        net = f'{log_dir}/models/best_model_f_with_0_graphs_{best_model}.pt'
         state_dict = torch.load(net, map_location=device)
         model_f.load_state_dict(state_dict['model_state_dict'])
         model_f.to(device=device)
@@ -3130,18 +3138,33 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
         # update calculations
         if 'visual' in field_type:
-            x[:n_input_neurons, 4:5] = model_f(time=it / n_frames) ** 2
+            if model_f is not None:
+                x[:n_input_neurons, 4:5] = model_f(time=it / n_frames) ** 2
+            else:
+                # fallback: use ground truth from image file
+                im_ = im[int(it / n_frames * 256)].squeeze()
+                im_ = np.rot90(im_, 3)
+                im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
+                x[:n_input_neurons, 4:5] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
             x[n_input_neurons:n_neurons, 4:5] = 1
         elif 'learnable_short_term_plasticity' in field_type:
             alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 4] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
                                                                                                 it // model.embedding_step] ** 2
         elif ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
-            t = torch.zeros((1, 1, 1), dtype=torch.float32, device=device)
-            t[:, 0, :] = torch.tensor(it / n_frames, dtype=torch.float32, device=device)
-            x[:, 4] = model_f(t).squeeze() ** 2
+            if model_f is not None:
+                t = torch.zeros((1, 1, 1), dtype=torch.float32, device=device)
+                t[:, 0, :] = torch.tensor(it / n_frames, dtype=torch.float32, device=device)
+                x[:, 4] = model_f(t).squeeze() ** 2
         elif 'modulation' in field_type:
-            x[:, 4:5] = model_f(time=it / n_frames) ** 2
+            if model_f is not None:
+                x[:, 4:5] = model_f(time=it / n_frames) ** 2
+            else:
+                # fallback: use ground truth from image file
+                im_ = im[int(it / n_frames * 256)].squeeze()
+                im_ = np.rot90(im_, 3)
+                im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
+                x[:, 4:5] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
 
         if has_missing_activity:
             t = torch.tensor([it / n_frames], dtype=torch.float32, device=device)
