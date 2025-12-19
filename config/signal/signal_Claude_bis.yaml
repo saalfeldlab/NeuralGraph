@@ -10,7 +10,7 @@ simulation:
   phi: "tanh"
   n_neurons: 1000
   n_neuron_types: 1
-  n_frames: 10000
+  n_frames: 25000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"

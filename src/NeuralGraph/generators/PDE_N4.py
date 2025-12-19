@@ -44,6 +44,16 @@ class PDE_N4(pyg.nn.MessagePassing):
         x, edge_index = data.x, data.edge_index
         neuron_type = x[:, 6].long()
 
+        # validate neuron_type indices against params size
+        max_type = neuron_type.max().item()
+        n_param_types = self.p.shape[0]
+        if max_type >= n_param_types:
+            raise ValueError(
+                f"neuron_type index {max_type} out of bounds for params with {n_param_types} types. "
+                f"Config has n_neuron_types={max_type + 1} but params only defines {n_param_types} sets. "
+                f"Add {max_type + 1 - n_param_types} more parameter sets to 'params' in your config."
+            )
+
         # extract neuron-type-dependent parameters
         # params order: [a, b, g, s, w, h]
         parameters = self.p[neuron_type]

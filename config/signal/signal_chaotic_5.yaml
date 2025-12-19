@@ -1,16 +1,22 @@
-description: "one type  1000 neurons"
-dataset: "signal_chaotic_2"
+description: "four types"
+dataset: "signal_chaotic_1"
 
 simulation:
   connectivity_type: "chaotic"
   connectivity_init: [0, 0.1]
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
-  params: [[1.0, 0.0, 7.0, 0.0, 1.0, 0.0], [1.0, 0.0, 7.0, 0.0, 1.0, 0.0]]
+  params:
+    [
+      [1.0, 0.0, 10.0, 1.0, 1.0, 0.0],
+      [1.0, 0.0, 10.0, 2.0, 1.0, 1.0],
+      [2.0, 0.0, 10.0, 1.0, 1.0, 2.0],
+      [2.0, 0.0, 10.0, 2.0, 1.0, 3.0],
+    ]
   phi: "tanh"
-  n_neurons: 1000
-  n_neuron_types: 1
-  n_frames: 25000
+  n_neurons: 100
+  n_neuron_types: 4
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -44,15 +50,14 @@ plotting:
 training:
   n_epochs: 10
   n_runs: 1
-  device: "cuda:1"
+  device: "auto"
 
-  batch_size: 16
+  batch_size: 8
   small_init_batch_size: False
-  training_single_type: True
 
   seed: 24
 
-  data_augmentation_loop: 20
+  data_augmentation_loop: 100
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
@@ -62,8 +67,6 @@ training:
   learning_rate_W_start: 2.0E-3
   learning_rate_start: 1.0E-4
   learning_rate_embedding_start: 2.5E-4
-
-  learning_rate_NNR_f: 1.0E-6
 
   coeff_W_L1: 1.0E-5
   coeff_edge_norm: 0.0
