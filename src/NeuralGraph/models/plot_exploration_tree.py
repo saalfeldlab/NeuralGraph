@@ -220,9 +220,11 @@ def plot_ucb_tree(nodes: list[UCBNode],
         if node.id > 1 and node.mutation:
             # Remove parenthesis part from mutation text (e.g., "(2x increase exploring lr_W)")
             mutation_text = re.sub(r'\s*\([^)]*\)\s*$', '', node.mutation).strip()
-            ax.annotate(mutation_text, (x, y), ha='center', va='bottom',
-                       fontsize=5, xytext=(0, 12), textcoords='offset points',
-                       color='#333333', zorder=3)
+            # Skip simulation change messages (they clutter the plot)
+            if not mutation_text.startswith('simulation changed'):
+                ax.annotate(mutation_text, (x, y), ha='center', va='bottom',
+                           fontsize=5, xytext=(0, 12), textcoords='offset points',
+                           color='#333333', zorder=3)
 
         # Annotation: UCB/V and R2/Pearson below the node
         label_text = f"UCB={node.ucb:.2f} V={node.visits}\nR²={node.r2:.2f} ρ={node.pearson:.2f}"

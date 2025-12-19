@@ -1809,7 +1809,7 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
     }
 
 
-def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=50_000_000, is_flyvis=False, style=None, save_in_subfolder=True, log_file=None):
+def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=10_000_000, is_flyvis=False, style=None, save_in_subfolder=True, log_file=None):
     """
     Perform SVD analysis on activity data and external_input/visual stimuli (if present).
     Uses randomized SVD for large datasets for efficiency.
@@ -2055,7 +2055,8 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     return results
 
 
-def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, pre_folder, iteration):
+def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, pre_folder, iteration,
+                               iter_in_block=1, block_number=1):
     """
     Save exploration artifacts for Claude analysis.
 
@@ -2066,6 +2067,8 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         config_file_: Config file name (without extension)
         pre_folder: Prefix folder for config
         iteration: Current iteration number
+        iter_in_block: Iteration number within current block (1-indexed)
+        block_number: Current block number (1-indexed)
 
     Returns:
         dict with paths to saved directories
@@ -2095,11 +2098,15 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         os.makedirs(tree_save_dir, exist_ok=True)
         os.makedirs(protocol_save_dir, exist_ok=True)
 
-    # save config file
-    src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
-    dst_config = f"{config_save_dir}/iter_{iteration:03d}.yaml"
-    if os.path.exists(src_config):
-        shutil.copy2(src_config, dst_config)
+    # determine if this is first iteration of a block
+    is_block_start = (iter_in_block == 1)
+
+    # save config file only at first iteration of each block
+    if is_block_start:
+        src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
+        dst_config = f"{config_save_dir}/block_{block_number:03d}.yaml"
+        if os.path.exists(src_config):
+            shutil.copy2(src_config, dst_config)
 
     # save connectivity scatterplot (most recent comparison_*.tif from matrix folder)
     matrix_dir = f"{root_dir}/log/{pre_folder}{config_file_}/tmp_training/matrix"
@@ -2110,18 +2117,20 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         dst_scatter = f"{scatter_save_dir}/iter_{iteration:03d}.tif"
         shutil.copy2(latest_scatter, dst_scatter)
 
-    # save connectivity matrix heatmap
+    # save connectivity matrix heatmap only at first iteration of each block
     data_folder = f"{root_dir}/graphs_data/{config.dataset}"
-    src_matrix = f"{data_folder}/connectivity_matrix.png"
-    dst_matrix = f"{matrix_save_dir}/iter_{iteration:03d}.png"
-    if os.path.exists(src_matrix):
-        shutil.copy2(src_matrix, dst_matrix)
+    if is_block_start:
+        src_matrix = f"{data_folder}/connectivity_matrix.png"
+        dst_matrix = f"{matrix_save_dir}/block_{block_number:03d}.png"
+        if os.path.exists(src_matrix):
+            shutil.copy2(src_matrix, dst_matrix)
 
-    # save activity plot
+    # save activity plot only at first iteration of each block
     activity_path = f"{data_folder}/activity.png"
-    dst_activity = f"{activity_save_dir}/iter_{iteration:03d}.png"
-    if os.path.exists(activity_path):
-        shutil.copy2(activity_path, dst_activity)
+    if is_block_start:
+        dst_activity = f"{activity_save_dir}/block_{block_number:03d}.png"
+        if os.path.exists(activity_path):
+            shutil.copy2(activity_path, dst_activity)
 
     # save combined MLP plot (MLP0 + MLP1 side by side) using PNG files from results
     results_dir = f"{root_dir}/log/{pre_folder}{config_file_}/results"

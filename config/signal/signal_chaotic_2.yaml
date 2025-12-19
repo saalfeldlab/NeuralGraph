@@ -10,7 +10,7 @@ simulation:
   phi: "tanh"
   n_neurons: 1000
   n_neuron_types: 1
-  n_frames: 25000
+  n_frames: 50000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -37,7 +37,7 @@ graph_model:
 
 claude:
   n_epochs: 1
-  data_augmentation_loop: 100
+  data_augmentation_loop: 20
   n_iter_block: 24
 
 plotting:
@@ -49,9 +49,9 @@ plotting:
 training:
   n_epochs: 10
   n_runs: 1
-  device: "cuda:1"
+  device: "cuda:0"
 
-  batch_size: 16
+  batch_size: 8
   small_init_batch_size: False
   training_single_type: True
 

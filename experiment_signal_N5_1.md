@@ -50,11 +50,15 @@ These parameters affect the **GNN training**. Can be changed within a block (whe
 
 ```yaml
 training:
-  learning_rate_W_start: 2.0E-3 # LR for connectivity weights W range: 1.0E-4 to 1.0E-2
-  learning_rate_start: 1.0E-4 # LR for model parameters range: 1.0E-5 to 1.0E-3
-  learning_rate_embedding_start: 2.5E-4 # LR for embeddings range: 1.0E-5 to 1.0E-3, only if n_neuron_types > 1
+  learning_rate_W_start: 1.0E-3 # LR for connectivity weights W range: 1.0E-4 to 1.0E-2
+  learning_rate_start: 5.0E-4 # LR for model parameters range: 1.0E-5 to 1.0E-3
+  learning_rate_embedding_start: 5.0E-3 # LR for embeddings range: 1.0E-4 to 1.0E-2
+  learning_rate_NNR: 1.0E-5 # LR for SIREN/NNR network range: 1.0E-6 to 1.0E-4
   coeff_W_L1: 1.0E-5 # L1 regularization on W range: 1.0E-6 to 1.0E-3
+  coeff_edge_diff: 10 # edge difference regularization range: 1 to 100
+  coeff_update_diff: 5 # update difference regularization range: 1 to 50
   batch_size: 8 # batch size values: 8, 16, 32
+  noise_model_level: 1 # noise during training range: 0, 0.5, 1, 2
 ```
 
 ## Simulation Parameters to explore
@@ -63,11 +67,10 @@ These parameters affect the **data generation** (simulation). Only change at blo
 
 ```yaml
 simulation:
-  connectivity_type: "chaotic" # or "low_rank"
-  Dale_law: True # enforce excitatory/inhibitory separation
-  Dale_law_factor: 0.5 # fraction excitatory/inhibitory (0.1 to 0.9)
-  connectivity_rank: 20 # only used when connectivity_type="low_rank", range 5-100
-#   noise_model_level: 0.0 # noise added during simulation, affects data complexity. values: 0, 0.5, 1
+  connectivity_type: "Lorentz_structured_0.40_0.05" # structured connectivity with fill factor
+  # format: Lorentz_structured_{structure_factor}_{fill_factor}
+  # structure_factor: 0.1-0.9 (higher = more structured)
+  # fill_factor: 0.01-0.2 (fraction of non-zero connections)
 ```
 
 ## Parent Selection Rule (CRITICAL)
@@ -103,7 +106,7 @@ Example: If reverting `lr` back to `1E-4` (Node 2's value), use `parent=2`.
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode/Strategy: [success-exploit/failure-probe]/[exploit/explore/boundary]
-Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B
+Config: lr_W=X, lr=Y, lr_emb=Z, lr_NNR=N, coeff_W_L1=W, coeff_edge_diff=E, coeff_update_diff=U, batch_size=B, noise=L
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, final_loss=D
 Activity: [brief description of dynamics]
 Mutation: [param]: [old] -> [new]
@@ -129,36 +132,48 @@ Only modify training parameters (learning rates, regularization, batch size)
 
 ```
 ## Simulation Block {block_number} Summary (iters X-Y)
-Simulation: connectivity_type=[type], Dale_law=[True/False], Dale_law_factor=[F], connectivity_rank=[R], noise_model_level=[L]
+Simulation: connectivity_type=[type]
 Best R2: [value] at iter [N]
 Converged: [Yes/No]
 Observation: [what worked/failed for this simulation]
-Optimum training: lr_W=[X], lr=[Y], lr_emb=[Z], coeff_W_L1=[W]
+Optimum training: lr_W=[X], lr=[Y], lr_emb=[Z], lr_NNR=[N], coeff_W_L1=[W], coeff_edge_diff=[E], coeff_update_diff=[U], noise=[L]
 
 --- NEW SIMULATION BLOCK ---
-Next simulation: connectivity_type=[type], Dale_law=[True/False], ...
+Next simulation: connectivity_type=[type]
 Node: id=N, parent=root
 ```
 
-## MANDATORY: Block End Actions (when iter_in_block == n_iter_block)
+## MANDATORY: Summary & Protocol Update (every 48 iterations)
 
-At the **last iteration of each block** (iter_in_block == n_iter_block), you MUST complete ALL of these actions:
+Every 48 iterations (i.e., when iteration number is divisible by 48: 48, 96, 144, ...), you MUST complete ALL of these actions:
 
 ### Checklist (complete in order):
 
-- [ ] **1. Write block summary** (see "Block End Log Format" above)
+- [ ] **1. Write summary** of last 48 iterations (see "Summary Log Format" below)
 - [ ] **2. Evaluate exploration rules** using metrics below
 - [ ] **3. EDIT THIS PROTOCOL FILE** - modify the rules between `## Parent Selection Rule (CRITICAL)` and `## END Parent selection Rule (CRITICAL)`
 - [ ] **4. Document your edit** - in the analysis file, state what you changed and why (or state "No changes needed" with justification)
 
+### Summary Log Format (every 48 iterations)
+
+```
+## Summary (iters X-Y)
+Best R2: [value] at iter [N]
+Worst R2: [value] at iter [N]
+Converged count: [N]/48
+Observation: [what worked/failed in last 48 iterations]
+Best training config: lr_W=[X], lr=[Y], lr_emb=[Z], lr_NNR=[N], coeff_W_L1=[W], coeff_edge_diff=[E], coeff_update_diff=[U], noise=[L]
+Protocol edit: [description of change or "none"]
+```
+
 ### Evaluation Metrics for Rule Modification:
 
-1. **Branching rate**: Count unique parents in last n_iter_block/4 iters
+1. **Branching rate**: Count unique parents in last 48 iters
    - If all sequential (rate=0%) → ADD exploration incentive to rules
-2. **Improvement rate**: How many iters improved R²?
+2. **Improvement rate**: How many of 48 iters improved R²?
    - If <30% improving → INCREASE exploitation (raise R² threshold)
    - If >80% improving → INCREASE exploration (probe boundaries)
-3. **Stuck detection**: Same R² plateau (±0.05) for 3+ iters?
+3. **Stuck detection**: Same R² plateau (±0.05) for 5+ iters?
    - If yes → ADD forced branching rule
 
 ### Example Protocol Edit:

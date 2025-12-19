@@ -1063,12 +1063,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
     xc, yc = get_equidistant_points(n_points=n_neurons)
     X1_first = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
-    perm = torch.randperm(X1_first.size(0))
+    perm = torch.randperm(X1_first.size(0), device=device)
     X1_first = X1_first[perm]
     torch.save(X1_first, f'./graphs_data/{dataset_name}/X1.pt')
     xc, yc = get_equidistant_points(n_points=n_neurons ** 2)
     X_msg = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
-    perm = torch.randperm(X_msg.size(0))
+    perm = torch.randperm(X_msg.size(0), device=device)
     X_msg = X_msg[perm]
     torch.save(X_msg, f'./graphs_data/{dataset_name}/X_msg.pt')
 

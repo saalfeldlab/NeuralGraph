@@ -57,14 +57,14 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_6', 'llm_task': 'signal_Claude'}
-        config_list = ['signal_chaotic_1']
+        config_list = ['signal_N5_1']
+        task_params = {'iterations': 1024}
 
     # parse parameters from task_params
     n_iterations = task_params.get('iterations', 5)
-    experiment_name = task_params.get('experiment', 'experiment')
-    # derive llm_task_name from config_file by adding _Claude suffix (can be overridden via task_params)
+    # derive experiment_name and llm_task_name from config_file (can be overridden via task_params)
     base_config_name = config_list[0] if config_list else 'signal'
+    experiment_name = task_params.get('experiment', f'experiment_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
     # if Claude in task, determine iteration range; otherwise single iteration
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
             experiment_path = f"{root_dir}/{experiment_name}.md"
-            analysis_path = f"{root_dir}/{llm_task_name}_analysis_{experiment_name}.md"
+            analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
 
             # check experiment file exists
             if not os.path.exists(experiment_path):
@@ -244,10 +244,18 @@ if __name__ == "__main__":
             log_file.close()
 
             if 'Claude' in task:
+
+                # compute block boundaries for prompt
+                block_number = (iteration - 1) // n_iter_block + 1
+                iter_in_block = (iteration - 1) % n_iter_block + 1
+                is_block_end = iter_in_block == n_iter_block
+
+
                 # save exploration artifacts before Claude analysis
                 exploration_dir = f"{root_dir}/log/Claude_exploration/{experiment_name}"
                 artifact_paths = save_exploration_artifacts(
-                    root_dir, exploration_dir, config, config_file_, pre_folder, iteration
+                    root_dir, exploration_dir, config, config_file_, pre_folder, iteration,
+                    iter_in_block=iter_in_block, block_number=block_number
                 )
                 tree_save_dir = artifact_paths['tree_save_dir']
                 protocol_save_dir = artifact_paths['protocol_save_dir']
@@ -279,11 +287,6 @@ if __name__ == "__main__":
 
                 # call Claude CLI for analysis
                 print(f"\033[93mClaude analysis...\033[0m")
-
-                # compute block boundaries for prompt
-                block_number = (iteration - 1) // n_iter_block + 1
-                iter_in_block = (iteration - 1) % n_iter_block + 1
-                is_block_end = iter_in_block == n_iter_block
 
                 claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
 
@@ -325,10 +328,11 @@ Config file: {config_file_}"""
 
                 process.wait()
 
-                # save protocol file after Claude task
-                dst_protocol = f"{protocol_save_dir}/iter_{iteration:03d}.md"
-                if os.path.exists(experiment_path):
-                    shutil.copy2(experiment_path, dst_protocol)
+                # save protocol file only at first iteration of each block
+                if iter_in_block == 1:
+                    dst_protocol = f"{protocol_save_dir}/block_{block_number:03d}.md"
+                    if os.path.exists(experiment_path):
+                        shutil.copy2(experiment_path, dst_protocol)
 
                 # recompute UCB scores after Claude to pick up mutations from analysis markdown
                 compute_ucb_scores(analysis_path, ucb_path,

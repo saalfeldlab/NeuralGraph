@@ -6,10 +6,10 @@ simulation:
   connectivity_init: [0, 0.1]
   params:
     [
-      [10.0, 1.0, 1.0, 1.0, -4.0],
-      [10.0, 2.0, 1.0, 1.2, -2.0],
-      [10.0, 1.0, 2.0, 1.4, 0.0],
-      [10.0, 2.0, 2.0, 1.6, 2.0],
+      [10.0, 1.0, 1.0, 1.0, 0.0],
+      [10.0, 2.0, 1.0, 2.0, 0.0],
+      [10.0, 1.0, 2.0, 4.0, 0.0],
+      [10.0, 2.0, 2.0, 8.0, 0.0],
     ]
   phi: "sigmoid"
   n_neurons: 2048
@@ -57,9 +57,14 @@ plotting:
   xlim: [-5, 5]
   ylim: [0, 0.3]
 
+claude:
+  n_epochs: 1
+  data_augmentation_loop: 40
+  n_iter_block: 1024
+
 training:
   n_epochs: 20
-  n_runs: 2
+  n_runs: 1
   device: "auto"
 
   batch_size: 8
@@ -80,7 +85,6 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
-  learning_rate_modulation_start: 1.0E-4
 
   learning_rate_NNR: 1.0E-5
 

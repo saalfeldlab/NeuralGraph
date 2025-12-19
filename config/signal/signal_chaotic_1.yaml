@@ -37,7 +37,7 @@ graph_model:
 
 claude:
   n_epochs: 1
-  data_augmentation_loop: 50
+  data_augmentation_loop: 100
   n_iter_block: 24
 
 plotting:
