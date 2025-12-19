@@ -1000,7 +1000,8 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         for f in files:
             os.remove(f)
 
-    
+    # restore gradient computation for subsequent training
+    torch.set_grad_enabled(True)
 
 
 def data_generate_synaptic(

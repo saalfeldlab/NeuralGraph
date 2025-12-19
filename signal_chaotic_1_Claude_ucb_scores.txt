@@ -1,0 +1,7 @@
+=== UCB Scores (Simulation block 0, iters 1-24, N=5, c=1.0) ===
+
+Node 4: UCB=1.745, parent=3, visits=2, R2=1.000, Pearson=0.917, Mutation=lr_W: 5.0E-3 -> 2.0E-2 (4x increase)
+Node 3: UCB=1.558, parent=2, visits=3, R2=0.999, Pearson=0.884, Mutation=batch_size: 8 -> 16 (2x increase)
+Node 2: UCB=1.447, parent=1, visits=4, R2=1.000, Pearson=0.980, Mutation=lr_W: 2.0E-3 -> 5.0E-3 (2.5x increase)
+Node 1: UCB=1.373, parent=root, visits=5, R2=1.000, Pearson=0.996, Mutation=baseline config (first iteration)
+Node 5: UCB=1.184, parent=4, visits=1, R2=0.066, Pearson=0.175, Mutation=lr_W: 2.0E-2 -> 2.0E-4 (100x decrease)

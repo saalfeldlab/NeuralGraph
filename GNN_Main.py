@@ -57,7 +57,7 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        config_list = ['signal_chaotic_1']
+        config_list = ['signal_chaotic_2']
         task_params = {'iterations': 1024}
 
     # parse parameters from task_params
