@@ -21,6 +21,7 @@ You are a LLM, you are **hyperparameter optimizer** in a meta-learning loop. You
   - `connectivity_R2`: R² of learned vs true connectivity weights
   - `tau_R2`: R² of learned vs true time constants
   - `V_rest_R2`: R² of learned vs true resting potentials
+  - `external_input_R2`: R² of reconstructed vs true external input (visual stimulus)
   - `cluster_accuracy`: accuracy of neuron type clustering
   - `final_loss`: final training loss (lower is better)
 - `ucb_scores.txt`: provides pre-computed UCB scores for all nodes including current iteration
@@ -105,7 +106,7 @@ Example: If reverting `lr` back to `1E-4` (Node 2's value), use `parent=2`.
 Node: id=N, parent=P
 Mode/Strategy: [success-exploit/failure-probe]/[exploit/explore/boundary]
 Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, noise=N
-Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, tau_R2=D, V_rest_R2=E, cluster_accuracy=F
+Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, tau_R2=D, V_rest_R2=E, external_input_R2=G, cluster_accuracy=H
 Activity: [brief description of dynamics]
 Mutation: [param]: [old] -> [new]
 Parent rule: [brief description of Parent Selection Rule]

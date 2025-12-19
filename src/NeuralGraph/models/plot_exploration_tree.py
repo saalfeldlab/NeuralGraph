@@ -30,6 +30,7 @@ class UCBNode:
     visits: int
     r2: float
     pearson: float = 0.0
+    external_input_r2: float = -1.0  # -1 means not available
     mutation: str = ""
 
 
@@ -40,9 +41,9 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX, Mutation=...
-    # Pearson and Mutation are optional for backward compatibility
-    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?(?:, Mutation=([^\n\[]+))?'
+    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX, External_input_R2=X.XXX, Mutation=...
+    # Pearson, External_input_R2, and Mutation are optional for backward compatibility
+    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?(?:, External_input_R2=([\d.]+))?(?:, Mutation=([^\n\[]+))?'
 
     for match in re.finditer(pattern, content):
         node_id = int(match.group(1))
@@ -52,7 +53,8 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
         visits = int(match.group(4))
         r2 = float(match.group(5))
         pearson = float(match.group(6)) if match.group(6) else 0.0
-        mutation = match.group(7).strip() if match.group(7) else ""
+        external_input_r2 = float(match.group(7)) if match.group(7) else -1.0
+        mutation = match.group(8).strip() if match.group(8) else ""
 
         nodes.append(UCBNode(
             id=node_id,
@@ -61,6 +63,7 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
             visits=visits,
             r2=r2,
             pearson=pearson,
+            external_input_r2=external_input_r2,
             mutation=mutation
         ))
 
@@ -228,6 +231,9 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
         # Annotation: UCB/V and R2/Pearson below the node
         label_text = f"UCB={node.ucb:.2f} V={node.visits}\nR²={node.r2:.2f} ρ={node.pearson:.2f}"
+        # Add external input R2 if available (>= 0)
+        if node.external_input_r2 >= 0:
+            label_text += f"\nR²_ext={node.external_input_r2:.2f}"
         ax.annotate(label_text, (x, y), ha='center', va='top',
                    fontsize=5, xytext=(0, -12), textcoords='offset points',
                    color='#555555', zorder=3)

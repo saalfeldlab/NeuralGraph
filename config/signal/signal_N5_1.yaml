@@ -68,7 +68,7 @@ plotting:
 
 claude:
   n_epochs: 1
-  data_augmentation_loop: 5
+  data_augmentation_loop: 1
   n_iter_block: 1024
 
 training:

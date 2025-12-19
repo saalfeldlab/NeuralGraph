@@ -78,9 +78,9 @@ training:
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.01
-  learning_rate_start: 0.0003
-  learning_rate_embedding_start: 0.00025
+  learning_rate_W_start: 0.001
+  learning_rate_start: 0.0006
+  learning_rate_embedding_start: 0.0005
   coeff_W_L1: 1.0e-05
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
