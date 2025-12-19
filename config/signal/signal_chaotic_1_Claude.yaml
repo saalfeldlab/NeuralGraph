@@ -1,7 +1,8 @@
 description: designed by Claude
 dataset: signal_chaotic_1_Claude
 simulation:
-  connectivity_type: chaotic
+  connectivity_type: low_rank
+  connectivity_rank: 20
   connectivity_init:
   - 0
   - 0.1
@@ -58,18 +59,20 @@ training:
   n_epochs: 1
   n_runs: 1
   device: cuda:1
-  batch_size: 32
+  batch_size: 8
   small_init_batch_size: false
   training_single_type: true
-  seed: 24
+  seed: 1
   data_augmentation_loop: 100
   sparsity: replace_embedding_function
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
-  learning_rate_W_start: 2.0e-02
-  learning_rate_start: 5.0e-03
+  learning_rate_W_start: 2.0e-03
+  learning_rate_start: 1.0e-04
   learning_rate_embedding_start: 2.5e-04
   coeff_W_L1: 1.0e-05
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
+  low_rank_factorization: true
+  low_rank: 20

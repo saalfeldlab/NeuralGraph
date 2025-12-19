@@ -253,3 +253,43 @@ Parent rule: explore from node 9 (UCB=1.794), 15 consecutive successes triggered
 Observation: combined lr_W=2E-2 with lr=2E-3 achieves excellent connectivity R² (0.994) with low final_loss (1.21E+03); confirms high lr_W robust; 16 consecutive successes (nodes 9-23); landscape fully mapped with all parameter combinations converging
 Next: parent=17 (highest UCB=3.395, final exploration with alternative L1 path; test lr=5E-3 with L1=1E-5)
 
+## Iter 24: converged
+Node: id=24, parent=17
+Mode/Strategy: exploit (highest UCB, testing lr=5E-3 with L1=1E-5)
+Config: lr_W=2.0E-2, lr=5.0E-3, lr_emb=2.5E-4, coeff_W_L1=1.0E-5, batch_size=32, low_rank_factorization=False
+Metrics: test_R2=0.9969, test_pearson=0.9941, connectivity_R2=0.9746, final_loss=1.05E+03
+Activity: chaotic dynamics, 100 neurons, range [-19.6, 19.2], effective rank 32 (99% var), spectral radius 1.025
+Mutation: lr: 5.0E-4 -> 5.0E-3 (10x increase from node 17's lr)
+Parent rule: exploit from node 17 (highest UCB=3.395), combined L1=1E-5 from node 17 with optimal lr=5E-3
+Observation: lr=5E-3 with L1=1E-5 achieves best pearson (0.994) and best test_R2 (0.997) of entire block; lowest final_loss (1.05E+03); 17 consecutive successes (nodes 8-24); optimal config found: lr_W=2E-2, lr=5E-3, L1=1E-5, batch_size=32
+Next: BLOCK END
+
+## Simulation Block 1 Summary (iters 1-24)
+Simulation: connectivity_type=chaotic, Dale_law=False, Dale_law_factor=N/A, connectivity_rank=N/A, noise_model_level=0
+Best R2: 1.0000 at iters 1, 2, 4 (multiple achieved perfect/near-perfect R²)
+Best Pearson: 0.9941 at iter 24
+Best final_loss: 1.05E+03 at iter 24
+Converged: Yes (22/24 iterations converged, 2 failed: iter 5 lr_W=2E-4, iter 10 lr=1E-5)
+Observation: chaotic simulation is highly robust to training hyperparameters. All combinations of lr_W=[5E-3, 1E-2, 2E-2], lr=[5E-4, 1E-3, 2E-3, 5E-3, 1E-2], batch_size=[8, 16, 32], L1=[1E-5, 1E-4] converge. Lower boundaries found: lr_W >= 2E-3, lr >= 1E-4. Upper boundaries: L1 <= 5E-4 for optimal R². lr_emb irrelevant for n_neuron_types=1.
+Optimum training: lr_W=2.0E-2, lr=5.0E-3, lr_emb=2.5E-4, coeff_W_L1=1.0E-5, batch_size=32, low_rank_factorization=False
+
+### Exploration Rule Evaluation:
+1. **Branching rate**: Last 6 iters (19-24) had parents: 9, 18, 20, 21, 9, 17 → 5 unique parents → branching rate 83% (excellent)
+2. **Improvement rate**: 22/24 converged → 92% success rate → should increase boundary probing
+3. **Stuck detection**: No plateau detected; R² varied meaningfully across iterations
+
+### Protocol Edit Decision:
+The exploration rules performed well this block:
+- 83% branching rate shows good exploration diversity
+- 92% success rate indicates effective exploit/explore balance
+- Failure-probe strategy successfully found both lower boundaries (lr_W, lr) and upper boundary (L1)
+- No changes needed to Parent Selection Rule - current rules achieved excellent coverage
+
+**Protocol edit: No changes needed** - the rules achieved 92% convergence with good exploration diversity and successfully mapped all parameter boundaries.
+
+--- NEW SIMULATION BLOCK ---
+Next simulation: connectivity_type=low_rank, connectivity_rank=20, Dale_law=False
+Rationale: test whether GNN training can recover low-rank connectivity structure; low_rank_factorization=True should help
+Node: id=1, parent=root
+Initial config: baseline with low_rank_factorization=True, low_rank=20 (matching simulation)
+

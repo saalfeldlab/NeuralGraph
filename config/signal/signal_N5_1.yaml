@@ -36,16 +36,9 @@ graph_model:
   hidden_dim: 64
   n_layers: 5
 
-  input_size_update: 5
-  n_layers_update: 5
-  hidden_dim_update: 256
-
-  input_size_nnr: 3
-  n_layers_nnr: 5
-  hidden_dim_nnr: 128
-  output_size_nnr: 1
-  outermost_linear_nnr: True
-  omega: 30
+  input_size_update: 3
+  n_layers_update: 3
+  hidden_dim_update: 64
 
   input_size_nnr_f: 3
   n_layers_nnr_f: 5
@@ -56,7 +49,7 @@ graph_model:
 
   aggr_type: "add"
   embedding_dim: 2
-  update_type: "generic"
+  update_type: "none"
 
   lin_edge_positive: True
 
@@ -68,7 +61,7 @@ plotting:
 
 claude:
   n_epochs: 1
-  data_augmentation_loop: 1
+  data_augmentation_loop: 10
   n_iter_block: 1024
 
 training:
@@ -76,10 +69,10 @@ training:
   n_runs: 1
   device: "auto"
 
-  batch_size: 8
+  batch_size: 1
   small_init_batch_size: True
 
-  data_augmentation_loop: 20
+  data_augmentation_loop: 50
 
   learn_external_input: True
 
@@ -93,7 +86,7 @@ training:
   coeff_edge_diff: 10
   coeff_update_diff: 5
 
-  learning_rate_W_start: 1.0E-3
+  learning_rate_W_start: 2.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 5.0E-3
 
