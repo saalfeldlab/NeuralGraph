@@ -106,6 +106,15 @@ class SimulationConfig(BaseModel):
 
 
 
+class ClaudeConfig(BaseModel):
+    """Configuration for Claude-driven exploration experiments."""
+    model_config = ConfigDict(extra="forbid")
+
+    n_epochs: int = 1  # number of epochs per iteration
+    data_augmentation_loop: int = 100  # data augmentation loop count
+    n_iter_block: int = 24  # number of iterations per simulation block
+
+
 class GraphModelConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     particle_model_name: str = ""
@@ -460,6 +469,7 @@ class NeuralGraphConfig(BaseModel):
     
     simulation: SimulationConfig
     graph_model: GraphModelConfig
+    claude: Optional[ClaudeConfig] = None
     plotting: PlottingConfig
     training: TrainingConfig
     zarr: Optional[ZarrConfig] = None

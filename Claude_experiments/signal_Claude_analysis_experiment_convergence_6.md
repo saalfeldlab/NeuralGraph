@@ -564,3 +564,16 @@ Optimum training parameters (seed=42): lr_W=2.0E-2, lr=7.5E-4, lr_emb=3.75E-4, c
 3. **Stuck detection**: some plateaus at R2~0.91 (iters 26-37) but eventually broke through via Node 38-41 branch → good recovery
 
 **Protocol edit decision**: no changes needed - current rules worked well despite harder simulation. the 33% R2>0.99 rate (vs 100% in Block 0) correctly reflects increased difficulty of dale's law. branching rate was good (67%) and we successfully found two distinct optima (seed=25 and seed=42 variants). rules enabled both exploitation of promising branches (38->41) and exploration of alternatives (Node 30, Node 44-46).
+
+## Iter 49: failed
+--- NEW SIMULATION BLOCK ---
+Simulation: connectivity_type=low_rank, connectivity_rank=20, Dale_law=False, noise_model_level=0.0
+Node: id=49, parent=root
+Mode/Strategy: exploit (baseline for new simulation block)
+Config: lr_W=1.0E-2, lr=1.5E-3, lr_emb=2.5E-4, coeff_W_L1=1.0E-6, batch_size=8
+Metrics: test_R2=0.9540, test_pearson=0.7100, connectivity_R2=0.0319, final_loss=3.79E+02
+Activity: COLLAPSED - effective rank=1 (both 90% and 99% variance), range [-21.4, 20.7], spectral_radius=1.242; all neurons converge to near-identical trajectories after initial transient
+Mutation: simulation changed - connectivity_type=chaotic -> low_rank (rank=20); training params = Block 0 optimum
+Parent rule: UCB tree reset at block boundary, parent=root
+Observation: CRITICAL FAILURE - low_rank connectivity with rank=20 produces degenerate rank-1 dynamics; despite good test_R2=0.954, connectivity_R2=0.032 indicates complete failure to recover weights; the simulation itself is problematic - low-rank W matrix causes activity to collapse to 1D manifold; this is a fundamentally different (and harder) regime than chaotic; need to test if higher connectivity_rank improves dynamics complexity
+Next: parent=49, try increasing connectivity_rank from 20 to 50 to see if higher rank produces richer dynamics that GNN can learn from

@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import argparse
 import glob
 import os
-import re
 import shutil
 import subprocess
 import time
+import yaml
 
 # redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
 if os.path.isdir('/scratch'):
@@ -63,7 +63,9 @@ if __name__ == "__main__":
     # parse parameters from task_params
     n_iterations = task_params.get('iterations', 5)
     experiment_name = task_params.get('experiment', 'experiment')
-    llm_task_name = task_params.get('llm_task', 'signal_Claude')
+    # derive llm_task_name from config_file by adding _Claude suffix (can be overridden via task_params)
+    base_config_name = config_list[0] if config_list else 'signal'
+    llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
     # if Claude in task, determine iteration range; otherwise single iteration
     if 'Claude' in task:
@@ -79,20 +81,40 @@ if __name__ == "__main__":
             if os.path.exists(source_config):
                 shutil.copy2(source_config, target_config)
                 print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
-                # modify target config: set dataset and n_epochs
+
+                # load config to read claude section parameters
                 with open(target_config, 'r') as f:
-                    content = f.read()
-                # update dataset to llm_task_name
-                content = re.sub(r"dataset:\s*['\"]?[\w_]+['\"]?", f"dataset: '{llm_task_name}'", content)
-                # update n_epochs to 1
-                content = re.sub(r"n_epochs:\s*\d+", "n_epochs: 1", content)
-                # update data_augmentation_loop to 50
-                content = re.sub(r"data_augmentation_loop:\s*\d+", "data_augmentation_loop: 100", content)
+                    config_data = yaml.safe_load(f)
+
+                # get claude parameters (use defaults if section missing)
+                claude_cfg = config_data.get('claude', {})
+                claude_n_epochs = claude_cfg.get('n_epochs', 1)
+                claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
+                claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+
+                # update dataset
+                config_data['dataset'] = llm_task_name
+                # update training parameters from claude config
+                config_data['training']['n_epochs'] = claude_n_epochs
+                config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
                 # update description
-                content = re.sub(r'description:\s*["\'][^"\']*["\']', 'description: "designed by Claude"', content)
+                config_data['description'] = 'designed by Claude'
+
+                # ensure claude section exists with all parameters
+                config_data['claude'] = {
+                    'n_epochs': claude_n_epochs,
+                    'data_augmentation_loop': claude_data_augmentation_loop,
+                    'n_iter_block': claude_n_iter_block
+                }
+
+                # write back the config
                 with open(target_config, 'w') as f:
-                    f.write(content)
-                print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs=1, data_augmentation_loop=50, description='designed by Claude'\033[0m")
+                    yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+
+                print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}\033[0m")
+
+        # store n_iter_block for use in iteration loop (read from first config)
+        n_iter_block = claude_n_iter_block
 
         # delete ucb_scores.txt at start of experiment
         ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
@@ -139,8 +161,8 @@ if __name__ == "__main__":
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
 
-                # block boundary: erase UCB at start of each 24-iteration block (except iter 1, already handled)
-                if iteration > 1 and (iteration - 1) % 24 == 0:
+                # block boundary: erase UCB at start of each n_iter_block-iteration block (except iter 1, already handled)
+                if iteration > 1 and (iteration - 1) % n_iter_block == 0:
                     ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
                     if os.path.exists(ucb_file):
                         os.remove(ucb_file)
@@ -239,7 +261,7 @@ if __name__ == "__main__":
                 compute_ucb_scores(analysis_path, ucb_path,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
-                                   block_size=24)
+                                   block_size=n_iter_block)
                 print(f"\033[92mUCB scores computed: {ucb_path}\033[0m")
 
                 # check files are ready (generated by data_generate above)
@@ -258,7 +280,15 @@ if __name__ == "__main__":
                 # call Claude CLI for analysis
                 print(f"\033[93mClaude analysis...\033[0m")
 
+                # compute block boundaries for prompt
+                block_number = (iteration - 1) // n_iter_block + 1
+                iter_in_block = (iteration - 1) % n_iter_block + 1
+                is_block_end = iter_in_block == n_iter_block
+
                 claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
+
+Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
+{">>> BLOCK END: Last iteration of block! Write summary, edit protocol, change simulation params for next block. <<<" if is_block_end else ""}
 
 1. Read activity image: {activity_path}
 2. Read analysis log: {analysis_log_path}
@@ -304,7 +334,7 @@ Config file: {config_file_}"""
                 compute_ucb_scores(analysis_path, ucb_path,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
-                                   block_size=24)
+                                   block_size=n_iter_block)
 
                 # generate UCB tree visualization from ucb_scores.txt
                 ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
