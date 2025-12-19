@@ -86,6 +86,7 @@ simulation:
 | 3+ consecutive successes (R² ≥ 0.9)             | **failure-probe**   | Deliberately try extreme parameter to find failure boundary             |
 | n_iter_block/4 consecutive successes (R² ≥ 0.9) | **explore**         | Use highest UCB node not in last n_iter_block/4 nodes, try new mutation |
 | Found good config                               | **robustness-test** | Re-run same config (no mutation) to verify reproducibility              |
+| High variance detected (>0.3 R² diff same cfg)  | **seed-vary**       | Re-run best config with different seed to test robustness               |
 
 **failure-probe**: After multiple successes, intentionally push parameters to extremes (e.g., 10x lr, 0.1x lr) to map where the config breaks. This helps understand the stability region.
 

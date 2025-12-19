@@ -1,3 +1,0 @@
-=== UCB Scores (Simulation block 0, iters 1-24, N=1, c=1.0) ===
-
-Node 1: UCB=1.500, parent=root, visits=1, R2=1.000, Pearson=0.991, Mutation=none (baseline)

@@ -11,7 +11,7 @@ simulation:
       [10.0, 1.0, 2.0, 4.0, 0.0],
       [10.0, 2.0, 2.0, 8.0, 0.0],
     ]
-  phi: "sigmoid"
+  phi: "tanh"
   n_neurons: 2048
   n_nodes: 1024
   n_neuron_types: 4
@@ -59,7 +59,7 @@ plotting:
 
 claude:
   n_epochs: 1
-  data_augmentation_loop: 10
+  data_augmentation_loop: 5
   n_iter_block: 1024
 
 training:
