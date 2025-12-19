@@ -2828,6 +2828,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         total_params += param
     state_dict = torch.load(net, map_location=device, weights_only=True)
     model.load_state_dict(state_dict['model_state_dict'])
+    model.to(device)
     model.eval()
 
 
