@@ -2,8 +2,9 @@ description: "designed by Claude"
 dataset: 'signal_Claude'
 
 simulation:
-  connectivity_type: "chaotic"
+  connectivity_type: "low_rank"
   connectivity_init: [0, 0.1]
+  connectivity_rank: 20
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
   params: [[1.0, 0.0, 7.0, 0.0, 1.0, 0.0], [1.0, 0.0, 7.0, 0.0, 1.0, 0.0]]
@@ -15,6 +16,8 @@ simulation:
   dpos_init: 0
   boundary: "no"
   start_frame: -100
+  Dale_law: False
+  Dale_law_factor: 0.5
 
 graph_model:
   signal_model_name: "PDE_N4"
@@ -46,11 +49,11 @@ training:
   n_runs: 1
   device: "auto"
 
-  batch_size: 32
+  batch_size: 8
   small_init_batch_size: False
   training_single_type: True
 
-  seed: 24
+  seed: 42
 
   data_augmentation_loop: 100
 
@@ -59,10 +62,11 @@ training:
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
-  learning_rate_W_start: 6.0E-2
-  learning_rate_start: 4.0E-4
+  learning_rate_W_start: 1.0E-2
+  learning_rate_start: 1.5E-3
   learning_rate_embedding_start: 2.5E-4
+  # iter 49: NEW BLOCK - low_rank connectivity (rank=20), Dale_law=False; using Block 0 optimum training params as baseline
 
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 1.0E-6
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100

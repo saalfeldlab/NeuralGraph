@@ -218,7 +218,9 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
         # Mutation above the node (for nodes with id > 1)
         if node.id > 1 and node.mutation:
-            ax.annotate(node.mutation, (x, y), ha='center', va='bottom',
+            # Remove parenthesis part from mutation text (e.g., "(2x increase exploring lr_W)")
+            mutation_text = re.sub(r'\s*\([^)]*\)\s*$', '', node.mutation).strip()
+            ax.annotate(mutation_text, (x, y), ha='center', va='bottom',
                        fontsize=5, xytext=(0, 12), textcoords='offset points',
                        color='#333333', zorder=3)
 
