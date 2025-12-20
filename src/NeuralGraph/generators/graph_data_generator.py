@@ -1049,12 +1049,11 @@ def data_generate_synaptic(
         mc = 'k'
 
 
-    field_type = model_config.field_type
-    if field_type != "":
-        n_nodes = simulation_config.n_nodes
-        n_nodes_per_axis = int(np.sqrt(n_nodes))
-    has_visual_input = "visual" in field_type
-    has_modulation = "modulation" in field_type
+    external_input_type = getattr(simulation_config, 'external_input_type', '')
+    n_input_neurons = simulation_config.n_input_neurons
+    n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+    has_visual_input = "visual" in external_input_type
+    has_modulation = "modulation" in external_input_type
 
     folder = f"./graphs_data/{dataset_name}/"
 
@@ -1094,9 +1093,10 @@ def data_generate_synaptic(
         x_removed_list = []
     else:
         particle_dropout_mask = np.arange(n_neurons)
-    if ("modulation" in model_config.field_type) | ("visual" in model_config.field_type):
+    if has_modulation or has_visual_input:
         im = imread(f"graphs_data/{simulation_config.node_value_map}")
-    if "permutation" in field_type:
+    has_permutation = getattr(simulation_config, 'permutation', False)
+    if has_permutation:
         permutation_indices = torch.randperm(n_neurons)
         inverse_permutation_indices = torch.argsort(permutation_indices)
         torch.save(
@@ -1222,7 +1222,7 @@ def data_generate_synaptic(
                 X1_mesh, V1_mesh, T1_mesh, H1_mesh, A1_mesh, N1_mesh, mesh_data = (
                     init_mesh(config, device=device)
                 )
-                pos_x, pos_y = get_equidistant_points(n_points=1024)
+                pos_x, pos_y = get_equidistant_points(n_points=n_input_neurons)
                 X1 = (
                     torch.tensor(
                         np.stack((pos_x, pos_y), axis=1), dtype=torch.float32, device=device
@@ -1231,7 +1231,7 @@ def data_generate_synaptic(
                 )
                 X1[:, 1] = X1[:, 1] + 1.5
                 X1[:, 0] = X1[:, 0] + 0.5
-                X1 = torch.cat((X1_mesh, X1[0 : n_neurons - n_nodes]), 0)
+                X1 = torch.cat((X1_mesh, X1[0 : n_neurons - n_input_neurons]), 0)
 
         model, bc_pos, bc_dpos = choose_model(config=config, W=connectivity, device=device)
 
@@ -1269,16 +1269,31 @@ def data_generate_synaptic(
                 if (has_modulation) & (it >= 0):
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
-                    im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
-                    if "permutation" in model_config.field_type:
+                    im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
+                    if has_permutation:
                         im_ = im_[permutation_indices]
                     external_input[:, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
                 elif (has_visual_input) & (it >= 0):
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
-                    im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
-                    external_input[:n_nodes, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
-                    external_input[n_nodes:n_neurons, 0] = 1
+                    im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
+                    external_input[:n_input_neurons, 0] = torch.tensor(im_, dtype=torch.float32, device=device)
+                    external_input[n_input_neurons:n_neurons, 0] = 1
+                    # Save reconstructed image from x[:,4] for the first frame
+                    if it == 0 and run == 0:
+                        img_reconstructed = to_numpy(external_input[:n_input_neurons, 0].reshape(n_input_neurons_per_axis, n_input_neurons_per_axis))
+                        val_min = np.min(img_reconstructed)
+                        val_max = np.max(img_reconstructed)
+                        val_std = np.std(img_reconstructed)
+                        img_reconstructed = np.rot90(img_reconstructed, k=1)
+                        plt.figure(figsize=(8, 8))
+                        plt.imshow(img_reconstructed, cmap='gray')
+                        plt.text(0.02, 0.98, f'min={val_min:.2f} max={val_max:.2f} std={val_std:.2f}',
+                                 transform=plt.gca().transAxes, fontsize=10, verticalalignment='top',
+                                 color='white', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
+                        plt.axis('off')
+                        plt.savefig(f"{folder}/external_input_frame0.png", dpi=150)
+                        plt.close()
                 elif has_oscillations:
                     # oscillatory external input (frequency in cycles per time unit)
                     t = it * delta_t
@@ -1347,9 +1362,9 @@ def data_generate_synaptic(
                 num = f"{id_fig:06}"
                 id_fig += 1
 
-                if "visual" in field_type:
+                if has_visual_input:
                     plot_synaptic_frame_visual(x[:, 1:3], x[:, 4:5], x[:, 3:4], dataset_name, run, num)
-                elif "modulation" in field_type:
+                elif has_modulation:
                     plot_synaptic_frame_modulation(x[:, 1:3], x[:, 4:5], x[:, 3:4], dataset_name, run, num)
                 else:
                     if ("PDE_N6" in model_config.signal_model_name) | (

@@ -459,9 +459,9 @@ def data_train_signal(config, erase, best_model, style, device):
                         ids_missing = torch.argwhere(x[:, 3] == baseline_value)
                         x[ids_missing,3] = missing_activity[ids_missing]
                     # external input reconstruction (when learn_external_input=True)
-                    if model_f is not None:
+                    if (model_f is not None) & (N>0):
                         nnr_f_T_period = model_config.nnr_f_T_period
-                        if external_input_type == 'visual':
+                        if (external_input_type == 'visual') :
                             n_input_neurons = simulation_config.n_input_neurons
                             x[:n_input_neurons, 4:5] = model_f(time=k / n_frames) ** 2
                             x[n_input_neurons:n_neurons, 4:5] = 1
@@ -2726,6 +2726,10 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     field_type = model_config.field_type
+    # fallback to external_input_type for signal configs that don't have field_type
+    external_input_type = getattr(simulation_config, 'external_input_type', '')
+    if field_type == '' and external_input_type != '':
+        field_type = external_input_type
     if field_type != '':
         n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
     

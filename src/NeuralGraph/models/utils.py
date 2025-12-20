@@ -106,20 +106,22 @@ def get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device):
     signal_model_name = model_config.signal_model_name
 
     if signal_model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
-        in_features_prev = torch.cat((x[:n_neurons, 6:7] - xnorm / 150, model.a[:n_neurons]), dim=1)
-        in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons]), dim=1)
-        in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons]), dim=1)
+        # in_features for lin_edge: [u_j, embedding_j] where u is x[:,3:4]
+        in_features_prev = torch.cat((x[:n_neurons, 3:4] - xnorm / 150, model.a[:n_neurons]), dim=1)
+        in_features = torch.cat((x[:n_neurons, 3:4], model.a[:n_neurons]), dim=1)
+        in_features_next = torch.cat((x[:n_neurons, 3:4] + xnorm / 150, model.a[:n_neurons]), dim=1)
         if model.embedding_trial:
             in_features_prev = torch.cat((in_features_prev, model.b[0].repeat(n_neurons, 1)), dim=1)
             in_features = torch.cat((in_features, model.b[0].repeat(n_neurons, 1)), dim=1)
             in_features_next = torch.cat((in_features_next, model.b[0].repeat(n_neurons, 1)), dim=1)
     elif signal_model_name == 'PDE_N5':
+        # in_features for lin_edge: [u_j, embedding_i, embedding_j] where u is x[:,3:4]
         if model.embedding_trial:
-            in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4] + xnorm / 150, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
         else:
-            in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons], model.a[:n_neurons]), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons], model.a[:n_neurons]), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], model.a[:n_neurons], model.a[:n_neurons]), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4] + xnorm / 150, model.a[:n_neurons], model.a[:n_neurons]), dim=1)
     elif ('PDE_N9_A' in signal_model_name) | (signal_model_name == 'PDE_N9_C') | (signal_model_name == 'PDE_N9_D') :
         in_features = torch.cat((x[:, 3:4], model.a), dim=1)
         in_features_next = torch.cat((x[:,3:4] * 1.05, model.a), dim=1)
@@ -128,18 +130,20 @@ def get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device):
         in_features = torch.cat((x[:, 3:4], x[:, 3:4], model.a, model.a[perm_indices]), dim=1)
         in_features_next = torch.cat((x[:, 3:4], x[:, 3:4] * 1.05, model.a, model.a[perm_indices]), dim=1)
     elif signal_model_name == 'PDE_N8':
+        # in_features for lin_edge: [u_i, u_j, embedding_i, embedding_j] where u is x[:,3:4]
         if model.embedding_trial:
             perm_indices = torch.randperm(n_neurons, device=model.a.device)
-            in_features = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7]*1.05, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4]*1.05, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
         else:
             perm_indices = torch.randperm(n_neurons, device=model.a.device)
-            in_features = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7], model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7] * 1.05, model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4], model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4] * 1.05, model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
     else:
-        in_features = x[:n_neurons, 6:7]
-        in_features_next = x[:n_neurons, 6:7] + xnorm / 150
-        in_features_prev = x[:n_neurons, 6:7] - xnorm / 150
+        # default: just u (signal) where u is x[:,3:4]
+        in_features = x[:n_neurons, 3:4]
+        in_features_next = x[:n_neurons, 3:4] + xnorm / 150
+        in_features_prev = x[:n_neurons, 3:4] - xnorm / 150
 
     return in_features, in_features_next
 
@@ -546,14 +550,23 @@ def plot_training_signal_visual_input(x, n_input_neurons, external_input_type, l
         tmp = torch.reshape(x[:n_input_neurons, 4:5], (n_input_neurons_per_axis, n_input_neurons_per_axis))
     else:
         tmp = torch.reshape(x[:, 4:5], (n_input_neurons_per_axis, n_input_neurons_per_axis))
-    tmp = to_numpy(torch.sqrt(tmp))
+    tmp = to_numpy(tmp)
+
+    # compute stats for sanity check
+    val_min = np.min(tmp)
+    val_max = np.max(tmp)
+    val_std = np.std(tmp)
+
     tmp = np.rot90(tmp, k=1)
     fig = plt.figure(figsize=(12, 12))
-    plt.imshow(tmp, cmap='grey')
+    plt.imshow(tmp, cmap='gray')
+    plt.text(0.02, 0.98, f'min={val_min:.2f} max={val_max:.2f} std={val_std:.2f}',
+             transform=plt.gca().transAxes, fontsize=10, verticalalignment='top',
+             color='white', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
+    plt.savefig(f"./{log_dir}/tmp_training/external_input/external_input_{epoch}_{N}.tif", dpi=80)
     plt.close()
 
 def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, model_missing_activity, log_dir, epoch, N, device):
@@ -1739,7 +1752,7 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
     }
 
 
-def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=10_000_000, is_flyvis=False, style=None, save_in_subfolder=True, log_file=None):
+def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=10_000_000, max_neurons=1024, is_flyvis=False, style=None, save_in_subfolder=True, log_file=None):
     """
     Perform SVD analysis on activity data and external_input/visual stimuli (if present).
     Uses randomized SVD for large datasets for efficiency.
@@ -1752,7 +1765,8 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         config: config object (optional, for metadata)
         max_components: maximum number of SVD components to compute
         logger: optional logger (for training)
-        max_data_size: maximum data size before subsampling (default 50M elements)
+        max_data_size: maximum data size before subsampling (default 10M elements)
+        max_neurons: maximum number of neurons before subsampling (default 1024)
         is_flyvis: if True, use "visual stimuli" label instead of "external input"
         style: matplotlib style to use (e.g., 'dark_background' for dark mode)
         save_in_subfolder: if True, save to results/ subfolder; if False, save directly to output_folder
@@ -1775,6 +1789,15 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
             clean_msg = re.sub(r'\033\[[0-9;]*m', '', msg)
             log_file.write(clean_msg + '\n')
 
+    # subsample neurons if too many
+    if n_neurons > max_neurons:
+        neuron_subsample = int(np.ceil(n_neurons / max_neurons))
+        neuron_indices = np.arange(0, n_neurons, neuron_subsample)
+        x_list = x_list[:, neuron_indices, :]
+        n_neurons_sampled = len(neuron_indices)
+        log_print(f"subsampling neurons: {n_neurons} -> {n_neurons_sampled} (every {neuron_subsample}th)")
+        n_neurons = n_neurons_sampled
+
     # subsample frames if data is too large
     data_size = n_frames * n_neurons
     if data_size > max_data_size:
@@ -1782,7 +1805,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         frame_indices = np.arange(0, n_frames, subsample_factor)
         x_list_sampled = x_list[frame_indices]
         n_frames_sampled = len(frame_indices)
-        log_print(f"subsampling: {n_frames} -> {n_frames_sampled} frames (every {subsample_factor}th)")
+        log_print(f"subsampling frames: {n_frames} -> {n_frames_sampled} (every {subsample_factor}th)")
         data_size_sampled = n_frames_sampled * n_neurons
     else:
         x_list_sampled = x_list

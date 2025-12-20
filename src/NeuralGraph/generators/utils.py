@@ -186,22 +186,22 @@ def init_mesh(config, device):
     simulation_config = config.simulation
     model_config = config.graph_model
 
-    n_nodes = simulation_config.n_nodes
+    n_input_neurons = simulation_config.n_input_neurons
     n_neurons = simulation_config.n_neurons
     node_value_map = simulation_config.node_value_map
     field_grid = model_config.field_grid
     max_radius = simulation_config.max_radius
 
-    n_nodes_per_axis = int(np.sqrt(n_nodes))
-    xs = torch.linspace(1 / (2 * n_nodes_per_axis), 1 - 1 / (2 * n_nodes_per_axis), steps=n_nodes_per_axis)
-    ys = torch.linspace(1 / (2 * n_nodes_per_axis), 1 - 1 / (2 * n_nodes_per_axis), steps=n_nodes_per_axis)
+    n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+    xs = torch.linspace(1 / (2 * n_input_neurons_per_axis), 1 - 1 / (2 * n_input_neurons_per_axis), steps=n_input_neurons_per_axis)
+    ys = torch.linspace(1 / (2 * n_input_neurons_per_axis), 1 - 1 / (2 * n_input_neurons_per_axis), steps=n_input_neurons_per_axis)
     x_mesh, y_mesh = torch.meshgrid(xs, ys, indexing='xy')
-    x_mesh = torch.reshape(x_mesh, (n_nodes_per_axis ** 2, 1))
-    y_mesh = torch.reshape(y_mesh, (n_nodes_per_axis ** 2, 1))
-    mesh_size = 1 / n_nodes_per_axis
-    pos_mesh = torch.zeros((n_nodes, 2), device=device)
-    pos_mesh[0:n_nodes, 0:1] = x_mesh[0:n_nodes]
-    pos_mesh[0:n_nodes, 1:2] = y_mesh[0:n_nodes]
+    x_mesh = torch.reshape(x_mesh, (n_input_neurons_per_axis ** 2, 1))
+    y_mesh = torch.reshape(y_mesh, (n_input_neurons_per_axis ** 2, 1))
+    mesh_size = 1 / n_input_neurons_per_axis
+    pos_mesh = torch.zeros((n_input_neurons, 2), device=device)
+    pos_mesh[0:n_input_neurons, 0:1] = x_mesh[0:n_input_neurons]
+    pos_mesh[0:n_input_neurons, 1:2] = y_mesh[0:n_input_neurons]
 
     i0 = imread(f'graphs_data/{node_value_map}')
     if len(i0.shape) == 2:
@@ -215,24 +215,24 @@ def init_mesh(config, device):
         pos_mesh = pos_mesh
     else:
         if 'pattern_Null.tif' in simulation_config.node_value_map:
-            pos_mesh = pos_mesh + torch.randn(n_nodes, 2, device=device) * mesh_size / 24
+            pos_mesh = pos_mesh + torch.randn(n_input_neurons, 2, device=device) * mesh_size / 24
         else:
-            pos_mesh = pos_mesh + torch.randn(n_nodes, 2, device=device) * mesh_size / 8
+            pos_mesh = pos_mesh + torch.randn(n_input_neurons, 2, device=device) * mesh_size / 8
 
     match config.graph_model.mesh_model_name:
         case 'RD_Gray_Scott_Mesh':
-            node_value = torch.zeros((n_nodes, 2), device=device)
+            node_value = torch.zeros((n_input_neurons, 2), device=device)
             node_value[:, 0] -= 0.5 * torch.tensor(values / 255, device=device)
             node_value[:, 1] = 0.25 * torch.tensor(values / 255, device=device)
         case 'RD_FitzHugh_Nagumo_Mesh':
-            node_value = torch.zeros((n_nodes, 2), device=device) + torch.rand((n_nodes, 2), device=device) * 0.1
+            node_value = torch.zeros((n_input_neurons, 2), device=device) + torch.rand((n_input_neurons, 2), device=device) * 0.1
         case 'RD_Mesh' | 'RD_Mesh2' | 'RD_Mesh3' :
-            node_value = torch.rand((n_nodes, 3), device=device)
+            node_value = torch.rand((n_input_neurons, 3), device=device)
             s = torch.sum(node_value, dim=1)
             for k in range(3):
                 node_value[:, k] = node_value[:, k] / s
         case 'DiffMesh' | 'WaveMesh' | 'Particle_Mesh_A' | 'Particle_Mesh_B' | 'WaveSmoothParticle':
-            node_value = torch.zeros((n_nodes, 2), device=device)
+            node_value = torch.zeros((n_input_neurons, 2), device=device)
             node_value[:, 0] = torch.tensor(values / 255 * 5000, device=device)
         case 'PDE_O_Mesh':
             node_value = torch.zeros((n_neurons, 5), device=device)
@@ -244,15 +244,15 @@ def init_mesh(config, device):
             pos_mesh[:, 0] = node_value[:, 0] + (3 / 8) * mesh_size * torch.cos(node_value[:, 2])
             pos_mesh[:, 1] = node_value[:, 1] + (3 / 8) * mesh_size * torch.sin(node_value[:, 2])
         case '' :
-            node_value = torch.zeros((n_nodes, 2), device=device)
+            node_value = torch.zeros((n_input_neurons, 2), device=device)
 
 
 
-    type_mesh = torch.zeros((n_nodes, 1), device=device)
+    type_mesh = torch.zeros((n_input_neurons, 1), device=device)
 
-    node_id_mesh = torch.arange(n_nodes, device=device)
+    node_id_mesh = torch.arange(n_input_neurons, device=device)
     node_id_mesh = node_id_mesh[:, None]
-    dpos_mesh = torch.zeros((n_nodes, 2), device=device)
+    dpos_mesh = torch.zeros((n_input_neurons, 2), device=device)
 
     x_mesh = torch.concatenate((node_id_mesh.clone().detach(), pos_mesh.clone().detach(), dpos_mesh.clone().detach(),
                                 type_mesh.clone().detach(), node_value.clone().detach()), 1)

@@ -41,8 +41,9 @@ class SimulationConfig(BaseModel):
 
 
     # external input configuration
-    external_input_type: Literal["none", "signal", "visual"] = "none"
+    external_input_type: Literal["none", "signal", "visual", "modulation"] = "none"
     external_input_mode: Literal["additive", "multiplicative", "none"] = "none"
+    permutation: bool = False  # whether to apply random permutation to external input
 
     # signal input parameters (external_input_type == "signal")
     signal_input_type: Literal["oscillatory", "triggered"] = "oscillatory"

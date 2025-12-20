@@ -1,0 +1,12 @@
+=== UCB Scores (Simulation block 1, iters 25-48, N=10, c=1.0) ===
+
+Node 34: UCB=2.552, parent=33, visits=1, R2=0.971, Pearson=0.879, Mutation=lr_W: 0.02 -> 0.03 (from Node 33's lr_W=0.02)
+Node 28: UCB=2.079, parent=27, visits=1, R2=0.498, Pearson=0.945, Mutation=lr: 0.0002 -> 0.0003
+Node 33: UCB=2.043, parent=32, visits=2, R2=0.989, Pearson=0.946, Mutation=lr_W: 0.015 -> 0.02 (from Node 32's lr_W=0.015)
+Node 30: UCB=1.823, parent=26, visits=1, R2=0.242, Pearson=0.592, Mutation=coeff_W_L1: 1.0e-04 -> 1.0e-05 (from Node 26's coeff_W_L1=1.0e-04)
+Node 27: UCB=1.805, parent=26, visits=2, R2=0.751, Pearson=0.807, Mutation=lr_W: 0.01 -> 0.007
+Node 32: UCB=1.782, parent=31, visits=3, R2=0.992, Pearson=0.801, Mutation=lr: 0.0003 -> 0.0002 (from Node 31's lr=0.0003)
+Node 31: UCB=1.626, parent=29, visits=4, R2=0.994, Pearson=0.781, Mutation=lr_W: 0.01 -> 0.015 (from Node 29's lr_W=0.01)
+Node 29: UCB=1.352, parent=26, visits=5, R2=0.825, Pearson=0.909, Mutation=lr: 0.0002 -> 0.0003 (from Node 26's lr=0.0002)
+Node 26: UCB=1.280, parent=25, visits=9, R2=0.964, Pearson=0.599, Mutation=lr_W: 0.005 -> 0.01
+Node 25: UCB=1.161, parent=root, visits=10, R2=0.874, Pearson=0.944, Mutation=baseline for block 2 (new simulation: connectivity_type=low_rank, low_rank_factorization=True)

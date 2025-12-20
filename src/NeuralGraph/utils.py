@@ -2480,7 +2480,7 @@ class LossRegularizer:
             else:
                 msg_norm = model.lin_edge(in_features_edge_norm[ids].clone().detach())
             # Different normalization target for signal vs flyvis
-            if self.activity_column == 6:  # signal
+            if self.trainer_type == 'signal':
                 regul_term = (msg_norm - 1).norm(2) * self._coeffs['edge_norm']
             else:  # flyvis
                 regul_term = (msg_norm - 2 * xnorm).norm(2) * self._coeffs['edge_norm']
