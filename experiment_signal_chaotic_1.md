@@ -67,6 +67,7 @@ These parameters affect the **data generation** (simulation). Only change at blo
 
 ```yaml
 simulation:
+  n_frames: 10000 # can be increased to better constrain the GNN range 10000 to 100000
   connectivity_type: "chaotic" # or "low_rank"
   Dale_law: True # enforce excitatory/inhibitory separation
   Dale_law_factor: 0.5 # fraction excitatory/inhibitory (0.1 to 0.9)
@@ -107,7 +108,7 @@ Example: If reverting `lr` back to `1E-4` (Node 2's value), use `parent=2`.
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode/Strategy: [success-exploit/failure-probe]/[exploit/explore/boundary]
-Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B, low_rank_factorization=[T/F], low_rank=R
+Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B, low_rank_factorization=[T/F], low_rank=R, n_frames=NF
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, final_loss=D
 Activity: [brief description of dynamics]
 Mutation: [param]: [old] -> [new]

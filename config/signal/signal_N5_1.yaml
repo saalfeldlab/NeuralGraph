@@ -5,6 +5,7 @@ simulation:
   connectivity_type: "Lorentz"
   connectivity_init: [0, 0.1]
   external_input_type: "visual"
+  external_input_mode: "multiplicative"
   params:
     [
       [10.0, 1.0, 1.0, 1.0, 0.0],

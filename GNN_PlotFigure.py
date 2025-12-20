@@ -1004,7 +1004,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     max_radius = config.simulation.max_radius
     embedding_cluster = EmbeddingCluster(config)
     external_input_type = simulation_config.external_input_type
-    if external_input_type != '':
+    if (external_input_type != '') & (external_input_type!='none'):
         n_input_neurons = config.simulation.n_input_neurons
         n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
         has_external_input = True

@@ -2413,8 +2413,12 @@ class LossRegularizer:
         n_neurons = self.n_neurons
         total_regul = torch.tensor(0.0, device=device)
 
-        # Get model W (handle multi-run case)
-        if hasattr(model, 'W'):
+        # Get model W (handle multi-run case and low_rank_factorization)
+        # For low_rank_factorization, compute W from WL @ WR to allow gradient flow
+        low_rank = getattr(model, 'low_rank_factorization', False)
+        if low_rank and hasattr(model, 'WL') and hasattr(model, 'WR'):
+            model_W = model.WL @ model.WR  # Compute W for regularization (gradients flow to WL/WR)
+        elif hasattr(model, 'W'):
             if len(model.W.shape) == 3:
                 model_W = model.W[0]  # First run
             else:
