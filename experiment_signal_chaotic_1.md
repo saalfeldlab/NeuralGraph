@@ -59,7 +59,7 @@ Node 1: UCB=2.110, parent=root, visits=2, R2=0.934
 
 ### Step 3: Write Outputs
 
-Append to Full Log\*\* (`{config}_analysis.md`) and Current Block sections of `{config}_memory.md` :
+Append to Full Log\*\* (`{config}_analysis.md`) and **Current Block** sections of `{config}_memory.md` :
 
 Log Form
 
@@ -76,17 +76,17 @@ Observation: [one line]
 Next: parent=P
 ```
 
-### Step 4: Edit config file for next iteration
+### Step 4: Edit config file for next iteration according to Parent Selection Rule
 
 (The config path is provided in the prompt as "Current config")
 
-- Classification
+- **Classification**
 
-- **Converged**: connectivity_R2 > 0.9
-- **Partial**: connectivity_R2 0.1-0.9
-- **Failed**: connectivity_R2 < 0.1
+**Converged**: connectivity_R2 > 0.9
+**Partial**: connectivity_R2 0.1-0.9
+**Failed**: connectivity_R2 < 0.1
 
-- Training Parameters (change within block)
+- **Training Parameters (change within block)**
 
 ```yaml
 training:
@@ -99,7 +99,7 @@ training:
   low_rank: 20 # range: 5-100
 ```
 
-- Simulation Parameters (change at block boundaries only)
+- **Simulation Parameters (change at block boundaries only)**
 
 ```yaml
 simulation:
@@ -110,15 +110,15 @@ simulation:
   connectivity_rank: 20 if low_rank
 ```
 
-## Parent Selection Rule (CRITICAL)
+- **Parent Selection Rule**
 
-**Step A: Select parent node**
+Step A: Select parent node
 
 - Read `ucb_scores.txt`
 - If empty → `parent=root`
 - Otherwise → select node with **highest UCB**
 
-**Step B: Choose strategy**
+Step B: Choose strategy
 
 | Condition                            | Strategy            | Action                             |
 | ------------------------------------ | ------------------- | ---------------------------------- |
@@ -127,29 +127,63 @@ simulation:
 | n_iter_block/4 consecutive successes | **explore**         | Select outside recent chain        |
 | Good config found                    | **robustness-test** | Re-run same config                 |
 
-## END Parent Selection Rule
+---
 
-## Block Workflow step 1 to 2, at the end of a block iter_in_block==n_iter_block
+## Block Workflow step 1 to 3, every end of block
 
-**STEP 1 COMPULSORY modify Protocol (this file)**
+block iter_in_block==n_iter_block
 
-- [ ] Evaluate rules
+**STEP 1: COMPULSORY modify "Parent Selection Rule" (this file)**
 
-1. **Branching rate**: Count unique parents in last n_iter_block/4 iters
-   - If all sequential (rate=0%) → ADD exploration incentive to rules
-2. **Improvement rate**: How many iters improved R²?
-   - If <30% improving → INCREASE exploitation (raise R² threshold)
-   - If >80% improving → INCREASE exploration (probe boundaries)
-3. **Stuck detection**: Same R² plateau (±0.05) for 3+ iters?
-   - If yes → ADD forced branching rule
+Evaluate and modify rules
+Document your edit, state what you changed and why in the analysis log.
 
-**STEP 2. Update Working Memory** (`{config}_memory.md`):
+- **Branching rate**:
+
+  - Branching rate < 20% ADD exploration rule
+  - Branching rate 20-80% No change needed
+
+  **Branch rate** = parent ≠ (current_iter - 1), calculate for **entire block**
+
+  ```
+  Block 1 (16 iterations):
+  Sequential: Iters 1-14 (all parent = node-1)
+  Branches: Iter 15 (parent=2)
+
+  Branches: 1 out of 15 → Branching rate = 7%
+  ```
+
+- **Improvement rate**: How many iters improved R²?
+  - If <30% improving → INCREASE exploitation (raise R² threshold)
+  - If >80% improving → INCREASE exploration (probe boundaries)
+- **Stuck detection**: Same R² plateau (±0.05) for 3+ iters?
+
+  - If yes → ADD forced branching rule
+
+- **Dimension diversity**: Count consecutive iterations mutating **same parameter**
+
+  - If > 4 consecutive same-param → ADD switch-dimension rule
+
+  Example:
+
+```
+  Iter 2-14: all mutated lr_W → 13 consecutive same-dimension → ADD rule
+```
+
+**STEP 2 Choose next simulation**
+
+Check Coverage Table → choose untested combination
+**Do not replicate** previous block unless motivated (testing knowledge transfer)
+
+**STEP 3: Update Working Memory** (`{config}_memory.md`):
 
 - Update Knowledge Base with confirmed principles
 - Add row to Regime Comparison Table
 - Replace Previous Block Summary
 - Clear Current Block sections
 - Write hypothesis for next block
+
+---
 
 ## Working Memory Structure
 
@@ -206,6 +240,7 @@ Iterations: M to M+n_iter_block
 
 ### What to Add to Established Principles
 
+example:
 ✓ "Constrained connectivity needs lower lr_W" (causal, generalizable)
 ✓ "L1 > 1e-04 fails for low_rank" (boundary condition)
 ✓ "Effective rank < 15 requires factorization=True" (theoretical link)
@@ -214,9 +249,9 @@ Iterations: M to M+n_iter_block
 
 ### What to Add to Open Questions
 
-- Patterns needing more testing
-- Contradictions between blocks
-- Theoretical predictions not yet verified
+example:
+
+Patterns needing more testing, Contradictions between blocks, Theoretical predictions not yet verified
 
 ## Memory Size Control
 

@@ -330,62 +330,17 @@ if __name__ == "__main__":
                 # call Claude CLI for analysis
                 print(f"\033[93mClaude analysis...\033[0m")
 
-                # check if using memory-based protocol (v2 with working memory)
-                use_memory_file = os.path.exists(memory_path) and 'memory' in open(experiment_path).read().lower()
-
-                # detect first iteration of block for special instructions
-                is_first_iter = (iter_in_block == 1)
-                is_first_ever = (iteration == 1)
-
-                if use_memory_file:
-                    # build first-iteration instructions
-                    first_iter_note = ""
-                    if is_first_ever:
-                        first_iter_note = """
->>> FIRST ITERATION: Memory file is empty. Fill in Block Info with simulation params from config. Use parent=root, baseline config. <<<"""
-                    elif is_first_iter:
-                        first_iter_note = """
->>> NEW BLOCK START: Use parent=root for first iteration of new block. Fill Block Info from config. <<<"""
-
-                    claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
-
+                claude_prompt = f"""Iteration {iteration}/{n_iterations}
 Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
-{">>> BLOCK END: Last iteration of block! See Block End Checklist in protocol. <<<" if is_block_end else ""}{first_iter_note}
+{">>> BLOCK END <<<" if is_block_end else ""}
 
-FILES TO READ:
-1. Working memory (your persistent knowledge): {memory_path}
-2. Activity image: {activity_path}
-3. Metrics log: {analysis_log_path}
-4. UCB scores: {ucb_path}
-5. Current config: {config_path}
-6. Protocol (for rules): {experiment_path}
-
-FILES TO WRITE:
-1. Append iteration log to: {analysis_path} (full record, never read)
-2. Update working memory: {memory_path}
-   - Add iteration to "Iterations This Block"
-   {"- First iter: fill in Block Info (simulation params from config)" if is_first_iter else ""}
-   {"- BLOCK END: Update Knowledge Base, Regime/Coverage tables, replace Previous Block Summary, clear Current Block, write new Hypothesis" if is_block_end else ""}
-3. Edit config for next iteration: {config_path}
-{"4. Evaluate and possibly edit protocol: " + experiment_path if is_block_end else ""}
-
-Config file: {config_file_}"""
-                else:
-                    # original prompt (backward compatible - no memory file)
-                    claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
-
-Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
-{">>> BLOCK END: Last iteration of block! Write summary, edit protocol, change simulation params for next block. <<<" if is_block_end else ""}
-
-1. Read activity image: {activity_path}
-2. Read analysis log: {analysis_log_path}
-3. Read protocol: {experiment_path}
-4. Read UCB scores: {ucb_path}
-5. Read current config: {config_path}
-6. Append to {analysis_path} using log format from protocol
-7. Edit {config_path} to explore next parameter combination per protocol
-
-Config file: {config_file_}"""
+Protocol (follow all instructions): {experiment_path}
+Working memory: {memory_path}
+Full log (append only): {analysis_path}
+Activity image: {activity_path}
+Metrics log: {analysis_log_path}
+UCB scores: {ucb_path}
+Current config: {config_path}"""
 
                 claude_cmd = [
                     'claude',
@@ -432,7 +387,7 @@ Config file: {config_file_}"""
                         shutil.copy2(experiment_path, dst_protocol)
 
                 # save memory file at end of each block (after Claude updates it)
-                if is_block_end and use_memory_file:
+                if is_block_end:
                     memory_save_dir = f"{exploration_dir}/memory"
                     os.makedirs(memory_save_dir, exist_ok=True)
                     dst_memory = f"{memory_save_dir}/block_{block_number:03d}_memory.md"
@@ -455,7 +410,7 @@ Config file: {config_file_}"""
                     if hasattr(config.simulation, 'Dale_law'):
                         sim_info += f", Dale_law={config.simulation.Dale_law}"
                     if hasattr(config.simulation, 'noise_model_level'):
-                        sim_info += f", noise_model_level={config.simulation.noise_model_level}"
+                        sim_info += f", noise_model_level={config.training.noise_model_level}"
                     if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
                         sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
 
