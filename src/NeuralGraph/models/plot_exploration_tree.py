@@ -216,7 +216,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
         # Label: node id inside/near the marker (always black)
         ax.annotate(str(node.id), (x, y), ha='center', va='center',
-                   fontsize=7,
+                   fontsize=9,
                    color='black', zorder=3)
 
         # Mutation above the node (for nodes with id > 1)
@@ -226,7 +226,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
             # Skip simulation change messages (they clutter the plot)
             if not mutation_text.startswith('simulation changed'):
                 ax.annotate(mutation_text, (x, y), ha='center', va='bottom',
-                           fontsize=5, xytext=(0, 12), textcoords='offset points',
+                           fontsize=8, xytext=(0, 14), textcoords='offset points',
                            color='#333333', zorder=3)
 
         # Annotation: UCB/V and R2/Pearson below the node
@@ -235,34 +235,31 @@ def plot_ucb_tree(nodes: list[UCBNode],
         if node.external_input_r2 >= 0:
             label_text += f"\nR²_ext={node.external_input_r2:.2f}"
         ax.annotate(label_text, (x, y), ha='center', va='top',
-                   fontsize=5, xytext=(0, -12), textcoords='offset points',
+                   fontsize=8, xytext=(0, -14), textcoords='offset points',
                    color='#555555', zorder=3)
 
-    # Add simulation info below root node(s)
+    # Add simulation info at top left of figure
     if simulation_info:
-        roots = tree['roots']
-        if roots and roots[0] in positions:
-            root_x, root_y = positions[roots[0]]
-            # Format: remove "Simulation: " prefix, replace underscores with spaces, split into lines
-            sim_text = simulation_info.replace('Simulation:', '').strip()
-            sim_text = sim_text.replace('_', ' ')
-            # Split by comma and join with newlines
-            sim_lines = [p.strip() for p in sim_text.split(',')]
-            # Filter lines: keep connectivity type, Dale law, noise; add rank only if low_rank
-            filtered_lines = []
-            for line in sim_lines:
-                if 'connectivity type' in line:
-                    filtered_lines.append(line)
-                elif 'Dale law=' in line:
-                    filtered_lines.append(line)
-                elif 'noise model level' in line:
-                    filtered_lines.append(line)
-                elif 'connectivity rank' in line and 'low rank' in sim_text.lower():
-                    filtered_lines.append(line)
-            sim_formatted = '\n'.join(filtered_lines) if filtered_lines else '\n'.join(sim_lines)
-            ax.annotate(sim_formatted, (root_x, root_y), ha='left', va='bottom',
-                       fontsize=6, xytext=(5, 15), textcoords='offset points',
-                       color='#555555', zorder=4)
+        # Format: remove "Simulation: " prefix, replace underscores with spaces
+        sim_text = simulation_info.replace('Simulation:', '').strip()
+        sim_text = sim_text.replace('_', ' ')
+        # Split by comma and join with newlines
+        sim_lines = [p.strip() for p in sim_text.split(',')]
+        # Filter lines: keep connectivity type, Dale law, noise; add rank only if low_rank
+        filtered_lines = []
+        for line in sim_lines:
+            if 'connectivity type' in line:
+                filtered_lines.append(line)
+            elif 'Dale law=' in line:
+                filtered_lines.append(line)
+            elif 'noise model level' in line:
+                filtered_lines.append(line)
+            elif 'connectivity rank' in line and 'low rank' in sim_text.lower():
+                filtered_lines.append(line)
+        sim_formatted = '\n'.join(filtered_lines) if filtered_lines else '\n'.join(sim_lines)
+        # Place at top left using axes coordinates (0,1 = top left)
+        ax.text(0.02, 0.98, sim_formatted, transform=ax.transAxes,
+                fontsize=11, ha='left', va='top', color='#333333')
 
     # Remove axis labels and ticks
     ax.set_xlabel('')

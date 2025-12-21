@@ -63,6 +63,11 @@ if __name__ == "__main__":
 
 
 
+    # resume support: start_iteration parameter (default 1)
+    start_iteration = 1
+
+
+
 
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'
@@ -73,7 +78,9 @@ if __name__ == "__main__":
 
 
     if 'Claude' in task:
-        iteration_range = range(1, n_iterations + 1)
+        iteration_range = range(start_iteration, n_iterations + 1)
+        if start_iteration > 1:
+            print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
 
@@ -107,9 +114,13 @@ if __name__ == "__main__":
         n_iter_block = claude_n_iter_block
 
         ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
-        if os.path.exists(ucb_file):
-            os.remove(ucb_file)
-            print(f"\033[93mdeleted {ucb_file}\033[0m")
+        if start_iteration == 1:
+            # only delete UCB file when starting fresh (not resuming)
+            if os.path.exists(ucb_file):
+                os.remove(ucb_file)
+                print(f"\033[93mdeleted {ucb_file}\033[0m")
+        else:
+            print(f"\033[93mpreserving {ucb_file} (resuming from iter {start_iteration})\033[0m")
 
         config_list = [llm_task_name]
     else:
@@ -130,6 +141,7 @@ if __name__ == "__main__":
             root_dir = os.path.dirname(os.path.abspath(__file__))
             experiment_path = f"{root_dir}/{experiment_name}.md"
             analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
+            memory_path = f"{root_dir}/{llm_task_name}_memory.md"
 
             # check experiment file exists
             if not os.path.exists(experiment_path):
@@ -140,11 +152,46 @@ if __name__ == "__main__":
                         print(f"  - {f[:-3]}")
                 continue
 
-            # clear analysis file at start
-            with open(analysis_path, 'w') as f:
-                f.write(f"# Experiment Log: {config_file_}\n\n")
-            print(f"\033[93mcleared {analysis_path}\033[0m")
-            print(f"\033[93m{experiment_name} ({n_iterations} iterations)\033[0m")
+            # clear analysis and memory files at start (only if not resuming)
+            if start_iteration == 1:
+                with open(analysis_path, 'w') as f:
+                    f.write(f"# Experiment Log: {config_file_}\n\n")
+                print(f"\033[93mcleared {analysis_path}\033[0m")
+                # initialize working memory file
+                with open(memory_path, 'w') as f:
+                    f.write(f"# Working Memory: {config_file_}\n\n")
+                    f.write("## Knowledge Base (accumulated across all blocks)\n\n")
+                    f.write("### Regime Comparison Table\n")
+                    f.write("| Block | Regime | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
+                    f.write("|-------|--------|---------|--------------|------------|-------------|\n\n")
+                    f.write("### Coverage Table\n")
+                    f.write("| connectivity_type | Dale_law=False | Dale_law=True |\n")
+                    f.write("|-------------------|----------------|---------------|\n")
+                    f.write("| chaotic           | ?              | ?             |\n")
+                    f.write("| low_rank=20       | ?              | ?             |\n")
+                    f.write("| low_rank=50       | ?              | ?             |\n\n")
+                    f.write("### Established Principles\n")
+                    f.write("- (none yet)\n\n")
+                    f.write("### Open Questions\n")
+                    f.write("- (none yet)\n\n")
+                    f.write("---\n\n")
+                    f.write("## Previous Block Summary\n")
+                    f.write("(no previous block)\n\n")
+                    f.write("---\n\n")
+                    f.write("## Current Block (Block 1)\n\n")
+                    f.write("### Block Info\n")
+                    f.write("Simulation: (to be filled by first iteration)\n")
+                    f.write("Iterations: 1 to n_iter_block\n\n")
+                    f.write("### Hypothesis\n")
+                    f.write("(first block - establishing baseline)\n\n")
+                    f.write("### Iterations This Block\n\n")
+                    f.write("### Emerging Observations\n")
+                    f.write("(none yet)\n")
+                print(f"\033[93mcleared {memory_path}\033[0m")
+            else:
+                print(f"\033[93mpreserving {analysis_path} (resuming from iter {start_iteration})\033[0m")
+                print(f"\033[93mpreserving {memory_path} (resuming from iter {start_iteration})\033[0m")
+            print(f"\033[93m{experiment_name} ({n_iterations} iterations, starting at {start_iteration})\033[0m")
 
         root_dir = os.path.dirname(os.path.abspath(__file__))
         analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
@@ -283,7 +330,49 @@ if __name__ == "__main__":
                 # call Claude CLI for analysis
                 print(f"\033[93mClaude analysis...\033[0m")
 
-                claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
+                # check if using memory-based protocol (v2 with working memory)
+                use_memory_file = os.path.exists(memory_path) and 'memory' in open(experiment_path).read().lower()
+
+                # detect first iteration of block for special instructions
+                is_first_iter = (iter_in_block == 1)
+                is_first_ever = (iteration == 1)
+
+                if use_memory_file:
+                    # build first-iteration instructions
+                    first_iter_note = ""
+                    if is_first_ever:
+                        first_iter_note = """
+>>> FIRST ITERATION: Memory file is empty. Fill in Block Info with simulation params from config. Use parent=root, baseline config. <<<"""
+                    elif is_first_iter:
+                        first_iter_note = """
+>>> NEW BLOCK START: Use parent=root for first iteration of new block. Fill Block Info from config. <<<"""
+
+                    claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
+
+Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
+{">>> BLOCK END: Last iteration of block! See Block End Checklist in protocol. <<<" if is_block_end else ""}{first_iter_note}
+
+FILES TO READ:
+1. Working memory (your persistent knowledge): {memory_path}
+2. Activity image: {activity_path}
+3. Metrics log: {analysis_log_path}
+4. UCB scores: {ucb_path}
+5. Current config: {config_path}
+6. Protocol (for rules): {experiment_path}
+
+FILES TO WRITE:
+1. Append iteration log to: {analysis_path} (full record, never read)
+2. Update working memory: {memory_path}
+   - Add iteration to "Iterations This Block"
+   {"- First iter: fill in Block Info (simulation params from config)" if is_first_iter else ""}
+   {"- BLOCK END: Update Knowledge Base, Regime/Coverage tables, replace Previous Block Summary, clear Current Block, write new Hypothesis" if is_block_end else ""}
+3. Edit config for next iteration: {config_path}
+{"4. Evaluate and possibly edit protocol: " + experiment_path if is_block_end else ""}
+
+Config file: {config_file_}"""
+                else:
+                    # original prompt (backward compatible - no memory file)
+                    claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
 
 Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
 {">>> BLOCK END: Last iteration of block! Write summary, edit protocol, change simulation params for next block. <<<" if is_block_end else ""}
@@ -307,7 +396,8 @@ Config file: {config_file_}"""
                     'Read', 'Edit'
                 ]
 
-                # run with real-time output streaming
+                # run with real-time output streaming and token expiry detection
+                output_lines = []
                 process = subprocess.Popen(
                     claude_cmd,
                     cwd=root_dir,
@@ -320,14 +410,35 @@ Config file: {config_file_}"""
                 # stream output line by line
                 for line in process.stdout:
                     print(line, end='', flush=True)
+                    output_lines.append(line)
 
                 process.wait()
 
-                # save protocol file only at first iteration of each block
+                # check for OAuth token expiration error
+                output_text = ''.join(output_lines)
+                if 'OAuth token has expired' in output_text or 'authentication_error' in output_text:
+                    print(f"\n\033[91m{'='*60}\033[0m")
+                    print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
+                    print(f"\033[93mTo resume:\033[0m")
+                    print(f"\033[93m  1. Run: claude /login\033[0m")
+                    print(f"\033[93m  2. Then: python GNN_Main.py -o {task} {config_file_} start={iteration}\033[0m")
+                    print(f"\033[91m{'='*60}\033[0m")
+                    raise SystemExit(1)
+
+                # save protocol file at first iteration of each block
                 if iter_in_block == 1:
                     dst_protocol = f"{protocol_save_dir}/block_{block_number:03d}.md"
                     if os.path.exists(experiment_path):
                         shutil.copy2(experiment_path, dst_protocol)
+
+                # save memory file at end of each block (after Claude updates it)
+                if is_block_end and use_memory_file:
+                    memory_save_dir = f"{exploration_dir}/memory"
+                    os.makedirs(memory_save_dir, exist_ok=True)
+                    dst_memory = f"{memory_save_dir}/block_{block_number:03d}_memory.md"
+                    if os.path.exists(memory_path):
+                        shutil.copy2(memory_path, dst_memory)
+                        print(f"\033[92msaved memory snapshot: {dst_memory}\033[0m")
 
                 # recompute UCB scores after Claude to pick up mutations from analysis markdown
                 compute_ucb_scores(analysis_path, ucb_path,

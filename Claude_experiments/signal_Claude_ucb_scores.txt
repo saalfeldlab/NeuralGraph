@@ -1,3 +1,0 @@
-=== UCB Scores (Simulation block 2, iters 49-72, N=1, c=1.0) ===
-
-Node 49: UCB=0.532, parent=root, visits=1, R2=0.032, Pearson=0.710, Mutation=simulation changed - connectivity_type=chaotic -> low_rank (rank=20); training params = Block 0 optimum
