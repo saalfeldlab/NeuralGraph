@@ -239,9 +239,9 @@ Update `{config}_memory.md`:
 
 ### Regime Comparison Table
 
-| Block | Regime                  | E/I  | n_frames | n_neurons | n_types | Best R² | Optimal lr_W | Optimal L1 | Key finding |
-| ----- | ----------------------- | ---- | -------- | --------- | ------- | ------- | ------------ | ---------- | ----------- |
-| 1     | chaotic, Dale_law=False | -    | 10000    | 100       | 1       | 1.000   | 8E-3         | 1E-5       | ...         |
+| Block | Regime                  | E/I  | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |
+| ----- | ----------------------- | ---- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |
+| 1     | chaotic, Dale_law=False | -    | 10000    | 100       | 1       | 31-35    | 1.000   | 8E-3         | 1E-5       | ...         |
 
 ### Established Principles
 

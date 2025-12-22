@@ -4,14 +4,14 @@
 
 ### Regime Comparison Table
 
-| Block | Regime                   | E/I  | n_frames | n_neurons | n_types | Best R² | Optimal lr_W  | Optimal L1 | Key finding                                              |
-| ----- | ------------------------ | ---- | -------- | --------- | ------- | ------- | ------------- | ---------- | -------------------------------------------------------- |
-| 1     | chaotic, Dale=False      | -    | 10000    | 100       | 1       | 1.000   | 8E-3 to 30E-3 | 1E-5       | lr_W:lr ratio 40-100:1 works; robust regime              |
-| 2     | low_rank=20, Dale=False  | -    | 10000    | 100       | 1       | 0.977   | 16E-3         | 1E-6       | lr_W:lr ratio 320:1 needed; factorization required       |
-| 3     | chaotic, Dale=True       | 0.5  | 10000    | 100       | 1       | 0.940   | 80E-3         | 1E-6       | lr_W:lr ratio 800:1 needed; E/I constraint hardest       |
-| 4     | low_rank=50, Dale=False  | -    | 20000    | 100       | 1       | 0.989   | 20E-3         | 1E-6       | n_frames=20000 essential; effective_rank 7→21            |
-| 5     | low_rank=20, Dale=True   | 0.5  | 20000    | 100       | 1       | 1.000   | 8-10E-3       | 1E-6       | factorization=False works with n_frames=20000            |
-| 6     | low_rank=50, Dale=True   | 0.5  | 20000    | 100       | 1       | 0.998   | 25E-3         | 1E-6       | effective_rank variance (10 vs 20) drives R² (0.92 vs 0.998) |
+| Block | Regime                   | E/I  | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W  | Optimal L1 | Key finding                                              |
+| ----- | ------------------------ | ---- | -------- | --------- | ------- | -------- | ------- | ------------- | ---------- | -------------------------------------------------------- |
+| 1     | chaotic, Dale=False      | -    | 10000    | 100       | 1       | 31-35    | 1.000   | 8E-3 to 30E-3 | 1E-5       | lr_W:lr ratio 40-100:1 works; robust regime              |
+| 2     | low_rank=20, Dale=False  | -    | 10000    | 100       | 1       | 6-12     | 0.977   | 16E-3         | 1E-6       | lr_W:lr ratio 320:1 needed; factorization required       |
+| 3     | chaotic, Dale=True       | 0.5  | 10000    | 100       | 1       | 10       | 0.940   | 80E-3         | 1E-6       | lr_W:lr ratio 800:1 needed; E/I constraint hardest       |
+| 4     | low_rank=50, Dale=False  | -    | 20000    | 100       | 1       | 7-21     | 0.989   | 20E-3         | 1E-6       | n_frames=20000 essential; effective_rank 7→21            |
+| 5     | low_rank=20, Dale=True   | 0.5  | 20000    | 100       | 1       | 28-30    | 1.000   | 8-10E-3       | 1E-6       | factorization=False works with n_frames=20000            |
+| 6     | low_rank=50, Dale=True   | 0.5  | 20000    | 100       | 1       | 10-20    | 0.998   | 25E-3         | 1E-6       | effective_rank variance (10 vs 20) drives R² (0.92 vs 0.998) |
 
 ### Coverage Table
 
