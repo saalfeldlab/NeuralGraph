@@ -1167,3 +1167,14 @@ Mutation: lr_W: 30E-3 -> 25E-3 (recombine: iter 87's lr_W with iter 90's batch_s
 Parent rule: highest UCB (node 90, UCB=2.507)
 Observation: R²=0.924 similar to parent's 0.925; recombine didn't replicate iter 87's 0.998; effective_rank=10 persists
 Next: parent=91 (highest UCB=2.582)
+
+## Iter 92: converged
+Node: id=92, parent=91
+Mode/Strategy: exploit
+Config: lr_W=25E-3, lr=2E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.595, test_pearson=0.460, connectivity_R2=0.914, final_loss=4.32E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: lr: 1E-4 -> 2E-4 (2x increase, ratio now 125:1)
+Parent rule: highest UCB (node 91, UCB=2.582)
+Observation: ratio 125:1 gave R2=0.914 similar to parents 0.924; doubling lr did not help; effective_rank still 10
+Next: parent=92 (highest UCB=2.646)
