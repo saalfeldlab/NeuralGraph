@@ -4,13 +4,13 @@
 
 ### Regime Comparison Table
 
-| Block | Regime | Best R² | Optimal lr_W | Optimal L1 | Key finding |
-| ----- | ------ | ------- | ------------ | ---------- | ----------- |
-| 1 | chaotic, Dale_law=False | 1.000 | 8E-3 to 30E-3 | 1E-5 | lr_W:lr ratio 40-100:1 works; robust regime |
-| 2 | low_rank=20, Dale_law=False | 0.977 | 16E-3 | 1E-6 | lr_W:lr ratio 320:1 needed; factorization required |
-| 3 | chaotic, Dale_law=True | 0.940 | 80E-3 | 1E-6 | lr_W:lr ratio 800:1 needed; E/I constraint hardest |
-| 4 | low_rank=50, Dale_law=False | 0.989 | 20E-3 | 1E-6 | n_frames=20000 essential; effective_rank 7→21 |
-| 5 | low_rank=20, Dale_law=True, n_frames=20000 | 1.000 | 8-10E-3 | 1E-6 | factorization=False works with n_frames=20000 |
+| Block | Regime                                     | Best R² | Optimal lr_W  | Optimal L1 | Key finding                                        |
+| ----- | ------------------------------------------ | ------- | ------------- | ---------- | -------------------------------------------------- |
+| 1     | chaotic, Dale_law=False                    | 1.000   | 8E-3 to 30E-3 | 1E-5       | lr_W:lr ratio 40-100:1 works; robust regime        |
+| 2     | low_rank=20, Dale_law=False                | 0.977   | 16E-3         | 1E-6       | lr_W:lr ratio 320:1 needed; factorization required |
+| 3     | chaotic, Dale_law=True                     | 0.940   | 80E-3         | 1E-6       | lr_W:lr ratio 800:1 needed; E/I constraint hardest |
+| 4     | low_rank=50, Dale_law=False                | 0.989   | 20E-3         | 1E-6       | n_frames=20000 essential; effective_rank 7→21      |
+| 5     | low_rank=20, Dale_law=True, n_frames=20000 | 1.000   | 8-10E-3       | 1E-6       | factorization=False works with n_frames=20000      |
 
 ### Coverage Table
 
@@ -70,6 +70,7 @@ low_rank=50 + Dale_law=True should also achieve perfect R²=1.000 based on Block
 ### Iterations This Block
 
 ## Iter 81: converged
+
 Node: id=81, parent=root
 Mode/Strategy: exploit
 Config: lr_W=10E-3, lr=5E-5, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
@@ -81,6 +82,7 @@ Observation: borderline converged; effective_rank only 10 vs ~30 in Block 5 - lo
 Next: parent=81 (highest UCB)
 
 ## Iter 82: converged
+
 Node: id=82, parent=81
 Mode/Strategy: exploit
 Config: lr_W=20E-3, lr=5E-5, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
@@ -92,6 +94,7 @@ Observation: R² improved 0.902→0.940 with 2x lr_W; ratio now 400:1, continuin
 Next: parent=82 (highest UCB)
 
 ## Iter 83: partial
+
 Node: id=83, parent=82
 Mode/Strategy: exploit
 Config: lr_W=40E-3, lr=5E-5, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
@@ -103,6 +106,7 @@ Observation: R² decreased 0.940→0.898 with 2x lr_W; ratio 800:1 may be too hi
 Next: parent=83 (highest UCB)
 
 ## Iter 84: failed
+
 Node: id=84, parent=83
 Mode/Strategy: exploit
 Config: lr_W=30E-3, lr=5E-5, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
@@ -114,6 +118,7 @@ Observation: catastrophic failure at lr_W=30E-3 despite being between working va
 Next: parent=83 (highest UCB)
 
 ## Iter 85: partial
+
 Node: id=85, parent=83
 Mode/Strategy: exploit
 Config: lr_W=40E-3, lr=5E-5, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=True, low_rank=50, n_frames=20000
@@ -125,6 +130,7 @@ Observation: factorization=True with lr_W=40E-3 gave R²=0.830, worse than node 
 Next: parent=82 (best R² in block)
 
 ## Iter 86: partial
+
 Node: id=86, parent=82
 Mode/Strategy: exploit
 Config: lr_W=25E-3, lr=5E-5, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
@@ -135,15 +141,8 @@ Parent rule: highest UCB (node 82)
 Observation: lr_W=25E-3 gave R²=0.894, slightly worse than node 82's R²=0.940; confirms lr_W=20E-3 is near optimal
 Next: parent=86 (highest UCB)
 
-### Emerging Observations
-
-- **breakthrough at iter 87**: R²=0.998 achieved with lr=1E-4 (ratio 250:1)
-- key insight: lr was too low, not lr_W; ratio 250:1 better than 400:1-500:1
-- effective_rank jumped from 10 to 20 in this run (stochastic variation in data generation)
-- regime now solved: low_rank=50 + Dale_law + n_frames=20000 achieves near-perfect recovery
-- next: success-exploit to confirm robustness, then probe boundaries
-
 ## Iter 87: converged
+
 Node: id=87, parent=86
 Mode/Strategy: exploit
 Config: lr_W=25E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
@@ -152,3 +151,24 @@ Activity: effective_rank=20, spectral_radius=1.014, rich dynamics
 Mutation: lr: 5E-5 -> 1E-4 (2x increase, ratio now 250:1)
 Parent rule: highest UCB (node 86)
 Observation: breakthrough! near-perfect R²=0.998 by increasing lr; ratio 250:1 optimal vs previous 400:1-500:1
+
+## Iter 88: partial
+
+Node: id=88, parent=87
+Mode/Strategy: success-exploit (robustness test)
+Config: lr_W=25E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.938, test_pearson=0.838, connectivity_R2=0.866, final_loss=4.69E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: re-run of iter 87 config (robustness test)
+Parent rule: highest UCB (node 87, R²=0.998)
+Observation: regression from R²=0.998 to 0.866 with same config; effective_rank dropped 20→10; high stochastic variance in this regime
+Next: parent=88 (highest UCB)
+
+### Emerging Observations
+
+- **breakthrough at iter 87**: R²=0.998 achieved with lr=1E-4 (ratio 250:1)
+- key insight: lr was too low, not lr_W; ratio 250:1 better than 400:1-500:1
+- **iter 88 regression**: same config gave R²=0.866 vs 0.998 - high stochastic variance
+- effective_rank varies between 10-20 across runs (data generation stochasticity)
+- regime NOT yet robustly solved - need to find more stable config
+- next: try increasing lr_W slightly to improve robustness

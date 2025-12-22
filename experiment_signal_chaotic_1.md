@@ -142,6 +142,26 @@ Step B: Choose strategy
 | 3+ consecutive R² ≥ 0.9              | **failure-probe**   | Extreme parameter to find boundary |
 | n_iter_block/4 consecutive successes | **explore**         | Select outside recent chain        |
 | Good config found                    | **robustness-test** | Re-run same config                 |
+| 2+ distant nodes with R² > 0.9       | **recombine**       | Merge params from both nodes       |
+
+**Recombination details:**
+
+Trigger: exists Node A and Node B where:
+- Both R² > 0.9
+- Not parent-child (distance ≥ 2 in tree)
+- Different parameter strengths
+
+Action:
+- parent = higher R² node
+- Mutation = adopt best param from other node
+
+Example:
+```
+Node 12: lr_W=1E-2, lr=1E-4, R²=0.94  (good lr_W)
+Node 38: lr_W=5E-3, lr=2E-3, R²=0.97  (good lr)
+
+Recombine → lr_W=1E-2, lr=2E-3
+```
 
 ---
 

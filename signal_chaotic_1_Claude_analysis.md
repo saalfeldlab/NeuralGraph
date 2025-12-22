@@ -1121,3 +1121,14 @@ Mutation: lr: 5E-5 -> 1E-4 (2x increase, ratio now 250:1)
 Parent rule: highest UCB (node 86)
 Observation: breakthrough! near-perfect R²=0.998 by increasing lr; ratio 250:1 optimal vs previous 400:1-500:1
 Next: parent=87 (highest UCB)
+
+## Iter 88: partial
+Node: id=88, parent=87
+Mode/Strategy: success-exploit (robustness test)
+Config: lr_W=25E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.938, test_pearson=0.838, connectivity_R2=0.866, final_loss=4.69E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: re-run of iter 87 config (robustness test)
+Parent rule: highest UCB (node 87, R²=0.998)
+Observation: regression from R²=0.998 to 0.866 with same config; effective_rank dropped 20→10; high stochastic variance in this regime
+Next: parent=88 (highest UCB)
