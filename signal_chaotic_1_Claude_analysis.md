@@ -1132,3 +1132,38 @@ Mutation: re-run of iter 87 config (robustness test)
 Parent rule: highest UCB (node 87, R²=0.998)
 Observation: regression from R²=0.998 to 0.866 with same config; effective_rank dropped 20→10; high stochastic variance in this regime
 Next: parent=88 (highest UCB)
+
+## Iter 89: partial
+Node: id=89, parent=88
+Mode/Strategy: exploit
+Config: lr_W=30E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.883, test_pearson=0.805, connectivity_R2=0.883, final_loss=4.29E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: lr_W: 25E-3 -> 30E-3 (increased from parent 88)
+Parent rule: highest UCB (node 88, UCB=1.866)
+Observation: R²=0.883 similar to parent's 0.866; lr_W=30E-3 ratio 300:1 not improving; node 87's near-perfect R²=0.998 still not replicated
+Next: parent=89 (highest UCB=2.383)
+
+## Iter 90: converged
+
+Node: id=90, parent=89
+Mode/Strategy: exploit
+Config: lr_W=30E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.885, test_pearson=0.764, connectivity_R2=0.925, final_loss=4.04E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: batch_size: 16 -> 8
+Parent rule: highest UCB (node 89, UCB=2.383)
+Observation: batch_size=8 improved R² from 0.883 to 0.925; converged but still below iter 87's 0.998
+Next: parent=90 (highest UCB=2.507)
+
+## Iter 91: converged
+
+Node: id=91, parent=90
+Mode/Strategy: recombine (iter 87's lr_W=25E-3 + iter 90's batch_size=8)
+Config: lr_W=25E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.567, test_pearson=0.480, connectivity_R2=0.924, final_loss=4.27E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: lr_W: 30E-3 -> 25E-3 (recombine: iter 87's lr_W with iter 90's batch_size=8)
+Parent rule: highest UCB (node 90, UCB=2.507)
+Observation: R²=0.924 similar to parent's 0.925; recombine didn't replicate iter 87's 0.998; effective_rank=10 persists
+Next: parent=91 (highest UCB=2.582)
