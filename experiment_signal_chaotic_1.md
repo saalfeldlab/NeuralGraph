@@ -51,6 +51,7 @@ Read `{config}_memory.md` to recall:
 - `test_R2`: R² between ground truth and rollout prediction
 - `test_pearson`: Pearson correlation per neuron (mean)
 - `connectivity_R2`: R² of learned vs true connectivity weights
+- `cluster_accuracy`: GMM clustering accuracy on learned embeddings (neuron type classification)
 - `final_loss`: final training loss (lower is better)
 
 **UCB scores from `ucb_scores.txt`:**
@@ -79,7 +80,7 @@ Append to Full Log (`{config}_analysis.md`) and **Current Block** sections of `{
 Node: id=N, parent=P
 Mode/Strategy: [success-exploit/failure-probe]/[exploit/explore/boundary]
 Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B, low_rank_factorization=[T/F], low_rank=R, n_frames=NF
-Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, final_loss=D
+Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, cluster_accuracy=D, final_loss=E
 Activity: [brief description]
 Mutation: [param]: [old] -> [new]
 Parent rule: [one line]
