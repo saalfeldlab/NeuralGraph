@@ -13,6 +13,8 @@ src/NeuralGraph/scripts/tmp/
 src/NeuralGraph/ODEs/logs/
 src/NeuralGraph/ODEs/config/
 runs/
+Claude_experiments/
+papers/
 .claude/
 
 # Media and data files

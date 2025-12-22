@@ -35,7 +35,7 @@ from NeuralGraph.models.utils import (
     get_in_features_update,
     analyze_edge_function,
     plot_training_signal,
-    plot_training_signal_field,
+    plot_training_signal_visual_input,
     plot_training_signal_missing_activity,
     plot_training_flyvis,
     plot_weight_comparison,
@@ -261,6 +261,8 @@ def data_train_signal(config, erase, best_model, style, device):
         optimizer_missing_activity = torch.optim.Adam(lr=train_config.learning_rate_missing_activity,
                                                       params=model_missing_activity.parameters())
         model_missing_activity.train()
+
+
     # external input model (model_f) for learning external_input reconstruction
     model_f = choose_inr_model(config=config, n_neurons=n_neurons, n_frames=n_frames, x_list=x_list, device=device)
     optimizer_f = None
@@ -320,8 +322,8 @@ def data_train_signal(config, erase, best_model, style, device):
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
-    print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
-    logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
+    print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
+    logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
     logger.info(f'network: {net}  N epochs: {n_epochs}  initial batch_size: {batch_size}')
@@ -402,7 +404,7 @@ def data_train_signal(config, erase, best_model, style, device):
         else:
             Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 )
 
-        plot_frequency = int(Niter // 4)
+        plot_frequency = int(Niter // 8)
         if epoch ==0:
             print(f'{Niter} iterations per epoch, {plot_frequency} iterations per plot')
             logger.info(f'{Niter} iterations per epoch')
@@ -457,9 +459,9 @@ def data_train_signal(config, erase, best_model, style, device):
                         ids_missing = torch.argwhere(x[:, 3] == baseline_value)
                         x[ids_missing,3] = missing_activity[ids_missing]
                     # external input reconstruction (when learn_external_input=True)
-                    if model_f is not None:
+                    if (model_f is not None) & (N>0):
                         nnr_f_T_period = model_config.nnr_f_T_period
-                        if external_input_type == 'visual':
+                        if (external_input_type == 'visual') :
                             n_input_neurons = simulation_config.n_input_neurons
                             x[:n_input_neurons, 4:5] = model_f(time=k / n_frames) ** 2
                             x[n_input_neurons:n_neurons, 4:5] = 1
@@ -644,7 +646,7 @@ def data_train_signal(config, erase, best_model, style, device):
                     last_connectivity_r2 = plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device)
                     if last_connectivity_r2 is not None:
                         # color code: green (>0.95), yellow (0.7-0.95), orange (0.3-0.7), red (<0.3)
-                        if last_connectivity_r2 > 0.95:
+                        if last_connectivity_r2 > 0.9:
                             r2_color = '\033[92m'  # green
                         elif last_connectivity_r2 > 0.7:
                             r2_color = '\033[93m'  # yellow
@@ -668,17 +670,24 @@ def data_train_signal(config, erase, best_model, style, device):
                         # plot external_input learned vs ground truth (like train_INR)
                         with torch.no_grad():
                             external_input_gt = x_list[0][:, :, 4]  # (n_frames, n_neurons)
-                            nnr_f_T_period = model_config.nnr_f_T_period
-                            if inr_type == 'siren_t':
-                                time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
-                                pred_all = model_f(time_input).cpu().numpy()
-                            elif inr_type == 'lowrank':
-                                pred_all = model_f().cpu().numpy()
-                            elif inr_type == 'ngp':
-                                time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
-                                pred_all = model_f(time_input).cpu().numpy()
+                            if external_input_type == 'visual':
+                                # for visual input, just plot spatial snapshot (skip slow frame-by-frame loop)
+                                n_input_neurons = simulation_config.n_input_neurons
+                                plot_training_signal_visual_input(x, n_input_neurons, external_input_type, log_dir, epoch, N)
+                                pred_all = None  # skip time series plot for visual
                             else:
-                                pred_all = None
+                                nnr_f_T_period = model_config.nnr_f_T_period
+                                if inr_type == 'siren_t':
+                                    time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+                                    pred_all = model_f(time_input).cpu().numpy()
+                                elif inr_type == 'lowrank':
+                                    pred_all = model_f().cpu().numpy()
+                                elif inr_type == 'ngp':
+                                    time_input = torch.arange(0, n_frames, dtype=torch.float32, device=device).unsqueeze(1) / nnr_f_T_period
+                                    pred_all = model_f(time_input).cpu().numpy()
+                                else:
+                                    pred_all = None
+                            # plot predicted vs ground truth external input
                             if pred_all is not None:
                                 gt_np = external_input_gt[:n_frames]  # ensure same length as pred
                                 pred_np = pred_all
@@ -2664,6 +2673,7 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
             new_params,
             device,
             rollout_without_noise=rollout_without_noise,
+            log_file=log_file,
         )
 
     elif 'zebra' in config.dataset:
@@ -2682,7 +2692,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     n_neuron_types = simulation_config.n_neuron_types
     n_neurons = simulation_config.n_neurons
-    n_nodes = simulation_config.n_nodes
+    n_input_neurons = simulation_config.n_input_neurons
     n_runs = training_config.n_runs
     n_frames = simulation_config.n_frames
     delta_t = simulation_config.delta_t
@@ -2716,9 +2726,12 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     field_type = model_config.field_type
+    # fallback to external_input_type for signal configs that don't have field_type
+    external_input_type = getattr(simulation_config, 'external_input_type', '')
+    if field_type == '' and external_input_type != '':
+        field_type = external_input_type
     if field_type != '':
-        n_nodes = simulation_config.n_nodes
-        n_nodes_per_axis = int(np.sqrt(n_nodes))
+        n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
     
     log_dir = 'log/' + config.config_file
     files = glob.glob(f"./{log_dir}/tmp_recons/*")
@@ -2785,7 +2798,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
     if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
-        print('load b_i movie ...')
+        print('load gt movie ...')
         im = imread(f"graphs_data/{simulation_config.node_value_map}")
         A1 = torch.zeros((n_neurons, 1), device=device)
 
@@ -2832,25 +2845,33 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     model.eval()
 
 
-    if ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
+    # only load model_f if learn_external_input was True during training
+    model_f = None  # initialize to None, will be loaded if needed
+    learn_external_input = training_config.learn_external_input
+    if learn_external_input and (('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type)):
         model_f = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
                         hidden_features=model_config.hidden_dim_nnr,
                         hidden_layers=model_config.n_layers_nnr, first_omega_0=model_config.omega,
                         hidden_omega_0=model_config.omega,
                         outermost_linear=model_config.outermost_linear_nnr)
-        net = f'{log_dir}/models/best_model_f_with_1_graphs_{best_model}.pt'
+        net = f'{log_dir}/models/best_model_f_with_0_graphs_{best_model}.pt'
         state_dict = torch.load(net, map_location=device)
         model_f.load_state_dict(state_dict['model_state_dict'])
         model_f.to(device=device)
         model_f.eval()
-    if ('modulation' in model_config.field_type) | ('visual' in model_config.field_type):
-        model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr,
-                                out_features=model_config.output_size_nnr,
-                                hidden_features=model_config.hidden_dim_nnr,
-                                hidden_layers=model_config.n_layers_nnr, outermost_linear=True,
+    if learn_external_input and (('modulation' in model_config.field_type) | ('visual' in model_config.field_type)):
+        # use _nnr_f params to match choose_inr_model in training
+        # use n_input_neurons (same as training) for image_width
+        n_input_neurons = simulation_config.n_input_neurons
+        n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+        model_f = Siren_Network(image_width=n_input_neurons_per_axis, in_features=model_config.input_size_nnr_f,
+                                out_features=model_config.output_size_nnr_f,
+                                hidden_features=model_config.hidden_dim_nnr_f,
+                                hidden_layers=model_config.n_layers_nnr_f,
+                                outermost_linear=model_config.outermost_linear_nnr_f,
                                 device=device,
-                                first_omega_0=model_config.omega, hidden_omega_0=model_config.omega)
-        net = f'{log_dir}/models/best_model_f_with_1_graphs_{best_model}.pt'
+                                first_omega_0=model_config.omega_f, hidden_omega_0=model_config.omega_f)
+        net = f'{log_dir}/models/best_model_f_with_0_graphs_{best_model}.pt'
         state_dict = torch.load(net, map_location=device)
         model_f.load_state_dict(state_dict['model_state_dict'])
         model_f.to(device=device)
@@ -3121,18 +3142,33 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
         # update calculations
         if 'visual' in field_type:
-            x[:n_nodes, 4:5] = model_f(time=it / n_frames) ** 2
-            x[n_nodes:n_neurons, 4:5] = 1
+            if model_f is not None:
+                x[:n_input_neurons, 4:5] = model_f(time=it / n_frames) ** 2
+            else:
+                # fallback: use ground truth from image file
+                im_ = im[int(it / n_frames * 256)].squeeze()
+                im_ = np.rot90(im_, 3)
+                im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
+                x[:n_input_neurons, 4:5] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
+            x[n_input_neurons:n_neurons, 4:5] = 1
         elif 'learnable_short_term_plasticity' in field_type:
             alpha = (it % model.embedding_step) / model.embedding_step
             x[:, 4] = alpha * model.b[:, it // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
                                                                                                 it // model.embedding_step] ** 2
         elif ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
-            t = torch.zeros((1, 1, 1), dtype=torch.float32, device=device)
-            t[:, 0, :] = torch.tensor(it / n_frames, dtype=torch.float32, device=device)
-            x[:, 4] = model_f(t).squeeze() ** 2
+            if model_f is not None:
+                t = torch.zeros((1, 1, 1), dtype=torch.float32, device=device)
+                t[:, 0, :] = torch.tensor(it / n_frames, dtype=torch.float32, device=device)
+                x[:, 4] = model_f(t).squeeze() ** 2
         elif 'modulation' in field_type:
-            x[:, 4:5] = model_f(time=it / n_frames) ** 2
+            if model_f is not None:
+                x[:, 4:5] = model_f(time=it / n_frames) ** 2
+            else:
+                # fallback: use ground truth from image file
+                im_ = im[int(it / n_frames * 256)].squeeze()
+                im_ = np.rot90(im_, 3)
+                im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
+                x[:, 4:5] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
 
         if has_missing_activity:
             t = torch.tensor([it / n_frames], dtype=torch.float32, device=device)
@@ -3202,12 +3238,12 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
                     im_ = im[int(it / n_frames * 256)].squeeze()
                     im_ = np.rot90(im_, 3)
-                    im_ = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
+                    im_ = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
                     if ('modulation' in field_type):
                         A1[:, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
                     if ('visual' in field_type):
-                        A1[:n_nodes, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
-                        A1[n_nodes:n_neurons, 0:1] = 1
+                        A1[:n_input_neurons, 0:1] = torch.tensor(im_[:, None], dtype=torch.float32, device=device)
+                        A1[n_input_neurons:n_neurons, 0:1] = 1
 
                 fig = plt.figure(figsize=(8, 12))
                 plt.subplot(211)
@@ -3638,6 +3674,7 @@ def data_test_flyvis(
         new_params=None,
         device=None,
         rollout_without_noise: bool = False,
+        log_file=None,
 ):
 
 
@@ -4594,6 +4631,11 @@ def data_test_flyvis(
             f.write(f"FEVE: {np.mean(feve_all):.3f} ± {np.std(feve_all):.3f} [{np.min(feve_all):.3f}, {np.max(feve_all):.3f}]\n")
             f.write(f"\nNumber of neurons evaluated: {len(activity_true)}\n")
             f.write(f"Frames evaluated: {start_frame} to {end_frame}\n")
+
+        # Write to analysis log file for Claude
+        if log_file:
+            log_file.write(f"test_R2: {np.nanmean(r2_all):.4f}\n")
+            log_file.write(f"test_pearson: {np.nanmean(pearson_all):.4f}\n")
 
         filename_ = dataset_name.split('fly_N9_')[1] if 'fly_N9_' in dataset_name else 'no_id'
 

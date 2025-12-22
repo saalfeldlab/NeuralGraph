@@ -111,14 +111,18 @@ def get_model_W(model):
 
 def get_training_files(log_dir, n_runs):
     files = glob.glob(f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_*.pt")
+    if len(files) == 0:
+        return [], np.array([])
     files.sort(key=sort_key)
-    flag = True
+
+    # Find the first file with positive sort_key
     file_id = 0
-    while (flag):
-        if sort_key(files[file_id]) > 0:
-            flag = False
-            file_id = file_id - 1
+    while file_id < len(files) and sort_key(files[file_id]) <= 0:
         file_id += 1
+
+    # If all files have non-positive sort_key, use all files
+    if file_id >= len(files):
+        file_id = 0
 
     files = files[file_id:]
 
@@ -999,13 +1003,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     dimension = config.simulation.dimension
     max_radius = config.simulation.max_radius
     embedding_cluster = EmbeddingCluster(config)
-    field_type = model_config.field_type
-    if field_type != '':
-        n_nodes = config.simulation.n_nodes
-        n_nodes_per_axis = int(np.sqrt(n_nodes))
-        has_field = True
+    external_input_type = simulation_config.external_input_type
+    if (external_input_type != '') & (external_input_type!='none'):
+        n_input_neurons = config.simulation.n_input_neurons
+        n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+        has_external_input = True
     else:
-        has_field = False
+        has_external_input = False
 
     x_list = []
     y_list = []
@@ -1063,12 +1067,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
     xc, yc = get_equidistant_points(n_points=n_neurons)
     X1_first = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
-    perm = torch.randperm(X1_first.size(0))
+    perm = torch.randperm(X1_first.size(0), device=device)
     X1_first = X1_first[perm]
     torch.save(X1_first, f'./graphs_data/{dataset_name}/X1.pt')
     xc, yc = get_equidistant_points(n_points=n_neurons ** 2)
     X_msg = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
-    perm = torch.randperm(X_msg.size(0))
+    perm = torch.randperm(X_msg.size(0), device=device)
     X_msg = X_msg[perm]
     torch.save(X_msg, f'./graphs_data/{dataset_name}/X_msg.pt')
 
@@ -1080,23 +1084,17 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     # Get label_style from config (default to 'MLP')
     label_style = getattr(config.plotting, 'label_style', 'MLP')
 
-    if has_field:
-        if ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
+    if has_external_input:
+        if ('short_term_plasticity' in external_input_type) | ('modulation_permutation' in external_input_type):
             model_f = Siren(in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr,
                             hidden_features=model_config.hidden_dim_nnr,
                             hidden_layers=model_config.n_layers_nnr, first_omega_0=omega, hidden_omega_0=omega,
                             outermost_linear=model_config.outermost_linear_nnr)
         else:
-            model_f = Siren_Network(image_width=n_nodes_per_axis, in_features=model_config.input_size_nnr, out_features=model_config.output_size_nnr, hidden_features=model_config.hidden_dim_nnr,
-                                            hidden_layers=model_config.n_layers_nnr, outermost_linear=True, device=device, first_omega_0=omega, hidden_omega_0=omega)
+            model_f = Siren_Network(image_width=n_input_neurons_per_axis, in_features=model_config.input_size_nnr_f, out_features=model_config.output_size_nnr_f, hidden_features=model_config.hidden_dim_nnr_f,
+                                            hidden_layers=model_config.n_layers_nnr_f, outermost_linear=True, device=device, first_omega_0=model_config.omega_f, hidden_omega_0=model_config.omega_f)
         model_f.to(device=device)
         model_f.train()
-
-        modulation = torch.tensor(x_list[0], device=device)
-        modulation = modulation[:, :, 8:9].squeeze()
-        modulation = modulation.t()
-        modulation = modulation.clone().detach()
-        (modulation[:, 1:] - modulation[:, :-1]) / delta_t
 
     if epoch_list[0] == 'all':
         files = glob.glob(f"{log_dir}/models/*.pt")
@@ -1151,7 +1149,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 model.load_state_dict(state_dict['model_state_dict'])
                 model.eval()
 
-                if has_field:
+                if has_external_input:
                     net = f'{log_dir}/models/best_model_f_with_{n_runs-1}_graphs_{epoch}.pt'
                     state_dict = torch.load(net, map_location=device)
                     model_f.load_state_dict(state_dict['model_state_dict'])
@@ -1408,9 +1406,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.savefig(f"./{log_dir}/results/all/comparison_{num}.png", dpi=80)
                 plt.close()
 
-                if has_field:
+                if has_external_input:
 
-                    if 'short_term_plasticity' in field_type:
+                    if 'short_term_plasticity' in external_input_type:
                         fig, ax = fig_init()
                         t = torch.linspace(1, 100000, 1, dtype=torch.float32, device=device).unsqueeze(1)
                         prediction = model_f(t) ** 2
@@ -1455,7 +1453,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                         fig, ax = fig_init()
                         pred = model_f(time=file_id_ / len(file_id_list), enlarge=True) ** 2
-                        # pred = torch.reshape(pred, (n_nodes_per_axis, n_nodes_per_axis))
+                        # pred = torch.reshape(pred, (n_input_neurons_per_axis, n_input_neurons_per_axis))
                         pred = torch.reshape(pred, (640, 640))
                         pred = to_numpy(torch.sqrt(pred))
                         pred = np.flipud(pred)
@@ -1469,7 +1467,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         plt.savefig(f"./{log_dir}/results/all/field_{num}.png", dpi=80)
                         plt.close()
 
-                if 'derivative' in field_type:
+                if 'derivative' in external_input_type:
 
                     y = torch.linspace(0, 1, 400)
                     x = torch.linspace(-6, 6, 400)
@@ -1697,7 +1695,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             A = A.t()
             A = A[:n_neurons,:n_neurons]
 
-            if has_field:
+            if has_external_input:
                 net = f'{log_dir}/models/best_model_f_with_{n_runs - 1}_graphs_{epoch}.pt'
                 state_dict = torch.load(net, map_location=device)
                 model_f.load_state_dict(state_dict['model_state_dict'])
@@ -1713,7 +1711,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print(f'  a (embeddings): {a_params:,}')
             print(f'  W (connectivity): {w_params:,}')
             total_params = mlp0_params + mlp1_params + a_params + w_params
-            if has_field:
+            if has_external_input:
                 siren_params = sum(p.numel() for p in model_f.parameters())
                 print(f'  INR (model_f): {siren_params:,}')
                 total_params += siren_params
@@ -1723,8 +1721,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 total_params += nnr_f_params
             print(f'  total: {total_params:,}')
 
-            if has_field:
-                if 'short_term_plasticity' in field_type:
+            if has_external_input:
+                if 'short_term_plasticity' in external_input_type:
 
                     fig, ax = fig_init()
                     t = torch.linspace(1, 1000, 1, dtype=torch.float32, device=device).unsqueeze(1)
@@ -1798,24 +1796,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/embedding.pdf", dpi=170.7)
             plt.close()
-
-            if 'excitation' in model_config.update_type:
-                embedding = model.a[:n_neurons]
-                excitation = torch.tensor(x_list[0][:, :, 10: 10 + model.excitation_dim],device=device)
-                excitation = torch.reshape(excitation, (excitation.shape[0]*excitation.shape[1], excitation.shape[2]))
-                fig = plt.figure(figsize=(10, 9))
-                excitation_ = torch.unique(excitation,dim=0)
-                for k, exc in enumerate(excitation_):
-                    ax = fig.add_subplot(2, 2, k + 1)
-                    plt.text(0.2, 0.95, f'{to_numpy(exc)}', fontsize=14, ha='center', va='center', transform=ax.transAxes)
-                    in_features = torch.cat([embedding, exc * torch.ones_like(embedding[:,0:1])], dim=1)
-                    out = model.lin_exc(in_features.float())
-                    # plt.scatter(to_numpy(embedding[:, 0])*0, to_numpy(out), s=100, c='w', alpha=0.15, edgecolors='none')
-                    plt.scatter(to_numpy(embedding[:, 0]), to_numpy(embedding[:, 1]), s=100, c=to_numpy(out), alpha=1, edgecolors='none')
-                    plt.colorbar()
-                plt.tight_layout()
-                plt.savefig(f"./{log_dir}/results/excitation.png", dpi=170.7)
-                plt.close()
 
 
             # Sample v in range [0.8*xnorm, xnorm] to get the plateau value within visible plot range
@@ -2087,7 +2067,15 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/weights_comparison_corrected.png", dpi=87)
             plt.close()
-            print(f'R² (corrected): \033[92m{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
+            if r_squared > 0.9:
+                r2_color = '\033[92m'  # green
+            elif r_squared > 0.7:
+                r2_color = '\033[93m'  # yellow
+            elif r_squared > 0.3:
+                r2_color = '\033[38;5;208m'  # orange
+            else:
+                r2_color = '\033[91m'  # red
+            print(f'R² (corrected): {r2_color}{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
             logger.info(f'R² (corrected): {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
             if log_file:
                 log_file.write(f"connectivity_R2: {r_squared:.4f}\n")
@@ -2217,7 +2205,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
             logger.info(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
 
-            if has_field:
+            if has_external_input:
 
                 print('plot field ...')
 
@@ -2228,7 +2216,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 else:
                     second_correction = 1.0
 
-                if 'derivative' in field_type:
+                if 'derivative' in external_input_type:
 
                     y = torch.linspace(0, 1, 400)
                     x = torch.linspace(-6, 6, 400)
@@ -2264,7 +2252,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.close()
 
 
-                if ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
+                if ('short_term_plasticity' in external_input_type) | ('modulation_permutation' in external_input_type):
 
                     for frame in trange(0, n_frames, n_frames // 100, ncols=90):
                         t = torch.tensor([frame/ n_frames], dtype=torch.float32, device=device)
@@ -2276,7 +2264,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         else:
                             m = model_f(t) ** 2
 
-                        if 'permutation' in model_config.field_type:
+                        if 'permutation' in external_input_type:
                             inverse_permutation_indices = torch.load(f'./graphs_data/{dataset_name}/inverse_permutation_indices.pt', map_location=device)
                             modulation_ = m[inverse_permutation_indices]
                         else:
@@ -2357,20 +2345,23 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     im_list = list([])
                     pred_list = list([])
 
+                    # Ensure field directory exists
+                    os.makedirs(f"./{log_dir}/results/field", exist_ok=True)
+
                     # Compute scale factor from first frame
                     im_first = im[0].squeeze()
                     im_first = np.sqrt(im_first)
                     pred_first = model_f(time=0, enlarge=False) ** 2
-                    pred_first = torch.reshape(pred_first, (n_nodes_per_axis, n_nodes_per_axis))
+                    pred_first = torch.reshape(pred_first, (n_input_neurons_per_axis, n_input_neurons_per_axis))
                     pred_first = to_numpy(torch.sqrt(pred_first))
                     scale_factor = im_first.max() / (pred_first.max() + 1e-8)
-                    print(f'[DEBUG field] scale_factor={scale_factor:.4f} mc={mc} n_nodes_per_axis={n_nodes_per_axis}')
+                    print(f'[DEBUG field] scale_factor={scale_factor:.4f} mc={mc} n_input_neurons_per_axis={n_input_neurons_per_axis}')
 
                     for frame in trange(0, n_frames, n_frames // 100, ncols=90):
 
                         # true field - match training: sqrt + rot90
                         fig, ax = fig_init()
-                        im_ = np.zeros((n_nodes_per_axis, n_nodes_per_axis))
+                        im_ = np.zeros((n_input_neurons_per_axis, n_input_neurons_per_axis))
                         if (frame >= 0) & (frame < n_frames):
                             im_ = im[int(frame / n_frames * 256)].squeeze()
                         im_ = np.sqrt(im_)
@@ -2384,7 +2375,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                         # reconstructed LR - match training: model_f**2, then sqrt, then rot90, then scale
                         pred = model_f(time=frame / n_frames, enlarge=False) ** 2
-                        pred = torch.reshape(pred, (n_nodes_per_axis, n_nodes_per_axis))
+                        pred = torch.reshape(pred, (n_input_neurons_per_axis, n_input_neurons_per_axis))
                         pred = to_numpy(torch.sqrt(pred)) * scale_factor
                         if frame == 0:
                             print(f'[DEBUG LR] pred min={pred.min():.4f} max={pred.max():.4f} im_ min={im_.min():.4f} max={im_.max():.4f}')
@@ -2397,8 +2388,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         plt.savefig(f"./{log_dir}/results/field/reconstructed_field_LR {epoch}_{frame}.png", dpi=80)
                         plt.close()
 
-                        x_data = np.reshape(im_, (n_nodes_per_axis * n_nodes_per_axis))
-                        y_data = np.reshape(pred, (n_nodes_per_axis * n_nodes_per_axis))
+                        x_data = np.reshape(im_, (n_input_neurons_per_axis * n_input_neurons_per_axis))
+                        y_data = np.reshape(pred, (n_input_neurons_per_axis * n_input_neurons_per_axis))
                         lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
                         residuals = y_data - linear_model(x_data, *lin_fit)
                         ss_res = np.sum(residuals ** 2)
@@ -2475,14 +2466,22 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.savefig(f"./{log_dir}/results/all_comparison {epoch}.png", dpi=80)
                     plt.close()
 
-                    x_data = np.reshape(im_list, (100 * n_nodes_per_axis * n_nodes_per_axis))
-                    y_data = np.reshape(pred_list, (100 * n_nodes_per_axis * n_nodes_per_axis))
+                    x_data = np.reshape(im_list, (100 * n_input_neurons_per_axis * n_input_neurons_per_axis))
+                    y_data = np.reshape(pred_list, (100 * n_input_neurons_per_axis * n_input_neurons_per_axis))
                     lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
                     residuals = y_data - linear_model(x_data, *lin_fit)
                     ss_res = np.sum(residuals ** 2)
                     ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
                     r_squared = 1 - (ss_res / ss_tot)
-                    print(f'field R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    print(f'external_input R²: {r_squared:0.4f}  slope: {np.round(lin_fit[0], 4)}')
+                    if log_file is not None:
+                        log_file.write(f'external_input_R2: {r_squared:0.4f}\n')
+                        log_file.write(f'external_input_slope: {np.round(lin_fit[0], 4)}\n')
+
+
+
+
+
 
             if ('PDE_N6' in model_config.signal_model_name):
 
@@ -2522,19 +2521,19 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.savefig(f"./{log_dir}/results/field/true_field_{frame}.png", dpi=80)
                     plt.close()
 
-            if ('PDE_N5' in model_config.signal_model_name) & (model.update_type == 'generic'):
+            if ('PDE_N5' in model_config.signal_model_name) & (model.update_type == 'generic') & False:
 
                 k = np.random.randint(n_frames - 50)
                 x = torch.tensor(x_list[0][k], device=device)
-                if has_field:
-                    if 'visual' in field_type:
-                        x[:n_nodes, 4:5] = model_f(time=k / n_frames) ** 2
-                        x[n_nodes:n_neurons, 4:5] = 1
-                    elif 'learnable_short_term_plasticity' in field_type:
+                if has_external_input:
+                    if 'visual' in external_input_type:
+                        x[:n_input_neurons, 4:5] = model_f(time=k / n_frames) ** 2
+                        x[n_input_neurons:n_neurons, 4:5] = 1
+                    elif 'learnable_short_term_plasticity' in external_input_type:
                         alpha = (k % model.embedding_step) / model.embedding_step
                         x[:, 4] = alpha * model.b[:, k // model.embedding_step + 1] ** 2 + (1 - alpha) * model.b[:,
                                                                                                          k // model.embedding_step] ** 2
-                    elif ('short_term_plasticity' in field_type) | ('modulation_permutation' in field_type):
+                    elif ('short_term_plasticity' in external_input_type) | ('modulation_permutation' in external_input_type):
                         t = torch.tensor([k / n_frames], dtype=torch.float32, device=device)
                         x[:, 4] = model_f(t) ** 2
                     else:
@@ -2554,7 +2553,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 plt.close()
 
                 fig, ax = fig_init()
-                f = torch.reshape(x[:n_nodes, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
+                f = torch.reshape(x[:n_input_neurons, 4:5], (n_input_neurons_per_axis, n_input_neurons_per_axis))
                 f = to_numpy(torch.sqrt(f))
                 f = np.rot90(f, k=1)
                 plt.imshow(f, cmap='grey')
@@ -5396,7 +5395,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
 
 
 
-def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extended, device):
+def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extended, device, log_file=None):
     dataset_name = config.dataset
     model_config = config.graph_model
     config_indices = config.dataset.split('fly_N9_')[1] if 'fly_N9_' in config.dataset else 'evolution'
@@ -6198,6 +6197,12 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
             print(f"V_rest reconstruction R²: \033[92m{r_squared_V_rest:.3f}\033[0m  slope: {lin_fit_V_rest[0]:.2f}")
             logger.info(f"V_rest reconstruction R²: {r_squared_V_rest:.3f}  slope: {lin_fit_V_rest[0]:.2f}")
 
+            # Write to analysis log file for Claude
+            if log_file:
+                log_file.write(f"connectivity_R2: {r_squared:.4f}\n")
+                log_file.write(f"tau_R2: {r_squared_tau:.4f}\n")
+                log_file.write(f"V_rest_R2: {r_squared_V_rest:.4f}\n")
+
 
             # Print Dale's Law check results
             # print("Dale's law check:")
@@ -6579,6 +6584,10 @@ def plot_synaptic_flyvis(config, epoch_list, log_dir, logger, cc, style, extende
 
             print(f"best: n_components={best_n}, accuracy=\033[92m{best_acc:.3f}\033[0m")
             logger.info(f"GMM best: n_components={best_n}, accuracy={best_acc:.3f}")
+
+            # Write cluster accuracy to analysis log file for Claude
+            if log_file:
+                log_file.write(f"cluster_accuracy: {best_acc:.4f}\n")
 
             reducer = umap.UMAP(n_components=2, random_state=42, n_neighbors=15, min_dist=0.1)
             a_umap = reducer.fit_transform(a_aug)
@@ -8533,7 +8542,7 @@ def data_plot(config, config_file, epoch_list, style, extended, device, apply_we
         if config.simulation.calcium_type != 'none':
             plot_synaptic_flyvis_calcium(config, epoch_list, log_dir, logger, 'viridis', style, extended, device) # noqa: F821
         else:
-            plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
+            plot_synaptic_flyvis(config, epoch_list, log_dir, logger, 'viridis', style, extended, device, log_file=log_file)
     elif 'zebra' in config.dataset:
         plot_synaptic_zebra(config, epoch_list, log_dir, logger, 'viridis', style, extended, device)
     elif ('PDE_N3' in config.graph_model.signal_model_name):

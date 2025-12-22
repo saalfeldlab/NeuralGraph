@@ -33,6 +33,13 @@ class PDE_N4(pyg.nn.MessagePassing):
     def __init__(self, config=None, aggr_type=[], p=[], W=[], phi=[], device=None):
         super(PDE_N4, self).__init__(aggr=aggr_type)
 
+        # validate params has 6 columns: [a, b, g, s, w, h]
+        if p.shape[1] != 6:
+            raise ValueError(
+                f"params must have 6 columns [a, b, g, s, w, h], got {p.shape[1]}. "
+                f"Check your config 'params' field."
+            )
+
         self.p = p
         self.W = W
         self.phi = phi
@@ -67,28 +74,25 @@ class PDE_N4(pyg.nn.MessagePassing):
         u = x[:, 3:4]  # signal state
         external_input = x[:, 4:5]
 
+        msg = self.propagate(edge_index, u=u, w=w, h=h)
+
         if self.external_input_mode == "multiplicative":
             # multiplicative mode: external_input modulates the message
-            msg = self.propagate(edge_index, u=u, w=w, h=h, field=external_input)
             du = -a * u + b + s * torch.tanh(u) + g * msg * external_input
         elif self.external_input_mode == "additive":
             # additive mode: external_input is added directly
-            field = torch.ones_like(u)
-            msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
             du = -a * u + b + s * torch.tanh(u) + g * msg + external_input
         else:  # none
-            field = torch.ones_like(u)
-            msg = self.propagate(edge_index, u=u, w=w, h=h, field=field)
             du = -a * u + b + s * torch.tanh(u) + g * msg
 
         return du
 
-    def message(self, edge_index_i, edge_index_j, u_j, w_j, h_j, field_i):
-        # Message from neuron j to neuron i: W_ij * φ((u_j - h_j) / w_j) * field_i
+    def message(self, edge_index_i, edge_index_j, u_j, w_j, h_j):
+        # Message from neuron j to neuron i: W_ij * φ((u_j - h_j) / w_j)
         # W: connectivity matrix, φ: activation function, h: threshold, w: width
         T = self.W
 
-        return T[edge_index_i, edge_index_j][:, None] * self.phi((u_j - h_j) / w_j) * field_i
+        return T[edge_index_i, edge_index_j][:, None] * self.phi((u_j - h_j) / w_j)
 
     def func(self, u, type, function):
 

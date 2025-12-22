@@ -106,20 +106,22 @@ def get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device):
     signal_model_name = model_config.signal_model_name
 
     if signal_model_name in ['PDE_N4', 'PDE_N7', 'PDE_N11']:
-        in_features_prev = torch.cat((x[:n_neurons, 6:7] - xnorm / 150, model.a[:n_neurons]), dim=1)
-        in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons]), dim=1)
-        in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons]), dim=1)
+        # in_features for lin_edge: [u_j, embedding_j] where u is x[:,3:4]
+        in_features_prev = torch.cat((x[:n_neurons, 3:4] - xnorm / 150, model.a[:n_neurons]), dim=1)
+        in_features = torch.cat((x[:n_neurons, 3:4], model.a[:n_neurons]), dim=1)
+        in_features_next = torch.cat((x[:n_neurons, 3:4] + xnorm / 150, model.a[:n_neurons]), dim=1)
         if model.embedding_trial:
             in_features_prev = torch.cat((in_features_prev, model.b[0].repeat(n_neurons, 1)), dim=1)
             in_features = torch.cat((in_features, model.b[0].repeat(n_neurons, 1)), dim=1)
             in_features_next = torch.cat((in_features_next, model.b[0].repeat(n_neurons, 1)), dim=1)
     elif signal_model_name == 'PDE_N5':
+        # in_features for lin_edge: [u_j, embedding_i, embedding_j] where u is x[:,3:4]
         if model.embedding_trial:
-            in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4] + xnorm / 150, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[:n_neurons], model.b[0].repeat(n_neurons, 1)), dim=1)
         else:
-            in_features = torch.cat((x[:n_neurons, 6:7], model.a[:n_neurons], model.a[:n_neurons]), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7] + xnorm / 150, model.a[:n_neurons], model.a[:n_neurons]), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], model.a[:n_neurons], model.a[:n_neurons]), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4] + xnorm / 150, model.a[:n_neurons], model.a[:n_neurons]), dim=1)
     elif ('PDE_N9_A' in signal_model_name) | (signal_model_name == 'PDE_N9_C') | (signal_model_name == 'PDE_N9_D') :
         in_features = torch.cat((x[:, 3:4], model.a), dim=1)
         in_features_next = torch.cat((x[:,3:4] * 1.05, model.a), dim=1)
@@ -128,18 +130,20 @@ def get_in_features_lin_edge(x, model, model_config, xnorm, n_neurons, device):
         in_features = torch.cat((x[:, 3:4], x[:, 3:4], model.a, model.a[perm_indices]), dim=1)
         in_features_next = torch.cat((x[:, 3:4], x[:, 3:4] * 1.05, model.a, model.a[perm_indices]), dim=1)
     elif signal_model_name == 'PDE_N8':
+        # in_features for lin_edge: [u_i, u_j, embedding_i, embedding_j] where u is x[:,3:4]
         if model.embedding_trial:
             perm_indices = torch.randperm(n_neurons, device=model.a.device)
-            in_features = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7]*1.05, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4], model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4]*1.05, model.a[:n_neurons], model.b[0].repeat(n_neurons, 1), model.a[perm_indices[:n_neurons]], model.b[0].repeat(n_neurons, 1)), dim=1)
         else:
             perm_indices = torch.randperm(n_neurons, device=model.a.device)
-            in_features = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7], model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
-            in_features_next = torch.cat((x[:n_neurons, 6:7], x[:n_neurons, 6:7] * 1.05, model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
+            in_features = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4], model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
+            in_features_next = torch.cat((x[:n_neurons, 3:4], x[:n_neurons, 3:4] * 1.05, model.a[:n_neurons], model.a[perm_indices[:n_neurons]]), dim=1)
     else:
-        in_features = x[:n_neurons, 6:7]
-        in_features_next = x[:n_neurons, 6:7] + xnorm / 150
-        in_features_prev = x[:n_neurons, 6:7] - xnorm / 150
+        # default: just u (signal) where u is x[:,3:4]
+        in_features = x[:n_neurons, 3:4]
+        in_features_next = x[:n_neurons, 3:4] + xnorm / 150
+        in_features_prev = x[:n_neurons, 3:4] - xnorm / 150
 
     return in_features, in_features_next
 
@@ -539,92 +543,31 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     return connectivity_r2
 
 
-def plot_training_signal_field(x, n_nodes, kk, time_step, x_list, run, model, field_type, model_f, edges, y_list, ynorm, delta_t, n_frames, log_dir, epoch, N, recurrent_parameters, modulation, device):
+def plot_training_signal_visual_input(x, n_input_neurons, external_input_type, log_dir, epoch, N):
 
-
-    if 'learnable_short_term_plasticity' in field_type:
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(2, 2, 1)
-        plt.imshow(to_numpy(modulation), aspect='auto')
-        ax = fig.add_subplot(2, 2, 2)
-        plt.imshow(to_numpy(model.b ** 2), aspect='auto')
-        ax.text(0.01, 0.99, f'recurrent_parameter {recurrent_parameters[0]:0.3f} ', transform=ax.transAxes,
-                verticalalignment='top', horizontalalignment='left', color='w')
-        ax = fig.add_subplot(2, 2, 3)
-        plt.scatter(to_numpy(modulation[:, np.arange(0, n_frames, n_frames//1000)]), to_numpy(model.b[:, 0:1000] ** 2), s=0.1, color='k', alpha=0.01)
-        x_data = to_numpy(modulation[:, np.arange(0, n_frames, n_frames//1000)]).flatten()
-        y_data = to_numpy(model.b[:, 0:1000] ** 2).flatten()
-        lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-        residuals = y_data - linear_model(x_data, *lin_fit)
-        ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-        r_squared = 1 - (ss_res / ss_tot)
-        ax.text(0.01, 0.99, f'$R^2$ {r_squared:0.3f}   slope {lin_fit[0]:0.3f}', transform=ax.transAxes,
-                verticalalignment='top', horizontalalignment='left')
-        ind_list = [10, 124, 148, 200, 250, 300]
-        ax = fig.add_subplot(4, 2, 6)
-        for ind in ind_list:
-            plt.plot(to_numpy(modulation[ind, :]))
-        ax = fig.add_subplot(4, 2, 8)
-        for ind in ind_list:
-            plt.plot(to_numpy(model.b[ind, :] ** 2))
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
-
-    elif ('short_term_plasticity' in field_type) | ('modulation' in field_type):
-        fig = plt.figure(figsize=(12, 12))
-        ax = fig.add_subplot(2, 2, 1)
-        plt.imshow(to_numpy(modulation), aspect='auto')
-        ax = fig.add_subplot(2, 2, 2)
-        if n_frames > 1000:
-            t = torch.linspace(0, 1, n_frames//100, dtype=torch.float32, device=device).unsqueeze(1)
-        else:
-            t = torch.linspace(0, 1, n_frames, dtype=torch.float32, device=device).unsqueeze(1)
-        prediction = model_f[0](t) ** 2
-        prediction = prediction.t()
-        plt.imshow(to_numpy(prediction), aspect='auto', cmap='viridis')
-        ax = fig.add_subplot(2, 2, 3)
-        # if n_frames > 1000:
-        #     ids = np.arange(0, n_frames, 100).astype(int)
-        # else:
-        #     ids = np.arange(0, n_frames, 1).astype(int)
-        # plt.scatter(to_numpy(modulation[:, ids[:-1]]), to_numpy(prediction[:modulation.shape[0], :]), s=0.1, color='k', alpha=0.01)
-        # x_data = to_numpy(modulation[:, ids[:-1]]).flatten()
-        # y_data = to_numpy(prediction[:modulation.shape[0], :]).flatten()
-        # lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
-        # residuals = y_data - linear_model(x_data, *lin_fit)
-        # ss_res = np.sum(residuals ** 2)
-        # ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-        # r_squared = 1 - (ss_res / ss_tot)
-        # ax.text(0.01, 0.99, f'$R^2$ {r_squared:0.3f}   slope {lin_fit[0]:0.3f}', transform=ax.transAxes,
-        #         verticalalignment='top', horizontalalignment='left')
-        # ind_list = [10, 24, 48, 120, 150, 180]
-        # ax = fig.add_subplot(4, 2, 6)
-        # for ind in ind_list:
-        #     plt.plot(to_numpy(modulation[ind, :]))
-        # ax = fig.add_subplot(4, 2, 8)
-        # for ind in ind_list:
-        #     plt.plot(to_numpy(prediction[ind, :]))
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
-
+    n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
+    if 'visual' in external_input_type:
+        tmp = torch.reshape(x[:n_input_neurons, 4:5], (n_input_neurons_per_axis, n_input_neurons_per_axis))
     else:
-        n_nodes_per_axis = int(np.sqrt(n_nodes))
-        if 'visual' in field_type:
-            tmp = torch.reshape(x[:n_nodes, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
-        else:
-            tmp = torch.reshape(x[:, 4:5], (n_nodes_per_axis, n_nodes_per_axis))
-        tmp = to_numpy(torch.sqrt(tmp))
-        tmp = np.rot90(tmp, k=1)
-        fig = plt.figure(figsize=(12, 12))
-        plt.imshow(tmp, cmap='grey')
-        plt.xticks([])
-        plt.yticks([])
-        plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/external_input/field_{epoch}_{N}.tif", dpi=80)
-        plt.close()
+        tmp = torch.reshape(x[:, 4:5], (n_input_neurons_per_axis, n_input_neurons_per_axis))
+    tmp = to_numpy(tmp)
+
+    # compute stats for sanity check
+    val_min = np.min(tmp)
+    val_max = np.max(tmp)
+    val_std = np.std(tmp)
+
+    tmp = np.rot90(tmp, k=1)
+    fig = plt.figure(figsize=(12, 12))
+    plt.imshow(tmp, cmap='gray')
+    plt.text(0.02, 0.98, f'min={val_min:.2f} max={val_max:.2f} std={val_std:.2f}',
+             transform=plt.gca().transAxes, fontsize=10, verticalalignment='top',
+             color='white', bbox=dict(boxstyle='round', facecolor='black', alpha=0.5))
+    plt.xticks([])
+    plt.yticks([])
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/tmp_training/external_input/external_input_{epoch}_{N}.tif", dpi=80)
+    plt.close()
 
 def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, model_missing_activity, log_dir, epoch, N, device):
 
@@ -1809,7 +1752,7 @@ def check_dales_law(edges, weights, type_list=None, n_neurons=None, verbose=True
     }
 
 
-def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=50_000_000, is_flyvis=False, style=None, save_in_subfolder=True, log_file=None):
+def analyze_data_svd(x_list, output_folder, config=None, max_components=100, logger=None, max_data_size=10_000_000, max_neurons=1024, is_flyvis=False, style=None, save_in_subfolder=True, log_file=None):
     """
     Perform SVD analysis on activity data and external_input/visual stimuli (if present).
     Uses randomized SVD for large datasets for efficiency.
@@ -1822,7 +1765,8 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         config: config object (optional, for metadata)
         max_components: maximum number of SVD components to compute
         logger: optional logger (for training)
-        max_data_size: maximum data size before subsampling (default 50M elements)
+        max_data_size: maximum data size before subsampling (default 10M elements)
+        max_neurons: maximum number of neurons before subsampling (default 1024)
         is_flyvis: if True, use "visual stimuli" label instead of "external input"
         style: matplotlib style to use (e.g., 'dark_background' for dark mode)
         save_in_subfolder: if True, save to results/ subfolder; if False, save directly to output_folder
@@ -1845,6 +1789,15 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
             clean_msg = re.sub(r'\033\[[0-9;]*m', '', msg)
             log_file.write(clean_msg + '\n')
 
+    # subsample neurons if too many
+    if n_neurons > max_neurons:
+        neuron_subsample = int(np.ceil(n_neurons / max_neurons))
+        neuron_indices = np.arange(0, n_neurons, neuron_subsample)
+        x_list = x_list[:, neuron_indices, :]
+        n_neurons_sampled = len(neuron_indices)
+        log_print(f"subsampling neurons: {n_neurons} -> {n_neurons_sampled} (every {neuron_subsample}th)")
+        n_neurons = n_neurons_sampled
+
     # subsample frames if data is too large
     data_size = n_frames * n_neurons
     if data_size > max_data_size:
@@ -1852,7 +1805,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         frame_indices = np.arange(0, n_frames, subsample_factor)
         x_list_sampled = x_list[frame_indices]
         n_frames_sampled = len(frame_indices)
-        log_print(f"subsampling: {n_frames} -> {n_frames_sampled} frames (every {subsample_factor}th)")
+        log_print(f"subsampling frames: {n_frames} -> {n_frames_sampled} (every {subsample_factor}th)")
         data_size_sampled = n_frames_sampled * n_neurons
     else:
         x_list_sampled = x_list
@@ -2055,7 +2008,8 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     return results
 
 
-def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, pre_folder, iteration):
+def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, pre_folder, iteration,
+                               iter_in_block=1, block_number=1):
     """
     Save exploration artifacts for Claude analysis.
 
@@ -2066,6 +2020,8 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         config_file_: Config file name (without extension)
         pre_folder: Prefix folder for config
         iteration: Current iteration number
+        iter_in_block: Iteration number within current block (1-indexed)
+        block_number: Current block number (1-indexed)
 
     Returns:
         dict with paths to saved directories
@@ -2095,11 +2051,15 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         os.makedirs(tree_save_dir, exist_ok=True)
         os.makedirs(protocol_save_dir, exist_ok=True)
 
-    # save config file
-    src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
-    dst_config = f"{config_save_dir}/iter_{iteration:03d}.yaml"
-    if os.path.exists(src_config):
-        shutil.copy2(src_config, dst_config)
+    # determine if this is first iteration of a block
+    is_block_start = (iter_in_block == 1)
+
+    # save config file only at first iteration of each block
+    if is_block_start:
+        src_config = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
+        dst_config = f"{config_save_dir}/block_{block_number:03d}.yaml"
+        if os.path.exists(src_config):
+            shutil.copy2(src_config, dst_config)
 
     # save connectivity scatterplot (most recent comparison_*.tif from matrix folder)
     matrix_dir = f"{root_dir}/log/{pre_folder}{config_file_}/tmp_training/matrix"
@@ -2110,18 +2070,20 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         dst_scatter = f"{scatter_save_dir}/iter_{iteration:03d}.tif"
         shutil.copy2(latest_scatter, dst_scatter)
 
-    # save connectivity matrix heatmap
+    # save connectivity matrix heatmap only at first iteration of each block
     data_folder = f"{root_dir}/graphs_data/{config.dataset}"
-    src_matrix = f"{data_folder}/connectivity_matrix.png"
-    dst_matrix = f"{matrix_save_dir}/iter_{iteration:03d}.png"
-    if os.path.exists(src_matrix):
-        shutil.copy2(src_matrix, dst_matrix)
+    if is_block_start:
+        src_matrix = f"{data_folder}/connectivity_matrix.png"
+        dst_matrix = f"{matrix_save_dir}/block_{block_number:03d}.png"
+        if os.path.exists(src_matrix):
+            shutil.copy2(src_matrix, dst_matrix)
 
-    # save activity plot
+    # save activity plot only at first iteration of each block
     activity_path = f"{data_folder}/activity.png"
-    dst_activity = f"{activity_save_dir}/iter_{iteration:03d}.png"
-    if os.path.exists(activity_path):
-        shutil.copy2(activity_path, dst_activity)
+    if is_block_start:
+        dst_activity = f"{activity_save_dir}/block_{block_number:03d}.png"
+        if os.path.exists(activity_path):
+            shutil.copy2(activity_path, dst_activity)
 
     # save combined MLP plot (MLP0 + MLP1 side by side) using PNG files from results
     results_dir = f"{root_dir}/log/{pre_folder}{config_file_}/results"

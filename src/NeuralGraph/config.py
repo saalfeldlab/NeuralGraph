@@ -41,8 +41,9 @@ class SimulationConfig(BaseModel):
 
 
     # external input configuration
-    external_input_type: Literal["none", "signal", "visual"] = "none"
+    external_input_type: Literal["none", "signal", "visual", "modulation"] = "none"
     external_input_mode: Literal["additive", "multiplicative", "none"] = "none"
+    permutation: bool = False  # whether to apply random permutation to external input
 
     # signal input parameters (external_input_type == "signal")
     signal_input_type: Literal["oscillatory", "triggered"] = "oscillatory"
@@ -104,6 +105,15 @@ class SimulationConfig(BaseModel):
     pos_init: str = "uniform"
     dpos_init: float = 0
 
+
+
+class ClaudeConfig(BaseModel):
+    """Configuration for Claude-driven exploration experiments."""
+    model_config = ConfigDict(extra="forbid")
+
+    n_epochs: int = 1  # number of epochs per iteration
+    data_augmentation_loop: int = 100  # data augmentation loop count
+    n_iter_block: int = 24  # number of iterations per simulation block
 
 
 class GraphModelConfig(BaseModel):
@@ -460,6 +470,7 @@ class NeuralGraphConfig(BaseModel):
     
     simulation: SimulationConfig
     graph_model: GraphModelConfig
+    claude: Optional[ClaudeConfig] = None
     plotting: PlottingConfig
     training: TrainingConfig
     zarr: Optional[ZarrConfig] = None

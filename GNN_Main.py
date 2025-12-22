@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import argparse
 import glob
 import os
-import re
 import shutil
 import subprocess
 import time
+import yaml
 
 # redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
 if os.path.isdir('/scratch'):
@@ -35,6 +35,8 @@ if __name__ == "__main__":
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
 
+
+
     print()
     device=[]
     args = parser.parse_args()
@@ -48,7 +50,6 @@ if __name__ == "__main__":
             best_model = args.option[2]
         else:
             best_model = None
-        # parse additional parameters from remaining args (e.g. iterations=20, experiment=dale)
         task_params = {}
         for arg in args.option[2:]:
             if '=' in arg:
@@ -57,21 +58,36 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        task_params = {'iterations': 512, 'experiment': 'experiment_convergence_6', 'llm_task': 'signal_Claude'}
         config_list = ['signal_chaotic_1']
+        task_params = {'iterations': 2048}
 
-    # parse parameters from task_params
+
+
+    # resume support: start_iteration parameter (default 1)
+    start_iteration = 87
+
+
+
+
     n_iterations = task_params.get('iterations', 5)
-    experiment_name = task_params.get('experiment', 'experiment')
-    llm_task_name = task_params.get('llm_task', 'signal_Claude')
+    base_config_name = config_list[0] if config_list else 'signal'
+    experiment_name = task_params.get('experiment', f'experiment_{base_config_name}')
+    llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
-    # if Claude in task, determine iteration range; otherwise single iteration
+
+
+
     if 'Claude' in task:
-        iteration_range = range(1, n_iterations + 1)
+        iteration_range = range(start_iteration, n_iterations + 1)
+
+
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
 
-        # copy source config to LLM task yaml and modify for Claude exploration
+        if start_iteration > 1:
+            print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+
+
         for cfg in config_list:
             cfg_file, pre = add_pre_folder(cfg)
             source_config = f"{config_root}/{pre}{cfg}.yaml"
@@ -79,42 +95,56 @@ if __name__ == "__main__":
             if os.path.exists(source_config):
                 shutil.copy2(source_config, target_config)
                 print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
-                # modify target config: set dataset and n_epochs
                 with open(target_config, 'r') as f:
-                    content = f.read()
-                # update dataset to llm_task_name
-                content = re.sub(r"dataset:\s*['\"]?[\w_]+['\"]?", f"dataset: '{llm_task_name}'", content)
-                # update n_epochs to 1
-                content = re.sub(r"n_epochs:\s*\d+", "n_epochs: 1", content)
-                # update data_augmentation_loop to 50
-                content = re.sub(r"data_augmentation_loop:\s*\d+", "data_augmentation_loop: 100", content)
-                # update description
-                content = re.sub(r'description:\s*["\'][^"\']*["\']', 'description: "designed by Claude"', content)
+                    config_data = yaml.safe_load(f)
+                claude_cfg = config_data.get('claude', {})
+                claude_n_epochs = claude_cfg.get('n_epochs', 1)
+                claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
+                claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                config_data['dataset'] = llm_task_name
+                config_data['training']['n_epochs'] = claude_n_epochs
+                config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
+                config_data['description'] = 'designed by Claude'
+                config_data['claude'] = {
+                    'n_epochs': claude_n_epochs,
+                    'data_augmentation_loop': claude_data_augmentation_loop,
+                    'n_iter_block': claude_n_iter_block
+                }
                 with open(target_config, 'w') as f:
-                    f.write(content)
-                print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs=1, data_augmentation_loop=50, description='designed by Claude'\033[0m")
+                    yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+                print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}\033[0m")
 
-        # delete ucb_scores.txt at start of experiment
+        n_iter_block = claude_n_iter_block
+
         ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
-        if os.path.exists(ucb_file):
-            os.remove(ucb_file)
-            print(f"\033[93mdeleted {ucb_file}\033[0m")
+        if start_iteration == 1:
+            # only delete UCB file when starting fresh (not resuming)
+            if os.path.exists(ucb_file):
+                os.remove(ucb_file)
+                print(f"\033[93mdeleted {ucb_file}\033[0m")
+        else:
+            print(f"\033[93mpreserving {ucb_file} (resuming from iter {start_iteration})\033[0m")
 
-        # use llm_task_name as the config for all iterations
         config_list = [llm_task_name]
     else:
-        iteration_range = range(1, 2)  # single iteration
+
+        iteration_range = range(1, 2)  
+
+
+
 
     for config_file_ in config_list:
         print(" ")
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
         config_file, pre_folder = add_pre_folder(config_file_)
 
-        # setup for Claude analysis (paths needed before iteration loop)
+
+
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
             experiment_path = f"{root_dir}/{experiment_name}.md"
-            analysis_path = f"{root_dir}/{llm_task_name}_analysis_{experiment_name}.md"
+            analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
+            memory_path = f"{root_dir}/{llm_task_name}_memory.md"
 
             # check experiment file exists
             if not os.path.exists(experiment_path):
@@ -125,22 +155,46 @@ if __name__ == "__main__":
                         print(f"  - {f[:-3]}")
                 continue
 
-            # clear analysis file at start
-            with open(analysis_path, 'w') as f:
-                f.write(f"# Experiment Log: {config_file_}\n\n")
-            print(f"\033[93mcleared {analysis_path}\033[0m")
-            print(f"\033[93m{experiment_name} ({n_iterations} iterations)\033[0m")
+            # clear analysis and memory files at start (only if not resuming)
+            if start_iteration == 1:
+                with open(analysis_path, 'w') as f:
+                    f.write(f"# Experiment Log: {config_file_}\n\n")
+                print(f"\033[93mcleared {analysis_path}\033[0m")
+                # initialize working memory file
+                with open(memory_path, 'w') as f:
+                    f.write(f"# Working Memory: {config_file_}\n\n")
+                    f.write("## Knowledge Base (accumulated across all blocks)\n\n")
+                    f.write("### Regime Comparison Table\n")
+                    f.write("| Block | Regime | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
+                    f.write("|-------|--------|---------|--------------|------------|-------------|\n\n")
+                    f.write("### Established Principles\n\n")
+                    f.write("### Open Questions\n\n")
+                    f.write("---\n\n")
+                    f.write("## Previous Block Summary\n\n")
+                    f.write("---\n\n")
+                    f.write("## Current Block (Block 1)\n\n")
+                    f.write("### Block Info\n\n")
+                    f.write("### Hypothesis\n\n")
+                    f.write("### Iterations This Block\n\n")
+                    f.write("### Emerging Observations\n\n")
+                print(f"\033[93mcleared {memory_path}\033[0m")
+            else:
+                print(f"\033[93mpreserving {analysis_path} (resuming from iter {start_iteration})\033[0m")
+                print(f"\033[93mpreserving {memory_path} (resuming from iter {start_iteration})\033[0m")
+            print(f"\033[93m{experiment_name} ({n_iterations} iterations, starting at {start_iteration})\033[0m")
 
-        # analysis log file in root folder (for Claude to read)
         root_dir = os.path.dirname(os.path.abspath(__file__))
         analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
 
+
+
         for iteration in iteration_range:
+
+
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
-
-                # block boundary: erase UCB at start of each 24-iteration block (except iter 1, already handled)
-                if iteration > 1 and (iteration - 1) % 24 == 0:
+                # block boundary: erase UCB at start of each n_iter_block-iteration block (except iter 1, already handled)
+                if iteration > 1 and (iteration - 1) % n_iter_block == 0:
                     ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
                     if os.path.exists(ucb_file):
                         os.remove(ucb_file)
@@ -156,6 +210,9 @@ if __name__ == "__main__":
 
             # open analysis.log for this iteration (append mode for test/plot to add metrics)
             log_file = open(analysis_log_path, 'w')
+
+
+
 
             if "generate" in task:
                 erase = 'Claude' in task  # erase when iterating with claude
@@ -222,10 +279,15 @@ if __name__ == "__main__":
             log_file.close()
 
             if 'Claude' in task:
-                # save exploration artifacts before Claude analysis
+
+                block_number = (iteration - 1) // n_iter_block + 1
+                iter_in_block = (iteration - 1) % n_iter_block + 1
+                is_block_end = iter_in_block == n_iter_block
+
                 exploration_dir = f"{root_dir}/log/Claude_exploration/{experiment_name}"
                 artifact_paths = save_exploration_artifacts(
-                    root_dir, exploration_dir, config, config_file_, pre_folder, iteration
+                    root_dir, exploration_dir, config, config_file_, pre_folder, iteration,
+                    iter_in_block=iter_in_block, block_number=block_number
                 )
                 tree_save_dir = artifact_paths['tree_save_dir']
                 protocol_save_dir = artifact_paths['protocol_save_dir']
@@ -239,7 +301,7 @@ if __name__ == "__main__":
                 compute_ucb_scores(analysis_path, ucb_path,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
-                                   block_size=24)
+                                   block_size=n_iter_block)
                 print(f"\033[92mUCB scores computed: {ucb_path}\033[0m")
 
                 # check files are ready (generated by data_generate above)
@@ -258,17 +320,17 @@ if __name__ == "__main__":
                 # call Claude CLI for analysis
                 print(f"\033[93mClaude analysis...\033[0m")
 
-                claude_prompt = f"""Iteration {iteration}/{n_iterations}: Parameter study.
+                claude_prompt = f"""Iteration {iteration}/{n_iterations}
+Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
+{">>> BLOCK END <<<" if is_block_end else ""}
 
-1. Read activity image: {activity_path}
-2. Read analysis log: {analysis_log_path}
-3. Read protocol: {experiment_path}
-4. Read UCB scores: {ucb_path}
-5. Read current config: {config_path}
-6. Append to {analysis_path} using log format from protocol
-7. Edit {config_path} to explore next parameter combination per protocol
-
-Config file: {config_file_}"""
+Protocol (follow all instructions): {experiment_path}
+Working memory: {memory_path}
+Full log (append only): {analysis_path}
+Activity image: {activity_path}
+Metrics log: {analysis_log_path}
+UCB scores: {ucb_path}
+Current config: {config_path}"""
 
                 claude_cmd = [
                     'claude',
@@ -279,7 +341,8 @@ Config file: {config_file_}"""
                     'Read', 'Edit'
                 ]
 
-                # run with real-time output streaming
+                # run with real-time output streaming and token expiry detection
+                output_lines = []
                 process = subprocess.Popen(
                     claude_cmd,
                     cwd=root_dir,
@@ -292,19 +355,41 @@ Config file: {config_file_}"""
                 # stream output line by line
                 for line in process.stdout:
                     print(line, end='', flush=True)
+                    output_lines.append(line)
 
                 process.wait()
 
-                # save protocol file after Claude task
-                dst_protocol = f"{protocol_save_dir}/iter_{iteration:03d}.md"
-                if os.path.exists(experiment_path):
-                    shutil.copy2(experiment_path, dst_protocol)
+                # check for OAuth token expiration error
+                output_text = ''.join(output_lines)
+                if 'OAuth token has expired' in output_text or 'authentication_error' in output_text:
+                    print(f"\n\033[91m{'='*60}\033[0m")
+                    print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
+                    print(f"\033[93mTo resume:\033[0m")
+                    print(f"\033[93m  1. Run: claude /login\033[0m")
+                    print(f"\033[93m  2. Then: python GNN_Main.py -o {task} {config_file_} start={iteration}\033[0m")
+                    print(f"\033[91m{'='*60}\033[0m")
+                    raise SystemExit(1)
+
+                # save protocol file at first iteration of each block
+                if iter_in_block == 1:
+                    dst_protocol = f"{protocol_save_dir}/block_{block_number:03d}.md"
+                    if os.path.exists(experiment_path):
+                        shutil.copy2(experiment_path, dst_protocol)
+
+                # save memory file at end of each block (after Claude updates it)
+                if is_block_end:
+                    memory_save_dir = f"{exploration_dir}/memory"
+                    os.makedirs(memory_save_dir, exist_ok=True)
+                    dst_memory = f"{memory_save_dir}/block_{block_number:03d}_memory.md"
+                    if os.path.exists(memory_path):
+                        shutil.copy2(memory_path, dst_memory)
+                        print(f"\033[92msaved memory snapshot: {dst_memory}\033[0m")
 
                 # recompute UCB scores after Claude to pick up mutations from analysis markdown
                 compute_ucb_scores(analysis_path, ucb_path,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
-                                   block_size=24)
+                                   block_size=n_iter_block)
 
                 # generate UCB tree visualization from ucb_scores.txt
                 ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
@@ -315,11 +400,10 @@ Config file: {config_file_}"""
                     if hasattr(config.simulation, 'Dale_law'):
                         sim_info += f", Dale_law={config.simulation.Dale_law}"
                     if hasattr(config.simulation, 'noise_model_level'):
-                        sim_info += f", noise_model_level={config.simulation.noise_model_level}"
+                        sim_info += f", noise_model_level={config.training.noise_model_level}"
                     if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
                         sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
 
                     plot_ucb_tree(nodes, ucb_tree_path,
                                   title=f"UCB Tree - Iter {iteration}",
                                   simulation_info=sim_info)
-                    # print(f"\033[92mUCB tree saved: {ucb_tree_path}\033[0m")

@@ -30,6 +30,7 @@ class UCBNode:
     visits: int
     r2: float
     pearson: float = 0.0
+    external_input_r2: float = -1.0  # -1 means not available
     mutation: str = ""
 
 
@@ -40,9 +41,9 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX, Mutation=...
-    # Pearson and Mutation are optional for backward compatibility
-    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?(?:, Mutation=([^\n\[]+))?'
+    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX, External_input_R2=X.XXX, Mutation=...
+    # Pearson, External_input_R2, and Mutation are optional for backward compatibility
+    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?(?:, External_input_R2=([\d.]+))?(?:, Mutation=([^\n\[]+))?'
 
     for match in re.finditer(pattern, content):
         node_id = int(match.group(1))
@@ -52,7 +53,8 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
         visits = int(match.group(4))
         r2 = float(match.group(5))
         pearson = float(match.group(6)) if match.group(6) else 0.0
-        mutation = match.group(7).strip() if match.group(7) else ""
+        external_input_r2 = float(match.group(7)) if match.group(7) else -1.0
+        mutation = match.group(8).strip() if match.group(8) else ""
 
         nodes.append(UCBNode(
             id=node_id,
@@ -61,6 +63,7 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
             visits=visits,
             r2=r2,
             pearson=pearson,
+            external_input_r2=external_input_r2,
             mutation=mutation
         ))
 
@@ -213,48 +216,50 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
         # Label: node id inside/near the marker (always black)
         ax.annotate(str(node.id), (x, y), ha='center', va='center',
-                   fontsize=7,
+                   fontsize=9,
                    color='black', zorder=3)
 
         # Mutation above the node (for nodes with id > 1)
         if node.id > 1 and node.mutation:
             # Remove parenthesis part from mutation text (e.g., "(2x increase exploring lr_W)")
             mutation_text = re.sub(r'\s*\([^)]*\)\s*$', '', node.mutation).strip()
-            ax.annotate(mutation_text, (x, y), ha='center', va='bottom',
-                       fontsize=5, xytext=(0, 12), textcoords='offset points',
-                       color='#333333', zorder=3)
+            # Skip simulation change messages (they clutter the plot)
+            if not mutation_text.startswith('simulation changed'):
+                ax.annotate(mutation_text, (x, y), ha='center', va='bottom',
+                           fontsize=8, xytext=(0, 14), textcoords='offset points',
+                           color='#333333', zorder=3)
 
         # Annotation: UCB/V and R2/Pearson below the node
         label_text = f"UCB={node.ucb:.2f} V={node.visits}\nR²={node.r2:.2f} ρ={node.pearson:.2f}"
+        # Add external input R2 if available (>= 0)
+        if node.external_input_r2 >= 0:
+            label_text += f"\nR²_ext={node.external_input_r2:.2f}"
         ax.annotate(label_text, (x, y), ha='center', va='top',
-                   fontsize=5, xytext=(0, -12), textcoords='offset points',
+                   fontsize=8, xytext=(0, -14), textcoords='offset points',
                    color='#555555', zorder=3)
 
-    # Add simulation info below root node(s)
+    # Add simulation info at top left of figure
     if simulation_info:
-        roots = tree['roots']
-        if roots and roots[0] in positions:
-            root_x, root_y = positions[roots[0]]
-            # Format: remove "Simulation: " prefix, replace underscores with spaces, split into lines
-            sim_text = simulation_info.replace('Simulation:', '').strip()
-            sim_text = sim_text.replace('_', ' ')
-            # Split by comma and join with newlines
-            sim_lines = [p.strip() for p in sim_text.split(',')]
-            # Filter lines: keep connectivity type, Dale law, noise; add rank only if low_rank
-            filtered_lines = []
-            for line in sim_lines:
-                if 'connectivity type' in line:
-                    filtered_lines.append(line)
-                elif 'Dale law=' in line:
-                    filtered_lines.append(line)
-                elif 'noise model level' in line:
-                    filtered_lines.append(line)
-                elif 'connectivity rank' in line and 'low rank' in sim_text.lower():
-                    filtered_lines.append(line)
-            sim_formatted = '\n'.join(filtered_lines) if filtered_lines else '\n'.join(sim_lines)
-            ax.annotate(sim_formatted, (root_x, root_y), ha='left', va='bottom',
-                       fontsize=6, xytext=(5, 15), textcoords='offset points',
-                       color='#555555', zorder=4)
+        # Format: remove "Simulation: " prefix, replace underscores with spaces
+        sim_text = simulation_info.replace('Simulation:', '').strip()
+        sim_text = sim_text.replace('_', ' ')
+        # Split by comma and join with newlines
+        sim_lines = [p.strip() for p in sim_text.split(',')]
+        # Filter lines: keep connectivity type, Dale law, noise; add rank only if low_rank
+        filtered_lines = []
+        for line in sim_lines:
+            if 'connectivity type' in line:
+                filtered_lines.append(line)
+            elif 'Dale law=' in line:
+                filtered_lines.append(line)
+            elif 'noise model level' in line:
+                filtered_lines.append(line)
+            elif 'connectivity rank' in line and 'low rank' in sim_text.lower():
+                filtered_lines.append(line)
+        sim_formatted = '\n'.join(filtered_lines) if filtered_lines else '\n'.join(sim_lines)
+        # Place at top left using axes coordinates (0,1 = top left)
+        ax.text(0.02, 0.98, sim_formatted, transform=ax.transAxes,
+                fontsize=11, ha='left', va='top', color='#333333')
 
     # Remove axis labels and ticks
     ax.set_xlabel('')
