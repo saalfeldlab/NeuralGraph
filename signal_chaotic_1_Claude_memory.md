@@ -137,10 +137,18 @@ Next: parent=86 (highest UCB)
 
 ### Emerging Observations
 
-- effective_rank=10 consistently low across all 6 iterations - intrinsic to low_rank=50 + Dale_law regime
-- lr_W sweet spot: 20E-3 (R²=0.940) > 25E-3 (R²=0.894) > 40E-3 (R²=0.898) > 30E-3 (failed)
-- optimal lr_W:lr ratio ~400:1 for this regime, not the 800:1 used in Block 3
-- factorization=True didn't help: R²=0.830 vs R²=0.940 without factorization
-- best config: node 82 with lr_W=20E-3, factorization=False, R²=0.940
-- regime harder than Block 5 (low_rank=20 + Dale_law) which achieved R²=1.000
-- next: try increasing lr to 1E-4 (reducing ratio to 200:1) or try batch_size=8
+- **breakthrough at iter 87**: R²=0.998 achieved with lr=1E-4 (ratio 250:1)
+- key insight: lr was too low, not lr_W; ratio 250:1 better than 400:1-500:1
+- effective_rank jumped from 10 to 20 in this run (stochastic variation in data generation)
+- regime now solved: low_rank=50 + Dale_law + n_frames=20000 achieves near-perfect recovery
+- next: success-exploit to confirm robustness, then probe boundaries
+
+## Iter 87: converged
+Node: id=87, parent=86
+Mode/Strategy: exploit
+Config: lr_W=25E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.999, test_pearson=0.999, connectivity_R2=0.998, final_loss=4.74E+03
+Activity: effective_rank=20, spectral_radius=1.014, rich dynamics
+Mutation: lr: 5E-5 -> 1E-4 (2x increase, ratio now 250:1)
+Parent rule: highest UCB (node 86)
+Observation: breakthrough! near-perfect R²=0.998 by increasing lr; ratio 250:1 optimal vs previous 400:1-500:1

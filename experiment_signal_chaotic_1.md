@@ -51,7 +51,7 @@ Read `{config}_memory.md` to recall:
 - `test_R2`: R² between ground truth and rollout prediction
 - `test_pearson`: Pearson correlation per neuron (mean)
 - `connectivity_R2`: R² of learned vs true connectivity weights
-- `cluster_accuracy`: GMM clustering accuracy on learned embeddings (neuron type classification)
+- `cluster_accuracy`: clustering accuracy on learned embeddings (neuron type classification)
 - `final_loss`: final training loss (lower is better)
 
 **UCB scores from `ucb_scores.txt`:**

@@ -1110,3 +1110,14 @@ Mutation: lr_W: 20E-3 -> 25E-3 (interpolating between 20E-3 and 40E-3)
 Parent rule: highest UCB (node 82)
 Observation: lr_W=25E-3 gave R²=0.894, slightly worse than node 82 R²=0.940; confirms lr_W=20E-3 is near optimal
 Next: parent=86 (highest UCB)
+
+## Iter 87: converged
+Node: id=87, parent=86
+Mode/Strategy: exploit
+Config: lr_W=25E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=16, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.999, test_pearson=0.999, connectivity_R2=0.998, final_loss=4.74E+03
+Activity: effective_rank=20, spectral_radius=1.014, rich dynamics
+Mutation: lr: 5E-5 -> 1E-4 (2x increase, ratio now 250:1)
+Parent rule: highest UCB (node 86)
+Observation: breakthrough! near-perfect R²=0.998 by increasing lr; ratio 250:1 optimal vs previous 400:1-500:1
+Next: parent=87 (highest UCB)
