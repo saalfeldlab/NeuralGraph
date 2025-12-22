@@ -322,8 +322,8 @@ def data_train_signal(config, erase, best_model, style, device):
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
-    print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
-    logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
+    print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
+    logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
 
     net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
     logger.info(f'network: {net}  N epochs: {n_epochs}  initial batch_size: {batch_size}')
@@ -646,7 +646,7 @@ def data_train_signal(config, erase, best_model, style, device):
                     last_connectivity_r2 = plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device)
                     if last_connectivity_r2 is not None:
                         # color code: green (>0.95), yellow (0.7-0.95), orange (0.3-0.7), red (<0.3)
-                        if last_connectivity_r2 > 0.95:
+                        if last_connectivity_r2 > 0.9:
                             r2_color = '\033[92m'  # green
                         elif last_connectivity_r2 > 0.7:
                             r2_color = '\033[93m'  # yellow

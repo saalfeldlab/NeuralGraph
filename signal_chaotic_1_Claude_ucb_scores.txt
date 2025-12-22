@@ -1,3 +1,8 @@
-=== UCB Scores (Simulation block 0, iters 1-16, N=1, c=1.0) ===
+=== UCB Scores (Simulation block 5, iters 81-96, N=6, c=1.0) ===
 
-Node 1: UCB=1.130, parent=root, visits=1, R2=0.630, Pearson=0.642
+Node 86: UCB=2.119, parent=82, visits=1, R2=0.894, Pearson=0.885, Mutation=lr_W: 20E-3 -> 25E-3 (interpolating between 20E-3 and 40E-3)
+Node 85: UCB=2.055, parent=83, visits=1, R2=0.830, Pearson=0.428, Mutation=low_rank_factorization: False -> True
+Node 83: UCB=1.510, parent=82, visits=3, R2=0.898, Pearson=0.935, Mutation=lr_W: 20E-3 -> 40E-3 (2x increase)
+Node 82: UCB=1.348, parent=81, visits=5, R2=0.940, Pearson=0.867, Mutation=lr_W: 10E-3 -> 20E-3 (2x increase)
+Node 81: UCB=1.252, parent=root, visits=6, R2=0.902, Pearson=0.595, Mutation=starting config from Block 5
+Node 84: UCB=1.230, parent=83, visits=1, R2=0.005, Pearson=0.000, Mutation=lr_W: 40E-3 -> 30E-3 (midpoint between 20E-3 and 40E-3)

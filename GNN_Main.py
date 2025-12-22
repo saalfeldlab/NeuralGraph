@@ -59,12 +59,12 @@ if __name__ == "__main__":
         best_model = ''
         task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
         config_list = ['signal_chaotic_1']
-        task_params = {'iterations': 1024}
+        task_params = {'iterations': 2048}
 
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 1
+    start_iteration = 87
 
 
 
@@ -79,10 +79,13 @@ if __name__ == "__main__":
 
     if 'Claude' in task:
         iteration_range = range(start_iteration, n_iterations + 1)
-        if start_iteration > 1:
-            print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+
+
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
+
+        if start_iteration > 1:
+            print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
 
 
         for cfg in config_list:
@@ -164,29 +167,16 @@ if __name__ == "__main__":
                     f.write("### Regime Comparison Table\n")
                     f.write("| Block | Regime | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
                     f.write("|-------|--------|---------|--------------|------------|-------------|\n\n")
-                    f.write("### Coverage Table\n")
-                    f.write("| connectivity_type | Dale_law=False | Dale_law=True |\n")
-                    f.write("|-------------------|----------------|---------------|\n")
-                    f.write("| chaotic           | ?              | ?             |\n")
-                    f.write("| low_rank=20       | ?              | ?             |\n")
-                    f.write("| low_rank=50       | ?              | ?             |\n\n")
-                    f.write("### Established Principles\n")
-                    f.write("- (none yet)\n\n")
-                    f.write("### Open Questions\n")
-                    f.write("- (none yet)\n\n")
+                    f.write("### Established Principles\n\n")
+                    f.write("### Open Questions\n\n")
                     f.write("---\n\n")
-                    f.write("## Previous Block Summary\n")
-                    f.write("(no previous block)\n\n")
+                    f.write("## Previous Block Summary\n\n")
                     f.write("---\n\n")
                     f.write("## Current Block (Block 1)\n\n")
-                    f.write("### Block Info\n")
-                    f.write("Simulation: (to be filled by first iteration)\n")
-                    f.write("Iterations: 1 to n_iter_block\n\n")
-                    f.write("### Hypothesis\n")
-                    f.write("(first block - establishing baseline)\n\n")
+                    f.write("### Block Info\n\n")
+                    f.write("### Hypothesis\n\n")
                     f.write("### Iterations This Block\n\n")
-                    f.write("### Emerging Observations\n")
-                    f.write("(none yet)\n")
+                    f.write("### Emerging Observations\n\n")
                 print(f"\033[93mcleared {memory_path}\033[0m")
             else:
                 print(f"\033[93mpreserving {analysis_path} (resuming from iter {start_iteration})\033[0m")

@@ -2067,7 +2067,15 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/weights_comparison_corrected.png", dpi=87)
             plt.close()
-            print(f'R² (corrected): \033[92m{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
+            if r_squared > 0.9:
+                r2_color = '\033[92m'  # green
+            elif r_squared > 0.7:
+                r2_color = '\033[93m'  # yellow
+            elif r_squared > 0.3:
+                r2_color = '\033[38;5;208m'  # orange
+            else:
+                r2_color = '\033[91m'  # red
+            print(f'R² (corrected): {r2_color}{r_squared:.3f}\033[0m  slope: {np.round(lin_fit[0], 4)}')
             logger.info(f'R² (corrected): {np.round(r_squared, 4)}  slope: {np.round(lin_fit[0], 4)}')
             if log_file:
                 log_file.write(f"connectivity_R2: {r_squared:.4f}\n")

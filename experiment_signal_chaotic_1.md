@@ -4,12 +4,12 @@
 
 Map the **simulation-GNN training landscape**: understand which simulation configurations allow successful GNN training (connectivity_R2 > 0.9) and which are fundamentally harder.
 
-## Iteration loop structure
+## Iteration Loop Structure
 
 Each block = `n_iter_block` iterations exploring one simulation configuration.
 The prompt provides: `Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block`
 
-## File structure (CRITICAL)
+## File Structure (CRITICAL)
 
 You maintain TWO files:
 
@@ -32,9 +32,9 @@ You maintain TWO files:
 
 ---
 
-## Iteration Workflow Step 1-4, every iteration
+## Iteration Workflow (Steps 1-4, every iteration)
 
-### Step 1: Read Working Memory if exists
+### Step 1: Read Working Memory
 
 Read `{config}_memory.md` to recall:
 
@@ -44,24 +44,35 @@ Read `{config}_memory.md` to recall:
 
 ### Step 2: Analyze Current Results
 
-- `analysis.log`: metrics from training/test/plot:
-  - `spectral_radius`: eigenvalue analysis of connectivity
-  - `svd_rank`: SVD rank at 99% variance (activity complexity)
-  - `test_R2`: R² between ground truth and rollout prediction
-  - `test_pearson`: Pearson correlation per neuron (mean)
-  - `connectivity_R2`: R² of learned vs true connectivity weights
-  - `final_loss`: final training loss (lower is better)
-- `ucb_scores.txt`: provides pre-computed UCB scores for all nodes including current iteration
-  at block boundaries, the UCB file will be empty (erased). When UCB file is empty, use `parent=root`.
+**Metrics from `analysis.log`:**
 
+- `spectral_radius`: eigenvalue analysis of connectivity
+- `svd_rank`: SVD rank at 99% variance (activity complexity)
+- `test_R2`: R² between ground truth and rollout prediction
+- `test_pearson`: Pearson correlation per neuron (mean)
+- `connectivity_R2`: R² of learned vs true connectivity weights
+- `final_loss`: final training loss (lower is better)
+
+**UCB scores from `ucb_scores.txt`:**
+
+- Provides pre-computed UCB scores for all nodes including current iteration
+- At block boundaries, the UCB file will be empty (erased). When empty, use `parent=root`
+
+Example:
+
+```
 Node 2: UCB=2.175, parent=1, visits=1, R2=0.997
 Node 1: UCB=2.110, parent=root, visits=2, R2=0.934
+```
 
 ### Step 3: Write Outputs
 
-Append to Full Log\*\* (`{config}_analysis.md`) and **Current Block** sections of `{config}_memory.md` :
+Append to Full Log (`{config}_analysis.md`) and **Current Block** sections of `{config}_memory.md`:
 
-Log Form
+- In memory.md: Insert iteration log in "Iterations This Block" section (BEFORE "Emerging Observations")
+- Update "Emerging Observations" at the END of the file
+
+**Log Form:**
 
 ```
 ## Iter N: [converged/partial/failed]
@@ -76,41 +87,45 @@ Observation: [one line]
 Next: parent=P
 ```
 
-### Step 4: Edit config file for next iteration according to Parent Selection Rule
+### Step 4: Edit Config File
 
+Edit config file for next iteration according to Parent Selection Rule.
 (The config path is provided in the prompt as "Current config")
 
-- **Classification**
+**Classification:**
 
-**Converged**: connectivity_R2 > 0.9
-**Partial**: connectivity_R2 0.1-0.9
-**Failed**: connectivity_R2 < 0.1
+- **Converged**: connectivity_R2 > 0.9
+- **Partial**: connectivity_R2 0.1-0.9
+- **Failed**: connectivity_R2 < 0.1
 
-- **Training Parameters (change within block)**
+**Training Parameters (change within block):**
 
 ```yaml
 training:
   learning_rate_W_start: 2.0E-3 # range: 1E-4 to 1E-2
   learning_rate_start: 1.0E-4 # range: 1E-5 to 1E-3
-  learning_rate_embedding_start: 2.5E-4
+  learning_rate_embedding_start: 2.5E-4 # used when n_neuron_types>1
   coeff_W_L1: 1.0E-5 # range: 1E-6 to 1E-3
   batch_size: 8 # values: 8, 16, 32
-  low_rank_factorization: False or True
+  low_rank_factorization: False # or True
   low_rank: 20 # range: 5-100
+  coeff_edge_diff: 100 # enforces positive monotonicity
 ```
 
-- **Simulation Parameters (change at block boundaries only)**
+**Simulation Parameters (change at block boundaries only):**
 
 ```yaml
 simulation:
   n_frames: 10000
   connectivity_type: "chaotic" # or "low_rank"
-  Dale_law: False or True
+  Dale_law: False # or True
   Dale_law_factor: 0.5
-  connectivity_rank: 20 if low_rank
+  connectivity_rank: 20 # if low_rank
+  n_neurons: 100 # can be changed to 1000 and ONLY 1000, if Iter > 512
+  n_neuron_types: 1 #  # can be changed to 4 and ONLY 4,  if Iter > 1024
 ```
 
-- **Parent Selection Rule**
+**Parent Selection Rule:**
 
 Step A: Select parent node
 
@@ -129,58 +144,67 @@ Step B: Choose strategy
 
 ---
 
-## Block Workflow step 1 to 3, every end of block
+## Block Workflow (Steps 1-3, every end of block)
 
-block iter_in_block==n_iter_block
+Triggered when `iter_in_block == n_iter_block`
 
-**STEP 1: COMPULSORY modify "Parent Selection Rule" (this file)**
+### STEP 1: COMPULSORY — Edit Protocol (this file)
 
-Evaluate and modify rules
-Document your edit, state what you changed and why in the analysis log.
+You MUST use the Edit tool to add/modify rules in this file.
+Do NOT just write recommendations in the analysis log — actually edit the file.
 
-- **Branching rate**:
+After editing, state in analysis log: `"PROTOCOL EDITED: added rule [X]"` or `"PROTOCOL EDITED: modified [Y]"`
 
-  - Branching rate < 20% ADD exploration rule
-  - Branching rate 20-80% No change needed
+**Evaluate and modify rules based on:**
 
-  **Branch rate** = parent ≠ (current_iter - 1), calculate for **entire block**
+**Branching rate:**
 
-  ```
-  Block 1 (16 iterations):
-  Sequential: Iters 1-14 (all parent = node-1)
-  Branches: Iter 15 (parent=2)
+- Branching rate < 20% → ADD exploration rule
+- Branching rate 20-80% → No change needed
+- **Branch rate** = parent ≠ (current_iter - 1), calculate for **entire block**
 
-  Branches: 1 out of 15 → Branching rate = 7%
-  ```
-
-- **Improvement rate**: How many iters improved R²?
-  - If <30% improving → INCREASE exploitation (raise R² threshold)
-  - If >80% improving → INCREASE exploration (probe boundaries)
-- **Stuck detection**: Same R² plateau (±0.05) for 3+ iters?
-
-  - If yes → ADD forced branching rule
-
-- **Dimension diversity**: Count consecutive iterations mutating **same parameter**
-
-  - If > 4 consecutive same-param → ADD switch-dimension rule
-
-  Example:
+Example:
 
 ```
-  Iter 2-14: all mutated lr_W → 13 consecutive same-dimension → ADD rule
+Block 1 (16 iterations):
+Sequential: Iters 1-14 (all parent = node-1)
+Branches: Iter 15 (parent=2)
+Branches: 1 out of 15 → Branching rate = 7%
 ```
 
-**STEP 2 Choose next simulation**
+**Improvement rate:**
 
-Check Coverage Table → choose untested combination
-**Do not replicate** previous block unless motivated (testing knowledge transfer)
+- If <30% improving → INCREASE exploitation (raise R² threshold)
+- If >80% improving → INCREASE exploration (probe boundaries)
 
-**STEP 3: Update Working Memory** (`{config}_memory.md`):
+**Stuck detection:**
+
+- Same R² plateau (±0.05) for 3+ iters? → ADD forced branching rule
+
+**Dimension diversity:**
+
+- Count consecutive iterations mutating **same parameter**
+- If > 4 consecutive same-param → ADD switch-dimension rule
+
+Example:
+
+```
+Iter 2-14: all mutated lr_W → 13 consecutive same-dimension → ADD rule
+```
+
+### STEP 2: Choose Next Simulation
+
+- Check Regime Comparison Table → choose untested combination
+- **Do not replicate** previous block unless motivated (testing knowledge transfer)
+
+### STEP 3: Update Working Memory
+
+Update `{config}_memory.md`:
 
 - Update Knowledge Base with confirmed principles
 - Add row to Regime Comparison Table
-- Replace Previous Block Summary
-- Clear Current Block sections
+- Replace Previous Block Summary with **short summary** (2-3 lines, NOT individual iterations)
+- Clear "Iterations This Block" section
 - Write hypothesis for next block
 
 ---
@@ -194,9 +218,9 @@ Check Coverage Table → choose untested combination
 
 ### Regime Comparison Table
 
-| Block | Regime | Best R² | Optimal lr_W | Optimal L1 | Key finding |
-| ----- | chaotic Dale_law=False | ------- | ------------ | ---------- | ----------- |
-| ----- | low_rank=50 Dale_law=True
+| Block | Regime                  | n_neurons | n_neuron_types | Best R² | Optimal lr_W | Optimal L1 | Key finding |
+| ----- | ----------------------- | --------- | -------------- | ------- | ------------ | ---------- | ----------- |
+| 1     | chaotic, Dale_law=False | 100       | 1              | 1.000   | 8E-3         | 1E-5       | ...         |
 
 ### Established Principles
 
@@ -210,7 +234,9 @@ Check Coverage Table → choose untested combination
 
 ## Previous Block Summary (Block N-1)
 
-[Replaced entirely at each block boundary]
+[Short summary only - NOT individual iterations. Example:
+"Block 1 (chaotic, Dale_law=False): Best R²=1.000 at lr_W=8E-3.
+Key finding: lr_W optimal range 4E-3 to 8E-3."]
 
 ---
 
@@ -232,6 +258,7 @@ Iterations: M to M+n_iter_block
 ### Emerging Observations
 
 [Running notes on what's working/failing]
+**CRITICAL: This section must ALWAYS be at the END of memory file. When adding new iterations, insert them BEFORE this section.**
 ```
 
 ---
@@ -240,45 +267,120 @@ Iterations: M to M+n_iter_block
 
 ### What to Add to Established Principles
 
-example:
-✓ "Constrained connectivity needs lower lr_W" (causal, generalizable)
-✓ "L1 > 1e-04 fails for low_rank" (boundary condition)
-✓ "Effective rank < 15 requires factorization=True" (theoretical link)
-✗ "lr_W=0.01 worked in Block 4" (too specific)
-✗ "Block 3 converged" (not a principle)
+Examples:
+
+- ✓ "Constrained connectivity needs lower lr_W" (causal, generalizable)
+- ✓ "L1 > 1e-04 fails for low_rank" (boundary condition)
+- ✓ "Effective rank < 15 requires factorization=True" (theoretical link)
+- ✗ "lr_W=0.01 worked in Block 4" (too specific)
+- ✗ "Block 3 converged" (not a principle)
+
+### Scientific Method (CRITICAL)
+
+**Repeatability:**
+
+- Each iteration is a single training run with stochastic initialization
+- Results may vary between runs with identical config
+- A "failed" run may succeed on retry; a "converged" run may fail
+
+**Evidence hierarchy:**
+
+| Level            | Criterion                              | Action                 |
+| ---------------- | -------------------------------------- | ---------------------- |
+| **Established**  | Consistent across 3+ iterations/blocks | Add to Principles      |
+| **Tentative**    | Observed 1-2 times                     | Add to Open Questions  |
+| **Contradicted** | Conflicting evidence                   | Note in Open Questions |
 
 ### What to Add to Open Questions
 
-example:
+Examples:
 
-Patterns needing more testing, Contradictions between blocks, Theoretical predictions not yet verified
-
-## Memory Size Control
-
-Target Knowledge Base: ~100 lines max (grows slowly)
-If approaching limit:
+- Patterns needing more testing
+- Contradictions between blocks
+- Theoretical predictions not yet verified
 
 ---
 
 ## Theoretical Background
 
-### Spectral radius
+### GNN Architecture (Signal_Propagation)
+
+The model learns neural dynamics du/dt using a graph neural network:
+
+```
+du/dt = lin_phi(u, a) + W @ lin_edge(u, a)
+```
+
+**Components:**
+
+- `lin_edge` (MLP): message function on edges, transforms source neuron activity
+- `lin_phi` (MLP): node update function, computes local dynamics
+- `W`: learnable connectivity matrix (n_neurons × n_neurons)
+- `a`: learnable node embeddings (n_neurons × embedding_dim)
+
+**Forward pass:**
+
+1. For each edge (j→i): message = W[i,j] × lin_edge(u_j, a_j)
+2. Aggregate messages: msg_i = Σ_j W[i,j] × lin_edge(u_j, a_j)
+3. Update: du/dt_i = lin_phi(u_i, a_i) + msg_i
+
+**Low-rank factorization:**
+
+When `low_rank_factorization=True`: W = W_L @ W_R where W_L ∈ ℝ^(n×r), W_R ∈ ℝ^(r×n)
+
+**Node embeddings for heterogeneity:**
+
+The embedding vector `a_i` allows each neuron to have different dynamics parameters:
+
+- When `n_neuron_types > 1`: embeddings are learnable (requires `lr_emb`)
+- When `n_neuron_types = 1`: embeddings are fixed (all neurons identical)
+- Embeddings are concatenated with activity: lin_phi(u_i, a_i) and lin_edge(u_j, a_j)
+- This allows the MLPs to learn neuron-type-specific transfer functions
+
+### Training Loss and Regularization
+
+**Prediction loss:**
+
+```
+L_pred = ||du/dt_pred - du/dt_true||₂
+```
+
+**Key regularization terms:**
+
+- `coeff_W_L1`: L1 on W (sparsity). Range: 1E-6 to 1E-4
+- `coeff_edge_diff`: enforces monotonicity of lin_edge output (positive: higher u → higher output)
+  - Computed as: relu(msg(u) - msg(u+δ))·coeff for sampled u values
+  - Stabilizes message function, prevents oscillating gradients
+
+**Learning rates:**
+
+- `learning_rate_W_start` (lr_W): learning rate for connectivity W
+- `learning_rate_start` (lr): learning rate for lin_edge and lin_phi
+- `learning_rate_embedding_start` (lr_emb): learning rate for node embeddings a
+
+**Total loss:**
+
+```
+L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff + ...
+```
+
+### Spectral Radius
 
 - ρ(W) < 1: activity decays → harder to constrain W
 - ρ(W) ≈ 1: edge of chaos → rich dynamics → good recovery
 - ρ(W) > 1: unstable
 
-### Effective rank
+### Effective Rank
 
 - High (30+): full W recoverable
 - Low (<15): only subspace identifiable → need factorization
 
-### Low-rank connectivity
+### Low-rank Connectivity
 
 - W = W_L @ W_R constrains solution space
 - Without factorization: spurious full-rank solutions
 
-### Learning rates
+### Learning Rates
 
 - lr_W:lr ratio matters (typically 20:1 to 50:1)
 - Too fast φ learning → noisy W gradients
