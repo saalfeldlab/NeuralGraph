@@ -200,12 +200,25 @@ Parent rule: highest UCB (node 90, UCB=2.507)
 Observation: R²=0.924 similar to parent's 0.925; recombine didn't replicate iter 87's 0.998; effective_rank=10 persists
 Next: parent=91 (highest UCB=2.582)
 
+## Iter 92: converged
+
+Node: id=92, parent=91
+Mode/Strategy: exploit
+Config: lr_W=25E-3, lr=2E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.595, test_pearson=0.460, connectivity_R2=0.914, final_loss=4.32E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: lr: 1E-4 -> 2E-4 (2x increase, ratio now 125:1)
+Parent rule: highest UCB (node 91, UCB=2.582)
+Observation: ratio 125:1 gave R²=0.914 similar to parent's 0.924; doubling lr didn't help; effective_rank still 10
+Next: parent=92 (highest UCB=2.646)
+
 ### Emerging Observations
 
 - **breakthrough at iter 87**: R²=0.998 achieved with lr=1E-4, lr_W=25E-3 (ratio 250:1)
 - key insight: lr was too low, not lr_W; ratio 250:1 better than 400:1-500:1
-- **iters 88-91**: all give R²=0.86-0.93 range despite varied configs - high stochastic variance
+- **iters 88-92**: all give R²=0.86-0.93 range despite varied configs - high stochastic variance
 - effective_rank consistently 10 (vs 20 in iter 87's success) - data generation variability
 - regime NOT yet robustly solved - iter 87's success was lucky with effective_rank=20
 - **pattern**: when effective_rank=20, R²~0.998; when effective_rank=10, R²~0.9
-- next: try increasing lr to 1.5E-4 or 2E-4 to see if higher lr helps with low effective_rank
+- iter 92: lr=2E-4 (ratio 125:1) didn't improve over ratio 250:1; optimal ratio ~250:1
+- next: try factorization=True to see if it helps with low effective_rank data
