@@ -1,13 +1,5 @@
-=== UCB Scores (Simulation block 5, iters 81-96, N=11, c=1.0) ===
+=== UCB Scores (Simulation block 6, iters 97-112, N=3, c=1.0) ===
 
-Node 91: UCB=2.582, parent=90, visits=1, R2=0.924, Pearson=0.480, Mutation=lr_W: 30E-3 -> 25E-3 (recombine: iter 87's lr_W with iter 90's batch_size=8)
-Node 85: UCB=2.488, parent=83, visits=1, R2=0.830, Pearson=0.428, Mutation=low_rank_factorization: False -> True
-Node 90: UCB=2.031, parent=89, visits=2, R2=0.925, Pearson=0.764, Mutation=batch_size: 16 -> 8
-Node 83: UCB=1.727, parent=82, visits=3, R2=0.898, Pearson=0.935, Mutation=lr_W: 20E-3 -> 40E-3 (2x increase)
-Node 89: UCB=1.712, parent=88, visits=3, R2=0.883, Pearson=0.805, Mutation=lr_W: 25E-3 -> 30E-3 (increased from parent 88)
-Node 84: UCB=1.663, parent=83, visits=1, R2=0.005, Pearson=0.000, Mutation=lr_W: 40E-3 -> 30E-3 (midpoint between 20E-3 and 40E-3)
-Node 87: UCB=1.551, parent=86, visits=5, R2=0.998, Pearson=0.999, Mutation=lr: 5E-5 -> 1E-4 (2x increase, ratio now 250:1)
-Node 88: UCB=1.529, parent=87, visits=4, R2=0.866, Pearson=0.838, Mutation=re-run of iter 87 config (robustness test)
-Node 86: UCB=1.368, parent=82, visits=6, R2=0.894, Pearson=0.885, Mutation=lr_W: 20E-3 -> 25E-3 (interpolating between 20E-3 and 40E-3)
-Node 82: UCB=1.242, parent=81, visits=10, R2=0.940, Pearson=0.867, Mutation=lr_W: 10E-3 -> 20E-3 (2x increase)
-Node 81: UCB=1.178, parent=root, visits=11, R2=0.902, Pearson=0.595, Mutation=starting config from Block 5
+Node 99: UCB=1.866, parent=98, visits=1, R2=1.000, Pearson=0.986, Mutation=lr_W: 30E-3 -> 40E-3
+Node 98: UCB=1.577, parent=97, visits=2, R2=1.000, Pearson=0.965, Mutation=lr_W: 25E-3 -> 30E-3
+Node 97: UCB=1.433, parent=root, visits=3, R2=1.000, Pearson=0.987, Mutation=n_frames: 10000 -> 20000 (block change); lr_W: 80E-3 -> 25E-3 (starting fresh)

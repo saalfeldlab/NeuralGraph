@@ -1178,3 +1178,120 @@ Mutation: lr: 1E-4 -> 2E-4 (2x increase, ratio now 125:1)
 Parent rule: highest UCB (node 91, UCB=2.582)
 Observation: ratio 125:1 gave R2=0.914 similar to parents 0.924; doubling lr did not help; effective_rank still 10
 Next: parent=92 (highest UCB=2.646)
+
+## Iter 93: partial
+
+Node: id=93, parent=92
+Mode/Strategy: exploit
+Config: lr_W=25E-3, lr=2E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.414, test_pearson=0.073, connectivity_R2=0.782, final_loss=6.39E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: (same config as iter 92, stochastic re-run)
+Parent rule: highest UCB (node 92, UCB=2.646)
+Observation: R2=0.782 regression from parent's 0.914; ratio 125:1 unstable; effective_rank=10 persists
+Next: parent=85 (highest UCB=2.633, factorization=True)
+
+## Iter 94: partial
+
+Node: id=94, parent=85
+Mode/Strategy: exploit
+Config: lr_W=40E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=True, low_rank=50, n_frames=20000
+Metrics: test_R2=0.320, test_pearson=0.274, connectivity_R2=0.741, final_loss=6.91E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: lr_W: 40E-3 (from parent 85), batch_size: 16 -> 8
+Parent rule: highest UCB (node 85, UCB=2.633)
+Observation: factorization=True with lr_W=40E-3 and batch_size=8 gave R²=0.741, worse than parent's 0.830; factorization path not improving
+Next: parent=93 (highest UCB=2.653)
+
+## Iter 95: converged
+
+Node: id=95, parent=93
+Mode/Strategy: exploit
+Config: lr_W=20E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.820, test_pearson=0.635, connectivity_R2=0.916, final_loss=4.62E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: lr_W: 25E-3 -> 20E-3 (from parent 93's ratio 125:1 to ratio 200:1)
+Parent rule: highest UCB (node 95, UCB=2.852)
+Observation: R²=0.916 improved from parent's 0.782; ratio 200:1 better than 125:1; still below iter 87's 0.998 (effective_rank=20)
+Next: parent=95 (highest UCB)
+
+## Iter 96: converged
+
+Node: id=96, parent=95
+Mode/Strategy: exploit
+Config: lr_W=25E-3, lr=1E-4, lr_emb=1E-4, coeff_W_L1=1E-6, batch_size=8, low_rank_factorization=False, low_rank=50, n_frames=20000
+Metrics: test_R2=0.934, test_pearson=0.905, connectivity_R2=0.923, final_loss=4.26E+03
+Activity: effective_rank=10, spectral_radius=1.273, oscillatory patterns
+Mutation: lr_W: 20E-3 -> 25E-3 (ratio 250:1)
+Parent rule: highest UCB (node 95, UCB=2.249)
+Observation: R²=0.923 converged; ratio 250:1 confirmed as working range; effective_rank=10 limits ceiling to ~0.92
+Next: end of block 6
+
+---
+
+## Block 6 Summary
+
+**Regime**: low_rank=50, Dale_law=True, n_frames=20000
+**Results**: 10/16 converged, 5/16 partial, 1/16 failed
+**Best R²**: 0.998 (iter 87)
+**Optimal config**: lr_W=25E-3, lr=1E-4, ratio=250:1, batch_size=16, L1=1E-6, factorization=False
+
+**Key findings**:
+1. low_rank=50 + Dale_law harder than low_rank=20 + Dale_law (Block 5 had 16/16 converged)
+2. effective_rank=10 (vs 20-30 in previous blocks) limits achievable R² to ~0.92
+3. when effective_rank=20 (iter 87), R²=0.998 achieved; stochastic data generation variability
+4. optimal ratio 200-250:1, narrower working range than previous blocks
+5. factorization=True did not help (R²=0.74-0.83)
+
+**Branching analysis**:
+- Total branches: 5 (iters 86, 91, 94, 95, 96 had parent != previous)
+- Branching rate: 5/15 = 33% (healthy range 20-80%)
+
+**Parameter diversity**:
+- lr_W mutated: iters 82, 83, 84, 86, 89, 91, 95, 96 (8 times)
+- lr mutated: iters 87, 92 (2 times)
+- batch_size mutated: iters 90, 94 (2 times)
+- factorization mutated: iters 85, 94 (2 times)
+
+**Protocol evaluation**:
+- Branching rate 33% is healthy
+- Improvement rate: 10/16 converged = 63% (good)
+- Dimension diversity: lr_W dominated but lr mutation found breakthrough at iter 87
+
+---
+
+## Block 7: chaotic, Dale_law=True, n_frames=20000
+
+## Iter 97: converged
+Node: id=97, parent=root
+Mode/Strategy: exploit (start of new block)
+Config: lr_W=25E-3, lr=1E-4, L1=1E-6, batch_size=8, low_rank_factorization=F, n_frames=20000
+Metrics: test_R2=0.990, test_pearson=0.987, connectivity_R2=0.9998, final_loss=3479
+Activity: chaotic + Dale_law, range [-14,13], effective_rank(99%)=34, spectral_radius=1.285
+Mutation: n_frames: 10000 -> 20000 (block change); lr_W: 80E-3 -> 25E-3 (starting fresh)
+Parent rule: root (start of Block 7)
+Observation: n_frames=20000 dramatically improves chaotic+Dale_law - jumped from Block 3's best 0.940 to 0.9998; spectral_radius=1.285 (slightly unstable regime); effective_rank=34 is high
+Next: parent=97
+
+## Iter 98: converged
+Node: id=98, parent=97
+Mode/Strategy: exploit
+Config: lr_W=30E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.968, test_pearson=0.965, connectivity_R2=0.9998, final_loss=3522
+Activity: effective_rank(99%)=35, spectral_radius=1.285
+Mutation: lr_W: 25E-3 -> 30E-3
+Parent rule: highest UCB (node 98, UCB=1.707)
+Observation: lr_W=30E-3 (ratio 300:1) maintains perfect connectivity recovery; 2/2 converged
+Next: parent=98
+
+## Iter 99: converged
+Node: id=99, parent=98
+Mode/Strategy: exploit
+Config: lr_W=40E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.987, test_pearson=0.986, connectivity_R2=0.9996, final_loss=3261
+Activity: effective_rank(99%)=32, spectral_radius=1.285
+Mutation: lr_W: 30E-3 -> 40E-3
+Parent rule: highest UCB (node 99, UCB=1.866)
+Observation: lr_W=40E-3 (ratio 400:1) still works perfectly - regime is very robust to lr_W
+Next: parent=99 (failure-probe: test extreme lr_W to find upper boundary)
+

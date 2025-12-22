@@ -239,9 +239,9 @@ Update `{config}_memory.md`:
 
 ### Regime Comparison Table
 
-| Block | Regime                  | n_neurons | n_neuron_types | Best R² | Optimal lr_W | Optimal L1 | Key finding |
-| ----- | ----------------------- | --------- | -------------- | ------- | ------------ | ---------- | ----------- |
-| 1     | chaotic, Dale_law=False | 100       | 1              | 1.000   | 8E-3         | 1E-5       | ...         |
+| Block | Regime                  | E/I  | n_frames | n_neurons | n_types | Best R² | Optimal lr_W | Optimal L1 | Key finding |
+| ----- | ----------------------- | ---- | -------- | --------- | ------- | ------- | ------------ | ---------- | ----------- |
+| 1     | chaotic, Dale_law=False | -    | 10000    | 100       | 1       | 1.000   | 8E-3         | 1E-5       | ...         |
 
 ### Established Principles
 
@@ -395,6 +395,9 @@ L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff + ...
 
 - High (30+): full W recoverable
 - Low (<15): only subspace identifiable → need factorization
+- **Block 6 finding**: effective_rank is the primary predictor of achievable R²
+  - effective_rank=20 → R²≈0.998 achievable
+  - effective_rank=10 → R²≈0.92 ceiling (regardless of training params)
 
 ### Low-rank Connectivity
 
