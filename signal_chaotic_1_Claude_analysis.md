@@ -1295,3 +1295,510 @@ Parent rule: highest UCB (node 99, UCB=1.866)
 Observation: lr_W=40E-3 (ratio 400:1) still works perfectly - regime is very robust to lr_W
 Next: parent=99 (failure-probe: test extreme lr_W to find upper boundary)
 
+## Iter 100: converged
+Node: id=100, parent=99
+Mode/Strategy: failure-probe (4 consecutive R² ≥ 0.9)
+Config: lr_W=100E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.994, test_pearson=0.995, connectivity_R2=0.9995, final_loss=3747
+Activity: effective_rank(99%)=36, spectral_radius=0.962
+Mutation: lr_W: 40E-3 -> 100E-3
+Parent rule: highest UCB (node 100, UCB=2.000) + failure-probe strategy
+Observation: extreme lr_W=100E-3 (ratio 1000:1) still converges perfectly; regime extremely robust; spectral_radius dropped to 0.962 (stable)
+Next: parent=100 (continue failure-probe with even higher lr_W to find true boundary)
+
+## Iter 101: converged
+Node: id=101, parent=100
+Mode/Strategy: failure-probe (5 consecutive R² ≥ 0.9)
+Config: lr_W=200E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.724, test_pearson=0.682, connectivity_R2=0.9985, final_loss=4162
+Activity: effective_rank(99%)=33, spectral_radius=1.285
+Mutation: lr_W: 100E-3 -> 200E-3
+Parent rule: highest UCB (node 101, UCB=2.117) + failure-probe strategy
+Observation: extreme lr_W=200E-3 (ratio 2000:1) still converges (R²=0.9985)! but dynamics prediction suffers (test_R2 drops to 0.724). connectivity recovery is extremely robust
+Next: parent=101 (explore lower lr_W to restore test_R2 while maintaining connectivity)
+
+## Iter 102: converged
+Node: id=102, parent=101
+Mode/Strategy: exploit (branch from extreme lr_W)
+Config: lr_W=50E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.976, test_pearson=0.972, connectivity_R2=0.9995, final_loss=3227
+Activity: effective_rank(99%)=33, spectral_radius=1.285
+Mutation: lr_W: 200E-3 -> 50E-3
+Parent rule: highest UCB (node 101, UCB=2.117)
+Observation: reducing lr_W from extreme 200E-3 to 50E-3 restored test_R2 (0.724->0.976) while maintaining perfect connectivity; ratio 500:1 effective
+Next: parent=102
+
+## Iter 103: converged
+Node: id=103, parent=102
+Mode/Strategy: exploit
+Config: lr_W=30E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.960, test_pearson=0.950, connectivity_R2=0.9996, final_loss=3636
+Activity: effective_rank(99%)=33, spectral_radius=1.285
+Mutation: lr_W: 50E-3 -> 30E-3
+Parent rule: highest UCB (node 102, UCB=2.224)
+Observation: lr_W=30E-3 maintains perfect connectivity; 7/7 converged; all lr_W in 25-200E-3 range work
+Next: parent=103
+
+## Iter 104: converged
+Node: id=104, parent=root
+Mode/Strategy: robustness-test
+Config: lr_W=30E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.965, test_pearson=0.954, connectivity_R2=0.9998, final_loss=3503
+Activity: effective_rank(99%)=36, spectral_radius=1.285
+Mutation: none (rerun of iter 103 config)
+Parent rule: highest UCB (node 104, UCB=2.323)
+Observation: robustness confirmed - same config shows slight variance (0.9996->0.9998); 8/8 converged; now explore L1 dimension
+Next: parent=104, explore L1=5E-7 (switch dimension after 8 consecutive lr_W mutations)
+
+## Iter 105: converged
+Node: id=105, parent=104
+Mode/Strategy: explore (dimension switch - L1 after 8 lr_W mutations)
+Config: lr_W=30E-3, lr=1E-4, L1=5E-7, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.848, test_pearson=0.804, connectivity_R2=0.9997, final_loss=3767
+Activity: effective_rank(99%)=36, spectral_radius=1.285
+Mutation: L1: 1E-6 -> 5E-7
+Parent rule: highest UCB (node 104, UCB=2.000)
+Observation: L1=5E-7 maintains connectivity (0.9997) but hurts dynamics (test_R2=0.848 vs 0.965); weaker L1 increases test_R2 variance
+Next: parent=105, explore L1=2E-6 to test if stronger L1 improves dynamics
+
+## Iter 106: converged
+Node: id=106, parent=105
+Mode/Strategy: exploit (L1 exploration)
+Config: lr_W=30E-3, lr=1E-4, L1=2E-6, batch_size=8, factorization=F, n_frames=20000
+Metrics: test_R2=0.948, test_pearson=0.949, connectivity_R2=0.9993, final_loss=3336
+Activity: effective_rank(99%)=28, spectral_radius=1.285
+Mutation: L1: 5E-7 -> 2E-6
+Parent rule: highest UCB (node 106, UCB=2.580)
+Observation: L1=2E-6 better than L1=5E-7 for dynamics (test_R2=0.948 vs 0.848); connectivity remains excellent (0.9993); L1=1E-6 still optimal (iter 104: 0.9998)
+Next: parent=106, explore batch_size=16
+
+## Iter 107: converged
+Node: id=107, parent=106
+Mode/Strategy: exploit (batch_size exploration)
+Config: lr_W=30E-3, lr=1E-4, L1=1E-6, batch_size=16, factorization=F, n_frames=20000
+Metrics: test_R2=0.993, test_pearson=0.995, connectivity_R2=0.9998, final_loss=3451
+Activity: effective_rank(99%)=33, spectral_radius=1.285
+Mutation: batch_size: 8 -> 16; L1: 2E-6 -> 1E-6 (reset to optimal)
+Parent rule: highest UCB (node 107, UCB=2.658)
+Observation: batch_size=16 excellent - test_R2=0.993 (best this block), connectivity=0.9998; larger batch improves dynamics
+Next: parent=107, explore batch_size=32
+
+## Iter 108: converged
+Node: id=108, parent=107
+Mode/Strategy: exploit (batch_size exploration)
+Config: lr_W=30E-3, lr=1E-4, L1=1E-6, batch_size=32, factorization=F, n_frames=20000
+Metrics: test_R2=0.878, test_pearson=0.818, connectivity_R2=1.0000, final_loss=3640
+Activity: effective_rank(99%)=32, spectral_radius=1.285
+Mutation: batch_size: 16 -> 32
+Parent rule: highest UCB (node 108, UCB=2.732)
+Observation: batch_size=32 achieves PERFECT connectivity (R²=1.000) but hurts dynamics (test_R2=0.878 vs 0.993); trade-off identified
+Next: parent=108, explore lr_W increase to recover dynamics
+
+## Iter 109: converged
+Node: id=109, parent=108
+Mode/Strategy: exploit
+Config: lr_W=40E-3, lr=1E-4, L1=1E-6, batch_size=32, factorization=F, n_frames=20000
+Metrics: test_R2=0.995, test_pearson=0.996, connectivity_R2=0.9999, final_loss=4871
+Activity: effective_rank(99%)=36, spectral_radius=1.285
+Mutation: lr_W: 30E-3 -> 40E-3
+Parent rule: highest UCB (node 109, UCB=2.803)
+Observation: lr_W=40E-3 with batch_size=32 achieves both: excellent dynamics (test_R2=0.995) AND near-perfect connectivity (R²=0.9999)
+Next: parent=109
+
+## Iter 110: converged
+Node: id=110, parent=109
+Mode/Strategy: explore (dimension switch - lr after batch_size exploration)
+Config: lr_W=40E-3, lr=2E-4, L1=1E-6, batch_size=32, factorization=F, n_frames=20000
+Metrics: test_R2=0.956, test_pearson=0.974, connectivity_R2=0.9999, final_loss=2150
+Activity: effective_rank(99%)=33, spectral_radius=1.285
+Mutation: lr: 1E-4 -> 2E-4
+Parent rule: highest UCB (node 110, UCB=2.871)
+Observation: lr=2E-4 (ratio 200:1) maintains excellent connectivity (0.9999) but test_R2 slightly lower (0.956 vs 0.995); ratio 400:1 confirmed as optimal
+Next: parent=110
+
+## Iter 111: converged
+Node: id=111, parent=110
+Mode/Strategy: explore (lr dimension)
+Config: lr_W=40E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=F, n_frames=20000
+Metrics: test_R2=0.989, test_pearson=0.994, connectivity_R2=0.9999, final_loss=4537
+Activity: effective_rank(99%)=34, spectral_radius=1.285
+Mutation: lr: 2E-4 -> 5E-5
+Parent rule: highest UCB (node 111, UCB=2.936)
+Observation: lr=5E-5 (ratio 800:1) maintains excellent connectivity (0.9999); test_R2=0.989 slightly lower than ratio 400:1 (0.995); confirms ratio 400:1 optimal
+Next: parent=111
+
+## Iter 112: converged
+Node: id=112, parent=111
+Mode/Strategy: exploit
+Config: lr_W=40E-3, lr=1E-4, L1=1E-6, batch_size=32, factorization=F, n_frames=20000
+Metrics: test_R2=0.997, test_pearson=0.998, connectivity_R2=0.9999, final_loss=9615
+Activity: effective_rank(99%)=32, spectral_radius=1.285
+Mutation: lr: 5E-5 -> 1E-4 (return to optimal ratio 400:1)
+Parent rule: highest UCB (node 112, UCB=3.000)
+Observation: returned to optimal config; test_R2=0.997, connectivity=0.9999; 16/16 converged
+
+---
+
+## Block 7 Summary
+
+**Regime**: chaotic, Dale_law=True, n_frames=20000
+**Iterations**: 97-112 (16 total)
+**Convergence**: 16/16 (100%) - most robust regime tested
+
+**Key Findings**:
+1. n_frames=20000 dramatically improves chaotic+Dale_law: Block 3's R²=0.940 → R²=0.9999
+2. lr_W boundary very wide: 25-200E-3 (ratio 250-2000:1) all converge
+3. optimal config: lr_W=40E-3, lr=1E-4 (ratio 400:1), L1=1E-6, batch_size=32
+4. batch_size=32 improves connectivity but needs lr_W compensation
+5. effective_rank=28-36 consistently high (n_frames enables rich dynamics)
+
+**Branching Analysis**:
+- Branching rate: 0/15 = 0% (all sequential)
+- Dimension diversity: lr_W dominated early (8 consecutive)
+- Action required: ADD exploration rule
+
+PROTOCOL EDITED: added forced branching rule for 100% convergence blocks
+
+## Iter 113: converged
+Node: id=113, parent=root
+Mode/Strategy: exploit (first iter of block)
+Config: lr_W=40E-3, lr=1E-4, L1=1E-6, batch_size=32, factorization=F, n_frames=20000
+Metrics: test_R2=0.968, test_pearson=0.958, connectivity_R2=0.9998, final_loss=5525
+Activity: effective_rank(99%)=34, spectral_radius=1.285
+Mutation: simulation change intended but config not updated - ran with Block 7 config (chaotic, Dale=True)
+Parent rule: root (new block)
+Observation: config mismatch - Block 8 should test low_rank=10, Dale=False but ran with Block 7 regime; converged anyway (1/1)
+Next: parent=113, fix config for low_rank=10
+
+## Iter 114: failed
+Node: id=114, parent=113
+Mode/Strategy: exploit
+Config: lr_W=16E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=T, low_rank=10, n_frames=20000
+Metrics: test_R2=0.348, test_pearson=0.106, connectivity_R2=0.013, final_loss=3957
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: simulation→low_rank=10, Dale=False; training→lr_W=16E-3, batch_size=8, factorization=True
+Parent rule: highest UCB (node 113, UCB=1.471)
+Observation: extremely low effective_rank=4 despite n_frames=20000; low_rank=10 generates degenerate activity - fundamentally hard regime
+Next: parent=113, try higher lr_W=40E-3 to see if training can compensate
+
+## Iter 115: failed
+Node: id=115, parent=113
+Mode/Strategy: exploit
+Config: lr_W=40E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=T, low_rank=10, n_frames=20000
+Metrics: test_R2=0.528, test_pearson=0.093, connectivity_R2=0.021, final_loss=4008
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: lr_W 16E-3 → 40E-3
+Parent rule: highest UCB (node 113, UCB=1.433)
+Observation: lr_W=40E-3 did not help; effective_rank=4 unchanged; low_rank=10 fundamentally degenerate
+Next: parent=113, try extreme lr_W=100E-3 as failure-probe
+
+## Iter 116: failed
+Node: id=116, parent=113
+Mode/Strategy: failure-probe
+Config: lr_W=100E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=T, low_rank=10, n_frames=20000
+Metrics: test_R2=0.512, test_pearson=0.357, connectivity_R2=0.091, final_loss=4079
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: lr_W 40E-3 → 100E-3
+Parent rule: highest UCB (node 113, UCB=1.400)
+Observation: extreme lr_W=100E-3 shows marginal improvement (R²=0.091 vs 0.021) but still failed; effective_rank=4 unchanged
+Next: parent=113, try overparameterization - model low_rank=20 > simulation connectivity_rank=10
+
+## Iter 117: failed
+Node: id=117, parent=113
+Mode/Strategy: explore (overparameterization test)
+Config: lr_W=80E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=T, model_low_rank=20, sim_connectivity_rank=10, n_frames=20000
+Metrics: test_R2=0.655, test_pearson=0.691, connectivity_R2=0.052, final_loss=3687
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: model low_rank 10 → 20 (overparameterization); lr_W 100E-3 → 80E-3
+Parent rule: highest UCB (node 113, UCB=1.372)
+Observation: overparameterization (model low_rank=20 > sim=10) did not help; effective_rank=4 unchanged; confirms problem is simulation-side
+Next: parent=113, try no factorization to test if factorization is limiting recovery
+
+## Iter 118: failed
+Node: id=118, parent=113
+Mode/Strategy: explore (test full-rank model)
+Config: lr_W=100E-3, lr=1E-4, L1=1E-6, batch_size=8, factorization=F, low_rank=20, sim_connectivity_rank=10, n_frames=20000
+Metrics: test_R2=0.582, test_pearson=0.049, connectivity_R2=0.016, final_loss=2919
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: factorization T → F (full-rank model)
+Parent rule: highest UCB (node 113, UCB=1.350)
+Observation: full-rank model (factorization=False) did not help; R²=0.016 same as factorization=True; confirms effective_rank=4 is the fundamental barrier
+Next: parent=113, try batch_size=32 + lr_W=150E-3 as final aggressive attempt
+
+## Iter 119: failed
+Node: id=119, parent=113
+Mode/Strategy: exploit
+Config: lr_W=150E-3, lr=1E-4, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=20000
+Metrics: test_R2=0.475, test_pearson=0.307, connectivity_R2=0.009, final_loss=2586
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: lr_W 100E-3 → 150E-3, batch_size 8 → 32
+Parent rule: highest UCB (node 116, UCB=1.414)
+Observation: 7th consecutive failure on low_rank=10; batch_size=32 + extreme lr_W=150E-3 did not help; effective_rank=4 unchanged; confirms fundamental barrier
+Next: parent=116, try extreme lr_W:lr ratio by lowering lr to 5E-5
+
+## Iter 120: failed
+Node: id=120, parent=116
+Mode/Strategy: exploit (extreme lr_W:lr ratio test)
+Config: lr_W=100E-3, lr=5E-5, L1=1E-6, batch_size=8, factorization=T, low_rank=10, n_frames=20000
+Metrics: test_R2=0.525, test_pearson=0.190, connectivity_R2=0.166, final_loss=3667
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: lr 1E-4 → 5E-5 (lr_W:lr ratio 1000:1 → 2000:1)
+Parent rule: highest UCB (node 120, UCB=1.580)
+Observation: extreme ratio 2000:1 improved R² from 0.091 to 0.166 (best in block so far) but still failed; effective_rank=4 unchanged
+Next: parent=120, try L1=5E-7 to reduce regularization pressure
+
+## Iter 121: failed
+Node: id=121, parent=120
+Mode/Strategy: exploit
+Config: lr_W=100E-3, lr=5E-5, L1=5E-7, batch_size=8, factorization=T, low_rank=10, n_frames=20000
+Metrics: test_R2=0.632, test_pearson=0.168, connectivity_R2=0.165, final_loss=3570
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: L1 1E-6 → 5E-7
+Parent rule: highest UCB (node 121, UCB=1.665)
+Observation: 9th consecutive failure; L1=5E-7 had no effect; R²=0.165 same as iter 120 (0.166); effective_rank=4 unchanged
+Next: parent=121, try extreme ratio lr_W=200E-3, lr=2E-5 (10000:1)
+
+## Iter 122: failed
+Node: id=122, parent=121
+Mode/Strategy: exploit (extreme ratio test)
+Config: lr_W=200E-3, lr=2E-5, L1=5E-7, batch_size=8, factorization=T, low_rank=10, n_frames=20000
+Metrics: test_R2=0.325, test_pearson=0.415, connectivity_R2=0.162, final_loss=4397
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: lr_W 100E-3 → 200E-3, lr 5E-5 → 2E-5 (ratio 2000:1 → 10000:1)
+Parent rule: highest UCB (node 122, UCB=1.743)
+Observation: 10th consecutive failure; extreme ratio 10000:1 did not improve R² (0.162 same as 0.165); effective_rank=4 unchanged; confirms low_rank=10 is fundamentally unlearnable
+Next: parent=122, try n_frames=30000 as final attempt to boost effective_rank
+
+## Iter 123: failed
+Node: id=123, parent=122
+Mode/Strategy: exploit
+Config: lr_W=200E-3, lr=2E-5, L1=5E-7, batch_size=8, factorization=F, low_rank=10, n_frames=20000
+Metrics: test_R2=0.565, test_pearson=0.342, connectivity_R2=0.094, final_loss=2297
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: factorization T → F (full-rank model test)
+Parent rule: highest UCB (node 123, UCB=1.753)
+Observation: 11th consecutive failure; factorization=False did not help; R²=0.094 same range as others; effective_rank=4 unchanged
+Next: parent=123, try n_frames=30000 as final attempt to boost effective_rank
+
+## Iter 124: failed
+Node: id=124, parent=123
+Mode/Strategy: exploit
+Config: lr_W=100E-3, lr=5E-5, L1=1E-6, batch_size=8, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.439, test_pearson=0.542, connectivity_R2=0.077, final_loss=5509
+Activity: effective_rank(99%)=4, spectral_radius=1.023
+Mutation: n_frames 20000 → 30000
+Parent rule: highest UCB (node 124, UCB=1.809)
+Observation: 12th consecutive failure; n_frames=30000 did NOT boost effective_rank (still 4); confirms low_rank=10 produces fundamentally degenerate dynamics regardless of n_frames
+Next: parent=124, try batch_size=32 with same params
+
+## Iter 125: partial (BREAKTHROUGH)
+Node: id=125, parent=124
+Mode/Strategy: exploit
+Config: lr_W=100E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.990, test_pearson=0.981, connectivity_R2=0.885, final_loss=3077
+Activity: effective_rank(99%)=7, spectral_radius=1.036
+Mutation: batch_size 8 → 32
+Parent rule: highest UCB (node 125, UCB=2.688)
+Observation: BREAKTHROUGH - effective_rank jumped from 4 to 7 (stochastic variation in simulation); R²=0.885 best in block; proves low_rank=10 CAN achieve higher effective_rank occasionally
+Next: parent=125, exploit this regime with lr_W tuning
+
+## Iter 126: partial
+Node: id=126, parent=125
+Mode/Strategy: exploit
+Config: lr_W=120E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.968, test_pearson=0.937, connectivity_R2=0.867, final_loss=3127
+Activity: effective_rank(99%)=6, spectral_radius=1.036
+Mutation: lr_W 100E-3 → 120E-3
+Parent rule: highest UCB (node 126, UCB=2.738)
+Observation: effective_rank dropped from 7 to 6 (stochastic); R²=0.867 still partial; confirms effective_rank variance drives results
+Next: parent=126, try lr_W=80E-3 to test lower lr_W at current effective_rank
+
+## Iter 127: converged
+Node: id=127, parent=126
+Mode/Strategy: exploit
+Config: lr_W=80E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.996, test_pearson=0.990, connectivity_R2=0.901, final_loss=3102
+Activity: effective_rank(99%)=6, spectral_radius=1.036
+Mutation: lr_W 120E-3 → 80E-3
+Parent rule: highest UCB (node 127, UCB=2.837)
+Observation: first converged iteration in block 8; lr_W=80E-3 slightly outperformed 120E-3; effective_rank=6 same as iter 126 but crossed R²=0.9 threshold
+Next: end of block 8
+
+---
+
+## Block 8 Summary (low_rank=10, Dale=False, n_frames=30000)
+
+**Configuration**: connectivity_type=low_rank, connectivity_rank=10, Dale_law=False, n_frames=30000
+**Iterations**: 113-127 (15 iterations; iter 113 ran wrong config)
+**Results**: 1/14 converged (7%), 3/14 partial (21%), 10/14 failed (71%)
+
+**Key findings**:
+1. **effective_rank is the barrier**: low_rank=10 typically produces effective_rank=4, fundamentally limiting learnability
+2. **stochastic variation**: occasionally effective_rank reaches 6-7, enabling partial/converged results
+3. **n_frames=30000 insufficient**: did NOT reliably boost effective_rank like it did for higher connectivity_rank
+4. **R² scales with effective_rank**: eff_rank=4→R²<0.2, eff_rank=6→R²~0.87-0.90, eff_rank=7→R²~0.89
+5. **optimal config when eff_rank≥6**: lr_W=80-100E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T
+
+**Branching rate**: 6/14 = 43% (iters 114-119 all branched from 113; iters 120-127 mostly sequential)
+
+**PROTOCOL EDITED**: no changes needed; branching rate 43% is healthy (20-80% range)
+
+---
+
+## Block 9 Start (low_rank=10, Dale=True)
+
+## Iter 128: partial
+Node: id=128, parent=127
+Mode/Strategy: exploit (new simulation)
+Config: lr_W=80E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Simulation: connectivity_type=low_rank, connectivity_rank=10, Dale_law=True, Dale_law_factor=0.5
+Metrics: test_R2=0.279, test_pearson=-0.184, connectivity_R2=0.572, final_loss=6136
+Activity: effective_rank(90%)=3, effective_rank(99%)=13, spectral_radius=0.649
+Mutation: simulation change: Dale_law False → True (new block)
+Parent rule: inherit Block 8 optimal config for new simulation
+Observation: Dale_law=True increased effective_rank(99%) from ~6 to 13; R²=0.572 partial (better than Block 8's typical 0.07-0.16); negative test_pearson suggests model dynamics mismatch; spectral_radius=0.649 (stable)
+Next: parent=128, try lr_W=100E-3 to exploit higher effective_rank
+
+## Iter 129: partial
+Node: id=129, parent=root
+Mode/Strategy: exploit
+Config: lr_W=100E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.263, test_pearson=0.064, connectivity_R2=0.508, final_loss=5551
+Activity: effective_rank(90%)=3, effective_rank(99%)=12, spectral_radius=0.649
+Mutation: lr_W: 80E-3 → 100E-3
+Parent rule: UCB selects only available node (root for new block)
+Observation: lr_W=100E-3 (ratio 2000:1) degraded R² from 0.572→0.508; ratio too high; effective_rank=12 consistent
+Next: parent=129, try lr_W=60E-3 (ratio 1200:1)
+
+## Iter 130: partial
+Node: id=130, parent=129
+Mode/Strategy: exploit
+Config: lr_W=60E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.298, test_pearson=0.245, connectivity_R2=0.585, final_loss=6025
+Activity: effective_rank(90%)=3, effective_rank(99%)=13, spectral_radius=0.649
+Mutation: lr_W: 100E-3 → 60E-3 (reduced ratio 2000:1 → 1200:1)
+Parent rule: UCB selects node 130 (UCB=1.292), highest available
+Observation: lr_W=60E-3 (ratio 1200:1) improved R² from 0.508→0.585; confirms lower ratio is better
+Next: parent=130, try lr_W=40E-3 (ratio 800:1)
+
+## Iter 131: partial
+Node: id=131, parent=130
+Mode/Strategy: exploit
+Config: lr_W=40E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.398, test_pearson=-0.258, connectivity_R2=0.615, final_loss=6196
+Activity: effective_rank(90%)=3, effective_rank(99%)=13, spectral_radius=0.649
+Mutation: lr_W: 60E-3 → 40E-3 (reduced ratio 1200:1 → 800:1)
+Parent rule: UCB selects node 131 (UCB=1.481), highest available
+Observation: lr_W=40E-3 (ratio 800:1) improved R² from 0.585→0.615; trend continues: lower ratio better
+Next: parent=131, try lr_W=20E-3 (ratio 400:1)
+
+## Iter 132: partial
+Node: id=132, parent=131
+Mode/Strategy: exploit
+Config: lr_W=20E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.282, test_pearson=0.053, connectivity_R2=0.634, final_loss=6776
+Activity: effective_rank(90%)=3, effective_rank(99%)=14, spectral_radius=0.649
+Mutation: lr_W: 40E-3 → 20E-3 (reduced ratio 800:1 → 400:1)
+Parent rule: UCB selects node 132 (UCB=1.634), highest available
+Observation: lr_W=20E-3 (ratio 400:1) improved R² from 0.615→0.634; trend continues; try even lower ratio 200:1
+Next: parent=132, try lr_W=10E-3 (ratio 200:1)
+
+## Iter 133: partial
+Node: id=133, parent=132
+Mode/Strategy: exploit
+Config: lr_W=10E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.373, test_pearson=-0.208, connectivity_R2=0.665, final_loss=7474
+Activity: effective_rank(90%)=4, effective_rank(99%)=16, spectral_radius=0.649
+Mutation: lr_W: 20E-3 → 10E-3 (reduced ratio 400:1 → 200:1)
+Parent rule: UCB selects node 133 (UCB=1.783), highest available
+Observation: lr_W=10E-3 (ratio 200:1) improved R² from 0.634→0.665; eff_rank(99%) increased 14→16; trend continues
+Next: parent=133, try lr_W=5E-3 (ratio 100:1)
+
+## Iter 134: partial
+Node: id=134, parent=133
+Mode/Strategy: exploit
+Config: lr_W=5E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.470, test_pearson=-0.346, connectivity_R2=0.637, final_loss=7908
+Activity: effective_rank(90%)=3, effective_rank(99%)=13, spectral_radius=0.649
+Mutation: lr_W: 10E-3 → 5E-3 (reduced ratio 200:1 → 100:1)
+Parent rule: UCB selects node 134 (UCB=1.861), highest available
+Observation: lr_W=5E-3 (ratio 100:1) degraded R² from 0.665→0.637; ratio 100:1 too low; optimal near 200:1
+Next: parent=134, try lr=1E-4 (ratio 50:1) to test boundary
+
+## Iter 135: partial
+Node: id=135, parent=134
+Mode/Strategy: exploit
+Config: lr_W=5E-3, lr=1E-4, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.552, test_pearson=-0.331, connectivity_R2=0.644, final_loss=7530
+Activity: effective_rank(90%)=3, effective_rank(99%)=14, spectral_radius=0.649
+Mutation: lr: 5E-5 → 1E-4 (reduced ratio 100:1 → 50:1)
+Parent rule: UCB selects node 135 (UCB=1.966), highest available
+Observation: ratio 50:1 gives R²=0.644, similar to ratio 100:1 (0.637); both worse than ratio 200:1 (0.665); optimal around 200:1
+Next: parent=133 (best node R²=0.665), try lr_W=8E-3 with lr=5E-5 (ratio 160:1)
+
+## Iter 136: partial
+Node: id=136, parent=133
+Mode/Strategy: exploit
+Config: lr_W=8E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.416, test_pearson=-0.050, connectivity_R2=0.503, final_loss=6162
+Activity: effective_rank(90%)=2, effective_rank(99%)=10, spectral_radius=0.649
+Mutation: lr_W: 10E-3 → 8E-3 (reduced ratio 200:1 → 160:1)
+Parent rule: tried mutation from best R² node (133, R²=0.665)
+Observation: ratio 160:1 (R²=0.503) worse than ratio 200:1 (R²=0.665); confirms ratio 200:1 is optimal; eff_rank dropped to 10
+Next: parent=135 (UCB=2.058), try L1=5E-7 to probe lower regularization boundary
+
+## Iter 137: partial
+Node: id=137, parent=135
+Mode/Strategy: exploit
+Config: lr_W=5E-3, lr=1E-4, L1=5E-7, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.381, test_pearson=-0.117, connectivity_R2=0.631, final_loss=7584
+Activity: effective_rank(90%)=3, effective_rank(99%)=13, spectral_radius=0.649
+Mutation: L1: 1E-6 → 5E-7 (reduced regularization)
+Parent rule: UCB selects node 137 (UCB=2.131), highest available
+Observation: L1=5E-7 degraded R² from 0.644→0.631; confirms L1=1E-6 is optimal lower bound for this regime
+Next: parent=133 (best R²=0.665), try batch_size=16 instead of 32
+
+## Iter 138: partial
+Node: id=138, parent=133
+Mode/Strategy: exploit
+Config: lr_W=10E-3, lr=5E-5, L1=1E-6, batch_size=16, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.464, test_pearson=-0.258, connectivity_R2=0.627, final_loss=8715
+Activity: effective_rank(90%)=3, effective_rank(99%)=15, spectral_radius=0.649
+Mutation: batch_size: 32 → 16
+Parent rule: selected best R² node (133, R²=0.665) for dimension switch
+Observation: batch_size=16 degraded R² from 0.665→0.627; batch_size=32 remains optimal for this regime
+Next: parent=137 (UCB=2.212), try increasing lr to 2E-4 (ratio 25:1)
+
+## Iter 139: partial
+Node: id=139, parent=137
+Mode/Strategy: exploit
+Config: lr_W=5E-3, lr=2E-4, L1=5E-7, batch_size=32, factorization=T, low_rank=10, n_frames=30000
+Metrics: test_R2=0.452, test_pearson=-0.136, connectivity_R2=0.548, final_loss=6500
+Activity: effective_rank(90%)=3, effective_rank(99%)=12, spectral_radius=0.649
+Mutation: lr: 1E-4 → 2E-4 (reduced ratio 50:1 → 25:1)
+Parent rule: UCB selects node 139 (UCB=2.206), highest available
+Observation: ratio 25:1 (R²=0.548) worse than ratio 50:1 (R²=0.644); confirms ratio ~50-200:1 is optimal range
+Next: parent=138 (UCB=2.285), try low_rank=15 (overparameterization)
+
+## Iter 140: partial
+Node: id=140, parent=138
+Mode/Strategy: exploit
+Config: lr_W=10E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=15, n_frames=30000
+Metrics: test_R2=0.357, test_pearson=0.306, connectivity_R2=0.742, final_loss=7047
+Activity: effective_rank(90%)=4, effective_rank(99%)=15, spectral_radius=0.649
+Mutation: low_rank: 10 → 15 (overparameterization)
+Parent rule: UCB selects node 140 (UCB=2.474), highest available
+Observation: overparameterization (low_rank=15) improved R² from 0.627→0.742 (NEW BLOCK BEST); test_pearson positive (0.306)
+Next: parent=140, try low_rank=20 for more overparameterization
+
+
+## Iter 141: partial
+Node: id=141, parent=140
+Mode/Strategy: exploit
+Config: lr_W=10E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=20, n_frames=30000
+Metrics: test_R2=0.452, test_pearson=0.028, connectivity_R2=0.794, final_loss=6235
+Activity: effective_rank(90%)=3, effective_rank(99%)=14, spectral_radius=0.649
+Mutation: low_rank: 15 → 20 (more overparameterization)
+Parent rule: UCB selects node 140 (UCB=2.474→1.944 after iter 140); tried more overparameterization
+Observation: low_rank=20 improved R² from 0.742→0.794 (NEW BLOCK BEST); overparameterization trend continues
+Next: parent=141, try low_rank=25 for even more overparameterization

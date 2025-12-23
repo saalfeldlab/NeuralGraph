@@ -143,6 +143,7 @@ Step B: Choose strategy
 | n_iter_block/4 consecutive successes | **explore**         | Select outside recent chain        |
 | Good config found                    | **robustness-test** | Re-run same config                 |
 | 2+ distant nodes with R² > 0.9       | **recombine**       | Merge params from both nodes       |
+| 100% convergence, branching<10%      | **forced-branch**   | Select node in bottom 50% of tree  |
 
 **Recombination details:**
 
