@@ -238,6 +238,17 @@ Next: parent=141, try low_rank=25 for even more overparameterization
 - Dale_law fundamentally changes dynamics: lower spectral_radius (0.649 vs 1.036), higher eff_rank (13 vs 4)
 - ratio 160:1 significantly underperformed (0.503) - sensitive optimum at ratio 200:1
 - L1=1E-6 optimal; L1=5E-7 degraded; batch_size=32 optimal
-- **OVERPARAMETERIZATION WORKS**: low_rank progression: 10→0.665, 15→0.742, 20→0.794 (all improvements)
-- next: try low_rank=25 for even more overparameterization
-- 14 consecutive partial results; best R²=0.794 at node 141 (low_rank=20)
+- **OVERPARAMETERIZATION HAS SWEET SPOT**: low_rank progression: 10→0.665, 15→0.742, 20→0.794, 25→0.126 (CRASHED)
+- optimal overparameterization ~2x (low_rank=20 for connectivity_rank=10); 2.5x (low_rank=25) is too much
+- 15 consecutive partial results; best R²=0.794 at node 141 (low_rank=20)
+- next: return to best node (141), try lr_W adjustment around optimal config
+
+## Iter 142: partial
+Node: id=142, parent=141
+Mode/Strategy: exploit
+Config: lr_W=10E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=25, n_frames=30000
+Metrics: test_R2=0.475, test_pearson=0.509, connectivity_R2=0.126, final_loss=9372
+Activity: effective_rank(90%)=4, effective_rank(99%)=15, spectral_radius=0.649
+Mutation: low_rank: 20 → 25 (more overparameterization)
+Parent rule: UCB selects node 142 (UCB=1.997 from previous iteration)
+Observation: low_rank=25 CRASHED from 0.794→0.126; excessive overparameterization (2.5x) is harmful; optimal near 2x (low_rank=20)

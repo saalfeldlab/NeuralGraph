@@ -1802,3 +1802,15 @@ Mutation: low_rank: 15 → 20 (more overparameterization)
 Parent rule: UCB selects node 140 (UCB=2.474→1.944 after iter 140); tried more overparameterization
 Observation: low_rank=20 improved R² from 0.742→0.794 (NEW BLOCK BEST); overparameterization trend continues
 Next: parent=141, try low_rank=25 for even more overparameterization
+
+
+## Iter 142: partial
+Node: id=142, parent=141
+Mode/Strategy: exploit
+Config: lr_W=10E-3, lr=5E-5, L1=1E-6, batch_size=32, factorization=T, low_rank=25, n_frames=30000
+Metrics: test_R2=0.475, test_pearson=0.509, connectivity_R2=0.126, final_loss=9372
+Activity: effective_rank(90%)=4, effective_rank(99%)=15, spectral_radius=0.649
+Mutation: low_rank: 20 → 25 (more overparameterization)
+Parent rule: UCB selects node 142 (UCB=1.997 from previous iteration)
+Observation: low_rank=25 CRASHED from 0.794→0.126; excessive overparameterization (2.5x) is harmful; optimal near 2x (low_rank=20)
+Next: parent=141 (best R²=0.794), try lr_W=15E-3 with low_rank=20

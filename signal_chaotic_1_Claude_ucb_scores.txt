@@ -1,15 +1,16 @@
-=== UCB Scores (Simulation block 8, iters 129-144, N=13, c=1.0) ===
+=== UCB Scores (Simulation block 8, iters 129-144, N=14, c=1.0) ===
 
-Node 141: UCB=2.597, parent=140, visits=1, R2=0.794, Pearson=0.028, Mutation=low_rank: 15 → 20 (more overparameterization)
-Node 139: UCB=2.351, parent=137, visits=1, R2=0.548, Pearson=0.000, Mutation=lr: 1E-4 → 2E-4 (reduced ratio 50:1 → 25:1)
-Node 136: UCB=2.306, parent=133, visits=1, R2=0.503, Pearson=0.000, Mutation=lr_W: 10E-3 → 8E-3 (reduced ratio 200:1 → 160:1)
-Node 140: UCB=1.944, parent=138, visits=2, R2=0.742, Pearson=0.306, Mutation=low_rank: 10 → 15 (overparameterization)
-Node 137: UCB=1.833, parent=135, visits=2, R2=0.631, Pearson=0.000, Mutation=L1: 1E-6 → 5E-7 (reduced regularization)
-Node 135: UCB=1.545, parent=134, visits=3, R2=0.644, Pearson=0.000, Mutation=lr: 5E-5 → 1E-4 (reduced ratio 100:1 → 50:1)
-Node 138: UCB=1.528, parent=133, visits=3, R2=0.627, Pearson=0.000, Mutation=batch_size: 32 → 16
-Node 134: UCB=1.358, parent=133, visits=4, R2=0.637, Pearson=0.000, Mutation=lr_W: 10E-3 → 5E-3 (reduced ratio 200:1 → 100:1)
-Node 133: UCB=1.026, parent=132, visits=9, R2=0.665, Pearson=0.000, Mutation=lr_W: 20E-3 → 10E-3 (reduced ratio 400:1 → 200:1)
-Node 132: UCB=0.962, parent=131, visits=10, R2=0.634, Pearson=0.053, Mutation=lr_W: 40E-3 → 20E-3 (reduced ratio 800:1 → 400:1)
-Node 131: UCB=0.915, parent=130, visits=11, R2=0.615, Pearson=0.000, Mutation=lr_W: 60E-3 → 40E-3 (reduced ratio 1200:1 → 800:1)
-Node 130: UCB=0.862, parent=129, visits=12, R2=0.585, Pearson=0.245, Mutation=lr_W: 100E-3 → 60E-3 (reduced ratio 2000:1 → 1200:1)
-Node 129: UCB=0.766, parent=root, visits=13, R2=0.508, Pearson=0.064, Mutation=lr_W: 80E-3 → 100E-3
+Node 139: UCB=2.419, parent=137, visits=1, R2=0.548, Pearson=0.000, Mutation=lr: 1E-4 → 2E-4 (reduced ratio 50:1 → 25:1)
+Node 136: UCB=2.374, parent=133, visits=1, R2=0.503, Pearson=0.000, Mutation=lr_W: 10E-3 → 8E-3 (reduced ratio 200:1 → 160:1)
+Node 141: UCB=2.041, parent=140, visits=2, R2=0.794, Pearson=0.028, Mutation=low_rank: 15 → 20 (more overparameterization)
+Node 142: UCB=1.997, parent=141, visits=1, R2=0.126, Pearson=0.509, Mutation=low_rank: 20 → 25 (more overparameterization)
+Node 137: UCB=1.878, parent=135, visits=2, R2=0.631, Pearson=0.000, Mutation=L1: 1E-6 → 5E-7 (reduced regularization)
+Node 140: UCB=1.677, parent=138, visits=3, R2=0.742, Pearson=0.306, Mutation=low_rank: 10 → 15 (overparameterization)
+Node 135: UCB=1.579, parent=134, visits=3, R2=0.644, Pearson=0.000, Mutation=lr: 5E-5 → 1E-4 (reduced ratio 100:1 → 50:1)
+Node 134: UCB=1.385, parent=133, visits=4, R2=0.637, Pearson=0.000, Mutation=lr_W: 10E-3 → 5E-3 (reduced ratio 200:1 → 100:1)
+Node 138: UCB=1.375, parent=133, visits=4, R2=0.627, Pearson=0.000, Mutation=batch_size: 32 → 16
+Node 133: UCB=1.005, parent=132, visits=10, R2=0.665, Pearson=0.000, Mutation=lr_W: 20E-3 → 10E-3 (reduced ratio 400:1 → 200:1)
+Node 132: UCB=0.946, parent=131, visits=11, R2=0.634, Pearson=0.053, Mutation=lr_W: 40E-3 → 20E-3 (reduced ratio 800:1 → 400:1)
+Node 131: UCB=0.903, parent=130, visits=12, R2=0.615, Pearson=0.000, Mutation=lr_W: 60E-3 → 40E-3 (reduced ratio 1200:1 → 800:1)
+Node 130: UCB=0.852, parent=129, visits=13, R2=0.585, Pearson=0.245, Mutation=lr_W: 100E-3 → 60E-3 (reduced ratio 2000:1 → 1200:1)
+Node 129: UCB=0.757, parent=root, visits=14, R2=0.508, Pearson=0.064, Mutation=lr_W: 80E-3 → 100E-3
