@@ -1045,7 +1045,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             print(f'SVD analysis failed: {e}')
             traceback.print_exc()
 
-    
+
     x = x_list[0][n_frames - 5]
     n_neurons = x.shape[0]
 
@@ -1426,12 +1426,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                         fig, ax = fig_init()
                         ids = np.arange(0,100000,100).astype(int)
-                        plt.scatter(to_numpy(modulation[:,ids]), to_numpy(prediction[:,ids]), s=1, color=mc, alpha=0.05)
+                        plt.scatter(to_numpy(modulation[:,ids]), to_numpy(prediction[:,ids]), s=1, color=mc, alpha=0.05) # noqa F821
                         # plt.xlim([0,0.5])
                         # plt.ylim([0,2])
                         # plt.xticks([0,0.5], [0,0.5], fontsize=48)
                         # plt.yticks([0,1,2], [0,1,2], fontsize=48)
-                        x_data = to_numpy(modulation[:,ids]).flatten()
+                        x_data = to_numpy(modulation[:,ids]).flatten() # noqa F821
                         y_data = to_numpy(prediction[:,ids]).flatten()
                         lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
                         residuals = y_data - linear_model(x_data, *lin_fit)
@@ -1737,7 +1737,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.savefig(f"./{log_dir}/results/learned_plasticity.png", dpi=80)
                     plt.close()
 
-                    modulation_short = modulation[:, np.linspace(0, 100000, 1000).astype(int)]
+                    modulation_short = modulation[:, np.linspace(0, 100000, 1000).astype(int)] # noqa F821
                     activity_short = activity[:, np.linspace(0, 100000, 1000).astype(int)]
 
                     fig, ax = fig_init()
@@ -2300,7 +2300,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.close()
 
                     fig, ax = fig_init()
-                    plt.imshow(to_numpy(modulation), aspect='auto')
+                    plt.imshow(to_numpy(modulation), aspect='auto') # noqa F821
                     plt.title(r'$y_i$', fontsize=68)
                     plt.xlabel(r'$t$', fontsize=68)
                     plt.ylabel(r'$i$', fontsize=68)
@@ -2314,8 +2314,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
                     fig, ax = fig_init()
                     ids = np.arange(0, 100000, 100).astype(int)
-                    plt.scatter(to_numpy(modulation[:, ids]), to_numpy(prediction[:, ids]), s=0.1, color=mc, alpha=0.05)
-                    x_data = to_numpy(modulation[:, ids]).flatten()
+                    plt.scatter(to_numpy(modulation[:, ids]), to_numpy(prediction[:, ids]), s=0.1, color=mc, alpha=0.05) # noqa F821
+                    x_data = to_numpy(modulation[:, ids]).flatten() # noqa F821
                     y_data = to_numpy(prediction[:, ids]).flatten()
                     lin_fit, lin_fitv = curve_fit(linear_model, x_data, y_data)
                     residuals = y_data - linear_model(x_data, *lin_fit)
@@ -2798,7 +2798,7 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
     ynorm = torch.load(os.path.join(log_dir, 'ynorm.pt'))
     print(f'vnorm: {to_numpy(vnorm)}, ynorm: {to_numpy(ynorm)}')
 
-    
+
     x = x_list[0][n_frames - 1]
     n_neurons = x.shape[0]
     print(f'N neurons: {n_neurons}')
@@ -3611,7 +3611,7 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
     edges.clone().detach()
 
-    
+
     x = x_list[0][n_frames - 5]
     n_neurons = x.shape[0]
     print(f'N neurons: {n_neurons}')

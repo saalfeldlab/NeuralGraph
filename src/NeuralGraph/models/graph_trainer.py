@@ -614,7 +614,7 @@ def data_train_signal(config, erase, best_model, style, device):
 
 
                  # PDE_N3 is special, embedding changes over time
-                
+
                 if 'PDE_N3' in model_config.signal_model_name:
                     loss = loss + train_config.coeff_model_a * (model.a[ind_a + 1] - model.a[ind_a]).norm(2)
 
@@ -1142,9 +1142,9 @@ def data_train_flyvis(config, erase, best_model, device):
                     regul_loss = regularizer.compute(
                         model=model,
                         x=x,
-                        in_features=None,  
+                        in_features=None,
                         ids=ids,
-                        ids_batch=None,  
+                        ids_batch=None,
                         edges=edges,
                         device=device,
                         xnorm=xnorm
@@ -1270,7 +1270,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                     end_idx = (b + 1) * neurons_per_sample
                                     dataset_batch[b].x[:, 3:4] = pred_x[start_idx:end_idx].reshape(-1, 1)
 
-                                    k_current = k_batch[start_idx, 0].item() + step + 1  
+                                    k_current = k_batch[start_idx, 0].item() + step + 1
 
                                     if has_visual_field:
                                         visual_input_next = model.forward_visual(dataset_batch[b].x, k_current)
@@ -1492,7 +1492,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
         # Plot 1: Loss
         fig.add_subplot(2, 3, 1)
-        plt.plot(list_loss, color=mc, linewidth=1)
+        plt.plot(list_loss, color=mc, linewidth=1) # noqa F821
         plt.xlim([0, n_epochs])
         plt.ylabel('loss', fontsize=12)
         plt.xlabel('epochs', fontsize=12)
@@ -2731,7 +2731,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         field_type = external_input_type
     if field_type != '':
         n_input_neurons_per_axis = int(np.sqrt(n_input_neurons))
-    
+
     log_dir = 'log/' + config.config_file
     files = glob.glob(f"./{log_dir}/tmp_recons/*")
     for f in files:
@@ -4478,7 +4478,7 @@ def data_test_flyvis(
                         break
                 if it >= target_frames:
                     break
-            
+
             if it >= target_frames:
                 break
     print(f"generated {len(x_list)} frames total")
