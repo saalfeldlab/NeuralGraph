@@ -34,6 +34,9 @@ stimulus_encoder_params:
 
 training:
   time_units: 5 # Activity observed every 5 steps; evolver unrolled 5 times
+  # Intermediate steps (1 to time_units-1) at which to apply evolution loss.
+  # Final step loss is always applied. Examples: [] = final only, [1,2,3,4] = all steps
+  intermediate_loss_steps: []
   simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 100
   epochs: 100 # Total number of epochs
