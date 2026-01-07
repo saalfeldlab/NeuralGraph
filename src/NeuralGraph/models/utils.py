@@ -1844,7 +1844,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
 
     # 1. analyze activity (u) - column 3
     activity = x_list_sampled[:, :, 3]  # shape: (n_frames_sampled, n_neurons)
-    log_print(f"--- activity ---")
+    log_print("--- activity ---")
     log_print(f"  shape: {activity.shape}")
     log_print(f"  range: [{activity.min():.3f}, {activity.max():.3f}]")
 
@@ -1869,7 +1869,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
         compression_act = (n_frames * n_neurons) / (rank_99_act * (n_frames + n_neurons))
         log_print(f"  compression (rank-{rank_99_act}): {compression_act:.1f}x")
     else:
-        log_print(f"  compression: need more components to reach 99% variance")
+        log_print("  compression: need more components to reach 99% variance")
 
     results['activity'] = {
         'singular_values': S_act,
@@ -1883,7 +1883,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
     ax.semilogy(S_act, color=mc, lw=1.5)
     ax.set_xlabel('component', fontsize=LABEL_SIZE)
     ax.set_ylabel('singular value', fontsize=LABEL_SIZE)
-    ax.set_title(f'activity: singular values', fontsize=TITLE_SIZE)
+    ax.set_title('activity: singular values', fontsize=TITLE_SIZE)
     ax.tick_params(axis='both', labelsize=TICK_SIZE)
     ax.grid(True, alpha=0.3)
 
@@ -1940,7 +1940,7 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
                 compression_ext = (n_frames * n_neurons) / (rank_99_ext * (n_frames + n_neurons))
                 log_print(f"  compression (rank-{rank_99_ext}): {compression_ext:.1f}x")
             else:
-                log_print(f"  compression: need more components to reach 99% variance")
+                log_print("  compression: need more components to reach 99% variance")
 
             results_key = 'visual_stimuli' if is_flyvis else 'external_input'
             results[results_key] = {
@@ -1973,14 +1973,14 @@ def analyze_data_svd(x_list, output_folder, config=None, max_components=100, log
             ax.grid(True, alpha=0.3)
         else:
             log_print(f"--- {input_label} ---")
-            log_print(f"  no external input found (range < 1e-6)")
+            log_print("  no external input found (range < 1e-6)")
             axes[1, 0].set_visible(False)
             axes[1, 1].set_visible(False)
             results_key = 'visual_stimuli' if is_flyvis else 'external_input'
             results[results_key] = None
     else:
         log_print(f"--- {input_label} ---")
-        log_print(f"  not present in data")
+        log_print("  not present in data")
         axes[1, 0].set_visible(False)
         axes[1, 1].set_visible(False)
         results_key = 'visual_stimuli' if is_flyvis else 'external_input'

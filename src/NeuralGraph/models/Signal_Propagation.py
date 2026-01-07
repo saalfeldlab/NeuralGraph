@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
 import torch_geometric as pyg
-import numpy as np
 from NeuralGraph.models.MLP import MLP
-from NeuralGraph.models.Siren_Network import Siren
 
 
 class Signal_Propagation(pyg.nn.MessagePassing):

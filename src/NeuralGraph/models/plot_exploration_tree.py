@@ -305,7 +305,7 @@ def print_summary(nodes: list[UCBNode]):
         print("No nodes found")
         return
 
-    print(f"\n=== UCB Tree Summary ===")
+    print("\n=== UCB Tree Summary ===")
     print(f"Total nodes: {len(nodes)}")
     print(f"UCB range: {min(n.ucb for n in nodes):.3f} - {max(n.ucb for n in nodes):.3f}")
     print(f"Visits range: {min(n.visits for n in nodes)} - {max(n.visits for n in nodes)}")
@@ -313,7 +313,7 @@ def print_summary(nodes: list[UCBNode]):
 
     # Find highest UCB nodes (most promising to explore)
     sorted_by_ucb = sorted(nodes, key=lambda n: n.ucb, reverse=True)[:5]
-    print(f"\nTop 5 by UCB (most promising):")
+    print("\nTop 5 by UCB (most promising):")
     for n in sorted_by_ucb:
         print(f"  Node {n.id}: UCB={n.ucb:.3f}, visits={n.visits}, R²={n.r2:.3f}")
 
@@ -347,7 +347,7 @@ def main():
     print_summary(nodes)
 
     # Plot
-    print(f"\nGenerating UCB tree visualization...")
+    print("\nGenerating UCB tree visualization...")
     plot_ucb_tree(nodes, args.output,
                   title=f"UCB Exploration Tree ({len(nodes)} nodes)")
 

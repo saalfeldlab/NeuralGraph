@@ -20,7 +20,6 @@ import scipy
 import logging
 import re
 import matplotlib
-from torch_geometric.utils import dense_to_sparse
 import pandas as pd
 
 # os.environ["PATH"] += os.pathsep + '/usr/local/texlive/2023/bin/x86_64-linux'

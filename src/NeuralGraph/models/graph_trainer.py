@@ -24,7 +24,6 @@ import random
 import copy
 import tifffile
 import numpy as np
-from torch_geometric.utils import dense_to_sparse
 
 from NeuralGraph.models.utils import (
     choose_training_model,
@@ -76,7 +75,7 @@ from NeuralGraph.models.utils_zebra import (
     plot_field_discrete_xy_slices_grid,
 )
 
-from NeuralGraph.models.HashEncoding_Network import HashEncodingMLP, create_hash_encoding_mlp, TCNN_AVAILABLE
+from NeuralGraph.models.HashEncoding_Network import HashEncodingMLP
 
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.fitting_models import linear_model
@@ -204,7 +203,7 @@ def data_train_signal(config, erase, best_model, style, device):
         np.random.seed(config.training.seed)
 
     log_dir, logger = create_log_dir(config, erase)
-    print(f'loading data...')
+    print('loading data...')
 
     x_list = []
     y_list = []
@@ -2296,7 +2295,7 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
     # get INR type from config
     inr_type = getattr(model_config, 'inr_type', 'siren_t')
 
-    print(f"siren calculation check:")
+    print("siren calculation check:")
     print(f"  total simulation time: {n_frames} × {delta_t} = {total_sim_time:.1f} time units")
     print(f"  period: 1/{oscillation_frequency} = {period_time_units:.1f} time units = {period_frames:.0f} frames")
     print(f"  total cycles: {total_cycles:.0f}")
@@ -2361,7 +2360,7 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
         mlp_params = sum(p.numel() for p in nnr_f.mlp.parameters())
         total_params = encoding_params + mlp_params
 
-        print(f"\nusing HashEncodingMLP (instantNGP):")
+        print("\nusing HashEncodingMLP (instantNGP):")
         print(f"  hash encoding: {ngp_n_levels} levels × {ngp_n_features_per_level} features")
         print(f"  hash table: 2^{ngp_log2_hashmap_size} = {2**ngp_log2_hashmap_size:,} entries")
         print(f"  mlp: {ngp_n_neurons} × {ngp_n_hidden_layers} hidden → {output_size_nnr_f}")
@@ -2412,7 +2411,7 @@ def data_train_INR(config=None, device=None, total_steps=5000, erase=False):
         # count parameters
         total_params = sum(p.numel() for p in nnr_f.parameters())
 
-        print(f"\nusing LowRankINR:")
+        print("\nusing LowRankINR:")
         print(f"  rank: {lowrank_rank}")
         print(f"  U: ({n_frames}, {lowrank_rank}), V: ({lowrank_rank}, {n_neurons})")
         print(f"  parameters: {total_params:,}")

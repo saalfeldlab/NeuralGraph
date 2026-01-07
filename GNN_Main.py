@@ -1,8 +1,6 @@
 import matplotlib
 matplotlib.use('Agg')  # set non-interactive backend before other imports
-import matplotlib.pyplot as plt
 import argparse
-import glob
 import os
 import shutil
 import subprocess
@@ -18,7 +16,7 @@ if os.path.isdir('/scratch'):
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
-from NeuralGraph.models.exploration_tree import compute_ucb_scores, parse_experiment_log, build_tree_structure, plot_data_exploration
+from NeuralGraph.models.exploration_tree import compute_ucb_scores
 from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
 from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
@@ -149,7 +147,7 @@ if __name__ == "__main__":
             # check experiment file exists
             if not os.path.exists(experiment_path):
                 print(f"\033[91merror: experiment file not found: {experiment_path}\033[0m")
-                print(f"\033[93mavailable experiment files:\033[0m")
+                print("\033[93mavailable experiment files:\033[0m")
                 for f in os.listdir(root_dir):
                     if f.endswith('.md') and not f.startswith('analysis_') and not f.startswith('README'):
                         print(f"  - {f[:-3]}")
@@ -315,10 +313,10 @@ if __name__ == "__main__":
                 if not os.path.exists(ucb_path):
                     print(f"\033[91merror: ucb_scores.txt not found at {ucb_path}\033[0m")
                     continue
-                print(f"\033[92mfiles ready: activity.png, analysis.log, ucb_scores.txt\033[0m")
+                print("\033[92mfiles ready: activity.png, analysis.log, ucb_scores.txt\033[0m")
 
                 # call Claude CLI for analysis
-                print(f"\033[93mClaude analysis...\033[0m")
+                print("\033[93mClaude analysis...\033[0m")
 
                 claude_prompt = f"""Iteration {iteration}/{n_iterations}
 Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
@@ -364,8 +362,8 @@ Current config: {config_path}"""
                 if 'OAuth token has expired' in output_text or 'authentication_error' in output_text:
                     print(f"\n\033[91m{'='*60}\033[0m")
                     print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
-                    print(f"\033[93mTo resume:\033[0m")
-                    print(f"\033[93m  1. Run: claude /login\033[0m")
+                    print("\033[93mTo resume:\033[0m")
+                    print("\033[93m  1. Run: claude /login\033[0m")
                     print(f"\033[93m  2. Then: python GNN_Main.py -o {task} {config_file_} start={iteration}\033[0m")
                     print(f"\033[91m{'='*60}\033[0m")
                     raise SystemExit(1)

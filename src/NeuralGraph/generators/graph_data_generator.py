@@ -1026,7 +1026,7 @@ def data_generate_synaptic(
     torch.random.manual_seed(simulation_config.seed)
 
     print(
-        f"generating data ..."
+        "generating data ..."
     )
 
     n_neuron_types = simulation_config.n_neuron_types

@@ -1061,7 +1061,7 @@ def main():
         output_path = str(input_path.parent / f"{input_path.stem}_tree.png")
 
     # Create combined visualization (all panels in one figure)
-    print(f"\nGenerating exploration tree visualization...")
+    print("\nGenerating exploration tree visualization...")
     plot_exploration_tree(nodes, output_path,
                          title=f"Exploration Tree: {Path(args.input).stem}",
                          param_x=args.param_x,

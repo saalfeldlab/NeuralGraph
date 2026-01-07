@@ -245,7 +245,6 @@ def run_cameraman_example():
     except:
         pass
 
-    from torch.utils.data import DataLoader
 
     img_siren = Siren(in_features=2, out_features=1, hidden_features=512,
                       hidden_layers=3, outermost_linear=True, first_omega_0=220., hidden_omega_0=220.)

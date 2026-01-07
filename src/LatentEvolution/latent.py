@@ -78,6 +78,11 @@ class TrainingConfig(BaseModel):
         description="Observation interval: activity data available every N steps. Evolver unrolled N times during training.",
         json_schema_extra={"short_name": "tu"}
     )
+    intermediate_loss_steps: list[int] = Field(
+        default_factory=list,
+        description="Intermediate steps (1 to time_units-1) at which to apply evolution loss. Final step loss is always applied.",
+        json_schema_extra={"short_name": "ils"}
+    )
     epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
     batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
     learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
@@ -125,6 +130,17 @@ class TrainingConfig(BaseModel):
         if not hasattr(torch.nn.functional, v):
             raise ValueError(f"Unknown loss function '{v}' in torch.nn.functional")
         return v
+
+    @model_validator(mode='after')
+    def validate_intermediate_loss_steps(self):
+        if len(self.intermediate_loss_steps) != len(set(self.intermediate_loss_steps)):
+            raise ValueError("intermediate_loss_steps must contain unique values")
+        for step in self.intermediate_loss_steps:
+            if step < 1 or step >= self.time_units:
+                raise ValueError(
+                    f"intermediate_loss_steps must be in range [1, {self.time_units - 1}], got {step}"
+                )
+        return self
 
 
 class CrossValidationConfig(BaseModel):
@@ -441,8 +457,10 @@ def train_step_nocompile(
     recon_t = model.decoder(proj_t)
     recon_loss = loss_fn(recon_t, x_t)
 
-    # apply connectome loss after evolving by 1 time step
+    # Evolve by 1 time step. This is a special case since we may opt to apply
+    # a connectome constraint via data augmentation.
     proj_t = model.evolver(proj_t, proj_stim_t[0])
+    # apply connectome loss after evolving by 1 time step
     aug_loss = torch.tensor(0.0, device=device)
     if (
             cfg.training.unconnected_to_zero.num_neurons > 0 and
@@ -457,13 +475,28 @@ def train_step_nocompile(
         pred_t_plus_1_aug = model.decoder(proj_t_aug)
         aug_loss += cfg.training.unconnected_to_zero.loss_coeff * loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
 
-    # evolution loss for remaining dt-1 time steps
-    # evolve proj_t by dt-1
-    # save one step update
+    # intermediate loss steps (in addition to final step)
+    intermediate_steps = cfg.training.intermediate_loss_steps
+    evolve_loss = torch.tensor(0.0, device=device)
+
+    # check if step 1 needs intermediate loss
+    if 1 in intermediate_steps:
+        pred_t_plus_1 = model.decoder(proj_t)
+        x_t_plus_1 = train_data[batch_indices + 1]
+        evolve_loss = evolve_loss + loss_fn(pred_t_plus_1, x_t_plus_1)
+
+    # Now evolve for all remaining dt-1 time steps
     for i in range(1, dt):
         proj_t = model.evolver(proj_t, proj_stim_t[i])
+        step = i + 1  # 1-indexed step number
+        if step in intermediate_steps:
+            pred_t_plus_step = model.decoder(proj_t)
+            x_t_plus_step = train_data[batch_indices + step]
+            evolve_loss = evolve_loss + loss_fn(pred_t_plus_step, x_t_plus_step)
+
+    # final step loss (always applied)
     pred_t_plus_dt = model.decoder(proj_t)
-    evolve_loss = loss_fn(pred_t_plus_dt, x_t_plus)
+    evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus)
 
     # LP norm penalty on prediction errors (for outlier control)
     lp_norm_loss = torch.tensor(0.0, device=device)
