@@ -651,15 +651,16 @@ def train(cfg: ModelParams, run_dir: Path):
         wmat_indices = wmat.col_indices()
         wmat_indptr = wmat.crow_indices()
 
+        total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
         metrics = {
             "val_loss_constant_model": torch.nn.functional.mse_loss(
-                val_data[: -cfg.training.time_units], val_data[cfg.training.time_units:]
+                val_data[: -total_steps], val_data[total_steps:]
             ).item(),
             "train_loss_constant_model": torch.nn.functional.mse_loss(
-                train_data[: -cfg.training.time_units], train_data[cfg.training.time_units:]
+                train_data[: -total_steps], train_data[total_steps:]
             ).item(),
             "test_loss_constant_model": torch.nn.functional.mse_loss(
-                test_data[: -cfg.training.time_units], test_data[cfg.training.time_units:]
+                test_data[: -total_steps], test_data[total_steps:]
             ).item(),
         }
         print(f"Constant model loss: {metrics}")
@@ -746,8 +747,9 @@ def train(cfg: ModelParams, run_dir: Path):
 
             # ---- Validation phase ----
             model.eval()
+            total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
             with torch.no_grad():
-                start_indices = torch.arange(val_data.shape[0] - cfg.training.time_units, device=device)
+                start_indices = torch.arange(val_data.shape[0] - total_steps, device=device)
                 all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
                 loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, all_neurons, all_neurons, cfg)
                 val_loss = loss_tuple[0].item()
@@ -831,8 +833,9 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Final test evaluation ---
         model.eval()
+        total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
         with torch.no_grad():
-            start_indices = torch.arange(test_data.shape[0] - cfg.training.time_units, device=device)
+            start_indices = torch.arange(test_data.shape[0] - total_steps, device=device)
             all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
             loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, all_neurons, all_neurons, cfg)
             test_loss = loss_tuple[0].item()

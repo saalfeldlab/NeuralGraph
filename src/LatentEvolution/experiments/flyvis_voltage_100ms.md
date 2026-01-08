@@ -85,9 +85,11 @@ both dt and 2dt.
 
 ```bash
 # evolve to t+5 and t+10
-python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+bsub -J 2x -q gpu_a100 -gpu "num=1" -n 1 -o 2x.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
     --training.evolve-multiple-steps 2
 # evolve to t+5 and t+10 and t+15
-python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+bsub -J 3x -q gpu_a100 -gpu "num=1" -n 1 -o 3x.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
     --training.evolve-multiple-steps 3
 ```
