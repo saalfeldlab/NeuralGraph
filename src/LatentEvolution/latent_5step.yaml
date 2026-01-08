@@ -37,6 +37,9 @@ training:
   # Intermediate steps (1 to time_units-1) at which to apply evolution loss.
   # Final step loss is always applied. Examples: [] = final only, [1,2,3,4] = all steps
   intermediate_loss_steps: []
+  # Number of time_units multiples to evolve. Loss applied at each multiple.
+  # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
+  evolve_multiple_steps: 1
   simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 100
   epochs: 100 # Total number of epochs

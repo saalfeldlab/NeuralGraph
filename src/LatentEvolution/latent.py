@@ -83,6 +83,11 @@ class TrainingConfig(BaseModel):
         description="Intermediate steps (1 to time_units-1) at which to apply evolution loss. Final step loss is always applied.",
         json_schema_extra={"short_name": "ils"}
     )
+    evolve_multiple_steps: int = Field(
+        1,
+        description="Number of time_units multiples to evolve. Loss applied at each multiple.",
+        json_schema_extra={"short_name": "ems"}
+    )
     epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
     batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
     learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
@@ -132,7 +137,7 @@ class TrainingConfig(BaseModel):
         return v
 
     @model_validator(mode='after')
-    def validate_intermediate_loss_steps(self):
+    def validate_training_config(self):
         if len(self.intermediate_loss_steps) != len(set(self.intermediate_loss_steps)):
             raise ValueError("intermediate_loss_steps must contain unique values")
         for step in self.intermediate_loss_steps:
@@ -140,6 +145,8 @@ class TrainingConfig(BaseModel):
                 raise ValueError(
                     f"intermediate_loss_steps must be in range [1, {self.time_units - 1}], got {step}"
                 )
+        if self.evolve_multiple_steps < 1:
+            raise ValueError("evolve_multiple_steps must be >= 1")
         return self
 
 
@@ -314,17 +321,18 @@ def make_batches_random(
     """
     batch_size = cfg.training.batch_size
     time_units = cfg.training.time_units
+    total_steps = time_units * cfg.training.evolve_multiple_steps
     num_neurons = data.shape[1]
     num_neurons_to_zero = cfg.training.unconnected_to_zero.num_neurons
 
     total_time = data.shape[0]
-    if total_time <= time_units:
+    if total_time <= total_steps:
         raise ValueError(
-            f"Not enough time points ({total_time}) for time_units={time_units}"
+            f"Not enough time points ({total_time}) for total_steps={total_steps}"
         )
     while True:
         start_indices = torch.randint(
-            low=0, high=total_time - time_units, size=(batch_size,), device=data.device
+            low=0, high=total_time - total_steps, size=(batch_size,), device=data.device
         )
 
         if num_neurons_to_zero > 0:
@@ -439,19 +447,18 @@ def train_step_nocompile(
     # L = latent dim for activity
     # Ls = latent dim for stimulus
     dt = cfg.training.time_units
+    num_multiples = cfg.training.evolve_multiple_steps
+    total_steps = dt * num_multiples
     x_t = train_data[batch_indices] # b x N
     proj_t = model.encoder(x_t) # b x L
 
-    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(dt, device=device), dim=1)
-    # dt x b x 1736
+    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
+    # total_steps x b x 1736
     stim_t = train_stim[stim_indices, :]
     dim_stim = train_stim.shape[1]
     dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
-    # dt x b x Ls
-    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((dt, -1, dim_stim_latent))
-
-    # prediction target
-    x_t_plus = train_data[batch_indices + dt]
+    # total_steps x b x Ls
+    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)
@@ -475,7 +482,7 @@ def train_step_nocompile(
         pred_t_plus_1_aug = model.decoder(proj_t_aug)
         aug_loss += cfg.training.unconnected_to_zero.loss_coeff * loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
 
-    # intermediate loss steps (in addition to final step)
+    # intermediate loss steps (in addition to final step, only within first window)
     intermediate_steps = cfg.training.intermediate_loss_steps
     evolve_loss = torch.tensor(0.0, device=device)
 
@@ -485,7 +492,7 @@ def train_step_nocompile(
         x_t_plus_1 = train_data[batch_indices + 1]
         evolve_loss = evolve_loss + loss_fn(pred_t_plus_1, x_t_plus_1)
 
-    # Now evolve for all remaining dt-1 time steps
+    # evolve for remaining dt-1 time steps (first window)
     for i in range(1, dt):
         proj_t = model.evolver(proj_t, proj_stim_t[i])
         step = i + 1  # 1-indexed step number
@@ -494,14 +501,26 @@ def train_step_nocompile(
             x_t_plus_step = train_data[batch_indices + step]
             evolve_loss = evolve_loss + loss_fn(pred_t_plus_step, x_t_plus_step)
 
-    # final step loss (always applied)
+    # loss at first multiple (dt)
     pred_t_plus_dt = model.decoder(proj_t)
-    evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus)
+    x_t_plus_dt = train_data[batch_indices + dt]
+    evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus_dt)
+
+    # additional multiples (2, 3, ..., num_multiples)
+    for m in range(2, num_multiples + 1):
+        # evolve dt more steps
+        start_idx = (m - 1) * dt
+        for i in range(dt):
+            proj_t = model.evolver(proj_t, proj_stim_t[start_idx + i])
+        # loss at this multiple
+        pred = model.decoder(proj_t)
+        x_target = train_data[batch_indices + m * dt]
+        evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
     # LP norm penalty on prediction errors (for outlier control)
     lp_norm_loss = torch.tensor(0.0, device=device)
     if cfg.training.lp_norm_weight > 0.:
-        lp_norm_evolve = torch.norm(pred_t_plus_dt - x_t_plus, p=cfg.training.lp_norm_p, dim=1).mean()
+        lp_norm_evolve = torch.norm(pred_t_plus_dt - x_t_plus_dt, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_recon = torch.norm(recon_t - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
         lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
 
