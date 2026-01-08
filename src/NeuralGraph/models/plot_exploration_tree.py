@@ -245,8 +245,11 @@ def plot_ucb_tree(nodes: list[UCBNode],
         sim_text = sim_text.replace('_', ' ')
         # Split by comma and join with newlines
         sim_lines = [p.strip() for p in sim_text.split(',')]
-        # Filter lines: keep connectivity type, Dale law, noise; add rank only if low_rank
+        # Filter lines: prioritize n_neurons and n_frames first, then connectivity info
         filtered_lines = []
+        for line in sim_lines:
+            if 'n neurons' in line or 'n frames' in line:
+                filtered_lines.append(line)
         for line in sim_lines:
             if 'connectivity type' in line:
                 filtered_lines.append(line)

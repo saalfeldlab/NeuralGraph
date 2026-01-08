@@ -347,7 +347,7 @@ Current config: {config_path}"""
                     'claude',
                     '-p', claude_prompt,
                     '--output-format', 'text',
-                    '--max-turns', '20',
+                    '--max-turns', '40',
                     '--allowedTools',
                     'Read', 'Edit'
                 ]
@@ -417,7 +417,8 @@ Current config: {config_path}"""
                 nodes = parse_ucb_scores(ucb_path)
                 if nodes:
                     # get simulation info from config for tree annotation
-                    sim_info = f"connectivity_type={config.simulation.connectivity_type}"
+                    sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
+                    sim_info += f", connectivity_type={config.simulation.connectivity_type}"
                     if hasattr(config.simulation, 'Dale_law'):
                         sim_info += f", Dale_law={config.simulation.Dale_law}"
                     if hasattr(config.simulation, 'noise_model_level'):

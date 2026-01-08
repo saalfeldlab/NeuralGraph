@@ -112,6 +112,7 @@ Step B: Choose strategy
 | Good config found                    | **robustness-test** | Re-run same config                 |
 | 2+ distant nodes with R² > 0.9       | **recombine**       | Merge params from both nodes       |
 | 100% convergence, branching<10%      | **forced-branch**   | Select node in bottom 50% of tree  |
+| 4+ consecutive same-param mutations  | **switch-dimension** | Mutate different parameter than recent chain |
 
 **Recombination details:**
 
