@@ -114,6 +114,7 @@ class ClaudeConfig(BaseModel):
     n_epochs: int = 1  # number of epochs per iteration
     data_augmentation_loop: int = 100  # data augmentation loop count
     n_iter_block: int = 24  # number of iterations per simulation block
+    ucb_c: float = 1.414  # UCB exploration constant: UCB(k) = R²_k + c * sqrt(ln(N) / n_k)
 
 
 class GraphModelConfig(BaseModel):
