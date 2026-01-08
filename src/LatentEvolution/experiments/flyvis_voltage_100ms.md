@@ -56,3 +56,38 @@ for n in 10 100; do
         done
     done
 ```
+
+## Intermediate loss steps
+
+Test applying evolution loss at intermediate steps (in addition to the final step).
+
+```bash
+# baseline (no intermediate loss, final step only)
+bsub -J ils_none -q gpu_a100 -gpu "num=1" -n 1 -o ils_none.log \
+    python src/LatentEvolution/latent.py test_ils latent_5step.yaml
+
+# sweep intermediate steps
+for t in 1 2 3 4; do
+    bsub -J ils_t${t} -q gpu_a100 -gpu "num=1" -n 1 -o ils_t${t}.log \
+        python src/LatentEvolution/latent.py test_ils latent_5step.yaml \
+        --training.intermediate-loss-steps $t
+done
+```
+
+The results are very interesting, because when we have an intermediate loss at
+t=3 or t=4 we see stable roll outs. In fact, supplying data at dt=3 and dt=5 is
+even better than the dt=1 baseline.
+
+## Apply loss at multiples of dt
+
+Inspired by the previous experiment, let's see what happens if we apply a loss at
+both dt and 2dt.
+
+```bash
+# evolve to t+5 and t+10
+python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.evolve-multiple-steps 2
+# evolve to t+5 and t+10 and t+15
+python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.evolve-multiple-steps 3
+```
