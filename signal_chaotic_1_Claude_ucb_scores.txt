@@ -1,16 +1,17 @@
-=== UCB Scores (Simulation block 8, iters 129-144, N=14, c=1.0) ===
+=== UCB Scores (Simulation block 9, iters 145-160, N=15, c=1.0) ===
 
-Node 139: UCB=2.419, parent=137, visits=1, R2=0.548, Pearson=0.000, Mutation=lr: 1E-4 → 2E-4 (reduced ratio 50:1 → 25:1)
-Node 136: UCB=2.374, parent=133, visits=1, R2=0.503, Pearson=0.000, Mutation=lr_W: 10E-3 → 8E-3 (reduced ratio 200:1 → 160:1)
-Node 141: UCB=2.041, parent=140, visits=2, R2=0.794, Pearson=0.028, Mutation=low_rank: 15 → 20 (more overparameterization)
-Node 142: UCB=1.997, parent=141, visits=1, R2=0.126, Pearson=0.509, Mutation=low_rank: 20 → 25 (more overparameterization)
-Node 137: UCB=1.878, parent=135, visits=2, R2=0.631, Pearson=0.000, Mutation=L1: 1E-6 → 5E-7 (reduced regularization)
-Node 140: UCB=1.677, parent=138, visits=3, R2=0.742, Pearson=0.306, Mutation=low_rank: 10 → 15 (overparameterization)
-Node 135: UCB=1.579, parent=134, visits=3, R2=0.644, Pearson=0.000, Mutation=lr: 5E-5 → 1E-4 (reduced ratio 100:1 → 50:1)
-Node 134: UCB=1.385, parent=133, visits=4, R2=0.637, Pearson=0.000, Mutation=lr_W: 10E-3 → 5E-3 (reduced ratio 200:1 → 100:1)
-Node 138: UCB=1.375, parent=133, visits=4, R2=0.627, Pearson=0.000, Mutation=batch_size: 32 → 16
-Node 133: UCB=1.005, parent=132, visits=10, R2=0.665, Pearson=0.000, Mutation=lr_W: 20E-3 → 10E-3 (reduced ratio 400:1 → 200:1)
-Node 132: UCB=0.946, parent=131, visits=11, R2=0.634, Pearson=0.053, Mutation=lr_W: 40E-3 → 20E-3 (reduced ratio 800:1 → 400:1)
-Node 131: UCB=0.903, parent=130, visits=12, R2=0.615, Pearson=0.000, Mutation=lr_W: 60E-3 → 40E-3 (reduced ratio 1200:1 → 800:1)
-Node 130: UCB=0.852, parent=129, visits=13, R2=0.585, Pearson=0.245, Mutation=lr_W: 100E-3 → 60E-3 (reduced ratio 2000:1 → 1200:1)
-Node 129: UCB=0.757, parent=root, visits=14, R2=0.508, Pearson=0.064, Mutation=lr_W: 80E-3 → 100E-3
+Node 159: UCB=2.935, parent=158, visits=1, R2=0.998, Pearson=0.830, Mutation=lr_W: 0.015 → 0.01 (exploring lower boundary)
+Node 158: UCB=2.288, parent=157, visits=2, R2=0.997, Pearson=0.778, Mutation=lr_W: 0.02 → 0.015 (exploring lower boundary)
+Node 157: UCB=1.963, parent=156, visits=3, R2=0.995, Pearson=0.742, Mutation=lr_W: 0.03 → 0.02 (exploring lower boundary)
+Node 156: UCB=1.766, parent=155, visits=4, R2=0.991, Pearson=0.802, Mutation=lr_W: 0.05 → 0.03 (exploring lower boundary)
+Node 155: UCB=1.624, parent=154, visits=5, R2=0.979, Pearson=0.745, Mutation=lr_W: 0.08 → 0.05 (exploring lower boundary)
+Node 153: UCB=1.442, parent=152, visits=7, R2=0.958, Pearson=0.746, Mutation=none (robustness-test of lr_W=0.08)
+Node 152: UCB=1.380, parent=151, visits=8, R2=0.950, Pearson=0.817, Mutation=lr_W: 0.1 → 0.09 (0.9x decrease)
+Node 154: UCB=1.294, parent=153, visits=6, R2=0.741, Pearson=0.611, Mutation=lr_W: 0.08 → 0.2 (2.5x increase, failure-probe)
+Node 149: UCB=1.278, parent=148, visits=11, R2=0.955, Pearson=0.737, Mutation=n_frames: 10000 → 100000 (10x more data), lr_W: 0.5 → 0.08 (back to conservative)
+Node 151: UCB=1.268, parent=150, visits=9, R2=0.881, Pearson=0.678, Mutation=lr_W: 0.15 → 0.1 (0.67x decrease)
+Node 150: UCB=1.162, parent=149, visits=10, R2=0.810, Pearson=0.692, Mutation=lr_W: 0.08 → 0.15 (1.9x increase)
+Node 148: UCB=0.299, parent=147, visits=12, R2=0.001, Pearson=0.487, Mutation=lr_W: 0.2 → 0.5 (2.5x), lr: 1E-4 → 5E-5 (ratio 2000:1 → 10000:1), factorization=False
+Node 147: UCB=0.289, parent=146, visits=13, R2=0.012, Pearson=0.465, Mutation=low_rank_factorization: False -> True, low_rank=50
+Node 146: UCB=0.258, parent=145, visits=14, R2=0.000, Pearson=0.398, Mutation=lr_W: 8E-3 -> 80E-3 (10x increase)
+Node 145: UCB=0.244, parent=root, visits=15, R2=0.002, Pearson=0.396, Mutation=n_neurons: 100 -> 1000 (new block)
