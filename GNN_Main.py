@@ -62,14 +62,14 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 159
+    start_iteration = 1
 
 
 
 
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'
-    experiment_name = task_params.get('experiment', f'experiment_{base_config_name}')
+    instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
 
@@ -142,14 +142,14 @@ if __name__ == "__main__":
 
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
-            experiment_path = f"{root_dir}/{experiment_name}.md"
+            instruction_path = f"{root_dir}/{instruction_name}.md"
             analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
             memory_path = f"{root_dir}/{llm_task_name}_memory.md"
 
-            # check experiment file exists
-            if not os.path.exists(experiment_path):
-                print(f"\033[91merror: experiment file not found: {experiment_path}\033[0m")
-                print("\033[93mavailable experiment files:\033[0m")
+            # check instruction file exists
+            if not os.path.exists(instruction_path):
+                print(f"\033[91merror: instruction file not found: {instruction_path}\033[0m")
+                print("\033[93mavailable instruction files:\033[0m")
                 for f in os.listdir(root_dir):
                     if f.endswith('.md') and not f.startswith('analysis_') and not f.startswith('README'):
                         print(f"  - {f[:-3]}")
@@ -160,6 +160,10 @@ if __name__ == "__main__":
                 with open(analysis_path, 'w') as f:
                     f.write(f"# Experiment Log: {config_file_}\n\n")
                 print(f"\033[93mcleared {analysis_path}\033[0m")
+                # clear reasoning.log for Claude tasks
+                reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
+                open(reasoning_path, 'w').close()
+                print(f"\033[93mcleared {reasoning_path}\033[0m")
                 # initialize working memory file
                 with open(memory_path, 'w') as f:
                     f.write(f"# Working Memory: {config_file_}\n\n")
@@ -181,7 +185,9 @@ if __name__ == "__main__":
             else:
                 print(f"\033[93mpreserving {analysis_path} (resuming from iter {start_iteration})\033[0m")
                 print(f"\033[93mpreserving {memory_path} (resuming from iter {start_iteration})\033[0m")
-            print(f"\033[93m{experiment_name} ({n_iterations} iterations, starting at {start_iteration})\033[0m")
+                reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
+                print(f"\033[93mpreserving {reasoning_path} (resuming from iter {start_iteration})\033[0m")
+            print(f"\033[93m{instruction_name} ({n_iterations} iterations, starting at {start_iteration})\033[0m")
 
         root_dir = os.path.dirname(os.path.abspath(__file__))
         analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
@@ -284,7 +290,7 @@ if __name__ == "__main__":
                 iter_in_block = (iteration - 1) % n_iter_block + 1
                 is_block_end = iter_in_block == n_iter_block
 
-                exploration_dir = f"{root_dir}/log/Claude_exploration/{experiment_name}"
+                exploration_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
                 artifact_paths = save_exploration_artifacts(
                     root_dir, exploration_dir, config, config_file_, pre_folder, iteration,
                     iter_in_block=iter_in_block, block_number=block_number
@@ -329,7 +335,7 @@ if __name__ == "__main__":
 Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
 {">>> BLOCK END <<<" if is_block_end else ""}
 
-Protocol (follow all instructions): {experiment_path}
+Instructions (follow all instructions): {instruction_path}
 Working memory: {memory_path}
 Full log (append only): {analysis_path}
 Activity image: {activity_path}
@@ -375,11 +381,21 @@ Current config: {config_path}"""
                     print(f"\033[91m{'='*60}\033[0m")
                     raise SystemExit(1)
 
-                # save protocol file at first iteration of each block
+                # Save Claude's terminal output to reasoning log (separate from analysis.md)
+                reasoning_log_path = analysis_path.replace('_analysis.md', '_reasoning.log')
+                if output_text.strip():
+                    with open(reasoning_log_path, 'a') as f:
+                        f.write(f"\n{'='*60}\n")
+                        f.write(f"=== Iteration {iteration} ===\n")
+                        f.write(f"{'='*60}\n")
+                        f.write(output_text.strip())
+                        f.write("\n\n")
+
+                # save instruction file at first iteration of each block
                 if iter_in_block == 1:
-                    dst_protocol = f"{protocol_save_dir}/block_{block_number:03d}.md"
-                    if os.path.exists(experiment_path):
-                        shutil.copy2(experiment_path, dst_protocol)
+                    dst_instruction = f"{protocol_save_dir}/block_{block_number:03d}.md"
+                    if os.path.exists(instruction_path):
+                        shutil.copy2(instruction_path, dst_instruction)
 
                 # save memory file at end of each block (after Claude updates it)
                 if is_block_end:

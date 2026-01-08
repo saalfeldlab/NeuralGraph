@@ -11,7 +11,7 @@ The prompt provides: `Block info: block {block_number}, iteration {iter_in_block
 
 ## File Structure (CRITICAL)
 
-You maintain TWO files:
+You maintain \***\*TWO\*\*** files:
 
 ### 1. Full Log (append-only record)
 
@@ -32,7 +32,7 @@ You maintain TWO files:
 
 ---
 
-## Iteration Workflow (Steps 1-4, every iteration)
+## Iteration Workflow (Steps 1-5, every iteration)
 
 ### Step 1: Read Working Memory
 
@@ -53,6 +53,12 @@ Read `{config}_memory.md` to recall:
 - `connectivity_R2`: R² of learned vs true connectivity weights
 - `cluster_accuracy`: clustering accuracy on learned embeddings (neuron type classification)
 - `final_loss`: final training loss (lower is better)
+
+**Classification:**
+
+- **Converged**: connectivity_R2 > 0.9
+- **Partial**: connectivity_R2 0.1-0.9
+- **Failed**: connectivity_R2 < 0.1
 
 **UCB scores from `ucb_scores.txt`:**
 
@@ -88,16 +94,51 @@ Observation: [one line]
 Next: parent=P
 ```
 
-### Step 4: Edit Config File
+### Step 4: Parent Selection Rule in UCB tree
 
-Edit config file for next iteration according to Parent Selection Rule.
+Step A: Select parent node
+
+- Read `ucb_scores.txt`
+- If empty → `parent=root`
+- Otherwise → select node with **highest UCB**
+
+Step B: Choose strategy
+
+| Condition                            | Strategy            | Action                             |
+| ------------------------------------ | ------------------- | ---------------------------------- |
+| Default                              | **exploit**         | Highest UCB node, try mutation     |
+| 3+ consecutive R² ≥ 0.9              | **failure-probe**   | Extreme parameter to find boundary |
+| n_iter_block/4 consecutive successes | **explore**         | Select outside recent chain        |
+| Good config found                    | **robustness-test** | Re-run same config                 |
+| 2+ distant nodes with R² > 0.9       | **recombine**       | Merge params from both nodes       |
+| 100% convergence, branching<10%      | **forced-branch**   | Select node in bottom 50% of tree  |
+
+**Recombination details:**
+
+Trigger: exists Node A and Node B where:
+
+- Both R² > 0.9
+- Not parent-child (distance ≥ 2 in tree)
+- Different parameter strengths
+
+Action:
+
+- parent = higher R² node
+- Mutation = adopt best param from other node
+
+Example:
+
+```
+Node 12: lr_W=1E-2, lr=1E-4, R²=0.94  (good lr_W)
+Node 38: lr_W=5E-3, lr=2E-3, R²=0.97  (good lr)
+
+Recombine → lr_W=1E-2, lr=2E-3
+```
+
+### Step 5: Edit Config File
+
+Edit config file for next iteration of the exploration.
 (The config path is provided in the prompt as "Current config")
-
-**Classification:**
-
-- **Converged**: connectivity_R2 > 0.9
-- **Partial**: connectivity_R2 0.1-0.9
-- **Failed**: connectivity_R2 < 0.1
 
 **Training Parameters (change within block):**
 
@@ -126,43 +167,25 @@ simulation:
   n_neuron_types: 1 #  # can be changed to 4 and ONLY 4,  if Iter > 1024
 ```
 
-**Parent Selection Rule:**
+**Claude Exploration Parameters:**
 
-Step A: Select parent node
+These parameters control the UCB exploration strategy. Can be adjusted between blocks to adapt exploration behavior.
 
-- Read `ucb_scores.txt`
-- If empty → `parent=root`
-- Otherwise → select node with **highest UCB**
-
-Step B: Choose strategy
-
-| Condition                            | Strategy            | Action                             |
-| ------------------------------------ | ------------------- | ---------------------------------- |
-| Default                              | **exploit**         | Highest UCB node, try mutation     |
-| 3+ consecutive R² ≥ 0.9              | **failure-probe**   | Extreme parameter to find boundary |
-| n_iter_block/4 consecutive successes | **explore**         | Select outside recent chain        |
-| Good config found                    | **robustness-test** | Re-run same config                 |
-| 2+ distant nodes with R² > 0.9       | **recombine**       | Merge params from both nodes       |
-| 100% convergence, branching<10%      | **forced-branch**   | Select node in bottom 50% of tree  |
-
-**Recombination details:**
-
-Trigger: exists Node A and Node B where:
-- Both R² > 0.9
-- Not parent-child (distance ≥ 2 in tree)
-- Different parameter strengths
-
-Action:
-- parent = higher R² node
-- Mutation = adopt best param from other node
-
-Example:
+```yaml
+claude:
+  ucb_c: 1.414 # UCB exploration constant (0.5-3.0), adjust between blocks
 ```
-Node 12: lr_W=1E-2, lr=1E-4, R²=0.94  (good lr_W)
-Node 38: lr_W=5E-3, lr=2E-3, R²=0.97  (good lr)
 
-Recombine → lr_W=1E-2, lr=2E-3
-```
+**UCB exploration constant (ucb_c):**
+
+- `ucb_c` controls exploration vs exploitation: UCB(k) = R²_k + c × sqrt(ln(N) / n_k)
+- Higher c (>1.5) → more exploration of under-visited branches
+- Lower c (<1.0) → more exploitation of high-performing nodes
+- Default: 1.414 (√2, standard UCB1)
+- Adjust between blocks based on search behavior:
+  - If stuck in local optimum (all R² similar, no improvement) → INCREASE ucb_c to 2.0
+  - If too much random exploration (jumping between distant nodes) → DECREASE ucb_c to 1.0
+  - Typical range: 0.5 to 3.0
 
 ---
 
@@ -170,12 +193,12 @@ Recombine → lr_W=1E-2, lr=2E-3
 
 Triggered when `iter_in_block == n_iter_block`
 
-### STEP 1: COMPULSORY — Edit Protocol (this file)
+### STEP 1: COMPULSORY — Edit Instructions (this file)
 
-You MUST use the Edit tool to add/modify rules in this file.
+You \***\*MUST\*\*** use the Edit tool to add/modify parent selection rules in this file.
 Do NOT just write recommendations in the analysis log — actually edit the file.
 
-After editing, state in analysis log: `"PROTOCOL EDITED: added rule [X]"` or `"PROTOCOL EDITED: modified [Y]"`
+After editing, state in analysis log: `"INSTRUCTIONS EDITED: added rule [X]"` or `"INSTRUCTIONS EDITED: modified [Y]"`
 
 **Evaluate and modify rules based on:**
 
@@ -214,7 +237,7 @@ Example:
 Iter 2-14: all mutated lr_W → 13 consecutive same-dimension → ADD rule
 ```
 
-### STEP 2: Choose Next Simulation
+### STEP 2: Choose Next Simulation block
 
 - Check Regime Comparison Table → choose untested combination
 - **Do not replicate** previous block unless motivated (testing knowledge transfer)
@@ -240,9 +263,9 @@ Update `{config}_memory.md`:
 
 ### Regime Comparison Table
 
-| Block | Regime                  | E/I  | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |
-| ----- | ----------------------- | ---- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |
-| 1     | chaotic, Dale_law=False | -    | 10000    | 100       | 1       | 31-35    | 1.000   | 8E-3         | 1E-5       | ...         |
+| Block | Regime                  | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |
+| ----- | ----------------------- | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |
+| 1     | chaotic, Dale_law=False | -   | 10000    | 100       | 1       | 31-35    | 1.000   | 8E-3         | 1E-5       | ...         |
 
 ### Established Principles
 
