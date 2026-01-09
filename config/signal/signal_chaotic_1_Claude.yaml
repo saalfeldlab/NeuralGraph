@@ -72,10 +72,10 @@ training:
   cluster_method: distance_plot
   fix_cluster_embedding: true
   learning_rate_W_start: 1.5e-01
-  learning_rate_start: 5.0e-05
+  learning_rate_start: 2.0e-05
   learning_rate_embedding_start: 2.5e-04
   coeff_W_L1: 1.0e-06
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
   low_rank_factorization: true
-  low_rank: 50
+  low_rank: 100

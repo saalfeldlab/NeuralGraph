@@ -432,6 +432,9 @@ Current config: {config_path}"""
                 if nodes:
                     # get simulation info from config for tree annotation
                     sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
+                    sim_info += f", time_step={config.training.time_step}"
+                    if hasattr(config.training, 'recurrent_training'):
+                        sim_info += f", recurrent={config.training.recurrent_training}"
                     sim_info += f", connectivity_type={config.simulation.connectivity_type}"
                     if hasattr(config.simulation, 'Dale_law'):
                         sim_info += f", Dale_law={config.simulation.Dale_law}"

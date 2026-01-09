@@ -225,9 +225,9 @@ def plot_ucb_tree(nodes: list[UCBNode],
             mutation_text = re.sub(r'\s*\([^)]*\)\s*$', '', node.mutation).strip()
             # Skip simulation change messages (they clutter the plot)
             if not mutation_text.startswith('simulation changed'):
-                ax.annotate(mutation_text, (x, y), ha='center', va='bottom',
-                           fontsize=8, xytext=(0, 14), textcoords='offset points',
-                           color='#333333', zorder=3)
+                ax.annotate(mutation_text, (x, y), ha='left', va='bottom',
+                           fontsize=6, xytext=(5, 14), textcoords='offset points',
+                           color='#333333', zorder=3, rotation=45)
 
         # Annotation: UCB/V and R2/Pearson below the node
         label_text = f"UCB={node.ucb:.2f} V={node.visits}\nR²={node.r2:.2f} ρ={node.pearson:.2f}"
@@ -249,6 +249,9 @@ def plot_ucb_tree(nodes: list[UCBNode],
         filtered_lines = []
         for line in sim_lines:
             if 'n neurons' in line or 'n frames' in line:
+                filtered_lines.append(line)
+        for line in sim_lines:
+            if 'time step' in line or 'recurrent' in line:
                 filtered_lines.append(line)
         for line in sim_lines:
             if 'connectivity type' in line:
