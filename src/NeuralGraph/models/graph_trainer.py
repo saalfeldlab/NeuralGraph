@@ -321,11 +321,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
     optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
-    # add cosine annealing lr scheduler for better convergence
-    # hypothesis: decaying lr helps achieve better final connectivity_R2
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(1, n_epochs), eta_min=1e-6)
-    print(f'lr scheduler: CosineAnnealingLR with T_max={max(1, n_epochs)}, eta_min=1e-6')
-
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
     logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
 
@@ -774,9 +769,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
         list_loss.append(epoch_pred_loss)
         list_loss_regul.append(epoch_regul_loss)
-
-        # step the lr scheduler at end of each epoch
-        scheduler.step()
 
         torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
 
