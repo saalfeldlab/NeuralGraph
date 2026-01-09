@@ -263,7 +263,8 @@ if __name__ == "__main__":
                     erase='Claude' in task,  # erase old models when iterating with Claude
                     best_model=best_model,
                     style = 'black',
-                    device=device
+                    device=device,
+                    log_file=log_file
                 )
 
             if "test" in task:

@@ -107,7 +107,7 @@ from prettytable import PrettyTable
 import imageio
 
 
-def data_train(config=None, erase=False, best_model=None, style=None, device=None):
+def data_train(config=None, erase=False, best_model=None, style=None, device=None, log_file=None):
     # plt.rcParams['text.usetex'] = False  # LaTeX disabled - use mathtext instead
     # rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
     # matplotlib.rcParams['savefig.pad_inches'] = 0
@@ -134,14 +134,14 @@ def data_train(config=None, erase=False, best_model=None, style=None, device=Non
     elif 'zebra' in config.dataset:
         data_train_zebra(config, erase, best_model, device)
     else:
-        data_train_signal(config, erase, best_model, style, device)
+        data_train_signal(config, erase, best_model, style, device, log_file)
 
     print("training completed.")
 
 
 
 
-def data_train_signal(config, erase, best_model, style, device):
+def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
     simulation_config = config.simulation
     train_config = config.training
@@ -380,6 +380,8 @@ def data_train_signal(config, erase, best_model, style, device):
 
     list_loss_regul = []
     time.sleep(1.0)
+
+    training_start_time = time.time()
 
     for epoch in range(start_epoch, n_epochs):
 
@@ -889,7 +891,22 @@ def data_train_signal(config, erase, best_model, style, device):
                                                                      lr_modulation=lr_modulation)
                 logger.info( f'learning rates: lr_W {lr_W}, lr {lr}, lr_embedding {lr_embedding}, lr_modulation {lr_modulation}')
 
+    # Calculate and log training time
+    training_time = time.time() - training_start_time
+    training_time_min = training_time / 60.0
+    print(f"training completed in {training_time_min:.1f} minutes")
+    logger.info(f"training completed in {training_time_min:.1f} minutes")
 
+    if log_file is not None:
+        log_file.write(f"training_time_min: {training_time_min:.1f}\n")
+        log_file.write(f"n_epochs: {n_epochs}\n")
+        log_file.write(f"data_augmentation_loop: {data_augmentation_loop}\n")
+        log_file.write(f"time_step: {time_step}\n")
+        log_file.write(f"recurrent_training: {recurrent_training}\n")
+        log_file.write(f"batch_size: {target_batch_size}\n")
+        log_file.write(f"learning_rate_W: {lr_W}\n")
+        log_file.write(f"learning_rate: {train_config.learning_rate_start}\n")
+        log_file.write(f"coeff_W_L1: {train_config.coeff_W_L1}\n")
 
 
 
