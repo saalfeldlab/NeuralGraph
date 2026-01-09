@@ -69,4 +69,4 @@ training:
 claude:
   n_epochs: 1
   data_augmentation_loop: 25
-  n_iter_block: 16
+  n_iter_block: 8
