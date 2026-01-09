@@ -25,6 +25,7 @@ import matplotlib
 matplotlib.use('Agg')  # set non-interactive backend before other imports
 import argparse
 import os
+import shutil
 
 # redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
 if os.path.isdir('/scratch'):
@@ -67,7 +68,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'generate_train_test_plot'
+        task = ' generate_train_test_plot'
         config_list = ['signal_demo_1']
 
     for config_file_ in config_list:
@@ -77,14 +78,14 @@ if __name__ == "__main__":
 
         # load config
         config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
-        config.dataset = pre_folder + config.dataset
-        config.config_file = pre_folder + config_file_
+        config.config_file = config_file
+        config.dataset = config_file  # e.g., 'signal/signal_demo_1'
 
         if device == []:
             device = set_device(config.training.device)
 
-        log_dir = f'./log/{pre_folder}{config.dataset}'
-        graphs_dir = f'./graphs_data/{pre_folder}{config.dataset}'
+        log_dir = f'./log/{config_file}'
+        graphs_dir = f'./graphs_data/{config_file}'
 
         if "generate" in task:
             # Generate synthetic neural activity data using the PDE_N2 model
@@ -203,8 +204,40 @@ if __name__ == "__main__":
             os.makedirs(folder_name, exist_ok=True)
             data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
 
+        # Rename output files to match Figure 2 panels
+        print()
+        print("-" * 80)
+        print("Renaming output files to Figure 2 panels")
+        print("-" * 80)
+
+        results_dir = f'{log_dir}/results'
+        fig_dir = f'{results_dir}/Fig2'
+        os.makedirs(fig_dir, exist_ok=True)
+
+        # File mapping: original name -> Figure 2 panel name
+        file_mapping = {
+            # From graphs_data (generation step)
+            f'{graphs_dir}/activity_gt.png': f'{fig_dir}/Fig2a_activity_time_series.png',
+            f'{graphs_dir}/activity_gt.pdf': f'{fig_dir}/Fig2a_activity_time_series.pdf',
+            f'{graphs_dir}/connectivity_true.png': f'{fig_dir}/Fig2c_connectivity_true.png',
+            # From results (plot step)
+            f'{results_dir}/activity_gt.pdf': f'{fig_dir}/Fig2ab_activity.pdf',
+            f'{results_dir}/connectivity_true.png': f'{fig_dir}/Fig2c_connectivity_true.png',
+            f'{results_dir}/connectivity_learned.png': f'{fig_dir}/Fig2d_connectivity_learned.png',
+            f'{results_dir}/weights_comparison_corrected.png': f'{fig_dir}/Fig2e_weights_comparison.png',
+            f'{results_dir}/embedding.pdf': f'{fig_dir}/Fig2f_embedding.pdf',
+            f'{results_dir}/MLP0.png': f'{fig_dir}/Fig2g_phi_update_functions.png',
+            f'{results_dir}/MLP1_corrected.png': f'{fig_dir}/Fig2h_psi_transfer_function.png',
+        }
+
+        for src, dst in file_mapping.items():
+            if os.path.exists(src):
+                shutil.copy2(src, dst)
+                print(f"  {os.path.basename(dst)}")
+
         print()
         print("=" * 80)
         print("Demo 1 complete!")
         print(f"Results saved to: {log_dir}/results/")
+        print(f"Figure 2 panels: {fig_dir}/")
         print("=" * 80)

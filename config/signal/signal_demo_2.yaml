@@ -64,7 +64,7 @@ claude:
   n_iter_block: 1024
 
 training:
-  n_epochs: 20
+  n_epochs: 10
   n_runs: 1
   device: "auto"
 

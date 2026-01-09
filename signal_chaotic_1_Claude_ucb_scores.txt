@@ -1,6 +1,0 @@
-=== UCB Scores (Simulation block 2, iters 33-48, N=4, c=1.414) ===
-
-Node 36: UCB=1.558, parent=34, visits=1, R2=0.144, Pearson=0.148, Mutation=low_rank_factorization: False → True (testing hypothesis)
-Node 35: UCB=1.477, parent=34, visits=1, R2=0.063, Pearson=0.000, Mutation=lr_W: 8E-2 → 1.2E-1 (1.5x increase)
-Node 34: UCB=1.381, parent=33, visits=3, R2=0.674, Pearson=0.840, Mutation=lr_W: 4E-3 → 8E-2 (20x increase)
-Node 33: UCB=0.604, parent=root, visits=4, R2=0.038, Pearson=0.105, Mutation=baseline config from Block 1

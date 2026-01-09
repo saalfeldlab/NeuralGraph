@@ -99,16 +99,18 @@ python demo_1.py    # run full pipeline (generate, train, test, plot)
 
 - Generated data: `./graphs_data/signal/signal_demo_1/`
 - Training models: `./log/signal/signal_demo_1/models/`
-- Results & figures: `./log/signal/signal_demo_1/results/`
+- Results: `./log/signal/signal_demo_1/results/`
+- **Figure 2 panels: `./log/signal/signal_demo_1/results/Fig2/`**
 
-**Generated figures** (matching Figure 2 panels):
+**Generated figures** (in `Fig2/` folder):
 
-- Fig 2a-c: Activity time series and true connectivity (generated during data generation)
-- Fig 2d: Learned connectivity matrix
-- Fig 2e: Comparison of learned vs true connectivity (R², slope)
-- Fig 2f: Learned latent vectors a_i (2D embedding showing 4 clusters)
-- Fig 2g: Learned update functions phi\*(a_i, x)
-- Fig 2h: Learned transfer function psi\*(x)
+- `Fig2a_activity_time_series.png` - Activity time series
+- `Fig2c_connectivity_true.png` - True connectivity matrix W_ij
+- `Fig2d_connectivity_learned.png` - Learned connectivity matrix
+- `Fig2e_weights_comparison.png` - Comparison of learned vs true connectivity (R², slope)
+- `Fig2f_embedding.pdf` - Learned latent vectors a_i (2D embedding showing 4 clusters)
+- `Fig2g_phi_update_functions.png` - Learned update functions phi\*(a_i, x)
+- `Fig2h_psi_transfer_function.png` - Learned transfer function psi\*(x)
 
 #### Demo 2 - Figure 3: External inputs (2048 neurons, 4 types)
 
@@ -131,13 +133,14 @@ python demo_2.py    # run full pipeline (generate, train, test, plot)
 
 - Generated data: `./graphs_data/signal/signal_demo_2/`
 - Training models: `./log/signal/signal_demo_2/models/`
-- Results & figures: `./log/signal/signal_demo_2/results/`
+- Results: `./log/signal/signal_demo_2/results/`
+- **Figure 3 panels: `./log/signal/signal_demo_2/results/Fig3/`**
 
-**Generated figures** (matching Figure 3 panels):
+**Generated figures** (in `Fig3/` folder):
 
-- Fig 3a: External inputs Omega_i(t) field
-- Fig 3b-c: Activity time series
-- Fig 3d: Comparison of learned vs true connectivity W_ij
-- Fig 3e: Comparison of learned vs true Omega_i(t) values
-- Fig 3f: True field Omega_i(t) at different time-points
-- Fig 3g: Learned field Omega\*(t) at different time-points
+- `Fig3a_external_input_omega.png` - External inputs Omega_i(t) field
+- `Fig3b_activity_time_series.png` - Activity time series
+- `Fig3d_weights_comparison.png` - Comparison of learned vs true connectivity W_ij
+- `Fig3e_omega_comparison.png` - Comparison of learned vs true Omega_i(t) values
+- `Fig3f_omega_field_true.png` - True field Omega_i(t) at different time-points
+- `Fig3g_omega_field_learned.png` - Learned field Omega\*(t) at different time-points

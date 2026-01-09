@@ -458,7 +458,7 @@ def data_train_signal(config, erase, best_model, style, device):
                         ids_missing = torch.argwhere(x[:, 3] == baseline_value)
                         x[ids_missing,3] = missing_activity[ids_missing]
                     # external input reconstruction (when learn_external_input=True)
-                    if (model_f is not None) & (N>0):
+                    if (model_f is not None):
                         nnr_f_T_period = model_config.nnr_f_T_period
                         if (external_input_type == 'visual') :
                             n_input_neurons = simulation_config.n_input_neurons
