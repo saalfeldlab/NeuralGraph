@@ -69,7 +69,75 @@ Then, you should be able to import all the modules from the package in python:
 from NeuralGraph import *
 ```
 
-The entry point for the code is to run `python GNN_Main.py` and there are
-hard-coded references to paths in `/groups/saalfeld/...` throughout. See
-[PR #13](https://github.com/saalfeldlab/NeuralGraph/pull/13) for one way to add
+The entry point for the code is to run `python GNN_Main.py`
+See [PR #13](https://github.com/saalfeldlab/NeuralGraph/pull/13) for one way to add
 support for running the code on multiple machines.
+
+### Demo Scripts
+
+Demo scripts reproduce key figures from the paper:
+_"Graph neural networks uncover structure and function underlying the activity of neural assemblies"_
+
+#### Demo 1 - Figure 2: Baseline (1000 neurons, 4 types)
+
+Reproduces Figure 2: 1000 densely connected neurons with 4 neuron-dependent update functions.
+
+```bash
+python demo_1.py    # run full pipeline (generate, train, test, plot)
+```
+
+**Simulation parameters** (from Table 1 in the paper):
+
+- N_neurons: 1000
+- N_types: 4 (tau_i = {0.5, 1}, s_i = {1, 2})
+- N_frames: 100,000
+- Connectivity: 100% (dense)
+- Noise: none
+- External inputs: none
+
+**Output folders:**
+
+- Generated data: `./graphs_data/signal/signal_demo_1/`
+- Training models: `./log/signal/signal_demo_1/models/`
+- Results & figures: `./log/signal/signal_demo_1/results/`
+
+**Generated figures** (matching Figure 2 panels):
+
+- Fig 2a-c: Activity time series and true connectivity (generated during data generation)
+- Fig 2d: Learned connectivity matrix
+- Fig 2e: Comparison of learned vs true connectivity (R², slope)
+- Fig 2f: Learned latent vectors a_i (2D embedding showing 4 clusters)
+- Fig 2g: Learned update functions phi\*(a_i, x)
+- Fig 2h: Learned transfer function psi\*(x)
+
+#### Demo 2 - Figure 3: External inputs (2048 neurons, 4 types)
+
+Reproduces Figure 3: 2048 densely connected neurons with external inputs Omega_i(t).
+
+```bash
+python demo_2.py    # run full pipeline (generate, train, test, plot)
+```
+
+**Simulation parameters** (from Table 1 in the paper):
+
+- N_neurons: 2048 (1024 with external inputs + 1024 without)
+- N_types: 4 (tau_i = {0.5, 1}, s_i = {1, 2}, gamma_j = {1, 2, 4, 8})
+- N_frames: 50,000 (reduced from 100,000 in the paper for faster demo)
+- Connectivity: 100% (dense)
+- Noise: yes (sigma^2 = 1)
+- External inputs: yes - time-dependent scalar field Omega_i(t)
+
+**Output folders:**
+
+- Generated data: `./graphs_data/signal/signal_demo_2/`
+- Training models: `./log/signal/signal_demo_2/models/`
+- Results & figures: `./log/signal/signal_demo_2/results/`
+
+**Generated figures** (matching Figure 3 panels):
+
+- Fig 3a: External inputs Omega_i(t) field
+- Fig 3b-c: Activity time series
+- Fig 3d: Comparison of learned vs true connectivity W_ij
+- Fig 3e: Comparison of learned vs true Omega_i(t) values
+- Fig 3f: True field Omega_i(t) at different time-points
+- Fig 3g: Learned field Omega\*(t) at different time-points

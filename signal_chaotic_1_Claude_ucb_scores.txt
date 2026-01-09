@@ -1,3 +1,5 @@
-=== UCB Scores (Simulation block 2, iters 33-48, N=1, c=1.414) ===
+=== UCB Scores (Simulation block 2, iters 33-48, N=3, c=1.414) ===
 
-Node 33: UCB=0.745, parent=root, visits=1, R2=0.038, Pearson=0.105, Mutation=baseline config from Block 1
+Node 34: UCB=1.490, parent=33, visits=2, R2=0.674, Pearson=0.840, Mutation=lr_W: 4E-3 → 8E-2 (20x increase)
+Node 35: UCB=1.287, parent=34, visits=1, R2=0.063, Pearson=0.000, Mutation=lr_W: 8E-2 → 1.2E-1 (1.5x increase)
+Node 33: UCB=0.650, parent=root, visits=3, R2=0.038, Pearson=0.105, Mutation=baseline config from Block 1

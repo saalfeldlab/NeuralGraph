@@ -1,4 +1,4 @@
-description: "baseline"
+description: "Figure 2 baseline - 1000 neurons, 4 types, no noise, no external inputs"
 dataset: "signal_demo_1"
 
 simulation:
@@ -41,8 +41,8 @@ plotting:
   ylim: [-8, 8]
 
 training:
-  n_epochs: 10
-  n_runs: 2
+  n_epochs: 2
+  n_runs: 1
   device: "auto"
 
   batch_size: 8
@@ -61,4 +61,4 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 7.5E-4
 
-  coeff_W_L1: 1.0E-6
+  coeff_W_L1: 0 # 1.0E-6

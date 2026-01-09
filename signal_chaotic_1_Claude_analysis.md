@@ -425,3 +425,25 @@ Mutation: baseline config from Block 1
 Parent rule: root (first iteration)
 Observation: low_rank connectivity (rank=20) produces eff_rank=6 activity — even lower than Dale_law=True (eff_rank=10); lr_W=4E-3 completely fails
 Next: parent=33, try lr_W=8E-2 (20x increase, extrapolating from Dale_law pattern)
+
+## Iter 34: partial
+Node: id=34, parent=33
+Mode/Strategy: exploit
+Config: lr_W=8E-2, lr=1E-4, coeff_W_L1=1E-5, low_rank_factorization=False
+Metrics: connectivity_R2=0.674, test_R2=0.830, test_pearson=0.840, final_loss=2302.4
+Activity: eff_rank=8, spectral_radius=1.184
+Mutation: lr_W: 4E-3 → 8E-2 (20x increase)
+Parent rule: highest UCB (node 34)
+Observation: 20x lr_W increase: R² 0.038→0.674; still partial, need higher lr_W or factorization
+Next: parent=34, lr_W=1.2E-1
+
+## Iter 35: failed
+Node: id=35, parent=34
+Mode/Strategy: exploit
+Config: lr_W=1.2E-1, lr=1E-4, coeff_W_L1=1E-5, low_rank_factorization=False
+Metrics: connectivity_R2=0.063, test_R2=0.556, test_pearson=-0.100, final_loss=1683.1
+Activity: eff_rank=6, spectral_radius=0.962
+Mutation: lr_W: 8E-2 → 1.2E-1 (1.5x increase)
+Parent rule: highest UCB (node 34, UCB=1.490)
+Observation: lr_W=1.2E-1 too high; R² dropped 0.674→0.063; upper bound of lr_W is between 8E-2 and 1.2E-1
+Next: parent=34, try low_rank_factorization=True (W is actually rank-20)

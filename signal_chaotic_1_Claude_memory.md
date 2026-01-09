@@ -56,10 +56,33 @@ Activity: eff_rank=6, spectral_radius=0.962
 Observation: low_rank (rank=20) produces eff_rank=6 (lower than Dale_law=True!); lr_W=4E-3 fails completely
 Next: parent=33, lr_W=8E-2
 
+## Iter 34: partial
+Node: id=34, parent=33
+Mode/Strategy: exploit
+Config: lr_W=8E-2, lr=1E-4, coeff_W_L1=1E-5, low_rank_factorization=False
+Metrics: connectivity_R2=0.674, test_R2=0.830, test_pearson=0.840, final_loss=2302.4
+Activity: eff_rank=8, spectral_radius=1.184
+Mutation: lr_W: 4E-3 → 8E-2 (20x increase)
+Parent rule: highest UCB (node 33, only option)
+Observation: 20x lr_W increase: R² 0.038→0.674; still partial, need higher lr_W or factorization
+Next: parent=34, lr_W=1.2E-1
+
+## Iter 35: failed
+Node: id=35, parent=34
+Mode/Strategy: exploit
+Config: lr_W=1.2E-1, lr=1E-4, coeff_W_L1=1E-5, low_rank_factorization=False
+Metrics: connectivity_R2=0.063, test_R2=0.556, test_pearson=-0.100, final_loss=1683.1
+Activity: eff_rank=6, spectral_radius=0.962
+Mutation: lr_W: 8E-2 → 1.2E-1 (1.5x increase)
+Parent rule: highest UCB (node 34, UCB=1.490)
+Observation: lr_W=1.2E-1 too high; R² dropped 0.674→0.063; upper bound of lr_W is between 8E-2 and 1.2E-1
+Next: parent=34, try low_rank_factorization=True (W is actually rank-20)
+
 ### Emerging Observations
 
-- **Surprising finding**: low_rank connectivity (rank=20) produces activity with eff_rank=6 — lower than Dale_law=True (eff_rank=10)
-- This explains why Block 1's lr_W=4E-3 completely fails here
-- Hypothesis: need lr_W similar to or higher than Dale_law=True (8E-2 to 1.2E-1)
-- Watch: will low_rank_factorization=True work here since W is actually low-rank?
+- **Surprising finding**: low_rank connectivity (rank=20) produces activity with eff_rank=6-8 — lower than Dale_law=True (eff_rank=10)
+- lr_W optimal range narrowing: 8E-2 works (R²=0.674), 1.2E-1 fails
+- lr_W=4E-3 (Block 1 optimal) completely fails for low_rank regime
+- **Key test needed**: low_rank_factorization=True — W is actually rank-20, so factorization may help
+- R² ceiling unknown — partial at 0.674 so far, need more exploration
 
