@@ -447,3 +447,14 @@ Mutation: lr_W: 8E-2 → 1.2E-1 (1.5x increase)
 Parent rule: highest UCB (node 34, UCB=1.490)
 Observation: lr_W=1.2E-1 too high; R² dropped 0.674→0.063; upper bound of lr_W is between 8E-2 and 1.2E-1
 Next: parent=34, try low_rank_factorization=True (W is actually rank-20)
+
+## Iter 36: failed
+Node: id=36, parent=34
+Mode/Strategy: exploit
+Config: lr_W=8E-2, lr=1E-4, coeff_W_L1=1E-5, low_rank_factorization=True, low_rank=20
+Metrics: connectivity_R2=0.144, test_R2=0.486, test_pearson=0.148, final_loss=2055.9
+Activity: eff_rank=6, spectral_radius=0.962
+Mutation: low_rank_factorization: False → True (testing hypothesis)
+Parent rule: highest UCB (node 34, UCB=1.381, best R²=0.674)
+Observation: low_rank_factorization=True with matching rank=20 still fails; R² dropped 0.674→0.144; factorization not the answer
+Next: parent=36 (highest UCB=1.558), try lr_W=5E-2 with factorization=False

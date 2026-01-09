@@ -78,11 +78,24 @@ Parent rule: highest UCB (node 34, UCB=1.490)
 Observation: lr_W=1.2E-1 too high; R² dropped 0.674→0.063; upper bound of lr_W is between 8E-2 and 1.2E-1
 Next: parent=34, try low_rank_factorization=True (W is actually rank-20)
 
+## Iter 36: failed
+Node: id=36, parent=34
+Mode/Strategy: exploit
+Config: lr_W=8E-2, lr=1E-4, coeff_W_L1=1E-5, low_rank_factorization=True, low_rank=20
+Metrics: connectivity_R2=0.144, test_R2=0.486, test_pearson=0.148, final_loss=2055.9
+Activity: eff_rank=6, spectral_radius=0.962
+Mutation: low_rank_factorization: False → True (testing hypothesis)
+Parent rule: highest UCB (node 34, UCB=1.381, best R²=0.674)
+Observation: low_rank_factorization=True with matching rank=20 still fails; R² dropped 0.674→0.144; factorization not the answer
+Next: parent=36 (highest UCB=1.558), try lr_W=4E-2 with factorization=False
+
 ### Emerging Observations
 
 - **Surprising finding**: low_rank connectivity (rank=20) produces activity with eff_rank=6-8 — lower than Dale_law=True (eff_rank=10)
 - lr_W optimal range narrowing: 8E-2 works (R²=0.674), 1.2E-1 fails
 - lr_W=4E-3 (Block 1 optimal) completely fails for low_rank regime
-- **Key test needed**: low_rank_factorization=True — W is actually rank-20, so factorization may help
+- **Key test result**: low_rank_factorization=True FAILS even when W is actually rank-20 (R²=0.144)
+- This strengthens Principle #3: low_rank_factorization=True fails regardless of W structure
 - R² ceiling unknown — partial at 0.674 so far, need more exploration
+- **Next strategy**: explore lr_W values between 4E-3 and 8E-2
 
