@@ -1,0 +1,3 @@
+=== UCB Scores (Simulation block 2, iters 33-48, N=1, c=1.414) ===
+
+Node 33: UCB=0.745, parent=root, visits=1, R2=0.038, Pearson=0.105, Mutation=baseline config from Block 1

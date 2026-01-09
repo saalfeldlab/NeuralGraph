@@ -2,7 +2,7 @@
 
 ## Goal
 
-Map the **simulation-GNN training landscape**: understand which simulation configurations allow successful GNN training (connectivity_R2 > 0.9) and which are fundamentally harder.
+Map the **simulation-GNN training landscape**: understand which neural activity simulation configurations allow successful GNN training (connectivity_R2 > 0.9) and which are fundamentally harder.
 
 ## Iteration Loop Structure
 
@@ -11,7 +11,7 @@ The prompt provides: `Block info: block {block_number}, iteration {iter_in_block
 
 ## File Structure (CRITICAL)
 
-You maintain \***\*TWO\*\*** files:
+You maintain **TWO** files:
 
 ### 1. Full Log (append-only record)
 
@@ -21,13 +21,13 @@ You maintain \***\*TWO\*\*** files:
 - Append block summaries
 - **Never read this file** — it's for human record only
 
-### 2. Working Memory (active knowledge)
+### 2. Working Memory
 
 **File**: `{config}_memory.md`
 
 - **READ at start of each iteration**
 - **UPDATE at end of each iteration**
-- Contains: knowledge base + previous block + current block only
+- Contains: established principles + previous blocks summary + current block iterations
 - Fixed size (~500 lines max)
 
 ---
@@ -49,10 +49,10 @@ Read `{config}_memory.md` to recall:
 - `spectral_radius`: eigenvalue analysis of connectivity
 - `svd_rank`: SVD rank at 99% variance (activity complexity)
 - `test_R2`: R² between ground truth and rollout prediction
-- `test_pearson`: Pearson correlation per neuron (mean)
+- `test_pearson`: Pearson correlation between ground truth and rollout prediction
 - `connectivity_R2`: R² of learned vs true connectivity weights
-- `cluster_accuracy`: clustering accuracy on learned embeddings (neuron type classification)
-- `final_loss`: final training loss (lower is better)
+- `cluster_accuracy`: clustering accuracy (neuron type classification)
+- `final_loss`: final training loss
 
 **Classification:**
 
@@ -62,7 +62,7 @@ Read `{config}_memory.md` to recall:
 
 **UCB scores from `ucb_scores.txt`:**
 
-- Provides pre-computed UCB scores for all nodes including current iteration
+- Provides computed UCB scores for all exploration nodes including current iteration
 - At block boundaries, the UCB file will be empty (erased). When empty, use `parent=root`
 
 Example:
@@ -104,15 +104,16 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition                            | Strategy            | Action                             |
-| ------------------------------------ | ------------------- | ---------------------------------- |
-| Default                              | **exploit**         | Highest UCB node, try mutation     |
-| 3+ consecutive R² ≥ 0.9              | **failure-probe**   | Extreme parameter to find boundary |
-| n_iter_block/4 consecutive successes | **explore**         | Select outside recent chain        |
-| Good config found                    | **robustness-test** | Re-run same config                 |
-| 2+ distant nodes with R² > 0.9       | **recombine**       | Merge params from both nodes       |
-| 100% convergence, branching<10%      | **forced-branch**   | Select node in bottom 50% of tree  |
+| Condition                            | Strategy             | Action                                       |
+| ------------------------------------ | -------------------- | -------------------------------------------- |
+| Default                              | **exploit**          | Highest UCB node, try mutation               |
+| 3+ consecutive R² ≥ 0.9              | **failure-probe**    | Extreme parameter to find boundary           |
+| n_iter_block/4 consecutive successes | **explore**          | Select outside recent chain                  |
+| Good config found                    | **robustness-test**  | Re-run same config                           |
+| 2+ distant nodes with R² > 0.9       | **recombine**        | Merge params from both nodes                 |
+| 100% convergence, branching<10%      | **forced-branch**    | Select node in bottom 50% of tree            |
 | 4+ consecutive same-param mutations  | **switch-dimension** | Mutate different parameter than recent chain |
+| 3+ partial results probing boundary  | **boundary-skip**    | Accept boundary as found, explore elsewhere  |
 
 **Recombination details:**
 
@@ -140,6 +141,19 @@ Recombine → lr_W=1E-2, lr=2E-3
 
 Edit config file for next iteration of the exploration.
 (The config path is provided in the prompt as "Current config")
+
+**CRITICAL: Config Parameter Constraints**
+
+**DO NOT add new parameters to the `claude:` section.** Only these fields are allowed:
+
+- `n_epochs`: int (training epochs per iteration)
+- `data_augmentation_loop`: int (data augmentation count)
+- `n_iter_block`: int (iterations per block)
+- `ucb_c`: float value (0.5-3.0)
+
+Any other parameters belong in the `training:` or `simulation:` sections, NOT in `claude:`.
+
+Adding invalid parameters to `claude:` will cause a validation error and crash the experiment.
 
 **Training Parameters (change within block):**
 

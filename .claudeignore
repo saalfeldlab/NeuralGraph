@@ -1,0 +1,9 @@
+log/
+graphs_data/
+.git/
+.julia_env/
+.julia/
+.ruff_cache/
+__pycache__/
+*.log
+*.pyc

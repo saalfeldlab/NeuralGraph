@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 1
+    start_iteration = 34
 
 
 
@@ -90,9 +90,35 @@ if __name__ == "__main__":
             cfg_file, pre = add_pre_folder(cfg)
             source_config = f"{config_root}/{pre}{cfg}.yaml"
             target_config = f"{config_root}/{pre}{llm_task_name}.yaml"
-            if os.path.exists(source_config):
-                shutil.copy2(source_config, target_config)
-                print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
+
+            # Only copy and initialize config on fresh start (not when resuming)
+            if start_iteration == 1:
+                if os.path.exists(source_config):
+                    shutil.copy2(source_config, target_config)
+                    print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
+                    with open(target_config, 'r') as f:
+                        config_data = yaml.safe_load(f)
+                    claude_cfg = config_data.get('claude', {})
+                    claude_n_epochs = claude_cfg.get('n_epochs', 1)
+                    claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
+                    claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                    claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+                    config_data['dataset'] = llm_task_name
+                    config_data['training']['n_epochs'] = claude_n_epochs
+                    config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
+                    config_data['description'] = 'designed by Claude'
+                    config_data['claude'] = {
+                        'n_epochs': claude_n_epochs,
+                        'data_augmentation_loop': claude_data_augmentation_loop,
+                        'n_iter_block': claude_n_iter_block,
+                        'ucb_c': claude_ucb_c
+                    }
+                    with open(target_config, 'w') as f:
+                        yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+                    print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}, ucb_c={claude_ucb_c}\033[0m")
+            else:
+                print(f"\033[93mpreserving {target_config} (resuming from iter {start_iteration})\033[0m")
+                # Load existing config to get claude parameters
                 with open(target_config, 'r') as f:
                     config_data = yaml.safe_load(f)
                 claude_cfg = config_data.get('claude', {})
@@ -100,19 +126,6 @@ if __name__ == "__main__":
                 claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
                 claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
                 claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
-                config_data['dataset'] = llm_task_name
-                config_data['training']['n_epochs'] = claude_n_epochs
-                config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
-                config_data['description'] = 'designed by Claude'
-                config_data['claude'] = {
-                    'n_epochs': claude_n_epochs,
-                    'data_augmentation_loop': claude_data_augmentation_loop,
-                    'n_iter_block': claude_n_iter_block,
-                    'ucb_c': claude_ucb_c
-                }
-                with open(target_config, 'w') as f:
-                    yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-                print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}, ucb_c={claude_ucb_c}\033[0m")
 
         n_iter_block = claude_n_iter_block
 
@@ -347,7 +360,7 @@ Current config: {config_path}"""
                     'claude',
                     '-p', claude_prompt,
                     '--output-format', 'text',
-                    '--max-turns', '40',
+                    '--max-turns', '100',
                     '--allowedTools',
                     'Read', 'Edit'
                 ]
