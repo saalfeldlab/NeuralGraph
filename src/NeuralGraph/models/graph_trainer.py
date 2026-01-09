@@ -417,9 +417,13 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         run = 0
         last_connectivity_r2 = None  # track last R² for progress display
 
+        # Progress reporting: print 10 times during training (for subprocess mode)
+        report_interval = max(1, Niter // 10)
+        tqdm_disabled = os.environ.get('TQDM_DISABLE', '0') == '1'
+        epoch_start_time = time.time()
 
         time.sleep(1.0)
-        pbar = trange(Niter, ncols=150)
+        pbar = trange(Niter, ncols=150, disable=tqdm_disabled)
         for N in pbar:
 
             if has_missing_activity:
@@ -733,6 +737,14 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
             # check_and_clear_memory(device=device, iteration_number=N, every_n_iterations=Niter // 50, memory_percentage_threshold=0.6)
 
+            # Print progress when tqdm is disabled (subprocess mode)
+            if tqdm_disabled and N > 0 and N % report_interval == 0:
+                elapsed = time.time() - epoch_start_time
+                progress_pct = (N / Niter) * 100
+                steps_per_sec = N / elapsed if elapsed > 0 else 0
+                eta_seconds = (Niter - N) / steps_per_sec if steps_per_sec > 0 else 0
+                r2_str = f"R²={last_connectivity_r2:.3f}" if last_connectivity_r2 is not None else "R²=..."
+                print(f"  {progress_pct:5.1f}% | step {N:6d}/{Niter} | {r2_str} | {steps_per_sec:.1f} it/s | eta: {eta_seconds/60:.1f}m", flush=True)
 
         epoch_total_loss = total_loss / n_neurons
         epoch_regul_loss = total_loss_regul / n_neurons

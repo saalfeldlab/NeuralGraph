@@ -1,39 +1,32 @@
 """
-GNN Recurrent Training - Recurrent time_step optimization experiments.
+GNN Recurrent Training with Code Modification Support.
 
-This script runs GNN training with recurrent training mode enabled.
-It supports both explicit Euler recurrent training and Neural ODE training.
+This script runs GNN training with recurrent training mode and allows Claude to modify
+the training code (graph_trainer.py) to explore different training schemes.
 
-Recurrent training (time_step > 1):
-    - Model predicts T steps ahead using its own predictions
-    - Loss computed at step T against ground truth
-    - Gradients backpropagate through T steps
-
-Neural ODE training (alternative):
-    - Uses continuous ODE solver (torchdiffeq)
-    - Adaptive step size based on rtol/atol
-    - Adjoint method for memory-efficient backprop
+Training runs in a subprocess to ensure code modifications are reloaded each iteration.
+Code changes are automatically committed to git for version control.
 
 Usage:
-    python GNN_recurrent.py                                         # run full pipeline
-    python GNN_recurrent.py -o generate signal_N2_recurrent_1       # generate data only
-    python GNN_recurrent.py -o train signal_N2_recurrent_1          # train only
-    python GNN_recurrent.py -o test signal_N2_recurrent_1           # test only
-    python GNN_recurrent.py -o plot signal_N2_recurrent_1           # plot only
+    python GNN_recurrent_code.py                                              # run Claude exploration
+    python GNN_recurrent_code.py -o train_test_plot_Claude signal_N2_recurrent_1  # explicit config
 
-Config parameters (in training section):
-    recurrent_training: True        # enable recurrent mode
-    neural_ODE_training: False      # alternative: Neural ODE mode
-    time_step: 4                    # recurrence depth (1, 4, 16, 32, 64)
-    noise_recurrent_level: 0.0      # noise at each recurrent step
-
-See instruction_signal_N2_recurrent_1.md for experiment protocol.
+Code modification support:
+    - Claude can modify: src/NeuralGraph/models/graph_trainer.py
+    - Changes are tracked and committed to git automatically
+    - Subprocess reloads modified code each iteration
+    - See instruction_signal_N2_recurrent_code_1.md for allowed modifications
 """
 
 import matplotlib
 matplotlib.use('Agg')  # set non-interactive backend before other imports
 import argparse
 import os
+import shutil
+import subprocess
+import sys
+import time
+import yaml
 
 # redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
 if os.path.isdir('/scratch'):
@@ -44,7 +37,11 @@ if os.path.isdir('/scratch'):
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test
+from NeuralGraph.models.exploration_tree import compute_ucb_scores
+from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
+from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
+from NeuralGraph.git_code_tracker import track_code_modifications, is_git_repo
 from GNN_PlotFigure import data_plot
 
 import warnings
@@ -52,14 +49,14 @@ warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
-    parser = argparse.ArgumentParser(description="NeuralGraph Recurrent Training")
+    parser = argparse.ArgumentParser(description="NeuralGraph Recurrent Training with Code Modification")
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
 
     print()
     print("=" * 80)
-    print("GNN Recurrent Training - Time Step Optimization")
+    print("GNN Recurrent Training with Code Modification Support")
     print("=" * 80)
 
     device = []
@@ -74,136 +71,478 @@ if __name__ == "__main__":
             best_model = args.option[2]
         else:
             best_model = None
+        task_params = {}
+        for arg in args.option[2:]:
+            if '=' in arg:
+                key, value = arg.split('=', 1)
+                task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot'
+        task = 'generate_train_test_plot_Claude'
         config_list = ['signal_N2_recurrent_1']
+        task_params = {'iterations': 512}
+
+    # resume support: start_iteration parameter (default 1)
+    start_iteration = task_params.get('start', 1)
+
+    n_iterations = task_params.get('iterations', 5)
+    base_config_name = config_list[0] if config_list else 'signal'
+    instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
+    llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
+
+    if 'Claude' in task:
+        iteration_range = range(start_iteration, n_iterations + 1)
+
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        config_root = root_dir + "/config"
+
+        if start_iteration > 1:
+            print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+
+        for cfg in config_list:
+            cfg_file, pre = add_pre_folder(cfg)
+            source_config = f"{config_root}/{pre}{cfg}.yaml"
+            target_config = f"{config_root}/{pre}{llm_task_name}.yaml"
+
+            # Only copy and initialize config on fresh start (not when resuming)
+            if start_iteration == 1:
+                if os.path.exists(source_config):
+                    shutil.copy2(source_config, target_config)
+                    print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
+                    with open(target_config, 'r') as f:
+                        config_data = yaml.safe_load(f)
+                    claude_cfg = config_data.get('claude', {})
+                    claude_n_epochs = claude_cfg.get('n_epochs', 1)
+                    claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
+                    claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                    claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+                    config_data['dataset'] = llm_task_name
+                    config_data['training']['n_epochs'] = claude_n_epochs
+                    config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
+                    config_data['description'] = 'designed by Claude (with code modification)'
+                    config_data['claude'] = {
+                        'n_epochs': claude_n_epochs,
+                        'data_augmentation_loop': claude_data_augmentation_loop,
+                        'n_iter_block': claude_n_iter_block,
+                        'ucb_c': claude_ucb_c
+                    }
+                    with open(target_config, 'w') as f:
+                        yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+                    print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}, ucb_c={claude_ucb_c}\033[0m")
+            else:
+                print(f"\033[93mpreserving {target_config} (resuming from iter {start_iteration})\033[0m")
+                # Load existing config to get claude parameters
+                with open(target_config, 'r') as f:
+                    config_data = yaml.safe_load(f)
+                claude_cfg = config_data.get('claude', {})
+                claude_n_epochs = claude_cfg.get('n_epochs', 1)
+                claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
+                claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+
+        n_iter_block = claude_n_iter_block
+
+        ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
+        if start_iteration == 1:
+            # only delete UCB file when starting fresh (not resuming)
+            if os.path.exists(ucb_file):
+                os.remove(ucb_file)
+                print(f"\033[93mdeleted {ucb_file}\033[0m")
+        else:
+            print(f"\033[93mpreserving {ucb_file} (resuming from iter {start_iteration})\033[0m")
+
+        config_list = [llm_task_name]
+    else:
+        iteration_range = range(1, 2)
 
     for config_file_ in config_list:
-        print()
+        print(" ")
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
         config_file, pre_folder = add_pre_folder(config_file_)
 
-        # load config
-        config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
-        config.config_file = config_file
-        config.dataset = config_file  # e.g., 'signal/signal_N2_recurrent_1'
+        if 'Claude' in task:
+            root_dir = os.path.dirname(os.path.abspath(__file__))
+            instruction_path = f"{root_dir}/{instruction_name}.md"
+            analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
+            memory_path = f"{root_dir}/{llm_task_name}_memory.md"
 
-        if device == []:
-            device = set_device(config.training.device)
+            # check instruction file exists
+            if not os.path.exists(instruction_path):
+                print(f"\033[91merror: instruction file not found: {instruction_path}\033[0m")
+                print("\033[93mavailable instruction files:\033[0m")
+                for f in os.listdir(root_dir):
+                    if f.endswith('.md') and not f.startswith('analysis_') and not f.startswith('README'):
+                        print(f"  - {f[:-3]}")
+                continue
 
-        log_dir = f'./log/{config_file}'
-        graphs_dir = f'./graphs_data/{config_file}'
+            # clear analysis and memory files at start (only if not resuming)
+            if start_iteration == 1:
+                with open(analysis_path, 'w') as f:
+                    f.write(f"# Experiment Log: {config_file_}\n\n")
+                print(f"\033[93mcleared {analysis_path}\033[0m")
+                # clear reasoning.log for Claude tasks
+                reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
+                open(reasoning_path, 'w').close()
+                print(f"\033[93mcleared {reasoning_path}\033[0m")
+                # initialize working memory file
+                with open(memory_path, 'w') as f:
+                    f.write(f"# Working Memory: {config_file_}\n\n")
+                    f.write("## Knowledge Base (accumulated across all blocks)\n\n")
+                    f.write("### Time Step Comparison Table\n")
+                    f.write("| Block | time_step | Best R² | Optimal lr_W | Optimal lr | Optimal L1 | Rollout R² | Training time (min) | Key finding |\n")
+                    f.write("|-------|-----------|---------|--------------|------------|------------|------------|---------------------|-------------|\n\n")
+                    f.write("### Established Principles\n\n")
+                    f.write("### Open Questions\n\n")
+                    f.write("---\n\n")
+                    f.write("## Previous Block Summary\n\n")
+                    f.write("---\n\n")
+                    f.write("## Current Block (Block 1)\n\n")
+                    f.write("### Block Info\n\n")
+                    f.write("### Hypothesis\n\n")
+                    f.write("### Iterations This Block\n\n")
+                    f.write("### Emerging Observations\n\n")
+                print(f"\033[93mcleared {memory_path}\033[0m")
+            else:
+                print(f"\033[93mpreserving {analysis_path} (resuming from iter {start_iteration})\033[0m")
+                print(f"\033[93mpreserving {memory_path} (resuming from iter {start_iteration})\033[0m")
+                reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
+                print(f"\033[93mpreserving {reasoning_path} (resuming from iter {start_iteration})\033[0m")
+            print(f"\033[93m{instruction_name} ({n_iterations} iterations, starting at {start_iteration})\033[0m")
 
-        # Print recurrent training configuration
-        print("-" * 80)
-        print("Recurrent Training Configuration")
-        print("-" * 80)
-        recurrent_training = getattr(config.training, 'recurrent_training', False)
-        neural_ODE_training = getattr(config.training, 'neural_ODE_training', False)
-        time_step = getattr(config.training, 'time_step', 1)
-        noise_recurrent = getattr(config.training, 'noise_recurrent_level', 0.0)
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
 
-        if recurrent_training:
-            print(f"  Mode: Recurrent Training (explicit Euler)")
-            print(f"  time_step: {time_step}")
-            print(f"  noise_recurrent_level: {noise_recurrent}")
-        elif neural_ODE_training:
-            ode_method = getattr(config.training, 'ode_method', 'dopri5')
-            ode_adjoint = getattr(config.training, 'ode_adjoint', True)
-            print(f"  Mode: Neural ODE Training")
-            print(f"  time_step: {time_step}")
-            print(f"  ode_method: {ode_method}")
-            print(f"  ode_adjoint: {ode_adjoint}")
-        else:
-            print(f"  Mode: Single-step prediction (no recurrence)")
-        print()
+        for iteration in iteration_range:
 
-        if "generate" in task:
-            # Generate synthetic neural activity data
-            print()
-            print("-" * 80)
-            print("STEP 1: GENERATE - Simulating neural activity")
-            print("-" * 80)
-            print(f"  Simulating {config.simulation.n_neurons} neurons, {config.simulation.n_neuron_types} types")
-            print(f"  Generating {config.simulation.n_frames} time frames")
-            print(f"  Output: {graphs_dir}/")
-            print()
-            data_generate(
-                config,
-                device=device,
-                visualize=False,
-                run_vizualized=0,
-                style="color",
-                alpha=1,
-                erase=True,
-                bSave=True,
-                step=2,
-            )
+            if 'Claude' in task:
+                print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
+                # block boundary: erase UCB at start of each n_iter_block-iteration block (except iter 1, already handled)
+                if iteration > 1 and (iteration - 1) % n_iter_block == 0:
+                    ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
+                    if os.path.exists(ucb_file):
+                        os.remove(ucb_file)
+                        print(f"\033[93msimulation block boundary: deleted {ucb_file} (new simulation block)\\033[0m")
 
-        if "train" in task:
-            # Train the GNN with recurrent training
-            print()
-            print("-" * 80)
-            print("STEP 2: TRAIN - Training GNN with recurrent mode")
-            print("-" * 80)
-            print(f"  Training for {config.training.n_epochs} epochs, {config.training.n_runs} run(s)")
-            print(f"  Recurrent time_step: {time_step}")
-            print(f"  Models: {log_dir}/models/")
-            print(f"  Training plots: {log_dir}/tmp_training")
-            print()
-            data_train(
-                config=config,
-                erase=True,
-                best_model=best_model,
-                style='black',
-                device=device
-            )
+            # reload config to pick up any changes from previous iteration
+            config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + config_file_
 
-        if "test" in task:
-            # Test the trained GNN model
-            print()
-            print("-" * 80)
-            print("STEP 3: TEST - Evaluating trained model")
-            print("-" * 80)
-            print(f"  Testing prediction accuracy and rollout inference")
-            print(f"  Output: {log_dir}/results/")
-            print()
-            config.training.noise_model_level = 0.0
+            if device == []:
+                device = set_device(config.training.device)
 
-            data_test(
-                config=config,
-                visualize=False,
-                style="black color name continuous_slice",
-                verbose=False,
-                best_model='best',
-                run=0,
-                test_mode="",
-                sample_embedding=False,
-                step=10,
-                n_rollout_frames=1000,
-                device=device,
-                particle_of_interest=0,
-                new_params=None,
-            )
+            # open analysis.log for this iteration (append mode for test/plot to add metrics)
+            log_file = open(analysis_log_path, 'w')
 
-        if 'plot' in task:
-            # Generate plots
-            print()
-            print("-" * 80)
-            print("STEP 4: PLOT - Generating result figures")
-            print("-" * 80)
-            print(f"  Connectivity comparison (learned vs true)")
-            print(f"  Embedding visualization")
-            print(f"  MLP function plots")
-            print(f"  Output: {log_dir}/results/")
-            print()
-            folder_name = './log/' + pre_folder + '/tmp_results/'
-            os.makedirs(folder_name, exist_ok=True)
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
+            if "generate" in task:
+                erase = 'Claude' in task  # erase when iterating with claude
+                data_generate(
+                    config,
+                    device=device,
+                    visualize=False,
+                    run_vizualized=0,
+                    style="black color",
+                    alpha=1,
+                    erase=erase,
+                    bSave=True,
+                    step=2,
+                    log_file=log_file
+                )
 
-        print()
-        print("=" * 80)
-        print("Recurrent training complete!")
-        print(f"Results saved to: {log_dir}/results/")
-        print("=" * 80)
+            if "train" in task:
+                # For Claude tasks, run training in subprocess to reload modified code
+                if 'Claude' in task:
+                    print(f"\033[93mrunning training in subprocess (code modifications will be reloaded)...\033[0m")
+
+                    # Construct subprocess command
+                    train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
+                    config_path = f"{config_root}/{config_file}.yaml"
+
+                    # Create log directory and error log paths
+                    log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
+                    os.makedirs(log_dir, exist_ok=True)
+                    error_log_path = f"{log_dir}/training_output_latest.log"
+                    error_details_path = f"{log_dir}/training_error_latest.log"
+
+                    train_cmd = [
+                        sys.executable,  # Use same Python interpreter
+                        '-u',  # Force unbuffered output for real-time streaming
+                        train_script,
+                        '--config', config_path,
+                        '--device', str(device),
+                        '--log_file', analysis_log_path,
+                        '--config_file', config.config_file,
+                        '--error_log', error_details_path
+                    ]
+                    if 'Claude' in task:
+                        train_cmd.append('--erase')
+
+                    # Run training subprocess and stream output
+                    env = os.environ.copy()
+                    env['PYTHONUNBUFFERED'] = '1'
+                    env['TQDM_DISABLE'] = '1'  # Disable tqdm progress bars in subprocess
+
+                    process = subprocess.Popen(
+                        train_cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        text=True,
+                        bufsize=1,
+                        env=env
+                    )
+
+                    # Capture all output for logging while also streaming to console
+                    # Filter out tqdm progress bar lines (contain |, %, it/s)
+                    output_lines = []
+                    line_count = 0
+                    with open(error_log_path, 'w') as output_file:
+                        for line in process.stdout:
+                            output_file.write(line)
+                            output_file.flush()
+                            output_lines.append(line.rstrip())
+                            # Filter: skip tqdm-like lines (progress bars)
+                            if '|' in line and '%' in line and 'it/s' in line:
+                                continue
+                            # Print non-tqdm lines
+                            print(line, end='', flush=True)
+                            line_count += 1
+
+                    process.wait()
+
+                    if process.returncode != 0:
+                        print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
+                        print(f"\033[93mthis may indicate a code modification error.\033[0m\n")
+
+                        # Show last 20 lines of output for context
+                        print(f"\033[93mLast 20 lines of output:\033[0m")
+                        print("-" * 80)
+                        for line in output_lines[-20:]:
+                            print(line)
+                        print("-" * 80)
+
+                        # Show paths to log files
+                        print(f"\nFull output logged to: {error_log_path}")
+                        if os.path.exists(error_details_path):
+                            print(f"Error details logged to: {error_details_path}")
+                            try:
+                                with open(error_details_path, 'r') as f:
+                                    error_details = f.read()
+                                if error_details.strip():
+                                    print(f"\n\033[91mDetailed error information:\033[0m")
+                                    print(error_details)
+                            except Exception as e:
+                                print(f"Could not read error details: {e}")
+
+                        raise RuntimeError(f"training failed at iteration {iteration}")
+
+                    print(f"\033[92mtraining subprocess completed successfully\033[0m")
+                else:
+                    # For non-Claude tasks, run directly
+                    data_train(
+                        config=config,
+                        erase=True,
+                        best_model=best_model,
+                        style='black',
+                        device=device,
+                        log_file=log_file
+                    )
+
+            if "test" in task:
+                config.training.noise_model_level = 0.0
+
+                data_test(
+                    config=config,
+                    visualize=False,
+                    style="black color name continuous_slice",
+                    verbose=False,
+                    best_model='best',
+                    run=0,
+                    test_mode="",
+                    sample_embedding=False,
+                    step=10,
+                    n_rollout_frames=1000,
+                    device=device,
+                    particle_of_interest=0,
+                    new_params=None,
+                    log_file=log_file,
+                )
+
+            if 'plot' in task:
+                folder_name = './log/' + pre_folder + '/tmp_results/'
+                os.makedirs(folder_name, exist_ok=True)
+                data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
+
+            log_file.close()
+
+            if 'Claude' in task:
+
+                block_number = (iteration - 1) // n_iter_block + 1
+                iter_in_block = (iteration - 1) % n_iter_block + 1
+                is_block_end = iter_in_block == n_iter_block
+
+                exploration_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
+                artifact_paths = save_exploration_artifacts(
+                    root_dir, exploration_dir, config, config_file_, pre_folder, iteration,
+                    iter_in_block=iter_in_block, block_number=block_number
+                )
+                tree_save_dir = artifact_paths['tree_save_dir']
+                protocol_save_dir = artifact_paths['protocol_save_dir']
+                activity_path = artifact_paths['activity_path']
+
+                # claude analysis: reads activity.png and analysis.log, updates config per experiment protocol
+                config_path = f"{root_dir}/config/{pre_folder}{config_file_}.yaml"
+                ucb_path = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
+
+                # read ucb_c from config
+                with open(config_path, 'r') as f:
+                    raw_config = yaml.safe_load(f)
+                ucb_c = raw_config.get('claude', {}).get('ucb_c', 1.414)
+
+                # compute UCB scores for Claude to read
+                compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
+                                   current_log_path=analysis_log_path,
+                                   current_iteration=iteration,
+                                   block_size=n_iter_block)
+                print(f"\033[92mUCB scores computed (c={ucb_c}): {ucb_path}\033[0m")
+
+                # check files are ready (generated by data_generate above)
+                time.sleep(2)  # pause to ensure files are written
+                if not os.path.exists(activity_path):
+                    print(f"\033[91merror: activity.png not found at {activity_path}\033[0m")
+                    continue
+                if not os.path.exists(analysis_log_path):
+                    print(f"\033[91merror: analysis.log not found at {analysis_log_path}\033[0m")
+                    continue
+                if not os.path.exists(ucb_path):
+                    print(f"\033[91merror: ucb_scores.txt not found at {ucb_path}\033[0m")
+                    continue
+                print("\033[92mfiles ready: activity.png, analysis.log, ucb_scores.txt\033[0m")
+
+                # call Claude CLI for analysis
+                print("\033[93mClaude analysis...\033[0m")
+
+                # Path to graph_trainer.py for code modification
+                graph_trainer_path = f"{root_dir}/src/NeuralGraph/models/graph_trainer.py"
+
+                claude_prompt = f"""Iteration {iteration}/{n_iterations}
+Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
+{">>> BLOCK END <<<" if is_block_end else ""}
+
+Instructions (follow all instructions): {instruction_path}
+Working memory: {memory_path}
+Full log (append only): {analysis_path}
+Activity image: {activity_path}
+Metrics log: {analysis_log_path}
+UCB scores: {ucb_path}
+Current config: {config_path}
+Code file (can modify): {graph_trainer_path}"""
+
+                claude_cmd = [
+                    'claude',
+                    '-p', claude_prompt,
+                    '--output-format', 'text',
+                    '--max-turns', '100',
+                    '--allowedTools',
+                    'Read', 'Edit'
+                ]
+
+                # run with real-time output streaming and token expiry detection
+                output_lines = []
+                process = subprocess.Popen(
+                    claude_cmd,
+                    cwd=root_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
+
+                # stream output line by line
+                for line in process.stdout:
+                    print(line, end='', flush=True)
+                    output_lines.append(line)
+
+                process.wait()
+
+                # check for OAuth token expiration error
+                output_text = ''.join(output_lines)
+                if 'OAuth token has expired' in output_text or 'authentication_error' in output_text:
+                    print(f"\n\033[91m{'='*60}\033[0m")
+                    print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
+                    print("\033[93mTo resume:\033[0m")
+                    print("\033[93m  1. Run: claude /login\033[0m")
+                    print(f"\033[93m  2. Then: python GNN_recurrent_code.py -o {task} {config_file_} start={iteration}\033[0m")
+                    print(f"\033[91m{'='*60}\033[0m")
+                    raise SystemExit(1)
+
+                # Save Claude's terminal output to reasoning log (separate from analysis.md)
+                reasoning_log_path = analysis_path.replace('_analysis.md', '_reasoning.log')
+                if output_text.strip():
+                    with open(reasoning_log_path, 'a') as f:
+                        f.write(f"\n{'='*60}\n")
+                        f.write(f"=== Iteration {iteration} ===\n")
+                        f.write(f"{'='*60}\n")
+                        f.write(output_text.strip())
+                        f.write("\n\n")
+
+                # Git tracking: commit any code modifications made by Claude
+                if is_git_repo(root_dir):
+                    print(f"\n\033[96mchecking for code modifications to commit\033[0m")
+                    git_results = track_code_modifications(
+                        root_dir=root_dir,
+                        iteration=iteration,
+                        analysis_path=analysis_path,
+                        reasoning_path=reasoning_log_path
+                    )
+
+                    if git_results:
+                        for file_path, success, message in git_results:
+                            if success:
+                                print(f"\033[92m✓ Git: {message}\033[0m")
+                            else:
+                                print(f"\033[93m⚠ Git: {message}\033[0m")
+                    else:
+                        print(f"\033[90m  No code modifications detected\033[0m")
+                else:
+                    if iteration == 1:
+                        print(f"\033[90m  Not a git repository - code modifications will not be version controlled\033[0m")
+
+                # save instruction file at first iteration of each block
+                if iter_in_block == 1:
+                    dst_instruction = f"{protocol_save_dir}/block_{block_number:03d}.md"
+                    if os.path.exists(instruction_path):
+                        shutil.copy2(instruction_path, dst_instruction)
+
+                # save memory file at end of each block (after Claude updates it)
+                if is_block_end:
+                    memory_save_dir = f"{exploration_dir}/memory"
+                    os.makedirs(memory_save_dir, exist_ok=True)
+                    dst_memory = f"{memory_save_dir}/block_{block_number:03d}_memory.md"
+                    if os.path.exists(memory_path):
+                        shutil.copy2(memory_path, dst_memory)
+                        print(f"\033[92msaved memory snapshot: {dst_memory}\033[0m")
+
+                # recompute UCB scores after Claude to pick up mutations from analysis markdown
+                compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
+                                   current_log_path=analysis_log_path,
+                                   current_iteration=iteration,
+                                   block_size=n_iter_block)
+
+                # generate UCB tree visualization from ucb_scores.txt
+                ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
+                nodes = parse_ucb_scores(ucb_path)
+                if nodes:
+                    # get simulation info from config for tree annotation
+                    sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
+                    sim_info += f", time_step={config.training.time_step}"
+                    if hasattr(config.training, 'recurrent_training'):
+                        sim_info += f", recurrent={config.training.recurrent_training}"
+
+                    plot_ucb_tree(nodes, ucb_tree_path,
+                                  title=f"UCB Tree - Iter {iteration}",
+                                  simulation_info=sim_info)
+
+    print()
+    print("=" * 80)
+    print("GNN Recurrent Training with Code Modification complete!")
+    print("=" * 80)

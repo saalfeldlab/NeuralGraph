@@ -1,4 +1,4 @@
-description: "recurrent training time_step=4"
+description: "recurrent training time_step=1"
 dataset: "signal_N2_1"
 
 simulation:
@@ -46,14 +46,14 @@ training:
   device: "cuda:1"
 
   recurrent_training: True
-  time_step: 4
+  time_step: 1
 
   batch_size: 8
   small_init_batch_size: False
 
   seed: 24
 
-  data_augmentation_loop: 2
+  data_augmentation_loop: 25
 
   sparsity: "none"
   sparsity_freq: 4
@@ -64,9 +64,9 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 7.5E-4
 
-  coeff_W_L1: 1.0E-5
+  coeff_W_L1: 0
 
 claude:
   n_epochs: 1
-  data_augmentation_loop: 2
+  data_augmentation_loop: 25
   n_iter_block: 16
