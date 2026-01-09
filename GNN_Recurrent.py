@@ -41,7 +41,7 @@ from NeuralGraph.models.exploration_tree import compute_ucb_scores
 from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
 from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
-from NeuralGraph.git_code_tracker import track_code_modifications, is_git_repo
+from NeuralGraph.git_code_tracker import track_code_modifications, is_git_repo, get_modified_code_files
 from GNN_PlotFigure import data_plot
 
 import warnings
@@ -152,8 +152,12 @@ if __name__ == "__main__":
             print(f"\033[93mpreserving {ucb_file} (resuming from iter {start_iteration})\033[0m")
 
         config_list = [llm_task_name]
+
+        # Track if code was modified by Claude (starts False, set True after Claude modifies code)
+        code_modified_by_claude = False
     else:
         iteration_range = range(1, 2)
+        code_modified_by_claude = False
 
     for config_file_ in config_list:
         print(" ")
@@ -250,92 +254,105 @@ if __name__ == "__main__":
                 )
 
             if "train" in task:
-                # For Claude tasks, run training in subprocess to reload modified code
+                # For Claude tasks, use subprocess only if Claude modified code in this session
                 if 'Claude' in task:
-                    print(f"\033[93mrunning training in subprocess (code modifications will be reloaded)...\033[0m")
+                    use_subprocess = code_modified_by_claude
 
-                    # Construct subprocess command
-                    train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
-                    config_path = f"{config_root}/{config_file}.yaml"
+                    if use_subprocess:
+                        print(f"\033[93mcode modified by Claude - running training in subprocess...\033[0m")
 
-                    # Create log directory and error log paths
-                    log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
-                    os.makedirs(log_dir, exist_ok=True)
-                    error_log_path = f"{log_dir}/training_output_latest.log"
-                    error_details_path = f"{log_dir}/training_error_latest.log"
+                        # Construct subprocess command
+                        train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
+                        config_path = f"{config_root}/{config_file}.yaml"
 
-                    train_cmd = [
-                        sys.executable,  # Use same Python interpreter
-                        '-u',  # Force unbuffered output for real-time streaming
-                        train_script,
-                        '--config', config_path,
-                        '--device', str(device),
-                        '--log_file', analysis_log_path,
-                        '--config_file', config.config_file,
-                        '--error_log', error_details_path
-                    ]
-                    if 'Claude' in task:
-                        train_cmd.append('--erase')
+                        # Create log directory and error log paths
+                        log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
+                        os.makedirs(log_dir, exist_ok=True)
+                        error_log_path = f"{log_dir}/training_output_latest.log"
+                        error_details_path = f"{log_dir}/training_error_latest.log"
 
-                    # Run training subprocess and stream output
-                    env = os.environ.copy()
-                    env['PYTHONUNBUFFERED'] = '1'
-                    env['TQDM_DISABLE'] = '1'  # Disable tqdm progress bars in subprocess
+                        train_cmd = [
+                            sys.executable,  # Use same Python interpreter
+                            '-u',  # Force unbuffered output for real-time streaming
+                            train_script,
+                            '--config', config_path,
+                            '--device', str(device),
+                            '--log_file', analysis_log_path,
+                            '--config_file', config.config_file,
+                            '--error_log', error_details_path,
+                            '--erase'
+                        ]
 
-                    process = subprocess.Popen(
-                        train_cmd,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        text=True,
-                        bufsize=1,
-                        env=env
-                    )
+                        # Run training subprocess and stream output
+                        env = os.environ.copy()
+                        env['PYTHONUNBUFFERED'] = '1'
+                        env['TQDM_DISABLE'] = '1'  # Disable tqdm in subprocess (doesn't stream well)
 
-                    # Capture all output for logging while also streaming to console
-                    # Filter out tqdm progress bar lines (contain |, %, it/s)
-                    output_lines = []
-                    line_count = 0
-                    with open(error_log_path, 'w') as output_file:
-                        for line in process.stdout:
-                            output_file.write(line)
-                            output_file.flush()
-                            output_lines.append(line.rstrip())
-                            # Filter: skip tqdm-like lines (progress bars)
-                            if '|' in line and '%' in line and 'it/s' in line:
-                                continue
-                            # Print non-tqdm lines
-                            print(line, end='', flush=True)
-                            line_count += 1
+                        process = subprocess.Popen(
+                            train_cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            bufsize=1,
+                            env=env
+                        )
 
-                    process.wait()
+                        # Capture all output for logging while also streaming to console
+                        # Filter out tqdm progress bar lines (contain |, %, it/s)
+                        output_lines = []
+                        line_count = 0
+                        with open(error_log_path, 'w') as output_file:
+                            for line in process.stdout:
+                                output_file.write(line)
+                                output_file.flush()
+                                output_lines.append(line.rstrip())
+                                # Filter: skip tqdm-like lines (progress bars)
+                                if '|' in line and '%' in line and 'it/s' in line:
+                                    continue
+                                # Print non-tqdm lines
+                                print(line, end='', flush=True)
+                                line_count += 1
 
-                    if process.returncode != 0:
-                        print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
-                        print(f"\033[93mthis may indicate a code modification error.\033[0m\n")
+                        process.wait()
 
-                        # Show last 20 lines of output for context
-                        print(f"\033[93mLast 20 lines of output:\033[0m")
-                        print("-" * 80)
-                        for line in output_lines[-20:]:
-                            print(line)
-                        print("-" * 80)
+                        if process.returncode != 0:
+                            print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
+                            print(f"\033[93mthis may indicate a code modification error.\033[0m\n")
 
-                        # Show paths to log files
-                        print(f"\nFull output logged to: {error_log_path}")
-                        if os.path.exists(error_details_path):
-                            print(f"Error details logged to: {error_details_path}")
-                            try:
-                                with open(error_details_path, 'r') as f:
-                                    error_details = f.read()
-                                if error_details.strip():
-                                    print(f"\n\033[91mDetailed error information:\033[0m")
-                                    print(error_details)
-                            except Exception as e:
-                                print(f"Could not read error details: {e}")
+                            # Show last 20 lines of output for context
+                            print(f"\033[93mLast 20 lines of output:\033[0m")
+                            print("-" * 80)
+                            for line in output_lines[-20:]:
+                                print(line)
+                            print("-" * 80)
 
-                        raise RuntimeError(f"training failed at iteration {iteration}")
+                            # Show paths to log files
+                            print(f"\nFull output logged to: {error_log_path}")
+                            if os.path.exists(error_details_path):
+                                print(f"Error details logged to: {error_details_path}")
+                                try:
+                                    with open(error_details_path, 'r') as f:
+                                        error_details = f.read()
+                                    if error_details.strip():
+                                        print(f"\n\033[91mDetailed error information:\033[0m")
+                                        print(error_details)
+                                except Exception as e:
+                                    print(f"Could not read error details: {e}")
 
-                    print(f"\033[92mtraining subprocess completed successfully\033[0m")
+                            raise RuntimeError(f"training failed at iteration {iteration}")
+
+                        print(f"\033[92mtraining subprocess completed successfully\033[0m")
+                    else:
+                        # No code modifications - run training directly (faster)
+                        print(f"\033[92mno code modifications - running training directly...\033[0m")
+                        data_train(
+                            config=config,
+                            erase=True,
+                            best_model=best_model,
+                            style='black',
+                            device=device,
+                            log_file=log_file
+                        )
                 else:
                     # For non-Claude tasks, run directly
                     data_train(
@@ -499,11 +516,19 @@ Code file (can modify): {graph_trainer_path}"""
                         for file_path, success, message in git_results:
                             if success:
                                 print(f"\033[92m✓ Git: {message}\033[0m")
+                                # Set flag so next iteration uses subprocess
+                                code_modified_by_claude = True
                             else:
                                 print(f"\033[93m⚠ Git: {message}\033[0m")
                     else:
                         print(f"\033[90m  No code modifications detected\033[0m")
                 else:
+                    # Not a git repo - check for code modifications directly
+                    tracked_code_files = ['src/NeuralGraph/models/graph_trainer.py']
+                    modified_files = get_modified_code_files(root_dir, tracked_code_files)
+                    if modified_files:
+                        code_modified_by_claude = True
+                        print(f"\033[93m  Code modified (no git): {modified_files}\033[0m")
                     if iteration == 1:
                         print(f"\033[90m  Not a git repository - code modifications will not be version controlled\033[0m")
 

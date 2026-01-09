@@ -18,7 +18,7 @@ try:
     TCNN_AVAILABLE = True
 except ImportError:
     TCNN_AVAILABLE = False
-    print("Warning: tinycudann not available. HashEncodingMLP will not work.")
+    # print("Warning: tinycudann not available. HashEncodingMLP will not work.")
 
 
 class HashEncodingMLP(nn.Module):

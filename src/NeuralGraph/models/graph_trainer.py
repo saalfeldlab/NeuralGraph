@@ -417,8 +417,8 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         run = 0
         last_connectivity_r2 = None  # track last R² for progress display
 
-        # Progress reporting: print 10 times during training (for subprocess mode)
-        report_interval = max(1, Niter // 10)
+        # Progress reporting: print 20 times during training (for subprocess mode)
+        report_interval = max(1, Niter // 20)
         tqdm_disabled = os.environ.get('TQDM_DISABLE', '0') == '1'
         epoch_start_time = time.time()
 
