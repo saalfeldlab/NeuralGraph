@@ -59,17 +59,17 @@ training:
   batch_size: 8
   small_init_batch_size: false
   seed: 24
-  data_augmentation_loop: 17
+  data_augmentation_loop: 18
   sparsity: none
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
   learning_rate_W_start: 0.001
-  learning_rate_start: 0.0005
+  learning_rate_start: 0.0003
   learning_rate_embedding_start: 0.00075
-  coeff_W_L1: 0
+  coeff_W_L1: 5.0e-5
 claude:
   n_epochs: 1
-  data_augmentation_loop: 17
+  data_augmentation_loop: 18
   n_iter_block: 8
   ucb_c: 1.414

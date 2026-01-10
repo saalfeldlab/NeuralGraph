@@ -100,7 +100,9 @@ Step A: Select parent node
 
 - Read `ucb_scores.txt`
 - If empty → `parent=root`
-- Otherwise → select node with **highest UCB**
+- Otherwise → select node with **highest UCB** as parent
+
+**CRITICAL**: The `parent=P` in the Node line must be the **node ID** (integer) of the selected parent, NOT "root" (unless UCB file is empty). Example: if you select node 3 as parent, write `Node: id=4, parent=3`.
 
 Step B: Choose strategy
 
@@ -114,6 +116,7 @@ Step B: Choose strategy
 | 100% convergence, branching<10%      | **forced-branch**    | Select node in bottom 50% of tree            |
 | 4+ consecutive same-param mutations  | **switch-dimension** | Mutate different parameter than recent chain |
 | 3+ partial results probing boundary  | **boundary-skip**    | Accept boundary as found, explore elsewhere  |
+| 8+ consecutive sequential (no branch)| **forced-diversity** | Select any node with visits ≥ 3 that is NOT the most recent 4 nodes |
 
 **Recombination details:**
 

@@ -82,8 +82,8 @@ if __name__ == "__main__":
         config_list = ['signal_N2_recurrent_1']
         task_params = {'iterations': 512}
 
-    # resume support: start_iteration parameter (default 1)
-    start_iteration = task_params.get('start', 1)
+    # resume support
+    start_iteration = 6
 
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'
@@ -458,7 +458,7 @@ Code file (can modify): {graph_trainer_path}"""
                     'claude',
                     '-p', claude_prompt,
                     '--output-format', 'text',
-                    '--max-turns', '100',
+                    '--max-turns', '500',
                     '--allowedTools',
                     'Read', 'Edit'
                 ]
