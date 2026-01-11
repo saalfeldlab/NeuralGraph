@@ -83,7 +83,7 @@ if __name__ == "__main__":
         task_params = {'iterations': 512}
 
     # resume support
-    start_iteration = 6
+    start_iteration = 13
 
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'

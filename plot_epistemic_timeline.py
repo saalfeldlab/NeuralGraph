@@ -166,101 +166,102 @@ events = [
 # Causal edges between reasoning events
 # RULE: All edges satisfy from_iter < to_iter (temporal causality)
 # Format: (from_iter, from_mode, to_iter, to_mode, edge_type)
+# Adding edges one by one from epistemic_edges.md
 edges = [
-    # === Block 1 (Chaotic baseline) ===
-    (4, 'Deduction', 6, 'Induction', 'leads_to'),
-    (5, 'Falsification', 6, 'Induction', 'leads_to'),
-    (6, 'Induction', 8, 'Meta-reasoning', 'leads_to'),
-    (6, 'Induction', 16, 'Induction', 'leads_to'),
-    (10, 'Falsification', 13, 'Deduction', 'leads_to'),
+    # === Block 1 (Chaotic baseline) - from epistemic_edges.md ===
+    (1, 'Abduction', 4, 'Deduction', 'triggers'),      # eff_rank hypothesis → lr_W test
+    (4, 'Deduction', 5, 'Falsification', 'leads_to'),  # Boundary prediction → falsified
+    (5, 'Falsification', 6, 'Induction', 'leads_to'),  # Falsified boundary → robust range pattern
+    (6, 'Boundary', 10, 'Falsification', 'leads_to'),  # lr_W probing → L1 boundary found
+    (10, 'Falsification', 13, 'Deduction', 'leads_to'), # L1 boundary → factorization test
+    (6, 'Induction', 16, 'Induction', 'leads_to'),     # Cumulative patterns → block summary
 
-    # === Block 2 (Low_rank=20) ===
-    (17, 'Abduction', 21, 'Abduction', 'triggers'),
-    (19, 'Falsification', 22, 'Induction', 'leads_to'),
-    (22, 'Induction', 24, 'Deduction', 'leads_to'),
-    (22, 'Regime', 26, 'Boundary', 'leads_to'),
-    (25, 'Falsification', 26, 'Meta-reasoning', 'leads_to'),
-    (26, 'Boundary', 32, 'Induction', 'leads_to'),
+    # === Block 2 (Dale_law) - from epistemic_edges.md ===
+    (17, 'Abduction', 19, 'Deduction', 'triggers'),     # eff_rank reduction → lr_W scaling hypothesis
+    (19, 'Falsification', 22, 'Induction', 'leads_to'), # Failed transfer → new lr_W pattern
+    (19, 'Deduction', 21, 'Deduction', 'leads_to'),     # Sequential lr_W tests
+    (22, 'Induction', 24, 'Boundary', 'leads_to'),      # Pattern → boundary probing
+    (25, 'Falsification', 26, 'Meta-reasoning', 'leads_to'), # factorization failure → strategy reassessment
 
-    # === Block 3 (Dale_law) ===
-    (33, 'Abduction', 35, 'Deduction', 'triggers'),
-    (33, 'Regime', 36, 'Abduction', 'leads_to'),
-    (35, 'Falsification', 36, 'Deduction', 'leads_to'),
-    (40, 'Induction', 41, 'Abduction', 'leads_to'),
-    (41, 'Uncertainty', 42, 'Falsification', 'leads_to'),
-    (42, 'Falsification', 48, 'Induction', 'leads_to'),
-    (42, 'Uncertainty', 48, 'Causal', 'leads_to'),
+    # === Block 3 (Low_rank=20) - from epistemic_edges.md ===
+    (33, 'Abduction', 34, 'Deduction', 'triggers'),      # connectivity constraint hypothesis → test
+    (35, 'Falsification', 37, 'Deduction', 'leads_to'),  # Failed transfer → try factorization
+    (37, 'Deduction', 41, 'Uncertainty', 'leads_to'),    # Tests reveal stochasticity
+    (41, 'Uncertainty', 42, 'Falsification', 'leads_to'), # Uncertainty → more boundary tests
+    (42, 'Falsification', 48, 'Induction', 'leads_to'),  # Boundary failures → causal understanding
+    (42, 'Falsification', 48, 'Causal', 'leads_to'),     # Failures → mechanistic model
 
-    # === Block 4 (Low_rank=50) ===
-    (49, 'Abduction', 53, 'Deduction', 'triggers'),
-    (53, 'Deduction', 57, 'Meta-reasoning', 'leads_to'),
-    (53, 'Causal', 64, 'Induction', 'leads_to'),
-    (57, 'Meta-reasoning', 64, 'Meta-reasoning', 'leads_to'),
+    # === Block 4 (Low_rank=50) - from epistemic_edges.md ===
+    (49, 'Abduction', 53, 'Deduction', 'triggers'),       # Scaling hypothesis → test
+    (49, 'Falsification', 57, 'Meta-reasoning', 'leads_to'), # Scaling failed → reframe problem
+    (53, 'Deduction', 57, 'Falsification', 'leads_to'),   # Prediction tested → falsified
+    (57, 'Meta-reasoning', 64, 'Causal', 'leads_to'),     # Reframing → new causal model
 
-    # === Block 5 (Double constraint) ===
-    (65, 'Abduction', 70, 'Deduction', 'triggers'),
-    (66, 'Falsification', 70, 'Deduction', 'leads_to'),
-    (70, 'Deduction', 72, 'Induction', 'leads_to'),
-    (72, 'Induction', 80, 'Induction', 'leads_to'),
+    # === Block 5 (n_frames=5000) - from epistemic_edges.md ===
+    (65, 'Abduction', 70, 'Deduction', 'triggers'),       # Data hypothesis → test
+    (66, 'Falsification', 70, 'Deduction', 'leads_to'),   # Partial failure → refined test
+    (70, 'Deduction', 80, 'Induction', 'leads_to'),       # Tests → block pattern
 
-    # === Block 6 (Low_rank=50+Dale) ===
-    (82, 'Abduction', 88, 'Induction', 'triggers'),
-    (82, 'Uncertainty', 88, 'Predictive', 'leads_to'),
-    (88, 'Predictive', 96, 'Induction', 'leads_to'),
+    # === Block 6 (n_frames=2500) - from epistemic_edges.md ===
+    (81, 'Abduction', 86, 'Deduction', 'triggers'),       # Threshold hypothesis → test
+    (82, 'Falsification', 88, 'Predictive', 'leads_to'),  # Failure → quantitative rule
+    (88, 'Predictive', 96, 'Causal', 'leads_to'),         # Rule → mechanistic understanding
+    (88, 'Predictive', 96, 'Induction', 'leads_to'),      # Rule → generalized pattern
 
-    # === Block 7 (Dale_law re-test) ===
-    (97, 'Regime', 102, 'Deduction', 'triggers'),
-    (97, 'Deduction', 104, 'Induction', 'leads_to'),
-    (102, 'Deduction', 106, 'Boundary', 'leads_to'),
-    (106, 'Boundary', 112, 'Induction', 'leads_to'),
+    # === Block 7 (n_frames=7500) - from epistemic_edges.md ===
+    (97, 'Abduction', 104, 'Deduction', 'triggers'),      # Threshold hypothesis → test
+    (97, 'Deduction', 104, 'Constraint', 'leads_to'),     # Tests → constraint formulation
+    (104, 'Constraint', 109, 'Falsification', 'leads_to'), # Constraint tested → boundary found
+    (109, 'Falsification', 112, 'Induction', 'leads_to'), # Boundary → pattern
 
-    # === Block 8 (Low_rank=10) ===
-    (113, 'Abduction', 125, 'Falsification', 'triggers'),
-    (113, 'Regime', 125, 'Boundary', 'leads_to'),
-    (125, 'Falsification', 127, 'Causal', 'leads_to'),
+    # === Block 8 (Dale_law re-test) - from epistemic_edges.md ===
+    (113, 'Abduction', 117, 'Deduction', 'triggers'),     # low_rank=10 hypothesis → test
+    (113, 'Abduction', 125, 'Falsification', 'triggers'), # Hypothesis eventually falsified
+    (117, 'Deduction', 121, 'Deduction', 'leads_to'),     # Sequential tests
+    (121, 'Deduction', 125, 'Falsification', 'leads_to'), # Prediction → falsification
+    (125, 'Falsification', 127, 'Causal', 'leads_to'),    # Failure → causal understanding
 
-    # === Block 9 (Low_rank=10+Dale) ===
-    (129, 'Abduction', 135, 'Causal', 'triggers'),
-    (135, 'Causal', 137, 'Deduction', 'leads_to'),
-    (137, 'Deduction', 138, 'Falsification', 'leads_to'),
-    (138, 'Falsification', 143, 'Induction', 'leads_to'),
+    # === Block 9-10 (low_rank+Dale) - from epistemic_edges.md ===
+    (129, 'Abduction', 135, 'Causal', 'triggers'),        # Combined constraint → spectral model
+    (135, 'Causal', 137, 'Deduction', 'leads_to'),        # Model → prediction
+    (137, 'Deduction', 138, 'Falsification', 'leads_to'), # Test → failure
+    (138, 'Falsification', 143, 'Induction', 'leads_to'), # Failures → pattern
+    (138, 'Falsification', 144, 'Predictive', 'leads_to'), # Failures → design rule
+    (144, 'Predictive', 145, 'Analogy/Transfer', 'leads_to'), # Rule → transfer attempt
 
-    # === Block 10 (low_rank+Dale factorization) ===
-    (138, 'Falsification', 144, 'Predictive', 'leads_to'),
-    (144, 'Predictive', 145, 'Analogy/Transfer', 'leads_to'),
+    # === Block 11 (n_neurons=1000) - from epistemic_edges.md ===
+    (145, 'Falsification', 148, 'Deduction', 'leads_to'), # Transfer failed → new hypothesis
+    (145, 'Regime', 148, 'Meta-reasoning', 'leads_to'),   # Scale regime → strategy reassessment
 
-    # === Block 11 (n_neurons=1000) ===
-    (145, 'Falsification', 148, 'Deduction', 'leads_to'),
-    (145, 'Regime', 148, 'Meta-reasoning', 'leads_to'),
-
-    # === Cross-Block Edges (Knowledge Transfer) ===
-    (16, 'Induction', 17, 'Analogy/Transfer', 'triggers'),
-    (22, 'Induction', 33, 'Analogy/Transfer', 'triggers'),
-    (32, 'Induction', 34, 'Analogy/Transfer', 'triggers'),
-    (48, 'Causal', 53, 'Deduction', 'triggers'),
-    (64, 'Induction', 65, 'Analogy/Transfer', 'triggers'),
-    (80, 'Induction', 81, 'Analogy/Transfer', 'triggers'),
-    (88, 'Predictive', 97, 'Analogy/Transfer', 'triggers'),
-    (96, 'Induction', 129, 'Analogy/Transfer', 'triggers'),
-    (112, 'Induction', 145, 'Analogy/Transfer', 'triggers'),
+    # === Cross-Block Edges (Knowledge Transfer) - from epistemic_edges.md ===
+    (16, 'Induction', 17, 'Analogy/Transfer', 'triggers'),  # Block 1 principles → Block 2 transfer
+    (22, 'Induction', 33, 'Analogy/Transfer', 'triggers'),  # Dale_law pattern → Block 3 transfer
+    (32, 'Induction', 34, 'Analogy/Transfer', 'triggers'),  # Block 2 summary → Block 3 application
+    (48, 'Causal', 53, 'Deduction', 'triggers'),            # Causal model → Block 4 prediction
+    (64, 'Induction', 65, 'Analogy/Transfer', 'triggers'),  # n_frames insight → Block 5
+    (80, 'Induction', 81, 'Analogy/Transfer', 'triggers'),  # Block 5 → Block 6 transfer
+    (88, 'Predictive', 97, 'Analogy/Transfer', 'triggers'), # eff_rank rule → Block 7
+    (96, 'Induction', 129, 'Analogy/Transfer', 'triggers'), # n_frames pattern → Block 9
+    (112, 'Induction', 145, 'Analogy/Transfer', 'triggers'), # Block 7 → Block 11 transfer
 ]
 
-# Block boundaries
+# Block boundaries with detailed info
+# Format: (start, end, label, info_dict)
 blocks = [
-    (1, 16, 'Block 1: Chaotic'),
-    (17, 32, 'Block 2: Dale_law'),
-    (33, 48, 'Block 3: Low_rank=20'),
-    (49, 64, 'Block 4: Low_rank=50'),
-    (65, 80, 'Block 5: n_frames=5000'),
-    (81, 96, 'Block 6: n_frames=2500'),
-    (97, 112, 'Block 7: n_frames=7500'),
-    (113, 128, 'Block 8: Dale_law re-test'),
-    (129, 144, 'Block 9-10: low_rank+Dale'),
-    (145, 149, 'Block 11: n_neurons=1000'),  # In progress, 149 completed
+    (1, 16, 'Block 1', {'regime': 'chaotic', 'E/I': '-', 'n_frames': 10000, 'n_neurons': 100, 'conn_rank': 'full', 'eff_rank': '31-35'}),
+    (17, 32, 'Block 2', {'regime': 'chaotic', 'E/I': '0.5', 'n_frames': 10000, 'n_neurons': 100, 'conn_rank': 'full', 'eff_rank': '10'}),
+    (33, 48, 'Block 3', {'regime': 'low_rank', 'E/I': '-', 'n_frames': 10000, 'n_neurons': 100, 'conn_rank': '20', 'eff_rank': '6'}),
+    (49, 64, 'Block 4', {'regime': 'low_rank', 'E/I': '-', 'n_frames': 10000, 'n_neurons': 100, 'conn_rank': '50', 'eff_rank': '7'}),
+    (65, 80, 'Block 5', {'regime': 'chaotic', 'E/I': '-', 'n_frames': 5000, 'n_neurons': 100, 'conn_rank': 'full', 'eff_rank': '20'}),
+    (81, 96, 'Block 6', {'regime': 'chaotic', 'E/I': '-', 'n_frames': 2500, 'n_neurons': 100, 'conn_rank': 'full', 'eff_rank': '6'}),
+    (97, 112, 'Block 7', {'regime': 'chaotic', 'E/I': '-', 'n_frames': 7500, 'n_neurons': 100, 'conn_rank': 'full', 'eff_rank': '25-29'}),
+    (113, 128, 'Block 8', {'regime': 'chaotic', 'E/I': '0.5', 'n_frames': 10000, 'n_neurons': 100, 'conn_rank': 'full', 'eff_rank': '10-27'}),
+    (129, 144, 'Block 9-10', {'regime': 'low_rank', 'E/I': '0.5', 'n_frames': 10000, 'n_neurons': 100, 'conn_rank': '20', 'eff_rank': '16'}),
+    (145, 149, 'Block 11', {'regime': 'chaotic', 'E/I': '-', 'n_frames': 10000, 'n_neurons': 1000, 'conn_rank': 'full', 'eff_rank': '51-52'}),
 ]
 
 def create_timeline():
-    fig, ax = plt.subplots(figsize=(24, 14))
+    _, ax = plt.subplots(figsize=(24, 14))
 
     # Map modes to y-positions (group by category)
     # Order: Deduction above Abduction (hypothesis generates prediction)
@@ -276,11 +277,19 @@ def create_timeline():
     ]
     mode_to_y = {mode: i for i, mode in enumerate(modes)}
 
-    # Draw block backgrounds (no labels)
-    for start, end, label in blocks:
-        block_idx = blocks.index((start, end, label))
-        color = plt.cm.Pastel1(block_idx / len(blocks))
-        ax.axvspan(start - 0.5, end + 0.5, alpha=0.3, color=color)
+    # Draw block backgrounds (alternating white and light gray) and add labels
+    for block_idx, (start, end, label, info) in enumerate(blocks):
+        color = '#f0f0f0' if block_idx % 2 == 1 else 'white'
+        ax.axvspan(start - 0.5, end + 0.5, alpha=1.0, color=color)
+
+        # Add block label at top with multiple lines of info
+        left_x = start + 0.5
+        top_y = len(modes) + 0.1
+
+        # Format block info as multi-line text
+        block_text = f"{label}\n{info['regime']}\nE/I={info['E/I']}\nT={info['n_frames']}\nN={info['n_neurons']}\nr={info['conn_rank']}\neff={info['eff_rank']}"
+        ax.text(left_x, top_y, block_text, ha='left', va='bottom', fontsize=11,
+                linespacing=0.85)
 
     # Draw edges with arrowheads FIRST (so they're behind nodes)
     from matplotlib.patches import FancyArrowPatch
@@ -337,8 +346,8 @@ def create_timeline():
         y = mode_to_y[mode]
         color = COLORS.get(mode, '#333333')
 
-        # Size based on significance
-        size = {'High': 150, 'Medium': 80, 'Low': 40}.get(significance, 80)
+        # Size based on significance (increased)
+        size = {'High': 300, 'Medium': 180, 'Low': 100}.get(significance, 180)
 
         ax.scatter(iteration, y, c=color, s=size, alpha=0.9,
                    edgecolors='black', linewidths=0.5, zorder=3)
@@ -356,7 +365,7 @@ def create_timeline():
 
     # Styling
     ax.set_xlim(0, 155)  # Max iter 149 + margin
-    ax.set_ylim(-0.5, len(modes) + 0.5)
+    ax.set_ylim(-0.5, len(modes) + 3.5)  # Extra space for block labels at top
     ax.set_yticks(range(len(modes)))
     ax.set_yticklabels(modes, fontsize=16)
     ax.set_xlabel('Iteration', fontsize=24)
@@ -395,7 +404,8 @@ def create_timeline():
               title='Node Size', fontsize=9)
 
     plt.tight_layout()
-    plt.savefig('signal_chaotic_1_Claude_epistemic_timeline.png', dpi=150, bbox_inches='tight')
+    plt.savefig('signal_chaotic_1_Claude_epistemic_timeline.png', dpi=150, bbox_inches='tight',
+                pad_inches=0.5)
     print("Saved: signal_chaotic_1_Claude_epistemic_timeline.png")
     plt.close()
 

@@ -175,11 +175,11 @@ training:
 
 ```yaml
 simulation:
-  n_frames: 10000
+  n_frames: 10000 # modify between 10000 and 100000
   connectivity_type: "chaotic" # or "low_rank"
   Dale_law: False # or True
   Dale_law_factor: 0.5 # between 0 and 1 to explore different excitatory/inhibitory ratios.
-  connectivity_rank: 20 # if low_rank
+  connectivity_rank: 20 # if low_rank between 10 and 90
   n_neurons: 100 # can be changed to 1000 and ONLY 1000, if Iter > 512
   n_neuron_types: 1 #  # can be changed to 4 and ONLY 4,  if Iter > 1024
 ```
