@@ -27,167 +27,140 @@ COLORS = {
     'Constraint': '#ff5722',       # Deep orange - constraint propagation
 }
 
-# Complete events from fresh epistemic analysis
+# Events from epistemic_detailed.md - MUST MATCH EXACTLY
 # Format: (iteration, mode, significance)
 events = [
-    # === Induction: 18 instances ===
-    (6, 'Induction', 'High'),
-    (9, 'Induction', 'Medium'),
-    (16, 'Induction', 'High'),
-    (22, 'Induction', 'High'),
-    (32, 'Induction', 'High'),
-    (40, 'Induction', 'High'),
-    (48, 'Induction', 'High'),
-    (53, 'Induction', 'High'),
-    (64, 'Induction', 'High'),
-    (72, 'Induction', 'High'),
-    (80, 'Induction', 'High'),
-    (88, 'Induction', 'High'),
-    (96, 'Induction', 'High'),
-    (104, 'Induction', 'Medium'),
-    (112, 'Induction', 'High'),
-    (127, 'Induction', 'High'),
-    (143, 'Induction', 'High'),
-    (159, 'Induction', 'High'),
+    # === Induction: 13 instances (from detailed.md) ===
+    (6, 'Induction', 'High'),    # lr_W robust range
+    (9, 'Induction', 'Medium'),  # 8 consecutive converged
+    (16, 'Induction', 'High'),   # Block 1 summary
+    (22, 'Induction', 'High'),   # Dale_law lr_W pattern
+    (32, 'Induction', 'High'),   # Block 2 summary
+    (48, 'Induction', 'High'),   # Low_rank learnable
+    (64, 'Induction', 'High'),   # n_frames affects eff_rank
+    (80, 'Induction', 'High'),   # Block 5 summary
+    (96, 'Induction', 'High'),   # n_frames threshold
+    (112, 'Induction', 'High'),  # Block 7 summary
+    (128, 'Induction', 'High'),  # Dale re-test confirms
+    (143, 'Induction', 'High'),  # low_rank=10 unlearnable
+    (148, 'Induction', 'Medium'), # n_neurons=1000 failing
 
-    # === Abduction: 14 instances ===
-    (17, 'Abduction', 'High'),
-    (21, 'Abduction', 'High'),
-    (33, 'Abduction', 'High'),
-    (36, 'Abduction', 'Medium'),
-    (41, 'Abduction', 'High'),
-    (49, 'Abduction', 'High'),
-    (65, 'Abduction', 'High'),
-    (82, 'Abduction', 'High'),
-    (97, 'Abduction', 'Medium'),
-    (113, 'Abduction', 'High'),
-    (129, 'Abduction', 'High'),
-    (145, 'Abduction', 'High'),
-    (149, 'Abduction', 'Medium'),
-    (154, 'Abduction', 'Medium'),
+    # === Abduction: 10 instances (from detailed.md) ===
+    (1, 'Abduction', 'High'),    # eff_rank hypothesis
+    (17, 'Abduction', 'High'),   # Dale_law reduces eff_rank
+    (33, 'Abduction', 'High'),   # connectivity rank constrains
+    (49, 'Abduction', 'High'),   # eff_rank doesn't scale
+    (65, 'Abduction', 'High'),   # Data quantity affects eff_rank
+    (81, 'Abduction', 'High'),   # Below minimum threshold
+    (97, 'Abduction', 'Medium'), # n_frames threshold hypothesis
+    (113, 'Abduction', 'High'),  # eff_rank=4 unlearnable
+    (129, 'Abduction', 'High'),  # Double constraint
+    (145, 'Abduction', 'High'),  # Scaling laws differ
 
-    # === Deduction: 24 instances ===
-    (4, 'Deduction', 'High'),
-    (5, 'Deduction', 'High'),
-    (10, 'Deduction', 'High'),
-    (13, 'Deduction', 'High'),
-    (19, 'Deduction', 'High'),
-    (24, 'Deduction', 'High'),
-    (25, 'Deduction', 'Medium'),
-    (34, 'Deduction', 'High'),
-    (35, 'Deduction', 'High'),
-    (36, 'Deduction', 'Medium'),
-    (40, 'Deduction', 'Medium'),
-    (42, 'Deduction', 'Medium'),
-    (53, 'Deduction', 'High'),
-    (70, 'Deduction', 'High'),
-    (81, 'Deduction', 'High'),
-    (97, 'Deduction', 'High'),
-    (102, 'Deduction', 'High'),
-    (125, 'Deduction', 'High'),
-    (137, 'Deduction', 'High'),
-    (138, 'Deduction', 'Medium'),
-    (149, 'Deduction', 'High'),
-    (156, 'Deduction', 'High'),
-    (159, 'Deduction', 'High'),
+    # === Deduction: 17 instances (from detailed.md) ===
+    (4, 'Deduction', 'High'),    # lr_W boundary prediction
+    (5, 'Deduction', 'High'),    # lr_W=2E-2 prediction
+    (8, 'Deduction', 'High'),    # L1=1E-4 prediction
+    (13, 'Deduction', 'High'),   # factorization prediction
+    (19, 'Deduction', 'High'),   # Higher lr_W for Dale
+    (21, 'Deduction', 'High'),   # lr_W=5E-2 converge
+    (34, 'Deduction', 'High'),   # Block 1 params transfer
+    (37, 'Deduction', 'High'),   # factorization helps
+    (53, 'Deduction', 'High'),   # n_frames boost eff_rank
+    (70, 'Deduction', 'High'),   # n_frames=5000 quality
+    (86, 'Deduction', 'High'),   # n_frames=2500 converge
+    (97, 'Deduction', 'High'),   # n_frames=20000 solves
+    (104, 'Deduction', 'High'),  # n_frames=7500 threshold
+    (117, 'Deduction', 'High'),  # Dale re-test
+    (121, 'Deduction', 'High'),  # low_rank=10 fail
+    (137, 'Deduction', 'High'),  # n_frames=30000 help
+    (148, 'Deduction', 'Medium'), # n_neurons needs 100K
 
-    # === Falsification: 19 instances ===
-    (5, 'Falsification', 'High'),
-    (10, 'Falsification', 'High'),
-    (13, 'Falsification', 'High'),
-    (19, 'Falsification', 'High'),
-    (25, 'Falsification', 'High'),
-    (30, 'Falsification', 'Medium'),
-    (35, 'Falsification', 'High'),
-    (41, 'Falsification', 'High'),
-    (42, 'Falsification', 'High'),
-    (49, 'Falsification', 'High'),
-    (57, 'Falsification', 'Medium'),
-    (66, 'Falsification', 'High'),
-    (82, 'Falsification', 'High'),
-    (109, 'Falsification', 'Medium'),
-    (113, 'Falsification', 'High'),
-    (125, 'Falsification', 'High'),
-    (127, 'Falsification', 'High'),
-    (138, 'Falsification', 'High'),
-    (145, 'Falsification', 'High'),
-    (150, 'Falsification', 'Medium'),
+    # === Falsification: 20 instances (from detailed.md) ===
+    (5, 'Falsification', 'High'),    # lr_W boundary falsified
+    (10, 'Falsification', 'High'),   # L1 upper bound
+    (13, 'Falsification', 'High'),   # factorization fails
+    (19, 'Falsification', 'High'),   # Block 1 lr_W doesn't work
+    (25, 'Falsification', 'High'),   # factorization still fails
+    (30, 'Falsification', 'Medium'), # L1=1E-4 fails for Dale
+    (35, 'Falsification', 'High'),   # Block 1 params fail
+    (41, 'Falsification', 'High'),   # L1=1E-7 fails
+    (42, 'Falsification', 'High'),   # lr_W=0.5 fails
+    (49, 'Falsification', 'High'),   # low_rank=50 harder
+    (57, 'Falsification', 'Medium'), # connectivity_rank doesn't help
+    (66, 'Falsification', 'High'),   # n_frames=5000 not universal
+    (82, 'Falsification', 'High'),   # n_frames=2500 catastrophic
+    (109, 'Falsification', 'Medium'), # n_frames=7500 not universal
+    (113, 'Falsification', 'High'),  # lr_W doesn't help low_rank=10
+    (125, 'Falsification', 'High'),  # n_frames=20000 doesn't help
+    (127, 'Falsification', 'High'),  # low_rank=10 unlearnable
+    (138, 'Falsification', 'High'),  # factorization limited
+    (145, 'Falsification', 'High'),  # n_neurons scaling fails
 
-    # === Analogy/Transfer: 16 instances ===
-    (17, 'Analogy/Transfer', 'Medium'),
-    (33, 'Analogy/Transfer', 'Medium'),
-    (34, 'Analogy/Transfer', 'High'),
-    (42, 'Analogy/Transfer', 'High'),
-    (49, 'Analogy/Transfer', 'High'),
-    (53, 'Analogy/Transfer', 'Medium'),
-    (65, 'Analogy/Transfer', 'High'),
-    (70, 'Analogy/Transfer', 'High'),
-    (81, 'Analogy/Transfer', 'High'),
-    (97, 'Analogy/Transfer', 'High'),
-    (104, 'Analogy/Transfer', 'High'),
-    (113, 'Analogy/Transfer', 'Medium'),
-    (129, 'Analogy/Transfer', 'High'),
-    (137, 'Analogy/Transfer', 'High'),
-    (145, 'Analogy/Transfer', 'High'),
-    (149, 'Analogy/Transfer', 'Medium'),
+    # === Analogy/Transfer: 10 instances (from detailed.md) ===
+    (17, 'Analogy/Transfer', 'Medium'),  # Block 1→2 failed
+    (33, 'Analogy/Transfer', 'Medium'),  # Block 1→3 failed
+    (34, 'Analogy/Transfer', 'High'),    # Block 2→3 partial
+    (49, 'Analogy/Transfer', 'High'),    # Block 3→4 failed
+    (65, 'Analogy/Transfer', 'High'),    # Block 1-4→5 success
+    (81, 'Analogy/Transfer', 'High'),    # Block 5→6 failed
+    (97, 'Analogy/Transfer', 'High'),    # Block 6→7 success
+    (113, 'Analogy/Transfer', 'Medium'), # Block 3→8 failed
+    (129, 'Analogy/Transfer', 'High'),   # Block 2+3→9 partial
+    (145, 'Analogy/Transfer', 'High'),   # All→11 failing
 
-    # === Boundary Probing: 16 instances ===
-    (4, 'Boundary', 'High'),
-    (5, 'Boundary', 'High'),
-    (10, 'Boundary', 'Medium'),
-    (14, 'Boundary', 'Medium'),
-    (17, 'Boundary', 'High'),
-    (26, 'Boundary', 'Medium'),
-    (30, 'Boundary', 'Medium'),
-    (33, 'Boundary', 'High'),
-    (41, 'Boundary', 'Medium'),
-    (53, 'Boundary', 'High'),
-    (65, 'Boundary', 'High'),
-    (78, 'Boundary', 'Medium'),
-    (98, 'Boundary', 'High'),
-    (106, 'Boundary', 'High'),
-    (125, 'Boundary', 'High'),
-    (154, 'Boundary', 'High'),
+    # === Boundary: 12 instances (from detailed.md) ===
+    (4, 'Boundary', 'High'),    # lr_W approaching
+    (6, 'Boundary', 'High'),    # lr_W still working
+    (10, 'Boundary', 'High'),   # L1 upper bound
+    (14, 'Boundary', 'Medium'), # L1 refined
+    (24, 'Boundary', 'High'),   # Dale lr_W upper
+    (26, 'Boundary', 'Medium'), # Dale L1 sensitive
+    (42, 'Boundary', 'High'),   # low_rank lr_W upper
+    (57, 'Boundary', 'High'),   # connectivity_rank
+    (82, 'Boundary', 'High'),   # n_frames below
+    (104, 'Boundary', 'High'),  # n_frames near threshold
+    (121, 'Boundary', 'High'),  # low_rank=10 unlearnable
+    (126, 'Boundary', 'High'),  # hard barrier
 
-    # === Emerging Patterns ===
-    # Meta-reasoning: 6 instances
-    (6, 'Meta-reasoning', 'Medium'),
-    (8, 'Meta-reasoning', 'Medium'),
-    (26, 'Meta-reasoning', 'Medium'),
-    (57, 'Meta-reasoning', 'High'),
-    (64, 'Meta-reasoning', 'High'),
-    (104, 'Meta-reasoning', 'Medium'),
+    # === Meta-reasoning: 6 instances (from detailed.md) ===
+    (6, 'Meta-reasoning', 'Medium'),   # Strategy switch
+    (26, 'Meta-reasoning', 'Medium'),  # Strategy reset
+    (57, 'Meta-reasoning', 'High'),    # Dimension re-evaluation
+    (97, 'Meta-reasoning', 'High'),    # Insight synthesis
+    (137, 'Meta-reasoning', 'High'),   # Barrier recognition
+    (148, 'Meta-reasoning', 'High'),   # Scale recognition
 
-    # Regime Recognition: 8 instances
-    (22, 'Regime', 'High'),
-    (33, 'Regime', 'High'),
-    (48, 'Regime', 'High'),
-    (97, 'Regime', 'High'),
-    (112, 'Regime', 'High'),
-    (113, 'Regime', 'High'),
-    (145, 'Regime', 'High'),
+    # === Regime: 7 instances (from detailed.md) ===
+    (17, 'Regime', 'High'),   # Dale_law different
+    (33, 'Regime', 'High'),   # low_rank constraints
+    (65, 'Regime', 'Medium'), # Data regime
+    (81, 'Regime', 'High'),   # Failure regime
+    (113, 'Regime', 'High'),  # Hard barrier
+    (129, 'Regime', 'High'),  # Combined regime
+    (145, 'Regime', 'High'),  # Scale regime
 
-    # Uncertainty: 5 instances
-    (41, 'Uncertainty', 'High'),
-    (42, 'Uncertainty', 'High'),
-    (82, 'Uncertainty', 'High'),
-    (97, 'Uncertainty', 'Medium'),
-    (113, 'Uncertainty', 'High'),
+    # === Uncertainty: 5 instances (from detailed.md) ===
+    (41, 'Uncertainty', 'High'),   # R² varies
+    (42, 'Uncertainty', 'High'),   # Same params differ
+    (82, 'Uncertainty', 'High'),   # Threshold uncertain
+    (97, 'Uncertainty', 'Medium'), # Dale variance
+    (113, 'Uncertainty', 'High'),  # low_rank=10 unpredictable
 
-    # Causal: 7 instances
-    (48, 'Causal', 'High'),
-    (53, 'Causal', 'High'),
-    (127, 'Causal', 'High'),
-    (135, 'Causal', 'High'),
-    (149, 'Causal', 'High'),
+    # === Causal: 5 instances (from detailed.md) ===
+    (48, 'Causal', 'High'),   # connectivity_rank → eff_rank → R²
+    (64, 'Causal', 'High'),   # n_frames → eff_rank → lr_W
+    (96, 'Causal', 'High'),   # n_frames=2500 → unlearnable
+    (127, 'Causal', 'High'),  # low_rank=10 → eff_rank=4
+    (135, 'Causal', 'Medium'), # Dale → spectral → eff_rank
 
-    # Predictive: 3 instances
-    (88, 'Predictive', 'High'),
-    (96, 'Predictive', 'High'),
-    (159, 'Predictive', 'High'),
+    # === Predictive: 3 instances (from detailed.md) ===
+    (88, 'Predictive', 'High'),   # eff_rank≥20 rule
+    (96, 'Predictive', 'High'),   # n_frames threshold
+    (144, 'Predictive', 'High'),  # low_rank ≥ 3x rule
 
-    # Constraint: 1 instance
-    (104, 'Constraint', 'High'),
+    # === Constraint: 1 instance (from detailed.md) ===
+    (104, 'Constraint', 'High'),  # n_frames formula
 ]
 
 # Causal edges between reasoning events
@@ -252,12 +225,13 @@ edges = [
     (137, 'Deduction', 138, 'Falsification', 'leads_to'),
     (138, 'Falsification', 143, 'Induction', 'leads_to'),
 
-    # === Block 10 (n_neurons=1000) ===
-    (145, 'Falsification', 149, 'Deduction', 'leads_to'),
-    (145, 'Regime', 149, 'Causal', 'leads_to'),
-    (149, 'Deduction', 154, 'Boundary', 'leads_to'),
-    (149, 'Causal', 159, 'Induction', 'leads_to'),
-    (154, 'Boundary', 159, 'Induction', 'leads_to'),
+    # === Block 10 (low_rank+Dale factorization) ===
+    (138, 'Falsification', 144, 'Predictive', 'leads_to'),
+    (144, 'Predictive', 145, 'Analogy/Transfer', 'leads_to'),
+
+    # === Block 11 (n_neurons=1000) ===
+    (145, 'Falsification', 148, 'Deduction', 'leads_to'),
+    (145, 'Regime', 148, 'Meta-reasoning', 'leads_to'),
 
     # === Cross-Block Edges (Knowledge Transfer) ===
     (16, 'Induction', 17, 'Analogy/Transfer', 'triggers'),
@@ -274,15 +248,15 @@ edges = [
 # Block boundaries
 blocks = [
     (1, 16, 'Block 1: Chaotic'),
-    (17, 32, 'Block 2: Low_rank=20'),
-    (33, 48, 'Block 3: Dale_law'),
+    (17, 32, 'Block 2: Dale_law'),
+    (33, 48, 'Block 3: Low_rank=20'),
     (49, 64, 'Block 4: Low_rank=50'),
-    (65, 80, 'Block 5: Double constraint'),
-    (81, 96, 'Block 6: Low_rank=50+Dale'),
-    (97, 112, 'Block 7: Dale_law re-test'),
-    (113, 128, 'Block 8: Low_rank=10'),
-    (129, 144, 'Block 9: Low_rank=10+Dale'),
-    (145, 160, 'Block 10: n_neurons=1000'),
+    (65, 80, 'Block 5: n_frames=5000'),
+    (81, 96, 'Block 6: n_frames=2500'),
+    (97, 112, 'Block 7: n_frames=7500'),
+    (113, 128, 'Block 8: Dale_law re-test'),
+    (129, 144, 'Block 9-10: low_rank+Dale'),
+    (145, 149, 'Block 11: n_neurons=1000'),  # In progress, 149 completed
 ]
 
 def create_timeline():
@@ -297,8 +271,8 @@ def create_timeline():
         'Abduction', 'Deduction', 'Falsification',
         # Meta-cognition
         'Analogy/Transfer', 'Meta-reasoning', 'Regime', 'Uncertainty',
-        # Advanced patterns
-        'Causal', 'Predictive', 'Constraint',
+        # Advanced patterns (complexity: Constraint < Predictive < Causal)
+        'Constraint', 'Predictive', 'Causal',
     ]
     mode_to_y = {mode: i for i, mode in enumerate(modes)}
 
@@ -314,6 +288,7 @@ def create_timeline():
         'leads_to': {'linestyle': '-', 'color': '#555555', 'alpha': 0.6},
         'triggers': {'linestyle': '--', 'color': '#2196F3', 'alpha': 0.7},
         'refines': {'linestyle': ':', 'color': '#4CAF50', 'alpha': 0.6},
+        'rejects': {'linestyle': '-', 'color': '#e74c3c', 'alpha': 0.8},  # Red for rejection
     }
 
     for from_iter, from_mode, to_iter, to_mode, edge_type in edges:
@@ -325,20 +300,37 @@ def create_timeline():
 
         style = edge_styles.get(edge_type, edge_styles['leads_to'])
 
-        # Draw arrow with straight line
-        arrow = FancyArrowPatch(
-            (x1, y1), (x2, y2),
-            arrowstyle='-|>',
-            mutation_scale=12,
-            linestyle=style['linestyle'],
-            color=style['color'],
-            alpha=style['alpha'],
-            linewidth=1.5,
-            zorder=1
-        )
+        # Special handling for edges TO Falsification: these should point backward
+        # Falsification rejects the prior hypothesis, so we draw arrow from Falsification
+        # back to the hypothesis it rejects (reversed direction, red color)
+        if to_mode == 'Falsification':
+            # Draw backward arrow: from the Falsification node (x2,y2) back to source hypothesis (x1,y1)
+            # Arrow points LEFT (backward in time) with arrowhead at the hypothesis end
+            arrow = FancyArrowPatch(
+                (x2, y2), (x1, y1),  # Start at Falsification, end at hypothesis
+                arrowstyle='<|-',    # Arrowhead at START (pointing backward)
+                mutation_scale=12,
+                linestyle='-',
+                color='#e74c3c',  # Red for rejection
+                alpha=0.8,
+                linewidth=2.0,
+                zorder=1
+            )
+        else:
+            # Normal forward arrow
+            arrow = FancyArrowPatch(
+                (x1, y1), (x2, y2),
+                arrowstyle='-|>',
+                mutation_scale=12,
+                linestyle=style['linestyle'],
+                color=style['color'],
+                alpha=style['alpha'],
+                linewidth=1.5,
+                zorder=1
+            )
         ax.add_patch(arrow)
 
-    # Plot events (nodes)
+    # Plot events (nodes) with iteration labels
     for iteration, mode, significance in events:
         if mode not in mode_to_y:
             continue
@@ -351,13 +343,19 @@ def create_timeline():
         ax.scatter(iteration, y, c=color, s=size, alpha=0.9,
                    edgecolors='black', linewidths=0.5, zorder=3)
 
+        # Add iteration number label (small font, offset slightly)
+        ax.annotate(str(iteration), (iteration, y),
+                    xytext=(0, -12), textcoords='offset points',
+                    fontsize=6, ha='center', va='top', color='#333333',
+                    zorder=4)
+
     # Add category labels on right side
     ax.axhline(y=1.5, color='gray', linewidth=0.5, linestyle='--', alpha=0.5)
     ax.axhline(y=4.5, color='gray', linewidth=0.5, linestyle='--', alpha=0.5)
     ax.axhline(y=8.5, color='gray', linewidth=0.5, linestyle='--', alpha=0.5)
 
     # Styling
-    ax.set_xlim(0, 165)
+    ax.set_xlim(0, 155)  # Max iter 149 + margin
     ax.set_ylim(-0.5, len(modes) + 0.5)
     ax.set_yticks(range(len(modes)))
     ax.set_yticklabels(modes, fontsize=16)
