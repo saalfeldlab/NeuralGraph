@@ -182,8 +182,8 @@ if __name__ == "__main__":
                     f.write(f"# Working Memory: {config_file_}\n\n")
                     f.write("## Knowledge Base (accumulated across all blocks)\n\n")
                     f.write("### Regime Comparison Table\n")
-                    f.write("| Block | Regime | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
-                    f.write("|-------|--------|---------|--------------|------------|-------------|\n\n")
+                    f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
+                    f.write("| ----- | ------ | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |\n\n")
                     f.write("### Established Principles\n\n")
                     f.write("### Open Questions\n\n")
                     f.write("---\n\n")
@@ -438,6 +438,8 @@ Current config: {config_path}"""
                     sim_info += f", connectivity_type={config.simulation.connectivity_type}"
                     if hasattr(config.simulation, 'Dale_law'):
                         sim_info += f", Dale_law={config.simulation.Dale_law}"
+                    if hasattr(config.simulation, 'Dale_law_factor'):
+                        sim_info += f", E/I={config.simulation.Dale_law_factor}"
                     if hasattr(config.simulation, 'noise_model_level'):
                         sim_info += f", noise_model_level={config.training.noise_model_level}"
                     if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):

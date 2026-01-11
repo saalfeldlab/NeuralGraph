@@ -46,12 +46,11 @@ Read `{config}_memory.md` to recall:
 
 **Metrics from `analysis.log`:**
 
-- `spectral_radius`: eigenvalue analysis of connectivity
-- `svd_rank`: SVD rank at 99% variance (activity complexity)
+- `spectral radius`: max eigenvalue of ground truth connectivity W
+- `effective rank (99% var)`: SVD rank at 99% cumulative variance (activity complexity)
 - `test_R2`: R² between ground truth and rollout prediction
 - `test_pearson`: Pearson correlation between ground truth and rollout prediction
 - `connectivity_R2`: R² of learned vs true connectivity weights
-- `cluster_accuracy`: clustering accuracy (neuron type classification)
 - `final_loss`: final training loss
 
 **Classification:**
@@ -106,17 +105,17 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition                            | Strategy             | Action                                       |
-| ------------------------------------ | -------------------- | -------------------------------------------- |
-| Default                              | **exploit**          | Highest UCB node, try mutation               |
-| 3+ consecutive R² ≥ 0.9              | **failure-probe**    | Extreme parameter to find boundary           |
-| n_iter_block/4 consecutive successes | **explore**          | Select outside recent chain                  |
-| Good config found                    | **robustness-test**  | Re-run same config                           |
-| 2+ distant nodes with R² > 0.9       | **recombine**        | Merge params from both nodes                 |
-| 100% convergence, branching<10%      | **forced-branch**    | Select node in bottom 50% of tree            |
-| 4+ consecutive same-param mutations  | **switch-dimension** | Mutate different parameter than recent chain |
-| 3+ partial results probing boundary  | **boundary-skip**    | Accept boundary as found, explore elsewhere  |
-| 8+ consecutive sequential (no branch)| **forced-diversity** | Select any node with visits ≥ 3 that is NOT the most recent 4 nodes |
+| Condition                             | Strategy             | Action                                                              |
+| ------------------------------------- | -------------------- | ------------------------------------------------------------------- |
+| Default                               | **exploit**          | Highest UCB node, try mutation                                      |
+| 3+ consecutive R² ≥ 0.9               | **failure-probe**    | Extreme parameter to find boundary                                  |
+| n_iter_block/4 consecutive successes  | **explore**          | Select outside recent chain                                         |
+| Good config found                     | **robustness-test**  | Re-run same config                                                  |
+| 2+ distant nodes with R² > 0.9        | **recombine**        | Merge params from both nodes                                        |
+| 100% convergence, branching<10%       | **forced-branch**    | Select node in bottom 50% of tree                                   |
+| 4+ consecutive same-param mutations   | **switch-dimension** | Mutate different parameter than recent chain                        |
+| 3+ partial results probing boundary   | **boundary-skip**    | Accept boundary as found, explore elsewhere                         |
+| 8+ consecutive sequential (no branch) | **forced-diversity** | Select any node with visits ≥ 3 that is NOT the most recent 4 nodes |
 
 **Recombination details:**
 
@@ -179,7 +178,7 @@ simulation:
   n_frames: 10000
   connectivity_type: "chaotic" # or "low_rank"
   Dale_law: False # or True
-  Dale_law_factor: 0.5
+  Dale_law_factor: 0.5 # between 0 and 1 to explore different excitatory/inhibitory ratios.
   connectivity_rank: 20 # if low_rank
   n_neurons: 100 # can be changed to 1000 and ONLY 1000, if Iter > 512
   n_neuron_types: 1 #  # can be changed to 4 and ONLY 4,  if Iter > 1024
@@ -427,26 +426,38 @@ L_pred = ||du/dt_pred - du/dt_true||₂
 L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff + ...
 ```
 
-### Spectral Radius
+### Connectivity W
+
+**Spectral Radius**
 
 - ρ(W) < 1: activity decays → harder to constrain W
 - ρ(W) ≈ 1: edge of chaos → rich dynamics → good recovery
 - ρ(W) > 1: unstable
 
-### Effective Rank
-
-- High (30+): full W recoverable
-- Low (<15): only subspace identifiable → need factorization
-- **Block 6 finding**: effective_rank is the primary predictor of achievable R²
-  - effective_rank=20 → R²≈0.998 achievable
-  - effective_rank=10 → R²≈0.92 ceiling (regardless of training params)
-
-### Low-rank Connectivity
+**Low-rank Connectivity**
 
 - W = W_L @ W_R constrains solution space
 - Without factorization: spurious full-rank solutions
 
-### Learning Rates
+**Dale's Law and E/I Balance**
 
-- lr_W:lr ratio matters (typically 20:1 to 50:1)
-- Too fast φ learning → noisy W gradients
+- Dale_law=True enforces excitatory/inhibitory (E/I) constraint on connectivity W
+- Dale_law_factor controls E/I ratio: 0.5 means 50% excitatory, 50% inhibitory neurons
+
+### Data Complexity
+
+**Effective Rank (eff_rank, svd_rank)**
+
+The effective rank measures the intrinsic dimensionality of neural activity data. It is computed via SVD decomposition of the activity matrix (n_frames × n_neurons):
+
+```
+U, S, Vt = SVD(activity)
+cumulative_variance = cumsum(S²) / sum(S²)
+eff_rank = min k such that cumulative_variance[k] ≥ 0.99
+```
+
+The effective rank at 99% variance is logged in `analysis.log` as:
+
+```
+effective rank (99% var): 16
+```

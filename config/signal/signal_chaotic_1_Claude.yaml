@@ -1,11 +1,11 @@
 description: designed by Claude
 dataset: signal_chaotic_1_Claude
 simulation:
-  connectivity_type: chaotic
+  connectivity_type: low_rank
   connectivity_init:
   - 0
   - 0.1
-  connectivity_rank: 50
+  connectivity_rank: 20
   Dale_law: true
   Dale_law_factor: 0.5
   params:
@@ -71,11 +71,11 @@ training:
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
-  learning_rate_W_start: 4.0e-02
-  learning_rate_start: 1.0e-04
+  learning_rate_W_start: 1.5e-02
+  learning_rate_start: 5.0e-05
   learning_rate_embedding_start: 2.5e-04
-  coeff_W_L1: 1.0e-05
+  coeff_W_L1: 1.0e-06
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
-  low_rank_factorization: false
+  low_rank_factorization: true
   low_rank: 20

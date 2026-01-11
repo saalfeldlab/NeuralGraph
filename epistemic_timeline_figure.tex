@@ -1,0 +1,12 @@
+\section{Results}
+
+\begin{figure*}[htbp]
+\centering
+\includegraphics[width=\textwidth]{signal_chaotic_1_Claude_epistemic_timeline.png}
+\caption{\textbf{Epistemic reasoning timeline across 160 iterations (10 blocks).} Each node represents a reasoning event, colored by mode and sized by significance. Edges show causal relationships: solid gray (leads\_to), dashed blue (triggers).}
+\label{fig:epistemic_timeline}
+\end{figure*}
+
+There is a pyramidal reasoning scheme. At the bottom, inductions and abductions occur throughout the process, forming the foundation of hypothesis generation and pattern recognition. This layer supports a second layer of deductions---testable predictions derived from hypotheses. All of these reasoning events can be falsified or refined, as shown by the red nodes appearing after blue predictions. Ultimately, causal chains of reasoning emerge. The first appeared at iteration 48, where the chain $\texttt{connectivity\_rank} \to \texttt{eff\_rank} \to R^2_{\text{ceiling}} \to \texttt{convergence}$ was established when the LLM constructed a multi-step mechanistic model explaining why low-rank connectivity limits GNN recovery. A second causal node at iteration 127 formalized the $\texttt{low\_rank=10} \to \texttt{eff\_rank=4} \to \texttt{unlearnable}$ barrier. At iteration 135, Dale's law stabilization ($\rho: 1.0 \to 0.65$) was causally linked to increased effective rank. The predictive nodes (light green, iterations 88, 96, 159) represent quantitative models: the $\texttt{eff\_rank} \geq 20 \to R^2 \approx 0.999$ threshold and the $2\times$ overparameterization principle. The constraint node (orange, iteration 104) captures the batch\_size$\to$lr\_W compensation rule. Cross-block edges (dashed blue spanning blocks) show knowledge transfer, with block summaries triggering analogical reasoning in subsequent regimes.
+
+\section{Discussion}
