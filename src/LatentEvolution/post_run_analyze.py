@@ -21,12 +21,13 @@ from LatentEvolution.latent import LatentModel, ModelParams, get_device, load_da
 from LatentEvolution.diagnostics import PlotMode, run_validation_diagnostics
 
 
-def main(run_dir: Path) -> None:
+def main(run_dir: Path, epoch: int | None = None) -> None:
     """
     Generate post-training diagnostic figures for a completed or ongoing run.
 
     Args:
         run_dir: Path to the run directory containing config.yaml and model checkpoints
+        epoch: Optional epoch number to analyze a specific checkpoint
     """
     run_dir = run_dir.resolve()
 
@@ -50,7 +51,17 @@ def main(run_dir: Path) -> None:
     model_final_path = run_dir / "model_final.pt"
     checkpoint_best_path = run_dir / "checkpoints" / "checkpoint_best.pt"
 
-    if model_final_path.exists():
+    if epoch is not None:
+        # Use specific epoch checkpoint
+        checkpoint_epoch_path = run_dir / "checkpoints" / f"checkpoint_epoch_{epoch:04d}.pt"
+        if not checkpoint_epoch_path.exists():
+            print(f"Error: Checkpoint not found: {checkpoint_epoch_path}")
+            sys.exit(1)
+        model_path = checkpoint_epoch_path
+        out_dir = run_dir / f"analysis_epoch_{epoch:04d}"
+        print(f"Using epoch {epoch} checkpoint: {model_path}")
+        print(f"Figures will be saved to: {out_dir}")
+    elif model_final_path.exists():
         model_path = model_final_path
         out_dir = run_dir
         print(f"Using final model: {model_path}")
@@ -166,6 +177,12 @@ if __name__ == "__main__":
         type=Path,
         help="Path to the run directory containing config.yaml and model checkpoints"
     )
+    parser.add_argument(
+        "--epoch",
+        type=int,
+        default=None,
+        help="Epoch number to analyze (uses checkpoints/checkpoint_epoch_XXXX.pt)"
+    )
     args = parser.parse_args()
 
-    main(args.run_dir)
+    main(args.run_dir, epoch=args.epoch)
