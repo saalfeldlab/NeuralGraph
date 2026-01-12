@@ -62,7 +62,7 @@ training:
   n_epochs: 1
   n_runs: 1
   device: cuda:1
-  batch_size: 16
+  batch_size: 8
   small_init_batch_size: false
   training_single_type: true
   seed: 24
@@ -71,10 +71,10 @@ training:
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
-  learning_rate_W_start: 6.4e-02
+  learning_rate_W_start: 1.6e-02
   learning_rate_start: 1.0e-02
   learning_rate_embedding_start: 2.5e-04
-  coeff_W_L1: 1.0e-06
+  coeff_W_L1: 1.0e-05
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
   low_rank_factorization: false

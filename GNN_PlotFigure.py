@@ -1649,8 +1649,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         # Always regenerate kinograph
         plt.figure(figsize=(15, 10))
         # Use LaTeX fonts with Palatino (same as other plots in codebase)
-        plt.rcParams['text.usetex'] = True
-        rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+        # plt.rcParams['text.usetex'] = True
+        # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
         activity_np = to_numpy(activity)
         vmax = np.abs(activity_np).max()
         # origin='lower' so neuron 1 at bottom, n_neurons at top (matching reference)
@@ -2422,7 +2422,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         if (frame >= 0) & (frame < n_frames):
                             im_ = im[int(frame / n_frames * 256)].squeeze()
                         im_ = np.sqrt(im_)
-                        im_ = np.rot90(im_, k=1)
+                        # im_ = np.rot90(im_, k=1)
                         plt.imshow(im_, cmap='gray')
                         plt.xticks([])
                         plt.yticks([])
