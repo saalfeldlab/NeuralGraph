@@ -68,7 +68,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'test_plot'   # generate_train_test_plot
+        task = 'generate_train_test_plot'   
         config_list = ['signal_demo_1']
 
     for config_file_ in config_list:
