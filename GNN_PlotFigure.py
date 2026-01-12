@@ -1643,7 +1643,34 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         plt.savefig(f'./{log_dir}/results/connectivity_true.png', dpi=300)
         plt.close()
 
-        # Sample 100 traces if n_neurons > 200
+        # Fig2a: Kinograph (activity heatmap - all neurons × all frames)
+        # Use imshow instead of sns.heatmap for large data (much faster)
+        kinograph_path = f'./{log_dir}/results/kinograph.png'
+        # Always regenerate kinograph
+        plt.figure(figsize=(15, 10))
+        # Use LaTeX fonts with Palatino (same as other plots in codebase)
+        plt.rcParams['text.usetex'] = True
+        rc('font', **{'family': 'serif', 'serif': ['Palatino']})
+        activity_np = to_numpy(activity)
+        vmax = np.abs(activity_np).max()
+        # origin='lower' so neuron 1 at bottom, n_neurons at top (matching reference)
+        im = plt.imshow(activity_np, aspect='auto', cmap='viridis', vmin=-vmax, vmax=vmax, origin='lower')
+        cbar = plt.colorbar(im, fraction=0.046, pad=0.04)
+        # Set colorbar ticks explicitly (rounded to nearest 10)
+        vmax_rounded = int(np.ceil(vmax / 10) * 10)
+        cbar_ticks = np.arange(-vmax_rounded, vmax_rounded + 1, 10)
+        cbar_ticks = cbar_ticks[(cbar_ticks >= -vmax) & (cbar_ticks <= vmax)]
+        cbar.set_ticks(cbar_ticks)
+        cbar.ax.tick_params(labelsize=32)
+        plt.ylabel('neurons', fontsize=64)
+        plt.xlabel('time', fontsize=64)
+        plt.xticks([0, n_frames - 1], [0, n_frames], fontsize=48)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+        plt.tight_layout()
+        plt.savefig(kinograph_path, dpi=300)
+        plt.close()
+
+        # Fig2b: Sample 100 traces if n_neurons > 200
         if n_neurons >= 200:
             sampled_indices = np.random.choice(n_neurons, 100, replace=False)
             sampled_indices = np.sort(sampled_indices)
@@ -1657,24 +1684,19 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
 
         plt.figure(figsize=(18, 12))
+        plt.rcParams['text.usetex'] = False
+        rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
         plt.plot(activity_plot.T, linewidth=1)
         for i in range(0, n_plot, 5):
             plt.text(-200, +200 -10 * i, str(sampled_indices[i]), fontsize=24, va='center', ha='right')
         ax = plt.gca()
         ax.text(-1200, activity_plot.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
-        # if 'PDE_N11' in model_name:
-        #     ax.text(-2000, activity_plot.mean(), '$h_i$', fontsize=32, va='center', ha='center', rotation=90)
-        # else:
-        #     ax.text(-2000, activity_plot.mean(), '$v_i$', fontsize=32, va='center', ha='center', rotation=90)
         plt.xlabel("frame", fontsize=32)
         plt.xticks(fontsize=24)
         plt.yticks([])
         ax.spines['left'].set_visible(False)
         ax.spines['top'].set_visible(False)
-        # ax.yaxis.set_ticks_position('right')
-        # ax.set_yticks([0, 20, 40])
-        # ax.set_yticklabels(['0', '20', '40'], fontsize=16)
-        plt.xlim([0, 10000])
+        plt.xlim([0, n_frames])
         plt.tight_layout()
         plt.savefig(f'./{log_dir}/results/activity_gt.pdf', dpi=300)
         plt.close()
@@ -1862,13 +1884,25 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             fig, ax = fig_init()
             rr = torch.linspace(-xnorm.squeeze(), xnorm.squeeze(), 1500).to(device)
+
+            # Style-dependent plotting: dark background uses green+white, white background uses gray+colored
+            if 'black' in style:
+                gt_color = 'g'
+                line_color = 'w'
+                line_alpha = 0.25
+            else:
+                gt_color = 'gray'
+                line_color = None  # Will use cmap.color(type) instead
+                line_alpha = 0.25
+
+            # Plot ground truth curves first (behind learned curves)
             if (model_config.signal_model_name == 'PDE_N4'):
                 for n in range(n_neuron_types):
                     true_func = true_model.func(rr, n, 'phi')
-                    plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
+                    plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
             else:
                 true_func = true_model.func(rr, 0, 'phi')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
+                plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
 
             for n in trange(0,n_neurons, ncols=90):
                 if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
@@ -1881,17 +1915,22 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         func = model.lin_edge(in_features.float()) ** 2 * correction[n]
                     else:
                         func = model.lin_edge(in_features.float()) * correction[n]
-                plt.plot(to_numpy(rr), to_numpy(func), color='w', linewidth=1, alpha=0.25)
-            plt.xlabel(r'$v_i$', fontsize=68)
+                if line_color is None:
+                    # White background: use neuron type color
+                    neuron_type = int(to_numpy(type_list[n]).item())
+                    plt.plot(to_numpy(rr), to_numpy(func), color=cmap.color(neuron_type), linewidth=1, alpha=line_alpha)
+                else:
+                    plt.plot(to_numpy(rr), to_numpy(func), color=line_color, linewidth=1, alpha=line_alpha)
+            plt.xlabel(r'$x_i$', fontsize=68)
             if label_style == 'MLP':
                 plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=68)
             else:
                 if (model_config.signal_model_name == 'PDE_N4'):
-                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, x_i)$', fontsize=68)
                 elif model_config.signal_model_name == 'PDE_N5':
-                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, v_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, x_i)$', fontsize=68)
                 else:
-                    plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(x_i)$', fontsize=68)
             plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim([-1.1, 1.1])
             ax.set_yticks([-1.0, 0.0, 1.0])
@@ -1902,9 +1941,22 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
 
             fig, ax = fig_init()
+
+            # Style-dependent plotting: dark background uses green+white, white background uses gray+colored
+            if 'black' in style:
+                gt_color = 'g'
+                line_color = 'w'
+                line_alpha = 0.25
+            else:
+                gt_color = 'gray'
+                line_color = None
+                line_alpha = 0.25
+
+            # Plot ground truth curves first (behind learned curves)
             for n in trange(n_neuron_types, ncols=90):
                 true_func = true_model.func(rr, n, 'update')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
+                plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
+
             phi_list = []
             for n in trange(n_neurons, ncols=90):
                 embedding_ = model.a[n, :] * torch.ones((1500, config.graph_model.embedding_dim), device=device)
@@ -1913,19 +1965,25 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     func = model.lin_phi(in_features.float())
                 func = func[:, 0]
                 phi_list.append(func)
-                plt.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm),
-                         color='w', linewidth=4, alpha=0.25)
+                if line_color is None:
+                    # White background: use neuron type color
+                    neuron_type = int(to_numpy(type_list[n]).item())
+                    plt.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm),
+                             color=cmap.color(neuron_type), linewidth=4, alpha=line_alpha)
+                else:
+                    plt.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm),
+                             color=line_color, linewidth=4, alpha=line_alpha)
             phi_list = torch.stack(phi_list)
             func_list_ = to_numpy(phi_list)
             phi_y_min = (phi_list * ynorm).min().item()
             phi_y_max = (phi_list * ynorm).max().item()
             phi_y_range = phi_y_max - phi_y_min
             phi_ylim = [phi_y_min - phi_y_range * 0.1, phi_y_max + phi_y_range * 0.1]
-            plt.xlabel(r'$v_i$', fontsize=68)
+            plt.xlabel(r'$x_i$', fontsize=68)
             if label_style == 'MLP':
                 plt.ylabel(r'$\mathrm{MLP_0}$', fontsize=68)
             else:
-                plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, v_i)$', fontsize=68)
+                plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, x_i)$', fontsize=68)
             plt.tight_layout()
             # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim(phi_ylim)
@@ -3473,25 +3531,42 @@ def plot_synaptic3(config, epoch_list, log_dir, logger, cc, style, extended, dev
             psi_list = []
             fig, ax = fig_init()
             rr = torch.tensor(np.linspace(-7.5, 7.5, 1500)).to(device)
+
+            # Style-dependent plotting: dark background uses green+white, white background uses gray+colored
+            if 'black' in style:
+                gt_color = 'g'
+                line_color = mc
+                line_alpha = 0.25
+            else:
+                gt_color = 'gray'
+                line_color = None
+                line_alpha = 0.25
+
+            # Plot ground truth curves first (behind learned curves)
             if model_config.signal_model_name == 'PDE_N4':
                 for n in range(n_neuron_types):
                     true_func = true_model.func(rr, n, 'phi')
-                    plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
+                    plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
             else:
                 true_func = true_model.func(rr, 0, 'phi')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c='g', linewidth=16, label='original')
+                plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
 
             for n in trange(0,n_neurons, ncols=90):
                 in_features = rr[:, None]
                 with torch.no_grad():
                     func = model.lin_edge(in_features.float()) * correction
                     psi_list.append(func)
-                    plt.plot(to_numpy(rr), to_numpy(func), 2, color=mc, linewidth=2, alpha=0.25)
-            plt.xlabel(r'$v_i$', fontsize=68)
+                    if line_color is None:
+                        # White background: use neuron type color
+                        neuron_type = int(to_numpy(type_list[n]).item())
+                        plt.plot(to_numpy(rr), to_numpy(func), 2, color=cmap.color(neuron_type), linewidth=2, alpha=line_alpha)
+                    else:
+                        plt.plot(to_numpy(rr), to_numpy(func), 2, color=line_color, linewidth=2, alpha=line_alpha)
+            plt.xlabel(r'$x_i$', fontsize=68)
             if label_style == 'MLP': # noqa: F821
                 plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=68)
             else:
-                plt.ylabel(r'learned $\psi^*(v_i)$', fontsize=68)
+                plt.ylabel(r'learned $\psi^*(x_i)$', fontsize=68)
             plt.ylim([-1.1, 1.1])
             plt.xlim(config.plotting.xlim)
             plt.tight_layout()

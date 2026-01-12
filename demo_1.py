@@ -68,7 +68,7 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = ' generate_train_test_plot'
+        task = 'test_plot'   # generate_train_test_plot
         config_list = ['signal_demo_1']
 
     for config_file_ in config_list:
@@ -162,7 +162,7 @@ if __name__ == "__main__":
             data_test(
                 config=config,
                 visualize=False,
-                style="black color name continuous_slice",
+                style="color name continuous_slice",
                 verbose=False,
                 best_model='best',
                 run=0,
@@ -178,6 +178,9 @@ if __name__ == "__main__":
         if 'plot' in task:
             # Generate publication-quality figures matching Figure 2 from the paper
             #
+            # Figure 2a: Kinograph (activity heatmap - all neurons × all frames)
+            # Figure 2b: Activity traces (100 sampled neurons)
+            # Figure 2c: True connectivity matrix
             # Figure 2d: Learned connectivity matrix
             # Figure 2e: Comparison of learned vs true connectivity (R^2, slope)
             # Figure 2f: Learned latent vectors a_i (2D embedding showing 4 clusters)
@@ -185,14 +188,20 @@ if __name__ == "__main__":
             # Figure 2h: Learned transfer function psi*(x) normalized to max=1
             #
             # Output folder: ./log/signal/signal_demo_1/results/
-            #   - embedding.png: latent vectors a_i (Fig 2f)
-            #   - learned_phi.png: update functions phi* (Fig 2g)
-            #   - learned_psi.png: transfer function psi* (Fig 2h)
+            #   - kinograph.png: activity heatmap (Fig 2a)
+            #   - activity_gt.pdf: activity traces (Fig 2b)
+            #   - connectivity_true.png: true connectivity (Fig 2c)
+            #   - embedding.pdf: latent vectors a_i (Fig 2f)
+            #   - MLP0.png: update functions phi* (Fig 2g)
+            #   - MLP1_corrected.png: transfer function psi* (Fig 2h)
             #   - connectivity_comparison.png: W learned vs true (Fig 2d,e)
             print()
             print("-" * 80)
-            print("STEP 4: PLOT - Generating Figure 2 panels (d-h)")
+            print("STEP 4: PLOT - Generating Figure 2 panels (a-h)")
             print("-" * 80)
+            print(f"  Fig 2a: Kinograph (activity heatmap)")
+            print(f"  Fig 2b: Activity traces")
+            print(f"  Fig 2c: True connectivity matrix")
             print(f"  Fig 2d: Learned connectivity matrix")
             print(f"  Fig 2e: W learned vs true (R^2, slope)")
             print(f"  Fig 2f: Latent vectors a_i (4 clusters)")
@@ -202,7 +211,7 @@ if __name__ == "__main__":
             print()
             folder_name = './log/' + pre_folder + '/tmp_results/'
             os.makedirs(folder_name, exist_ok=True)
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='color', extended='plots', device=device, apply_weight_correction=True)
 
         # Rename output files to match Figure 2 panels
         print()
@@ -221,7 +230,8 @@ if __name__ == "__main__":
             f'{graphs_dir}/activity_gt.pdf': f'{fig_dir}/Fig2a_activity_time_series.pdf',
             f'{graphs_dir}/connectivity_true.png': f'{fig_dir}/Fig2c_connectivity_true.png',
             # From results (plot step)
-            f'{results_dir}/activity_gt.pdf': f'{fig_dir}/Fig2ab_activity.pdf',
+            f'{results_dir}/kinograph.png': f'{fig_dir}/Fig2a_kinograph.png',
+            f'{results_dir}/activity_gt.pdf': f'{fig_dir}/Fig2b_activity_traces.pdf',
             f'{results_dir}/connectivity_true.png': f'{fig_dir}/Fig2c_connectivity_true.png',
             f'{results_dir}/connectivity_learned.png': f'{fig_dir}/Fig2d_connectivity_learned.png',
             f'{results_dir}/weights_comparison_corrected.png': f'{fig_dir}/Fig2e_weights_comparison.png',

@@ -1,30 +1,9 @@
-"""
-GNN Recurrent Training with Code Modification Support.
-
-This script runs GNN training with recurrent training mode and allows Claude to modify
-the training code (graph_trainer.py) to explore different training schemes.
-
-Training runs in a subprocess to ensure code modifications are reloaded each iteration.
-Code changes are automatically committed to git for version control.
-
-Usage:
-    python GNN_recurrent_code.py                                              # run Claude exploration
-    python GNN_recurrent_code.py -o train_test_plot_Claude signal_N2_recurrent_1  # explicit config
-
-Code modification support:
-    - Claude can modify: src/NeuralGraph/models/graph_trainer.py
-    - Changes are tracked and committed to git automatically
-    - Subprocess reloads modified code each iteration
-    - See instruction_signal_N2_recurrent_code_1.md for allowed modifications
-"""
-
 import matplotlib
 matplotlib.use('Agg')  # set non-interactive backend before other imports
 import argparse
 import os
 import shutil
 import subprocess
-import sys
 import time
 import yaml
 
@@ -36,12 +15,12 @@ if os.path.isdir('/scratch'):
 
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
-from NeuralGraph.models.graph_trainer import data_train, data_test
+from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
 from NeuralGraph.models.exploration_tree import compute_ucb_scores
 from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
 from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
-from NeuralGraph.git_code_tracker import track_code_modifications, is_git_repo, get_modified_code_files
+from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
 
 import warnings
@@ -49,22 +28,20 @@ warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
-    parser = argparse.ArgumentParser(description="NeuralGraph Recurrent Training with Code Modification")
+    parser = argparse.ArgumentParser(description="NeuralGraph")
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
 
-    print()
-    print("=" * 80)
-    print("GNN Recurrent Training with Code Modification Support")
-    print("=" * 80)
 
-    device = []
+
+    print()
+    device=[]
     args = parser.parse_args()
 
     if args.option:
         print(f"Options: {args.option}")
-    if args.option is not None:
+    if args.option != None:
         task = args.option[0]
         config_list = [args.option[1]]
         if len(args.option) > 2:
@@ -78,26 +55,36 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude'
-        config_list = ['signal_N2_recurrent_1']
-        task_params = {'iterations': 512}
+        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
+        config_list = ['signal_chaotic_2']
+        task_params = {'iterations': 2048}
 
-    # resume support
-    start_iteration = 17
+
+
+    # resume support: start_iteration parameter (default 1)
+    start_iteration = 165
+
+
+
 
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'
     instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
+
+
+
     if 'Claude' in task:
         iteration_range = range(start_iteration, n_iterations + 1)
+
 
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
 
         if start_iteration > 1:
             print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+
 
         for cfg in config_list:
             cfg_file, pre = add_pre_folder(cfg)
@@ -119,7 +106,7 @@ if __name__ == "__main__":
                     config_data['dataset'] = llm_task_name
                     config_data['training']['n_epochs'] = claude_n_epochs
                     config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
-                    config_data['description'] = 'designed by Claude (with code modification)'
+                    config_data['description'] = 'designed by Claude'
                     config_data['claude'] = {
                         'n_epochs': claude_n_epochs,
                         'data_augmentation_loop': claude_data_augmentation_loop,
@@ -152,17 +139,19 @@ if __name__ == "__main__":
             print(f"\033[93mpreserving {ucb_file} (resuming from iter {start_iteration})\033[0m")
 
         config_list = [llm_task_name]
-
-        # Track if code was modified by Claude (starts False, set True after Claude modifies code)
-        code_modified_by_claude = False
     else:
-        iteration_range = range(1, 2)
-        code_modified_by_claude = False
+
+        iteration_range = range(1, 2)  
+
+
+
 
     for config_file_ in config_list:
         print(" ")
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
         config_file, pre_folder = add_pre_folder(config_file_)
+
+
 
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -192,9 +181,9 @@ if __name__ == "__main__":
                 with open(memory_path, 'w') as f:
                     f.write(f"# Working Memory: {config_file_}\n\n")
                     f.write("## Knowledge Base (accumulated across all blocks)\n\n")
-                    f.write("### Time Step Comparison Table\n")
-                    f.write("| Block | time_step | Best R² | Optimal lr_W | Optimal lr | Optimal L1 | Rollout R² | Training time (min) | Key finding |\n")
-                    f.write("|-------|-----------|---------|--------------|------------|------------|------------|---------------------|-------------|\n\n")
+                    f.write("### Regime Comparison Table\n")
+                    f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
+                    f.write("| ----- | ------ | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |\n\n")
                     f.write("### Established Principles\n\n")
                     f.write("### Open Questions\n\n")
                     f.write("---\n\n")
@@ -216,7 +205,10 @@ if __name__ == "__main__":
         root_dir = os.path.dirname(os.path.abspath(__file__))
         analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
 
+
+
         for iteration in iteration_range:
+
 
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
@@ -232,11 +224,14 @@ if __name__ == "__main__":
             config.dataset = pre_folder + config.dataset
             config.config_file = pre_folder + config_file_
 
-            if device == []:
+            if device==[]:
                 device = set_device(config.training.device)
 
             # open analysis.log for this iteration (append mode for test/plot to add metrics)
             log_file = open(analysis_log_path, 'w')
+
+
+
 
             if "generate" in task:
                 erase = 'Claude' in task  # erase when iterating with claude
@@ -253,119 +248,31 @@ if __name__ == "__main__":
                     log_file=log_file
                 )
 
-            if "train" in task:
-                # For Claude tasks, use subprocess only if Claude modified code in this session
-                if 'Claude' in task:
-                    use_subprocess = code_modified_by_claude
+            if 'train_NGP' in task:
+                # use new modular NGP trainer pipeline
+                data_train_NGP(config=config, device=device)
 
-                    if use_subprocess:
-                        print(f"\033[93mcode modified by Claude - running training in subprocess...\033[0m")
+            elif 'train_INR' in task:
+                print()
+                # pre-train nnr_f (SIREN) on external_input data before joint GNN learning
+                data_train_INR(config=config, device=device, total_steps=50000)
 
-                        # Construct subprocess command
-                        train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
-                        config_path = f"{config_root}/{config_file}.yaml"
-
-                        # Create log directory and error log paths
-                        log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
-                        os.makedirs(log_dir, exist_ok=True)
-                        error_log_path = f"{log_dir}/training_output_latest.log"
-                        error_details_path = f"{log_dir}/training_error_latest.log"
-
-                        train_cmd = [
-                            sys.executable,  # Use same Python interpreter
-                            '-u',  # Force unbuffered output for real-time streaming
-                            train_script,
-                            '--config', config_path,
-                            '--device', str(device),
-                            '--log_file', analysis_log_path,
-                            '--config_file', config.config_file,
-                            '--error_log', error_details_path,
-                            '--erase'
-                        ]
-
-                        # Run training subprocess and stream output
-                        env = os.environ.copy()
-                        env['PYTHONUNBUFFERED'] = '1'
-                        env['TQDM_DISABLE'] = '1'  # Disable tqdm in subprocess (doesn't stream well)
-
-                        process = subprocess.Popen(
-                            train_cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
-                            text=True,
-                            bufsize=1,
-                            env=env
-                        )
-
-                        # Capture all output for logging while also streaming to console
-                        # Filter out tqdm progress bar lines (contain |, %, it/s)
-                        output_lines = []
-                        line_count = 0
-                        with open(error_log_path, 'w') as output_file:
-                            for line in process.stdout:
-                                output_file.write(line)
-                                output_file.flush()
-                                output_lines.append(line.rstrip())
-                                # Filter: skip tqdm-like lines (progress bars)
-                                if '|' in line and '%' in line and 'it/s' in line:
-                                    continue
-                                # Print non-tqdm lines
-                                print(line, end='', flush=True)
-                                line_count += 1
-
-                        process.wait()
-
-                        if process.returncode != 0:
-                            print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
-                            print(f"\033[93mthis may indicate a code modification error.\033[0m\n")
-
-                            # Show last 20 lines of output for context
-                            print(f"\033[93mLast 20 lines of output:\033[0m")
-                            print("-" * 80)
-                            for line in output_lines[-20:]:
-                                print(line)
-                            print("-" * 80)
-
-                            # Show paths to log files
-                            print(f"\nFull output logged to: {error_log_path}")
-                            if os.path.exists(error_details_path):
-                                print(f"Error details logged to: {error_details_path}")
-                                try:
-                                    with open(error_details_path, 'r') as f:
-                                        error_details = f.read()
-                                    if error_details.strip():
-                                        print(f"\n\033[91mDetailed error information:\033[0m")
-                                        print(error_details)
-                                except Exception as e:
-                                    print(f"Could not read error details: {e}")
-
-                            raise RuntimeError(f"training failed at iteration {iteration}")
-
-                        print(f"\033[92mtraining subprocess completed successfully\033[0m")
-                    else:
-                        # No code modifications - run training directly (faster)
-                        print(f"\033[92mno code modifications - running training directly...\033[0m")
-                        data_train(
-                            config=config,
-                            erase=True,
-                            best_model=best_model,
-                            style='black',
-                            device=device,
-                            log_file=log_file
-                        )
-                else:
-                    # For non-Claude tasks, run directly
-                    data_train(
-                        config=config,
-                        erase=True,
-                        best_model=best_model,
-                        style='black',
-                        device=device,
-                        log_file=log_file
-                    )
+            elif "train" in task:
+                data_train(
+                    config=config,
+                    erase='Claude' in task,  # erase old models when iterating with Claude
+                    best_model=best_model,
+                    style = 'black',
+                    device=device,
+                    log_file=log_file
+                )
 
             if "test" in task:
+
                 config.training.noise_model_level = 0.0
+
+                if 'fly' in config_file_:
+                    config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'
 
                 data_test(
                     config=config,
@@ -380,7 +287,7 @@ if __name__ == "__main__":
                     n_rollout_frames=1000,
                     device=device,
                     particle_of_interest=0,
-                    new_params=None,
+                    new_params = None,
                     log_file=log_file,
                 )
 
@@ -438,9 +345,6 @@ if __name__ == "__main__":
                 # call Claude CLI for analysis
                 print("\033[93mClaude analysis...\033[0m")
 
-                # Path to graph_trainer.py for code modification
-                graph_trainer_path = f"{root_dir}/src/NeuralGraph/models/graph_trainer.py"
-
                 claude_prompt = f"""Iteration {iteration}/{n_iterations}
 Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
 {">>> BLOCK END <<<" if is_block_end else ""}
@@ -451,14 +355,13 @@ Full log (append only): {analysis_path}
 Activity image: {activity_path}
 Metrics log: {analysis_log_path}
 UCB scores: {ucb_path}
-Current config: {config_path}
-Code file (can modify): {graph_trainer_path}"""
+Current config: {config_path}"""
 
                 claude_cmd = [
                     'claude',
                     '-p', claude_prompt,
                     '--output-format', 'text',
-                    '--max-turns', '500',
+                    '--max-turns', '100',
                     '--allowedTools',
                     'Read', 'Edit'
                 ]
@@ -488,7 +391,7 @@ Code file (can modify): {graph_trainer_path}"""
                     print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
                     print("\033[93mTo resume:\033[0m")
                     print("\033[93m  1. Run: claude /login\033[0m")
-                    print(f"\033[93m  2. Then: python GNN_recurrent_code.py -o {task} {config_file_} start={iteration}\033[0m")
+                    print(f"\033[93m  2. Then: python GNN_Main.py -o {task} {config_file_} start={iteration}\033[0m")
                     print(f"\033[91m{'='*60}\033[0m")
                     raise SystemExit(1)
 
@@ -501,36 +404,6 @@ Code file (can modify): {graph_trainer_path}"""
                         f.write(f"{'='*60}\n")
                         f.write(output_text.strip())
                         f.write("\n\n")
-
-                # Git tracking: commit any code modifications made by Claude
-                if is_git_repo(root_dir):
-                    print(f"\n\033[96mchecking for code modifications to commit\033[0m")
-                    git_results = track_code_modifications(
-                        root_dir=root_dir,
-                        iteration=iteration,
-                        analysis_path=analysis_path,
-                        reasoning_path=reasoning_log_path
-                    )
-
-                    if git_results:
-                        for file_path, success, message in git_results:
-                            if success:
-                                print(f"\033[92m✓ Git: {message}\033[0m")
-                                # Set flag so next iteration uses subprocess
-                                code_modified_by_claude = True
-                            else:
-                                print(f"\033[93m⚠ Git: {message}\033[0m")
-                    else:
-                        print(f"\033[90m  No code modifications detected\033[0m")
-                else:
-                    # Not a git repo - check for code modifications directly
-                    tracked_code_files = ['src/NeuralGraph/models/graph_trainer.py']
-                    modified_files = get_modified_code_files(root_dir, tracked_code_files)
-                    if modified_files:
-                        code_modified_by_claude = True
-                        print(f"\033[93m  Code modified (no git): {modified_files}\033[0m")
-                    if iteration == 1:
-                        print(f"\033[90m  Not a git repository - code modifications will not be version controlled\033[0m")
 
                 # save instruction file at first iteration of each block
                 if iter_in_block == 1:
@@ -562,12 +435,16 @@ Code file (can modify): {graph_trainer_path}"""
                     sim_info += f", time_step={config.training.time_step}"
                     if hasattr(config.training, 'recurrent_training'):
                         sim_info += f", recurrent={config.training.recurrent_training}"
+                    sim_info += f", connectivity_type={config.simulation.connectivity_type}"
+                    if hasattr(config.simulation, 'Dale_law'):
+                        sim_info += f", Dale_law={config.simulation.Dale_law}"
+                    if hasattr(config.simulation, 'Dale_law_factor'):
+                        sim_info += f", E/I={config.simulation.Dale_law_factor}"
+                    if hasattr(config.simulation, 'noise_model_level'):
+                        sim_info += f", noise_model_level={config.training.noise_model_level}"
+                    if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
+                        sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
 
                     plot_ucb_tree(nodes, ucb_tree_path,
                                   title=f"UCB Tree - Iter {iteration}",
                                   simulation_info=sim_info)
-
-    print()
-    print("=" * 80)
-    print("GNN Recurrent Training with Code Modification complete!")
-    print("=" * 80)
