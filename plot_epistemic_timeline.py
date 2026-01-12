@@ -283,12 +283,12 @@ def create_timeline():
         ax.axvspan(start - 0.5, end + 0.5, alpha=1.0, color=color)
 
         # Add block label at top with multiple lines of info
-        left_x = start + 0.5
-        top_y = len(modes) + 0.1
+        left_x = start + 0.3
+        top_y = len(modes) - 0.3
 
         # Format block info as multi-line text
         block_text = f"{label}\n{info['regime']}\nE/I={info['E/I']}\nT={info['n_frames']}\nN={info['n_neurons']}\nr={info['conn_rank']}\neff={info['eff_rank']}"
-        ax.text(left_x, top_y, block_text, ha='left', va='bottom', fontsize=11,
+        ax.text(left_x, top_y, block_text, ha='left', va='bottom', fontsize=13,
                 linespacing=0.85)
 
     # Draw edges with arrowheads FIRST (so they're behind nodes)
@@ -365,7 +365,7 @@ def create_timeline():
 
     # Styling
     ax.set_xlim(0, 155)  # Max iter 149 + margin
-    ax.set_ylim(-0.5, len(modes) + 3.5)  # Extra space for block labels at top
+    ax.set_ylim(-0.5, len(modes) + 2.5)  # Extra space for block labels at top
     ax.set_yticks(range(len(modes)))
     ax.set_yticklabels(modes, fontsize=16)
     ax.set_xlabel('Iteration', fontsize=24)

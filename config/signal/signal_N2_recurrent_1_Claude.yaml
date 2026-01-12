@@ -55,7 +55,7 @@ training:
   n_runs: 1
   device: cuda:1
   recurrent_training: true
-  time_step: 4
+  time_step: 16
   batch_size: 8
   small_init_batch_size: false
   seed: 24
@@ -65,7 +65,7 @@ training:
   cluster_method: distance_plot
   fix_cluster_embedding: true
   learning_rate_W_start: 0.001
-  learning_rate_start: 1.0e-4
+  learning_rate_start: 1.0e-3
   learning_rate_embedding_start: 0.00075
   coeff_W_L1: 5.0e-5
 claude:
