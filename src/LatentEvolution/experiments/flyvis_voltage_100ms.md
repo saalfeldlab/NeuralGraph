@@ -92,4 +92,41 @@ bsub -J 2x -q gpu_a100 -gpu "num=1" -n 1 -o 2x.log \
 bsub -J 3x -q gpu_a100 -gpu "num=1" -n 1 -o 3x.log \
     python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
     --training.evolve-multiple-steps 3
+bsub -J 5x -q gpu_a100 -gpu "num=1" -n 1 -o 5x.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.evolve-multiple-steps 5
+```
+
+This experiment shows interesting results. When we apply loss at t+5 and t+10, we
+see a dip in the losses at t+15, t+20 etc. Suggesting some kind of generalization.
+With ems=3 (t+5, t+10, t+15) we see solid generalization to both intermediate time
+points, like t+2, as well as beyond the training horizon t+15. But we see a blow up
+in MSE beyond the 100 step window. With ems=5, the roll out on the validation data
+with noise is just as good as t->t+1, which is very encouraging. However, we
+observe overfitting, i.e., the model at intermediate training points shows
+better generalization on the optical flow cross-validation dataset than the final
+model. So, let's add more metrics and try to come up with a stopping criterion.
+
+## Early stopping investigation
+
+Run a series of experiments to investigate stability of long roll out, on
+both the validation data (training dataset but on an unseen time range), and
+on an entirely different dataset like optical flow. These experiments will
+have some logging so we can decide.
+
+```bash
+bsub -J chk -q gpu_a100 -gpu "num=1" -n 2 -o chk.log \
+    python src/LatentEvolution/latent.py chk latent_1step.yaml \
+    --training.save-checkpoint-every-n-epochs 5
+
+bsub -J 5x5 -q gpu_a100 -gpu "num=1" -n 2 -o 5x5.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.evolve-multiple-steps 5 \
+    --training.save-checkpoint-every-n-epochs 5
+
+bsub -J 10x5 -q gpu_a100 -gpu "num=1" -n 2 -o 10x5.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.time-units 10 \
+    --training.evolve-multiple-steps 5 \
+    --training.save-checkpoint-every-n-epochs 5
 ```
