@@ -129,4 +129,54 @@ bsub -J 10x5 -q gpu_a100 -gpu "num=1" -n 2 -o 10x5.log \
     --training.time-units 10 \
     --training.evolve-multiple-steps 5 \
     --training.save-checkpoint-every-n-epochs 5
+
+bsub -J 20x5 -q gpu_a100 -gpu "num=1" -n 2 -o 20x5.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.time-units 20 \
+    --training.evolve-multiple-steps 5 \
+    --training.save-checkpoint-every-n-epochs 5
+```
+
+Analyze intermediate epochs to understand cross-validation dataset performance.
+
+```bash
+
+for epoch in $(seq 25 25 100); do \
+    for run_dir in $(find runs/multiple_steps_20260112_c6bf0ef/ -name config.yaml | xargs dirname); do \
+        name=$(basename ${run_dir})_${epoch}
+        bsub -n 1 -o ${name}.log -J $name -q gpu_a100 -gpu "num=1" \
+            python src/LatentEvolution/post_run_analyze.py $run_dir --epoch $epoch
+    done
+done
+```
+
+Currently we define a training & validation dataset by taking different time
+segments of the DAVIS dataset. It turns out that this isn't good enough to
+define a valid early stopping point. If we focus on the `time_units=20` results,
+we find that the optical flow roll out is stable for > 1000 time steps at epoch
+25, but becomes unstable after. The current validation dataset roll out remains
+stable. The 500-step rollout is quite fast, so we could run longer roll outs to
+see if there's a signal there.
+
+When we apply a training loss with `ems=n`, each data point is seen n times more
+often and it would make sense to reduce the number of epochs by `n`.
+
+We see the best results for `time_units=20`, but the roll outs are worse for
+other cases, like `time_units=10`. Perhaps this is because the 20-step subsampling
+ends up seeing a bigger window of data and is fundamentally more stable as a
+result.
+
+## Try time-units=50
+
+The zapbench data timescale is 1s and represents a 50x time subsampling. Let's
+give that a shot.
+
+```bash
+
+bsub -J 50x5 -q gpu_a100 -gpu "num=1" -n 2 -o 50x5.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.time-units 50 \
+    --training.evolve-multiple-steps 5 \
+    --training.epochs 25 \
+    --training.save-checkpoint-every-n-epochs 5
 ```

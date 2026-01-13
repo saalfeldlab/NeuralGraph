@@ -547,38 +547,80 @@ def load_dataset(
     Args:
         simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
         column_to_model: Column name to model (e.g., "VOLTAGE", "CALCIUM")
-        data_split: DataSplit object with train/val/test time ranges
+        data_split: DataSplit object with train/val time ranges
         num_input_dims: Number of stimulus input dimensions to keep
         device: PyTorch device to load data onto
 
     Returns:
-        Tuple of (train_data, val_data, test_data, train_stim, val_stim, test_stim, neuron_data)
+        Tuple of (train_data, val_data, train_stim, val_stim, neuron_data)
     """
     data_path = f"graphs_data/fly/{simulation_config}/x_list_0.npy"
     sim_data = SimulationResults.load(data_path)
 
     # Extract subsets using split_column method
-    train_data_np, val_data_np, test_data_np = sim_data.split_column(
+    train_data_np, val_data_np = sim_data.split_column(
         FlyVisSim[column_to_model], data_split
     )
     train_data = torch.from_numpy(train_data_np).to(device)
     val_data = torch.from_numpy(val_data_np).to(device)
-    test_data = torch.from_numpy(test_data_np).to(device)
+    del train_data_np, val_data_np
 
     # Load stimulus (keep only first num_input_dims features)
-    train_stim_np, val_stim_np, test_stim_np = sim_data.split_column(
+    train_stim_np, val_stim_np = sim_data.split_column(
         FlyVisSim.STIMULUS, data_split, keep_first_n_limit=num_input_dims
     )
     train_stim = torch.from_numpy(train_stim_np).to(device)
     val_stim = torch.from_numpy(val_stim_np).to(device)
-    test_stim = torch.from_numpy(test_stim_np).to(device)
+    del train_stim_np, val_stim_np
 
     # Save neuron_data and free the large sim_data array
     neuron_data = sim_data.neuron_data
     del sim_data
     gc.collect()
 
-    return train_data, val_data, test_data, train_stim, val_stim, test_stim, neuron_data
+    return train_data, val_data, train_stim, val_stim, neuron_data
+
+
+def load_val_only(
+    simulation_config: str,
+    column_to_model: str,
+    data_split: DataSplit,
+    num_input_dims: int,
+    device: torch.device
+):
+    """
+    Load only validation data for cross-validation (memory efficient).
+
+    Args:
+        simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
+        column_to_model: Column name to model (e.g., "VOLTAGE", "CALCIUM")
+        data_split: DataSplit object with train/val time ranges
+        num_input_dims: Number of stimulus input dimensions to keep
+        device: PyTorch device to load data onto
+
+    Returns:
+        Tuple of (val_data, val_stim)
+    """
+    data_path = f"graphs_data/fly/{simulation_config}/x_list_0.npy"
+    sim_data = SimulationResults.load(data_path)
+
+    # extract only validation split
+    _, val_data_np = sim_data.split_column(
+        FlyVisSim[column_to_model], data_split
+    )
+    val_data = torch.from_numpy(val_data_np).to(device)
+    del val_data_np
+
+    _, val_stim_np = sim_data.split_column(
+        FlyVisSim.STIMULUS, data_split, keep_first_n_limit=num_input_dims
+    )
+    val_stim = torch.from_numpy(val_stim_np).to(device)
+    del val_stim_np
+
+    del sim_data
+    gc.collect()
+
+    return val_data, val_stim
 
 
 # -------------------------------------------------------------------
@@ -634,7 +676,7 @@ def train(cfg: ModelParams, run_dir: Path):
         print("Logged model graph to TensorBoard")
 
         # --- Load data ---
-        train_data, val_data, test_data, train_stim, val_stim, test_stim, neuron_data = load_dataset(
+        train_data, val_data, train_stim, val_stim, neuron_data = load_dataset(
             simulation_config=cfg.training.simulation_config,
             column_to_model=cfg.training.column_to_model,
             data_split=cfg.training.data_split,
@@ -642,10 +684,7 @@ def train(cfg: ModelParams, run_dir: Path):
             device=device,
         )
 
-        print(
-            f"Data split: train {train_data.shape}, "
-            f"val {val_data.shape}, test {test_data.shape}"
-        )
+        print(f"Data split: train {train_data.shape}, val {val_data.shape}")
 
         # Load connectome weights
         wmat = load_connectome_graph(f"graphs_data/fly/{cfg.training.simulation_config}").to(device)
@@ -660,16 +699,27 @@ def train(cfg: ModelParams, run_dir: Path):
             "train_loss_constant_model": torch.nn.functional.mse_loss(
                 train_data[: -total_steps], train_data[total_steps:]
             ).item(),
-            "test_loss_constant_model": torch.nn.functional.mse_loss(
-                test_data[: -total_steps], test_data[total_steps:]
-            ).item(),
         }
         print(f"Constant model loss: {metrics}")
 
         # Log baseline metrics to TensorBoard
         writer.add_scalar("Baseline/train_loss_constant_model", metrics["train_loss_constant_model"], 0)
         writer.add_scalar("Baseline/val_loss_constant_model", metrics["val_loss_constant_model"], 0)
-        writer.add_scalar("Baseline/test_loss_constant_model", metrics["test_loss_constant_model"], 0)
+
+        # --- Load cross-validation datasets ---
+        cv_datasets: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        for cv_config in cfg.cross_validation_configs:
+            cv_name = cv_config.name or cv_config.simulation_config
+            data_split = cv_config.data_split or cfg.training.data_split
+            cv_val_data, cv_val_stim = load_val_only(
+                simulation_config=cv_config.simulation_config,
+                column_to_model=cfg.training.column_to_model,
+                data_split=data_split,
+                num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
+                device=device,
+            )
+            cv_datasets[cv_name] = (cv_val_data, cv_val_stim)
+            print(f"Loaded cross-validation dataset: {cv_name} (val shape: {cv_val_data.shape})")
 
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
@@ -797,15 +847,34 @@ def train(cfg: ModelParams, run_dir: Path):
 
                 # Log diagnostic metrics to TensorBoard
                 for metric_name, metric_value in diagnostic_metrics.items():
-                    writer.add_scalar(f"Diagnostics/{metric_name}", metric_value, epoch)
+                    writer.add_scalar(f"Val/{metric_name}", metric_value, epoch)
 
                 # Log diagnostic figures to TensorBoard
                 for fig_name, fig in diagnostic_figures.items():
-                    writer.add_figure(f"Diagnostics/{fig_name}", fig, epoch)
+                    writer.add_figure(f"Val/{fig_name}", fig, epoch)
 
                 # Log diagnostics duration
                 writer.add_scalar("Time/diagnostics_duration", diagnostics_duration, epoch)
                 print(f"  Diagnostics completed in {diagnostics_duration:.2f}s")
+
+                # Run cross-validation diagnostics
+                for cv_name, (cv_val_data, cv_val_stim) in cv_datasets.items():
+                    cv_start = datetime.now()
+                    cv_metrics, cv_figures = run_validation_diagnostics(
+                        run_dir=run_dir / "cross_validation" / cv_name,
+                        val_data=cv_val_data,
+                        neuron_data=neuron_data,
+                        val_stim=cv_val_stim,
+                        model=model,
+                        config=cfg,
+                        plot_mode=PlotMode.TRAINING,
+                    )
+                    cv_duration = (datetime.now() - cv_start).total_seconds()
+                    for metric_name, metric_value in cv_metrics.items():
+                        writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, epoch)
+                    for fig_name, fig in cv_figures.items():
+                        writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, epoch)
+                    print(f"  Cross-validation ({cv_name}) completed in {cv_duration:.2f}s")
 
                 model.train()
 
@@ -832,20 +901,6 @@ def train(cfg: ModelParams, run_dir: Path):
             profiler.__exit__(None, None, None)
             print("Profiler traces saved successfully")
 
-        # --- Final test evaluation ---
-        model.eval()
-        total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
-        with torch.no_grad():
-            start_indices = torch.arange(test_data.shape[0] - total_steps, device=device)
-            all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
-            loss_tuple = train_step_fn(model, test_data, test_stim, start_indices, all_neurons, all_neurons, cfg)
-            test_loss = loss_tuple[0].item()
-
-        print(f"Final Test Loss: {test_loss:.4e}")
-
-        # Log final test loss to TensorBoard
-        writer.add_scalar("Loss/test", test_loss, cfg.training.epochs)
-
         # Calculate training statistics
         training_end = datetime.now()
         total_training_duration = (training_end - training_start).total_seconds()
@@ -858,7 +913,6 @@ def train(cfg: ModelParams, run_dir: Path):
             {
                     "final_train_loss": mean_losses.total,
                     "final_val_loss": val_loss,
-                    "final_test_loss": test_loss,
                     "commit_hash": commit_hash,
                     "training_duration_seconds": round(total_training_duration, 2),
                     "avg_epoch_duration_seconds": round(avg_epoch_duration, 2),
@@ -886,36 +940,22 @@ def train(cfg: ModelParams, run_dir: Path):
         )
         print(f"Saved main validation figures to {run_dir}")
 
-        # Run cross-validation diagnostics
-        if cfg.cross_validation_configs:
+        # Run cross-validation diagnostics (using pre-loaded datasets)
+        if cv_datasets:
             print("\n=== Running Cross-Dataset Validation ===")
 
-            for cv_config in cfg.cross_validation_configs:
-                cv_name = cv_config.name or cv_config.simulation_config
-                print(f"\nEvaluating on {cv_name} ({cv_config.simulation_config})...")
+            for cv_name, (cv_val_data, cv_val_stim) in cv_datasets.items():
+                print(f"\nEvaluating on {cv_name}...")
 
-                # default to the same data split as training, unless specified
-                data_split = cv_config.data_split or cfg.training.data_split
-
-                # Load cross-validation dataset (only need validation split)
-                _, cv_val_data, _, _, cv_val_stim, _, cv_neuron_data = load_dataset(
-                    simulation_config=cv_config.simulation_config,
-                    column_to_model=cfg.training.column_to_model,
-                    data_split=data_split,
-                    num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
-                    device=device,
-                )
-
-                # Run diagnostics on cross-validation dataset
                 cv_out_dir = run_dir / "cross_validation" / cv_name
                 cv_metrics, cv_figures = run_validation_diagnostics(
                     run_dir=cv_out_dir,
                     val_data=cv_val_data,
-                    neuron_data=cv_neuron_data,
+                    neuron_data=neuron_data,
                     val_stim=cv_val_stim,
                     model=model,
                     config=cfg,
-                    plot_mode = PlotMode.POST_RUN
+                    plot_mode=PlotMode.POST_RUN
                 )
                 print(f"Saved cross-validation figures to {cv_out_dir}")
 
@@ -950,7 +990,6 @@ def train(cfg: ModelParams, run_dir: Path):
         metric_dict = {
             "hparam/final_train_loss": metrics["final_train_loss"],
             "hparam/final_val_loss": metrics["final_val_loss"],
-            "hparam/final_test_loss": metrics["final_test_loss"],
         }
         writer.add_hparams(hparams, metric_dict)
         print("Logged hyperparameters to TensorBoard")

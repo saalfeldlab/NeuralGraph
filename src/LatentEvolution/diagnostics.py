@@ -30,14 +30,6 @@ class PlotMode(StrEnum):
         return self == PlotMode.POST_RUN
 
     @property
-    def run_long_rollout(self):
-        return self == PlotMode.POST_RUN
-
-    @property
-    def compute_long_rollout(self):
-        return self == PlotMode.POST_RUN
-
-    @property
     def neuron_traces(self):
         return self == PlotMode.POST_RUN
 
@@ -179,6 +171,9 @@ def compute_rollout_stability_metrics(
     """
     Compute stability metrics from rollout MSE array.
 
+    MSE metrics (except mse_final) are computed only up to the divergence point
+    (first step where mse > 1.0) to avoid polluting metrics with diverged values.
+
     Args:
         mse_array: Array of shape (n_starts, n_steps, n_neurons)
         time_units: Number of evolver steps per observation interval
@@ -205,39 +200,44 @@ def compute_rollout_stability_metrics(
         f"{prefix}_mse_max": float("nan"),
     }
 
+    # first compute divergence point (first step where mse > 1)
+    divergence_indices = np.where(mse_by_time > 1.0)[0]
+    if len(divergence_indices) > 0:
+        first_divergence_step = int(divergence_indices[0])
+    else:
+        first_divergence_step = n_steps
+    metrics[f"{prefix}_first_divergence_step"] = first_divergence_step
+
+    # truncate to pre-divergence window for other metrics
+    valid_steps = first_divergence_step
+    mse_by_time_valid = mse_by_time[:valid_steps] if valid_steps > 0 else mse_by_time[:1]
+
     # 1. mse at loss points (where training loss is applied)
     # loss applied at steps: time_units, 2*time_units, ..., evolve_multiple_steps*time_units
     # in 0-indexed: time_units-1, 2*time_units-1, ...
     loss_point_indices = [m * time_units - 1 for m in range(1, evolve_multiple_steps + 1)]
-    loss_point_indices = [i for i in loss_point_indices if i < n_steps]
+    loss_point_indices = [i for i in loss_point_indices if i < valid_steps]
     if loss_point_indices:
-        metrics[f"{prefix}_mse_at_loss_points"] = float(mse_by_time[loss_point_indices].mean())
+        metrics[f"{prefix}_mse_at_loss_points"] = float(mse_by_time_valid[loss_point_indices].mean())
 
     # 2. mse at intervening steps (within training horizon, excluding loss points)
     # only meaningful if time_units > 1
     if time_units > 1:
-        all_training_indices = set(range(min(training_horizon, n_steps)))
+        all_training_indices = set(range(min(training_horizon, valid_steps)))
         loss_point_set = set(loss_point_indices)
         intervening_indices = sorted(all_training_indices - loss_point_set)
         if intervening_indices:
-            metrics[f"{prefix}_mse_intervening"] = float(mse_by_time[intervening_indices].mean())
+            metrics[f"{prefix}_mse_intervening"] = float(mse_by_time_valid[intervening_indices].mean())
 
-    # 3. mse beyond training horizon
-    if n_steps > training_horizon:
-        metrics[f"{prefix}_mse_beyond_training"] = float(mse_by_time[training_horizon:].mean())
+    # 3. mse beyond training horizon (but before divergence)
+    if valid_steps > training_horizon:
+        metrics[f"{prefix}_mse_beyond_training"] = float(mse_by_time_valid[training_horizon:].mean())
 
-    # 4. mse at final time step
+    # 4. mse at final time step (always uses full rollout, not truncated)
     metrics[f"{prefix}_mse_final"] = float(mse_by_time[-1])
 
-    # 5. first step where mse > 1, or n_steps if stable throughout
-    divergence_indices = np.where(mse_by_time > 1.0)[0]
-    if len(divergence_indices) > 0:
-        metrics[f"{prefix}_first_divergence_step"] = int(divergence_indices[0])
-    else:
-        metrics[f"{prefix}_first_divergence_step"] = n_steps
-
-    # 6. max mse in rollout window
-    metrics[f"{prefix}_mse_max"] = float(mse_by_time.max())
+    # 5. max mse in valid window (before divergence)
+    metrics[f"{prefix}_mse_max"] = float(mse_by_time_valid.max())
 
     return metrics
 
@@ -403,26 +403,15 @@ def run_validation_diagnostics(
     time_units = config.training.time_units
     evolve_multiple_steps = config.training.evolve_multiple_steps
 
-    # Multi-start short-rollout evaluation
+    # Multi-start rollout evaluation
     for rollout_type in ROLLOUT_TYPES:
         with torch.no_grad():
             _, new_figs, new_metrics = compute_multi_start_rollout_mse(
-                model, val_data, val_stim, neuron_data, n_steps=500, n_starts=10, rollout_type=rollout_type,
+                model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=10, rollout_type=rollout_type,
                 plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps
             )
         metrics.update(new_metrics)
         figures.update(new_figs)
-
-    # Multi-start long rollout evaluation - only run on final trained model
-    if plot_mode.run_long_rollout:
-        for rollout_type in ROLLOUT_TYPES:
-            with torch.no_grad():
-                _, new_figs, new_metrics = compute_multi_start_rollout_mse(
-                    model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=10, rollout_type=rollout_type,
-                    plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps
-                )
-            metrics.update(new_metrics)
-            figures.update(new_figs)
 
     if plot_mode.save_figures:
         for key, fig in figures.items():
