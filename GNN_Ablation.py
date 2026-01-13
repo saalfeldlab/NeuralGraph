@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 1
+    start_iteration = 9
 
 
 
@@ -157,7 +157,7 @@ if __name__ == "__main__":
             root_dir = os.path.dirname(os.path.abspath(__file__))
             instruction_path = f"{root_dir}/{instruction_name}.md"
             analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
-            memory_path = f"{root_dir}/{llm_task_name}_memory.md"
+            block_analysis_path = f"{root_dir}/{llm_task_name}_block_analysis.md"  # block-only log for ablation
 
             # check instruction file exists
             if not os.path.exists(instruction_path):
@@ -168,36 +168,23 @@ if __name__ == "__main__":
                         print(f"  - {f[:-3]}")
                 continue
 
-            # clear analysis and memory files at start (only if not resuming)
+            # clear analysis files at start (only if not resuming)
+            # NOTE: Ablation has NO memory file - only block-local analysis
             if start_iteration == 1:
                 with open(analysis_path, 'w') as f:
                     f.write(f"# Experiment Log: {config_file_}\n\n")
                 print(f"\033[93mcleared {analysis_path}\033[0m")
+                # clear block analysis (will be reset at each block boundary)
+                with open(block_analysis_path, 'w') as f:
+                    f.write(f"# Block Analysis: {config_file_} (Block 1)\n\n")
+                print(f"\033[93mcleared {block_analysis_path}\033[0m")
                 # clear reasoning.log for Claude tasks
                 reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
                 open(reasoning_path, 'w').close()
                 print(f"\033[93mcleared {reasoning_path}\033[0m")
-                # initialize working memory file
-                with open(memory_path, 'w') as f:
-                    f.write(f"# Working Memory: {config_file_}\n\n")
-                    f.write("## Knowledge Base (accumulated across all blocks)\n\n")
-                    f.write("### Regime Comparison Table\n")
-                    f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
-                    f.write("| ----- | ------ | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |\n\n")
-                    f.write("### Established Principles\n\n")
-                    f.write("### Open Questions\n\n")
-                    f.write("---\n\n")
-                    f.write("## Previous Block Summary\n\n")
-                    f.write("---\n\n")
-                    f.write("## Current Block (Block 1)\n\n")
-                    f.write("### Block Info\n\n")
-                    f.write("### Hypothesis\n\n")
-                    f.write("### Iterations This Block\n\n")
-                    f.write("### Emerging Observations\n\n")
-                print(f"\033[93mcleared {memory_path}\033[0m")
             else:
                 print(f"\033[93mpreserving {analysis_path} (resuming from iter {start_iteration})\033[0m")
-                print(f"\033[93mpreserving {memory_path} (resuming from iter {start_iteration})\033[0m")
+                print(f"\033[93mpreserving {block_analysis_path} (resuming from iter {start_iteration})\033[0m")
                 reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
                 print(f"\033[93mpreserving {reasoning_path} (resuming from iter {start_iteration})\033[0m")
             print(f"\033[93m{instruction_name} ({n_iterations} iterations, starting at {start_iteration})\033[0m")
@@ -212,12 +199,17 @@ if __name__ == "__main__":
 
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
-                # block boundary: erase UCB at start of each n_iter_block-iteration block (except iter 1, already handled)
+                # block boundary: erase UCB and reset block_analysis at start of each n_iter_block-iteration block (except iter 1, already handled)
                 if iteration > 1 and (iteration - 1) % n_iter_block == 0:
+                    new_block_number = (iteration - 1) // n_iter_block + 1
                     ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
                     if os.path.exists(ucb_file):
                         os.remove(ucb_file)
-                        print(f"\033[93msimulation block boundary: deleted {ucb_file} (new simulation block)\\033[0m")
+                        print(f"\033[93msimulation block boundary: deleted {ucb_file} (new simulation block)\033[0m")
+                    # Reset block-only analysis file for ablation (no cross-block memory)
+                    with open(block_analysis_path, 'w') as f:
+                        f.write(f"# Block Analysis: {config_file_} (Block {new_block_number})\n\n")
+                    print(f"\033[93msimulation block boundary: reset {block_analysis_path} (Block {new_block_number})\033[0m")
 
             # reload config to pick up any changes from previous iteration
             config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
@@ -322,8 +314,8 @@ if __name__ == "__main__":
                     raw_config = yaml.safe_load(f)
                 ucb_c = raw_config.get('claude', {}).get('ucb_c', 1.414)
 
-                # compute UCB scores for Claude to read
-                compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
+                # compute UCB scores for Claude to read (from block-only log)
+                compute_ucb_scores(block_analysis_path, ucb_path, c=ucb_c,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
                                    block_size=n_iter_block)
@@ -350,8 +342,7 @@ Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} withi
 {">>> BLOCK END <<<" if is_block_end else ""}
 
 Instructions (follow all instructions): {instruction_path}
-Working memory: {memory_path}
-Full log (append only): {analysis_path}
+Block log (append only, current block only): {block_analysis_path}
 Activity image: {activity_path}
 Metrics log: {analysis_log_path}
 UCB scores: {ucb_path}
@@ -411,17 +402,20 @@ Current config: {config_path}"""
                     if os.path.exists(instruction_path):
                         shutil.copy2(instruction_path, dst_instruction)
 
-                # save memory file at end of each block (after Claude updates it)
-                if is_block_end:
-                    memory_save_dir = f"{exploration_dir}/memory"
-                    os.makedirs(memory_save_dir, exist_ok=True)
-                    dst_memory = f"{memory_save_dir}/block_{block_number:03d}_memory.md"
-                    if os.path.exists(memory_path):
-                        shutil.copy2(memory_path, dst_memory)
-                        print(f"\033[92msaved memory snapshot: {dst_memory}\033[0m")
+                # NOTE: Ablation has NO memory file - skip memory saving
 
-                # recompute UCB scores after Claude to pick up mutations from analysis markdown
-                compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
+                # Archive block_analysis to full analysis_path at end of block
+                if is_block_end and os.path.exists(block_analysis_path):
+                    with open(block_analysis_path, 'r') as f:
+                        block_content = f.read()
+                    with open(analysis_path, 'a') as f:
+                        f.write(f"\n## Block {block_number} Archive\n\n")
+                        f.write(block_content)
+                        f.write("\n---\n\n")
+                    print(f"\033[92marchived block {block_number} to {analysis_path}\033[0m")
+
+                # recompute UCB scores after Claude to pick up mutations from block analysis
+                compute_ucb_scores(block_analysis_path, ucb_path, c=ucb_c,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
                                    block_size=n_iter_block)

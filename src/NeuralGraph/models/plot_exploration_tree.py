@@ -20,6 +20,14 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 
+# Configure matplotlib for Helvetica-style fonts (no LaTeX)
+plt.rcParams.update({
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Nimbus Sans', 'Arial', 'Helvetica', 'DejaVu Sans'],
+    'text.usetex': False,
+    'mathtext.fontset': 'dejavusans',  # sans-serif math text
+})
+
 
 @dataclass
 class UCBNode:
@@ -200,8 +208,8 @@ def plot_ucb_tree(nodes: list[UCBNode],
         x, y = positions[node.id]
         color = get_color(node.r2)
 
-        # Size proportional to UCB (larger base size)
-        size = 150 + 150 * (node.ucb - min_ucb) / ucb_range
+        # Size proportional to UCB (larger base size to fit node numbers)
+        size = 400 + 200 * (node.ucb - min_ucb) / ucb_range
 
         # Determine if leaf node (no children)
         is_leaf = len(children.get(node.id, [])) == 0
