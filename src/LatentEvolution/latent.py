@@ -617,6 +617,7 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Model, optimizer ---
         model = LatentModel(cfg).to(device)
+        print(f"model parameters: {sum(p.numel() for p in model.parameters()):,}")
         model.train()
         OptimizerClass = getattr(torch.optim, cfg.training.optimizer)
         optimizer = OptimizerClass(model.parameters(), lr=cfg.training.learning_rate)

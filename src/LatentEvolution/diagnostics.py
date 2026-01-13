@@ -14,7 +14,6 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import time
-from datetime import datetime
 
 if TYPE_CHECKING:
     from LatentEvolution.latent import ModelParams, LatentModel
@@ -43,14 +42,9 @@ class PlotMode(StrEnum):
         return self == PlotMode.POST_RUN
 
 
-def log_timestamp(message: str, start_time: float | None = None):
-    """Helper to log messages with timestamps and optional elapsed time."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    if start_time is not None:
-        elapsed = time.time() - start_time
-        print(f"[{timestamp}] {message} (elapsed: {elapsed:.2f}s)")
-    else:
-        print(f"[{timestamp}] {message}")
+# rollout types to evaluate - set to ("latent",) to skip activity rollouts
+ROLLOUT_TYPES: tuple[str, ...] = ("latent",)
+# ROLLOUT_TYPES: tuple[str, ...] = ("activity", "latent")  # uncomment to include activity rollouts
 
 
 def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
@@ -120,7 +114,6 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
 
 
 def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: int) -> tuple[plt.Figure, dict[str, float]]:
-    print("    Computing statistics across starting points and neurons...")
     mse_avg_over_starts = mse_array.mean(axis=0)  # (n_steps, n_neurons)
 
     mse_min_across_neurons = mse_avg_over_starts.min(axis=1)  # (n_steps,)
@@ -130,7 +123,6 @@ def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: 
     mse_p95_across_neurons = np.percentile(mse_avg_over_starts, 95, axis=1)  # (n_steps,)
 
     # Create plot with log scale
-    print("    Creating plot...")
     fig, ax = plt.subplots(figsize=(12, 6))
     time_steps = np.arange(n_steps)
 
@@ -160,6 +152,7 @@ def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: 
     ax.set_xlabel('Rollout Time Steps')
     ax.set_ylabel('MSE (averaged over starting points)')
     ax.set_yscale('log')
+    ax.set_ylim(1e-4, 1e1)
 
     # Create clear title indicating rollout type
     rollout_label = f"{rollout_type} Space Rollout"
@@ -173,14 +166,80 @@ def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: 
     ax.grid(True, alpha=0.3, which='both')
     fig.tight_layout()
 
-    # Compute summary metrics
+    return fig
+
+
+def compute_rollout_stability_metrics(
+    mse_array: np.ndarray,
+    time_units: int,
+    evolve_multiple_steps: int,
+    rollout_type: str,
+    n_steps: int,
+) -> dict[str, float]:
+    """
+    Compute stability metrics from rollout MSE array.
+
+    Args:
+        mse_array: Array of shape (n_starts, n_steps, n_neurons)
+        time_units: Number of evolver steps per observation interval
+        evolve_multiple_steps: Number of observation multiples in training
+        rollout_type: "latent" or "activity" for metric naming
+        n_steps: Total rollout steps
+
+    Returns:
+        Dictionary of stability metrics
+    """
+    # average over starts, then over neurons -> shape (n_steps,)
+    mse_by_time = mse_array.mean(axis=0).mean(axis=1)
+
+    training_horizon = time_units * evolve_multiple_steps
+    prefix = f"rollout_{rollout_type}_{n_steps}step"
+
+    # initialize all metrics to nan
     metrics = {
-        f"multi_start_long_{rollout_type}_rollout_mses_by_time_final_mean": float(mse_mean_across_neurons[-1]),
-        f"multi_start_long_{rollout_type}_rollout_mses_by_time_final_min": float(mse_min_across_neurons[-1]),
-        f"multi_start_long_{rollout_type}_rollout_mses_by_time_final_max": float(mse_max_across_neurons[-1]),
-        f"multi_start_long_{rollout_type}_rollout_mses_by_time_mean_over_time": float(mse_mean_across_neurons.mean()),
+        f"{prefix}_mse_at_loss_points": float("nan"),
+        f"{prefix}_mse_intervening": float("nan"),
+        f"{prefix}_mse_beyond_training": float("nan"),
+        f"{prefix}_mse_final": float("nan"),
+        f"{prefix}_first_divergence_step": float("nan"),
+        f"{prefix}_mse_max": float("nan"),
     }
-    return fig, metrics
+
+    # 1. mse at loss points (where training loss is applied)
+    # loss applied at steps: time_units, 2*time_units, ..., evolve_multiple_steps*time_units
+    # in 0-indexed: time_units-1, 2*time_units-1, ...
+    loss_point_indices = [m * time_units - 1 for m in range(1, evolve_multiple_steps + 1)]
+    loss_point_indices = [i for i in loss_point_indices if i < n_steps]
+    if loss_point_indices:
+        metrics[f"{prefix}_mse_at_loss_points"] = float(mse_by_time[loss_point_indices].mean())
+
+    # 2. mse at intervening steps (within training horizon, excluding loss points)
+    # only meaningful if time_units > 1
+    if time_units > 1:
+        all_training_indices = set(range(min(training_horizon, n_steps)))
+        loss_point_set = set(loss_point_indices)
+        intervening_indices = sorted(all_training_indices - loss_point_set)
+        if intervening_indices:
+            metrics[f"{prefix}_mse_intervening"] = float(mse_by_time[intervening_indices].mean())
+
+    # 3. mse beyond training horizon
+    if n_steps > training_horizon:
+        metrics[f"{prefix}_mse_beyond_training"] = float(mse_by_time[training_horizon:].mean())
+
+    # 4. mse at final time step
+    metrics[f"{prefix}_mse_final"] = float(mse_by_time[-1])
+
+    # 5. first step where mse > 1, or n_steps if stable throughout
+    divergence_indices = np.where(mse_by_time > 1.0)[0]
+    if len(divergence_indices) > 0:
+        metrics[f"{prefix}_first_divergence_step"] = int(divergence_indices[0])
+    else:
+        metrics[f"{prefix}_first_divergence_step"] = n_steps
+
+    # 6. max mse in rollout window
+    metrics[f"{prefix}_mse_max"] = float(mse_by_time.max())
+
+    return metrics
 
 def compute_multi_start_rollout_mse(
     model: LatentModel,
@@ -191,6 +250,8 @@ def compute_multi_start_rollout_mse(
     n_starts: int = 10,
     rollout_type: str = "latent",
     plot_mode: PlotMode = PlotMode.TRAINING,
+    time_units: int = 1,
+    evolve_multiple_steps: int = 1,
 ) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float]]:
     """
     Compute MSE over time from multiple random starting points.
@@ -206,14 +267,14 @@ def compute_multi_start_rollout_mse(
         n_steps: Number of rollout steps (default: 2000)
         n_starts: Number of random starting points (default: 10)
         rollout_type: "latent" for latent space rollout, "activity" for activity space
+        time_units: Number of evolver steps per observation interval (from config)
+        evolve_multiple_steps: Number of observation multiples in training (from config)
 
     Returns:
         mse_array: Array of shape (n_starts, n_steps, n_neurons) with MSE at each time/neuron
         figures: figures
-        metrics: Dictionary with summary statistics
+        metrics: Dictionary with stability metrics
     """
-    print(f"  Computing multi-start {rollout_type} rollout ({n_starts} starts, {n_steps} steps each)...")
-
     assert n_starts > 0
     # Pick random starting points ensuring we have enough data
     max_start = val_data.shape[0] - n_steps - 1
@@ -236,7 +297,6 @@ def compute_multi_start_rollout_mse(
     worst_segment_data = None
 
     for i, start_idx in enumerate(start_indices):
-        print(f"    Rollout {i+1}/{n_starts} from start_idx={start_idx}...")
 
         # Get initial state and segments
         initial_state = val_data[start_idx]
@@ -292,12 +352,16 @@ def compute_multi_start_rollout_mse(
     # plot mse vs variance cell type labelled
     figures[f"best_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
 
-    # Compute statistics: average over starting points, then get min/max/mean/percentiles across neurons
-    fig, metrics = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts)
+    # plot mse over time
+    fig = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts)
     figures[f"multi_start_{n_steps}step_{rollout_type}_rollout_mses_by_time"] = fig
     plt.close()
 
-    print(f"    Multi-start {rollout_type} rollout complete")
+    # compute stability metrics
+    metrics = compute_rollout_stability_metrics(
+        mse_array, time_units, evolve_multiple_steps, rollout_type, n_steps
+    )
+
     return mse_array, figures, metrics
 
 
@@ -329,9 +393,6 @@ def run_validation_diagnostics(
     """
 
     overall_start = time.time()
-    log_timestamp("Running validation diagnostics...")
-    print(f"  Val data shape: {val_data.shape}")
-    print(f"  Model parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     metrics = {}
     figures = {}
@@ -339,40 +400,36 @@ def run_validation_diagnostics(
     # make run dir if it doesn't exist
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    # Multi-start short-rollout evaluation - Activity & latent
-    for rollout_type in ("activity", "latent"):
-        step_start = time.time()
-        log_timestamp("Starting multi-start rollout evaluation (activity space, 10 starts x 2000 steps)...")
+    time_units = config.training.time_units
+    evolve_multiple_steps = config.training.evolve_multiple_steps
+
+    # Multi-start short-rollout evaluation
+    for rollout_type in ROLLOUT_TYPES:
         with torch.no_grad():
             _, new_figs, new_metrics = compute_multi_start_rollout_mse(
-                model, val_data, val_stim, neuron_data, n_steps=100, n_starts=10, rollout_type=rollout_type,
-                plot_mode=plot_mode
+                model, val_data, val_stim, neuron_data, n_steps=500, n_starts=10, rollout_type=rollout_type,
+                plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps
             )
         metrics.update(new_metrics)
         figures.update(new_figs)
-        log_timestamp(f"Multi-start rollout ({rollout_type}) complete", step_start)
 
-    # Multi-start rollout evaluation - only run on final trained model
+    # Multi-start long rollout evaluation - only run on final trained model
     if plot_mode.run_long_rollout:
-        # Multi-start rollout evaluation - Activity & latent
-        for rollout_type in ("activity", "latent"):
-            step_start = time.time()
-            log_timestamp("Starting multi-start rollout evaluation (activity space, 10 starts x 2000 steps)...")
+        for rollout_type in ROLLOUT_TYPES:
             with torch.no_grad():
                 _, new_figs, new_metrics = compute_multi_start_rollout_mse(
                     model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=10, rollout_type=rollout_type,
-                    plot_mode=plot_mode
+                    plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps
                 )
             metrics.update(new_metrics)
             figures.update(new_figs)
-            log_timestamp(f"Multi-start rollout ({rollout_type}) complete", step_start)
-    else:
-        log_timestamp("Skipping multi-start rollout evaluation (skip_multi_start_rollout=True)")
 
     if plot_mode.save_figures:
         for key, fig in figures.items():
             fig.savefig(run_dir / f"{key}.jpg", dpi=100)
-    log_timestamp("Validation diagnostics complete", overall_start)
+
+    elapsed = time.time() - overall_start
+    print(f"validation diagnostics complete ({elapsed:.1f}s)")
     return metrics, figures
 
 
@@ -392,25 +449,15 @@ def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: to
     Returns:
         predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
     """
-    print(f"    Starting rollout for {n_steps} steps...")
     predicted_trace = []
     current_state = initial_state.unsqueeze(0)  # shape (1, neurons)
 
     for t in range(n_steps):
-        if t % 500 == 0:
-            print(f"    Rollout step {t}/{n_steps}...")
-        # Get the stimulus for this time step
         current_stimulus = stimulus[t:t+1]  # shape (1, stimulus_dim)
-
-        # Evolve by one step (encodes, evolves in latent, decodes)
         next_state = model(current_state, current_stimulus)
-
         predicted_trace.append(next_state.squeeze(0))
-
-        # Use predicted state as input for next step
         current_state = next_state
 
-    print("    Rollout steps complete, stacking results...")
     return torch.stack(predicted_trace, dim=0)
 
 
@@ -430,37 +477,16 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
     Returns:
         predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
     """
-    print(f"    Starting latent rollout for {n_steps} steps...")
-
-    # Encode initial state to latent space
     current_latent = model.encoder(initial_state.unsqueeze(0))  # shape (1, latent_dim)
-
-    # Encode all stimulus
     stimulus_latent = model.stimulus_encoder(stimulus)  # shape (n_steps, stim_latent_dim)
 
-    # Collect latent states
     latent_trace = []
-
     for t in range(n_steps):
-        if t % 500 == 0:
-            print(f"    Latent rollout step {t}/{n_steps}...")
-
-        # Get the stimulus for this time step
         current_stimulus_latent = stimulus_latent[t:t+1]  # shape (1, stim_latent_dim)
-
-        # Evolve one step in latent space
-        evolver_output = model.evolver(current_latent, current_stimulus_latent)
-
-        # Extract new latent state
-        current_latent = evolver_output
-
+        current_latent = model.evolver(current_latent, current_stimulus_latent)
         latent_trace.append(current_latent.squeeze(0))
 
-    print("    Latent rollout steps complete, stacking and decoding...")
-    # Stack all latent states: (n_steps, latent_dim)
     latent_trace = torch.stack(latent_trace, dim=0)
-
-    # Decode all latent states at once
     predicted_trace = model.decoder(latent_trace)
 
     return predicted_trace
@@ -491,8 +517,6 @@ def plot_rollout_traces_from_results(
     rng = np.random.default_rng(seed=0)
     ntypes = len(neuron_data.TYPE_NAMES)
 
-    print(f"    Creating figure with {ntypes} subplots, size=(24, {3 * ntypes})...")
-    # Create one large figure
     fig, axes = plt.subplots(ntypes, 1, sharex=True, figsize=(24, 3 * ntypes))
 
     # defin ylim
@@ -509,11 +533,8 @@ def plot_rollout_traces_from_results(
     # broaden a bit more
     llim -= 0.5
     ulim += 0.5
-    print(f"    Plotting {ntypes} neuron traces...")
 
     for itype, tname in enumerate(neuron_data.TYPE_NAMES):
-        if itype % 10 == 0:
-            print(f"      Plotting cell type {itype}/{ntypes}...")
         ix = ixs[itype]
 
         if is_torch:
@@ -544,8 +565,6 @@ def plot_rollout_traces_from_results(
 
     axes[-1].set_xlabel("Rollout Time Steps")
     fig.suptitle(f"Multi-Step {rollout_type} Rollout Traces (autoregressive from single start at t={start_idx})", fontsize=16, y=1.1)
-
-    print("    Running tight_layout()...")
     fig.tight_layout()
 
     return fig
