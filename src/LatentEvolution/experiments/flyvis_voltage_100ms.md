@@ -192,6 +192,7 @@ bsub -J 50x5 -q gpu_a100 -gpu "num=1" -n 2 -o 50x5.log \
     --training.time-units 50 \
     --training.evolve-multiple-steps 5 \
     --training.ems-warmup-epochs 10 \
+    --training.grad_clip_max_norm 0 \
     --training.epochs 50 \
     --training.save-checkpoint-every-n-epochs 5
 
