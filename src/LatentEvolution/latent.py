@@ -734,15 +734,13 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- EMS warmup setup ---
         target_ems = cfg.training.evolve_multiple_steps
-        target_data_passes = cfg.training.data_passes_per_epoch
         warmup_epochs = cfg.training.ems_warmup_epochs
         use_ems_warmup = warmup_epochs > 0 and target_ems > 1
         if use_ems_warmup:
             cfg.training.evolve_multiple_steps = 1
-            cfg.training.data_passes_per_epoch = 1
             # use non-compiled version during warmup to avoid graph caching issues
             train_step_fn = train_step_nocompile
-            print(f"EMS warmup enabled: training with ems=1, data_passes=1 (nocompile) for {warmup_epochs} epochs, then ems={target_ems}, data_passes={target_data_passes}")
+            print(f"EMS warmup enabled: training with ems=1 (nocompile) for {warmup_epochs} epochs, then ems={target_ems}")
 
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
@@ -805,16 +803,15 @@ def train(cfg: ModelParams, run_dir: Path):
             # transition from warmup to full ems
             if use_ems_warmup and epoch == warmup_epochs:
                 cfg.training.evolve_multiple_steps = target_ems
-                cfg.training.data_passes_per_epoch = target_data_passes
                 batch_indices_iter = make_batches_random(
                     train_data, train_stim, wmat_indices, wmat_indptr, cfg
                 )
                 batches_per_epoch = (
-                    max(1, num_time_points // cfg.training.batch_size) * target_data_passes
+                    max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
                 )
                 # switch to compiled version (will compile fresh with target ems)
                 train_step_fn = globals()[cfg.training.train_step]
-                print(f"EMS warmup complete: switching to ems={target_ems}, data_passes={target_data_passes} (compiled)")
+                print(f"EMS warmup complete: switching to ems={target_ems} (compiled)")
 
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
