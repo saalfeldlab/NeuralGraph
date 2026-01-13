@@ -20,7 +20,6 @@ import traceback
 # Add src directory to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
 
-import torch
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.models.graph_trainer import data_train
 from NeuralGraph.utils import set_device
@@ -80,11 +79,11 @@ def main():
     except Exception as e:
         # Capture full traceback for debugging
         error_msg = f"\n{'='*80}\n"
-        error_msg += f"TRAINING SUBPROCESS ERROR\n"
+        error_msg += "TRAINING SUBPROCESS ERROR\n"
         error_msg += f"{'='*80}\n\n"
         error_msg += f"Error Type: {type(e).__name__}\n"
         error_msg += f"Error Message: {str(e)}\n\n"
-        error_msg += f"Full Traceback:\n"
+        error_msg += "Full Traceback:\n"
         error_msg += traceback.format_exc()
         error_msg += f"\n{'='*80}\n"
 
