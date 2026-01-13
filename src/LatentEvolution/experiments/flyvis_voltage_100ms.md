@@ -173,10 +173,26 @@ give that a shot.
 
 ```bash
 
+bsub -J 50x1 -q gpu_a100 -gpu "num=1" -n 2 -o 50x1.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.time-units 50 \
+    --training.evolve-multiple-steps 1 \
+    --training.epochs 100 \
+    --training.save-checkpoint-every-n-epochs 5
+
+bsub -J 50x2 -q gpu_a100 -gpu "num=1" -n 2 -o 50x2.log \
+    python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
+    --training.time-units 50 \
+    --training.evolve-multiple-steps 2 \
+    --training.epochs 100 \
+    --training.save-checkpoint-every-n-epochs 5
+
 bsub -J 50x5 -q gpu_a100 -gpu "num=1" -n 2 -o 50x5.log \
     python src/LatentEvolution/latent.py multiple_steps latent_5step.yaml \
     --training.time-units 50 \
     --training.evolve-multiple-steps 5 \
-    --training.epochs 25 \
+    --training.ems-warmup-epochs 10 \
+    --training.epochs 50 \
     --training.save-checkpoint-every-n-epochs 5
+
 ```
