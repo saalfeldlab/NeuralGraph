@@ -527,7 +527,7 @@ def train_step_nocompile(
     loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss + aug_loss
     return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss, aug_loss)
 
-train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="max-autotune")
+train_step = torch.compile(train_step_nocompile, fullgraph=True)
 
 # -------------------------------------------------------------------
 # Data Loading and Evaluation
