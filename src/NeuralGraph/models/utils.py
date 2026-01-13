@@ -2038,18 +2038,19 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
     tree_save_dir = f"{exploration_dir}/exploration_tree"
     protocol_save_dir = f"{exploration_dir}/protocol"
 
-    # create directories at start of experiment
+    # create directories at start of experiment (clear only on iteration 1)
     if iteration == 1:
         # clear and recreate exploration folder
         if os.path.exists(exploration_dir):
             shutil.rmtree(exploration_dir)
-        os.makedirs(config_save_dir, exist_ok=True)
-        os.makedirs(scatter_save_dir, exist_ok=True)
-        os.makedirs(matrix_save_dir, exist_ok=True)
-        os.makedirs(activity_save_dir, exist_ok=True)
-        os.makedirs(mlp_save_dir, exist_ok=True)
-        os.makedirs(tree_save_dir, exist_ok=True)
-        os.makedirs(protocol_save_dir, exist_ok=True)
+    # always ensure directories exist (for resume support)
+    os.makedirs(config_save_dir, exist_ok=True)
+    os.makedirs(scatter_save_dir, exist_ok=True)
+    os.makedirs(matrix_save_dir, exist_ok=True)
+    os.makedirs(activity_save_dir, exist_ok=True)
+    os.makedirs(mlp_save_dir, exist_ok=True)
+    os.makedirs(tree_save_dir, exist_ok=True)
+    os.makedirs(protocol_save_dir, exist_ok=True)
 
     # determine if this is first iteration of a block
     is_block_start = (iter_in_block == 1)
