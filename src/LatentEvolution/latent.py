@@ -119,6 +119,9 @@ class TrainingConfig(BaseModel):
     lp_norm_p: int = Field(
         8, description="P value for LP norm penalty (higher values penalize outliers more)", json_schema_extra={"short_name": "lp_p"}
     )
+    grad_clip_max_norm: float = Field(
+        10.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
+    )
     unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -791,6 +794,8 @@ def train(cfg: ModelParams, run_dir: Path):
                     model, train_data, train_stim, batch_indices, selected_neurons, needed_indices, cfg
                 )
                 loss_tuple[0].backward()
+                if cfg.training.grad_clip_max_norm > 0:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.training.grad_clip_max_norm)
                 optimizer.step()
                 losses.accumulate(*loss_tuple)
 
