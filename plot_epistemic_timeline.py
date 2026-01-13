@@ -9,7 +9,6 @@ import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
-import numpy as np
 
 # Define color scheme for reasoning modes
 COLORS = {

@@ -39,10 +39,10 @@ training:
   intermediate_loss_steps: []
   # Number of time_units multiples to evolve. Loss applied at each multiple.
   # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
-  evolve_multiple_steps: 1
+  evolve_multiple_steps: 5
   simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 100
-  epochs: 100 # Total number of epochs
+  epochs: 25 # Total number of epochs
   save_best_checkpoint: True # Save model with lowest validation loss
   save_checkpoint_every_n_epochs: 0
   diagnostics_freq_epochs: 1 # run validation diagnostics every epoch
@@ -64,19 +64,13 @@ training:
     train_end: 54000
     validation_start: 54000
     validation_end: 64000
-    test_start: 54000
-    test_end: 64000
 
 # Cross-dataset validation (evaluates trained model on different datasets)
 cross_validation_configs:
-  - simulation_config: "fly_N9_62_0_calcium"
-    name: "no_noise"
   - simulation_config: "fly_N9_62_0_optical_flow_calcium"
     name: "optical_flow"
-    data_split: # this is only for validation so training/validation/test are the same
+    data_split:
       train_start: 5000
       train_end: 15000
       validation_start: 5000
       validation_end: 15000
-      test_start: 5000
-      test_end: 15000

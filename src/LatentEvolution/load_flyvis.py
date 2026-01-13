@@ -86,10 +86,9 @@ class SimulationResults(NamedTuple):
     ) -> tuple[
         np.ndarray[tuple[int, int], np.dtype[np.float32]],
         np.ndarray[tuple[int, int], np.dtype[np.float32]],
-        np.ndarray[tuple[int, int], np.dtype[np.float32]],
     ]:
         """
-        Split a column by time into train/validation/test sets.
+        Split a column by time into train/validation sets.
 
         Args:
             column: The column to extract and split
@@ -97,7 +96,7 @@ class SimulationResults(NamedTuple):
             keep_first_n_limit: Optional limit on the feature dimension (for stimulus)
 
         Returns:
-            Tuple of (train, val, test) numpy arrays
+            Tuple of (train, val) numpy arrays
 
         Raises:
             AssertionError: If split ranges exceed available time points
@@ -112,32 +111,25 @@ class SimulationResults(NamedTuple):
         assert split.validation_end <= total_time_points, (
             f"validation_end ({split.validation_end}) exceeds available time points ({total_time_points})"
         )
-        assert split.test_end <= total_time_points, (
-            f"test_end ({split.test_end}) exceeds available time points ({total_time_points})"
-        )
 
         # Extract subsets (use .copy() to release reference to original array)
         if keep_first_n_limit is not None:
             train = data[split.train_start : split.train_end, :keep_first_n_limit].copy()
             val = data[split.validation_start : split.validation_end, :keep_first_n_limit].copy()
-            test = data[split.test_start : split.test_end, :keep_first_n_limit].copy()
         else:
             train = data[split.train_start : split.train_end].copy()
             val = data[split.validation_start : split.validation_end].copy()
-            test = data[split.test_start : split.test_end].copy()
 
-        return train, val, test
+        return train, val
 
 
 class DataSplit(BaseModel):
-    """Split the time series into train/validation/test."""
+    """Split the time series into train/validation sets."""
 
     train_start: int
     train_end: int
     validation_start: int
     validation_end: int
-    test_start: int
-    test_end: int
 
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 

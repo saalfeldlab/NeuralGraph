@@ -259,7 +259,7 @@ if __name__ == "__main__":
                     use_subprocess = code_modified_by_claude
 
                     if use_subprocess:
-                        print(f"\033[93mcode modified by Claude - running training in subprocess...\033[0m")
+                        print("\033[93mcode modified by Claude - running training in subprocess...\033[0m")
 
                         # Construct subprocess command
                         train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
@@ -317,10 +317,10 @@ if __name__ == "__main__":
 
                         if process.returncode != 0:
                             print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
-                            print(f"\033[93mthis may indicate a code modification error.\033[0m\n")
+                            print("\033[93mthis may indicate a code modification error.\033[0m\n")
 
                             # Show last 20 lines of output for context
-                            print(f"\033[93mLast 20 lines of output:\033[0m")
+                            print("\033[93mLast 20 lines of output:\033[0m")
                             print("-" * 80)
                             for line in output_lines[-20:]:
                                 print(line)
@@ -334,17 +334,17 @@ if __name__ == "__main__":
                                     with open(error_details_path, 'r') as f:
                                         error_details = f.read()
                                     if error_details.strip():
-                                        print(f"\n\033[91mDetailed error information:\033[0m")
+                                        print("\n\033[91mDetailed error information:\033[0m")
                                         print(error_details)
                                 except Exception as e:
                                     print(f"Could not read error details: {e}")
 
                             raise RuntimeError(f"training failed at iteration {iteration}")
 
-                        print(f"\033[92mtraining subprocess completed successfully\033[0m")
+                        print("\033[92mtraining subprocess completed successfully\033[0m")
                     else:
                         # No code modifications - run training directly (faster)
-                        print(f"\033[92mno code modifications - running training directly...\033[0m")
+                        print("\033[92mno code modifications - running training directly...\033[0m")
                         data_train(
                             config=config,
                             erase=True,
@@ -504,7 +504,7 @@ Code file (can modify): {graph_trainer_path}"""
 
                 # Git tracking: commit any code modifications made by Claude
                 if is_git_repo(root_dir):
-                    print(f"\n\033[96mchecking for code modifications to commit\033[0m")
+                    print("\n\033[96mchecking for code modifications to commit\033[0m")
                     git_results = track_code_modifications(
                         root_dir=root_dir,
                         iteration=iteration,
@@ -521,7 +521,7 @@ Code file (can modify): {graph_trainer_path}"""
                             else:
                                 print(f"\033[93m⚠ Git: {message}\033[0m")
                     else:
-                        print(f"\033[90m  No code modifications detected\033[0m")
+                        print("\033[90m  No code modifications detected\033[0m")
                 else:
                     # Not a git repo - check for code modifications directly
                     tracked_code_files = ['src/NeuralGraph/models/graph_trainer.py']
@@ -530,7 +530,7 @@ Code file (can modify): {graph_trainer_path}"""
                         code_modified_by_claude = True
                         print(f"\033[93m  Code modified (no git): {modified_files}\033[0m")
                     if iteration == 1:
-                        print(f"\033[90m  Not a git repository - code modifications will not be version controlled\033[0m")
+                        print("\033[90m  Not a git repository - code modifications will not be version controlled\033[0m")
 
                 # save instruction file at first iteration of each block
                 if iter_in_block == 1:

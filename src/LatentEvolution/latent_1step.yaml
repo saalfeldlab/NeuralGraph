@@ -58,8 +58,7 @@ training:
     train_end: 54000
     validation_start: 54000
     validation_end: 64000
-    test_start: 54000
-    test_end: 64000
+
 # Optional: Enable PyTorch profiler to generate Chrome trace files for performance analysis
 # Uncomment the following section to enable profiling:
 # profiling:
@@ -78,10 +77,8 @@ cross_validation_configs:
     name: "no_noise"
   - simulation_config: "fly_N9_62_0_optical_flow_calcium"
     name: "optical_flow"
-    data_split: # this is only for validation so training/validation/test are the same
+    data_split:
       train_start: 5000
       train_end: 15000
       validation_start: 5000
       validation_end: 15000
-      test_start: 5000
-      test_end: 15000
