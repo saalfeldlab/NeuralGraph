@@ -154,8 +154,6 @@ class TrainingConfig(BaseModel):
         if self.evolve_multiple_steps < 1:
             raise ValueError("evolve_multiple_steps must be >= 1")
         if self.ems_warmup_epochs > 0:
-            if self.evolve_multiple_steps <= 1:
-                raise ValueError("ems_warmup_epochs requires evolve_multiple_steps > 1")
             if self.ems_warmup_epochs >= self.epochs:
                 raise ValueError(
                     f"ems_warmup_epochs ({self.ems_warmup_epochs}) must be < epochs ({self.epochs})"
