@@ -91,6 +91,14 @@ warnings.filterwarnings('ignore', message='.*Missing.*')
 logging.getLogger('fontTools').setLevel(logging.ERROR)
 logging.getLogger('fontTools.subset').setLevel(logging.ERROR)
 
+# Configure matplotlib for Helvetica-style fonts (no LaTeX)
+plt.rcParams.update({
+    'font.family': 'sans-serif',
+    'font.sans-serif': ['Nimbus Sans', 'Arial', 'Helvetica', 'DejaVu Sans'],
+    'text.usetex': False,
+    'mathtext.fontset': 'dejavusans',  # sans-serif math text
+})
+
 # Optional dependency
 # try:
 #     from pysr import PySRRegressor
