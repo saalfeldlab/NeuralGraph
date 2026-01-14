@@ -106,43 +106,32 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
 
 
 def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: int) -> tuple[plt.Figure, dict[str, float]]:
-    mse_avg_over_starts = mse_array.mean(axis=0)  # (n_steps, n_neurons)
+    # average over neurons first, then compute stats over starts
+    mse_avg_over_neurons = mse_array.mean(axis=2)  # (n_starts, n_steps)
 
-    mse_min_across_neurons = mse_avg_over_starts.min(axis=1)  # (n_steps,)
-    mse_max_across_neurons = mse_avg_over_starts.max(axis=1)  # (n_steps,)
-    mse_mean_across_neurons = mse_avg_over_starts.mean(axis=1)  # (n_steps,)
-    mse_p5_across_neurons = np.percentile(mse_avg_over_starts, 5, axis=1)  # (n_steps,)
-    mse_p95_across_neurons = np.percentile(mse_avg_over_starts, 95, axis=1)  # (n_steps,)
+    mse_min_across_starts = mse_avg_over_neurons.min(axis=0)  # (n_steps,)
+    mse_max_across_starts = mse_avg_over_neurons.max(axis=0)  # (n_steps,)
+    mse_mean_across_starts = mse_avg_over_neurons.mean(axis=0)  # (n_steps,)
 
     # Create plot with log scale
     fig, ax = plt.subplots(figsize=(12, 6))
     time_steps = np.arange(n_steps)
 
-    # Plot min/max as light shaded region
+    # Plot min/max as shaded region
     ax.fill_between(
         time_steps,
-        mse_min_across_neurons,
-        mse_max_across_neurons,
-        alpha=0.15,
-        label='Min/Max across neurons',
-        color='C0'
-    )
-
-    # Plot 5th-95th percentile as darker shaded region
-    ax.fill_between(
-        time_steps,
-        mse_p5_across_neurons,
-        mse_p95_across_neurons,
-        alpha=0.3,
-        label='5th-95th percentile',
+        mse_min_across_starts,
+        mse_max_across_starts,
+        alpha=0.25,
+        label='Min/Max across starts',
         color='C0'
     )
 
     # Plot mean line
-    ax.plot(time_steps, mse_mean_across_neurons, linewidth=2, label='Mean across neurons', color='C0')
+    ax.plot(time_steps, mse_mean_across_starts, linewidth=2, label='Mean across starts', color='C0')
 
     ax.set_xlabel('Rollout Time Steps')
-    ax.set_ylabel('MSE (averaged over starting points)')
+    ax.set_ylabel('MSE (averaged over neurons)')
     ax.set_yscale('log')
     ax.set_ylim(1e-4, 1e1)
 
@@ -169,7 +158,10 @@ def compute_rollout_stability_metrics(
     n_steps: int,
 ) -> dict[str, float]:
     """
-    Compute stability metrics from rollout MSE array.
+    Compute stability metrics from rollout MSE array (worst case over starts).
+
+    MSE is first averaged over neurons for each start point, then the worst case
+    (max) over starts is used for metrics. This captures starts that blow up.
 
     MSE metrics (except mse_final) are computed only up to the divergence point
     (first step where mse > 1.0) to avoid polluting metrics with diverged values.
@@ -184,8 +176,8 @@ def compute_rollout_stability_metrics(
     Returns:
         Dictionary of stability metrics
     """
-    # average over starts, then over neurons -> shape (n_steps,)
-    mse_by_time = mse_array.mean(axis=0).mean(axis=1)
+    # average over neurons, then take max over starts -> shape (n_steps,)
+    mse_by_time = mse_array.mean(axis=2).max(axis=0)
 
     training_horizon = time_units * evolve_multiple_steps
     prefix = f"rollout_{rollout_type}_{n_steps}step"
@@ -407,7 +399,7 @@ def run_validation_diagnostics(
     for rollout_type in ROLLOUT_TYPES:
         with torch.no_grad():
             _, new_figs, new_metrics = compute_multi_start_rollout_mse(
-                model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=10, rollout_type=rollout_type,
+                model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=20, rollout_type=rollout_type,
                 plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps
             )
         metrics.update(new_metrics)
