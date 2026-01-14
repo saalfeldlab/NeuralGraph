@@ -197,3 +197,24 @@ bsub -J 50x5 -q gpu_a100 -gpu "num=1" -n 2 -o 50x5.log \
     --training.save-checkpoint-every-n-epochs 5
 
 ```
+
+These initial experiments all fail to capture the correct `0<t<50` dynamics. Let's
+first focus on getting tu=20 right and then move up to tu=50.
+
+## tu20 baseline experiment
+
+Let's just reproduce the tu=20 experiment that we ran earlier with ems=5. The key
+thing we need from this network is good MSE over the intervening steps `0<t<20`, since
+we can then feed this to the GNN. At the same time we want to make sure that we are
+able to roll it out beyond the training window so we can be sure we have some power
+to generalize.
+
+```bash
+
+bsub -J 20x5 -n 1 -q gpu_a100 -gpu "num=1" -o 20x5.log \
+    python src/LatentEvolution/latent.py 20x_base latent_20step.yaml
+
+bsub -J 20x4 -n 1 -q gpu_a100 -gpu "num=1" -o 20x4.log \
+    python src/LatentEvolution/latent.py 20x_base latent_20step.yaml \
+    --training.evolve-multiple-steps 4
+```
