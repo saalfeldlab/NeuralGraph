@@ -1,5 +1,5 @@
-# Default configuration for 1-step Latent Space Model (frozen)
-# Activity data is observed every time step; this is the original behavior
+# Default configuration for 5-step Latent Space Model
+# Activity data is observed every 5 time steps; stimulus available at every step
 
 latent_dims: 256 # Dimensionality of latent space
 num_neurons: 13741 # Number of observed neurons (input/output size)
@@ -33,9 +33,15 @@ stimulus_encoder_params:
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 training:
-  time_units: 1 # Activity observed every step; evolver called once per forward pass
+  time_units: 20
+  # Intermediate steps (1 to time_units-1) at which to apply evolution loss.
+  # Final step loss is always applied. Examples: [] = final only, [1,2,3,4] = all steps
+  intermediate_loss_steps: []
+  # Number of time_units multiples to evolve. Loss applied at each multiple.
+  # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
+  evolve_multiple_steps: 5
   simulation_config: "fly_N9_62_1_calcium"
-  data_passes_per_epoch: 100
+  data_passes_per_epoch: 25
   epochs: 100 # Total number of epochs
   save_best_checkpoint: True # Save model with lowest validation loss
   save_checkpoint_every_n_epochs: 0
@@ -46,9 +52,10 @@ training:
   train_step: train_step
   column_to_model: "VOLTAGE" # Options: CALCIUM, VOLTAGE, FLUORESCENCE, STIMULUS
   use_tf32_matmul: true
-  seed: 42
+  seed: 234
   # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
   loss_function: mse_loss
+  grad_clip_max_norm: 10.0 # Note: in early experiment it was OFF
 
   data_split:
     train_start: 4000 # Exclude burn-in
@@ -56,22 +63,8 @@ training:
     validation_start: 54000
     validation_end: 64000
 
-# Optional: Enable PyTorch profiler to generate Chrome trace files for performance analysis
-# Uncomment the following section to enable profiling:
-# profiling:
-#   wait: 3        # Skip first 3 epochs (warmup for model compilation)
-#   warmup: 1      # Warmup profiler for 1 epoch
-#   active: 1      # Actively profile for 3 epochs
-#   repeat: 0      # Do this cycle once
-#   record_shapes: true      # Record tensor shapes (helpful for debugging)
-#   profile_memory: true     # Profile memory usage (GPU/CPU)
-#   with_stack: false        # Stack traces add significant overhead, disable by default
-
 # Cross-dataset validation (evaluates trained model on different datasets)
 cross_validation_configs:
-  # we are training without noise so we will automatically get these results
-  - simulation_config: "fly_N9_62_0_calcium"
-    name: "no_noise"
   - simulation_config: "fly_N9_62_0_optical_flow_calcium"
     name: "optical_flow"
     data_split:
