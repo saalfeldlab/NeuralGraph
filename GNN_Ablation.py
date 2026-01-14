@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 9
+    start_iteration = 35
 
 
 
@@ -269,7 +269,7 @@ if __name__ == "__main__":
                 data_test(
                     config=config,
                     visualize=False,
-                    style="black color name continuous_slice",
+                    style="color name continuous_slice",
                     verbose=False,
                     best_model='best',
                     run=0,

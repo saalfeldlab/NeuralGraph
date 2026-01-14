@@ -54,7 +54,7 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'Claude'
+        task = 'train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'Claude'
         config_list = ['signal_N2']
         task_params = {'iterations': 2048}
 
@@ -267,7 +267,7 @@ if __name__ == "__main__":
                 data_test(
                     config=config,
                     visualize=False,
-                    style="black color name continuous_slice",
+                    style="color name continuous_slice",
                     verbose=False,
                     best_model='best',
                     run=0,

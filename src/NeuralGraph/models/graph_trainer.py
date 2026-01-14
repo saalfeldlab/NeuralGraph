@@ -3610,7 +3610,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     ax.set_title(f'Activity traces (n={n_traces} of {n_neurons} neurons) | mean R²={mean_r2:.3f}', fontsize=20)
 
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/results/{dataset_name_}_prediction.pdf", dpi=300)
+    plt.savefig(f"./{log_dir}/results/{dataset_name_}_prediction.png", dpi=100)
     plt.close()
 
 

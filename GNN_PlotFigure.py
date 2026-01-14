@@ -1692,8 +1692,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
 
         plt.figure(figsize=(18, 12))
-        plt.rcParams['text.usetex'] = False
-        rc('font', **{'family': 'serif', 'serif': ['Times New Roman', 'Liberation Serif', 'DejaVu Serif', 'serif']})
         plt.plot(activity_plot.T, linewidth=1)
         for i in range(0, n_plot, 5):
             plt.text(-200, +200 -10 * i, str(sampled_indices[i]), fontsize=24, va='center', ha='right')
@@ -2033,6 +2031,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             accuracy = metrics.accuracy_score(to_numpy(type_list), new_labels[:n_neurons])
             print(f'accuracy: {accuracy:0.4f}   n_clusters: {n_clusters}    obtained with  method: {config.training.cluster_method}  ')
             logger.info(f'accuracy: {accuracy:0.4f}   n_clusters: {n_clusters}    obtained with  method: {config.training.cluster_method} ')
+            if log_file:
+                log_file.write(f"cluster_accuracy: {accuracy:.4f}\n")
 
             dot_size = 400 if n_neurons < 1000 else 150
 
