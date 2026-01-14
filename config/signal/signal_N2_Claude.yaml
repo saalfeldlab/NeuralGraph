@@ -65,7 +65,7 @@ training:
   fix_cluster_embedding: true
   learning_rate_W_start: 0.001
   learning_rate_start: 0.0005
-  learning_rate_embedding_start: 0.0015
+  learning_rate_embedding_start: 0.005
   coeff_W_L1: 5.0e-05
 claude:
   n_epochs: 1
