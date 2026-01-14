@@ -113,12 +113,6 @@ class TrainingConfig(BaseModel):
     loss_function: str = Field(
         "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
     )
-    lp_norm_weight: float = Field(
-        0.0, description="Weight for LP norm penalty on latent activations (for outlier control)", json_schema_extra={"short_name": "lp_w"}
-    )
-    lp_norm_p: int = Field(
-        8, description="P value for LP norm penalty (higher values penalize outliers more)", json_schema_extra={"short_name": "lp_p"}
-    )
     grad_clip_max_norm: float = Field(
         10.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
     )
@@ -376,18 +370,16 @@ class LossComponents:
     recon: float = 0.0
     evolve: float = 0.0
     reg: float = 0.0
-    lp_norm: float = 0.0
     aug_loss: float = 0.0
     count: int = 0
 
     def accumulate(self, *losses):
-        """Add losses from one batch (total, recon, evolve, reg, lp_norm)."""
+        """Add losses from one batch (total, recon, evolve, reg, aug_loss)."""
         self.total += losses[0].detach().item()
         self.recon += losses[1].detach().item()
         self.evolve += losses[2].detach().item()
         self.reg += losses[3].detach().item()
-        self.lp_norm += losses[4].detach().item()
-        self.aug_loss += losses[5].detach().item()
+        self.aug_loss += losses[4].detach().item()
         self.count += 1
 
     def mean(self) -> 'LossComponents':
@@ -397,7 +389,6 @@ class LossComponents:
             recon=self.recon / self.count,
             evolve=self.evolve / self.count,
             reg=self.reg / self.count,
-            lp_norm=self.lp_norm / self.count,
             aug_loss=self.aug_loss / self.count,
             count=self.count,
         )
@@ -528,15 +519,8 @@ def train_step_nocompile(
         x_target = train_data[batch_indices + m * dt]
         evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
-    # LP norm penalty on prediction errors (for outlier control)
-    lp_norm_loss = torch.tensor(0.0, device=device)
-    if cfg.training.lp_norm_weight > 0.:
-        lp_norm_evolve = torch.norm(pred_t_plus_dt - x_t_plus_dt, p=cfg.training.lp_norm_p, dim=1).mean()
-        lp_norm_recon = torch.norm(recon_t - x_t, p=cfg.training.lp_norm_p, dim=1).mean()
-        lp_norm_loss = cfg.training.lp_norm_weight * (lp_norm_evolve + lp_norm_recon)
-
-    loss = evolve_loss + recon_loss + reg_loss + lp_norm_loss + aug_loss
-    return (loss, recon_loss, evolve_loss, reg_loss, lp_norm_loss, aug_loss)
+    loss = evolve_loss + recon_loss + reg_loss + aug_loss
+    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss)
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True)
 
@@ -678,7 +662,7 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- TensorBoard setup ---
         writer = SummaryWriter(log_dir=run_dir)
-        print(f"TensorBoard logs will be saved to {run_dir}")
+        print(f"tensorboard --logdir={run_dir} --samples_per_plugin=images=1000")
 
         # Log model graph to TensorBoard
         dummy_x_t = torch.randn(cfg.training.batch_size, cfg.num_neurons).to(device)
@@ -861,7 +845,6 @@ def train(cfg: ModelParams, run_dir: Path):
             writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
             writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
             writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
-            writer.add_scalar("Loss/train_lp_norm", mean_losses.lp_norm, epoch)
             writer.add_scalar("Loss/train_aug_loss", mean_losses.aug_loss, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)

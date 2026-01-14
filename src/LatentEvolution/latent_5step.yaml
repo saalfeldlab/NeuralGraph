@@ -55,9 +55,6 @@ training:
   seed: 42
   # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
   loss_function: mse_loss
-  # LP norm penalty for outlier control
-  lp_norm_weight: 0.0 # Weight for LP norm penalty on prediction errors
-  lp_norm_p: 8 # P value for LP norm (higher values penalize outliers more)
 
   data_split:
     train_start: 4000 # Exclude burn-in
