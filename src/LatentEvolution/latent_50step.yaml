@@ -41,7 +41,7 @@ training:
   # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
   evolve_multiple_steps: 5
   ems_warmup_epochs: 10
-  grad_clip_max_norm: 10.0 # Note: in early experiment it was OFF
+  grad_clip_max_norm: 0.0 # Note: in early experiment it was OFF
   simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 25
   epochs: 100 # Total number of epochs
