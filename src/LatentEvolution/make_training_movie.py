@@ -68,7 +68,12 @@ def add_epoch_overlay(image: np.ndarray, epoch: int) -> np.ndarray:
 
 
 def load_images_from_tensorboard(run_dir: Path, tag: str) -> list[tuple[int, np.ndarray]]:
-    """Load all images for a given tag from tensorboard event files."""
+    """Load all images for a given tag from tensorboard event files.
+
+    If multiple images exist for the same step, keeps the one with the
+    earliest wall_time (to handle cases where post-training overwrote
+    earlier logged images at the same step).
+    """
     ea = event_accumulator.EventAccumulator(
         str(run_dir),
         size_guidance={event_accumulator.IMAGES: 0}  # load all images
@@ -82,8 +87,16 @@ def load_images_from_tensorboard(run_dir: Path, tag: str) -> list[tuple[int, np.
             print(f"  {t}")
         raise ValueError(f"tag '{tag}' not found")
 
-    images = []
+    # collect images, deduplicating by step (keep earliest wall_time)
+    images_by_step: dict[int, tuple[float, np.ndarray]] = {}
     for event in ea.Images(tag):
+        step = event.step
+        wall_time = event.wall_time
+
+        # skip if we already have an earlier image for this step
+        if step in images_by_step and images_by_step[step][0] <= wall_time:
+            continue
+
         # decode image from png bytes
         img_bytes = event.encoded_image_string
         pil_image = Image.open(io.BytesIO(img_bytes))
@@ -91,10 +104,10 @@ def load_images_from_tensorboard(run_dir: Path, tag: str) -> list[tuple[int, np.
         if pil_image.mode != 'RGB':
             pil_image = pil_image.convert('RGB')
         np_image = np.array(pil_image)
-        images.append((event.step, np_image))
+        images_by_step[step] = (wall_time, np_image)
 
-    # sort by step (epoch)
-    images.sort(key=lambda x: x[0])
+    # convert to list of (step, image) sorted by step
+    images = [(step, img) for step, (_, img) in sorted(images_by_step.items())]
     return images
 
 

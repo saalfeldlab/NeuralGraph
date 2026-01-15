@@ -228,4 +228,15 @@ bsub -J 20x5noclip -n 1 -q gpu_a100 -gpu "num=1" -o 20x5noclip.log \
 ```
 
 Gradient clipping was hurting results. Let's turn it off. We now have a working
-baseline with tu=20 - `20x_base_20260114_d5a2309/614b03`.
+baseline with tu=20 - `20x_base_20260114_d5a2309/614b03`. There are things to
+investigate in the future.
+
+- First, there are multiple epochs where the rollout
+  diverges and then we recover generalization during training. 100 epochs seems
+  like a magical point and is most definitely cherry picked. We should run training
+  for longer and understand this phenotype.
+
+- Second, the other experiments show a phenotype where at t=20n, we have low
+  MSE ~ 1e-2, but then the error blows up quickly to ~ 1.0
+  and then back down to 1e-2 at time point t=20(n+1). Why does this happen and is
+  this some artifact of the training (like gradient clipping which we turned off)?
