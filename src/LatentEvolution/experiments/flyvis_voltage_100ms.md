@@ -240,3 +240,21 @@ investigate in the future.
   MSE ~ 1e-2, but then the error blows up quickly to ~ 1.0
   and then back down to 1e-2 at time point t=20(n+1). Why does this happen and is
   this some artifact of the training (like gradient clipping which we turned off)?
+
+## No stimulus
+
+Currently, we assume we know the stimulus that each neuron is provided. This stimulus
+is encoded and can be used by the evolver for making predictions. We first run an
+experiment with tu=1 to see if anything works.
+
+```bash
+
+bsub -J chk -n 1 -q gpu_a100 -gpu "num=1" -o chk.log \
+    python src/LatentEvolution/latent.py no_stim latent_1step.yaml
+
+
+bsub -J no_stim -n 1 -q gpu_a100 -gpu "num=1" -o no_stim.log \
+    python src/LatentEvolution/latent.py no_stim latent_1step.yaml \
+    --stimulus-encoder-params.num-output-dims 0
+
+```
