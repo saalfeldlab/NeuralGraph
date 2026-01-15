@@ -258,3 +258,30 @@ bsub -J no_stim -n 1 -q gpu_a100 -gpu "num=1" -o no_stim.log \
     --stimulus-encoder-params.num-output-dims 0
 
 ```
+
+## tu=20 baseline stability sweep
+
+Nested LR × BS sweep, plus separate seed sweep.
+
+### Learning rate × batch size sweep
+
+```bash
+for lr in 0.000002 0.00001 0.00005; do
+    for bs in 64 256 1024; do
+        bsub -J "tu20_lr${lr}_bs${bs}" -n 1 -gpu "num=1" -q gpu_a100 -o tu20_lr${lr}_bs${bs}.log python \
+            src/LatentEvolution/latent.py tu20_lr_bs_sweep latent_20step.yaml \
+            --training.learning-rate $lr \
+            --training.batch-size $bs
+    done
+done
+```
+
+### Seed sweep
+
+```bash
+for seed in 82161 35235 97651; do
+    bsub -J "tu20_seed${seed}" -n 1 -gpu "num=1" -q gpu_a100 -o tu20_seed${seed}.log python \
+        src/LatentEvolution/latent.py tu20_seed_sweep latent_20step.yaml \
+        --training.seed $seed
+done
+```
