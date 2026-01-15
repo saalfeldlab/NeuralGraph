@@ -405,7 +405,7 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         else:
             Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2 )
 
-        plot_frequency = int(Niter // 8)
+        plot_frequency = int(Niter // 20)
         if epoch ==0:
             print(f'{Niter} iterations per epoch, {plot_frequency} iterations per plot')
             logger.info(f'{Niter} iterations per epoch')

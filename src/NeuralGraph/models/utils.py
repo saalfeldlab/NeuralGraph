@@ -357,14 +357,14 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)
         plt.xlabel('presynaptic', fontsize=16)
-        plt.title(f'true {weight_variable}', fontsize=16)
+        plt.title(rf'true {weight_variable}', fontsize=16)
         ax = fig.add_subplot(122)
         ax = sns.heatmap(pred_weight / 10, center=0, vmin=-0.5, vmax=0.5, square=True, cmap='bwr', cbar_kws={'fraction': 0.046})
         plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=8)
         plt.ylabel('postsynaptic', fontsize=16)
         plt.xlabel('presynaptic', fontsize=16)
-        plt.title(f'learned {weight_variable}', fontsize=16)
+        plt.title(rf'learned {weight_variable}', fontsize=16)
         plt.tight_layout()
         plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=80)
         plt.close()
@@ -374,12 +374,12 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         ax.scatter(gt_weight, pred_weight / 10, s=1.0, c=mc, alpha=1.0)
     else:
         ax.scatter(gt_weight, pred_weight / 10, s=0.1, c=mc, alpha=0.1)
-    ax.set_xlabel(r'true $J_{ij}$', fontsize=48)
-    ax.set_ylabel(r'learned $J_{ij}$', fontsize=48)
+    ax.set_xlabel(rf'true {weight_variable}', fontsize=48)
+    ax.set_ylabel(rf'learned {weight_variable}', fontsize=48)
     if n_neurons == 8000:
         ax.set_xlim([-0.05, 0.05])
     else:
-        ax.set_ylim([-0.2, 0.2])
+        # ax.set_ylim([-0.2, 0.2])
         ax.set_xlim([-0.2, 0.2])
     # Compute and display R² and slope
     x_data = gt_weight.flatten()
