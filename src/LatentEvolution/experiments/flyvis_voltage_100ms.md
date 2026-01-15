@@ -267,7 +267,7 @@ Nested LR × BS sweep, plus separate seed sweep.
 
 ```bash
 for lr in 0.000002 0.00001 0.00005; do
-    for bs in 64 256 1024; do
+    for bs in 128 256 512; do
         bsub -J "tu20_lr${lr}_bs${bs}" -n 1 -gpu "num=1" -q gpu_a100 -o tu20_lr${lr}_bs${bs}.log python \
             src/LatentEvolution/latent.py tu20_lr_bs_sweep latent_20step.yaml \
             --training.learning-rate $lr \
