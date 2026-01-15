@@ -459,7 +459,11 @@ def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimu
         predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
     """
     current_latent = model.encoder(initial_state.unsqueeze(0))  # shape (1, latent_dim)
-    stimulus_latent = model.stimulus_encoder(stimulus)  # shape (n_steps, stim_latent_dim)
+    if model.stimulus_encoder is not None:
+        stimulus_latent = model.stimulus_encoder(stimulus)  # shape (n_steps, stim_latent_dim)
+    else:
+        # no stimulus: empty tensor so concat in evolver is a no-op
+        stimulus_latent = torch.empty(n_steps, 0, device=initial_state.device)
 
     latent_trace = []
     for t in range(n_steps):

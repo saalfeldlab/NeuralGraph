@@ -276,22 +276,26 @@ class LatentModel(nn.Module):
             )
         )
 
-        # Stimulus encoder: use MLPWithSkips if flag is set
-        stimulus_encoder_cls = MLPWithSkips if params.stimulus_encoder_params.use_input_skips else MLP
-        self.stimulus_encoder = stimulus_encoder_cls(
-            MLPParams(
-                num_input_dims=params.stimulus_encoder_params.num_input_dims,
-                num_hidden_units=params.stimulus_encoder_params.num_hidden_units,
-                num_hidden_layers=params.stimulus_encoder_params.num_hidden_layers,
-                num_output_dims=params.stimulus_encoder_params.num_output_dims,
-                use_batch_norm=False,
-                activation=params.activation,
+        # Stimulus encoder: only create if num_output_dims > 0
+        self.stim_dims = params.stimulus_encoder_params.num_output_dims
+        if self.stim_dims > 0:
+            stimulus_encoder_cls = MLPWithSkips if params.stimulus_encoder_params.use_input_skips else MLP
+            self.stimulus_encoder = stimulus_encoder_cls(
+                MLPParams(
+                    num_input_dims=params.stimulus_encoder_params.num_input_dims,
+                    num_hidden_units=params.stimulus_encoder_params.num_hidden_units,
+                    num_hidden_layers=params.stimulus_encoder_params.num_hidden_layers,
+                    num_output_dims=params.stimulus_encoder_params.num_output_dims,
+                    use_batch_norm=False,
+                    activation=params.activation,
+                )
             )
-        )
+        else:
+            self.stimulus_encoder = None
 
         self.evolver = Evolver(
             latent_dims=params.latent_dims,
-            stim_dims=params.stimulus_encoder_params.num_output_dims,
+            stim_dims=self.stim_dims,
             evolver_params=params.evolver_params,
             use_batch_norm=params.use_batch_norm,
             activation=params.activation,
@@ -299,7 +303,11 @@ class LatentModel(nn.Module):
 
     def forward(self, x_t, stim_t):
         proj_t = self.encoder(x_t)
-        proj_stim_t = self.stimulus_encoder(stim_t)
+        if self.stimulus_encoder is not None:
+            proj_stim_t = self.stimulus_encoder(stim_t)
+        else:
+            # no stimulus: use empty tensor so concat in evolver is a no-op
+            proj_stim_t = torch.empty(x_t.shape[0], 0, device=x_t.device)
         proj_t_next = self.evolver(proj_t, proj_stim_t)
         x_t_next = self.decoder(proj_t_next)
         return x_t_next
@@ -454,13 +462,18 @@ def train_step_nocompile(
     x_t = train_data[batch_indices] # b x N
     proj_t = model.encoder(x_t) # b x L
 
-    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
-    # total_steps x b x 1736
-    stim_t = train_stim[stim_indices, :]
-    dim_stim = train_stim.shape[1]
     dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
-    # total_steps x b x Ls
-    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
+    if dim_stim_latent > 0:
+        stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
+        # total_steps x b x 1736
+        stim_t = train_stim[stim_indices, :]
+        dim_stim = train_stim.shape[1]
+        # total_steps x b x Ls
+        proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
+    else:
+        # no stimulus: empty tensor so concat in evolver is a no-op
+        batch_size = batch_indices.shape[0]
+        proj_stim_t = torch.empty(total_steps, batch_size, 0, device=device)
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)
@@ -666,7 +679,11 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # Log model graph to TensorBoard
         dummy_x_t = torch.randn(cfg.training.batch_size, cfg.num_neurons).to(device)
-        dummy_stim_t = torch.randn(cfg.training.batch_size, cfg.stimulus_encoder_params.num_input_dims).to(device)
+        if cfg.stimulus_encoder_params.num_output_dims > 0:
+            dummy_stim_t = torch.randn(cfg.training.batch_size, cfg.stimulus_encoder_params.num_input_dims).to(device)
+        else:
+            # empty tensor for tracing (None can't be traced)
+            dummy_stim_t = torch.empty(cfg.training.batch_size, 0).to(device)
         writer.add_graph(model, (dummy_x_t, dummy_stim_t))
         print("Logged model graph to TensorBoard")
 
