@@ -114,7 +114,7 @@ class TrainingConfig(BaseModel):
         "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
     )
     grad_clip_max_norm: float = Field(
-        10.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
+        0.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
     )
     ems_warmup_epochs: int = Field(
         0, description="Number of epochs to train with ems=1 before switching to configured ems (0 = disabled)", json_schema_extra={"short_name": "ems_wu"}
@@ -980,12 +980,12 @@ def train(cfg: ModelParams, run_dir: Path):
 
                 # Log cross-validation scalar metrics to TensorBoard
                 for metric_name, metric_value in cv_metrics.items():
-                    writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, 0)
+                    writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, cfg.training.num_epochs)
                 print(f"Logged {len(cv_metrics)} cross-validation scalar metrics to TensorBoard")
 
                 # Log figures to TensorBoard
                 for fig_name, fig in cv_figures.items():
-                    writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, 0)
+                    writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, cfg.training.num_epochs)
                 print("Logged MSE figures to TensorBoard")
 
         # Save final metrics
