@@ -8,7 +8,7 @@ import torch_geometric.data as data
 from matplotlib import rc
 from NeuralGraph.data_loaders import load_wormvae_data, load_zebrafish_data
 from NeuralGraph.zarr_io import ZarrSimulationWriter, ZarrSimulationWriterV2
-from NeuralGraph.generators.davis import AugmentedDavis
+from NeuralGraph.generators.davis import AugmentedVideoDataset, CombinedVideoDataset
 from NeuralGraph.generators.utils import (
     choose_model,
     init_neurons,
@@ -282,14 +282,16 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     # Initialize datasets
     if "DAVIS" in visual_input_type or "mixed" in visual_input_type:
 
-        # use config-specified datavis_root if provided, otherwise fall back to default
-        if simulation_config.datavis_root is not None:
-            datavis_root = os.path.join(simulation_config.datavis_root, "JPEGImages/480p")
+        # determine dataset roots: use config list if provided, otherwise fall back to default
+        if simulation_config.datavis_roots:
+            datavis_root_list = [os.path.join(r, "JPEGImages/480p") for r in simulation_config.datavis_roots]
         else:
-            datavis_root = os.path.join(get_datavis_root_dir(), "JPEGImages/480p")
-        assert os.path.exists(datavis_root), f"DAVIS data not found at {datavis_root}"
-        davis_config = {
-            "root_dir": datavis_root,
+            datavis_root_list = [os.path.join(get_datavis_root_dir(), "JPEGImages/480p")]
+
+        for root in datavis_root_list:
+            assert os.path.exists(root), f"video data not found at {root}"
+
+        video_config = {
             "n_frames": 50,
             "max_frames": 80,
             "flip_axes": [0, 1],
@@ -303,7 +305,14 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             "augment": False,
             "unittest": False
         }
-        davis_dataset = AugmentedDavis(**davis_config)
+
+        # create dataset(s)
+        if len(datavis_root_list) == 1:
+            davis_dataset = AugmentedVideoDataset(root_dir=datavis_root_list[0], **video_config)
+        else:
+            datasets = [AugmentedVideoDataset(root_dir=root, **video_config) for root in datavis_root_list]
+            davis_dataset = CombinedVideoDataset(datasets)
+            print(f"combined {len(datasets)} video datasets: {len(davis_dataset)} total sequences")
     else:
         davis_dataset = None
 
@@ -439,7 +448,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     x[:, 1:3] = X1
     x[:, 0] = torch.arange(n_neurons, dtype=torch.float32)
     x[:, 3] = initial_state                                                                         # voltage
-    x[:, 4] = net.stimulus().squeeze()                                                              # visual input                       
+    x[:, 4] = net.stimulus().squeeze()                                                              # visual input
     x[:, 5] = torch.tensor(grouped_types, dtype=torch.float32, device=device)                       # neuron type (grouped)
     x[:, 6] = torch.tensor(node_types_int, dtype=torch.float32, device=device)                      # neuron type (integer)
     x[:, 7] = torch.rand(n_neurons, dtype=torch.float32, device=device)                             # calcium concentration
@@ -593,13 +602,13 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                             tile_labels_np = assign_columns_from_uv(
                                 u_coords, v_coords, n_columns, random_state=tile_seed
                             )  # shape: (n_input_neurons,)
-    
+
                             # 2) Build per-column m-sequences (±1) with random phase per column
                             base = mseq_bits(p=8, seed=tile_seed).astype(np.float32)  # ±1, shape (255,)
                             rng = np.random.RandomState(tile_seed)
                             phases = rng.randint(0, base.shape[0], size=n_columns)
                             tile_codes_np = np.stack([np.roll(base, ph) for ph in phases], axis=0)  # (n_columns, 255), ±1
-    
+
                             # 3) Convert to torch on the right device/dtype; keep as ±1 (no [0,1] mapping here)
                             tile_codes_torch = torch.from_numpy(tile_codes_np).to(x.device,
                                                                                   dtype=x.dtype)  # (n_columns, 255), ±1
@@ -607,11 +616,11 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                                                               dtype=torch.long)  # (n_input_neurons,)
                             tile_period = tile_codes_torch.shape[1]
                             tile_idx = 0
-    
+
                         # 4) Baseline for all neurons (mean luminance), then write per-column values to PRs
                         x[:, 4] = 0.5
                         col_vals_pm1 = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,), ±1 before knobs
-    
+
                         # Apply the two simple knobs per frame on ±1 codes
                         col_vals_pm1 = apply_pairwise_knobs_torch(
                             code_pm1=col_vals_pm1,
@@ -619,11 +628,11 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                             flip_prob=float(simulation_config.tile_flip_prob),
                             seed=int(simulation_config.seed) + int(tile_idx)
                         )
-    
+
                         # Map to [0,1] with your contrast convention and broadcast via labels
                         col_vals_01 = 0.5 + (tile_contrast * 0.5) * col_vals_pm1
                         x[:n_input_neurons, 4] = col_vals_01[tile_labels]
-    
+
                         tile_idx += 1
                     elif "tile_blue_noise" in visual_input_type:
                         if tile_codes_torch is None:
@@ -638,11 +647,11 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                 radius = 1.3 * np.median(nn)
                                 adj = [set(np.where((D[i] > 0) & (D[i] <= radius))[0].tolist()) for i in
                                        range(len(col_centers))]
-        
+
                             tile_labels = torch.from_numpy(tile_labels_np).to(x.device, dtype=torch.long)
                             tile_period = 257
                             tile_idx = 0
-        
+
                             # Pre-generate ±1 codes (keep ±1; no [0,1] mapping here)
                             tile_codes_torch = torch.empty((n_columns, tile_period), dtype=x.dtype, device=x.device)
                             rng = np.random.RandomState(tile_seed)
@@ -651,11 +660,11 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                                 vals = np.where(mask, 1.0, -1.0).astype(np.float32)  # ±1
                                 # NOTE: do not apply flip prob here; we do it uniformly via the helper per frame below
                                 tile_codes_torch[:, t] = torch.from_numpy(vals).to(x.device, dtype=x.dtype)
-        
+
                         # Baseline luminance
                         x[:, 4] = 0.5
                         col_vals_pm1 = tile_codes_torch[:, tile_idx % tile_period]  # (n_columns,), ±1 before knobs
-        
+
                         # Apply the two simple knobs per frame on ±1 codes
                         col_vals_pm1 = apply_pairwise_knobs_torch(
                             code_pm1=col_vals_pm1,
@@ -663,11 +672,11 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                             flip_prob=float(simulation_config.tile_flip_prob),
                             seed=int(simulation_config.seed) + int(tile_idx)
                         )
-        
+
                         # Map to [0,1] with contrast and broadcast via labels
                         col_vals_01 = 0.5 + (tile_contrast * 0.5) * col_vals_pm1
                         x[:n_input_neurons, 4] = col_vals_01[tile_labels]
-        
+
                         tile_idx += 1
                     else:
                         frame = sequences[frame_id][None, None]
@@ -1008,7 +1017,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
     plt.style.use('default')
     plt.figure(figsize=(10,10))
-    
+
     for i in range(10):
         baseline = np.mean(true_slice[i])
         plt.plot(true_slice[i] - baseline + i * step_v, linewidth=1, c='green', alpha=0.75)
@@ -1016,9 +1025,9 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     for i in range(10):
         plt.text(-100, i * step_v, index_to_name[selected_types[i]],
                 fontsize=24, va='center')
-    
+
     plt.ylim([-step_v, 10 * step_v])
-    plt.yticks([])      
+    plt.yticks([])
 
     plt.xticks([0, end_frame - start_frame])
     plt.gca().set_xticklabels([start_frame, end_frame], fontsize=20)
@@ -1085,7 +1094,7 @@ def data_generate_synaptic(
     dataset_name = config.dataset
     noise_model_level = training_config.noise_model_level
     measurement_noise_level = training_config.measurement_noise_level
-    
+
     CustomColorMap(config=config)
     if 'black' in style:
         plt.style.use('dark_background')
