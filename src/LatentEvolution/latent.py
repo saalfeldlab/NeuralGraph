@@ -788,6 +788,7 @@ def train(cfg: ModelParams, run_dir: Path):
             warmup_batches_per_epoch = max(1, train_data.shape[0] // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
 
             for warmup_epoch in range(recon_warmup_epochs):
+                warmup_epoch_start = datetime.now()
                 warmup_losses = LossComponents()
                 for _ in range(warmup_batches_per_epoch):
                     optimizer.zero_grad()
@@ -801,13 +802,15 @@ def train(cfg: ModelParams, run_dir: Path):
                     optimizer.step()
                     warmup_losses.accumulate(*loss_tuple)
 
+                warmup_epoch_duration = (datetime.now() - warmup_epoch_start).total_seconds()
                 mean_warmup = warmup_losses.mean()
-                print(f"Warmup {warmup_epoch+1}/{recon_warmup_epochs} | Recon Loss: {mean_warmup.recon:.4e}")
+                print(f"Warmup {warmup_epoch+1}/{recon_warmup_epochs} | Recon Loss: {mean_warmup.recon:.4e} | Duration: {warmup_epoch_duration:.2f}s")
 
                 # log to tensorboard
                 writer.add_scalar("ReconWarmup/loss", mean_warmup.total, warmup_epoch)
                 writer.add_scalar("ReconWarmup/recon_loss", mean_warmup.recon, warmup_epoch)
                 writer.add_scalar("ReconWarmup/reg_loss", mean_warmup.reg, warmup_epoch)
+                writer.add_scalar("ReconWarmup/epoch_duration", warmup_epoch_duration, warmup_epoch)
 
             model.evolver.requires_grad_(True)
             print("=== Reconstruction warmup complete ===\n")
