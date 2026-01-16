@@ -248,7 +248,7 @@ if __name__ == "__main__":
                     device=device,
                     visualize=False,
                     run_vizualized=0,
-                    style="black color",
+                    style="color",
                     alpha=1,
                     erase=erase,
                     bSave=True,
@@ -261,7 +261,7 @@ if __name__ == "__main__":
                     config=config,
                     erase='Claude' in task,  # erase old models when iterating with Claude
                     best_model=best_model,
-                    style = 'black',
+                    style = 'color',
                     device=device,
                     log_file=log_file
                 )

@@ -58,7 +58,7 @@ training:
   n_epochs: 1
   n_runs: 1
   device: auto
-  batch_size: 8
+  batch_size: 1
   small_init_batch_size: false
   seed: 16
   data_augmentation_loop: 10
@@ -67,11 +67,11 @@ training:
   cluster_method: distance_plot
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.001
-  learning_rate_start: 0.0005
-  learning_rate_embedding_start: 0.00075
+  learning_rate_W_start: 0.0001
+  learning_rate_start: 0.0001
+  learning_rate_embedding_start: 0.0001
   coeff_lin_phi_zero: 1.0
-  coeff_W_L1: 5.0e-05
+  coeff_W_L1: 1.0e-05
 claude:
   n_epochs: 1
   data_augmentation_loop: 10

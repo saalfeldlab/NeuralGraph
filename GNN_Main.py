@@ -42,7 +42,7 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot'
-        config_list = ['signal_N2_5percent']
+        config_list = ['signal_N2_a37_1_bis']
 
     for config_file_ in config_list:
         print(" ")
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         elif "train" in task:
             data_train(
                 config=config,
-                erase=True,
+                erase=False,
                 best_model=best_model,
                 style='black',
                 device=device,
