@@ -36,6 +36,7 @@ class SimulationConfig(BaseModel):
     noise_visual_input: float = 0.0
     only_noise_visual_input: float = 0.0
     visual_input_type: str = ""  # for flyvis experiments
+    datavis_root: Optional[str] = None  # path to DAVIS dataset root (contains JPEGImages/480p/); if None, uses get_datavis_root_dir()
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
 
