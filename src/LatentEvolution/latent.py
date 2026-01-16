@@ -119,6 +119,9 @@ class TrainingConfig(BaseModel):
     ems_warmup_epochs: int = Field(
         0, description="Number of epochs to train with ems=1 before switching to configured ems (0 = disabled)", json_schema_extra={"short_name": "ems_wu"}
     )
+    reconstruction_warmup_epochs: int = Field(
+        0, description="Number of epochs to train encoder/decoder only (reconstruction loss) before adding evolution loss (0 = disabled)", json_schema_extra={"short_name": "recon_wu"}
+    )
     unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -151,6 +154,15 @@ class TrainingConfig(BaseModel):
             if self.ems_warmup_epochs >= self.epochs:
                 raise ValueError(
                     f"ems_warmup_epochs ({self.ems_warmup_epochs}) must be < epochs ({self.epochs})"
+                )
+        if self.reconstruction_warmup_epochs > 0:
+            if self.reconstruction_warmup_epochs >= self.epochs:
+                raise ValueError(
+                    f"reconstruction_warmup_epochs ({self.reconstruction_warmup_epochs}) must be < epochs ({self.epochs})"
+                )
+            if self.ems_warmup_epochs > 0:
+                raise ValueError(
+                    "reconstruction_warmup_epochs and ems_warmup_epochs are mutually exclusive"
                 )
         return self
 
@@ -414,6 +426,46 @@ def get_device() -> torch.device:
     else:
         print("Using CPU for training.")
         return torch.device("cpu")
+
+
+def train_step_reconstruction_only_nocompile(
+        model: LatentModel,
+        train_data: torch.Tensor,
+        _train_stim: torch.Tensor,
+        batch_indices: torch.Tensor,
+        _selected_neurons: torch.Tensor,
+        _needed_indices: torch.Tensor,
+        cfg: ModelParams
+    ):
+    """Train encoder/decoder only with reconstruction loss."""
+    device = train_data.device
+    loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
+
+    # regularization loss (encoder + decoder only)
+    reg_loss = torch.tensor(0.0, device=device)
+    if cfg.encoder_params.l1_reg_loss > 0.:
+        for p in model.encoder.parameters():
+            reg_loss += torch.abs(p).mean() * cfg.encoder_params.l1_reg_loss
+    if cfg.decoder_params.l1_reg_loss > 0.:
+        for p in model.decoder.parameters():
+            reg_loss += torch.abs(p).mean() * cfg.decoder_params.l1_reg_loss
+
+    # reconstruction loss
+    x_t = train_data[batch_indices]
+    proj_t = model.encoder(x_t)
+    recon_t = model.decoder(proj_t)
+    recon_loss = loss_fn(recon_t, x_t)
+
+    # return same tuple format for compatibility
+    evolve_loss = torch.tensor(0.0, device=device)
+    aug_loss = torch.tensor(0.0, device=device)
+    loss = recon_loss + reg_loss
+    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss)
+
+
+train_step_reconstruction_only = torch.compile(
+    train_step_reconstruction_only_nocompile, fullgraph=True, mode="max-autotune"
+)
 
 
 def train_step_nocompile(
@@ -716,15 +768,61 @@ def train(cfg: ModelParams, run_dir: Path):
             cv_datasets[cv_name] = (cv_val_data, cv_val_stim)
             print(f"Loaded cross-validation dataset: {cv_name} (val shape: {cv_val_data.shape})")
 
+        # --- Reconstruction warmup loop ---
+        recon_warmup_epochs = cfg.training.reconstruction_warmup_epochs
+        if recon_warmup_epochs > 0:
+            print(f"\n=== Reconstruction warmup: {recon_warmup_epochs} epochs ===")
+            model.evolver.requires_grad_(False)
+
+            # simple batch iterator for warmup (don't need augmentation indices)
+            def warmup_batch_iter():
+                total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
+                while True:
+                    start_indices = torch.randint(
+                        low=0, high=train_data.shape[0] - total_steps,
+                        size=(cfg.training.batch_size,), device=train_data.device
+                    )
+                    yield start_indices
+
+            warmup_batches = warmup_batch_iter()
+            warmup_batches_per_epoch = max(1, train_data.shape[0] // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
+
+            for warmup_epoch in range(recon_warmup_epochs):
+                warmup_epoch_start = datetime.now()
+                warmup_losses = LossComponents()
+                for _ in range(warmup_batches_per_epoch):
+                    optimizer.zero_grad()
+                    batch_indices = next(warmup_batches)
+                    # use nocompile version for warmup (simpler, no need for max-autotune overhead)
+                    loss_tuple = train_step_reconstruction_only_nocompile(
+                        model, train_data, train_stim, batch_indices,
+                        torch.empty(0), torch.empty(0), cfg
+                    )
+                    loss_tuple[0].backward()
+                    optimizer.step()
+                    warmup_losses.accumulate(*loss_tuple)
+
+                warmup_epoch_duration = (datetime.now() - warmup_epoch_start).total_seconds()
+                mean_warmup = warmup_losses.mean()
+                print(f"Warmup {warmup_epoch+1}/{recon_warmup_epochs} | Recon Loss: {mean_warmup.recon:.4e} | Duration: {warmup_epoch_duration:.2f}s")
+
+                # log to tensorboard
+                writer.add_scalar("ReconWarmup/loss", mean_warmup.total, warmup_epoch)
+                writer.add_scalar("ReconWarmup/recon_loss", mean_warmup.recon, warmup_epoch)
+                writer.add_scalar("ReconWarmup/reg_loss", mean_warmup.reg, warmup_epoch)
+                writer.add_scalar("ReconWarmup/epoch_duration", warmup_epoch_duration, warmup_epoch)
+
+            model.evolver.requires_grad_(True)
+            print("=== Reconstruction warmup complete ===\n")
+
         # --- EMS warmup setup ---
         target_ems = cfg.training.evolve_multiple_steps
-        warmup_epochs = cfg.training.ems_warmup_epochs
-        use_ems_warmup = warmup_epochs > 0 and target_ems > 1
+        ems_warmup_epochs = cfg.training.ems_warmup_epochs
+        use_ems_warmup = ems_warmup_epochs > 0 and target_ems > 1
         if use_ems_warmup:
             cfg.training.evolve_multiple_steps = 1
-            # use non-compiled version during warmup to avoid graph caching issues
             train_step_fn = train_step_nocompile
-            print(f"EMS warmup enabled: training with ems=1 (nocompile) for {warmup_epochs} epochs, then ems={target_ems}")
+            print(f"EMS warmup enabled: training with ems=1 (nocompile) for {ems_warmup_epochs} epochs, then ems={target_ems}")
 
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
@@ -784,8 +882,8 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
-            # transition from warmup to full ems
-            if use_ems_warmup and epoch == warmup_epochs:
+            # transition from ems warmup to full ems
+            if use_ems_warmup and epoch == ems_warmup_epochs:
                 cfg.training.evolve_multiple_steps = target_ems
                 batch_indices_iter = make_batches_random(
                     train_data, train_stim, wmat_indices, wmat_indptr, cfg

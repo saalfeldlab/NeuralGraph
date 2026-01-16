@@ -23,6 +23,7 @@ evolver_params:
   num_hidden_layers: 1 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
   l1_reg_loss: 0.0
+  activation: Tanh
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 stimulus_encoder_params:
@@ -40,8 +41,8 @@ training:
   # Number of time_units multiples to evolve. Loss applied at each multiple.
   # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
   evolve_multiple_steps: 5
-  ems_warmup_epochs: 10
-  grad_clip_max_norm: 0.0 # Note: in early experiment it was OFF
+  reconstruction_warmup_epochs: 10
+  grad_clip_max_norm: 0.0
   simulation_config: "fly_N9_62_1_calcium"
   data_passes_per_epoch: 25
   epochs: 100 # Total number of epochs

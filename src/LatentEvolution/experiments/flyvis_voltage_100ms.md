@@ -240,3 +240,22 @@ investigate in the future.
   MSE ~ 1e-2, but then the error blows up quickly to ~ 1.0
   and then back down to 1e-2 at time point t=20(n+1). Why does this happen and is
   this some artifact of the training (like gradient clipping which we turned off)?
+
+## Test code changes for stability
+
+We test two ideas:
+
+- use tanh activation for evolver
+- initialize final layer to zero so that evolver starts off being a constant
+- pre-train the encoder/decoder in a warmup phase
+  We hope these changes improve the stability of training.
+
+```bash
+
+bsub -J "recon_warmup_test" -n 1 -gpu "num=1" -q gpu_a100 -o recon_warmup_test.log python \
+      src/LatentEvolution/latent.py tu20_recon_warmup_test latent_20step.yaml
+
+bsub -J "recon_warmup_seed" -n 1 -gpu "num=1" -q gpu_a100 -o recon_warmup_seed.log python \
+      src/LatentEvolution/latent.py tu20_recon_warmup_test latent_20step.yaml \
+      --training.seed 35235
+```
