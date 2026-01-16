@@ -31,7 +31,13 @@ from flyvis.datasets.rendering.utils import split
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["RenderedDavis", "MultiTaskDavis", "AugmentedDavis"]
+__all__ = [
+    "RenderedDavis",
+    "MultiTaskDavis",
+    "AugmentedVideoDataset",
+    "AugmentedDavis",  # backward-compatible alias
+    "CombinedVideoDataset",
+]
 
 
 # ============================================================================
@@ -763,9 +769,11 @@ class MultiTaskDavis(MultiTaskDataset):
         return original_train_and_validation_indices(self)
 
 
-class AugmentedDavis(MultiTaskDavis):
-    """DAVIS dataset with controlled, rich augmentation.
-    ... (docstring unchanged, omitted for brevity)
+class AugmentedVideoDataset(MultiTaskDavis):
+    """Video dataset with controlled, rich augmentation.
+
+    Works with any dataset organized as JPEGImages/480p/<video_id>/*.jpg,
+    including DAVIS, YouTube-VOS, and similar video segmentation datasets.
     """
 
     cached_sequences: List[Dict[str, torch.Tensor]]
@@ -998,3 +1006,71 @@ class AugmentedDavis(MultiTaskDavis):
                 pad_to_length,
             )
         return self.pad_nans(self.cached_sequences[key], pad_to_length)
+
+
+# backward-compatible alias
+AugmentedDavis = AugmentedVideoDataset
+
+
+class CombinedVideoDataset:
+    """
+    Wraps multiple video datasets into a single combined dataset.
+
+    Allows combining sequences from multiple sources (e.g., DAVIS + YouTube-VOS)
+    into a single dataset that can be iterated over.
+
+    Args:
+        datasets: List of AugmentedVideoDataset (or compatible) instances.
+
+    Example:
+        davis = AugmentedVideoDataset(root_dir="/path/to/davis/JPEGImages/480p", ...)
+        ytvos = AugmentedVideoDataset(root_dir="/path/to/youtube-vos/JPEGImages/480p", ...)
+        combined = CombinedVideoDataset([davis, ytvos])
+        print(f"total sequences: {len(combined)}")
+        for item in combined:
+            # item comes from either davis or ytvos
+            lum = item["lum"]
+    """
+
+    def __init__(self, datasets: List[Any]):
+        if not datasets:
+            raise ValueError("at least one dataset must be provided")
+        self.datasets = datasets
+        self._lengths = [len(d) for d in datasets]
+        self._cumulative = []
+        total = 0
+        for length in self._lengths:
+            self._cumulative.append(total)
+            total += length
+        self._total_length = total
+        logger.info(f"CombinedVideoDataset: {len(datasets)} datasets, {total} total sequences")
+
+    def __len__(self) -> int:
+        return self._total_length
+
+    def __getitem__(self, idx: int) -> Dict[str, Any]:
+        if idx < 0:
+            idx = self._total_length + idx
+        if idx < 0 or idx >= self._total_length:
+            raise IndexError(f"index {idx} out of range for dataset of length {self._total_length}")
+
+        for i, (cumulative, length) in enumerate(zip(self._cumulative, self._lengths)):
+            if idx < cumulative + length:
+                local_idx = idx - cumulative
+                return self.datasets[i][local_idx]
+
+        raise IndexError(f"index {idx} out of range")
+
+    def __iter__(self):
+        for dataset in self.datasets:
+            yield from dataset
+
+    @property
+    def dt(self) -> float:
+        """return dt from first dataset (assumed same for all)."""
+        return self.datasets[0].dt
+
+    @property
+    def extent(self) -> int:
+        """return extent from first dataset (assumed same for all)."""
+        return self.datasets[0].extent

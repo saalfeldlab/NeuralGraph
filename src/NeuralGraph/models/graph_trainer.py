@@ -99,7 +99,7 @@ from NeuralGraph.generators.graph_data_generator import (
     greedy_blue_mask,
     mseq_bits,
 )
-from NeuralGraph.generators.davis import AugmentedDavis
+from NeuralGraph.generators.davis import AugmentedVideoDataset, CombinedVideoDataset
 import pandas as pd
 import napari
 from collections import deque
@@ -3786,14 +3786,16 @@ def data_test_flyvis(
         group_by_direction_and_function
     # Initialize datasets
     if "DAVIS" in visual_input_type or "mixed" in visual_input_type:
-        # use config-specified datavis_root if provided, otherwise fall back to default
-        if simulation_config.datavis_root is not None:
-            datavis_root = os.path.join(simulation_config.datavis_root, "JPEGImages/480p")
+        # determine dataset roots: use config list if provided, otherwise fall back to default
+        if simulation_config.datavis_roots:
+            datavis_root_list = [os.path.join(r, "JPEGImages/480p") for r in simulation_config.datavis_roots]
         else:
-            datavis_root = os.path.join(get_datavis_root_dir(), "JPEGImages/480p")
-        assert os.path.exists(datavis_root), f"DAVIS data not found at {datavis_root}"
-        davis_config = {
-            "root_dir": datavis_root,
+            datavis_root_list = [os.path.join(get_datavis_root_dir(), "JPEGImages/480p")]
+
+        for root in datavis_root_list:
+            assert os.path.exists(root), f"video data not found at {root}"
+
+        video_config = {
             "n_frames": 50,
             "max_frames": 80,
             "flip_axes": [0, 1],
@@ -3807,7 +3809,14 @@ def data_test_flyvis(
             "augment": False,
             "unittest": False
         }
-        davis_dataset = AugmentedDavis(**davis_config)
+
+        # create dataset(s)
+        if len(datavis_root_list) == 1:
+            davis_dataset = AugmentedVideoDataset(root_dir=datavis_root_list[0], **video_config)
+        else:
+            datasets = [AugmentedVideoDataset(root_dir=root, **video_config) for root in datavis_root_list]
+            davis_dataset = CombinedVideoDataset(datasets)
+            print(f"combined {len(datasets)} video datasets: {len(davis_dataset)} total sequences")
     else:
         davis_dataset = None
 
