@@ -853,11 +853,16 @@ def train(cfg: ModelParams, run_dir: Path):
             print(f"EMS warmup enabled: training with ems=1 (nocompile) for {ems_warmup_epochs} epochs, then ems={target_ems}")
 
         # --- Batching setup ---
-        num_time_points = train_data.shape[0]
+        # compute number of valid starting points based on apply_time_units setting
+        total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
+        if cfg.training.apply_time_units:
+            num_valid_points = (train_data.shape[0] - total_steps) // cfg.training.time_units
+        else:
+            num_valid_points = train_data.shape[0] - total_steps
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
         # resampling data points.
         batches_per_epoch = (
-            max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
+            max(1, num_valid_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
         )
         batch_indices_iter = make_batches_random(
             train_data, train_stim, wmat_indices, wmat_indptr, cfg
@@ -916,8 +921,14 @@ def train(cfg: ModelParams, run_dir: Path):
                 batch_indices_iter = make_batches_random(
                     train_data, train_stim, wmat_indices, wmat_indptr, cfg
                 )
+                # recompute batches_per_epoch with new total_steps
+                new_total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
+                if cfg.training.apply_time_units:
+                    num_valid_points = (train_data.shape[0] - new_total_steps) // cfg.training.time_units
+                else:
+                    num_valid_points = train_data.shape[0] - new_total_steps
                 batches_per_epoch = (
-                    max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
+                    max(1, num_valid_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
                 )
                 # switch to compiled version (will compile fresh with target ems)
                 train_step_fn = globals()[cfg.training.train_step]
