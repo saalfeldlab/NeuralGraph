@@ -1,7 +1,6 @@
 """Module to load flyvis simulation data."""
 
 from enum import IntEnum
-from typing import NamedTuple
 import numpy as np
 from pydantic import BaseModel, field_validator, ConfigDict
 import torch
@@ -18,6 +17,24 @@ class FlyVisSim(IntEnum):
     TYPE = 6
     CALCIUM = 7
     FLUORESCENCE = 8
+
+
+# columns that don't change over time (stored once in metadata.zarr)
+STATIC_COLUMNS = (
+    FlyVisSim.INDEX,
+    FlyVisSim.XPOS,
+    FlyVisSim.YPOS,
+    FlyVisSim.GROUP_TYPE,
+    FlyVisSim.TYPE,
+)
+
+# columns that change each frame (stored in timeseries.zarr)
+DYNAMIC_COLUMNS = (
+    FlyVisSim.VOLTAGE,
+    FlyVisSim.STIMULUS,
+    FlyVisSim.CALCIUM,
+    FlyVisSim.FLUORESCENCE,
+)
 
 
 class NeuronData:
@@ -39,8 +56,10 @@ class NeuronData:
         self.pos=x[0, :, [FlyVisSim.XPOS, FlyVisSim.YPOS]]
         self.group_type=x[0, :, FlyVisSim.GROUP_TYPE].astype(np.uint8)
         self.type=x[0, :, FlyVisSim.TYPE].astype(np.uint8)
+        self._compute_indices_per_type()
 
-        # store indices for each neuron type
+    def _compute_indices_per_type(self):
+        """compute indices for each neuron type."""
         order = np.argsort(self.type)
         uniq_types, start_index = np.unique(self.type[order], return_index=True)
         num_neuron_types = len(uniq_types)
@@ -52,75 +71,23 @@ class NeuronData:
             order[breaks[i]:breaks[i+1]] for i in range(num_neuron_types)
         ]
 
+    @classmethod
+    def from_metadata(cls, metadata: np.ndarray) -> "NeuronData":
+        """create NeuronData from V2 metadata array.
 
-class SimulationResults(NamedTuple):
-    neuron_data: NeuronData
-    data: np.ndarray[tuple[int, int, int], np.dtype[np.float32]]
+        args:
+            metadata: (N, 5) array with columns [INDEX, XPOS, YPOS, GROUP_TYPE, TYPE]
 
-    @staticmethod
-    def load(path: str):
-        # this takes a while
-        # T x N x 9 array
-        x = np.load(path)
-
-        assert (x[0, :, FlyVisSim.GROUP_TYPE] <= np.iinfo(np.uint8).max).all()
-        assert (x[0, :, FlyVisSim.TYPE] <= np.iinfo(np.uint8).max).all()
-
-        # split off time-independent piece
-        return SimulationResults(
-            neuron_data=NeuronData(x),
-            data=x,
-        )
-
-    def __getitem__(
-        self, col: FlyVisSim
-    ) -> np.ndarray[tuple[int, int], np.dtype[np.float32]]:
-        """Access underlying simulation data"""
-        return self.data[:, :, col]
-
-    def split_column(
-        self,
-        column: FlyVisSim,
-        split: "DataSplit",
-        keep_first_n_limit: int | None = None,
-    ) -> tuple[
-        np.ndarray[tuple[int, int], np.dtype[np.float32]],
-        np.ndarray[tuple[int, int], np.dtype[np.float32]],
-    ]:
+        returns:
+            NeuronData instance
         """
-        Split a column by time into train/validation sets.
-
-        Args:
-            column: The column to extract and split
-            split: The DataSplit configuration specifying time ranges
-            keep_first_n_limit: Optional limit on the feature dimension (for stimulus)
-
-        Returns:
-            Tuple of (train, val) numpy arrays
-
-        Raises:
-            AssertionError: If split ranges exceed available time points
-        """
-        data = self[column]
-
-        # Validate split ranges
-        total_time_points = data.shape[0]
-        assert split.train_end <= total_time_points, (
-            f"train_end ({split.train_end}) exceeds available time points ({total_time_points})"
-        )
-        assert split.validation_end <= total_time_points, (
-            f"validation_end ({split.validation_end}) exceeds available time points ({total_time_points})"
-        )
-
-        # Extract subsets (use .copy() to release reference to original array)
-        if keep_first_n_limit is not None:
-            train = data[split.train_start : split.train_end, :keep_first_n_limit].copy()
-            val = data[split.validation_start : split.validation_end, :keep_first_n_limit].copy()
-        else:
-            train = data[split.train_start : split.train_end].copy()
-            val = data[split.validation_start : split.validation_end].copy()
-
-        return train, val
+        obj = cls.__new__(cls)
+        obj.ix = metadata[:, 0].astype(np.int32)
+        obj.pos = metadata[:, 1:3].copy()
+        obj.group_type = metadata[:, 3].astype(np.uint8)
+        obj.type = metadata[:, 4].astype(np.uint8)
+        obj._compute_indices_per_type()
+        return obj
 
 
 class DataSplit(BaseModel):
