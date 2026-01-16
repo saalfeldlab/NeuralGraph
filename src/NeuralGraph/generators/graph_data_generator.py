@@ -282,8 +282,12 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     # Initialize datasets
     if "DAVIS" in visual_input_type or "mixed" in visual_input_type:
 
-        datavis_root = os.path.join(get_datavis_root_dir(), "JPEGImages/480p")
-        assert os.path.exists(datavis_root)
+        # use config-specified datavis_root if provided, otherwise fall back to default
+        if simulation_config.datavis_root is not None:
+            datavis_root = os.path.join(simulation_config.datavis_root, "JPEGImages/480p")
+        else:
+            datavis_root = os.path.join(get_datavis_root_dir(), "JPEGImages/480p")
+        assert os.path.exists(datavis_root), f"DAVIS data not found at {datavis_root}"
         davis_config = {
             "root_dir": datavis_root,
             "n_frames": 50,
