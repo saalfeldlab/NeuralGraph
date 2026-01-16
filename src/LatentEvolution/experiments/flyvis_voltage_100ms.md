@@ -253,6 +253,5 @@ We test two ideas:
 ```bash
 
 bsub -J "recon_warmup_test" -n 1 -gpu "num=1" -q gpu_a100 -o recon_warmup_test.log python \
-      src/LatentEvolution/latent.py recon_warmup_test latent_20step.yaml \
-      --training.epochs 10
+      src/LatentEvolution/latent.py tu20_recon_warmup_test latent_20step.yaml
 ```
