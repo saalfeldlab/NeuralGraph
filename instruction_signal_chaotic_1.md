@@ -52,6 +52,7 @@ Read `{config}_memory.md` to recall:
 - `test_pearson`: Pearson correlation between ground truth and rollout prediction
 - `connectivity_R2`: R² of learned vs true connectivity weights
 - `final_loss`: final training loss
+- 'cluster_accuracy': neuron classification
 
 **Classification:**
 

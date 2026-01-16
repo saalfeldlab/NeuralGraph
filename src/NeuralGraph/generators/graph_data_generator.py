@@ -1209,7 +1209,8 @@ def data_generate_synaptic(
 
             # Plot eigenvalue spectrum and connectivity matrix
             plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc, log_file=log_file)
-            plot_connectivity_matrix(connectivity, dataset_name)
+            plot_connectivity_matrix(connectivity, f"./graphs_data/{dataset_name}/connectivity_matrix.png",
+                                     vmin_vmax_method='percentile', show_title=False)
 
         if has_modulation:
             if run == 0:

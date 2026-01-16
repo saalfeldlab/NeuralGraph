@@ -20,14 +20,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 
-# Configure matplotlib for Helvetica-style fonts (no LaTeX)
-plt.rcParams.update({
-    'font.family': 'sans-serif',
-    'font.sans-serif': ['Nimbus Sans', 'Arial', 'Helvetica', 'DejaVu Sans'],
-    'text.usetex': False,
-    'mathtext.fontset': 'dejavusans',  # sans-serif math text
-})
-
 
 @dataclass
 class UCBNode:
@@ -224,8 +216,7 @@ def plot_ucb_tree(nodes: list[UCBNode],
 
         # Label: node id inside/near the marker (always black)
         ax.annotate(str(node.id), (x, y), ha='center', va='center',
-                   fontsize=9,
-                   color='black', zorder=3)
+                   fontsize=9, color='black', zorder=3)
 
         # Mutation above the node (for nodes with id > 1)
         if node.id > 1 and node.mutation:
@@ -301,7 +292,11 @@ def plot_ucb_tree(nodes: list[UCBNode],
         plt.Line2D([0], [0], marker='x', color='gray', label='Leaf node',
                    markerfacecolor='gray', markersize=8, linestyle='None', markeredgewidth=2),
     ]
-    ax.legend(handles=legend_elements, loc='upper right', fontsize=9)
+    legend = ax.legend(handles=legend_elements, loc='upper right', fontsize=9,
+                       facecolor='white', edgecolor='black', framealpha=1.0)
+    # Ensure legend text is black
+    for text in legend.get_texts():
+        text.set_color('black')
 
     plt.tight_layout()
 
