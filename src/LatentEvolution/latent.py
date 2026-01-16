@@ -119,6 +119,9 @@ class TrainingConfig(BaseModel):
     reconstruction_warmup_epochs: int = Field(
         0, description="Number of warmup epochs to train encoder/decoder only (reconstruction loss) before the main training loop. These are additional epochs, not counted in 'epochs'.", json_schema_extra={"short_name": "recon_wu"}
     )
+    apply_time_units: bool = Field(
+        False, description="If True, restrict training data to time_units intervals (0, tu, 2*tu, ...). Reflects realistic data availability.", json_schema_extra={"short_name": "atu"}
+    )
     unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
@@ -330,10 +333,21 @@ def make_batches_random(
         raise ValueError(
             f"Not enough time points ({total_time}) for total_steps={total_steps}"
         )
+
+    # if apply_time_units, only sample indices at time_units intervals
+    if cfg.training.apply_time_units:
+        valid_indices = torch.arange(0, total_time - total_steps, time_units, device=data.device)
+    else:
+        valid_indices = None
+
     while True:
-        start_indices = torch.randint(
-            low=0, high=total_time - total_steps, size=(batch_size,), device=data.device
-        )
+        if valid_indices is not None:
+            perm = torch.randint(0, len(valid_indices), size=(batch_size,), device=data.device)
+            start_indices = valid_indices[perm]
+        else:
+            start_indices = torch.randint(
+                low=0, high=total_time - total_steps, size=(batch_size,), device=data.device
+            )
 
         if num_neurons_to_zero > 0:
             selected_neurons = torch.randint(
@@ -716,6 +730,10 @@ def train(cfg: ModelParams, run_dir: Path):
         )
 
         print(f"Data split: train {train_data.shape}, val {val_data.shape}")
+        if cfg.training.apply_time_units:
+            tu = cfg.training.time_units
+            num_valid_train = (train_data.shape[0] - tu * cfg.training.evolve_multiple_steps) // tu
+            print(f"apply_time_units enabled: sampling only at tu={tu} intervals ({num_valid_train} valid starting points)")
 
         # Load connectome weights
         wmat = load_connectome_graph(f"graphs_data/fly/{cfg.training.simulation_config}").to(device)
@@ -759,17 +777,27 @@ def train(cfg: ModelParams, run_dir: Path):
             model.evolver.requires_grad_(False)
 
             # simple batch iterator for warmup (don't need augmentation indices)
+            tu = cfg.training.time_units
+            total_steps = tu * cfg.training.evolve_multiple_steps
+            if cfg.training.apply_time_units:
+                warmup_valid_indices = torch.arange(0, train_data.shape[0] - total_steps, tu, device=train_data.device)
+            else:
+                warmup_valid_indices = None
+
             def warmup_batch_iter():
-                total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
                 while True:
-                    start_indices = torch.randint(
-                        low=0, high=train_data.shape[0] - total_steps,
-                        size=(cfg.training.batch_size,), device=train_data.device
-                    )
-                    yield start_indices
+                    if warmup_valid_indices is not None:
+                        perm = torch.randint(0, len(warmup_valid_indices), size=(cfg.training.batch_size,), device=train_data.device)
+                        yield warmup_valid_indices[perm]
+                    else:
+                        yield torch.randint(
+                            low=0, high=train_data.shape[0] - total_steps,
+                            size=(cfg.training.batch_size,), device=train_data.device
+                        )
 
             warmup_batches = warmup_batch_iter()
-            warmup_batches_per_epoch = max(1, train_data.shape[0] // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
+            num_valid = len(warmup_valid_indices) if warmup_valid_indices is not None else train_data.shape[0]
+            warmup_batches_per_epoch = max(1, num_valid // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
 
             for warmup_epoch in range(recon_warmup_epochs):
                 warmup_epoch_start = datetime.now()
