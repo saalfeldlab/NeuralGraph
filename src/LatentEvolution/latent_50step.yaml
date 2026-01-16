@@ -23,6 +23,7 @@ evolver_params:
   num_hidden_layers: 1 # Hidden layers in the evolver network
   num_hidden_units: 256 # Hidden units per layer in the evolver
   l1_reg_loss: 0.0
+  activation: Tanh
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
 
 stimulus_encoder_params:

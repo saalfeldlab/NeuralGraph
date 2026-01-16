@@ -36,6 +36,9 @@ class EvolverParams(BaseModel):
     num_hidden_units: int
     num_hidden_layers: int
     l1_reg_loss: float = 0.0
+    activation: str = Field(
+        "Tanh", description="Activation function for evolver. Tanh recommended for stability in multi-step rollouts."
+    )
     learnable_diagonal: bool = Field(
         False, description="DEPRECATED: This feature has been removed. Must be False."
     )
@@ -47,6 +50,13 @@ class EvolverParams(BaseModel):
         1, description="DEPRECATED: Use training.time_units instead. Kept for backwards compatibility."
     )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("activation")
+    @classmethod
+    def validate_activation(cls, v: str) -> str:
+        if not hasattr(nn, v):
+            raise ValueError(f"Unknown activation '{v}' in torch.nn")
+        return v
 
     @field_validator("learnable_diagonal")
     @classmethod
@@ -187,6 +197,8 @@ class Evolver(nn.Module):
     def __init__(self, latent_dims: int, stim_dims: int, evolver_params: EvolverParams, use_batch_norm: bool = True, activation: str = "ReLU"):
         super().__init__()
 
+        evolver_activation = evolver_params.activation
+
         # Use MLPWithSkips if flag is set, similar to encoder/decoder
         evolver_cls = MLPWithSkips if evolver_params.use_input_skips else MLP
 
@@ -196,12 +208,20 @@ class Evolver(nn.Module):
                 num_hidden_layers=evolver_params.num_hidden_layers,
                 num_hidden_units=evolver_params.num_hidden_units,
                 num_output_dims=latent_dims,
-                activation=activation,
+                activation=evolver_activation,
                 use_batch_norm=use_batch_norm,
             )
         )
 
+        # zero-init final layer so evolver starts as identity (z_{t+1} = z_t)
+        if evolver_params.use_input_skips:
+            nn.init.zeros_(self.evolver.output_layer.weight)
+            nn.init.zeros_(self.evolver.output_layer.bias)
+        else:
+            nn.init.zeros_(self.evolver.layers[-1].weight)
+            nn.init.zeros_(self.evolver.layers[-1].bias)
+
     def forward(self, proj_t, proj_stim_t):
         """Evolve one time step in latent space."""
-        proj_t_next = proj_t + self.evolver(torch.concatenate([proj_t, proj_stim_t], dim=1))
+        proj_t_next = proj_t + self.evolver(torch.cat([proj_t, proj_stim_t], dim=1))
         return proj_t_next
