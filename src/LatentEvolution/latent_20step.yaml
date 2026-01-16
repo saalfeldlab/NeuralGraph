@@ -57,6 +57,7 @@ training:
   # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
   loss_function: mse_loss
   grad_clip_max_norm: 0.0
+  reconstruction_warmup_epochs: 20
 
   data_split:
     train_start: 4000 # Exclude burn-in
