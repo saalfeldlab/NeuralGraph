@@ -42,7 +42,7 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot'
-        config_list = ['signal_N2']
+        config_list = ['signal_N2_5percent']
 
     for config_file_ in config_list:
         print(" ")
