@@ -9,7 +9,7 @@ class SimulationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dimension: int = 2
-    n_frames: int = 1000
+    n_frames: int = 1000  # number of simulation time steps; 0 = use each source frame exactly once (no reuse)
     start_frame: int = 0
     seed: int = 42
 

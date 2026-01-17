@@ -481,11 +481,18 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
         sintel_frame_idx = 0
         davis_frame_idx = 0
 
-    target_frames = n_frames
     dataset_length = len(stimulus_dataset)
     frames_per_sequence = 35
     total_frames_per_pass = dataset_length * frames_per_sequence
-    num_passes_needed = (target_frames // total_frames_per_pass) + 1
+
+    if n_frames == 0:
+        # n_frames=0: use each source frame exactly once (no reuse)
+        num_passes_needed = 1
+        target_frames = float('inf')
+        print(f"n_frames=0 mode: single pass through {dataset_length} sequences (no frame reuse)")
+    else:
+        target_frames = n_frames
+        num_passes_needed = (target_frames // total_frames_per_pass) + 1
 
     # use zarr writers for incremental saving (memory efficient)
     # V2 format separates static columns (INDEX, XPOS, YPOS, GROUP_TYPE, TYPE) from dynamic
