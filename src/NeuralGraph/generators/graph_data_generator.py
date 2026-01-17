@@ -915,8 +915,8 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
     # load data back for post-processing (plotting, etc.)
     from NeuralGraph.zarr_io import load_simulation_data
-    x_list = load_simulation_data(f"graphs_data/{dataset_name}/x_list_{run}", strategy='full')
-    y_list = load_simulation_data(f"graphs_data/{dataset_name}/y_list_{run}", strategy='full')
+    x_list = load_simulation_data(f"graphs_data/{dataset_name}/x_list_{run}")
+    y_list = load_simulation_data(f"graphs_data/{dataset_name}/y_list_{run}.zarr")
 
     if bSave:
         print('data saved as .zarr ...')

@@ -986,8 +986,8 @@ def data_train_flyvis(config, erase, best_model, device):
     y_list = []
     for run in trange(0,n_runs, ncols=50):
         # load with format-aware loader (supports both .npy and .zarr)
-        x = load_simulation_data(f'graphs_data/{dataset_name}/x_list_{run}', strategy='full')
-        y = load_simulation_data(f'graphs_data/{dataset_name}/y_list_{run}', strategy='full')
+        x = load_simulation_data(f'graphs_data/{dataset_name}/x_list_{run}')
+        y = load_simulation_data(f'graphs_data/{dataset_name}/y_list_{run}.zarr')
 
         if training_selected_neurons:
             selected_neuron_ids = np.array(train_config.selected_neuron_ids).astype(int)
