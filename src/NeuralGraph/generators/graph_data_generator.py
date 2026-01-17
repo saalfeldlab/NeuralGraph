@@ -7,6 +7,7 @@ import torch
 import torch_geometric.data as data
 from matplotlib import rc
 from NeuralGraph.data_loaders import load_wormvae_data, load_zebrafish_data
+from NeuralGraph.zarr_io import ZarrSimulationWriter, ZarrSimulationWriterV2
 from NeuralGraph.generators.davis import AugmentedDavis
 from NeuralGraph.generators.utils import (
     choose_model,
@@ -473,8 +474,19 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     total_frames_per_pass = dataset_length * frames_per_sequence
     num_passes_needed = (target_frames // total_frames_per_pass) + 1
 
-    y_list = []
-    x_list = []
+    # use zarr writers for incremental saving (memory efficient)
+    # V2 format separates static columns (INDEX, XPOS, YPOS, GROUP_TYPE, TYPE) from dynamic
+    x_writer = ZarrSimulationWriterV2(
+        path=f"graphs_data/{dataset_name}/x_list_{run}",
+        n_neurons=n_neurons,
+        time_chunks=2000,
+    )
+    y_writer = ZarrSimulationWriter(
+        path=f"graphs_data/{dataset_name}/y_list_{run}",
+        n_neurons=n_neurons,
+        n_features=1,
+        chunks=(2000, n_neurons, 1),
+    )
     it = simulation_config.start_frame
     id_fig = 0
 
@@ -678,7 +690,10 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
                     y = pde(dataset, has_field=False)
 
-                    x_list.append(to_numpy(x.clone().detach()))
+                    # save previous calcium for derivative computation (before appending current frame)
+                    prev_calcium = x[:, 7:8].clone()
+
+                    x_writer.append(to_numpy(x.clone().detach()))
 
                     if noise_model_level > 0:
                         x[:, 3:4] = x[:, 3:4] + delta_t * y + torch.randn((n_neurons, 1), dtype=torch.float32, device=device) * noise_model_level
@@ -700,9 +715,9 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
                         # x[:, 7:8] = torch.clamp(x[:, 7:8], min=0.0)
                         x[:, 8:9] = calcium_alpha * x[:, 7:8] + calcium_beta
 
-                        y = (x[:, 7:8] - torch.tensor(x_list[-1][:, 7:8], dtype=torch.float32,device=device)) / delta_t
+                        y = (x[:, 7:8] - prev_calcium) / delta_t
 
-                    y_list.append(to_numpy(y.clone().detach()))
+                    y_writer.append(to_numpy(y.clone().detach()))
 
                     if (visualize & (run == run_vizualized) & (it>0) & (it % step == 0) & (it <= 400 * step)):
                         if "latex" in style:
@@ -893,26 +908,53 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
 
 
 
-    print(f"generated {len(x_list)} frames total")
-    x_list = np.array(x_list)
-    y_list = np.array(y_list)
+    # finalize zarr writers
+    n_frames_written = x_writer.finalize()
+    y_writer.finalize()
+    print(f"generated {n_frames_written} frames total (saved as .zarr)")
+
+    # load data back for post-processing (plotting, etc.)
+    from NeuralGraph.zarr_io import load_simulation_data
+    x_list = load_simulation_data(f"graphs_data/{dataset_name}/x_list_{run}")
+    y_list = load_simulation_data(f"graphs_data/{dataset_name}/y_list_{run}")
+
     if bSave:
-        print('save data ...')
+        print('data saved as .zarr ...')
 
         if measurement_noise_level > 0:
-            np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
+            # save raw data first (as .zarr - already saved above, copy to raw)
+            import shutil
+            raw_x_path = f"graphs_data/{dataset_name}/raw_x_list_{run}.zarr"
+            raw_y_path = f"graphs_data/{dataset_name}/raw_y_list_{run}.zarr"
+            if not os.path.exists(raw_x_path):
+                shutil.copytree(f"graphs_data/{dataset_name}/x_list_{run}.zarr", raw_x_path)
+                shutil.copytree(f"graphs_data/{dataset_name}/y_list_{run}.zarr", raw_y_path)
+
+            # apply measurement noise to in-memory data
             for k in range(x_list.shape[0]):
                 x_list[k, :, 3] = x_list[k, :, 3] + np.random.normal(0, measurement_noise_level, x_list.shape[1])
             for k in range(1, x_list.shape[0] - 1):
                 y_list[k] = (x_list[k + 1, :, 3:4] - x_list[k, :, 3:4]) / delta_t
-            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-            print("data + noise saved ...")
-        else:
-            np.save(f"graphs_data/{dataset_name}/x_list_{run}.npy", x_list)
-            np.save(f"graphs_data/{dataset_name}/y_list_{run}.npy", y_list)
-            print("data saved ...")
+
+            # overwrite the .zarr files with noisy data (V2 format)
+            x_noisy_writer = ZarrSimulationWriterV2(
+                path=f"graphs_data/{dataset_name}/x_list_{run}",
+                n_neurons=n_neurons,
+                time_chunks=2000,
+            )
+            y_noisy_writer = ZarrSimulationWriter(
+                path=f"graphs_data/{dataset_name}/y_list_{run}",
+                n_neurons=n_neurons,
+                n_features=1,
+                chunks=(2000, n_neurons, 1),
+            )
+            for frame in x_list:
+                x_noisy_writer.append(frame)
+            for frame in y_list:
+                y_noisy_writer.append(frame)
+            x_noisy_writer.finalize()
+            y_noisy_writer.finalize()
+            print("data + noise saved as .zarr ...")
 
     # Neuron type index to name mapping
     index_to_name = {

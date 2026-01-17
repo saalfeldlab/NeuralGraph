@@ -10,7 +10,6 @@ from dataclasses import dataclass
 import random
 import sys
 import re
-import gc
 
 import torch
 import torch.nn as nn
@@ -19,7 +18,8 @@ import yaml
 import tyro
 import numpy as np
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from LatentEvolution.load_flyvis import SimulationResults, FlyVisSim, DataSplit, load_connectome_graph
+from LatentEvolution.load_flyvis import NeuronData, FlyVisSim, DataSplit, load_connectome_graph
+from NeuralGraph.zarr_io import load_column_slice, load_metadata
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
@@ -586,10 +586,13 @@ def load_dataset(
     column_to_model: str,
     data_split: DataSplit,
     num_input_dims: int,
-    device: torch.device
+    device: torch.device,
 ):
     """
-    Load and split a dataset.
+    Load and split a dataset from zarr V2 format.
+
+    Streams data directly from zarr to device memory without creating
+    intermediate full arrays.
 
     Args:
         simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
@@ -601,29 +604,31 @@ def load_dataset(
     Returns:
         Tuple of (train_data, val_data, train_stim, val_stim, neuron_data)
     """
-    data_path = f"graphs_data/fly/{simulation_config}/x_list_0.npy"
-    sim_data = SimulationResults.load(data_path)
+    data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
+    column_idx = FlyVisSim[column_to_model].value
 
-    # Extract subsets using split_column method
-    train_data_np, val_data_np = sim_data.split_column(
-        FlyVisSim[column_to_model], data_split
-    )
-    train_data = torch.from_numpy(train_data_np).to(device)
-    val_data = torch.from_numpy(val_data_np).to(device)
-    del train_data_np, val_data_np
+    # load train data column slice directly to device
+    train_data = torch.from_numpy(
+        load_column_slice(data_path, column_idx, data_split.train_start, data_split.train_end)
+    ).to(device)
 
-    # Load stimulus (keep only first num_input_dims features)
-    train_stim_np, val_stim_np = sim_data.split_column(
-        FlyVisSim.STIMULUS, data_split, keep_first_n_limit=num_input_dims
-    )
-    train_stim = torch.from_numpy(train_stim_np).to(device)
-    val_stim = torch.from_numpy(val_stim_np).to(device)
-    del train_stim_np, val_stim_np
+    # load val data column slice directly to device
+    val_data = torch.from_numpy(
+        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
+    ).to(device)
 
-    # Save neuron_data and free the large sim_data array
-    neuron_data = sim_data.neuron_data
-    del sim_data
-    gc.collect()
+    # load stimulus slices (column 4 = STIMULUS)
+    train_stim = torch.from_numpy(
+        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.train_start, data_split.train_end, neuron_limit=num_input_dims)
+    ).to(device)
+
+    val_stim = torch.from_numpy(
+        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.validation_start, data_split.validation_end, neuron_limit=num_input_dims)
+    ).to(device)
+
+    # load neuron metadata (small, loaded once)
+    metadata = load_metadata(data_path)
+    neuron_data = NeuronData.from_metadata(metadata)
 
     return train_data, val_data, train_stim, val_stim, neuron_data
 
@@ -638,6 +643,8 @@ def load_val_only(
     """
     Load only validation data for cross-validation (memory efficient).
 
+    Streams data directly from zarr to device memory.
+
     Args:
         simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
         column_to_model: Column name to model (e.g., "VOLTAGE", "CALCIUM")
@@ -648,24 +655,18 @@ def load_val_only(
     Returns:
         Tuple of (val_data, val_stim)
     """
-    data_path = f"graphs_data/fly/{simulation_config}/x_list_0.npy"
-    sim_data = SimulationResults.load(data_path)
+    data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
+    column_idx = FlyVisSim[column_to_model].value
 
-    # extract only validation split
-    _, val_data_np = sim_data.split_column(
-        FlyVisSim[column_to_model], data_split
-    )
-    val_data = torch.from_numpy(val_data_np).to(device)
-    del val_data_np
+    # load val data column slice directly to device
+    val_data = torch.from_numpy(
+        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
+    ).to(device)
 
-    _, val_stim_np = sim_data.split_column(
-        FlyVisSim.STIMULUS, data_split, keep_first_n_limit=num_input_dims
-    )
-    val_stim = torch.from_numpy(val_stim_np).to(device)
-    del val_stim_np
-
-    del sim_data
-    gc.collect()
+    # load val stimulus slice directly to device
+    val_stim = torch.from_numpy(
+        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.validation_start, data_split.validation_end, neuron_limit=num_input_dims)
+    ).to(device)
 
     return val_data, val_stim
 
@@ -1078,12 +1079,12 @@ def train(cfg: ModelParams, run_dir: Path):
 
                 # Log cross-validation scalar metrics to TensorBoard
                 for metric_name, metric_value in cv_metrics.items():
-                    writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, cfg.training.num_epochs)
+                    writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, cfg.training.epochs)
                 print(f"Logged {len(cv_metrics)} cross-validation scalar metrics to TensorBoard")
 
                 # Log figures to TensorBoard
                 for fig_name, fig in cv_figures.items():
-                    writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, cfg.training.num_epochs)
+                    writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, cfg.training.epochs)
                 print("Logged MSE figures to TensorBoard")
 
         # Save final metrics
