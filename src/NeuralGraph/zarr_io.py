@@ -369,7 +369,7 @@ class ZarrSimulationWriterV2:
         return self._total_frames
 
 
-def detect_format(path: str | Path) -> Literal['npy', 'zarr', 'none']:
+def detect_format(path: str | Path) -> Literal['npy', 'zarr_v2', 'zarr_v1', 'none']:
     """check what format exists at path.
 
     args:
@@ -377,7 +377,8 @@ def detect_format(path: str | Path) -> Literal['npy', 'zarr', 'none']:
 
     returns:
         'npy' if .npy file exists
-        'zarr' if zarr directory exists (with metadata.zarr + timeseries.zarr)
+        'zarr_v2' if V2 zarr directory exists (with metadata.zarr + timeseries.zarr)
+        'zarr_v1' if V1 zarr directory exists (with .zarray file)
         'none' if nothing exists
     """
     path = Path(path)
@@ -386,14 +387,20 @@ def detect_format(path: str | Path) -> Literal['npy', 'zarr', 'none']:
     base_path = path.with_suffix('') if path.suffix in ('.npy', '.zarr') else path
 
     npy_path = Path(str(base_path) + '.npy')
+    zarr_v1_path = Path(str(base_path) + '.zarr')
 
-    # check for zarr format (directory with metadata.zarr and timeseries.zarr)
-    zarr_path = base_path
-    if zarr_path.exists() and zarr_path.is_dir():
-        metadata_path = zarr_path / 'metadata.zarr'
-        timeseries_path = zarr_path / 'timeseries.zarr'
+    # check for V2 zarr format (directory with metadata.zarr and timeseries.zarr)
+    if base_path.exists() and base_path.is_dir():
+        metadata_path = base_path / 'metadata.zarr'
+        timeseries_path = base_path / 'timeseries.zarr'
         if metadata_path.exists() and timeseries_path.exists():
-            return 'zarr'
+            return 'zarr_v2'
+
+    # check for V1 zarr format (directory with .zarray file)
+    if zarr_v1_path.exists() and zarr_v1_path.is_dir():
+        zarray_path = zarr_v1_path / '.zarray'
+        if zarray_path.exists():
+            return 'zarr_v1'
 
     # check for npy
     if npy_path.exists():
@@ -402,8 +409,18 @@ def detect_format(path: str | Path) -> Literal['npy', 'zarr', 'none']:
     return 'none'
 
 
-def _load_zarr_full(path: Path) -> np.ndarray:
-    """load zarr split format and reconstruct full (T, N, 9) array."""
+def _load_zarr_v1(path: Path) -> np.ndarray:
+    """load V1 zarr format (simple zarr array)."""
+    zarr_path = Path(str(path) + '.zarr')
+    spec = {
+        'driver': 'zarr',
+        'kvstore': {'driver': 'file', 'path': str(zarr_path)},
+    }
+    return ts.open(spec).result().read().result()
+
+
+def _load_zarr_v2(path: Path) -> np.ndarray:
+    """load V2 zarr split format and reconstruct full (T, N, 9) array."""
     metadata_path = path / 'metadata.zarr'
     timeseries_path = path / 'timeseries.zarr'
 
@@ -449,7 +466,7 @@ def load_simulation_data(path: str | Path) -> np.ndarray:
         path: base path (with or without extension)
 
     returns:
-        numpy array with full (T, N, 9) data
+        numpy array with simulation data
 
     raises:
         FileNotFoundError: if no data found at path
@@ -467,8 +484,11 @@ def load_simulation_data(path: str | Path) -> np.ndarray:
         npy_path = Path(str(base_path) + '.npy')
         return np.load(npy_path)
 
-    # zarr format - load and reconstruct full array
-    return _load_zarr_full(base_path)
+    if fmt == 'zarr_v1':
+        return _load_zarr_v1(base_path)
+
+    # zarr_v2 format - load and reconstruct full array
+    return _load_zarr_v2(base_path)
 
 
 # mapping from dynamic column indices to timeseries column position
