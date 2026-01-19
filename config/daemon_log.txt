@@ -1,0 +1,701 @@
+2026-01-16 18:45:08 | DAEMON_START | DAEMON
+2026-01-16 18:45:10 | DAEMON_START | DAEMON
+2026-01-16 18:46:20 | START | signal_chaotic_1_Claude.yaml
+2026-01-16 18:47:12 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 18:49:26 | DAEMON_STOP | DAEMON
+2026-01-16 18:50:15 | DAEMON_START | DAEMON
+2026-01-16 18:51:07 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 18:55:03 | DAEMON_STOP | DAEMON
+2026-01-16 18:56:23 | DAEMON_START | DAEMON
+2026-01-16 18:57:15 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 19:35:31 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-16 19:40:24 | START | signal_chaotic_1_Claude.yaml
+2026-01-16 19:54:12 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-16 19:57:15 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 20:00:13 | DAEMON_STOP | DAEMON
+2026-01-16 20:00:57 | DAEMON_START | DAEMON
+2026-01-16 20:01:59 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 20:08:58 | DAEMON_STOP | DAEMON
+2026-01-16 20:09:42 | DAEMON_START | DAEMON
+2026-01-16 20:10:44 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 20:21:59 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-16 20:26:16 | DAEMON_STOP | DAEMON
+2026-01-16 20:26:55 | DAEMON_START | DAEMON
+2026-01-16 20:27:37 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 20:29:38 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-16 21:37:29 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-16 21:44:01 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 22:16:40 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-16 22:20:12 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 22:52:54 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-16 22:56:06 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 23:27:04 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-16 23:32:13 | START | signal_N2_5percent_Claude.yaml
+2026-01-16 23:57:19 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 00:31:01 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-17 00:35:23 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 00:45:49 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 00:48:31 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 01:34:09 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-17 01:36:59 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 01:38:31 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 01:40:23 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 02:28:12 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 02:37:18 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-17 02:40:00 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 03:37:56 | STOP (SUCCESS) | signal_N2_5percent_Claude.yaml
+2026-01-17 03:42:38 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 03:44:08 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 03:47:40 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 03:49:22 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 03:52:44 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 03:54:26 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 03:57:47 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 03:59:17 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:02:50 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:04:30 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:07:52 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:09:34 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:12:45 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:14:25 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:17:47 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:19:29 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:22:51 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:24:32 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:27:54 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:29:36 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:32:57 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:34:38 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:38:00 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:39:40 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:43:02 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:44:30 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:48:02 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:49:43 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:53:05 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:54:34 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 04:58:06 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 04:59:47 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:03:08 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:04:51 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:08:12 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:09:40 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:13:12 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:14:54 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:18:16 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:19:52 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:23:14 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:24:52 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:28:19 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:30:01 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:33:24 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:35:05 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:38:27 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:39:57 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:43:29 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:45:07 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:48:29 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:49:58 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:53:31 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 05:55:00 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 05:58:32 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:00:02 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:03:35 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:05:05 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:08:37 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:10:07 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:13:39 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:15:09 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:18:42 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:20:11 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:23:44 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:25:18 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:28:47 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:30:18 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:33:51 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:35:22 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:38:53 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:40:29 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:43:51 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:45:21 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:48:54 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:50:28 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:53:57 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 06:55:27 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 06:59:00 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:00:31 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:04:03 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:05:36 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:08:58 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:10:34 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:14:06 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:15:45 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:19:08 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:20:47 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:24:09 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:25:43 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:29:13 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:30:49 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:34:11 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:35:51 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:39:13 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:40:44 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:44:16 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:45:47 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:49:19 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:50:58 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:54:20 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 07:55:50 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 07:59:22 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 08:00:51 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_5percent_Claude.yaml
+2026-01-17 08:04:23 | START | signal_N2_5percent_Claude.yaml
+2026-01-17 08:05:13 | DAEMON_STOP | DAEMON
+2026-01-17 08:40:55 | DAEMON_START | DAEMON
+2026-01-17 08:42:17 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 08:46:50 | DAEMON_START | DAEMON
+2026-01-17 08:49:13 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 08:51:01 | DAEMON_STOP | DAEMON
+2026-01-17 08:52:11 | DAEMON_START | DAEMON
+2026-01-17 08:52:53 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 08:56:21 | DAEMON_STOP | DAEMON
+2026-01-17 09:01:50 | DAEMON_START | DAEMON
+2026-01-17 09:01:52 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 09:02:01 | DAEMON_STOP | DAEMON
+2026-01-17 09:02:41 | DAEMON_START | DAEMON
+2026-01-17 09:05:43 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 09:13:13 | DAEMON_START | DAEMON
+2026-01-17 09:15:09 | DAEMON_STOP | DAEMON
+2026-01-17 09:16:08 | DAEMON_STOP | DAEMON
+2026-01-17 09:16:55 | DAEMON_START | DAEMON
+2026-01-17 09:16:59 | DAEMON_START | DAEMON
+2026-01-17 09:17:37 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 09:17:41 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 09:23:01 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 09:24:45 | DAEMON_STOP | DAEMON
+2026-01-17 09:28:24 | DAEMON_START | DAEMON
+2026-01-17 09:28:26 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 09:28:49 | DAEMON_STOP | DAEMON
+2026-01-17 09:29:29 | DAEMON_START | DAEMON
+2026-01-17 09:30:21 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 09:35:44 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 09:35:54 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 09:39:26 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 09:39:26 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 09:39:26 | STOP (ERROR: [Errno 2] No such file or directory: './graphs_dat) | signal_chaotic_1_Claude.yaml
+2026-01-17 09:39:47 | DAEMON_STOP | DAEMON
+2026-01-17 09:44:05 | DAEMON_START | DAEMON
+2026-01-17 09:44:29 | DAEMON_STOP | DAEMON
+2026-01-17 09:44:48 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 09:50:09 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 09:50:53 | DAEMON_STOP | DAEMON
+2026-01-17 09:50:56 | DAEMON_STOP | DAEMON
+2026-01-17 09:56:45 | DAEMON_START | DAEMON
+2026-01-17 09:56:49 | DAEMON_START | DAEMON
+2026-01-17 09:56:49 | DAEMON_START | DAEMON
+2026-01-17 09:57:41 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 09:57:48 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 09:57:53 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 10:00:24 | DAEMON_STOP | DAEMON
+2026-01-17 10:00:26 | DAEMON_STOP | DAEMON
+2026-01-17 10:00:27 | DAEMON_STOP | DAEMON
+2026-01-17 10:13:10 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-17 10:13:11 | DAEMON_START | signal_chaotic_2_Claude.yaml
+2026-01-17 10:13:11 | DAEMON_START | signal_sparsity_Claude.yaml
+2026-01-17 10:14:13 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 10:14:42 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 10:16:38 | DAEMON_STOP | signal_sparsity_Claude.yaml
+2026-01-17 10:16:58 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-17 10:17:00 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 10:19:36 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 10:31:00 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-17 10:31:01 | DAEMON_STOP | signal_chaotic_2_Claude.yaml
+2026-01-17 10:31:02 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-17 10:32:02 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-17 10:32:03 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-17 10:32:03 | DAEMON_START | signal_chaotic_2_Claude.yaml
+2026-01-17 10:33:06 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 10:33:06 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 10:33:32 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-17 10:34:04 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-17 10:34:06 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 10:38:26 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 10:44:08 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 10:49:23 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 10:56:35 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 11:01:51 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 11:07:04 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 11:10:58 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 11:12:14 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 11:14:30 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 11:19:07 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 11:24:12 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 11:28:10 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 11:30:24 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 11:35:45 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 11:35:52 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 11:41:28 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 11:46:48 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 11:52:01 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 11:52:20 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 11:56:02 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 11:57:22 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 12:03:34 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 12:08:37 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 12:14:50 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 12:19:54 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 12:26:07 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 12:29:26 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 12:31:12 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 12:33:24 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 12:36:36 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 12:37:15 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 12:37:38 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 12:42:20 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 12:48:02 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 12:53:07 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 13:00:19 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 13:04:53 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 13:11:05 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 13:13:48 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 13:15:24 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 13:17:36 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 13:17:40 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 13:22:58 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 13:29:10 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 13:31:19 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 13:34:31 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 13:35:02 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 13:39:43 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 13:45:04 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 13:51:17 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 13:54:53 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 13:56:39 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 13:58:55 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 14:02:31 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 14:07:36 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 14:12:49 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 14:17:54 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 14:24:06 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 14:28:31 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 14:29:11 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 14:32:13 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 14:34:54 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 14:36:11 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 14:40:01 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 14:40:13 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 14:45:53 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 14:50:59 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 14:57:11 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 15:02:17 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 15:10:30 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 15:15:42 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 15:17:29 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 15:21:41 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 15:21:44 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 15:26:04 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 15:26:56 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 15:32:08 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 15:34:16 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 15:37:18 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 15:43:00 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 15:48:10 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 15:54:23 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 15:58:57 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 15:59:33 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 16:03:49 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 16:05:26 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 16:10:50 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 16:16:03 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 16:21:13 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 16:26:25 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 16:28:04 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 16:31:34 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 16:35:58 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 16:37:17 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 16:37:47 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 16:40:20 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 16:42:27 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 16:48:40 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 16:53:52 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 17:00:04 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 17:05:16 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 17:10:28 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 17:12:30 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 17:15:38 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 17:16:52 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 17:21:31 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 17:26:41 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 17:30:37 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 17:32:54 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 17:34:19 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 17:38:02 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 17:43:45 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 17:48:20 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 17:48:56 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 17:53:12 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 17:54:48 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 18:00:00 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 18:05:48 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-17 18:05:50 | DAEMON_STOP | signal_chaotic_2_Claude.yaml
+2026-01-17 18:05:53 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-17 18:10:07 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-17 18:10:07 | DAEMON_START | signal_chaotic_2_Claude.yaml
+2026-01-17 18:10:20 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-17 18:12:52 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 18:13:09 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 18:13:49 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 18:18:40 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 18:24:53 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 18:30:30 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 18:35:43 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 18:41:11 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 18:46:03 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 18:47:23 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 18:51:05 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 18:52:50 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 18:58:03 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 19:03:29 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 19:05:29 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 19:09:41 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 19:09:42 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 19:15:10 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 19:20:22 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 19:23:37 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:25:51 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 19:27:09 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:28:51 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:30:13 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:31:03 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 19:36:31 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 19:40:15 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:42:15 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:42:23 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 19:42:31 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:42:33 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 19:47:18 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 19:53:30 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 19:58:59 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 20:01:30 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 20:05:11 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 20:07:13 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 20:10:40 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 20:15:22 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 20:15:32 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 20:18:14 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 20:20:51 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 20:27:04 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 20:32:32 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 20:38:44 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 20:44:15 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 20:49:27 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 20:54:56 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 20:59:00 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 21:00:09 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 21:04:12 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 21:05:38 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 21:12:21 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 21:17:37 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 21:19:07 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 21:23:19 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 21:24:59 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 21:26:40 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_sparsity_Claude.yaml
+2026-01-17 21:28:36 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 21:32:52 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 21:34:28 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 21:34:32 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_sparsity_Claude.yaml
+2026-01-17 21:39:43 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 21:41:55 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 21:45:35 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 21:50:51 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 21:56:03 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 21:56:11 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 21:59:16 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 22:00:53 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 22:01:31 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 22:02:48 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 22:07:23 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 22:12:37 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 22:18:49 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 22:20:23 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 22:24:05 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 22:24:26 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 22:29:07 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 22:34:22 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 22:40:35 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 22:42:00 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 22:45:51 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 22:46:13 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 22:50:53 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 22:52:48 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 22:56:08 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 22:57:30 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 23:02:21 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 23:03:48 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 23:07:37 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 23:07:50 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 23:13:29 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 23:18:44 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 23:24:57 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 23:25:16 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 23:28:59 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 23:30:13 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 23:36:26 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 23:41:41 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 23:46:34 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-17 23:47:53 | START | signal_chaotic_2_Claude.yaml
+2026-01-17 23:49:20 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-17 23:51:27 | START | signal_N2_sparsity_Claude.yaml
+2026-01-17 23:53:10 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-17 23:54:02 | START | signal_chaotic_1_Claude.yaml
+2026-01-17 23:58:52 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 00:03:37 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 00:10:50 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 00:15:34 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 00:22:46 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 00:22:51 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 00:27:29 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 00:27:34 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 00:29:15 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_sparsity_Claude.yaml
+2026-01-18 00:33:32 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 00:38:07 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 00:38:16 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 00:44:58 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 00:45:46 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 00:49:44 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 00:50:28 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 00:55:26 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 00:55:49 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 00:59:02 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 01:00:11 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 01:06:23 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 01:10:52 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 01:13:05 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 01:16:57 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 01:17:51 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 01:21:10 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 01:22:48 | STOP (ERROR: mat1 and mat2 shapes cannot be multiplied (1000x5 ) | signal_N2_sparsity_Claude.yaml
+2026-01-18 01:24:03 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 01:28:48 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 01:35:00 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 01:39:46 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 01:42:29 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 01:45:59 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 01:47:42 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 01:50:43 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 01:56:55 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 02:01:40 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 02:07:52 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 02:12:36 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 02:19:48 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 02:24:33 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 02:30:46 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 02:35:42 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 02:39:44 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 02:41:55 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 02:41:55 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 02:44:27 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 02:46:39 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 02:52:21 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 02:57:05 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 02:59:52 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 03:03:05 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 03:04:38 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 03:21:01 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 03:25:14 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 03:36:18 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 03:41:00 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 03:52:39 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 03:55:21 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 03:57:42 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 04:01:54 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 04:32:50 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 04:34:18 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 04:38:30 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 04:38:32 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 04:43:26 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 04:46:08 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 05:10:40 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 05:16:53 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 05:30:16 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 05:31:01 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 05:33:13 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 05:34:13 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 05:35:08 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 05:37:55 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 05:47:19 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 05:54:31 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 06:08:28 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 06:15:40 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 06:26:51 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 06:26:58 | STOP (SUCCESS) | signal_chaotic_2_Claude.yaml
+2026-01-18 06:29:42 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 06:32:34 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 06:32:35 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 06:33:10 | START | signal_chaotic_2_Claude.yaml
+2026-01-18 06:46:47 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 06:49:59 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 07:04:02 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 07:07:02 | DAEMON_STOP | signal_chaotic_2_Claude.yaml
+2026-01-18 07:11:14 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 07:16:17 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-18 07:22:16 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 07:31:57 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-18 07:34:59 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 07:35:29 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 08:26:33 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 08:36:16 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 08:45:09 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 08:51:51 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 09:27:48 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 09:32:31 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 10:03:07 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 10:07:49 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 10:24:06 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 10:29:48 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 11:17:48 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 11:21:23 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 11:23:30 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 11:27:05 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 12:18:42 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 12:22:54 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 12:33:15 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 12:39:57 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 13:14:29 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 13:20:11 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 13:48:23 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 13:51:05 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 14:11:49 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 14:16:22 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-18 14:18:36 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-18 14:19:08 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 14:59:32 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 15:03:14 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 15:11:53 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 15:16:35 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 16:00:16 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 16:03:58 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 16:09:46 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 16:13:28 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 18:16:54 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-18 18:17:50 | DAEMON_START | signal_N2_sparsity.yaml
+2026-01-18 18:18:57 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 18:21:11 | DAEMON_STOP | signal_N2_sparsity.yaml
+2026-01-18 18:21:33 | DAEMON_START | signal_N2_sparsity.yaml
+2026-01-18 18:22:59 | DAEMON_STOP | signal_N2_sparsity.yaml
+2026-01-18 18:23:15 | DAEMON_START | signal_N2_sparsity.yaml
+2026-01-18 18:23:39 | DAEMON_STOP | signal_N2_sparsity.yaml
+2026-01-18 18:24:02 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-18 18:24:04 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 19:11:56 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 19:15:38 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 20:08:33 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 20:12:45 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 20:18:01 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 20:24:43 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 21:04:51 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 21:09:33 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 22:01:36 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 22:06:48 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 22:33:39 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-18 22:36:21 | START | signal_N2_sparsity_Claude.yaml
+2026-01-18 22:58:45 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-18 23:03:27 | START | signal_chaotic_1_Claude.yaml
+2026-01-18 23:55:22 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 00:00:34 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 00:52:27 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 00:57:39 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 01:14:46 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-19 01:17:28 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 01:49:44 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 01:54:27 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 02:46:19 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 02:53:32 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 02:58:45 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 03:04:57 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 03:10:10 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 03:17:23 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 03:20:39 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-19 03:22:34 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 03:24:21 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 03:28:47 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 03:33:57 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 03:40:10 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 03:45:20 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 03:52:33 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 03:57:44 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 04:03:56 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 04:09:07 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 04:15:20 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 04:20:32 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 04:26:44 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 04:31:28 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 04:39:40 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 04:44:21 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 04:51:34 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 04:56:15 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 05:03:27 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 05:08:07 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 05:15:19 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 05:15:57 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-19 05:19:59 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 05:21:40 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 05:22:42 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 05:27:25 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 05:34:37 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 05:39:20 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 05:46:33 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 05:51:44 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 06:00:57 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 06:06:08 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 06:12:21 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 06:17:32 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 06:23:44 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 06:28:55 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 06:35:08 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 06:40:19 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 06:47:32 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 06:52:24 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-19 06:52:43 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 06:58:07 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 06:59:56 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 07:05:07 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 07:11:19 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 07:16:31 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 07:23:43 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 07:28:24 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 07:35:37 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 07:40:48 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 07:47:00 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 07:52:12 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 07:59:24 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 08:04:35 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 08:11:48 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 08:16:34 | DAEMON_START | signal_N2_sparsity_1.yaml
+2026-01-19 08:17:00 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 08:18:41 | DAEMON_STOP | signal_N2_sparsity_1.yaml
+2026-01-19 08:23:12 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 08:28:22 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 08:28:54 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-19 08:33:36 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 08:34:35 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 08:39:47 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 08:47:00 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 08:52:09 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 08:58:22 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 09:03:34 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 09:13:46 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 09:35:04 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 09:40:16 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 10:01:35 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 10:02:38 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 10:06:48 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 10:07:24 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 10:23:56 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 10:23:58 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 10:45:03 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 10:50:15 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 11:11:19 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 11:16:31 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 11:32:58 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 11:33:00 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 11:36:56 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml

@@ -32,7 +32,6 @@ graph_model:
   hidden_dim_update: 64
 
   aggr_type: "add"
-  embedding_dim: 2
   update_type: "none"
 
 claude:

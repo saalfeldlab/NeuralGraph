@@ -1437,7 +1437,8 @@ def data_generate_synaptic(
 
         if run == run_vizualized:
             plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=model)
-            plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, config.plotting.colormap, device)
+            plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, config.plotting.colormap, device,
+                                        signal_model_name=config.graph_model.signal_model_name)
 
             # SVD analysis of activity
             print('svd analysis ...')

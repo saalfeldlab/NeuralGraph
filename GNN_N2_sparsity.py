@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
-    parser = argparse.ArgumentParser(description="NeuralGraph - Signal_N2_5percent Optimization (Sparse Connectivity)")
+    parser = argparse.ArgumentParser(description="NeuralGraph - Signal_N2_sparsity Optimization (Sparse Connectivity)")
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
@@ -54,8 +54,8 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'Claude'
-        config_list = ['signal_N2_5percent']
+        task = 'train_test_plot_Claude_daemon'  # 'train', 'test', 'generate', 'plot', 'Claude'
+        config_list = ['signal_N2_sparsity']
         task_params = {'iterations': 2048}
 
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
 
 
     n_iterations = task_params.get('iterations', 2048)
-    base_config_name = config_list[0] if config_list else 'signal_N2_5percent'
+    base_config_name = config_list[0] if config_list else 'signal_N2_sparsity'
     instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
                     config_data['dataset'] = llm_task_name
                     config_data['training']['n_epochs'] = claude_n_epochs
                     config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
-                    config_data['description'] = 'designed by Claude - Signal_N2_5percent optimization (5% sparse connectivity)'
+                    config_data['description'] = 'designed by Claude - Signal_N2_sparsity optimization'
                     config_data['claude'] = {
                         'n_epochs': claude_n_epochs,
                         'data_augmentation_loop': claude_data_augmentation_loop,
@@ -170,36 +170,30 @@ if __name__ == "__main__":
             # clear analysis and memory files at start (only if not resuming)
             if start_iteration == 1:
                 with open(analysis_path, 'w') as f:
-                    f.write(f"# Experiment Log: {config_file_} (Signal_N2_5percent Optimization)\n\n")
+                    f.write(f"# Experiment Log: {config_file_} (Signal_N2_sparsity Optimization)\n\n")
                     f.write("## Dual Objective: connectivity_R2 + cluster_accuracy\n\n")
-                    f.write("**Note**: 5% sparse connectivity - L1 regularization critical for sparse W recovery\n\n")
                 print(f"\033[93mcleared {analysis_path}\033[0m")
                 # clear reasoning.log for Claude tasks
                 reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
                 open(reasoning_path, 'w').close()
                 print(f"\033[93mcleared {reasoning_path}\033[0m")
-                # initialize working memory file for N2_5percent optimization
+                # initialize working memory file for N2_sparsity optimization
                 with open(memory_path, 'w') as f:
-                    f.write(f"# Working Memory: {config_file_} (Signal_N2_5percent)\n\n")
+                    f.write(f"# Working Memory: {config_file_} (Signal_N2_sparsity)\n\n")
                     f.write("## Knowledge Base (accumulated across all blocks)\n\n")
                     f.write("### Optimization Table\n")
                     f.write("| Block | lr_W    | lr_emb  | lr     | L1   | Best R² | Best Cluster | Key finding |\n")
                     f.write("| ----- | ------- | ------- | ------ | ---- | ------- | ------------ | ----------- |\n\n")
                     f.write("### Established Principles\n\n")
-                    f.write("- 5% sparse connectivity requires L1 regularization (coeff_W_L1) for accurate W recovery\n")
-                    f.write("- Expected optimal L1 range: 1E-5 to 1E-4\n\n")
                     f.write("### Open Questions\n\n")
-                    f.write("- Optimal L1 value for 5% sparsity?\n")
-                    f.write("- Does sparse connectivity affect embedding learning?\n\n")
                     f.write("---\n\n")
                     f.write("## Previous Block Summary\n\n")
                     f.write("---\n\n")
                     f.write("## Current Block (Block 1)\n\n")
                     f.write("### Block Info\n\n")
-                    f.write("Configuration: baseline Signal_N2_5percent (1000 neurons, 4 types, 5% sparse)\n")
+                    f.write("Configuration: baseline Signal_N2_sparsity (1000 neurons, 4 types, sparse)\n")
                     f.write("Objective: connectivity_R2 > 0.9 AND cluster_accuracy > 0.9\n\n")
                     f.write("### Hypothesis\n\n")
-                    f.write("L1 regularization will be critical for recovering sparse connectivity.\n\n")
                     f.write("### Iterations This Block\n\n")
                     f.write("### Emerging Observations\n\n")
                 print(f"\033[93mcleared {memory_path}\033[0m")
@@ -238,61 +232,107 @@ if __name__ == "__main__":
             # open analysis.log for this iteration (append mode for test/plot to add metrics)
             log_file = open(analysis_log_path, 'w')
 
+            if 'daemon' in task:
+                # Daemon mode: submit job to cluster via config/new/ directory
+                # Copy current config to config/new/, wait for cluster to process it
+                # Use basename to flatten the path (config/signal/foo.yaml -> config/new/foo.yaml)
+                config_filename = f"{os.path.basename(config_file)}.yaml"
+                new_path = f"{config_root}/new/{config_filename}"
+                processing_path = f"{config_root}/processing/{config_filename}"
+                done_path = f"{config_root}/done/{config_filename}"
+                # Ensure directories exist
+                os.makedirs(f"{config_root}/new", exist_ok=True)
+                os.makedirs(f"{config_root}/processing", exist_ok=True)
+                os.makedirs(f"{config_root}/done", exist_ok=True)
 
+                # Copy config to new/ to submit job
+                source_config = f"{config_root}/{config_file}.yaml"
+                shutil.copy2(source_config, new_path)
+                submit_time = time.time()
+                print(f"\033[93mSubmitted to daemon: {new_path}\033[0m")
 
+                # Wait for job to complete (file appears in done/)
+                print(f"\033[93mWaiting for {config_filename} to be copied into config/done/ ...\033[0m")
+                check_interval = 5 * 60  # 5 minutes in seconds
+                while True:
+                    if os.path.exists(done_path):
+                        print(f"\033[92mConfig file {config_filename} copied into config/done/\033[0m")
+                        time.sleep(5)  # Wait 5s before deleting
+                        os.remove(done_path)
+                        print(f"\033[93mRemoved from done/: {config_filename}\033[0m")
+                        break
+                    # Also check if still in processing (job running)
+                    if os.path.exists(processing_path):
+                        print(f"  ... job still running (in processing/)")
+                    elif os.path.exists(new_path):
+                        print(f"  ... job queued (in new/)")
+                    else:
+                        print(f"  ... waiting for daemon to pick up job")
+                    time.sleep(check_interval)
+                print(f"\033[92mDaemon job completed, proceeding with Claude analysis...\033[0m")
 
-            if "generate" in task:
-                erase = 'Claude' in task  # erase when iterating with claude
-                data_generate(
-                    config,
-                    device=device,
-                    visualize=False,
-                    run_vizualized=0,
-                    style="color",
-                    alpha=1,
-                    erase=erase,
-                    bSave=True,
-                    step=2,
-                    log_file=log_file
-                )
+                # Close log file (metrics will be read from cluster output)
+                log_file.close()
 
-            if "train" in task:
-                data_train(
-                    config=config,
-                    erase='Claude' in task,  # erase old models when iterating with Claude
-                    best_model=best_model,
-                    style = 'color',
-                    device=device,
-                    log_file=log_file
-                )
+                # Read analysis.log generated by daemon (if exists)
+                # The daemon writes to the same log path, so metrics should be available
+                if os.path.exists(analysis_log_path):
+                    print(f"\033[92mMetrics available in: {analysis_log_path}\033[0m")
 
-            if "test" in task:
+            else:
+                # Local execution mode
+                if "generate" in task:
+                    erase = 'Claude' in task  # erase when iterating with claude
+                    data_generate(
+                        config,
+                        device=device,
+                        visualize=False,
+                        run_vizualized=0,
+                        style="color",
+                        alpha=1,
+                        erase=erase,
+                        bSave=True,
+                        step=2,
+                        log_file=log_file
+                    )
 
-                config.training.noise_model_level = 0.0
+                if "train" in task:
+                    data_train(
+                        config=config,
+                        erase='Claude' in task,  # erase old models when iterating with Claude
+                        best_model=best_model,
+                        style = 'color',
+                        device=device,
+                        log_file=log_file
+                    )
 
-                data_test(
-                    config=config,
-                    visualize=False,
-                    style="color name continuous_slice",
-                    verbose=False,
-                    best_model='best',
-                    run=0,
-                    test_mode="",
-                    sample_embedding=False,
-                    step=10,
-                    n_rollout_frames=1000,
-                    device=device,
-                    particle_of_interest=0,
-                    new_params = None,
-                    log_file=log_file,
-                )
+                if "test" in task:
 
-            if 'plot' in task:
-                folder_name = './log/' + pre_folder + '/tmp_results/'
-                os.makedirs(folder_name, exist_ok=True)
-                data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
+                    config.training.noise_model_level = 0.0
 
-            log_file.close()
+                    data_test(
+                        config=config,
+                        visualize=False,
+                        style="color name continuous_slice",
+                        verbose=False,
+                        best_model='best',
+                        run=0,
+                        test_mode="",
+                        sample_embedding=False,
+                        step=10,
+                        n_rollout_frames=1000,
+                        device=device,
+                        particle_of_interest=0,
+                        new_params = None,
+                        log_file=log_file,
+                    )
+
+                if 'plot' in task:
+                    folder_name = './log/' + pre_folder + '/tmp_results/'
+                    os.makedirs(folder_name, exist_ok=True)
+                    data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
+
+                log_file.close()
 
             if 'Claude' in task:
 
@@ -387,7 +427,7 @@ Current config: {config_path}"""
                     print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
                     print("\033[93mTo resume:\033[0m")
                     print("\033[93m  1. Run: claude /login\033[0m")
-                    print(f"\033[93m  2. Then: python GNN_N2_5percent.py -o {task} {config_file_} start={iteration}\033[0m")
+                    print(f"\033[93m  2. Then: python GNN_N2_sparsity.py -o {task} {config_file_} start={iteration}\033[0m")
                     print(f"\033[91m{'='*60}\033[0m")
                     raise SystemExit(1)
 
@@ -428,11 +468,14 @@ Current config: {config_path}"""
                 if nodes:
                     # get simulation info from config for tree annotation
                     sim_info = f"n_neurons={config.simulation.n_neurons}, n_types={config.simulation.n_neuron_types}"
-                    sim_info += f", sparse=5%"
+                    filling = config.simulation.connectivity_filling_factor
+                    sim_info += f", sparse={filling*100:.0f}%"
                     sim_info += f", n_frames={config.simulation.n_frames}"
                     sim_info += f", lr_W={config.training.learning_rate_W_start}"
                     sim_info += f", L1={config.training.coeff_W_L1}"
 
                     plot_ucb_tree(nodes, ucb_tree_path,
-                                  title=f"UCB Tree - Iter {iteration} (Signal_N2_5percent)",
+                                  title=f"UCB Tree - Iter {iteration} (Signal_N2_sparsity)",
                                   simulation_info=sim_info)
+
+# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_N2_sparsity_Claude"

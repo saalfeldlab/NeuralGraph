@@ -41,8 +41,8 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'generate_train_test_plot'
-        config_list = ['signal_N2_a37_1_bis']
+        task = 'generate'
+        config_list = ['signal_N2_a37_1']
 
     for config_file_ in config_list:
         print(" ")
@@ -63,7 +63,7 @@ if __name__ == "__main__":
                 device=device,
                 visualize=False,
                 run_vizualized=0,
-                style="black color",
+                style="color",
                 alpha=1,
                 erase=True,
                 bSave=True,
@@ -84,7 +84,7 @@ if __name__ == "__main__":
                 config=config,
                 erase=False,
                 best_model=best_model,
-                style='black',
+                style='color',
                 device=device,
             )
 

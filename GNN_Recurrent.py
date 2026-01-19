@@ -79,7 +79,7 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'
-        config_list = ['signal_N2_recurrent_1']
+        config_list = ['signal_N2_recurrent']
         task_params = {'iterations': 512}
 
     # resume support

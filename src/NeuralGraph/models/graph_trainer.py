@@ -40,6 +40,7 @@ from NeuralGraph.models.utils import (
     plot_weight_comparison,
     get_index_particles,
     analyze_data_svd,
+    LossRegularizer,
 )
 from NeuralGraph.utils import (
     to_numpy,
@@ -52,7 +53,6 @@ from NeuralGraph.utils import (
     open_gcs_zarr,
     compute_trace_metrics,
     get_datavis_root_dir,
-    LossRegularizer,
 )
 from NeuralGraph.models.Siren_Network import Siren, Siren_Network
 from NeuralGraph.models.LowRank_INR import LowRankINR

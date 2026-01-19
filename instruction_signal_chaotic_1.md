@@ -117,6 +117,8 @@ Step B: Choose strategy
 | 4+ consecutive same-param mutations   | **switch-dimension** | Mutate different parameter than recent chain                        |
 | 3+ partial results probing boundary   | **boundary-skip**    | Accept boundary as found, explore elsewhere                         |
 | 8+ consecutive sequential (no branch) | **forced-diversity** | Select any node with visits ≥ 3 that is NOT the most recent 4 nodes |
+| New param tested with ≥6 consecutive same result | **param-boundary-found** | Stop testing param, switch to different dimension |
+| cluster_accuracy=0.25 for 10+ iterations         | **embedding-failure**    | Embedding learning is architectural; test different simulation config (n_frames, n_neurons) |
 
 **Recombination details:**
 
@@ -181,8 +183,21 @@ simulation:
   Dale_law: False # or True
   Dale_law_factor: 0.5 # between 0 and 1 to explore different excitatory/inhibitory ratios.
   connectivity_rank: 20 # if low_rank between 10 and 90
-  n_neurons: 100 # can be changed to 1000 and ONLY 1000, if Iter > 512
-  n_neuron_types: 1 #  # can be changed to 4 and ONLY 4,  if Iter > 1024
+  n_neurons: 100 # can be changed to 1000
+  n_neuron_types: 1 #  between 1 to 4
+  params:
+  [
+    [1.0, 0.0, 7.0, 0.0, 1.0, 0.0],
+    [1.0, 0.0, 7.0, 1.0, 1.0, 0.0],
+    [2.0, 0.0, 7.0, 1.0, 1.0, 0.0],
+    [2.0, 0.0, 7.0, 2.0, 1.0, 0.0],
+  ]
+  # params: [a, b, g, s, w, h] per neuron type
+  # g third column is the main parameter it is the gain of the newtork dynamics, can be changed from 1 to 10
+  # s is the self excitation, can be changed 0, 1, or 2
+  # others parameters a, b, w and h are fixed
+  #
+  # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
 ```
 
 **Claude Exploration Parameters:**
