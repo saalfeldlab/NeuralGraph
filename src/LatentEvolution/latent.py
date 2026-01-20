@@ -117,7 +117,7 @@ class TrainingConfig(BaseModel):
         0.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
     )
     reconstruction_warmup_epochs: int = Field(
-        0, description="Number of epochs to train encoder/decoder only (reconstruction loss) before adding evolution loss (0 = disabled)", json_schema_extra={"short_name": "recon_wu"}
+        0, description="Number of warmup epochs to train encoder/decoder only (reconstruction loss) before the main training loop. These are additional epochs, not counted in 'epochs'.", json_schema_extra={"short_name": "recon_wu"}
     )
     unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -147,11 +147,6 @@ class TrainingConfig(BaseModel):
                 )
         if self.evolve_multiple_steps < 1:
             raise ValueError("evolve_multiple_steps must be >= 1")
-        if self.reconstruction_warmup_epochs > 0:
-            if self.reconstruction_warmup_epochs >= self.epochs:
-                raise ValueError(
-                    f"reconstruction_warmup_epochs ({self.reconstruction_warmup_epochs}) must be < epochs ({self.epochs})"
-                )
         return self
 
 
