@@ -1,5 +1,5 @@
 description: "no extra null edges, noise_model_level: 0.05 YouTube-VOS N unique frames augmented objective coeff_edge_norm: 1"
-dataset: "fly_N9_62_1_davis_calcium"
+dataset: "fly_N9_62_1_youtube-vos_calcium"
 
 simulation:
   # YouTube-VOS train/val/test images
