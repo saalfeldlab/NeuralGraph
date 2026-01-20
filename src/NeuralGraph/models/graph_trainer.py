@@ -76,6 +76,7 @@ from NeuralGraph.models.utils_zebra import (
 )
 
 from NeuralGraph.models.HashEncoding_Network import HashEncodingMLP
+from NeuralGraph.zarr_io import load_simulation_data
 
 from NeuralGraph.sparsify import EmbeddingCluster, sparsify_cluster, clustering_evaluation
 from NeuralGraph.fitting_models import linear_model
@@ -991,8 +992,9 @@ def data_train_flyvis(config, erase, best_model, device):
     x_list = []
     y_list = []
     for run in trange(0,n_runs, ncols=50):
-        x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
-        y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+        # load with format-aware loader (supports both .npy and .zarr)
+        x = load_simulation_data(f'graphs_data/{dataset_name}/x_list_{run}')
+        y = load_simulation_data(f'graphs_data/{dataset_name}/y_list_{run}')
 
         if training_selected_neurons:
             selected_neuron_ids = np.array(train_config.selected_neuron_ids).astype(int)
