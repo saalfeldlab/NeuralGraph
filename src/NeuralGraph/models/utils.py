@@ -393,8 +393,28 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
             fontsize=24, verticalalignment='top', color=mc)
     ax.text(0.05, 0.9, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
             fontsize=24, verticalalignment='top', color=mc)
+    diag_pred = np.sum(np.diag(pred_weight))
+    diag_true = np.sum(np.diag(gt_weight))
+    ax.text(0.05, 0.85, f'diag: {diag_pred:.3f} ({diag_true:.3f})', transform=ax.transAxes,
+            fontsize=16, verticalalignment='top', color=mc)
+    if config.simulation.connectivity_filling_factor < 1:
+        # Compute zero weight accuracy: how well does the model predict zero vs non-zero weights
+        true_zero = (gt_weight == 0)
+        zero_threshold = np.std(pred_weight) * 0.1
+        pred_zero = (np.abs(pred_weight) < zero_threshold)  # threshold at 10% of std
+        zero_accuracy = np.mean(true_zero == pred_zero)
+        true_zero_count = np.sum(true_zero)
+        pred_zero_count = np.sum(pred_zero)
+        ax.text(0.05, 0.81, f'zero acc: {zero_accuracy:.3f} ({pred_zero_count}/{true_zero_count}) thr={zero_threshold:.3f}', transform=ax.transAxes,
+                fontsize=16, verticalalignment='top', color=mc)
+    # Add inset histogram (top-right, position 4 of 4x4 grid)
+    ax_inset = fig.add_subplot(4, 4, 4)
+    ax_inset.hist(gt_weight.flatten(), bins=50, color='green', alpha=0.5)
+    ax_inset.hist((pred_weight / 10).flatten(), bins=50, color='blue', alpha=0.5)
+    ax_inset.set_xticks([])
+    ax_inset.set_yticks([])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.png", dpi=50)
     plt.close()
 
     # Return r_squared for progress tracking
@@ -2073,6 +2093,8 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
 
     # save connectivity matrix heatmap only at first iteration of each block
     data_folder = f"{root_dir}/graphs_data/{config.dataset}"
+    print(f"DEBUG save_exploration_artifacts: root_dir={root_dir}, pre_folder={pre_folder}, config.dataset={config.dataset}")
+    print(f"DEBUG save_exploration_artifacts: data_folder={data_folder}")
     if is_block_start:
         src_matrix = f"{data_folder}/connectivity_matrix.png"
         dst_matrix = f"{matrix_save_dir}/block_{block_number:03d}.png"
@@ -2280,31 +2302,32 @@ class LossRegularizer:
         n_neurons = self.n_neurons
         total_regul = torch.tensor(0.0, device=device)
 
-        # Get model W (handle multi-run case and low_rank_factorization)
+        # Get model W (handle multi-run case not working here)
         # For low_rank_factorization, compute W from WL @ WR to allow gradient flow
-        low_rank = getattr(model, 'low_rank_factorization', False)
-        if low_rank and hasattr(model, 'WL') and hasattr(model, 'WR'):
-            model_W = model.WL @ model.WR  # Compute W for regularization (gradients flow to WL/WR)
-        elif hasattr(model, 'W'):
-            if len(model.W.shape) == 3:
-                model_W = model.W[0]  # First run
-            else:
-                model_W = model.W
-        else:
-            model_W = None
 
         # --- W regularization ---
-        # W_L1: Apply only once per iteration (not per batch item)
-        if self._coeffs['W_L1'] > 0 and model_W is not None and not self._W_L1_applied_this_iter:
-            regul_term = model_W.norm(1) * self._coeffs['W_L1']
-            total_regul = total_regul + regul_term
-            self._add('W_L1', regul_term)
-            self._W_L1_applied_this_iter = True
 
-        if self._coeffs['W_L2'] > 0 and model_W is not None:
-            regul_term = model_W.norm(2) * self._coeffs['W_L2']
-            total_regul = total_regul + regul_term
-            self._add('W_L2', regul_term)
+        low_rank = getattr(model, 'low_rank_factorization', False)
+        if low_rank and hasattr(model, 'WL') and hasattr(model, 'WR'):
+
+            if self._coeffs['W_L1'] > 0 and not self._W_L1_applied_this_iter:
+                regul_term = (model.WL.norm(1) + model.WR) * self._coeffs['W_L1']
+                total_regul = total_regul + regul_term
+                self._add('W_L1', regul_term)
+                self._W_L1_applied_this_iter = True
+        else:
+
+            # W_L1: Apply only once per iteration (not per batch item)
+            if self._coeffs['W_L1'] > 0 and not self._W_L1_applied_this_iter:
+                regul_term = model.W.norm(1) * self._coeffs['W_L1']
+                total_regul = total_regul + regul_term
+                self._add('W_L1', regul_term)
+                self._W_L1_applied_this_iter = True
+
+            if self._coeffs['W_L2'] > 0 and not self._W_L1_applied_this_iter:
+                regul_term = model.W.norm(2) * self._coeffs['W_L2']
+                total_regul = total_regul + regul_term
+                self._add('W_L2', regul_term)
 
         # --- Edge/Phi weight regularization ---
         if (self._coeffs['edge_weight_L1'] + self._coeffs['edge_weight_L2']) > 0:
