@@ -116,9 +116,6 @@ class TrainingConfig(BaseModel):
     grad_clip_max_norm: float = Field(
         0.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
     )
-    ems_warmup_epochs: int = Field(
-        0, description="Number of epochs to train with ems=1 before switching to configured ems (0 = disabled)", json_schema_extra={"short_name": "ems_wu"}
-    )
     reconstruction_warmup_epochs: int = Field(
         0, description="Number of epochs to train encoder/decoder only (reconstruction loss) before adding evolution loss (0 = disabled)", json_schema_extra={"short_name": "recon_wu"}
     )
@@ -150,19 +147,10 @@ class TrainingConfig(BaseModel):
                 )
         if self.evolve_multiple_steps < 1:
             raise ValueError("evolve_multiple_steps must be >= 1")
-        if self.ems_warmup_epochs > 0:
-            if self.ems_warmup_epochs >= self.epochs:
-                raise ValueError(
-                    f"ems_warmup_epochs ({self.ems_warmup_epochs}) must be < epochs ({self.epochs})"
-                )
         if self.reconstruction_warmup_epochs > 0:
             if self.reconstruction_warmup_epochs >= self.epochs:
                 raise ValueError(
                     f"reconstruction_warmup_epochs ({self.reconstruction_warmup_epochs}) must be < epochs ({self.epochs})"
-                )
-            if self.ems_warmup_epochs > 0:
-                raise ValueError(
-                    "reconstruction_warmup_epochs and ems_warmup_epochs are mutually exclusive"
                 )
         return self
 
@@ -816,15 +804,6 @@ def train(cfg: ModelParams, run_dir: Path):
             model.evolver.requires_grad_(True)
             print("=== Reconstruction warmup complete ===\n")
 
-        # --- EMS warmup setup ---
-        target_ems = cfg.training.evolve_multiple_steps
-        ems_warmup_epochs = cfg.training.ems_warmup_epochs
-        use_ems_warmup = ems_warmup_epochs > 0 and target_ems > 1
-        if use_ems_warmup:
-            cfg.training.evolve_multiple_steps = 1
-            train_step_fn = train_step_nocompile
-            print(f"EMS warmup enabled: training with ems=1 (nocompile) for {ems_warmup_epochs} epochs, then ems={target_ems}")
-
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
@@ -882,19 +861,6 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
-            # transition from ems warmup to full ems
-            if use_ems_warmup and epoch == ems_warmup_epochs:
-                cfg.training.evolve_multiple_steps = target_ems
-                batch_indices_iter = make_batches_random(
-                    train_data, train_stim, wmat_indices, wmat_indptr, cfg
-                )
-                batches_per_epoch = (
-                    max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
-                )
-                # switch to compiled version (will compile fresh with target ems)
-                train_step_fn = globals()[cfg.training.train_step]
-                print(f"EMS warmup complete: switching to ems={target_ems} (compiled)")
-
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
             losses = LossComponents()
