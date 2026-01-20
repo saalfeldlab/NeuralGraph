@@ -367,6 +367,7 @@ def create_dataloader(
         drop_last=True,
         persistent_workers=num_workers > 0,
         prefetch_factor=2 if num_workers > 0 else None,
+        multiprocessing_context="spawn" if num_workers > 0 else None,
     )
 
 
