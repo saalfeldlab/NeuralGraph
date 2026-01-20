@@ -353,6 +353,12 @@ def create_dataloader(
         DataLoader that yields (data_window, stim_window) batches
     """
     total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
+
+    # move tensors to shared memory for efficient multi-process access
+    if num_workers > 0:
+        data = data.share_memory_()
+        stim = stim.share_memory_()
+
     dataset = WindowDataset(data, stim, total_steps)
 
     # use RandomSampler with replacement for infinite random sampling
