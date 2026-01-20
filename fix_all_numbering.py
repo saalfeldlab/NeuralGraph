@@ -25,9 +25,9 @@ def fix_file(filename, remove_iter_128=False):
 
         if start_pos != -1 and end_pos != -1:
             content = content[:start_pos] + content[end_pos:]
-            print(f"  Removed iteration 128 section")
+            print("  Removed iteration 128 section")
         else:
-            print(f"  Warning: Could not find iteration 128 section")
+            print("  Warning: Could not find iteration 128 section")
 
     # Step 2: Replace ALL iteration numbers 129-320 with placeholders
     # This includes headers, prose text, node references, etc.
