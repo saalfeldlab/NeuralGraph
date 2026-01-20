@@ -52,7 +52,7 @@ training:
 
   seed: 16
 
-  data_augmentation_loop: 25
+  data_augmentation_loop: 10
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
@@ -70,6 +70,6 @@ training:
 
 claude:
   n_epochs: 1
-  data_augmentation_loop: 50
+  data_augmentation_loop: 10
   n_iter_block: 6
   ucb_c: 1.414

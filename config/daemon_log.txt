@@ -817,3 +817,4 @@
 2026-01-20 08:00:59 | START | signal_chaotic_1_Claude.yaml
 2026-01-20 08:14:43 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
 2026-01-20 08:19:20 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-20 09:44:58 | DAEMON_START | signal_chaotic_1_Claude.yaml
