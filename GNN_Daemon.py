@@ -15,9 +15,8 @@ if os.path.isdir('/scratch'):
 
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
-from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
+from NeuralGraph.models.graph_trainer import data_train, data_test
 from NeuralGraph.utils import set_device, add_pre_folder
-from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
 
 import warnings
@@ -138,7 +137,7 @@ def process_config(config_file_path, device, log_file):
         print(f"Completed: {config_name}")
         print(f"Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"{'='*60}\n")
-        print(f"Waiting for config file to be copied to new/ ...")
+        print("Waiting for config file to be copied to new/ ...")
 
     except Exception as e:
         # Log stop (error)
@@ -154,7 +153,7 @@ def process_config(config_file_path, device, log_file):
                 print(f"Config file {config_name} moved to done/ (with error)")
         except Exception:
             pass
-        print(f"Waiting for config file to be copied to new/ ...")
+        print("Waiting for config file to be copied to new/ ...")
 
 
 def daemon_loop(target_config=None):
@@ -188,12 +187,12 @@ def daemon_loop(target_config=None):
     device = None
 
     print(f"\n{'#'*60}")
-    print(f"GNN Daemon Started")
+    print("GNN Daemon Started")
     print(f"Watching: {new_dir}")
     if target_filename:
         print(f"Target config: {target_filename}")
     else:
-        print(f"Target config: ANY (processing all yaml files)")
+        print("Target config: ANY (processing all yaml files)")
     print(f"Log file: {log_file}")
     print(f"{'#'*60}\n")
 

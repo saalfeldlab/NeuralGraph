@@ -254,13 +254,13 @@ if __name__ == "__main__":
                         break
                     # Also check if still in processing (job running)
                     if os.path.exists(processing_path):
-                        print(f"  ... job still running (in processing/)")
+                        print("  ... job still running (in processing/)")
                     elif os.path.exists(new_path):
-                        print(f"  ... job queued (in new/)")
+                        print("  ... job queued (in new/)")
                     else:
-                        print(f"  ... waiting for daemon to pick up job")
+                        print("  ... waiting for daemon to pick up job")
                     time.sleep(check_interval)
-                print(f"\033[92mDaemon job completed, proceeding with Claude analysis...\033[0m")
+                print("\033[92mDaemon job completed, proceeding with Claude analysis...\033[0m")
 
                 # Close log file (metrics will be read from cluster output)
                 log_file.close()

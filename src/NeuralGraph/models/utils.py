@@ -2387,7 +2387,7 @@ class LossRegularizer:
             if self.trainer_type == 'signal' and index_weight is not None:
                 # Signal version: uses index_weight
                 if self.iter_count % 4 == 0:
-                    W_sign = torch.tanh(5 * model_W)
+                    W_sign = torch.tanh(5 * model_W) # noqa: F821
                     loss_contribs = []
                     for i in range(n_neurons):
                         indices = index_weight[int(i)]
@@ -2401,7 +2401,7 @@ class LossRegularizer:
                         self._add('W_sign', regul_term)
             else:
                 # Flyvis version: uses scatter_add
-                weights = model_W.squeeze() if model_W is not None else model.W.squeeze()
+                weights = model_W.squeeze() if model_W is not None else model.W.squeeze() # noqa: F821
                 source_neurons = edges[0]
 
                 n_pos = torch.zeros(n_neurons, device=device)

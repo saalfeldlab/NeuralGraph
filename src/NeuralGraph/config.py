@@ -9,7 +9,7 @@ class SimulationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     dimension: int = 2
-    n_frames: int = 1000
+    n_frames: int = 1000  # number of simulation time steps; 0 = use each source frame exactly once (no reuse)
     start_frame: int = 0
     seed: int = 42
 
@@ -36,6 +36,8 @@ class SimulationConfig(BaseModel):
     noise_visual_input: float = 0.0
     only_noise_visual_input: float = 0.0
     visual_input_type: str = ""  # for flyvis experiments
+    datavis_roots: list[str] = []  # list of dataset roots (each contains JPEGImages/480p/); empty list uses default get_datavis_root_dir()
+    skip_short_videos: bool = True  # skip videos with fewer frames than chunk size (n_frames in video_config)
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
 
