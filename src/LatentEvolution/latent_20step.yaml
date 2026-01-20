@@ -41,9 +41,10 @@ training:
   # Number of time_units multiples to evolve. Loss applied at each multiple.
   # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
   evolve_multiple_steps: 5
-  simulation_config: "fly_N9_62_1_calcium"
+  simulation_config: "fly_N9_62_1_youtube-vos_calcium" # 987736 time steps
+  apply_time_units: true
   data_passes_per_epoch: 25
-  epochs: 100 # Total number of epochs
+  epochs: 50 # Total number of epochs
   save_best_checkpoint: True # Save model with lowest validation loss
   save_checkpoint_every_n_epochs: 0
   diagnostics_freq_epochs: 1 # run validation diagnostics every epoch
@@ -60,17 +61,24 @@ training:
   reconstruction_warmup_epochs: 10
 
   data_split:
-    train_start: 4000 # Exclude burn-in
-    train_end: 54000
-    validation_start: 54000
-    validation_end: 64000
+    train_start: 5120 # = 256*20 Exclude burn-in
+    train_end: 972800 # = 256*3800
+    validation_start: 973056 # = 256*3801
+    validation_end: 987648 # 256*3858
 
 # Cross-dataset validation (evaluates trained model on different datasets)
 cross_validation_configs:
   - simulation_config: "fly_N9_62_0_optical_flow_calcium"
     name: "optical_flow"
     data_split:
-      train_start: 5000
-      train_end: 15000
+      train_start: 0
+      train_end: 1
       validation_start: 5000
       validation_end: 15000
+  - simulation_config: "fly_N9_62_0_davis_calcium"
+    name: "davis_2016_2017"
+    data_split:
+      train_start: 0
+      train_end: 1
+      validation_start: 5000
+      validation_end: 25000
