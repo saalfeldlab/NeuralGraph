@@ -849,7 +849,6 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Checkpoint setup ---
         checkpoint_dir = run_dir / "checkpoints"
         checkpoint_dir.mkdir(exist_ok=True)
-        best_val_loss = float('inf')
 
         # --- Profiler setup ---
         profiler = None
@@ -915,17 +914,6 @@ def train(cfg: ModelParams, run_dir: Path):
 
             mean_losses = losses.mean()
 
-            # ---- Validation phase ----
-            model.eval()
-            total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
-            with torch.no_grad():
-                start_indices = torch.arange(val_data.shape[0] - total_steps, device=device)
-                all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
-                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, all_neurons, all_neurons, cfg)
-                val_loss = loss_tuple[0].item()
-
-            model.train()
-
             epoch_end = datetime.now()
             gpu_monitor.sample_epoch_end()
             epoch_duration = (epoch_end - epoch_start).total_seconds()
@@ -934,13 +922,12 @@ def train(cfg: ModelParams, run_dir: Path):
 
             print(
                 f"Epoch {epoch+1}/{cfg.training.epochs} | "
-                f"Train Loss: {mean_losses.total:.4e} | Val Loss: {val_loss:.4e} | "
+                f"Train Loss: {mean_losses.total:.4e} | "
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
             # Log to TensorBoard
             writer.add_scalar("Loss/train", mean_losses.total, epoch)
-            writer.add_scalar("Loss/val", val_loss, epoch)
             writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
             writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
             writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
@@ -997,13 +984,6 @@ def train(cfg: ModelParams, run_dir: Path):
                 model.train()
 
             # --- Checkpointing ---
-            # Save best checkpoint
-            if cfg.training.save_best_checkpoint and val_loss < best_val_loss:
-                best_val_loss = val_loss
-                checkpoint_path = checkpoint_dir / "checkpoint_best.pt"
-                torch.save(model.state_dict(), checkpoint_path)
-                print(f"  → Saved best checkpoint (val_loss: {val_loss:.4e})")
-
             # Save periodic checkpoint
             if cfg.training.save_checkpoint_every_n_epochs > 0 and (epoch + 1) % cfg.training.save_checkpoint_every_n_epochs == 0:
                 checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch+1:04d}.pt"
@@ -1030,7 +1010,6 @@ def train(cfg: ModelParams, run_dir: Path):
         metrics.update(
             {
                     "final_train_loss": mean_losses.total,
-                    "final_val_loss": val_loss,
                     "commit_hash": commit_hash,
                     "training_duration_seconds": round(total_training_duration, 2),
                     "avg_epoch_duration_seconds": round(avg_epoch_duration, 2),
@@ -1107,7 +1086,6 @@ def train(cfg: ModelParams, run_dir: Path):
         }
         metric_dict = {
             "hparam/final_train_loss": metrics["final_train_loss"],
-            "hparam/final_val_loss": metrics["final_val_loss"],
         }
         writer.add_hparams(hparams, metric_dict)
         print("Logged hyperparameters to TensorBoard")
