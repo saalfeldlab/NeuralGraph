@@ -37,6 +37,7 @@ class SimulationConfig(BaseModel):
     only_noise_visual_input: float = 0.0
     visual_input_type: str = ""  # for flyvis experiments
     datavis_roots: list[str] = []  # list of dataset roots (each contains JPEGImages/480p/); empty list uses default get_datavis_root_dir()
+    skip_short_videos: bool = True  # skip videos with fewer frames than chunk size (n_frames in video_config)
     blank_freq: int = 2  # Frequency of blank frames in visual input
     simulation_initial_state: bool = False
 

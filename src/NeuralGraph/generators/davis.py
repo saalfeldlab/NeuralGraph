@@ -244,6 +244,7 @@ class RenderedDavis(Directory):
             center_crop_fraction: float = 0.7,
             unittest: bool = False,
             davis_path: Optional[Union[str, Path]] = None,
+            skip_short_videos: bool = True,
     ):
         if davis_path is None:
             raise ValueError("davis_path must be provided - path to directory containing video files")
@@ -272,8 +273,8 @@ class RenderedDavis(Directory):
                 # Load full image sequence
                 frames = load_image_sequence(seq_dir, end_frame=None)
 
-                # Skip if sequence too short
-                if len(frames) < n_frames:
+                # Skip if sequence too short (only if skip_short_videos is True)
+                if skip_short_videos and len(frames) < n_frames:
                     logger.warning(f"Sequence {seq_dir.name} has only {len(frames)} frames, skipping")
                     continue
 
@@ -399,6 +400,7 @@ class MultiTaskDavis(MultiTaskDataset):
             _init_cache: bool = True,
             unittest: bool = False,
             flip_axes: List[int] = [0, 1],
+            skip_short_videos: bool = True,
     ):
         def check_tasks(tasks):
             invalid_tasks = [x for x in tasks if x not in self.valid_tasks]
@@ -451,6 +453,7 @@ class MultiTaskDavis(MultiTaskDataset):
             center_crop_fraction=center_crop_fraction,
             unittest=unittest,
             davis_path=root_dir,
+            skip_short_videos=skip_short_videos,
         )
 
         self.meta = davis_meta(
@@ -804,6 +807,7 @@ class AugmentedVideoDataset(MultiTaskDavis):
             indices: Optional[List[int]] = None,
             unittest: bool = False,
             shuffle_sequences: bool = True,
+            skip_short_videos: bool = True,
             **kwargs,
     ):
         if any([arg not in self.valid_flip_axes for arg in flip_axes]):
@@ -845,6 +849,7 @@ class AugmentedVideoDataset(MultiTaskDavis):
             center_crop_fraction=center_crop_fraction,
             unittest=unittest,
             _init_cache=True,
+            skip_short_videos=skip_short_videos,
         )
 
         self.indices = np.array(indices) if indices is not None else None

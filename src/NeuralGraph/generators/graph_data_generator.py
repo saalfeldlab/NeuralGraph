@@ -303,7 +303,8 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
             "vertical_splits": 1,
             "center_crop_fraction": 0.6,
             "augment": False,
-            "unittest": False
+            "unittest": False,
+            "skip_short_videos": simulation_config.skip_short_videos,
         }
 
         # create dataset(s)
