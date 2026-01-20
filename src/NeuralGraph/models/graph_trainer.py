@@ -68,6 +68,7 @@ from NeuralGraph.models.Neural_ode_wrapper_Signal import integrate_neural_ode_Si
 from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal
 from NeuralGraph.models.Signal_Propagation_RNN import Signal_Propagation_RNN
 from NeuralGraph.models.Signal_Propagation_LSTM import Signal_Propagation_LSTM
+from NeuralGraph.models.Signal_Propagation_Simple import Signal_Propagation_Simple
 from NeuralGraph.models.utils_zebra import (
     plot_field_comparison,
     plot_field_comparison_continuous_slices,
@@ -5077,7 +5078,10 @@ def data_train_simple(config, erase, best_model, style, device, log_file=None):
     time.sleep(0.5)
 
     print('create models ...')
-    model, bc_pos, bc_dpos = choose_training_model(model_config=config, device=device)
+    # Use Signal_Propagation_Simple which uses full matrix multiplication for PDE_N2
+    # (like ParticleGraph's Signal_Propagation2) instead of sparse message passing
+    model = Signal_Propagation_Simple(aggr_type=model_config.aggr_type, config=config, device=device, bc_dpos=None)
+    model.edges = []
     model.to(device)
     model.train()
 
@@ -5111,13 +5115,14 @@ def data_train_simple(config, erase, best_model, style, device, log_file=None):
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
 
     print(f'n neurons: {n_neurons}, edges:{edges.shape[1]}, xnorm: {to_numpy(xnorm)}')
+    print(f'Using Signal_Propagation_Simple with full matrix multiplication (W @ lin_edge(u))')
     logger.info(f'n neurons: {n_neurons}, edges:{edges.shape[1]}, xnorm: {to_numpy(xnorm)}')
 
-    # Two-phase parameters (key conceptual difference B)
-    n_epochs_init = getattr(train_config, 'n_epochs_init', 5)
-    first_coeff_L1 = getattr(train_config, 'first_coeff_L1', 1.0e-6)
-    coeff_L1 = getattr(train_config, 'coeff_L1', 1.0e-5)
-    coeff_diff = getattr(train_config, 'coeff_diff', 100)
+    # Two-phase parameters (matching ParticleGraph defaults)
+    n_epochs_init = getattr(train_config, 'n_epochs_init', 2)  # ParticleGraph default
+    first_coeff_L1 = getattr(train_config, 'first_coeff_L1', 0)  # ParticleGraph default
+    coeff_L1 = getattr(train_config, 'coeff_L1', 0)  # ParticleGraph default
+    coeff_diff = getattr(train_config, 'coeff_diff', 10)  # ParticleGraph default
 
     # MLP output regularization coefficients (key conceptual difference C, D)
     coeff_func_phi = getattr(train_config, 'coeff_func_phi', 1.0)
@@ -5161,7 +5166,8 @@ def data_train_simple(config, erase, best_model, style, device, log_file=None):
 
         for N in pbar:
 
-            run = np.random.randint(n_runs)
+            # ParticleGraph skips run 0, uses runs 1 to n_runs-1
+            run = 1 + np.random.randint(n_runs - 1) if n_runs > 1 else 0
             k = np.random.randint(n_frames - 5)
 
             optimizer.zero_grad()
@@ -5190,7 +5196,8 @@ def data_train_simple(config, erase, best_model, style, device, log_file=None):
 
             # Forward pass
             dataset = pyg_Data(x=x, edge_index=edges)
-            pred = model(dataset, data_id=run)
+            data_id = torch.ones((n_neurons, 1), dtype=torch.int, device=device) * run
+            pred = model(dataset, data_id=data_id)
 
             # Target
             y = torch.tensor(y_list[run][k], device=device) / ynorm
