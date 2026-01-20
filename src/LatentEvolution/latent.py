@@ -4,7 +4,7 @@ and reproducible training with run logging.
 """
 
 from pathlib import Path
-from typing import Callable, Iterator
+from typing import Callable
 from datetime import datetime
 from dataclasses import dataclass
 import random
@@ -305,102 +305,107 @@ class LatentModel(nn.Module):
 # -------------------------------------------------------------------
 
 
-def extract_batch_windows(
+class WindowDataset(torch.utils.data.Dataset):
+    """Dataset that returns time windows for training.
+
+    Each sample is a contiguous window of (data, stim) starting at a random index.
+    Used with DataLoader for parallel prefetching.
+    """
+
+    def __init__(self, data: torch.Tensor, stim: torch.Tensor, total_steps: int):
+        """
+        Args:
+            data: Full data tensor on CPU (T, N)
+            stim: Full stimulus tensor on CPU (T, N_stim)
+            total_steps: Number of evolution steps (window size for stim,
+                data window is total_steps + 1 to include endpoint)
+        """
+        self.data = data
+        self.stim = stim
+        self.total_steps = total_steps
+        self.num_valid_starts = data.shape[0] - total_steps
+
+    def __len__(self):
+        return self.num_valid_starts
+
+    def __getitem__(self, idx):
+        # return contiguous slices - much faster than fancy indexing
+        data_window = self.data[idx:idx + self.total_steps + 1]  # (total_steps+1, N)
+        stim_window = self.stim[idx:idx + self.total_steps]  # (total_steps, N_stim)
+        return data_window, stim_window
+
+
+def create_dataloader(
     data: torch.Tensor,
     stim: torch.Tensor,
-    start_indices: torch.Tensor,
-    total_steps: int,
-    device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Extract batch windows from CPU tensors and move to GPU.
+    cfg: ModelParams,
+    num_workers: int = 4,
+) -> torch.utils.data.DataLoader:
+    """Create a DataLoader for training with parallel prefetching.
 
     Args:
         data: Full data tensor on CPU (T, N)
         stim: Full stimulus tensor on CPU (T, N_stim)
-        start_indices: Starting time indices for each batch element (batch_size,)
-        total_steps: Number of time steps to extract (window size for stim,
-            window size for data is total_steps + 1 to include endpoint)
-        device: Target device (GPU)
+        cfg: Model parameters
+        num_workers: Number of worker processes for data loading
 
     Returns:
-        data_window: shape (batch_size, total_steps + 1, N) on device
-        stim_window: shape (batch_size, total_steps, N_stim) on device
+        DataLoader that yields (data_window, stim_window) batches
     """
-    # build index tensor for gathering: (batch_size, window_size)
-    # data needs total_steps + 1 points (0 to total_steps inclusive)
-    data_offsets = torch.arange(total_steps + 1, device='cpu')
-    data_indices = start_indices.unsqueeze(1) + data_offsets.unsqueeze(0)  # (B, total_steps+1)
+    total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
+    dataset = WindowDataset(data, stim, total_steps)
 
-    # stim needs total_steps points (0 to total_steps - 1)
-    stim_offsets = torch.arange(total_steps, device='cpu')
-    stim_indices = start_indices.unsqueeze(1) + stim_offsets.unsqueeze(0)  # (B, total_steps)
+    # use RandomSampler with replacement for infinite random sampling
+    sampler = torch.utils.data.RandomSampler(dataset, replacement=True)
 
-    # gather and move to device
-    data_window = data[data_indices].to(device, non_blocking=True)  # (B, total_steps+1, N)
-    stim_window = stim[stim_indices].to(device, non_blocking=True)  # (B, total_steps, N_stim)
+    return torch.utils.data.DataLoader(
+        dataset,
+        batch_size=cfg.training.batch_size,
+        sampler=sampler,
+        num_workers=num_workers,
+        pin_memory=True,
+        drop_last=True,
+        persistent_workers=num_workers > 0,
+        prefetch_factor=2 if num_workers > 0 else None,
+    )
 
-    return data_window, stim_window
 
-
-def make_batches_random(
-    data: torch.Tensor,
-    stim: torch.Tensor,
+def generate_augmentation_indices(
+    num_neurons: int,
+    num_neurons_to_zero: int,
     wmat_indices: torch.Tensor,
     wmat_indptr: torch.Tensor,
-    cfg: ModelParams,
     device: torch.device,
-) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
-    """Randomly sample batches and stream them to GPU.
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Generate augmentation indices for connectome constraint.
 
-    Data and stim are expected to be on CPU with pin_memory enabled.
-    Each iteration extracts a batch window and transfers it to the GPU.
+    Args:
+        num_neurons: Total number of neurons
+        num_neurons_to_zero: Number of neurons to sample for augmentation
+        wmat_indices: CSR column indices of connectome (on GPU)
+        wmat_indptr: CSR row pointers of connectome (on GPU)
+        device: Target device
 
     Returns:
-        Tuple of (data_window, stim_window, selected_neurons, needed_indices)
-        - data_window: (batch_size, total_steps + 1, N) on GPU
-        - stim_window: (batch_size, total_steps, N_stim) on GPU
-        - selected_neurons: neurons selected for augmentation loss (on GPU)
-        - needed_indices: neurons that can impact selected_neurons (on GPU)
+        selected_neurons: Neurons selected for augmentation loss
+        needed_indices: Neurons that can impact selected_neurons (based on connectome)
     """
-    batch_size = cfg.training.batch_size
-    time_units = cfg.training.time_units
-    total_steps = time_units * cfg.training.evolve_multiple_steps
-    num_neurons = data.shape[1]
-    num_neurons_to_zero = cfg.training.unconnected_to_zero.num_neurons
-
-    total_time = data.shape[0]
-    if total_time <= total_steps:
-        raise ValueError(
-            f"Not enough time points ({total_time}) for total_steps={total_steps}"
+    if num_neurons_to_zero > 0:
+        selected_neurons = torch.randint(
+            low=0, high=num_neurons, size=(num_neurons_to_zero,), device=device
         )
-
-    while True:
-        # generate start indices on CPU
-        start_indices = torch.randint(
-            low=0, high=total_time - total_steps, size=(batch_size,)
+        # based on the connectome, which neurons can actually impact the value
+        # of the `selected_neurons`
+        needed_indices = torch.concatenate(
+            [wmat_indices[wmat_indptr[i]:wmat_indptr[i+1]] for i in selected_neurons]
         )
+        # also keep the actual selected neurons
+        needed_indices = torch.unique(torch.concatenate([needed_indices, selected_neurons]))
+    else:
+        selected_neurons = torch.empty(0, dtype=torch.long, device=device)
+        needed_indices = torch.empty(0, dtype=torch.long, device=device)
 
-        # extract windows and move to GPU
-        data_window, stim_window = extract_batch_windows(
-            data, stim, start_indices, total_steps, device
-        )
-
-        if num_neurons_to_zero > 0:
-            selected_neurons = torch.randint(
-                low=0, high=num_neurons, size=(num_neurons_to_zero,), device=device
-            )
-            # based on the connectome, which neurons can actually impact the value
-            # of the `selected_neurons`
-            needed_indices = torch.concatenate(
-                [wmat_indices[wmat_indptr[i]:wmat_indptr[i+1]] for i in selected_neurons]
-            )
-            # also keep the actual selected neurons
-            needed_indices = torch.unique(torch.concatenate([needed_indices, selected_neurons]))
-        else:
-            selected_neurons = torch.empty(0, dtype=torch.long, device=device)
-            needed_indices = torch.empty(0, dtype=torch.long, device=device)
-
-        yield data_window, stim_window, selected_neurons, needed_indices
+    return selected_neurons, needed_indices
 
 
 # -------------------------------------------------------------------
@@ -818,24 +823,33 @@ def train(cfg: ModelParams, run_dir: Path):
             cv_datasets[cv_name] = (cv_val_data, cv_val_stim)
             print(f"Loaded cross-validation dataset: {cv_name} (val shape: {cv_val_data.shape})")
 
+        # --- DataLoader setup ---
+        num_time_points = train_data.shape[0]
+        batches_per_epoch = (
+            max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
+        )
+        train_loader = create_dataloader(train_data, train_stim, cfg, num_workers=4)
+        train_loader_iter = iter(train_loader)
+        num_neurons = train_data.shape[1]
+        num_neurons_to_zero = cfg.training.unconnected_to_zero.num_neurons
+
         # --- Reconstruction warmup loop ---
         recon_warmup_epochs = cfg.training.reconstruction_warmup_epochs
         if recon_warmup_epochs > 0:
             print(f"\n=== Reconstruction warmup: {recon_warmup_epochs} epochs ===")
             model.evolver.requires_grad_(False)
 
-            # use make_batches_random for warmup too (streams from CPU)
-            warmup_batch_iter = make_batches_random(
-                train_data, train_stim, wmat_indices, wmat_indptr, cfg, device
-            )
-            warmup_batches_per_epoch = max(1, train_data.shape[0] // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
-
             for warmup_epoch in range(recon_warmup_epochs):
                 warmup_epoch_start = datetime.now()
                 warmup_losses = LossComponents()
-                for _ in range(warmup_batches_per_epoch):
+                for _ in range(batches_per_epoch):
                     optimizer.zero_grad()
-                    data_window, stim_window, selected_neurons, needed_indices = next(warmup_batch_iter)
+                    data_window, stim_window = next(train_loader_iter)
+                    data_window = data_window.to(device, non_blocking=True)
+                    stim_window = stim_window.to(device, non_blocking=True)
+                    selected_neurons, needed_indices = generate_augmentation_indices(
+                        num_neurons, num_neurons_to_zero, wmat_indices, wmat_indptr, device
+                    )
                     # use nocompile version for warmup (simpler, no need for max-autotune overhead)
                     loss_tuple = train_step_reconstruction_only_nocompile(
                         model, data_window, stim_window,
@@ -857,17 +871,6 @@ def train(cfg: ModelParams, run_dir: Path):
 
             model.evolver.requires_grad_(True)
             print("=== Reconstruction warmup complete ===\n")
-
-        # --- Batching setup ---
-        num_time_points = train_data.shape[0]
-        # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
-        # resampling data points.
-        batches_per_epoch = (
-            max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
-        )
-        batch_iter = make_batches_random(
-            train_data, train_stim, wmat_indices, wmat_indptr, cfg, device
-        )
 
         # --- Initialize GPU monitoring ---
         gpu_monitor = GPUMonitor()
@@ -922,7 +925,12 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
-                data_window, stim_window, selected_neurons, needed_indices = next(batch_iter)
+                data_window, stim_window = next(train_loader_iter)
+                data_window = data_window.to(device, non_blocking=True)
+                stim_window = stim_window.to(device, non_blocking=True)
+                selected_neurons, needed_indices = generate_augmentation_indices(
+                    num_neurons, num_neurons_to_zero, wmat_indices, wmat_indptr, device
+                )
                 loss_tuple = train_step_fn(
                     model, data_window, stim_window, selected_neurons, needed_indices, cfg
                 )
