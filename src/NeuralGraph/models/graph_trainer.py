@@ -139,8 +139,6 @@ def data_train(config=None, erase=False, best_model=None, style=None, device=Non
     print("training completed.")
 
 
-
-
 def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
     simulation_config = config.simulation
@@ -383,6 +381,9 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
     training_start_time = time.time()
 
+    # Store original W_L1 coefficient for conditional disabling during epoch 0
+    original_W_L1 = train_config.coeff_W_L1
+
     for epoch in range(start_epoch, n_epochs):
 
         if (epoch == train_config.epoch_reset):
@@ -424,7 +425,14 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
         time.sleep(1.0)
         pbar = trange(Niter, ncols=150, disable=tqdm_disabled)
+
         for N in pbar:
+
+            # Disable L1 W regularization during second half of epoch 0
+            if epoch == 0 and N == Niter // 2:
+                regularizer._coeffs['W_L1'] = 0.0
+                print(f'[epoch {epoch}, iter {N}] W_L1 disabled (was {original_W_L1})')
+
 
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
@@ -919,7 +927,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         log_file.write(f"learning_rate_W: {lr_W}\n")
         log_file.write(f"learning_rate: {train_config.learning_rate_start}\n")
         log_file.write(f"coeff_W_L1: {train_config.coeff_W_L1}\n")
-
 
 
 def data_train_flyvis(config, erase, best_model, device):

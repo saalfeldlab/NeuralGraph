@@ -106,18 +106,18 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition                             | Strategy             | Action                                                              |
-| ------------------------------------- | -------------------- | ------------------------------------------------------------------- |
-| Default                               | **exploit**          | Highest UCB node, try mutation                                      |
-| 3+ consecutive R² ≥ 0.9               | **failure-probe**    | Extreme parameter to find boundary                                  |
-| n_iter_block/4 consecutive successes  | **explore**          | Select outside recent chain                                         |
-| Good config found                     | **robustness-test**  | Re-run same config                                                  |
-| 2+ distant nodes with R² > 0.9        | **recombine**        | Merge params from both nodes                                        |
-| 100% convergence, branching<10%       | **forced-branch**    | Select node in bottom 50% of tree                                   |
-| 4+ consecutive same-param mutations   | **switch-dimension** | Mutate different parameter than recent chain                        |
-| 3+ partial results probing boundary   | **boundary-skip**    | Accept boundary as found, explore elsewhere                         |
-| 8+ consecutive sequential (no branch) | **forced-diversity** | Select any node with visits ≥ 3 that is NOT the most recent 4 nodes |
-| New param tested with ≥6 consecutive same result | **param-boundary-found** | Stop testing param, switch to different dimension |
+| Condition                                        | Strategy                 | Action                                                                                      |
+| ------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------- |
+| Default                                          | **exploit**              | Highest UCB node, try mutation                                                              |
+| 3+ consecutive R² ≥ 0.9                          | **failure-probe**        | Extreme parameter to find boundary                                                          |
+| n_iter_block/4 consecutive successes             | **explore**              | Select outside recent chain                                                                 |
+| Good config found                                | **robustness-test**      | Re-run same config                                                                          |
+| 2+ distant nodes with R² > 0.9                   | **recombine**            | Merge params from both nodes                                                                |
+| 100% convergence, branching<10%                  | **forced-branch**        | Select node in bottom 50% of tree                                                           |
+| 4+ consecutive same-param mutations              | **switch-dimension**     | Mutate different parameter than recent chain                                                |
+| 3+ partial results probing boundary              | **boundary-skip**        | Accept boundary as found, explore elsewhere                                                 |
+| 8+ consecutive sequential (no branch)            | **forced-diversity**     | Select any node with visits ≥ 3 that is NOT the most recent 4 nodes                         |
+| New param tested with ≥6 consecutive same result | **param-boundary-found** | Stop testing param, switch to different dimension                                           |
 | cluster_accuracy=0.25 for 10+ iterations         | **embedding-failure**    | Embedding learning is architectural; test different simulation config (n_frames, n_neurons) |
 
 **Recombination details:**
@@ -145,7 +145,7 @@ Recombine → lr_W=1E-2, lr=2E-3
 ### Step 5: Edit Config File
 
 Edit config file for next iteration of the exploration.
-(The config path is provided in the prompt as "Current config")
+The config path is provided in the prompt as "Current config"
 
 **CRITICAL: Config Parameter Constraints**
 
@@ -160,7 +160,9 @@ Any other parameters belong in the `training:` or `simulation:` sections, NOT in
 
 Adding invalid parameters to `claude:` will cause a validation error and crash the experiment.
 
-**Training Parameters (change within block):**
+**Training Parameters (change within block, ONLY one at a time):**
+
+Mutate ONE parameter at a time for better causal understanding.
 
 ```yaml
 training:
@@ -184,7 +186,10 @@ simulation:
   Dale_law_factor: 0.5 # between 0 and 1 to explore different excitatory/inhibitory ratios.
   connectivity_rank: 20 # if low_rank between 10 and 90
   n_neurons: 100 # can be changed to 1000
-  n_neuron_types: 1 #  between 1 to 4
+  # params: [a, b, g, s, w, h] per neuron type
+  # g third column, the gain of the network dynamics, is the main parameter, can be changed from 1 to 10
+  # s is the self excitation, can be changed 0, 1, or 2
+  # others parameters a, b, w and h are fixed
   params:
   [
     [1.0, 0.0, 7.0, 0.0, 1.0, 0.0],
@@ -192,12 +197,13 @@ simulation:
     [2.0, 0.0, 7.0, 1.0, 1.0, 0.0],
     [2.0, 0.0, 7.0, 2.0, 1.0, 0.0],
   ]
-  # params: [a, b, g, s, w, h] per neuron type
-  # g third column is the main parameter it is the gain of the newtork dynamics, can be changed from 1 to 10
-  # s is the self excitation, can be changed 0, 1, or 2
-  # others parameters a, b, w and h are fixed
-  #
-  # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
+  # params values can be changed (mainly g, third column) BUT the size 4 x 6 must be maintained
+  # n_neuron_types defines network heterogeneity (change at block boundaries):
+  # - 1 = homogeneous network (all neurons have same dynamics)
+  # - 2-4 = heterogeneous network (neurons have different dynamics based on type)
+  # - params array must have exactly n_neuron_types rows
+  n_neuron_types: 1 # can be changed between 1 to 4 at block boundaries
+
 ```
 
 **Claude Exploration Parameters:**

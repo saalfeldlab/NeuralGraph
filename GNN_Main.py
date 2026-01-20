@@ -41,8 +41,8 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'generate'
-        config_list = ['signal_N2_a37_1']
+        task = 'train'
+        config_list = ['signal_N2_sparsity_1']
 
     for config_file_ in config_list:
         print(" ")
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         elif "train" in task:
             data_train(
                 config=config,
-                erase=False,
+                erase=True,
                 best_model=best_model,
                 style='color',
                 device=device,

@@ -699,3 +699,121 @@
 2026-01-19 11:32:58 | DAEMON_START | signal_N2_sparsity_Claude.yaml
 2026-01-19 11:33:00 | START | signal_N2_sparsity_Claude.yaml
 2026-01-19 11:36:56 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 11:42:38 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 11:58:37 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 12:03:05 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 12:09:18 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 12:29:46 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 12:36:58 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 12:57:21 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 13:03:33 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 13:15:54 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 13:18:27 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 13:18:37 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 13:20:00 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 13:20:14 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 13:21:16 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 13:24:43 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 13:41:09 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 13:47:21 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 14:03:45 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 14:08:58 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 14:25:21 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 14:29:34 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 14:34:39 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 14:34:43 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 14:50:22 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 15:00:04 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 15:19:16 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 15:20:18 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 15:26:19 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 15:27:51 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 15:37:02 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 15:41:44 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 15:44:18 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 15:45:27 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 15:45:59 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 15:51:35 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 15:52:02 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 15:53:04 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 16:12:06 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 16:18:48 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 16:48:34 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 16:55:47 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 17:25:31 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 17:36:44 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 17:36:47 | STOP (ERROR: tuple index out of range) | signal_chaotic_1_Claude.yaml
+2026-01-19 17:41:29 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 17:41:32 | STOP (ERROR: tuple index out of range) | signal_chaotic_1_Claude.yaml
+2026-01-19 17:47:14 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 17:47:17 | STOP (ERROR: tuple index out of range) | signal_chaotic_1_Claude.yaml
+2026-01-19 17:52:00 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 17:52:02 | STOP (ERROR: tuple index out of range) | signal_chaotic_1_Claude.yaml
+2026-01-19 17:56:45 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 17:56:47 | STOP (ERROR: tuple index out of range) | signal_chaotic_1_Claude.yaml
+2026-01-19 17:57:28 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 17:59:46 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-19 18:02:06 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 18:03:08 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 18:03:59 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 18:04:22 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 18:15:15 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 18:15:34 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 18:16:18 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 18:21:57 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 18:24:29 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 18:27:01 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 18:27:25 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 18:28:27 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 20:08:15 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 20:13:28 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 20:13:41 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 20:20:16 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 20:21:18 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 20:23:26 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-19 20:24:20 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 20:25:10 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 20:26:12 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 20:27:09 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 20:56:47 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 21:06:49 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 21:08:21 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 21:24:12 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 21:29:06 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-19 21:30:37 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-19 21:32:39 | START | signal_chaotic_1_Claude.yaml
+2026-01-19 21:42:31 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 21:56:04 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 21:57:36 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 21:57:37 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:00:00 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:01:03 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:04:05 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:05:23 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:06:25 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:07:37 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:07:56 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:08:31 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:09:37 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:09:39 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:09:45 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:11:18 | DAEMON_START | signal_N2_sparsity_Claude.yaml
+2026-01-19 22:12:21 | START | signal_N2_sparsity_Claude.yaml
+2026-01-19 23:12:06 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-19 23:18:49 | START | signal_chaotic_1_Claude.yaml
+2026-01-20 00:18:40 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-20 00:23:22 | START | signal_N2_sparsity_Claude.yaml
+2026-01-20 00:58:20 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-20 01:05:02 | START | signal_chaotic_1_Claude.yaml
+2026-01-20 02:44:37 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-20 02:51:49 | START | signal_chaotic_1_Claude.yaml
+2026-01-20 04:30:11 | STOP (SUCCESS) | signal_N2_sparsity_Claude.yaml
+2026-01-20 04:31:24 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-20 04:34:53 | START | signal_N2_sparsity_Claude.yaml
+2026-01-20 04:37:36 | START | signal_chaotic_1_Claude.yaml
+2026-01-20 06:15:48 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-20 06:19:00 | START | signal_chaotic_1_Claude.yaml
+2026-01-20 07:56:47 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-20 08:00:59 | START | signal_chaotic_1_Claude.yaml
+2026-01-20 08:14:43 | DAEMON_STOP | signal_N2_sparsity_Claude.yaml
+2026-01-20 08:19:20 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
