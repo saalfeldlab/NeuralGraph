@@ -321,20 +321,68 @@ class LatentModel(nn.Module):
 # Data + Batching
 # -------------------------------------------------------------------
 
+def extract_batch_windows(
+    data: torch.Tensor,
+    stim: torch.Tensor,
+    start_indices: torch.Tensor,
+    total_steps: int,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Extract batch windows from CPU tensors and move to GPU.
+
+    Args:
+        data: neural data on CPU, shape (T, N)
+        stim: stimulus data on CPU, shape (T, N_stim)
+        start_indices: batch starting indices on CPU, shape (batch_size,)
+        total_steps: number of time steps to extract (window size for stim,
+            window size for data is total_steps + 1 to include endpoint)
+        device: target device (GPU)
+
+    Returns:
+        data_window: shape (batch_size, total_steps + 1, N) on device
+        stim_window: shape (batch_size, total_steps, N_stim) on device
+    """
+
+    # build index tensor for gathering: (batch_size, window_size)
+    # data needs total_steps + 1 points (0 to total_steps inclusive)
+    data_offsets = torch.arange(total_steps + 1, device='cpu')
+    data_indices = start_indices.unsqueeze(1) + data_offsets.unsqueeze(0)  # (B, total_steps+1)
+
+    # stim needs total_steps points (0 to total_steps - 1)
+    stim_offsets = torch.arange(total_steps, device='cpu')
+    stim_indices = start_indices.unsqueeze(1) + stim_offsets.unsqueeze(0)  # (B, total_steps)
+
+    # gather and move to device
+    data_window = data[data_indices].to(device, non_blocking=True)  # (B, total_steps+1, N)
+    stim_window = stim[stim_indices].to(device, non_blocking=True)  # (B, total_steps, N_stim)
+
+    return data_window, stim_window
+
+
 def make_batches_random(
     data: torch.Tensor,
     stim: torch.Tensor,
     wmat_indices: torch.Tensor,
     wmat_indptr: torch.Tensor,
     cfg: ModelParams,
-) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-    """Randomly sample `batch_size` starting points and augmentation indices.
+    device: torch.device,
+) -> Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
+    """Randomly sample batches and extract data windows to GPU.
 
-    Returns:
-        Tuple of (batch_indices, selected_neurons, needed_indices)
-        - batch_indices: starting time indices for the batch
-        - selected_neurons: neurons selected for augmentation loss
-        - needed_indices: neurons that can impact selected_neurons (based on connectome)
+    Args:
+        data: neural data on CPU, shape (T, N)
+        stim: stimulus data on CPU, shape (T, N_stim)
+        wmat_indices: connectome column indices (on GPU)
+        wmat_indptr: connectome row pointers (on GPU)
+        cfg: model config
+        device: target device for batch data (GPU)
+
+    Yields:
+        Tuple of (data_window, stim_window, selected_neurons, needed_indices)
+        - data_window: shape (batch_size, total_steps + 1, N) on device
+        - stim_window: shape (batch_size, total_steps, N_stim) on device
+        - selected_neurons: neurons selected for augmentation loss (on device)
+        - needed_indices: neurons that can impact selected_neurons (on device)
     """
     batch_size = cfg.training.batch_size
     time_units = cfg.training.time_units
@@ -352,22 +400,25 @@ def make_batches_random(
             low=0, high=total_time - total_steps, size=(batch_size,), device=data.device
         )
 
+        # extract windows and move to GPU
+        data_window, stim_window = extract_batch_windows(
+            data, stim, start_indices, total_steps, device
+        )
+
+        # generate augmentation indices on GPU
         if num_neurons_to_zero > 0:
             selected_neurons = torch.randint(
-                low=0, high=num_neurons, size=(num_neurons_to_zero,), device=data.device
+                low=0, high=num_neurons, size=(num_neurons_to_zero,), device=device
             )
-            # based on the connectome, which neurons can actually impact the value
-            # of the `selected_neurons`
             needed_indices = torch.concatenate(
                 [wmat_indices[wmat_indptr[i]:wmat_indptr[i+1]] for i in selected_neurons]
             )
-            # also keep the actual selected neurons
             needed_indices = torch.unique(torch.concatenate([needed_indices, selected_neurons]))
         else:
-            selected_neurons = torch.empty(0, dtype=torch.long, device=data.device)
-            needed_indices = torch.empty(0, dtype=torch.long, device=data.device)
+            selected_neurons = torch.empty(0, dtype=torch.long, device=device)
+            needed_indices = torch.empty(0, dtype=torch.long, device=device)
 
-        yield start_indices, selected_neurons, needed_indices
+        yield data_window, stim_window, selected_neurons, needed_indices
 
 
 # -------------------------------------------------------------------
@@ -430,15 +481,22 @@ def get_device() -> torch.device:
 
 def train_step_reconstruction_only_nocompile(
         model: LatentModel,
-        train_data: torch.Tensor,
-        _train_stim: torch.Tensor,
-        batch_indices: torch.Tensor,
+        data_window: torch.Tensor,
+        _stim_window: torch.Tensor,
         _selected_neurons: torch.Tensor,
         _needed_indices: torch.Tensor,
         cfg: ModelParams
     ):
-    """Train encoder/decoder only with reconstruction loss."""
-    device = train_data.device
+    """Train encoder/decoder only with reconstruction loss.
+
+    Args:
+        data_window: shape (batch_size, total_steps + 1, N) - neural data window
+        _stim_window: unused (stimulus not needed for reconstruction)
+        _selected_neurons: unused
+        _needed_indices: unused
+        cfg: model config
+    """
+    device = data_window.device
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
     # regularization loss (encoder + decoder only)
@@ -450,8 +508,8 @@ def train_step_reconstruction_only_nocompile(
         for p in model.decoder.parameters():
             reg_loss += torch.abs(p).mean() * cfg.decoder_params.l1_reg_loss
 
-    # reconstruction loss
-    x_t = train_data[batch_indices]
+    # reconstruction loss - use first time step from window
+    x_t = data_window[:, 0, :]
     proj_t = model.encoder(x_t)
     recon_t = model.decoder(proj_t)
     recon_loss = loss_fn(recon_t, x_t)
@@ -470,15 +528,22 @@ train_step_reconstruction_only = torch.compile(
 
 def train_step_nocompile(
         model: LatentModel,
-        train_data: torch.Tensor,
-        train_stim: torch.Tensor,
-        batch_indices: torch.Tensor,
+        data_window: torch.Tensor,
+        stim_window: torch.Tensor,
         selected_neurons: torch.Tensor,
         needed_indices: torch.Tensor,
         cfg: ModelParams
     ):
+    """Train step using pre-extracted batch windows.
 
-    device=train_data.device
+    Args:
+        data_window: shape (batch_size, total_steps + 1, N) - neural data window
+        stim_window: shape (batch_size, total_steps, N_stim) - stimulus window
+        selected_neurons: neurons for augmentation loss
+        needed_indices: neurons that impact selected_neurons
+        cfg: model config
+    """
+    device = data_window.device
 
     # Get loss function from config
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
@@ -503,13 +568,14 @@ def train_step_nocompile(
     dt = cfg.training.time_units
     num_multiples = cfg.training.evolve_multiple_steps
     total_steps = dt * num_multiples
-    x_t = train_data[batch_indices] # b x N
-    proj_t = model.encoder(x_t) # b x L
 
-    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
-    # total_steps x b x 1736
-    stim_t = train_stim[stim_indices, :]
-    dim_stim = train_stim.shape[1]
+    # data_window[:, 0, :] is x(t), data_window[:, i, :] is x(t+i)
+    x_t = data_window[:, 0, :]  # b x N
+    proj_t = model.encoder(x_t)  # b x L
+
+    # stim_window is (b, total_steps, N_stim), transpose to (total_steps, b, N_stim)
+    stim_t = stim_window.transpose(0, 1)
+    dim_stim = stim_t.shape[2]
     dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
     # total_steps x b x Ls
     proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
@@ -543,7 +609,7 @@ def train_step_nocompile(
     # check if step 1 needs intermediate loss
     if 1 in intermediate_steps:
         pred_t_plus_1 = model.decoder(proj_t)
-        x_t_plus_1 = train_data[batch_indices + 1]
+        x_t_plus_1 = data_window[:, 1, :]
         evolve_loss = evolve_loss + loss_fn(pred_t_plus_1, x_t_plus_1)
 
     # evolve for remaining dt-1 time steps (first window)
@@ -552,12 +618,12 @@ def train_step_nocompile(
         step = i + 1  # 1-indexed step number
         if step in intermediate_steps:
             pred_t_plus_step = model.decoder(proj_t)
-            x_t_plus_step = train_data[batch_indices + step]
+            x_t_plus_step = data_window[:, step, :]
             evolve_loss = evolve_loss + loss_fn(pred_t_plus_step, x_t_plus_step)
 
     # loss at first multiple (dt)
     pred_t_plus_dt = model.decoder(proj_t)
-    x_t_plus_dt = train_data[batch_indices + dt]
+    x_t_plus_dt = data_window[:, dt, :]
     evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus_dt)
 
     # additional multiples (2, 3, ..., num_multiples)
@@ -568,7 +634,7 @@ def train_step_nocompile(
             proj_t = model.evolver(proj_t, proj_stim_t[start_idx + i])
         # loss at this multiple
         pred = model.decoder(proj_t)
-        x_target = train_data[batch_indices + m * dt]
+        x_target = data_window[:, m * dt, :]
         evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
     loss = evolve_loss + recon_loss + reg_loss + aug_loss
@@ -591,8 +657,8 @@ def load_dataset(
     """
     Load and split a dataset from zarr V2 format.
 
-    Streams data directly from zarr to device memory without creating
-    intermediate full arrays.
+    Train data is kept on CPU (with pin_memory for fast GPU transfer) and
+    streamed per batch. Val data is loaded directly to GPU.
 
     Args:
         simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
@@ -603,23 +669,23 @@ def load_dataset(
 
     Returns:
         Tuple of (train_data, val_data, train_stim, val_stim, neuron_data)
+        train_data and train_stim are on CPU; val_data and val_stim are on device
     """
     data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
     column_idx = FlyVisSim[column_to_model].value
 
-    # load train data column slice directly to device
+    # train data stays on CPU with pin_memory for fast async transfer to GPU
     train_data = torch.from_numpy(
         load_column_slice(data_path, column_idx, data_split.train_start, data_split.train_end)
-    ).to(device)
+    ).pin_memory()
 
-    # load val data column slice directly to device
-    val_data = torch.from_numpy(
-        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
-    ).to(device)
-
-    # load stimulus slices (column 4 = STIMULUS)
     train_stim = torch.from_numpy(
         load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.train_start, data_split.train_end, neuron_limit=num_input_dims)
+    ).pin_memory()
+
+    # val data goes directly to GPU (small enough to fit)
+    val_data = torch.from_numpy(
+        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
     ).to(device)
 
     val_stim = torch.from_numpy(
@@ -793,11 +859,10 @@ def train(cfg: ModelParams, run_dir: Path):
                 warmup_losses = LossComponents()
                 for _ in range(warmup_batches_per_epoch):
                     optimizer.zero_grad()
-                    batch_indices = next(warmup_batches)
+                    data_window, stim_window, selected_neurons, needed_indices = next(warmup_batch_iter)
                     # use nocompile version for warmup (simpler, no need for max-autotune overhead)
                     loss_tuple = train_step_reconstruction_only_nocompile(
-                        model, train_data, train_stim, batch_indices,
-                        torch.empty(0), torch.empty(0), cfg
+                        model, data_window, stim_window, selected_neurons, needed_indices, cfg
                     )
                     loss_tuple[0].backward()
                     optimizer.step()
@@ -832,8 +897,8 @@ def train(cfg: ModelParams, run_dir: Path):
         batches_per_epoch = (
             max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
         )
-        batch_indices_iter = make_batches_random(
-            train_data, train_stim, wmat_indices, wmat_indptr, cfg
+        batch_iter = make_batches_random(
+            train_data, train_stim, wmat_indices, wmat_indptr, cfg, device
         )
 
         # --- Initialize GPU monitoring ---
@@ -849,7 +914,6 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Checkpoint setup ---
         checkpoint_dir = run_dir / "checkpoints"
         checkpoint_dir.mkdir(exist_ok=True)
-        best_val_loss = float('inf')
 
         # --- Profiler setup ---
         profiler = None
@@ -886,8 +950,8 @@ def train(cfg: ModelParams, run_dir: Path):
             # transition from ems warmup to full ems
             if use_ems_warmup and epoch == ems_warmup_epochs:
                 cfg.training.evolve_multiple_steps = target_ems
-                batch_indices_iter = make_batches_random(
-                    train_data, train_stim, wmat_indices, wmat_indptr, cfg
+                batch_iter = make_batches_random(
+                    train_data, train_stim, wmat_indices, wmat_indptr, cfg, device
                 )
                 batches_per_epoch = (
                     max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
@@ -903,9 +967,9 @@ def train(cfg: ModelParams, run_dir: Path):
             # ---- Training phase ----
             for _ in range(batches_per_epoch):
                 optimizer.zero_grad()
-                batch_indices, selected_neurons, needed_indices = next(batch_indices_iter)
+                data_window, stim_window, selected_neurons, needed_indices = next(batch_iter)
                 loss_tuple = train_step_fn(
-                    model, train_data, train_stim, batch_indices, selected_neurons, needed_indices, cfg
+                    model, data_window, stim_window, selected_neurons, needed_indices, cfg
                 )
                 loss_tuple[0].backward()
                 if cfg.training.grad_clip_max_norm > 0:
@@ -915,17 +979,6 @@ def train(cfg: ModelParams, run_dir: Path):
 
             mean_losses = losses.mean()
 
-            # ---- Validation phase ----
-            model.eval()
-            total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
-            with torch.no_grad():
-                start_indices = torch.arange(val_data.shape[0] - total_steps, device=device)
-                all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
-                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, all_neurons, all_neurons, cfg)
-                val_loss = loss_tuple[0].item()
-
-            model.train()
-
             epoch_end = datetime.now()
             gpu_monitor.sample_epoch_end()
             epoch_duration = (epoch_end - epoch_start).total_seconds()
@@ -934,13 +987,12 @@ def train(cfg: ModelParams, run_dir: Path):
 
             print(
                 f"Epoch {epoch+1}/{cfg.training.epochs} | "
-                f"Train Loss: {mean_losses.total:.4e} | Val Loss: {val_loss:.4e} | "
+                f"Train Loss: {mean_losses.total:.4e} | "
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
             # Log to TensorBoard
             writer.add_scalar("Loss/train", mean_losses.total, epoch)
-            writer.add_scalar("Loss/val", val_loss, epoch)
             writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
             writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
             writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
@@ -997,13 +1049,6 @@ def train(cfg: ModelParams, run_dir: Path):
                 model.train()
 
             # --- Checkpointing ---
-            # Save best checkpoint
-            if cfg.training.save_best_checkpoint and val_loss < best_val_loss:
-                best_val_loss = val_loss
-                checkpoint_path = checkpoint_dir / "checkpoint_best.pt"
-                torch.save(model.state_dict(), checkpoint_path)
-                print(f"  → Saved best checkpoint (val_loss: {val_loss:.4e})")
-
             # Save periodic checkpoint
             if cfg.training.save_checkpoint_every_n_epochs > 0 and (epoch + 1) % cfg.training.save_checkpoint_every_n_epochs == 0:
                 checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch+1:04d}.pt"
@@ -1030,7 +1075,6 @@ def train(cfg: ModelParams, run_dir: Path):
         metrics.update(
             {
                     "final_train_loss": mean_losses.total,
-                    "final_val_loss": val_loss,
                     "commit_hash": commit_hash,
                     "training_duration_seconds": round(total_training_duration, 2),
                     "avg_epoch_duration_seconds": round(avg_epoch_duration, 2),
@@ -1107,7 +1151,6 @@ def train(cfg: ModelParams, run_dir: Path):
         }
         metric_dict = {
             "hparam/final_train_loss": metrics["final_train_loss"],
-            "hparam/final_val_loss": metrics["final_val_loss"],
         }
         writer.add_hparams(hparams, metric_dict)
         print("Logged hyperparameters to TensorBoard")
