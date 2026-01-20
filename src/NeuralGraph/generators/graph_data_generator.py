@@ -934,6 +934,11 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     y_writer.finalize()
     print(f"generated {n_frames_written} frames total (saved as .zarr)")
 
+    # skip post-processing if not visualizing and no measurement noise needed
+    if not visualize and measurement_noise_level == 0:
+        print('skipping post-processing (visualize=False, no measurement noise)')
+        return
+
     # load data back for post-processing (plotting, etc.)
     from NeuralGraph.zarr_io import load_simulation_data
     x_list = load_simulation_data(f"graphs_data/{dataset_name}/x_list_{run}")
