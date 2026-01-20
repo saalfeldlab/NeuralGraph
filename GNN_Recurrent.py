@@ -79,7 +79,7 @@ if __name__ == "__main__":
     else:
         best_model = ''
         task = 'generate_train_test_plot_Claude'
-        config_list = ['signal_N2_recurrent_1']
+        config_list = ['signal_N2_recurrent']
         task_params = {'iterations': 512}
 
     # resume support
@@ -370,7 +370,7 @@ if __name__ == "__main__":
                 data_test(
                     config=config,
                     visualize=False,
-                    style="black color name continuous_slice",
+                    style="color name continuous_slice",
                     verbose=False,
                     best_model='best',
                     run=0,

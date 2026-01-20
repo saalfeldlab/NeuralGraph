@@ -15,12 +15,11 @@ if os.path.isdir('/scratch'):
 
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
-from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
+from NeuralGraph.models.graph_trainer import data_train, data_test
 from NeuralGraph.models.exploration_tree import compute_ucb_scores
 from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
 from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
-from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
 
 import warnings
@@ -28,7 +27,7 @@ warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
-    parser = argparse.ArgumentParser(description="NeuralGraph")
+    parser = argparse.ArgumentParser(description="NeuralGraph - Signal_N2_sparsity Optimization (Sparse Connectivity)")
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
@@ -55,20 +54,20 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude_daemon'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        config_list = ['signal_chaotic_2']
+        task = 'train_test_plot_Claude_daemon'  # 'train', 'test', 'generate', 'plot', 'Claude'
+        config_list = ['signal_N2_sparsity']
         task_params = {'iterations': 2048}
 
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 193
+    start_iteration = 1
 
 
 
 
-    n_iterations = task_params.get('iterations', 5)
-    base_config_name = config_list[0] if config_list else 'signal'
+    n_iterations = task_params.get('iterations', 2048)
+    base_config_name = config_list[0] if config_list else 'signal_N2_sparsity'
     instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
@@ -100,13 +99,13 @@ if __name__ == "__main__":
                         config_data = yaml.safe_load(f)
                     claude_cfg = config_data.get('claude', {})
                     claude_n_epochs = claude_cfg.get('n_epochs', 1)
-                    claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
-                    claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                    claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 10)
+                    claude_n_iter_block = claude_cfg.get('n_iter_block', 512)
                     claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
                     config_data['dataset'] = llm_task_name
                     config_data['training']['n_epochs'] = claude_n_epochs
                     config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
-                    config_data['description'] = 'designed by Claude'
+                    config_data['description'] = 'designed by Claude - Signal_N2_sparsity optimization'
                     config_data['claude'] = {
                         'n_epochs': claude_n_epochs,
                         'data_augmentation_loop': claude_data_augmentation_loop,
@@ -123,8 +122,8 @@ if __name__ == "__main__":
                     config_data = yaml.safe_load(f)
                 claude_cfg = config_data.get('claude', {})
                 claude_n_epochs = claude_cfg.get('n_epochs', 1)
-                claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
-                claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 10)
+                claude_n_iter_block = claude_cfg.get('n_iter_block', 512)
                 claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
 
         n_iter_block = claude_n_iter_block
@@ -141,7 +140,7 @@ if __name__ == "__main__":
         config_list = [llm_task_name]
     else:
 
-        iteration_range = range(1, 2)  
+        iteration_range = range(1, 2)
 
 
 
@@ -157,7 +156,7 @@ if __name__ == "__main__":
             root_dir = os.path.dirname(os.path.abspath(__file__))
             instruction_path = f"{root_dir}/{instruction_name}.md"
             analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
-            block_analysis_path = f"{root_dir}/{llm_task_name}_block_analysis.md"  # block-only log for ablation
+            memory_path = f"{root_dir}/{llm_task_name}_memory.md"
 
             # check instruction file exists
             if not os.path.exists(instruction_path):
@@ -168,23 +167,39 @@ if __name__ == "__main__":
                         print(f"  - {f[:-3]}")
                 continue
 
-            # clear analysis files at start (only if not resuming)
-            # NOTE: Ablation has NO memory file - only block-local analysis
+            # clear analysis and memory files at start (only if not resuming)
             if start_iteration == 1:
                 with open(analysis_path, 'w') as f:
-                    f.write(f"# Experiment Log: {config_file_}\n\n")
+                    f.write(f"# Experiment Log: {config_file_} (Signal_N2_sparsity Optimization)\n\n")
+                    f.write("## Dual Objective: connectivity_R2 + cluster_accuracy\n\n")
                 print(f"\033[93mcleared {analysis_path}\033[0m")
-                # clear block analysis (will be reset at each block boundary)
-                with open(block_analysis_path, 'w') as f:
-                    f.write(f"# Block Analysis: {config_file_} (Block 1)\n\n")
-                print(f"\033[93mcleared {block_analysis_path}\033[0m")
                 # clear reasoning.log for Claude tasks
                 reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
                 open(reasoning_path, 'w').close()
                 print(f"\033[93mcleared {reasoning_path}\033[0m")
+                # initialize working memory file for N2_sparsity optimization
+                with open(memory_path, 'w') as f:
+                    f.write(f"# Working Memory: {config_file_} (Signal_N2_sparsity)\n\n")
+                    f.write("## Knowledge Base (accumulated across all blocks)\n\n")
+                    f.write("### Optimization Table\n")
+                    f.write("| Block | lr_W    | lr_emb  | lr     | L1   | Best R² | Best Cluster | Key finding |\n")
+                    f.write("| ----- | ------- | ------- | ------ | ---- | ------- | ------------ | ----------- |\n\n")
+                    f.write("### Established Principles\n\n")
+                    f.write("### Open Questions\n\n")
+                    f.write("---\n\n")
+                    f.write("## Previous Block Summary\n\n")
+                    f.write("---\n\n")
+                    f.write("## Current Block (Block 1)\n\n")
+                    f.write("### Block Info\n\n")
+                    f.write("Configuration: baseline Signal_N2_sparsity (1000 neurons, 4 types, sparse)\n")
+                    f.write("Objective: connectivity_R2 > 0.9 AND cluster_accuracy > 0.9\n\n")
+                    f.write("### Hypothesis\n\n")
+                    f.write("### Iterations This Block\n\n")
+                    f.write("### Emerging Observations\n\n")
+                print(f"\033[93mcleared {memory_path}\033[0m")
             else:
                 print(f"\033[93mpreserving {analysis_path} (resuming from iter {start_iteration})\033[0m")
-                print(f"\033[93mpreserving {block_analysis_path} (resuming from iter {start_iteration})\033[0m")
+                print(f"\033[93mpreserving {memory_path} (resuming from iter {start_iteration})\033[0m")
                 reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
                 print(f"\033[93mpreserving {reasoning_path} (resuming from iter {start_iteration})\033[0m")
             print(f"\033[93m{instruction_name} ({n_iterations} iterations, starting at {start_iteration})\033[0m")
@@ -199,17 +214,12 @@ if __name__ == "__main__":
 
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
-                # block boundary: erase UCB and reset block_analysis at start of each n_iter_block-iteration block (except iter 1, already handled)
+                # block boundary: erase UCB at start of each n_iter_block-iteration block (except iter 1, already handled)
                 if iteration > 1 and (iteration - 1) % n_iter_block == 0:
-                    new_block_number = (iteration - 1) // n_iter_block + 1
                     ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
                     if os.path.exists(ucb_file):
                         os.remove(ucb_file)
                         print(f"\033[93msimulation block boundary: deleted {ucb_file} (new simulation block)\033[0m")
-                    # Reset block-only analysis file for ablation (no cross-block memory)
-                    with open(block_analysis_path, 'w') as f:
-                        f.write(f"# Block Analysis: {config_file_} (Block {new_block_number})\n\n")
-                    print(f"\033[93msimulation block boundary: reset {block_analysis_path} (Block {new_block_number})\033[0m")
 
             # reload config to pick up any changes from previous iteration
             config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
@@ -230,7 +240,6 @@ if __name__ == "__main__":
                 new_path = f"{config_root}/new/{config_filename}"
                 processing_path = f"{config_root}/processing/{config_filename}"
                 done_path = f"{config_root}/done/{config_filename}"
-
                 # Ensure directories exist
                 os.makedirs(f"{config_root}/new", exist_ok=True)
                 os.makedirs(f"{config_root}/processing", exist_ok=True)
@@ -279,7 +288,7 @@ if __name__ == "__main__":
                         device=device,
                         visualize=False,
                         run_vizualized=0,
-                        style="black color",
+                        style="color",
                         alpha=1,
                         erase=erase,
                         bSave=True,
@@ -287,21 +296,12 @@ if __name__ == "__main__":
                         log_file=log_file
                     )
 
-                if 'train_NGP' in task:
-                    # use new modular NGP trainer pipeline
-                    data_train_NGP(config=config, device=device)
-
-                elif 'train_INR' in task:
-                    print()
-                    # pre-train nnr_f (SIREN) on external_input data before joint GNN learning
-                    data_train_INR(config=config, device=device, total_steps=50000)
-
-                elif "train" in task:
+                if "train" in task:
                     data_train(
                         config=config,
                         erase='Claude' in task,  # erase old models when iterating with Claude
                         best_model=best_model,
-                        style = 'black',
+                        style = 'color',
                         device=device,
                         log_file=log_file
                     )
@@ -309,9 +309,6 @@ if __name__ == "__main__":
                 if "test" in task:
 
                     config.training.noise_model_level = 0.0
-
-                    if 'fly' in config_file_:
-                        config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'
 
                     data_test(
                         config=config,
@@ -361,8 +358,8 @@ if __name__ == "__main__":
                     raw_config = yaml.safe_load(f)
                 ucb_c = raw_config.get('claude', {}).get('ucb_c', 1.414)
 
-                # compute UCB scores for Claude to read (from block-only log)
-                compute_ucb_scores(block_analysis_path, ucb_path, c=ucb_c,
+                # compute UCB scores for Claude to read
+                compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
                                    block_size=n_iter_block)
@@ -389,7 +386,8 @@ Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} withi
 {">>> BLOCK END <<<" if is_block_end else ""}
 
 Instructions (follow all instructions): {instruction_path}
-Block log (append only, current block only): {block_analysis_path}
+Working memory: {memory_path}
+Full log (append only): {analysis_path}
 Activity image: {activity_path}
 Metrics log: {analysis_log_path}
 UCB scores: {ucb_path}
@@ -429,7 +427,7 @@ Current config: {config_path}"""
                     print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
                     print("\033[93mTo resume:\033[0m")
                     print("\033[93m  1. Run: claude /login\033[0m")
-                    print(f"\033[93m  2. Then: python GNN_Main.py -o {task} {config_file_} start={iteration}\033[0m")
+                    print(f"\033[93m  2. Then: python GNN_N2_sparsity.py -o {task} {config_file_} start={iteration}\033[0m")
                     print(f"\033[91m{'='*60}\033[0m")
                     raise SystemExit(1)
 
@@ -449,20 +447,17 @@ Current config: {config_path}"""
                     if os.path.exists(instruction_path):
                         shutil.copy2(instruction_path, dst_instruction)
 
-                # NOTE: Ablation has NO memory file - skip memory saving
+                # save memory file at end of each block (after Claude updates it)
+                if is_block_end:
+                    memory_save_dir = f"{exploration_dir}/memory"
+                    os.makedirs(memory_save_dir, exist_ok=True)
+                    dst_memory = f"{memory_save_dir}/block_{block_number:03d}_memory.md"
+                    if os.path.exists(memory_path):
+                        shutil.copy2(memory_path, dst_memory)
+                        print(f"\033[92msaved memory snapshot: {dst_memory}\033[0m")
 
-                # Archive block_analysis to full analysis_path at end of block
-                if is_block_end and os.path.exists(block_analysis_path):
-                    with open(block_analysis_path, 'r') as f:
-                        block_content = f.read()
-                    with open(analysis_path, 'a') as f:
-                        f.write(f"\n## Block {block_number} Archive\n\n")
-                        f.write(block_content)
-                        f.write("\n---\n\n")
-                    print(f"\033[92marchived block {block_number} to {analysis_path}\033[0m")
-
-                # recompute UCB scores after Claude to pick up mutations from block analysis
-                compute_ucb_scores(block_analysis_path, ucb_path, c=ucb_c,
+                # recompute UCB scores after Claude to pick up mutations from analysis markdown
+                compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
                                    current_log_path=analysis_log_path,
                                    current_iteration=iteration,
                                    block_size=n_iter_block)
@@ -472,22 +467,15 @@ Current config: {config_path}"""
                 nodes = parse_ucb_scores(ucb_path)
                 if nodes:
                     # get simulation info from config for tree annotation
-                    sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
-                    sim_info += f", time_step={config.training.time_step}"
-                    if hasattr(config.training, 'recurrent_training'):
-                        sim_info += f", recurrent={config.training.recurrent_training}"
-                    sim_info += f", connectivity_type={config.simulation.connectivity_type}"
-                    if hasattr(config.simulation, 'Dale_law'):
-                        sim_info += f", Dale_law={config.simulation.Dale_law}"
-                    if hasattr(config.simulation, 'Dale_law_factor'):
-                        sim_info += f", E/I={config.simulation.Dale_law_factor}"
-                    if hasattr(config.simulation, 'noise_model_level'):
-                        sim_info += f", noise_model_level={config.training.noise_model_level}"
-                    if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
-                        sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
+                    sim_info = f"n_neurons={config.simulation.n_neurons}, n_types={config.simulation.n_neuron_types}"
+                    filling = config.simulation.connectivity_filling_factor
+                    sim_info += f", sparse={filling*100:.0f}%"
+                    sim_info += f", n_frames={config.simulation.n_frames}"
+                    sim_info += f", lr_W={config.training.learning_rate_W_start}"
+                    sim_info += f", L1={config.training.coeff_W_L1}"
 
                     plot_ucb_tree(nodes, ucb_tree_path,
-                                  title=f"UCB Tree - Iter {iteration}",
+                                  title=f"UCB Tree - Iter {iteration} (Signal_N2_sparsity)",
                                   simulation_info=sim_info)
-                    
-# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_chaotic_2_Claude"
+
+# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_N2_sparsity_Claude"

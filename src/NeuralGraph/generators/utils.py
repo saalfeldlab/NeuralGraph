@@ -777,8 +777,12 @@ def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, mod
     plt.close()
 
 
-def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap, device):
-    """Plot MLP0 and MLP1 functions for synaptic simulation."""
+def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap, device, signal_model_name=None):
+    """Plot MLP0 and MLP1 functions for synaptic simulation.
+
+    For PDE_N5, plots a 2x2 montage showing neuron-neuron dependent transfer functions.
+    Each subplot shows target neuron type k receiving from all source neuron types.
+    """
     if not hasattr(model, 'func'):
         return
 
@@ -790,7 +794,56 @@ def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap
     n_neuron_types = int(neuron_types.max()) + 1
     cmap = plt.cm.get_cmap(colormap)
 
-    # Plot MLP1 (message/phi function) - all neurons
+    # For PDE_N5: plot 2x2 montage of neuron-neuron dependent MLP1
+    if signal_model_name == 'PDE_N5' and n_neuron_types == 4:
+        print('  PDE_N5: plotting 2x2 neuron-neuron dependent MLP1 montage ...')
+        fig = plt.figure(figsize=(16, 16))
+        plt.axis('off')
+
+        for k in range(n_neuron_types):  # target neuron type
+            ax = fig.add_subplot(2, 2, k + 1)
+            # Color the subplot border by target neuron type
+            for spine in ax.spines.values():
+                spine.set_edgecolor(cmap(k))
+                spine.set_linewidth(3)
+
+            if k == 0:
+                plt.ylabel(r'$\psi^*(a_i, a_j, x_i)$', fontsize=32)
+
+            # Plot MLP1 for all source neuron types -> target type k
+            for n in range(n_neuron_types):  # source neuron type
+                # Get width (w) from target neuron type k
+                w_target = model.p[k, 4:5]  # width of target
+
+                # Sample multiple neurons of source type n
+                for m in range(250):
+                    # Get threshold (h) from source neuron type n
+                    if model.p.shape[1] >= 6:
+                        h_source = model.p[n, 5:6]
+                    else:
+                        h_source = torch.zeros_like(w_target)
+
+                    # Compute phi((u - h_source) / w_target)
+                    func_phi = model.phi((rr[:, None] - h_source) / w_target)
+                    # Add the log term: - u * log(w_source) / 50
+                    l_source = torch.log(model.p[n, 4:5])
+                    func_phi = func_phi - rr[:, None] * l_source / 50
+
+                    plt.plot(to_numpy(rr), to_numpy(func_phi), color=cmap(n),
+                             linewidth=2, alpha=0.25)
+
+            plt.ylim([-1.1, 1.1])
+            plt.xlim([-5, 5])
+            if k >= 2:  # bottom row
+                plt.xlabel(r'$x_j$', fontsize=32)
+            plt.xticks(fontsize=20)
+            plt.yticks(fontsize=20)
+
+        plt.tight_layout()
+        plt.savefig(f"graphs_data/{dataset_name}/MLP1_neuron_neuron.png", dpi=150)
+        plt.close()
+
+    # Plot MLP1 (message/phi function) - all neurons (standard plot)
     plt.figure(figsize=(10, 8))
     for n in range(n_neurons):
         neuron_type = neuron_types[n]
@@ -870,21 +923,66 @@ def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k', log_file=None):
     return spectral_radius
 
 
-def plot_connectivity_matrix(connectivity, dataset_name):
-    """Plot connectivity matrix heatmap."""
-    gt_weight = to_numpy(connectivity)
+def plot_connectivity_matrix(connectivity, output_path, vmin_vmax_method='minmax',
+                              percentile=99, vmin=None, vmax=None,
+                              show_labels=True, show_title=True,
+                              zoom_size=20, dpi=100, cbar_fontsize=32, label_fontsize=48):
+    """Plot connectivity matrix heatmap with zoom inset.
 
-    fig, ax = plt.subplots(figsize=(10, 10))
-    im = ax.imshow(gt_weight, cmap='bwr', aspect='equal')
-    im.set_clim(-np.max(np.abs(gt_weight)), np.max(np.abs(gt_weight)))
-    cbar = plt.colorbar(im, ax=ax, fraction=0.046)
-    cbar.ax.tick_params(labelsize=16)
-    ax.set_xlabel('presynaptic neuron', fontsize=24)
-    ax.set_ylabel('postsynaptic neuron', fontsize=24)
-    ax.tick_params(labelsize=16)
-    ax.set_title('connectivity matrix', fontsize=28)
+    Args:
+        connectivity: Connectivity matrix (torch tensor or numpy array)
+        output_path: Path to save the figure
+        vmin_vmax_method: 'minmax' for full range, 'percentile' for percentile-based
+        percentile: Percentile value if vmin_vmax_method='percentile' (default: 99)
+        vmin: Explicit vmin value (overrides vmin_vmax_method if provided)
+        vmax: Explicit vmax value (overrides vmin_vmax_method if provided)
+        show_labels: Whether to show x/y axis labels (default: True)
+        show_title: Whether to show title (default: True)
+        zoom_size: Size of zoom inset (top-left NxN block, default: 20)
+        dpi: Output DPI (default: 100)
+        cbar_fontsize: Colorbar tick font size (default: 32)
+        label_fontsize: Axis label font size (default: 48)
+    """
+    gt_weight = to_numpy(connectivity)
+    n_neurons = gt_weight.shape[0]
+
+    # Use explicit vmin/vmax if provided, otherwise compute based on method
+    if vmin is None or vmax is None:
+        if vmin_vmax_method == 'percentile':
+            weight_pct = np.percentile(np.abs(gt_weight.flatten()), percentile)
+            vmin, vmax = -weight_pct * 1.1, weight_pct * 1.1
+        else:  # minmax
+            weight_max = np.max(np.abs(gt_weight))
+            vmin, vmax = -weight_max, weight_max
+
+    # Main heatmap
+    plt.figure(figsize=(10, 10))
+    ax = sns.heatmap(gt_weight, center=0, square=True, cmap='bwr',
+                     cbar_kws={'fraction': 0.046}, vmin=vmin, vmax=vmax)
+    cbar = ax.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=cbar_fontsize)
+
+    if show_labels:
+        plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=label_fontsize)
+        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=label_fontsize)
+        plt.xticks(rotation=0)
+    else:
+        plt.xticks([])
+        plt.yticks([])
+
+    if show_title:
+        plt.title('connectivity matrix', fontsize=28)
+
+    # Zoom inset (top-left corner)
+    if zoom_size > 0 and n_neurons >= zoom_size:
+        plt.subplot(2, 2, 1)
+        sns.heatmap(gt_weight[0:zoom_size, 0:zoom_size], cbar=False,
+                    center=0, square=True, cmap='bwr', vmin=vmin, vmax=vmax)
+        plt.xticks([])
+        plt.yticks([])
+
     plt.tight_layout()
-    plt.savefig(f"./graphs_data/{dataset_name}/connectivity_matrix.png", dpi=150)
+    plt.savefig(output_path, dpi=dpi)
     plt.close()
 
 

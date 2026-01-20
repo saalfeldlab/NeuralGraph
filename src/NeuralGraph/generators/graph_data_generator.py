@@ -1209,7 +1209,8 @@ def data_generate_synaptic(
 
             # Plot eigenvalue spectrum and connectivity matrix
             plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc, log_file=log_file)
-            plot_connectivity_matrix(connectivity, dataset_name)
+            plot_connectivity_matrix(connectivity, f"./graphs_data/{dataset_name}/connectivity_matrix.png",
+                                     vmin_vmax_method='percentile', show_title=False)
 
         if has_modulation:
             if run == 0:
@@ -1436,7 +1437,8 @@ def data_generate_synaptic(
 
         if run == run_vizualized:
             plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=model)
-            plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, config.plotting.colormap, device)
+            plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, config.plotting.colormap, device,
+                                        signal_model_name=config.graph_model.signal_model_name)
 
             # SVD analysis of activity
             print('svd analysis ...')
