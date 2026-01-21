@@ -105,7 +105,23 @@ def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
     return fig
 
 
-def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: int) -> tuple[plt.Figure, dict[str, float]]:
+def plot_long_rollout_mse(
+    mse_array,
+    rollout_type: str,
+    n_steps: int,
+    n_starts: int,
+    null_models: dict[str, np.ndarray] | None = None
+) -> tuple[plt.Figure, dict[str, float]]:
+    """
+    plot mse over time for model rollout and optional null models.
+
+    args:
+        mse_array: model mse array of shape (n_starts, n_steps, n_neurons)
+        rollout_type: "latent" or "activity"
+        n_steps: number of rollout steps
+        n_starts: number of starting points
+        null_models: dict mapping legend names to mse traces (n_steps,)
+    """
     # average over neurons first, then compute stats over starts
     mse_avg_over_neurons = mse_array.mean(axis=2)  # (n_starts, n_steps)
 
@@ -117,18 +133,24 @@ def plot_long_rollout_mse(mse_array, rollout_type: str, n_steps: int, n_starts: 
     fig, ax = plt.subplots(figsize=(12, 6))
     time_steps = np.arange(n_steps)
 
+    # plot null models first (so they're in background)
+    if null_models:
+        for label, trace in null_models.items():
+            ax.plot(time_steps, trace, linewidth=2, label=label,
+                    linestyle='--', alpha=0.7)
+
     # Plot min/max as shaded region
     ax.fill_between(
         time_steps,
         mse_min_across_starts,
         mse_max_across_starts,
         alpha=0.25,
-        label='Min/Max across starts',
+        label='model min/max across starts',
         color='C0'
     )
 
     # Plot mean line
-    ax.plot(time_steps, mse_mean_across_starts, linewidth=2, label='Mean across starts', color='C0')
+    ax.plot(time_steps, mse_mean_across_starts, linewidth=2, label='model mean across starts', color='C0')
 
     ax.set_xlabel('Rollout Time Steps')
     ax.set_ylabel('MSE (averaged over neurons)')
@@ -282,6 +304,10 @@ def compute_multi_start_rollout_mse(
     n_neurons = val_data.shape[1]
     mse_array = np.zeros((n_starts, n_steps, n_neurons))
 
+    # null model: constant prediction x(t) = x(0)
+    # accumulate mse per time step (averaged over neurons and starts)
+    null_model_mse_by_time = np.zeros(n_steps)
+
     best_mse = float("inf")
     worst_mse = -float("inf")
 
@@ -294,6 +320,12 @@ def compute_multi_start_rollout_mse(
         initial_state = val_data[start_idx]
         stimulus_segment = val_stim[start_idx:start_idx + n_steps]
         real_segment = val_data[start_idx + 1:start_idx + n_steps + 1]
+
+        # compute null model mse: predict x(t) = x(0) for all t
+        # error = real_segment - initial_state (broadcast automatically)
+        null_squared_error = torch.pow(real_segment - initial_state, 2)
+        # average over neurons for each time step, accumulate over starts
+        null_model_mse_by_time += null_squared_error.mean(dim=1).detach().cpu().numpy()
 
         # Perform rollout
         if rollout_type == "latent":
@@ -322,6 +354,9 @@ def compute_multi_start_rollout_mse(
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    # finalize null model mse (average over starts)
+    null_model_mse_by_time /= n_starts
+
     figures = {}
 
     # plot worst segment
@@ -345,7 +380,8 @@ def compute_multi_start_rollout_mse(
     figures[f"best_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
 
     # plot mse over time
-    fig = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts)
+    null_models = {"constant prediction": null_model_mse_by_time}
+    fig = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts, null_models)
     figures[f"multi_start_{n_steps}step_{rollout_type}_rollout_mses_by_time"] = fig
     plt.close()
 
