@@ -57,10 +57,10 @@ class MockDataSource:
         self.load_calls.append((start, end))
         self.load_count += 1
 
-        # return synthetic data
+        # return synthetic data (use zeros for speed - random generation is too slow)
         size = end - start
-        data = np.random.randn(size, self.num_neurons).astype(np.float32)
-        stim = np.random.randn(size, self.num_stim_dims).astype(np.float32)
+        data = np.zeros((size, self.num_neurons), dtype=np.float32)
+        stim = np.zeros((size, self.num_stim_dims), dtype=np.float32)
 
         return data, stim
 
