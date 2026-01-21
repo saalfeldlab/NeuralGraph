@@ -192,11 +192,26 @@ def calculate_chunk_params(
     """
     # batches per chunk
     batches_per_chunk = chunk_size // batch_size
+    if batches_per_chunk == 0:
+        raise ValueError(
+            f"chunk_size ({chunk_size}) must be >= batch_size ({batch_size})"
+        )
 
     # total batches per epoch (based on data passes)
     batches_per_epoch = (total_timesteps // batch_size) * data_passes_per_epoch
+    if batches_per_epoch == 0:
+        raise ValueError(
+            f"dataset too small: total_timesteps ({total_timesteps}) * "
+            f"data_passes_per_epoch ({data_passes_per_epoch}) / batch_size ({batch_size}) = 0 batches"
+        )
 
     # chunks needed per epoch
     chunks_per_epoch = batches_per_epoch // batches_per_chunk
+    if chunks_per_epoch == 0:
+        raise ValueError(
+            f"not enough batches for even one chunk: batches_per_epoch ({batches_per_epoch}) < "
+            f"batches_per_chunk ({batches_per_chunk}). either increase data_passes_per_epoch, "
+            f"decrease chunk_size, or use a smaller chunk_size"
+        )
 
     return chunks_per_epoch, batches_per_chunk, batches_per_epoch

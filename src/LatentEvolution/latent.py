@@ -387,6 +387,8 @@ class LossComponents:
 
     def mean(self) -> 'LossComponents':
         """Return a new LossComponents with mean values."""
+        if self.count == 0:
+            return LossComponents(count=0)
         return LossComponents(
             total=self.total / self.count,
             recon=self.recon / self.count,
