@@ -324,30 +324,26 @@ def make_batches_random(
     """
     batch_size = cfg.training.batch_size
     time_units = cfg.training.time_units
-    total_steps = time_units * cfg.training.evolve_multiple_steps
     num_neurons = data.shape[1]
     num_neurons_to_zero = cfg.training.unconnected_to_zero.num_neurons
 
     total_time = data.shape[0]
-    if total_time <= total_steps:
+    # when apply_time_units, data is subsampled so we only need evolve_multiple_steps
+    # otherwise we need time_units * evolve_multiple_steps
+    if cfg.training.apply_time_units:
+        num_steps_needed = cfg.training.evolve_multiple_steps
+    else:
+        num_steps_needed = time_units * cfg.training.evolve_multiple_steps
+
+    if total_time <= num_steps_needed:
         raise ValueError(
-            f"Not enough time points ({total_time}) for total_steps={total_steps}"
+            f"Not enough time points ({total_time}) for num_steps_needed={num_steps_needed}"
         )
 
-    # if apply_time_units, only sample indices at time_units intervals
-    if cfg.training.apply_time_units:
-        valid_indices = torch.arange(0, total_time - total_steps, time_units, device=data.device)
-    else:
-        valid_indices = None
-
     while True:
-        if valid_indices is not None:
-            perm = torch.randint(0, len(valid_indices), size=(batch_size,), device=data.device)
-            start_indices = valid_indices[perm]
-        else:
-            start_indices = torch.randint(
-                low=0, high=total_time - total_steps, size=(batch_size,), device=data.device
-            )
+        start_indices = torch.randint(
+            low=0, high=total_time - num_steps_needed, size=(batch_size,), device=data.device
+        )
 
         if num_neurons_to_zero > 0:
             selected_neurons = torch.randint(
@@ -499,26 +495,22 @@ def train_step_nocompile(
     # Ls = latent dim for stimulus
     dt = cfg.training.time_units
     num_multiples = cfg.training.evolve_multiple_steps
+    # when apply_time_units, data is subsampled so consecutive observations are at +1, +2, etc.
+    # otherwise they are at +dt, +2*dt, etc.
+    data_step = 1 if cfg.training.apply_time_units else dt
+
     x_t = train_data[batch_indices] # b x N
     proj_t = model.encoder(x_t) # b x L
 
     # stim at t
     stim_low = train_stim[batch_indices]
-    # stim at t+dt
-    stim_high = train_stim[batch_indices + dt]
+    # stim at t+dt (next observation)
+    stim_high = train_stim[batch_indices + data_step]
     # slope for linear interpolation
     ds_dt = (stim_high - stim_low) / dt
 
     stim_t = stim_low
     proj_stim_t = model.stimulus_encoder(stim_t)
-
-    # stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
-    # # total_steps x b x 1736
-    # stim_t = train_stim[stim_indices, :]
-    # dim_stim = train_stim.shape[1]
-    # dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
-    # # total_steps x b x Ls
-    # proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)
@@ -543,7 +535,8 @@ def train_step_nocompile(
         aug_loss += cfg.training.unconnected_to_zero.loss_coeff * loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
 
     # intermediate loss steps (in addition to final step, only within first window)
-    intermediate_steps = cfg.training.intermediate_loss_steps
+    # note: intermediate steps only work when data is not subsampled (apply_time_units=False)
+    intermediate_steps = cfg.training.intermediate_loss_steps if not cfg.training.apply_time_units else []
     evolve_loss = torch.tensor(0.0, device=device)
 
     # check if step 1 needs intermediate loss
@@ -565,14 +558,14 @@ def train_step_nocompile(
 
     # loss at first multiple (dt)
     pred_t_plus_dt = model.decoder(proj_t)
-    x_t_plus_dt = train_data[batch_indices + dt]
+    x_t_plus_dt = train_data[batch_indices + data_step]
     evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus_dt)
 
     # additional multiples (2, 3, ..., num_multiples)
     for m in range(2, num_multiples + 1):
         # get new stimulus endpoints for this window
-        stim_low = train_stim[batch_indices + (m - 1) * dt]
-        stim_high = train_stim[batch_indices + m * dt]
+        stim_low = train_stim[batch_indices + (m - 1) * data_step]
+        stim_high = train_stim[batch_indices + m * data_step]
         ds_dt = (stim_high - stim_low) / dt
         stim_t = stim_low
 
@@ -588,7 +581,7 @@ def train_step_nocompile(
 
         # loss at this multiple
         pred = model.decoder(proj_t)
-        x_target = train_data[batch_indices + m * dt]
+        x_target = train_data[batch_indices + m * data_step]
         evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
     loss = evolve_loss + recon_loss + reg_loss + aug_loss
@@ -607,6 +600,7 @@ def load_dataset(
     data_split: DataSplit,
     num_input_dims: int,
     device: torch.device,
+    time_stride: int = 1,
 ):
     """
     Load and split a dataset from zarr V2 format.
@@ -620,6 +614,7 @@ def load_dataset(
         data_split: DataSplit object with train/val time ranges
         num_input_dims: Number of stimulus input dimensions to keep
         device: PyTorch device to load data onto
+        time_stride: Stride for training data (default 1, use >1 to subsample)
 
     Returns:
         Tuple of (train_data, val_data, train_stim, val_stim, neuron_data)
@@ -627,19 +622,19 @@ def load_dataset(
     data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
     column_idx = FlyVisSim[column_to_model].value
 
-    # load train data column slice directly to device
+    # load train data column slice (with optional subsampling)
     train_data = torch.from_numpy(
-        load_column_slice(data_path, column_idx, data_split.train_start, data_split.train_end)
+        load_column_slice(data_path, column_idx, data_split.train_start, data_split.train_end, time_stride=time_stride)
     ).to(device)
 
-    # load val data column slice directly to device
+    # load val data column slice directly to device (no subsampling for validation)
     val_data = torch.from_numpy(
         load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
     ).to(device)
 
     # load stimulus slices (column 4 = STIMULUS)
     train_stim = torch.from_numpy(
-        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.train_start, data_split.train_end, neuron_limit=num_input_dims)
+        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.train_start, data_split.train_end, neuron_limit=num_input_dims, time_stride=time_stride)
     ).to(device)
 
     val_stim = torch.from_numpy(
@@ -744,19 +739,21 @@ def train(cfg: ModelParams, run_dir: Path):
         print("Logged model graph to TensorBoard")
 
         # --- Load data ---
+        time_stride = cfg.training.time_units if cfg.training.apply_time_units else 1
         train_data, val_data, train_stim, val_stim, neuron_data = load_dataset(
             simulation_config=cfg.training.simulation_config,
             column_to_model=cfg.training.column_to_model,
             data_split=cfg.training.data_split,
             num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
             device=device,
+            time_stride=time_stride,
         )
 
         print(f"Data split: train {train_data.shape}, val {val_data.shape}")
         if cfg.training.apply_time_units:
             tu = cfg.training.time_units
-            num_valid_train = (train_data.shape[0] - tu * cfg.training.evolve_multiple_steps) // tu
-            print(f"apply_time_units enabled: sampling only at tu={tu} intervals ({num_valid_train} valid starting points)")
+            num_valid_train = train_data.shape[0] - cfg.training.evolve_multiple_steps
+            print(f"apply_time_units enabled: data subsampled by tu={tu} ({num_valid_train} valid starting points)")
 
         # Load connectome weights
         wmat = load_connectome_graph(f"graphs_data/fly/{cfg.training.simulation_config}").to(device)
@@ -800,26 +797,21 @@ def train(cfg: ModelParams, run_dir: Path):
             model.evolver.requires_grad_(False)
 
             # simple batch iterator for warmup (don't need augmentation indices)
-            tu = cfg.training.time_units
-            total_steps = tu * cfg.training.evolve_multiple_steps
+            # when apply_time_units, data is subsampled so we need evolve_multiple_steps
             if cfg.training.apply_time_units:
-                warmup_valid_indices = torch.arange(0, train_data.shape[0] - total_steps, tu, device=train_data.device)
+                num_steps_needed = cfg.training.evolve_multiple_steps
             else:
-                warmup_valid_indices = None
+                num_steps_needed = cfg.training.time_units * cfg.training.evolve_multiple_steps
 
             def warmup_batch_iter():
                 while True:
-                    if warmup_valid_indices is not None:
-                        perm = torch.randint(0, len(warmup_valid_indices), size=(cfg.training.batch_size,), device=train_data.device)
-                        yield warmup_valid_indices[perm]
-                    else:
-                        yield torch.randint(
-                            low=0, high=train_data.shape[0] - total_steps,
-                            size=(cfg.training.batch_size,), device=train_data.device
-                        )
+                    yield torch.randint(
+                        low=0, high=train_data.shape[0] - num_steps_needed,
+                        size=(cfg.training.batch_size,), device=train_data.device
+                    )
 
             warmup_batches = warmup_batch_iter()
-            num_valid = len(warmup_valid_indices) if warmup_valid_indices is not None else train_data.shape[0]
+            num_valid = train_data.shape[0] - num_steps_needed
             warmup_batches_per_epoch = max(1, num_valid // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
 
             for warmup_epoch in range(recon_warmup_epochs):
@@ -851,12 +843,13 @@ def train(cfg: ModelParams, run_dir: Path):
             print("=== Reconstruction warmup complete ===\n")
 
         # --- Batching setup ---
-        # compute number of valid starting points based on apply_time_units setting
-        total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
+        # compute number of valid starting points
+        # when apply_time_units, data is subsampled so we need evolve_multiple_steps
         if cfg.training.apply_time_units:
-            num_valid_points = (train_data.shape[0] - total_steps) // cfg.training.time_units
+            num_steps_needed = cfg.training.evolve_multiple_steps
         else:
-            num_valid_points = train_data.shape[0] - total_steps
+            num_steps_needed = cfg.training.time_units * cfg.training.evolve_multiple_steps
+        num_valid_points = train_data.shape[0] - num_steps_needed
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
         # resampling data points.
         batches_per_epoch = (

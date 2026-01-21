@@ -501,6 +501,7 @@ def load_column_slice(
     time_start: int,
     time_end: int,
     neuron_limit: int | None = None,
+    time_stride: int = 1,
 ) -> np.ndarray:
     """load a time series column slice directly from zarr format.
 
@@ -512,9 +513,10 @@ def load_column_slice(
         time_start: start time index
         time_end: end time index
         neuron_limit: optional limit on neurons (first N)
+        time_stride: stride for time dimension (default 1, use >1 to subsample)
 
     returns:
-        numpy array of shape (time_end - time_start, N) or (time_end - time_start, neuron_limit)
+        numpy array of shape (ceil((time_end - time_start) / time_stride), N)
 
     raises:
         AssertionError: if column is a static column (use load_metadata instead)
@@ -535,7 +537,7 @@ def load_column_slice(
         'kvstore': {'driver': 'file', 'path': str(ts_path)},
     }
     store = ts.open(spec).result()
-    data = store[time_start:time_end, neuron_slice, ts_col].read().result()
+    data = store[time_start:time_end:time_stride, neuron_slice, ts_col].read().result()
 
     return np.ascontiguousarray(data)
 
