@@ -75,11 +75,10 @@ cross_validation_configs:
       train_end: 1
       validation_start: 5000
       validation_end: 15000
-  # TODO: uncomment me
-  # - simulation_config: "fly_N9_62_0_davis_calcium"
-  #   name: "davis_2016_2017"
-  #   data_split:
-  #     train_start: 0
-  #     train_end: 1
-  #     validation_start: 5000
-  #     validation_end: 25000
+  - simulation_config: "fly_N9_62_0_davis_calcium"
+    name: "davis_2016_2017"
+    data_split:
+      train_start: 0
+      train_end: 1
+      validation_start: 5000
+      validation_end: 15000
