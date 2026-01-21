@@ -9,7 +9,6 @@ tests verify:
 """
 
 import time
-import random
 import unittest
 import numpy as np
 import torch
@@ -152,12 +151,16 @@ class TestChunkLoader(unittest.TestCase):
 
     def test_overlap_with_mock_training(self):
         """test that loading overlaps with mock training (using sleeps)."""
-        # simulate moderate disk i/o delay
+        # simulate disk i/o: 200ms per chunk (longer than training)
+        # simulate training: 100ms per chunk
+        load_time_ms = 200
+        train_time_ms = 100
+
         source = MockDataSource(
             total_timesteps=50000,
             num_neurons=1000,
             num_stim_dims=100,
-            load_delay_ms=100  # 100ms load time
+            load_delay_ms=load_time_ms
         )
 
         loader = RandomChunkLoader(
@@ -165,13 +168,12 @@ class TestChunkLoader(unittest.TestCase):
             total_timesteps=source.total_timesteps,
             chunk_size=5000,
             device='cpu',
-            prefetch=2  # buffer 2 chunks ahead
+            prefetch=10  # large buffer to avoid blocking background thread
         )
 
         num_chunks = 5
         loader.start_epoch(num_chunks)
 
-        training_times = []
         total_start = time.time()
 
         for i in range(num_chunks):
@@ -180,27 +182,29 @@ class TestChunkLoader(unittest.TestCase):
             chunk_data, chunk_stim = loader.get_next_chunk()
             get_time = time.time() - get_start
 
-            # simulate "training" on this chunk
+            # simulate deterministic "training" on this chunk
             train_start = time.time()
-            time.sleep(random.uniform(0.05, 0.15))  # 50-150ms "training"
+            time.sleep(train_time_ms / 1000.0)
             train_time = time.time() - train_start
-            training_times.append(train_time)
 
             print(f"chunk {i}: get={get_time*1000:.1f}ms, train={train_time*1000:.1f}ms")
 
         total_time = time.time() - total_start
 
-        # without overlap: total_time ~= 5 * (100ms load + 100ms train) = 1000ms
-        # with overlap: total_time ~= max(5*100ms, 5*100ms) + startup = ~600ms
-        # we should see significant speedup
-        sequential_time = num_chunks * (0.1 + 0.1)  # 1000ms
+        # expected times:
+        # sequential: 5 * (200ms load + 100ms train) = 1500ms
+        # with overlap: max(5*200ms, 5*100ms) + startup = 1000ms + overhead
+        sequential_time = num_chunks * (load_time_ms + train_time_ms) / 1000.0
+        expected_overlap_time = max(num_chunks * load_time_ms, num_chunks * train_time_ms) / 1000.0
+
         print(f"\ntotal time: {total_time*1000:.1f}ms")
         print(f"sequential would be: {sequential_time*1000:.1f}ms")
+        print(f"expected with overlap: ~{expected_overlap_time*1000:.1f}ms")
         print(f"speedup: {sequential_time / total_time:.2f}x")
 
-        # verify overlap happened (should be faster than sequential)
-        # use generous threshold since CI environments vary
-        self.assertLess(total_time, sequential_time * 0.85, "no overlap detected (too slow)")
+        # verify overlap happened (should be much faster than sequential)
+        # with load=200ms and train=100ms, overlap should give ~1.5x speedup minimum
+        self.assertLess(total_time, sequential_time * 0.75, "no overlap detected (too slow)")
 
         loader.cleanup()
 
