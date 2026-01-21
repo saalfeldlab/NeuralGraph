@@ -499,17 +499,26 @@ def train_step_nocompile(
     # Ls = latent dim for stimulus
     dt = cfg.training.time_units
     num_multiples = cfg.training.evolve_multiple_steps
-    total_steps = dt * num_multiples
     x_t = train_data[batch_indices] # b x N
     proj_t = model.encoder(x_t) # b x L
 
-    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
-    # total_steps x b x 1736
-    stim_t = train_stim[stim_indices, :]
-    dim_stim = train_stim.shape[1]
-    dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
-    # total_steps x b x Ls
-    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
+    # stim at t
+    stim_low = train_stim[batch_indices]
+    # stim at t+dt
+    stim_high = train_stim[batch_indices + dt]
+    # slope for linear interpolation
+    ds_dt = (stim_high - stim_low) / dt
+
+    stim_t = stim_low
+    proj_stim_t = model.stimulus_encoder(stim_t)
+
+    # stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
+    # # total_steps x b x 1736
+    # stim_t = train_stim[stim_indices, :]
+    # dim_stim = train_stim.shape[1]
+    # dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
+    # # total_steps x b x Ls
+    # proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)
@@ -517,7 +526,7 @@ def train_step_nocompile(
 
     # Evolve by 1 time step. This is a special case since we may opt to apply
     # a connectome constraint via data augmentation.
-    proj_t = model.evolver(proj_t, proj_stim_t[0])
+    proj_t = model.evolver(proj_t, proj_stim_t)
     # apply connectome loss after evolving by 1 time step
     aug_loss = torch.tensor(0.0, device=device)
     if (
@@ -529,7 +538,7 @@ def train_step_nocompile(
 
         x_t_aug = torch.zeros_like(x_t)
         x_t_aug[:, needed_indices] = x_t[:, needed_indices]
-        proj_t_aug = model.evolver(model.encoder(x_t_aug), proj_stim_t[0])
+        proj_t_aug = model.evolver(model.encoder(x_t_aug), proj_stim_t)
         pred_t_plus_1_aug = model.decoder(proj_t_aug)
         aug_loss += cfg.training.unconnected_to_zero.loss_coeff * loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
 
@@ -545,7 +554,9 @@ def train_step_nocompile(
 
     # evolve for remaining dt-1 time steps (first window)
     for i in range(1, dt):
-        proj_t = model.evolver(proj_t, proj_stim_t[i])
+        stim_t = stim_t + ds_dt
+        proj_stim_t = model.stimulus_encoder(stim_t)
+        proj_t = model.evolver(proj_t, proj_stim_t)
         step = i + 1  # 1-indexed step number
         if step in intermediate_steps:
             pred_t_plus_step = model.decoder(proj_t)
@@ -559,10 +570,22 @@ def train_step_nocompile(
 
     # additional multiples (2, 3, ..., num_multiples)
     for m in range(2, num_multiples + 1):
-        # evolve dt more steps
-        start_idx = (m - 1) * dt
-        for i in range(dt):
-            proj_t = model.evolver(proj_t, proj_stim_t[start_idx + i])
+        # get new stimulus endpoints for this window
+        stim_low = train_stim[batch_indices + (m - 1) * dt]
+        stim_high = train_stim[batch_indices + m * dt]
+        ds_dt = (stim_high - stim_low) / dt
+        stim_t = stim_low
+
+        # first step of this window
+        proj_stim_t = model.stimulus_encoder(stim_t)
+        proj_t = model.evolver(proj_t, proj_stim_t)
+
+        # remaining dt-1 steps
+        for _ in range(1, dt):
+            stim_t = stim_t + ds_dt
+            proj_stim_t = model.stimulus_encoder(stim_t)
+            proj_t = model.evolver(proj_t, proj_stim_t)
+
         # loss at this multiple
         pred = model.decoder(proj_t)
         x_target = train_data[batch_indices + m * dt]
