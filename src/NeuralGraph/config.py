@@ -353,7 +353,7 @@ class TrainingConfig(BaseModel):
         "inconsistent_embedding",
         "none",
     ] = "distance_plot"
-    cluster_distance_threshold: float = 0.01
+    cluster_distance_threshold: float = 0.1
     cluster_connectivity: Literal["single", "average"] = "single"
 
     Ising_filter: str = "none"

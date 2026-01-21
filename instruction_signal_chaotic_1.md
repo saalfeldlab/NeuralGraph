@@ -3,6 +3,7 @@
 ## Goal
 
 Map the **simulation-GNN training landscape**: understand which neural activity simulation configurations allow successful GNN training (connectivity_R2 > 0.9) and which are fundamentally harder.
+In particular is it possible to use GNN to recover connectivity from low-rank data, from low-gain data, from sparse data ?
 
 ## Iteration Loop Structure
 
@@ -40,19 +41,28 @@ Read `{config}_memory.md` to recall:
 
 - Established principles
 - Previous block findings
+- Understanding of simulation-GNN training landscape
 - Current block progress
 
 ### Step 2: Analyze Current Results
 
 **Metrics from `analysis.log`:**
 
-- `spectral radius`: max eigenvalue of ground truth connectivity W
-- `effective rank (99% var)`: SVD rank at 99% cumulative variance (activity complexity)
+- `effective rank (99% var)`: **CRITICAL** - SVD rank at 99% cumulative variance. Extract this value and log it as `eff_rank=N` in the activity field.
 - `test_R2`: R² between ground truth and rollout prediction
 - `test_pearson`: Pearson correlation between ground truth and rollout prediction
 - `connectivity_R2`: R² of learned vs true connectivity weights
 - `final_loss`: final training loss
-- 'cluster_accuracy': neuron classification
+- `cluster_accuracy`: neuron classification
+
+**Example analysis.log format:**
+
+```
+spectral radius: 1.029
+--- activity ---
+  effective rank (90% var): 26
+  effective rank (99% var): 84   <-- Extract this value for eff_rank
+```
 
 **Classification:**
 
@@ -60,9 +70,9 @@ Read `{config}_memory.md` to recall:
 - **Partial**: connectivity_R2 0.1-0.9
 - **Failed**: connectivity_R2 < 0.1
 
-**UCB scores from `ucb_scores.txt`:**
+**Upper Confidence Bound (UCB) scores from `ucb_scores.txt`:**
 
-- Provides computed UCB scores for all exploration nodes including current iteration
+- Provides computed UCB scores for all exploration nodes within a block including current iteration
 - At block boundaries, the UCB file will be empty (erased). When empty, use `parent=root`
 
 Example:
@@ -87,12 +97,14 @@ Node: id=N, parent=P
 Mode/Strategy: [success-exploit/failure-probe]/[exploit/explore/boundary]
 Config: lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, batch_size=B, low_rank_factorization=[T/F], low_rank=R, n_frames=NF
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, cluster_accuracy=D, final_loss=E
-Activity: [brief description]
+Activity: eff_rank=R (from analysis.log "effective rank (99% var)"), spectral_radius=S, [brief description]
 Mutation: [param]: [old] -> [new]
 Parent rule: [one line]
 Observation: [one line]
 Next: parent=P
 ```
+
+**CRITICAL: Always extract `effective rank (99% var)` from `analysis.log` and include it in the Activity field as `eff_rank=R`. This value is essential for understanding training difficulty and must be recorded in every iteration.**
 
 ### Step 4: Parent Selection Rule in UCB tree
 
@@ -106,19 +118,13 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition                                        | Strategy                 | Action                                                                                      |
-| ------------------------------------------------ | ------------------------ | ------------------------------------------------------------------------------------------- |
-| Default                                          | **exploit**              | Highest UCB node, try mutation                                                              |
-| 3+ consecutive R² ≥ 0.9                          | **failure-probe**        | Extreme parameter to find boundary                                                          |
-| n_iter_block/4 consecutive successes             | **explore**              | Select outside recent chain                                                                 |
-| Good config found                                | **robustness-test**      | Re-run same config                                                                          |
-| 2+ distant nodes with R² > 0.9                   | **recombine**            | Merge params from both nodes                                                                |
-| 100% convergence, branching<10%                  | **forced-branch**        | Select node in bottom 50% of tree                                                           |
-| 4+ consecutive same-param mutations              | **switch-dimension**     | Mutate different parameter than recent chain                                                |
-| 3+ partial results probing boundary              | **boundary-skip**        | Accept boundary as found, explore elsewhere                                                 |
-| 8+ consecutive sequential (no branch)            | **forced-diversity**     | Select any node with visits ≥ 3 that is NOT the most recent 4 nodes                         |
-| New param tested with ≥6 consecutive same result | **param-boundary-found** | Stop testing param, switch to different dimension                                           |
-| cluster_accuracy=0.25 for 10+ iterations         | **embedding-failure**    | Embedding learning is architectural; test different simulation config (n_frames, n_neurons) |
+| Condition                            | Strategy            | Action                             |
+| ------------------------------------ | ------------------- | ---------------------------------- |
+| Default                              | **exploit**         | Highest UCB node, try mutation     |
+| 3+ consecutive R² ≥ 0.9              | **failure-probe**   | Extreme parameter to find boundary |
+| n_iter_block/4 consecutive successes | **explore**         | Select outside recent chain        |
+| Good config found                    | **robustness-test** | Re-run same config                 |
+| 2+ distant nodes with R² > 0.9       | **recombine**       | Merge params from both nodes       |
 
 **Recombination details:**
 
@@ -176,7 +182,7 @@ training:
   coeff_edge_diff: 100 # enforces positive monotonicity
 ```
 
-**Simulation Parameters (change at block boundaries only):**
+**Simulation Parameters (can be changed only at block boundaries only):**
 
 ```yaml
 simulation:
@@ -185,9 +191,11 @@ simulation:
   Dale_law: False # or True
   Dale_law_factor: 0.5 # between 0 and 1 to explore different excitatory/inhibitory ratios.
   connectivity_rank: 20 # if low_rank between 10 and 90
+  connectivity_filling_factor: 1 # test 0.05 0.1 0.2 0.5 percent of non zero conenctivity weights
   n_neurons: 100 # can be changed to 1000
-  # params: [a, b, g, s, w, h] per neuron type
-  # g third column, the gain of the network dynamics, is the main parameter, can be changed from 1 to 10
+  # params: [a, b, g, s, w, h] per neuron type, one row per neuron type
+  # g (third column): network gain - scales connectivity influence on dynamics (range: 1-10)
+  #   IMPORTANT: g must be changed SIMULTANEOUSLY for ALL neuron types
   # s is the self excitation, can be changed 0, 1, or 2
   # others parameters a, b, w and h are fixed
   params:
@@ -197,12 +205,15 @@ simulation:
     [2.0, 0.0, 7.0, 1.0, 1.0, 0.0],
     [2.0, 0.0, 7.0, 2.0, 1.0, 0.0],
   ]
-  # params values can be changed (mainly g, third column) BUT the size 4 x 6 must be maintained
+  # params values can be changed BUT the size 4 x 6 must be maintained
+  # g, the gain of the neural dynamics is the most important parameter
+  # g is in the third column, should be equal value for every neuron type, hence in every row
   # n_neuron_types defines network heterogeneity (change at block boundaries):
   # - 1 = homogeneous network (all neurons have same dynamics)
   # - 2-4 = heterogeneous network (neurons have different dynamics based on type)
   # - params array must have exactly n_neuron_types rows
   n_neuron_types: 1 # can be changed between 1 to 4 at block boundaries
+
 
 ```
 
@@ -221,10 +232,7 @@ claude:
 - Higher c (>1.5) → more exploration of under-visited branches
 - Lower c (<1.0) → more exploitation of high-performing nodes
 - Default: 1.414 (√2, standard UCB1)
-- Adjust between blocks based on search behavior:
-  - If stuck in local optimum (all R² similar, no improvement) → INCREASE ucb_c to 2.0
-  - If too much random exploration (jumping between distant nodes) → DECREASE ucb_c to 1.0
-  - Typical range: 0.5 to 3.0
+- Adjust between blocks based on search behavior
 
 ---
 
@@ -293,18 +301,17 @@ Update `{config}_memory.md`:
 
 ---
 
-## Working Memory Structure
-
-```markdown
-# Working Memory
+# Working Memory Structure
 
 ## Knowledge Base (accumulated across all blocks)
 
 ### Regime Comparison Table
 
-| Block | Regime                  | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |
-| ----- | ----------------------- | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |
-| 1     | chaotic, Dale_law=False | -   | 10000    | 100       | 1       | 31-35    | 1.000   | 8E-3         | 1E-5       | ...         |
+**eff_rank MUST be from `analysis.log`: `effective rank (99% var): N`**
+
+| Blk | Regime  | E/I | frames | neurons | types | eff_rank | g   | R²   | lr_W | L1   | Finding  |
+| --- | ------- | --- | ------ | ------- | ----- | -------- | --- | ---- | ---- | ---- | -------- |
+| 1   | chaotic | -   | 10k    | 100     | 1     | 31-35    | 7   | 1.00 | 8E-3 | 1E-5 | baseline |
 
 ### Established Principles
 
@@ -313,6 +320,10 @@ Update `{config}_memory.md`:
 ### Open Questions
 
 [Patterns needing more testing, contradictions]
+
+### Simulation-GNN training landscape
+
+Understanding of simulation-GNN training landscape
 
 ---
 
@@ -343,7 +354,6 @@ Iterations: M to M+n_iter_block
 
 [Running notes on what's working/failing]
 **CRITICAL: This section must ALWAYS be at the END of memory file. When adding new iterations, insert them BEFORE this section.**
-```
 
 ---
 
@@ -465,6 +475,16 @@ L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff + ...
 
 - Dale_law=True enforces excitatory/inhibitory (E/I) constraint on connectivity W
 - Dale_law_factor controls E/I ratio: 0.5 means 50% excitatory, 50% inhibitory neurons
+
+**Network Gain (g)**
+
+The network gain `g` (third column in `params` array) scales how strongly connectivity W influences neural dynamics:
+
+- `g` appears in the dynamics equation: `dx/dt = ... + g × Σ_j W_ij × ψ(x_j)`
+- Higher g (7-10): stronger network interactions
+- Lower g (1-3): weaker network interactions
+- `g` must be set **identically for ALL neuron types** in the `params` array
+- Range: 1-10 (default: 7)
 
 ### Data Complexity
 

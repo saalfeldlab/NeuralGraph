@@ -436,12 +436,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
         for N in pbar:
 
-            # Disable L1 W regularization during second half of epoch 0
-            if epoch == 0 and N == Niter // 2:
-                regularizer._coeffs['W_L1'] = 0.0
-                print(f'[epoch {epoch}, iter {N}] W_L1 disabled (was {original_W_L1})')
-
-
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
             if model_f is not None:

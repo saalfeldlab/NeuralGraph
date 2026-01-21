@@ -244,24 +244,45 @@ def plot_ucb_tree(nodes: list[UCBNode],
         sim_text = sim_text.replace('_', ' ')
         # Split by comma and join with newlines
         sim_lines = [p.strip() for p in sim_text.split(',')]
-        # Filter lines: prioritize n_neurons and n_frames first, then connectivity info
+        # Filter lines: prioritize key simulation parameters
         filtered_lines = []
+        # First pass: n_neurons and n_frames
         for line in sim_lines:
             if 'n neurons' in line or 'n frames' in line:
                 filtered_lines.append(line)
+        # Second pass: time step and recurrent info
         for line in sim_lines:
             if 'time step' in line or 'recurrent' in line:
                 filtered_lines.append(line)
+        # Third pass: connectivity and dynamics parameters
         for line in sim_lines:
             if 'connectivity type' in line:
                 filtered_lines.append(line)
             elif 'Dale law=' in line:
                 filtered_lines.append(line)
+            elif 'E/I=' in line:
+                filtered_lines.append(line)
             elif 'noise model level' in line:
                 filtered_lines.append(line)
             elif 'connectivity rank' in line and 'low rank' in sim_text.lower():
                 filtered_lines.append(line)
-        sim_formatted = '\n'.join(filtered_lines) if filtered_lines else '\n'.join(sim_lines)
+            elif 'connectivity filling' in line or 'filling factor' in line:
+                filtered_lines.append(line)
+            elif 'n neuron types' in line or 'n types' in line:
+                filtered_lines.append(line)
+            elif 'g=' in line or 'gain' in line.lower():
+                filtered_lines.append(line)
+        # Format with two parameters per line for compactness
+        if filtered_lines:
+            paired_lines = []
+            for i in range(0, len(filtered_lines), 2):
+                if i + 1 < len(filtered_lines):
+                    paired_lines.append(f"{filtered_lines[i]}, {filtered_lines[i+1]}")
+                else:
+                    paired_lines.append(filtered_lines[i])
+            sim_formatted = '\n'.join(paired_lines)
+        else:
+            sim_formatted = '\n'.join(sim_lines)
         # Place at top left using axes coordinates (0,1 = top left)
         ax.text(0.02, 0.98, sim_formatted, transform=ax.transAxes,
                 fontsize=11, ha='left', va='top', color='#333333')

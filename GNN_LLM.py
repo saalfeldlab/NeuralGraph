@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 327
+    start_iteration = 330
 
 
 
@@ -485,12 +485,23 @@ Current config: {config_path}"""
                     sim_info += f", connectivity_type={config.simulation.connectivity_type}"
                     if hasattr(config.simulation, 'Dale_law'):
                         sim_info += f", Dale_law={config.simulation.Dale_law}"
-                    if hasattr(config.simulation, 'Dale_law_factor'):
-                        sim_info += f", E/I={config.simulation.Dale_law_factor}"
+                        # Only show E/I ratio if Dale_law is True, otherwise show NA
+                        if config.simulation.Dale_law and hasattr(config.simulation, 'Dale_law_factor'):
+                            sim_info += f", E/I={config.simulation.Dale_law_factor}"
+                        else:
+                            sim_info += f", E/I=NA"
                     if hasattr(config.simulation, 'noise_model_level'):
                         sim_info += f", noise_model_level={config.training.noise_model_level}"
                     if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
                         sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
+                    if hasattr(config.simulation, 'connectivity_filling_factor'):
+                        sim_info += f", filling_factor={config.simulation.connectivity_filling_factor}"
+                    if hasattr(config.simulation, 'n_neuron_types'):
+                        sim_info += f", n_neuron_types={config.simulation.n_neuron_types}"
+                    # Extract g (network gain) from params array if available
+                    if hasattr(config.simulation, 'params') and len(config.simulation.params) > 0:
+                        g_value = config.simulation.params[0][2]  # g is third column (index 2)
+                        sim_info += f", g={g_value}"
 
                     plot_ucb_tree(nodes, ucb_tree_path,
                                   title=f"UCB Tree - Iter {iteration}",

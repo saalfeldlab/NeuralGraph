@@ -6,7 +6,7 @@ simulation:
     - 0
     - 0.1
   connectivity_rank: 20
-  Dale_law: false
+  Dale_law: true
   Dale_law_factor: 0.5
   # params: [a, b, g, s, w, h]
   # a: decay, b: offset, g: gain, s: self-recurrence, w: width, h: threshold   MLP1((u-h)/w)
@@ -63,11 +63,12 @@ training:
   sparsity: replace_embedding_function
   sparsity_freq: 4
   cluster_method: distance_plot
+  cluster_distance_threshold: 0.1
   fix_cluster_embedding: false
-  learning_rate_W_start: 1.0e-01
-  learning_rate_start: 1.0e-02
+  learning_rate_W_start: 1.0e-03
+  learning_rate_start: 5.0e-03
   learning_rate_embedding_start: 5.0e-03
-  coeff_W_L1: 1.0e-08
+  coeff_W_L1: 1.0e-07
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
   low_rank_factorization: false
