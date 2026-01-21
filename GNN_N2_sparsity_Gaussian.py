@@ -1,23 +1,3 @@
-"""
-GNN Recurrent Training with Code Modification Support.
-
-This script runs GNN training with recurrent training mode and allows Claude to modify
-the training code (graph_trainer.py) to explore different training schemes.
-
-Training runs in a subprocess to ensure code modifications are reloaded each iteration.
-Code changes are automatically committed to git for version control.
-
-Usage:
-    python GNN_recurrent_code.py                                              # run Claude exploration
-    python GNN_recurrent_code.py -o train_test_plot_Claude signal_N2_recurrent_1  # explicit config
-
-Code modification support:
-    - Claude can modify: src/NeuralGraph/models/graph_trainer.py
-    - Changes are tracked and committed to git automatically
-    - Subprocess reloads modified code each iteration
-    - See instruction_signal_N2_recurrent_code_1.md for allowed modifications
-"""
-
 import matplotlib
 matplotlib.use('Agg')  # set non-interactive backend before other imports
 import argparse
@@ -49,22 +29,18 @@ warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
-    parser = argparse.ArgumentParser(description="NeuralGraph Recurrent Training with Code Modification")
+    parser = argparse.ArgumentParser(description="NeuralGraph - Signal_N2_sparsity Optimization (Sparse Connectivity)")
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
 
     print()
-    print("=" * 80)
-    print("GNN Recurrent Training with Code Modification Support")
-    print("=" * 80)
-
-    device = []
+    device=[]
     args = parser.parse_args()
 
     if args.option:
         print(f"Options: {args.option}")
-    if args.option is not None:
+    if args.option != None:
         task = args.option[0]
         config_list = [args.option[1]]
         if len(args.option) > 2:
@@ -78,26 +54,36 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude'
-        config_list = ['signal_N2_recurrent']
-        task_params = {'iterations': 512}
+        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'Claude', 'code'
+        config_list = ['signal_N2_sparsity_Gaussian']
+        task_params = {'iterations': 2048}
 
-    # resume support
-    start_iteration = 17
 
-    n_iterations = task_params.get('iterations', 5)
-    base_config_name = config_list[0] if config_list else 'signal'
+
+    # resume support: start_iteration parameter (default 1)
+    start_iteration = 1
+
+
+
+
+    n_iterations = task_params.get('iterations', 2048)
+    base_config_name = config_list[0] if config_list else 'signal_N2_sparsity'
     instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
+
+
+
     if 'Claude' in task:
         iteration_range = range(start_iteration, n_iterations + 1)
+
 
         root_dir = os.path.dirname(os.path.abspath(__file__))
         config_root = root_dir + "/config"
 
         if start_iteration > 1:
             print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+
 
         for cfg in config_list:
             cfg_file, pre = add_pre_folder(cfg)
@@ -113,13 +99,13 @@ if __name__ == "__main__":
                         config_data = yaml.safe_load(f)
                     claude_cfg = config_data.get('claude', {})
                     claude_n_epochs = claude_cfg.get('n_epochs', 1)
-                    claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
-                    claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                    claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 10)
+                    claude_n_iter_block = claude_cfg.get('n_iter_block', 512)
                     claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
                     config_data['dataset'] = llm_task_name
                     config_data['training']['n_epochs'] = claude_n_epochs
                     config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
-                    config_data['description'] = 'designed by Claude (with code modification)'
+                    config_data['description'] = 'designed by Claude - Signal_N2_sparsity optimization'
                     config_data['claude'] = {
                         'n_epochs': claude_n_epochs,
                         'data_augmentation_loop': claude_data_augmentation_loop,
@@ -136,8 +122,8 @@ if __name__ == "__main__":
                     config_data = yaml.safe_load(f)
                 claude_cfg = config_data.get('claude', {})
                 claude_n_epochs = claude_cfg.get('n_epochs', 1)
-                claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
-                claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+                claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 10)
+                claude_n_iter_block = claude_cfg.get('n_iter_block', 512)
                 claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
 
         n_iter_block = claude_n_iter_block
@@ -166,10 +152,15 @@ if __name__ == "__main__":
         code_modified_by_claude = False
         code_changes_enabled = False
 
+
+
+
     for config_file_ in config_list:
         print(" ")
         config_root = os.path.dirname(os.path.abspath(__file__)) + "/config"
         config_file, pre_folder = add_pre_folder(config_file_)
+
+
 
         if 'Claude' in task:
             root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -189,19 +180,20 @@ if __name__ == "__main__":
             # clear analysis and memory files at start (only if not resuming)
             if start_iteration == 1:
                 with open(analysis_path, 'w') as f:
-                    f.write(f"# Experiment Log: {config_file_}\n\n")
+                    f.write(f"# Experiment Log: {config_file_} (Signal_N2_sparsity Optimization)\n\n")
+                    f.write("## Dual Objective: connectivity_R2 + cluster_accuracy\n\n")
                 print(f"\033[93mcleared {analysis_path}\033[0m")
                 # clear reasoning.log for Claude tasks
                 reasoning_path = analysis_path.replace('_analysis.md', '_reasoning.log')
                 open(reasoning_path, 'w').close()
                 print(f"\033[93mcleared {reasoning_path}\033[0m")
-                # initialize working memory file
+                # initialize working memory file for N2_sparsity optimization
                 with open(memory_path, 'w') as f:
-                    f.write(f"# Working Memory: {config_file_}\n\n")
+                    f.write(f"# Working Memory: {config_file_} (Signal_N2_sparsity)\n\n")
                     f.write("## Knowledge Base (accumulated across all blocks)\n\n")
-                    f.write("### Time Step Comparison Table\n")
-                    f.write("| Block | time_step | Best R² | Optimal lr_W | Optimal lr | Optimal L1 | Rollout R² | Training time (min) | Key finding |\n")
-                    f.write("|-------|-----------|---------|--------------|------------|------------|------------|---------------------|-------------|\n\n")
+                    f.write("### Optimization Table\n")
+                    f.write("| Block | lr_W    | lr_emb  | lr     | L1   | Best R² | Best Cluster | Key finding |\n")
+                    f.write("| ----- | ------- | ------- | ------ | ---- | ------- | ------------ | ----------- |\n\n")
                     f.write("### Established Principles\n\n")
                     f.write("### Open Questions\n\n")
                     f.write("---\n\n")
@@ -209,6 +201,8 @@ if __name__ == "__main__":
                     f.write("---\n\n")
                     f.write("## Current Block (Block 1)\n\n")
                     f.write("### Block Info\n\n")
+                    f.write("Configuration: baseline Signal_N2_sparsity (1000 neurons, 4 types, sparse)\n")
+                    f.write("Objective: connectivity_R2 > 0.9 AND cluster_accuracy > 0.9\n\n")
                     f.write("### Hypothesis\n\n")
                     f.write("### Iterations This Block\n\n")
                     f.write("### Emerging Observations\n\n")
@@ -223,7 +217,10 @@ if __name__ == "__main__":
         root_dir = os.path.dirname(os.path.abspath(__file__))
         analysis_log_path = f"{root_dir}/{llm_task_name}_analysis.log"
 
+
+
         for iteration in iteration_range:
+
 
             if 'Claude' in task:
                 print(f"\n\n\n\033[94miteration {iteration}/{n_iterations}: {config_file_} ===\033[0m")
@@ -232,40 +229,86 @@ if __name__ == "__main__":
                     ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
                     if os.path.exists(ucb_file):
                         os.remove(ucb_file)
-                        print(f"\033[93msimulation block boundary: deleted {ucb_file} (new simulation block)\\033[0m")
+                        print(f"\033[93msimulation block boundary: deleted {ucb_file} (new simulation block)\033[0m")
 
             # reload config to pick up any changes from previous iteration
             config = NeuralGraphConfig.from_yaml(f"{config_root}/{config_file}.yaml")
             config.dataset = pre_folder + config.dataset
             config.config_file = pre_folder + config_file_
 
-            if device == []:
+            if device==[]:
                 device = set_device(config.training.device)
 
             # open analysis.log for this iteration (append mode for test/plot to add metrics)
             log_file = open(analysis_log_path, 'w')
 
-            if "generate" in task:
-                erase = 'Claude' in task  # erase when iterating with claude
-                data_generate(
-                    config,
-                    device=device,
-                    visualize=False,
-                    run_vizualized=0,
-                    style="black color",
-                    alpha=1,
-                    erase=erase,
-                    bSave=True,
-                    step=2,
-                    log_file=log_file
-                )
+            if 'daemon' in task:
+                # Daemon mode: submit job to cluster via config/new/ directory
+                # Copy current config to config/new/, wait for cluster to process it
+                # Use basename to flatten the path (config/signal/foo.yaml -> config/new/foo.yaml)
+                config_filename = f"{os.path.basename(config_file)}.yaml"
+                new_path = f"{config_root}/new/{config_filename}"
+                processing_path = f"{config_root}/processing/{config_filename}"
+                done_path = f"{config_root}/done/{config_filename}"
+                # Ensure directories exist
+                os.makedirs(f"{config_root}/new", exist_ok=True)
+                os.makedirs(f"{config_root}/processing", exist_ok=True)
+                os.makedirs(f"{config_root}/done", exist_ok=True)
 
-            if "train" in task:
-                # For Claude tasks, use subprocess only if code changes enabled AND Claude modified code
-                if 'Claude' in task:
-                    use_subprocess = code_changes_enabled and code_modified_by_claude
+                # Copy config to new/ to submit job
+                source_config = f"{config_root}/{config_file}.yaml"
+                shutil.copy2(source_config, new_path)
+                submit_time = time.time()
+                print(f"\033[93mSubmitted to daemon: {new_path}\033[0m")
 
-                    if use_subprocess:
+                # Wait for job to complete (file appears in done/)
+                print(f"\033[93mWaiting for {config_filename} to be copied into config/done/ ...\033[0m")
+                check_interval = 5 * 60  # 5 minutes in seconds
+                while True:
+                    if os.path.exists(done_path):
+                        print(f"\033[92mConfig file {config_filename} copied into config/done/\033[0m")
+                        time.sleep(5)  # Wait 5s before deleting
+                        os.remove(done_path)
+                        print(f"\033[93mRemoved from done/: {config_filename}\033[0m")
+                        break
+                    # Also check if still in processing (job running)
+                    if os.path.exists(processing_path):
+                        print(f"  ... job still running (in processing/)")
+                    elif os.path.exists(new_path):
+                        print(f"  ... job queued (in new/)")
+                    else:
+                        print(f"  ... waiting for daemon to pick up job")
+                    time.sleep(check_interval)
+                print(f"\033[92mDaemon job completed, proceeding with Claude analysis...\033[0m")
+
+                # Close log file (metrics will be read from cluster output)
+                log_file.close()
+
+                # Read analysis.log generated by daemon (if exists)
+                # The daemon writes to the same log path, so metrics should be available
+                if os.path.exists(analysis_log_path):
+                    print(f"\033[92mMetrics available in: {analysis_log_path}\033[0m")
+
+            else:
+                # Local execution mode
+                if "generate" in task:
+                    erase = 'Claude' in task  # erase when iterating with claude
+                    data_generate(
+                        config,
+                        device=device,
+                        visualize=False,
+                        run_vizualized=0,
+                        style="color",
+                        alpha=1,
+                        erase=erase,
+                        bSave=True,
+                        step=2,
+                        log_file=log_file
+                    )
+
+                if "train" in task:
+                    # For Claude tasks, use subprocess only if code changes enabled AND Claude modified code
+                    if 'Claude' in task and code_changes_enabled and code_modified_by_claude:
                         print("\033[93mcode modified by Claude - running training in subprocess...\033[0m")
 
                         # Construct subprocess command
@@ -305,9 +348,7 @@ if __name__ == "__main__":
                         )
 
                         # Capture all output for logging while also streaming to console
-                        # Filter out tqdm progress bar lines (contain |, %, it/s)
                         output_lines = []
-                        line_count = 0
                         with open(error_log_path, 'w') as output_file:
                             for line in process.stdout:
                                 output_file.write(line)
@@ -316,9 +357,7 @@ if __name__ == "__main__":
                                 # Filter: skip tqdm-like lines (progress bars)
                                 if '|' in line and '%' in line and 'it/s' in line:
                                     continue
-                                # Print non-tqdm lines
                                 print(line, end='', flush=True)
-                                line_count += 1
 
                         process.wait()
 
@@ -351,53 +390,44 @@ if __name__ == "__main__":
                         print("\033[92mtraining subprocess completed successfully\033[0m")
                     else:
                         # No code modifications - run training directly (faster)
-                        if code_changes_enabled:
+                        if 'Claude' in task and code_changes_enabled:
                             print("\033[92mno code modifications - running training directly...\033[0m")
                         data_train(
                             config=config,
-                            erase=True,
+                            erase='Claude' in task,  # erase old models when iterating with Claude
                             best_model=best_model,
-                            style='black',
+                            style = 'color',
                             device=device,
                             log_file=log_file
                         )
-                else:
-                    # For non-Claude tasks, run directly
-                    data_train(
+
+                if "test" in task:
+
+                    config.training.noise_model_level = 0.0
+
+                    data_test(
                         config=config,
-                        erase=True,
-                        best_model=best_model,
-                        style='black',
+                        visualize=False,
+                        style="color name continuous_slice",
+                        verbose=False,
+                        best_model='best',
+                        run=0,
+                        test_mode="",
+                        sample_embedding=False,
+                        step=10,
+                        n_rollout_frames=1000,
                         device=device,
-                        log_file=log_file
+                        particle_of_interest=0,
+                        new_params = None,
+                        log_file=log_file,
                     )
 
-            if "test" in task:
-                config.training.noise_model_level = 0.0
+                if 'plot' in task:
+                    folder_name = './log/' + pre_folder + '/tmp_results/'
+                    os.makedirs(folder_name, exist_ok=True)
+                    data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
 
-                data_test(
-                    config=config,
-                    visualize=False,
-                    style="color name continuous_slice",
-                    verbose=False,
-                    best_model='best',
-                    run=0,
-                    test_mode="",
-                    sample_embedding=False,
-                    step=10,
-                    n_rollout_frames=1000,
-                    device=device,
-                    particle_of_interest=0,
-                    new_params=None,
-                    log_file=log_file,
-                )
-
-            if 'plot' in task:
-                folder_name = './log/' + pre_folder + '/tmp_results/'
-                os.makedirs(folder_name, exist_ok=True)
-                data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
-
-            log_file.close()
+                log_file.close()
 
             if 'Claude' in task:
 
@@ -446,9 +476,6 @@ if __name__ == "__main__":
                 # call Claude CLI for analysis
                 print("\033[93mClaude analysis...\033[0m")
 
-                # Path to graph_trainer.py for code modification
-                graph_trainer_path = f"{root_dir}/src/NeuralGraph/models/graph_trainer.py"
-
                 claude_prompt = f"""Iteration {iteration}/{n_iterations}
 Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block} within block
 {">>> BLOCK END <<<" if is_block_end else ""}
@@ -459,14 +486,13 @@ Full log (append only): {analysis_path}
 Activity image: {activity_path}
 Metrics log: {analysis_log_path}
 UCB scores: {ucb_path}
-Current config: {config_path}
-Code file (can modify): {graph_trainer_path}"""
+Current config: {config_path}"""
 
                 claude_cmd = [
                     'claude',
                     '-p', claude_prompt,
                     '--output-format', 'text',
-                    '--max-turns', '500',
+                    '--max-turns', '100',
                     '--allowedTools',
                     'Read', 'Edit'
                 ]
@@ -496,7 +522,7 @@ Code file (can modify): {graph_trainer_path}"""
                     print(f"\033[91mOAuth token expired at iteration {iteration}\033[0m")
                     print("\033[93mTo resume:\033[0m")
                     print("\033[93m  1. Run: claude /login\033[0m")
-                    print(f"\033[93m  2. Then: python GNN_recurrent_code.py -o {task} {config_file_} start={iteration}\033[0m")
+                    print(f"\033[93m  2. Then: python GNN_N2_sparsity.py -o {task} {config_file_} start={iteration}\033[0m")
                     print(f"\033[91m{'='*60}\033[0m")
                     raise SystemExit(1)
 
@@ -567,16 +593,15 @@ Code file (can modify): {graph_trainer_path}"""
                 nodes = parse_ucb_scores(ucb_path)
                 if nodes:
                     # get simulation info from config for tree annotation
-                    sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
-                    sim_info += f", time_step={config.training.time_step}"
-                    if hasattr(config.training, 'recurrent_training'):
-                        sim_info += f", recurrent={config.training.recurrent_training}"
+                    sim_info = f"n_neurons={config.simulation.n_neurons}, n_types={config.simulation.n_neuron_types}"
+                    filling = config.simulation.connectivity_filling_factor
+                    sim_info += f", sparse={filling*100:.0f}%"
+                    sim_info += f", n_frames={config.simulation.n_frames}"
+                    sim_info += f", lr_W={config.training.learning_rate_W_start}"
+                    sim_info += f", L1={config.training.coeff_W_L1}"
 
                     plot_ucb_tree(nodes, ucb_tree_path,
-                                  title=f"UCB Tree - Iter {iteration}",
+                                  title=f"UCB Tree - Iter {iteration} (Signal_N2_sparsity)",
                                   simulation_info=sim_info)
 
-    print()
-    print("=" * 80)
-    print("GNN Recurrent Training with Code Modification complete!")
-    print("=" * 80)
+# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_N2_sparsity_Claude"

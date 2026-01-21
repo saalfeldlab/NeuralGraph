@@ -369,52 +369,44 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=80)
         plt.close()
 
-    fig, ax = fig_init()
-    if n_neurons<1000:
-        ax.scatter(gt_weight, pred_weight / 10, s=1.0, c=mc, alpha=1.0)
+    # Plot: true vs learned connectivity scatter plot (matching ParticleGraph style)
+    fig, ax = plt.subplots(figsize=(8, 8))
+    if n_neurons < 1000:
+        ax.scatter(gt_weight, pred_weight / 10, s=1.0, c='k', alpha=0.5)
     else:
-        ax.scatter(gt_weight, pred_weight / 10, s=0.1, c=mc, alpha=0.1)
-    ax.set_xlabel(rf'true {weight_variable}', fontsize=48)
-    ax.set_ylabel(rf'learned {weight_variable}', fontsize=48)
-    if n_neurons == 8000:
-        ax.set_xlim([-0.05, 0.05])
-    else:
-        # ax.set_ylim([-0.2, 0.2])
-        ax.set_xlim([-0.2, 0.2])
+        ax.scatter(gt_weight, pred_weight / 10, s=0.1, c='k', alpha=0.1)
+    ax.set_xlabel(rf'true {weight_variable}', fontsize=18)
+    ax.set_ylabel(rf'learned {weight_variable}', fontsize=18)
+
     # Compute and display R² and slope
     x_data = gt_weight.flatten()
     y_data = (pred_weight / 10).flatten()
-    lin_fit, _ = curve_fit(linear_model, x_data, y_data)
-    residuals = y_data - linear_model(x_data, *lin_fit)
-    ss_res = np.sum(residuals ** 2)
-    ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
-    r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
-    ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
-            fontsize=24, verticalalignment='top', color=mc)
-    ax.text(0.05, 0.9, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
-            fontsize=24, verticalalignment='top', color=mc)
-    diag_pred = np.sum(np.diag(pred_weight))
-    diag_true = np.sum(np.diag(gt_weight))
-    ax.text(0.05, 0.85, f'diag: {diag_pred:.3f} ({diag_true:.3f})', transform=ax.transAxes,
-            fontsize=16, verticalalignment='top', color=mc)
-    if config.simulation.connectivity_filling_factor < 1:
-        # Compute zero weight accuracy: how well does the model predict zero vs non-zero weights
-        true_zero = (gt_weight == 0)
-        zero_threshold = np.std(pred_weight) * 0.1
-        pred_zero = (np.abs(pred_weight) < zero_threshold)  # threshold at 10% of std
-        zero_accuracy = np.mean(true_zero == pred_zero)
-        true_zero_count = np.sum(true_zero)
-        pred_zero_count = np.sum(pred_zero)
-        ax.text(0.05, 0.81, f'zero acc: {zero_accuracy:.3f} ({pred_zero_count}/{true_zero_count}) thr={zero_threshold:.3f}', transform=ax.transAxes,
-                fontsize=16, verticalalignment='top', color=mc)
-    # Add inset histogram (top-right, position 4 of 4x4 grid)
-    ax_inset = fig.add_subplot(4, 4, 4)
-    ax_inset.hist(gt_weight.flatten(), bins=50, color='green', alpha=0.5)
-    ax_inset.hist((pred_weight / 10).flatten(), bins=50, color='blue', alpha=0.5)
-    ax_inset.set_xticks([])
-    ax_inset.set_yticks([])
+    try:
+        lin_fit, _ = curve_fit(linear_model, x_data, y_data)
+        residuals = y_data - linear_model(x_data, *lin_fit)
+        ss_res = np.sum(residuals ** 2)
+        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+
+        ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
+                fontsize=14, verticalalignment='top', fontweight='bold')
+        ax.text(0.05, 0.88, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+                fontsize=14, verticalalignment='top', fontweight='bold')
+    except:
+        r_squared = 0.0
+
+    # Set axis limits
+    if n_neurons == 8000:
+        ax.set_xlim([-0.05, 0.05])
+    else:
+        ax.set_xlim([-0.2, 0.2])
+
+    # Add diagonal line
+    lims = [ax.get_xlim()[0], ax.get_xlim()[1]]
+    ax.plot(lims, lims, 'r--', alpha=0.5, linewidth=1)
+
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.png", dpi=50)
+    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
     plt.close()
 
     # Return r_squared for progress tracking
@@ -2213,21 +2205,34 @@ class LossRegularizer:
         tc = self.train_config
         epoch = self.epoch
 
+        # Two-phase training support (like ParticleGraph data_train_synaptic2)
+        n_epochs_init = getattr(tc, 'n_epochs_init', 0)
+        first_coeff_L1 = getattr(tc, 'first_coeff_L1', tc.coeff_W_L1)
+
         if self.trainer_type == 'flyvis':
             # Flyvis: annealed coefficients
             self._coeffs['W_L1'] = tc.coeff_W_L1 * (1 - np.exp(-tc.coeff_W_L1_rate * epoch))
             self._coeffs['edge_weight_L1'] = tc.coeff_edge_weight_L1 * (1 - np.exp(-tc.coeff_edge_weight_L1_rate ** epoch))
             self._coeffs['phi_weight_L1'] = tc.coeff_phi_weight_L1 * (1 - np.exp(-tc.coeff_phi_weight_L1_rate * epoch))
         else:
-            # Signal: no annealing
-            self._coeffs['W_L1'] = tc.coeff_W_L1
+            # Signal: two-phase training if n_epochs_init > 0
+            if n_epochs_init > 0 and epoch < n_epochs_init:
+                # Phase 1: use first_coeff_L1 (typically 0 or small)
+                self._coeffs['W_L1'] = first_coeff_L1
+            else:
+                # Phase 2: use coeff_W_L1 (target L1)
+                self._coeffs['W_L1'] = tc.coeff_W_L1
             self._coeffs['edge_weight_L1'] = tc.coeff_edge_weight_L1
             self._coeffs['phi_weight_L1'] = tc.coeff_phi_weight_L1
 
         # Non-annealed coefficients (same for both)
         self._coeffs['W_L2'] = tc.coeff_W_L2
         self._coeffs['W_sign'] = tc.coeff_W_sign
-        self._coeffs['edge_diff'] = tc.coeff_edge_diff
+        # Two-phase: edge_diff is active in phase 1, disabled in phase 2
+        if n_epochs_init > 0 and epoch >= n_epochs_init:
+            self._coeffs['edge_diff'] = 0  # Phase 2: no monotonicity constraint
+        else:
+            self._coeffs['edge_diff'] = tc.coeff_edge_diff
         self._coeffs['edge_norm'] = tc.coeff_edge_norm
         self._coeffs['edge_weight_L2'] = tc.coeff_edge_weight_L2
         self._coeffs['phi_weight_L2'] = tc.coeff_phi_weight_L2

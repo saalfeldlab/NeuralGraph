@@ -11,7 +11,7 @@ if os.path.isdir('/scratch'):
 
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
-from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
+from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR, data_train_simple
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot
@@ -41,8 +41,8 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = 'train'
-        config_list = ['signal_N2_sparsity_1']
+        task = task = 'train_simple'
+        config_list = ['signal_N2_sparsity_simple']
 
     for config_file_ in config_list:
         print(" ")
@@ -78,6 +78,15 @@ if __name__ == "__main__":
             print()
             # pre-train nnr_f (SIREN) on external_input data before joint GNN learning
             data_train_INR(config=config, device=device, total_steps=50000)
+
+        elif "train_simple" in task:
+            data_train_simple(
+                config=config,
+                erase=True,
+                best_model=best_model,
+                style='color',
+                device=device,
+            )
 
         elif "train" in task:
             data_train(

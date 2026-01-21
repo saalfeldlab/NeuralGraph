@@ -465,48 +465,6 @@ def create_timeline():
         ax.text(left_x, top_y, block_text, ha='left', va='bottom', fontsize=9,
                 linespacing=0.85)
 
-    # Draw edges with arrowheads
-    from matplotlib.patches import FancyArrowPatch
-    edge_styles = {
-        'leads_to': {'linestyle': '-', 'color': '#555555', 'alpha': 0.6},
-        'triggers': {'linestyle': '--', 'color': '#2196F3', 'alpha': 0.7},
-        'refines': {'linestyle': ':', 'color': '#4CAF50', 'alpha': 0.6},
-    }
-
-    for from_iter, from_mode, to_iter, to_mode, edge_type in edges:
-        if from_mode not in mode_to_y or to_mode not in mode_to_y:
-            continue
-
-        x1, y1 = from_iter, mode_to_y[from_mode]
-        x2, y2 = to_iter, mode_to_y[to_mode]
-
-        style = edge_styles.get(edge_type, edge_styles['leads_to'])
-
-        # Special handling for edges TO Falsification: backward arrow
-        if to_mode == 'Falsification':
-            arrow = FancyArrowPatch(
-                (x2, y2), (x1, y1),
-                arrowstyle='<|-',
-                mutation_scale=10,
-                linestyle='-',
-                color='#e74c3c',
-                alpha=0.8,
-                linewidth=1.5,
-                zorder=1
-            )
-        else:
-            arrow = FancyArrowPatch(
-                (x1, y1), (x2, y2),
-                arrowstyle='-|>',
-                mutation_scale=10,
-                linestyle=style['linestyle'],
-                color=style['color'],
-                alpha=style['alpha'],
-                linewidth=1.2,
-                zorder=1
-            )
-        ax.add_patch(arrow)
-
     # Plot events (nodes) with iteration labels
     for iteration, mode, significance in events:
         if mode not in mode_to_y:
@@ -548,26 +506,15 @@ def create_timeline():
                         title='Reasoning Modes', fontsize=8)
     ax.add_artist(legend1)
 
-    # Legend for edges
-    from matplotlib.lines import Line2D
-    edge_legend = [
-        Line2D([0], [0], color='#555555', linestyle='-', linewidth=2, label='leads to'),
-        Line2D([0], [0], color='#2196F3', linestyle='--', linewidth=2, label='triggers'),
-        Line2D([0], [0], color='#4CAF50', linestyle=':', linewidth=2, label='refines'),
-        Line2D([0], [0], color='#e74c3c', linestyle='-', linewidth=2, label='← rejects'),
-    ]
-    legend2 = ax.legend(handles=edge_legend, loc='upper left', bbox_to_anchor=(1.01, 0.55),
-                        title='Edge Types', fontsize=8)
-    ax.add_artist(legend2)
-
     # Legend for node sizes
+    from matplotlib.lines import Line2D
     size_legend = [
         Line2D([0], [0], marker='o', color='w', markerfacecolor='gray',
                markersize=10, label='High significance'),
         Line2D([0], [0], marker='o', color='w', markerfacecolor='gray',
                markersize=7, label='Medium significance'),
     ]
-    ax.legend(handles=size_legend, loc='upper left', bbox_to_anchor=(1.01, 0.35),
+    ax.legend(handles=size_legend, loc='upper left', bbox_to_anchor=(1.01, 0.55),
               title='Node Size', fontsize=8)
 
     plt.tight_layout()

@@ -68,6 +68,7 @@ from NeuralGraph.models.Neural_ode_wrapper_Signal import integrate_neural_ode_Si
 from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal
 from NeuralGraph.models.Signal_Propagation_RNN import Signal_Propagation_RNN
 from NeuralGraph.models.Signal_Propagation_LSTM import Signal_Propagation_LSTM
+from NeuralGraph.models.Signal_Propagation_Simple import Signal_Propagation_Simple
 from NeuralGraph.models.utils_zebra import (
     plot_field_comparison,
     plot_field_comparison_continuous_slices,
@@ -344,7 +345,14 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                 model.W.copy_(model.W * model.mask)
     else:
 
-        edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
+        # edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
+        # Create fully connected edges (all pairs except self-loops)
+        # This allows learning full W matrix like ParticleGraph
+        i_indices = torch.arange(n_neurons, device=device).repeat_interleave(n_neurons)
+        j_indices = torch.arange(n_neurons, device=device).repeat(n_neurons)
+        # Remove self-loops (i != j)
+        mask_edges = i_indices != j_indices
+        edges = torch.stack([i_indices[mask_edges], j_indices[mask_edges]], dim=0)
         edges_all = edges.clone().detach()
 
     if train_config.coeff_W_sign > 0:
@@ -428,12 +436,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         pbar = trange(Niter, ncols=150, disable=tqdm_disabled)
 
         for N in pbar:
-
-            # Disable L1 W regularization during second half of epoch 0
-            if epoch == 0 and N == Niter // 2:
-                regularizer._coeffs['W_L1'] = 0.0
-                print(f'[epoch {epoch}, iter {N}] W_L1 disabled (was {original_W_L1})')
-
 
             if has_missing_activity:
                 optimizer_missing_activity.zero_grad()
@@ -5010,4 +5012,288 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
     reconstructed = reconstructed.squeeze()
     true = true.squeeze()
 
+
+def data_train_simple(config, erase, best_model, style, device, log_file=None):
+    """
+    Simplified training function matching ParticleGraph data_train_synaptic2 conceptually.
+
+    Key differences from data_train_signal:
+    A. Two-phase L1 regularization (first_coeff_L1 -> coeff_L1)
+    B. Monotonicity constraint on edge function (coeff_diff, disabled in phase 2)
+    C. Direct MLP output regularization (func_phi.norm(2), func_edge.norm(2))
+    D. Hardcoded loss composition (no LossRegularizer class)
+    E. Single-step prediction (no recurrent/ODE training)
+    """
+    from tqdm import trange
+
+    simulation_config = config.simulation
+    train_config = config.training
+    model_config = config.graph_model
+
+    n_epochs = train_config.n_epochs
+    n_runs = train_config.n_runs
+    n_neuron_types = simulation_config.n_neuron_types
+    dataset_name = config.dataset
+    n_frames = simulation_config.n_frames
+    delta_t = simulation_config.delta_t
+    data_augmentation_loop = train_config.data_augmentation_loop
+    target_batch_size = train_config.batch_size
+
+    if train_config.small_init_batch_size:
+        get_batch_size = increasing_batch_size(target_batch_size)
+    else:
+        get_batch_size = constant_batch_size(target_batch_size)
+    batch_size = get_batch_size(0)
+
+    replace_with_cluster = 'replace' in train_config.sparsity
+    sparsity_freq = train_config.sparsity_freq
+    embedding_cluster = EmbeddingCluster(config)
+    cmap = CustomColorMap(config=config)
+
+    if "black" in style:
+        plt.style.use("dark_background")
+        mc = 'white'
+    else:
+        plt.style.use("default")
+        mc = 'black'
+
+    # Set seed
+    if config.training.seed != 42:
+        torch.random.manual_seed(config.training.seed)
+        np.random.seed(config.training.seed)
+
+    log_dir, logger = create_log_dir(config, erase)
+    print('loading data...')
+
+    x_list = []
+    y_list = []
+    for run in trange(0, n_runs, ncols=80):
+        x = np.load(f'graphs_data/{dataset_name}/x_list_{run}.npy')
+        y = np.load(f'graphs_data/{dataset_name}/y_list_{run}.npy')
+        x_list.append(x)
+        y_list.append(y)
+
+    x = x_list[0][n_frames - 10]
+    n_neurons = x.shape[0]
+    config.simulation.n_neurons = n_neurons
+    type_list = torch.tensor(x[:, 6:7], device=device)
+
+    # Normalization
+    activity = torch.tensor(x_list[0][:, :, 3], device=device)
+    distrib = activity.flatten()
+    distrib = distrib[~torch.isnan(distrib)]
+    if len(distrib) > 0:
+        xnorm = torch.round(1.5 * torch.std(distrib))
+    else:
+        xnorm = torch.tensor(1.0, device=device)
+    vnorm = torch.tensor(1.0, device=device)
+    ynorm = torch.tensor(1.0, device=device)
+    torch.save(xnorm, os.path.join(log_dir, 'xnorm.pt'))
+    torch.save(vnorm, os.path.join(log_dir, 'vnorm.pt'))
+    torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
+    time.sleep(0.5)
+
+    print('create models ...')
+    # Use Signal_Propagation_Simple which uses full matrix multiplication for PDE_N2
+    # (like ParticleGraph's Signal_Propagation2) instead of sparse message passing
+    model = Signal_Propagation_Simple(aggr_type=model_config.aggr_type, config=config, device=device, bc_dpos=None)
+    model.edges = []
+    model.to(device)
+    model.train()
+
+    if (best_model is not None) and (best_model != '') and (best_model != 'None'):
+        net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
+        print(f'load {net} ...')
+        state_dict = torch.load(net, map_location=device)
+        model.load_state_dict(state_dict['model_state_dict'])
+        start_epoch = int(best_model.split('_')[0])
+    else:
+        start_epoch = 0
+
+    # Optimizer setup
+    lr = train_config.learning_rate_start
+    lr_embedding = train_config.learning_rate_embedding_start
+    lr_W = getattr(train_config, 'learning_rate_W_start', lr)
+    optimizer, n_total_params = set_trainable_parameters(
+        model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr, lr_W=lr_W,
+        learning_rate_NNR=0, learning_rate_NNR_f=0
+    )
+    model.train()
+
+    print(f'learning rates: lr_W={lr_W}, lr={lr}, lr_embedding={lr_embedding}')
+    logger.info(f'learning rates: lr_W={lr_W}, lr={lr}, lr_embedding={lr_embedding}')
+
+    net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs.pt"
+    logger.info(f'network: {net}  N epochs: {n_epochs}  initial batch_size: {batch_size}')
+
+    # Load connectivity and edges
+    connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
+    edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
+
+    print(f'n neurons: {n_neurons}, edges:{edges.shape[1]}, xnorm: {to_numpy(xnorm)}')
+    print(f'Using Signal_Propagation_Simple with full matrix multiplication (W @ lin_edge(u))')
+    logger.info(f'n neurons: {n_neurons}, edges:{edges.shape[1]}, xnorm: {to_numpy(xnorm)}')
+
+    # Two-phase parameters (matching ParticleGraph defaults)
+    n_epochs_init = getattr(train_config, 'n_epochs_init', 2)  # ParticleGraph default
+    first_coeff_L1 = getattr(train_config, 'first_coeff_L1', 0)  # ParticleGraph default
+    coeff_L1 = getattr(train_config, 'coeff_L1', 0)  # ParticleGraph default
+    coeff_diff = getattr(train_config, 'coeff_diff', 10)  # ParticleGraph default
+
+    # MLP output regularization coefficients (key conceptual difference C, D)
+    coeff_func_phi = getattr(train_config, 'coeff_func_phi', 1.0)
+    coeff_func_edge = getattr(train_config, 'coeff_func_edge', 1.0)
+
+    print("start training ...")
+    print(f'two-phase: epochs 0-{n_epochs_init-1} use first_coeff_L1={first_coeff_L1}, coeff_diff={coeff_diff}')
+    print(f'           epochs {n_epochs_init}+ use coeff_L1={coeff_L1}, coeff_diff=0')
+
+    check_and_clear_memory(device=device, iteration_number=0, every_n_iterations=1, memory_percentage_threshold=0.6)
+
+    list_loss = []
+    training_start_time = time.time()
+
+    for epoch in range(start_epoch, n_epochs):
+
+        # Two-phase regularization (key conceptual difference A)
+        if epoch < n_epochs_init:
+            current_coeff_L1 = first_coeff_L1
+            current_coeff_diff = coeff_diff
+        else:
+            current_coeff_L1 = coeff_L1
+            current_coeff_diff = 0
+
+        logger.info(f'epoch {epoch}: coeff_L1={current_coeff_L1}, coeff_diff={current_coeff_diff}')
+
+        batch_size = get_batch_size(epoch)
+        logger.info(f'batch_size: {batch_size}')
+
+        Niter = int(n_frames * data_augmentation_loop // batch_size * n_runs / 10)
+        if epoch == 0:
+            print(f'{Niter} iterations per epoch')
+            logger.info(f'{Niter} iterations per epoch')
+
+        plot_frequency = max(1, Niter // 20)
+        total_loss = 0
+        last_connectivity_r2 = None
+
+        tqdm_disabled = os.environ.get('TQDM_DISABLE', '0') == '1'
+        pbar = trange(Niter, ncols=150, disable=tqdm_disabled)
+
+        for N in pbar:
+
+            # ParticleGraph skips run 0, uses runs 1 to n_runs-1
+            run = 1 + np.random.randint(n_runs - 1) if n_runs > 1 else 0
+            k = np.random.randint(n_frames - 5)
+
+            optimizer.zero_grad()
+
+            x = torch.tensor(x_list[run][k], dtype=torch.float32, device=device)
+
+            if torch.isnan(x).any():
+                continue
+
+            # Compute func_phi at zero input (key conceptual difference C)
+            in_features_phi = torch.cat(
+                (torch.zeros((n_neurons, 1), device=device), model.a[0:n_neurons]),
+                dim=1
+            )
+            func_phi = model.lin_phi(in_features_phi.float())
+
+            # Compute func_edge at zero input (key conceptual difference C)
+            in_features_edge = torch.zeros((n_neurons, 1), device=device)
+            func_edge = model.lin_edge(in_features_edge.float())
+
+            # Monotonicity constraint: diff = relu(f(u) - f(u+0.1)) (key conceptual difference B)
+            # Penalizes if edge function output decreases when input increases
+            diff = torch.relu(
+                model.lin_edge(x[:, 3:4]) - model.lin_edge(x[:, 3:4] + 0.1)
+            ).norm(2)
+
+            # Forward pass
+            dataset = pyg_Data(x=x, edge_index=edges)
+            data_id = torch.ones((n_neurons, 1), dtype=torch.int, device=device) * run
+            pred = model(dataset, data_id=data_id)
+
+            # Target
+            y = torch.tensor(y_list[run][k], device=device) / ynorm
+
+            if torch.isnan(y).any():
+                continue
+
+            # Loss composition (key conceptual difference D - hardcoded, matching ParticleGraph)
+            # Prediction loss
+            loss_pred = (pred - y).norm(2)
+
+            # L1 regularization on W (two-phase)
+            loss_W_L1 = model.W.norm(1) * current_coeff_L1
+
+            # MLP output regularization (func_phi.norm(2), func_edge.norm(2))
+            loss_func_phi = func_phi.norm(2) * coeff_func_phi
+            loss_func_edge = func_edge.norm(2) * coeff_func_edge
+
+            # Monotonicity constraint (disabled in phase 2)
+            loss_diff = diff * current_coeff_diff
+
+            # Total loss
+            loss = loss_pred + loss_W_L1 + loss_func_phi + loss_func_edge + loss_diff
+
+            loss.backward()
+            optimizer.step()
+
+            total_loss += loss.item()
+
+            # Visualization and saving
+            if N % plot_frequency == 0:
+                last_connectivity_r2 = plot_training_signal(
+                    config, model, x, connectivity, log_dir, epoch, N,
+                    n_neurons, type_list, cmap, mc, device
+                )
+                if last_connectivity_r2 is not None:
+                    if last_connectivity_r2 > 0.9:
+                        r2_color = '\033[92m'  # green
+                    elif last_connectivity_r2 > 0.7:
+                        r2_color = '\033[93m'  # yellow
+                    elif last_connectivity_r2 > 0.3:
+                        r2_color = '\033[38;5;208m'  # orange
+                    else:
+                        r2_color = '\033[91m'  # red
+                    pbar.set_postfix_str(f'{r2_color}R²={last_connectivity_r2:.3f}\033[0m')
+
+                torch.save(
+                    {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
+                    os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt')
+                )
+
+        # End of epoch
+        avg_loss = total_loss / (N + 1) / n_neurons / batch_size
+        print(f"Epoch {epoch}. Loss: {avg_loss:.6f}")
+        logger.info(f"Epoch {epoch}. Loss: {avg_loss:.6f}")
+
+        torch.save(
+            {'model_state_dict': model.state_dict(), 'optimizer_state_dict': optimizer.state_dict()},
+            os.path.join(log_dir, 'models', f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt')
+        )
+        list_loss.append(avg_loss)
+        torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
+
+        # Sparsification (clustering) if enabled
+        if replace_with_cluster and (epoch % sparsity_freq == sparsity_freq - 1):
+            sparsify_cluster(
+                config, model, embedding_cluster, type_list, log_dir, epoch, N, cmap, device
+            )
+
+    # Training complete
+    training_time_min = (time.time() - training_start_time) / 60
+    print(f'\nTraining completed in {training_time_min:.1f} minutes')
+    logger.info(f'Training completed in {training_time_min:.1f} minutes')
+
+    # Log final metrics
+    if log_file is not None:
+        log_file.write(f"training_time_min: {training_time_min:.2f}\n")
+        if last_connectivity_r2 is not None:
+            log_file.write(f"connectivity_R2: {last_connectivity_r2:.4f}\n")
+        log_file.flush()
+
+    return last_connectivity_r2
 

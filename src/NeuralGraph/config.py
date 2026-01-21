@@ -355,7 +355,7 @@ class TrainingConfig(BaseModel):
         "inconsistent_embedding",
         "none",
     ] = "distance_plot"
-    cluster_distance_threshold: float = 0.01
+    cluster_distance_threshold: float = 0.1
     cluster_connectivity: Literal["single", "average"] = "single"
 
     Ising_filter: str = "none"
@@ -399,6 +399,13 @@ class TrainingConfig(BaseModel):
     coeff_lin_phi_zero: float = 0
     coeff_entropy_loss: float = 0
     coeff_edge_diff: float = 0
+
+    # Simple training parameters (matching ParticleGraph conceptually)
+    first_coeff_L1: float = 0.0  # Phase 1 weak L1 regularization
+    coeff_L1: float = 0.0  # Phase 2 target L1 regularization
+    coeff_diff: float = 0.0  # Monotonicity constraint on edge function
+    coeff_func_phi: float = 0.0  # Penalize phi output at zero
+    coeff_func_edge: float = 0.0  # Penalize edge output at zero
     coeff_update_diff: float = 0
     coeff_update_msg_diff: float = 0
     coeff_update_msg_sign: float = 0

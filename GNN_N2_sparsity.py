@@ -4,6 +4,7 @@ import argparse
 import os
 import shutil
 import subprocess
+import sys
 import time
 import yaml
 
@@ -20,6 +21,7 @@ from NeuralGraph.models.exploration_tree import compute_ucb_scores
 from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
 from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
+from NeuralGraph.git_code_tracker import track_code_modifications, is_git_repo, get_modified_code_files
 from GNN_PlotFigure import data_plot
 
 import warnings
@@ -31,8 +33,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
-
-
 
     print()
     device=[]
@@ -54,7 +54,7 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'train_test_plot_Claude_daemon'  # 'train', 'test', 'generate', 'plot', 'Claude'
+        task = 'generate_train_test_plot_Claude_code'  # 'train', 'test', 'generate', 'plot', 'Claude', 'code'
         config_list = ['signal_N2_sparsity']
         task_params = {'iterations': 2048}
 
@@ -138,9 +138,19 @@ if __name__ == "__main__":
             print(f"\033[93mpreserving {ucb_file} (resuming from iter {start_iteration})\033[0m")
 
         config_list = [llm_task_name]
-    else:
 
+        # Track if code was modified by Claude (starts False, set True after Claude modifies code)
+        code_modified_by_claude = False
+        # Check if code modifications are enabled (task contains 'code')
+        code_changes_enabled = 'code' in task
+        if code_changes_enabled:
+            print("\033[93mCode modifications ENABLED (task contains 'code')\033[0m")
+        else:
+            print("\033[90mCode modifications disabled (add 'code' to task to enable)\033[0m")
+    else:
         iteration_range = range(1, 2)
+        code_modified_by_claude = False
+        code_changes_enabled = False
 
 
 
@@ -297,14 +307,99 @@ if __name__ == "__main__":
                     )
 
                 if "train" in task:
-                    data_train(
-                        config=config,
-                        erase='Claude' in task,  # erase old models when iterating with Claude
-                        best_model=best_model,
-                        style = 'color',
-                        device=device,
-                        log_file=log_file
-                    )
+                    # For Claude tasks, use subprocess only if code changes enabled AND Claude modified code
+                    if 'Claude' in task and code_changes_enabled and code_modified_by_claude:
+                        print("\033[93mcode modified by Claude - running training in subprocess...\033[0m")
+
+                        # Construct subprocess command
+                        train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
+                        config_path = f"{config_root}/{config_file}.yaml"
+
+                        # Create log directory and error log paths
+                        log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
+                        os.makedirs(log_dir, exist_ok=True)
+                        error_log_path = f"{log_dir}/training_output_latest.log"
+                        error_details_path = f"{log_dir}/training_error_latest.log"
+
+                        train_cmd = [
+                            sys.executable,  # Use same Python interpreter
+                            '-u',  # Force unbuffered output for real-time streaming
+                            train_script,
+                            '--config', config_path,
+                            '--device', str(device),
+                            '--log_file', analysis_log_path,
+                            '--config_file', config.config_file,
+                            '--error_log', error_details_path,
+                            '--erase'
+                        ]
+
+                        # Run training subprocess and stream output
+                        env = os.environ.copy()
+                        env['PYTHONUNBUFFERED'] = '1'
+                        env['TQDM_DISABLE'] = '1'  # Disable tqdm in subprocess (doesn't stream well)
+
+                        process = subprocess.Popen(
+                            train_cmd,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT,
+                            text=True,
+                            bufsize=1,
+                            env=env
+                        )
+
+                        # Capture all output for logging while also streaming to console
+                        output_lines = []
+                        with open(error_log_path, 'w') as output_file:
+                            for line in process.stdout:
+                                output_file.write(line)
+                                output_file.flush()
+                                output_lines.append(line.rstrip())
+                                # Filter: skip tqdm-like lines (progress bars)
+                                if '|' in line and '%' in line and 'it/s' in line:
+                                    continue
+                                print(line, end='', flush=True)
+
+                        process.wait()
+
+                        if process.returncode != 0:
+                            print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
+                            print("\033[93mthis may indicate a code modification error.\033[0m\n")
+
+                            # Show last 20 lines of output for context
+                            print("\033[93mLast 20 lines of output:\033[0m")
+                            print("-" * 80)
+                            for line in output_lines[-20:]:
+                                print(line)
+                            print("-" * 80)
+
+                            # Show paths to log files
+                            print(f"\nFull output logged to: {error_log_path}")
+                            if os.path.exists(error_details_path):
+                                print(f"Error details logged to: {error_details_path}")
+                                try:
+                                    with open(error_details_path, 'r') as f:
+                                        error_details = f.read()
+                                    if error_details.strip():
+                                        print("\n\033[91mDetailed error information:\033[0m")
+                                        print(error_details)
+                                except Exception as e:
+                                    print(f"Could not read error details: {e}")
+
+                            raise RuntimeError(f"training failed at iteration {iteration}")
+
+                        print("\033[92mtraining subprocess completed successfully\033[0m")
+                    else:
+                        # No code modifications - run training directly (faster)
+                        if 'Claude' in task and code_changes_enabled:
+                            print("\033[92mno code modifications - running training directly...\033[0m")
+                        data_train(
+                            config=config,
+                            erase='Claude' in task,  # erase old models when iterating with Claude
+                            best_model=best_model,
+                            style = 'color',
+                            device=device,
+                            log_file=log_file
+                        )
 
                 if "test" in task:
 
@@ -440,6 +535,37 @@ Current config: {config_path}"""
                         f.write(f"{'='*60}\n")
                         f.write(output_text.strip())
                         f.write("\n\n")
+
+                # Git tracking: commit any code modifications made by Claude (only if code changes enabled)
+                if code_changes_enabled:
+                    if is_git_repo(root_dir):
+                        print("\n\033[96mchecking for code modifications to commit\033[0m")
+                        git_results = track_code_modifications(
+                            root_dir=root_dir,
+                            iteration=iteration,
+                            analysis_path=analysis_path,
+                            reasoning_path=reasoning_log_path
+                        )
+
+                        if git_results:
+                            for file_path, success, message in git_results:
+                                if success:
+                                    print(f"\033[92m✓ Git: {message}\033[0m")
+                                    # Set flag so next iteration uses subprocess
+                                    code_modified_by_claude = True
+                                else:
+                                    print(f"\033[93m⚠ Git: {message}\033[0m")
+                        else:
+                            print("\033[90m  No code modifications detected\033[0m")
+                    else:
+                        # Not a git repo - check for code modifications directly
+                        tracked_code_files = ['src/NeuralGraph/models/graph_trainer.py']
+                        modified_files = get_modified_code_files(root_dir, tracked_code_files)
+                        if modified_files:
+                            code_modified_by_claude = True
+                            print(f"\033[93m  Code modified (no git): {modified_files}\033[0m")
+                        if iteration == 1:
+                            print("\033[90m  Not a git repository - code modifications will not be version controlled\033[0m")
 
                 # save instruction file at first iteration of each block
                 if iter_in_block == 1:
