@@ -42,7 +42,7 @@ graph_model:
 claude:
   n_epochs: 1
   data_augmentation_loop: 60
-  n_iter_block: 16
+  n_iter_block: 8
 
 plotting:
   colormap: "tab10"

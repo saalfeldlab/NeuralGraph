@@ -1,9 +1,13 @@
 # Simulation-GNN Training Landscape Study
 
+**Reference**: See `neural-gnn/paper/main.pdf`
+
 ## Goal
 
 Map the **simulation-GNN training landscape**: understand which neural activity simulation configurations allow successful GNN training (connectivity_R2 > 0.9) and which are fundamentally harder.
 In particular is it possible to use GNN to recover connectivity from low-rank data, from low-gain data, from sparse data ?
+It is taken for granted that increasing training size (number frames) improves recovery of the neural dynamics parameter.
+Also increasing the overall complexity of the training data, e.g. its effictive rank, improves recovery. This can be however reconsidered.
 
 ## Iteration Loop Structure
 
@@ -395,7 +399,7 @@ Examples:
 
 ---
 
-## Theoretical Background
+## Background
 
 ### GNN Architecture (Signal_Propagation)
 
