@@ -42,7 +42,7 @@ training:
   # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
   evolve_multiple_steps: 5
   simulation_config: "fly_N9_62_1_youtube-vos_calcium" # 987736 time steps
-  apply_time_units: true
+  apply_time_units: true # restrict activity & stimulus data to `time_units` multiples
   data_passes_per_epoch: 25
   epochs: 100 # Total number of epochs
   save_best_checkpoint: True # Save model with lowest validation loss
@@ -75,10 +75,11 @@ cross_validation_configs:
       train_end: 1
       validation_start: 5000
       validation_end: 15000
-  - simulation_config: "fly_N9_62_0_davis_calcium"
-    name: "davis_2016_2017"
-    data_split:
-      train_start: 0
-      train_end: 1
-      validation_start: 5000
-      validation_end: 25000
+  # TODO: uncomment me
+  # - simulation_config: "fly_N9_62_0_davis_calcium"
+  #   name: "davis_2016_2017"
+  #   data_split:
+  #     train_start: 0
+  #     train_end: 1
+  #     validation_start: 5000
+  #     validation_end: 25000
