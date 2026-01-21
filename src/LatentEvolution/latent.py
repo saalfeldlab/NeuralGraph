@@ -116,11 +116,8 @@ class TrainingConfig(BaseModel):
     grad_clip_max_norm: float = Field(
         0.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
     )
-    ems_warmup_epochs: int = Field(
-        0, description="Number of epochs to train with ems=1 before switching to configured ems (0 = disabled)", json_schema_extra={"short_name": "ems_wu"}
-    )
     reconstruction_warmup_epochs: int = Field(
-        0, description="Number of epochs to train encoder/decoder only (reconstruction loss) before adding evolution loss (0 = disabled)", json_schema_extra={"short_name": "recon_wu"}
+        0, description="Number of warmup epochs to train encoder/decoder only (reconstruction loss) before the main training loop. These are additional epochs, not counted in 'epochs'.", json_schema_extra={"short_name": "recon_wu"}
     )
     unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
@@ -150,20 +147,6 @@ class TrainingConfig(BaseModel):
                 )
         if self.evolve_multiple_steps < 1:
             raise ValueError("evolve_multiple_steps must be >= 1")
-        if self.ems_warmup_epochs > 0:
-            if self.ems_warmup_epochs >= self.epochs:
-                raise ValueError(
-                    f"ems_warmup_epochs ({self.ems_warmup_epochs}) must be < epochs ({self.epochs})"
-                )
-        if self.reconstruction_warmup_epochs > 0:
-            if self.reconstruction_warmup_epochs >= self.epochs:
-                raise ValueError(
-                    f"reconstruction_warmup_epochs ({self.reconstruction_warmup_epochs}) must be < epochs ({self.epochs})"
-                )
-            if self.ems_warmup_epochs > 0:
-                raise ValueError(
-                    "reconstruction_warmup_epochs and ems_warmup_epochs are mutually exclusive"
-                )
         return self
 
 
@@ -816,15 +799,6 @@ def train(cfg: ModelParams, run_dir: Path):
             model.evolver.requires_grad_(True)
             print("=== Reconstruction warmup complete ===\n")
 
-        # --- EMS warmup setup ---
-        target_ems = cfg.training.evolve_multiple_steps
-        ems_warmup_epochs = cfg.training.ems_warmup_epochs
-        use_ems_warmup = ems_warmup_epochs > 0 and target_ems > 1
-        if use_ems_warmup:
-            cfg.training.evolve_multiple_steps = 1
-            train_step_fn = train_step_nocompile
-            print(f"EMS warmup enabled: training with ems=1 (nocompile) for {ems_warmup_epochs} epochs, then ems={target_ems}")
-
         # --- Batching setup ---
         num_time_points = train_data.shape[0]
         # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
@@ -849,7 +823,6 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Checkpoint setup ---
         checkpoint_dir = run_dir / "checkpoints"
         checkpoint_dir.mkdir(exist_ok=True)
-        best_val_loss = float('inf')
 
         # --- Profiler setup ---
         profiler = None
@@ -883,19 +856,6 @@ def train(cfg: ModelParams, run_dir: Path):
 
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
-            # transition from ems warmup to full ems
-            if use_ems_warmup and epoch == ems_warmup_epochs:
-                cfg.training.evolve_multiple_steps = target_ems
-                batch_indices_iter = make_batches_random(
-                    train_data, train_stim, wmat_indices, wmat_indptr, cfg
-                )
-                batches_per_epoch = (
-                    max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
-                )
-                # switch to compiled version (will compile fresh with target ems)
-                train_step_fn = globals()[cfg.training.train_step]
-                print(f"EMS warmup complete: switching to ems={target_ems} (compiled)")
-
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
             losses = LossComponents()
@@ -915,17 +875,6 @@ def train(cfg: ModelParams, run_dir: Path):
 
             mean_losses = losses.mean()
 
-            # ---- Validation phase ----
-            model.eval()
-            total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
-            with torch.no_grad():
-                start_indices = torch.arange(val_data.shape[0] - total_steps, device=device)
-                all_neurons = torch.arange(val_data.shape[1], dtype=torch.long, device=device)
-                loss_tuple = train_step_fn(model, val_data, val_stim, start_indices, all_neurons, all_neurons, cfg)
-                val_loss = loss_tuple[0].item()
-
-            model.train()
-
             epoch_end = datetime.now()
             gpu_monitor.sample_epoch_end()
             epoch_duration = (epoch_end - epoch_start).total_seconds()
@@ -934,13 +883,12 @@ def train(cfg: ModelParams, run_dir: Path):
 
             print(
                 f"Epoch {epoch+1}/{cfg.training.epochs} | "
-                f"Train Loss: {mean_losses.total:.4e} | Val Loss: {val_loss:.4e} | "
+                f"Train Loss: {mean_losses.total:.4e} | "
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
             # Log to TensorBoard
             writer.add_scalar("Loss/train", mean_losses.total, epoch)
-            writer.add_scalar("Loss/val", val_loss, epoch)
             writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
             writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
             writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
@@ -997,13 +945,6 @@ def train(cfg: ModelParams, run_dir: Path):
                 model.train()
 
             # --- Checkpointing ---
-            # Save best checkpoint
-            if cfg.training.save_best_checkpoint and val_loss < best_val_loss:
-                best_val_loss = val_loss
-                checkpoint_path = checkpoint_dir / "checkpoint_best.pt"
-                torch.save(model.state_dict(), checkpoint_path)
-                print(f"  → Saved best checkpoint (val_loss: {val_loss:.4e})")
-
             # Save periodic checkpoint
             if cfg.training.save_checkpoint_every_n_epochs > 0 and (epoch + 1) % cfg.training.save_checkpoint_every_n_epochs == 0:
                 checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch+1:04d}.pt"
@@ -1030,7 +971,6 @@ def train(cfg: ModelParams, run_dir: Path):
         metrics.update(
             {
                     "final_train_loss": mean_losses.total,
-                    "final_val_loss": val_loss,
                     "commit_hash": commit_hash,
                     "training_duration_seconds": round(total_training_duration, 2),
                     "avg_epoch_duration_seconds": round(avg_epoch_duration, 2),
@@ -1107,7 +1047,6 @@ def train(cfg: ModelParams, run_dir: Path):
         }
         metric_dict = {
             "hparam/final_train_loss": metrics["final_train_loss"],
-            "hparam/final_val_loss": metrics["final_val_loss"],
         }
         writer.add_hparams(hparams, metric_dict)
         print("Logged hyperparameters to TensorBoard")
