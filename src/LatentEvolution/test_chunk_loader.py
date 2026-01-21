@@ -171,7 +171,7 @@ class TestChunkLoader(unittest.TestCase):
             prefetch=10  # large buffer to avoid blocking background thread
         )
 
-        num_chunks = 5
+        num_chunks = 20
         loader.start_epoch(num_chunks)
 
         total_start = time.time()
@@ -192,8 +192,8 @@ class TestChunkLoader(unittest.TestCase):
         total_time = time.time() - total_start
 
         # expected times:
-        # sequential: 5 * (100ms load + 100ms train) = 1000ms
-        # with overlap: max(5*100ms, 5*100ms) + startup = 500ms + overhead
+        # sequential: 20 * (100ms load + 100ms train) = 4000ms
+        # with overlap: max(20*100ms, 20*100ms) + startup = 2000ms + overhead
         sequential_time = num_chunks * (load_time_ms + train_time_ms) / 1000.0
         expected_overlap_time = max(num_chunks * load_time_ms, num_chunks * train_time_ms) / 1000.0
 
@@ -204,6 +204,7 @@ class TestChunkLoader(unittest.TestCase):
 
         # verify overlap happened (should be much faster than sequential)
         # with load=100ms and train=100ms, overlap should give ~2x speedup
+        # with more chunks, cold start overhead is amortized
         self.assertLess(total_time, sequential_time * 0.65, "no overlap detected (too slow)")
 
         loader.cleanup()
