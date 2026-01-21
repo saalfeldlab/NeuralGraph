@@ -151,9 +151,9 @@ class TestChunkLoader(unittest.TestCase):
 
     def test_overlap_with_mock_training(self):
         """test that loading overlaps with mock training (using sleeps)."""
-        # simulate disk i/o: 200ms per chunk (longer than training)
+        # simulate disk i/o: 100ms per chunk
         # simulate training: 100ms per chunk
-        load_time_ms = 200
+        load_time_ms = 100
         train_time_ms = 100
 
         source = MockDataSource(
@@ -192,8 +192,8 @@ class TestChunkLoader(unittest.TestCase):
         total_time = time.time() - total_start
 
         # expected times:
-        # sequential: 5 * (200ms load + 100ms train) = 1500ms
-        # with overlap: max(5*200ms, 5*100ms) + startup = 1000ms + overhead
+        # sequential: 5 * (100ms load + 100ms train) = 1000ms
+        # with overlap: max(5*100ms, 5*100ms) + startup = 500ms + overhead
         sequential_time = num_chunks * (load_time_ms + train_time_ms) / 1000.0
         expected_overlap_time = max(num_chunks * load_time_ms, num_chunks * train_time_ms) / 1000.0
 
@@ -203,8 +203,8 @@ class TestChunkLoader(unittest.TestCase):
         print(f"speedup: {sequential_time / total_time:.2f}x")
 
         # verify overlap happened (should be much faster than sequential)
-        # with load=200ms and train=100ms, overlap should give ~1.5x speedup minimum
-        self.assertLess(total_time, sequential_time * 0.75, "no overlap detected (too slow)")
+        # with load=100ms and train=100ms, overlap should give ~2x speedup
+        self.assertLess(total_time, sequential_time * 0.65, "no overlap detected (too slow)")
 
         loader.cleanup()
 
