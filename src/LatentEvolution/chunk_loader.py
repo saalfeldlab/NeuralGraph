@@ -69,12 +69,8 @@ class RandomChunkLoader:
         # random number generator for chunk sampling
         self.rng = random.Random(seed)
 
-        # maximum valid start index
-        self.max_start_idx = total_timesteps - chunk_size
-        if self.max_start_idx < 0:
-            raise ValueError(
-                f"chunk_size ({chunk_size}) must be <= total_timesteps ({total_timesteps})"
-            )
+        # maximum valid start index (0 if dataset < chunk_size)
+        self.max_start_idx = max(0, total_timesteps - chunk_size)
 
         # queue holds (chunk_data, chunk_stim) on cpu pinned memory
         self.cpu_queue: Queue = Queue(maxsize=prefetch)
