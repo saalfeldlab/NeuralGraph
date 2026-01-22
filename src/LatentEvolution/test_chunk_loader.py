@@ -389,5 +389,72 @@ class TestChunkLoader(unittest.TestCase):
         self.assertEqual(calls1, calls2, "same seed should produce same chunk sequence")
 
 
+    def test_multiple_epochs_back_to_back(self):
+        """test starting new epoch immediately after previous completes."""
+        source = MockDataSource(
+            total_timesteps=20000,
+            num_neurons=500,
+            num_stim_dims=50,
+            load_delay_ms=50
+        )
+
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=5000,
+            device='cpu',
+            prefetch=2
+        )
+
+        # epoch 1
+        loader.start_epoch(num_chunks=3)
+        for _ in range(3):
+            chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_data)
+
+        # epoch 2 immediately after (thread should be cleaned up)
+        loader.start_epoch(num_chunks=3)
+        for _ in range(3):
+            chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_data)
+
+        loader.cleanup()
+
+    def test_early_break_from_epoch(self):
+        """test breaking out of epoch early (simulates warmup duration mismatch)."""
+        source = MockDataSource(
+            total_timesteps=30000,
+            num_neurons=500,
+            num_stim_dims=50,
+            load_delay_ms=100
+        )
+
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=5000,
+            device='cpu',
+            prefetch=2
+        )
+
+        # epoch 1: ask for 5 chunks but only consume 2
+        loader.start_epoch(num_chunks=5)
+        for _ in range(2):
+            chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_data)
+        # break early (don't consume all 5 chunks)
+
+        # wait a bit for background thread to finish
+        time.sleep(0.6)  # 5 chunks * 100ms = 500ms
+
+        # epoch 2 should work (thread should be done)
+        loader.start_epoch(num_chunks=3)
+        for _ in range(3):
+            chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_data)
+
+        loader.cleanup()
+
+
 if __name__ == "__main__":
     unittest.main()
