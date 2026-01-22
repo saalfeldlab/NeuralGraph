@@ -16,6 +16,7 @@ simulation:
   baseline_value: 0
 
   visual_input_type: "DAVIS"
+  noise_model_level: 0.05
 
 graph_model:
   signal_model_name: "PDE_N9_A"
@@ -59,7 +60,6 @@ training:
   learning_rate_start: 1.0E-3
   learning_rate_embedding_start: 2.0E-3
 
-  noise_model_level: 0.05
 
   coeff_edge_diff: 500
   coeff_update_u_diff: 0

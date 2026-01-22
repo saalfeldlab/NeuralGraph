@@ -1,61 +1,49 @@
 {
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "▶ Python: Current File (Conda neural-graph)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "python": "/workspace/.conda_envs/neural-graph-linux/bin/python",
-
-      // Don't skip anything as "library code"
-      "justMyCode": false,
-
-      // Catch code that spawns subprocesses (multiprocessing, CLI wrappers)
-      "subProcess": true,
-
-      // Useful if your code imports your own packages from the repo
-      "env": { "PYTHONPATH": "${workspaceFolder}" },
-
-      // Optional: pass args here if your script needs them
-      "args": []
-    },
-    {
-      "name": "▶ Python: Run latent.py (Conda neural-graph)",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/LatentEvolution/latent.py",
-      "console": "integratedTerminal",
-
-      // Make sure we use your conda env
-
-      // Don’t skip anything as “library code”
-      "justMyCode": false,
-
-      // Catch code that spawns subprocesses (multiprocessing, CLI wrappers)
-      "subProcess": true,
-
-      // Useful if your code imports your own packages from the repo
-      "env": {
-        // "PYTHONPATH": "${workspaceFolder}",
-        "CUDA_VISIBLE_DEVICES": "1"
-      },
-      // "envFile": "${workspaceFolder}/.env",
-
-      // Optional: pass args here if your script needs them
-      "args": [
-        "debugme",
-        "latent_1step.yaml",
-        "--training.epochs",
-        "1",
-        "--training.data-passes-per-epoch",
-        "1",
-        "--training.train-step",
-        "train_step_nocompile",
-        "--training.unconnected-to-zero.num-neurons",
-        "100"
-      ]
-    }
-  ]
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: GNN_LLM",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/GNN_LLM.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: GNN_Daemon",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/GNN_Daemon.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: GNN_PlotFigure",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/GNN_PlotFigure.py",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        }
+    ]
 }

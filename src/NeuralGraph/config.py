@@ -100,6 +100,7 @@ class SimulationConfig(BaseModel):
     calcium_beta: float = 0.0  # baseline offset for fluorescence
     calcium_initial: float = 0.0  # initial calcium concentration
     calcium_noise_level: float = 0.0  # optional Gaussian noise added to [Ca] updates
+    noise_model_level: float = 0.0  # process noise added during dynamics simulation
     calcium_saturation_kd: float = 1.0  # for nonlinear saturation models
     calcium_num_compartments: int = 1
     calcium_down_sample: int = 1  # down-sample [Ca] time series by this factor
@@ -288,6 +289,17 @@ class PlottingConfig(BaseModel):
     plot_batch_size: int = 1000
     label_style: str = "MLP"  # "MLP" for MLP_0, MLP_1 labels; "greek" for phi, f labels
 
+    # MLP plot axis limits
+    mlp0_xlim: list[float] = [-5, 5]
+    mlp0_ylim: list[float] = [-8, 8]
+    mlp1_xlim: list[float] = [-5, 5]
+    mlp1_ylim: list[float] = [-1.1, 1.1]
+
+    # MLP normalization settings
+    norm_method: str = "median"
+    norm_x_start: float | None = None  # None = auto (0.85 * xnorm * 4 for training, 0.8 * xnorm for best)
+    norm_x_stop: float | None = None   # None = auto (xnorm * 4 for training, xnorm for best)
+
 
 class TrainingConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -433,7 +445,6 @@ class TrainingConfig(BaseModel):
 
     noise_level: float = 0
     measurement_noise_level: float = 0
-    noise_model_level: float = 0
     loss_noise_level: float = 0.0
 
     # external input learning

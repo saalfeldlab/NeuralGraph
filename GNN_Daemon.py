@@ -98,7 +98,7 @@ def process_config(config_file_path, device, log_file):
 
         if "test" in task:
             print("\n--- TEST ---")
-            config.training.noise_model_level = 0.0
+            config.simulation.noise_model_level = 0.0
             data_test(
                 config=config,
                 visualize=False,

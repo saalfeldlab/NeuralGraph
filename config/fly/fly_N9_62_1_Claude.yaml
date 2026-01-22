@@ -16,6 +16,7 @@ simulation:
   delta_t: 0.02
   baseline_value: 0
   visual_input_type: DAVIS
+  noise_model_level: 0.05
 graph_model:
   signal_model_name: PDE_N9_A
   prediction: first_derivative
@@ -52,7 +53,6 @@ training:
   learning_rate_W_start: 0.001
   learning_rate_start: 0.0005
   learning_rate_embedding_start: 0.001
-  noise_model_level: 0.05
   coeff_edge_diff: 500
   coeff_update_u_diff: 0
   coeff_update_msg_diff: 0

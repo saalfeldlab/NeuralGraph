@@ -55,16 +55,14 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude_daemon'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
-        config_list = ['signal_chaotic_1']
+        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
+        config_list = ['signal_landscape']
         task_params = {'iterations': 2048}
 
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 330
-
-
+    start_iteration = 1
 
 
     n_iterations = task_params.get('iterations', 5)
@@ -252,7 +250,7 @@ if __name__ == "__main__":
 
                 # Wait for job to complete (file appears in done/)
                 print(f"\033[93mWaiting for {config_filename} to be copied into config/done/ ...\033[0m")
-                check_interval = 5 * 60  # 5 minutes in seconds
+                check_interval = 1 * 60  # 1 minute in seconds
                 while True:
                     if os.path.exists(done_path):
                         print(f"\033[92mConfig file {config_filename} copied into config/done/\033[0m")
@@ -309,14 +307,14 @@ if __name__ == "__main__":
                         config=config,
                         erase='Claude' in task,  # erase old models when iterating with Claude
                         best_model=best_model,
-                        style = 'black',
+                        style = 'color',
                         device=device,
                         log_file=log_file
                     )
 
                 if "test" in task:
 
-                    config.training.noise_model_level = 0.0
+                    config.simulation.noise_model_level = 0.0
 
                     if 'fly' in config_file_:
                         config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'
@@ -474,8 +472,13 @@ Current config: {config_path}"""
                                    block_size=n_iter_block)
 
                 # generate UCB tree visualization from ucb_scores.txt
-                ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
-                nodes = parse_ucb_scores(ucb_path)
+                # For block 0: save every iteration; for block 1+: save only final tree
+                should_save_tree = (block_number == 0) or is_block_end
+                if should_save_tree:
+                    ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
+                    nodes = parse_ucb_scores(ucb_path)
+                else:
+                    nodes = None  # Skip tree generation for intermediate iterations in blocks > 0
                 if nodes:
                     # get simulation info from config for tree annotation
                     sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
@@ -491,7 +494,7 @@ Current config: {config_path}"""
                         else:
                             sim_info += f", E/I=NA"
                     if hasattr(config.simulation, 'noise_model_level'):
-                        sim_info += f", noise_model_level={config.training.noise_model_level}"
+                        sim_info += f", noise_model_level={config.simulation.noise_model_level}"
                     if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
                         sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
                     if hasattr(config.simulation, 'connectivity_filling_factor'):
@@ -502,9 +505,14 @@ Current config: {config_path}"""
                     if hasattr(config.simulation, 'params') and len(config.simulation.params) > 0:
                         g_value = config.simulation.params[0][2]  # g is third column (index 2)
                         sim_info += f", g={g_value}"
+                    # Add low_rank training parameters
+                    if hasattr(config.training, 'low_rank_factorization') and config.training.low_rank_factorization:
+                        sim_info += f", low_rank_factorization=True"
+                        if hasattr(config.training, 'low_rank'):
+                            sim_info += f", low_rank={config.training.low_rank}"
 
                     plot_ucb_tree(nodes, ucb_tree_path,
                                   title=f"UCB Tree - Iter {iteration}",
                                   simulation_info=sim_info)
 
-# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_chaotic_1_Claude"
+# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_landscape_Claude"
