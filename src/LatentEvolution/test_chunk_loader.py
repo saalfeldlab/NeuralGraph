@@ -614,6 +614,12 @@ class TestChunkLoader(unittest.TestCase):
             self.assertTrue(torch.all(batch_starts % time_units == 0),
                 "staggered_random: batch starts not aligned to time_units")
 
+            # every observation index minus its neuron's phase should be divisible by time_units
+            # this verifies observations are at: phase_n + k*tu for each neuron n
+            obs_minus_phases = obs_indices_staggered - neuron_phases_staggered.unsqueeze(0)  # (batch, neurons)
+            self.assertTrue(torch.all(obs_minus_phases % time_units == 0),
+                f"staggered_random: (obs_index - phase) not divisible by time_units={time_units}")
+
         loader.cleanup()
 
     def test_staggered_complete_coverage(self):
