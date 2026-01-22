@@ -419,52 +419,22 @@ def compute_linear_interpolation_baseline(
     """
     total_steps = min(n_steps, time_units * evolve_multiple_steps)
     n_starts = len(start_indices)
-    linear_interp_accumulator = np.zeros(total_steps)
+
+
+    mse = np.zeros(total_steps)
 
     for start_idx in start_indices:
-        # ground truth segment (starting from t=1, not t=0)
-        ground_truth = val_data[start_idx + 1:start_idx + 1 + total_steps]  # (total_steps, N)
+        x_gt = val_data[start_idx:start_idx+total_steps+1]
+        interp = torch.zeros_like(x_gt)
+        for i in range(evolve_multiple_steps):
+            low = x_gt[i*time_units].unsqueeze(0)
+            high = x_gt[(i+1)*time_units].unsqueeze(0)
+            slope = (high - low) / time_units
+            interp[i*time_units:(i+1)*time_units, :] = low + torch.arange(time_units, dtype=torch.float32).unsqueeze(1) * slope
+        mse += torch.pow(x_gt[:total_steps] - interp[:total_steps], 2).mean(dim=1).cpu().numpy()
+    mse /= n_starts
 
-        # get ground truth at observation points: 0, tu, 2*tu, ..., ems*tu
-        # but shifted for ground truth indexing
-        observation_points = [i * time_units for i in range(evolve_multiple_steps + 1)]
-        observation_points = [p for p in observation_points if p < total_steps]
-
-        # actual ground truth values at these observation points
-        observed_values = []
-        for p in observation_points:
-            if p == 0:
-                observed_values.append(val_data[start_idx])  # initial state
-            else:
-                observed_values.append(val_data[start_idx + p])
-        observed_values = torch.stack(observed_values, dim=0)  # (num_obs, N)
-
-        # linearly interpolate between observation points
-        linear_interp_pred = torch.zeros_like(ground_truth[:total_steps])
-
-        for i in range(len(observation_points) - 1):
-            t_start = observation_points[i]
-            t_end = observation_points[i + 1]
-            x_start = observed_values[i]
-            x_end = observed_values[i + 1]
-
-            # linearly interpolate predictions between observation points
-            # ground_truth[t] corresponds to actual time t+1
-            # so ground_truth[t_start] is at time t_start+1, ground_truth[t_end-1] is at time t_end
-            for t in range(t_start, min(t_end, total_steps)):
-                # actual_time is the time we're predicting (1-indexed)
-                actual_time = t + 1
-                # interpolate between observation at t_start and observation at t_end
-                alpha = (actual_time - t_start) / (t_end - t_start) if t_end > t_start else 0.0
-                linear_interp_pred[t] = (1 - alpha) * x_start + alpha * x_end
-
-        # compute mse at each step (averaged over neurons)
-        linear_interp_se = torch.pow(linear_interp_pred - ground_truth[:total_steps], 2).mean(dim=1)
-        linear_interp_accumulator += linear_interp_se.detach().cpu().numpy()
-
-    # average over starts
-    linear_interp_mse = linear_interp_accumulator / n_starts
-    return linear_interp_mse
+    return mse
 
 
 def plot_time_aligned_mse(
