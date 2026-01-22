@@ -22,6 +22,7 @@ simulation:
 
   visual_input_type: "DAVIS-2016+2017"
   skip_short_videos: false
+  noise_model_level: 0.05
 
 graph_model:
   signal_model_name: "PDE_N9_A"
@@ -64,7 +65,6 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 1.0E-3
 
-  noise_model_level: 0.05
 
   coeff_edge_diff: 500
   coeff_update_u_diff: 0

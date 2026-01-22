@@ -17,6 +17,7 @@ simulation:
   calcium_type: "leaky"
 
   visual_input_type: "optical_flow" # uses sintel
+  noise_model_level: 0.0
 
 graph_model:
   signal_model_name: "PDE_N9_A"
@@ -59,7 +60,6 @@ training:
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 1.0E-3
 
-  noise_model_level: 0.0
 
   coeff_edge_diff: 500
   coeff_update_u_diff: 0

@@ -164,7 +164,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     model_id = simulation_config.model_id
 
     measurement_noise_level = training_config.measurement_noise_level
-    noise_model_level = training_config.noise_model_level
+    noise_model_level = simulation_config.noise_model_level
 
     n_extra_null_edges = simulation_config.n_extra_null_edges
 

@@ -40,9 +40,9 @@ if __name__ == "__main__":
         else:
             best_model = None
     else:
-        best_model = ''
-        task = task = 'train_simple'
-        config_list = ['signal_N2_sparsity_simple']
+        best_model = '1_0'
+        task = task = 'train'
+        config_list = ['signal_fig_supp_bis']
 
     for config_file_ in config_list:
         print(" ")
@@ -98,7 +98,7 @@ if __name__ == "__main__":
             )
 
         if "test" in task:
-            config.training.noise_model_level = 0.0
+            config.simulation.noise_model_level = 0.0
 
             if 'fly' in config_file_:
                 config.simulation.visual_input_type = 'optical_flow'

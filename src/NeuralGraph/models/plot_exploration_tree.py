@@ -31,6 +31,8 @@ class UCBNode:
     r2: float
     pearson: float = 0.0
     external_input_r2: float = -1.0  # -1 means not available
+    cluster_accuracy: float = -1.0  # -1 means not available
+    training_time_min: float = -1.0  # -1 means not available
     mutation: str = ""
 
 
@@ -41,9 +43,9 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
     with open(filepath, 'r') as f:
         content = f.read()
 
-    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX, External_input_R2=X.XXX, Mutation=...
-    # Pearson, External_input_R2, and Mutation are optional for backward compatibility
-    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?(?:, External_input_R2=([\d.]+))?(?:, Mutation=([^\n\[]+))?'
+    # Pattern: Node N: UCB=X.XXX, parent=P|root, visits=V, R2=X.XXX, Pearson=X.XXX, External_input_R2=X.XXX, Cluster=X.XXX, Time=X.X, Mutation=...
+    # Pearson, External_input_R2, Cluster, Time, and Mutation are optional for backward compatibility
+    pattern = r'Node (\d+): UCB=([\d.]+), parent=(\d+|root), visits=(\d+), R2=([\d.]+)(?:, Pearson=([\d.]+))?(?:, External_input_R2=([\d.]+))?(?:, Cluster=([\d.]+))?(?:, Time=([\d.]+))?(?:, Mutation=([^\n\[]+))?'
 
     for match in re.finditer(pattern, content):
         node_id = int(match.group(1))
@@ -54,7 +56,9 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
         r2 = float(match.group(5))
         pearson = float(match.group(6)) if match.group(6) else 0.0
         external_input_r2 = float(match.group(7)) if match.group(7) else -1.0
-        mutation = match.group(8).strip() if match.group(8) else ""
+        cluster_accuracy = float(match.group(8)) if match.group(8) else -1.0
+        training_time_min = float(match.group(9)) if match.group(9) else -1.0
+        mutation = match.group(10).strip() if match.group(10) else ""
 
         nodes.append(UCBNode(
             id=node_id,
@@ -64,6 +68,8 @@ def parse_ucb_scores(filepath: str) -> list[UCBNode]:
             r2=r2,
             pearson=pearson,
             external_input_r2=external_input_r2,
+            cluster_accuracy=cluster_accuracy,
+            training_time_min=training_time_min,
             mutation=mutation
         ))
 
@@ -233,6 +239,14 @@ def plot_ucb_tree(nodes: list[UCBNode],
         # Add external input R2 if available (>= 0)
         if node.external_input_r2 >= 0:
             label_text += f"\nR²_ext={node.external_input_r2:.2f}"
+        # Add cluster accuracy (Acc) and training time (T) on same line if available
+        acc_t_parts = []
+        if node.cluster_accuracy >= 0:
+            acc_t_parts.append(f"Acc={node.cluster_accuracy:.2f}")
+        if node.training_time_min >= 0:
+            acc_t_parts.append(f"T={node.training_time_min:.1f}")
+        if acc_t_parts:
+            label_text += f"\n{', '.join(acc_t_parts)}"
         ax.annotate(label_text, (x, y), ha='center', va='top',
                    fontsize=8, xytext=(0, -14), textcoords='offset points',
                    color='#555555', zorder=3)
@@ -271,6 +285,10 @@ def plot_ucb_tree(nodes: list[UCBNode],
             elif 'n neuron types' in line or 'n types' in line:
                 filtered_lines.append(line)
             elif 'g=' in line or 'gain' in line.lower():
+                filtered_lines.append(line)
+            elif 'low rank factorization' in line:
+                filtered_lines.append(line)
+            elif 'low rank=' in line:
                 filtered_lines.append(line)
         # Format with two parameters per line for compactness
         if filtered_lines:

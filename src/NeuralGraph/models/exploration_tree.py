@@ -781,18 +781,25 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                 current_node['mutation'] = mutation_match.group(1).strip()
                 continue
 
-            # Match Metrics line for connectivity_R2 and test_pearson
+            # Match Metrics line for connectivity_R2, test_pearson, and cluster_accuracy
             metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
             if metrics_match and current_node is not None:
-                r2_str = metrics_match.group(1)
+                r2_str = metrics_match.group(1).rstrip('.')  # Strip trailing period
                 current_node['connectivity_R2'] = float(r2_str) if r2_str != 'nan' else 0.0
                 # Also extract test_pearson from same line
                 pearson_match = re.search(r'test_pearson=([\d.]+|nan)', line)
                 if pearson_match:
-                    p_str = pearson_match.group(1)
+                    p_str = pearson_match.group(1).rstrip('.')  # Strip trailing period
                     current_node['test_pearson'] = float(p_str) if p_str != 'nan' else 0.0
                 else:
                     current_node['test_pearson'] = 0.0
+                # Also extract cluster_accuracy from same line
+                cluster_match = re.search(r'cluster_accuracy=([\d.]+|nan)', line)
+                if cluster_match:
+                    c_str = cluster_match.group(1).rstrip('.')  # Strip trailing period
+                    current_node['cluster_accuracy'] = float(c_str) if c_str != 'nan' else -1.0
+                else:
+                    current_node['cluster_accuracy'] = -1.0
                 # Don't store node yet - continue collecting fields (Mutation comes after Metrics)
                 continue
 
@@ -825,10 +832,25 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                 p_str = pearson_match.group(1)
                 pearson_value = float(p_str) if p_str != 'nan' else 0.0
 
+            # parse cluster_accuracy from analysis.log
+            cluster_value = -1.0
+            cluster_match = re.search(r'cluster_accuracy[=:]\s*([\d.]+|nan)', log_content)
+            if cluster_match:
+                c_str = cluster_match.group(1)
+                cluster_value = float(c_str) if c_str != 'nan' else -1.0
+
+            # parse training_time_min from analysis.log
+            training_time_value = -1.0
+            time_match = re.search(r'training_time_min[=:]\s*([\d.]+)', log_content)
+            if time_match:
+                training_time_value = float(time_match.group(1))
+
             if current_iteration in nodes:
                 # Update existing node's metrics
                 nodes[current_iteration]['connectivity_R2'] = r2_value
                 nodes[current_iteration]['test_pearson'] = pearson_value
+                nodes[current_iteration]['cluster_accuracy'] = cluster_value
+                nodes[current_iteration]['training_time_min'] = training_time_value
             else:
                 # Create new node using parent from previous iteration's "Next: parent=P"
                 prev_iter = current_iteration - 1
@@ -838,7 +860,9 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                     'id': current_iteration,
                     'parent': parent,
                     'connectivity_R2': r2_value,
-                    'test_pearson': pearson_value
+                    'test_pearson': pearson_value,
+                    'cluster_accuracy': cluster_value,
+                    'training_time_min': training_time_value
                 }
 
     if not nodes:
@@ -908,6 +932,8 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             'ucb': ucb,
             'connectivity_R2': reward,
             'test_pearson': node.get('test_pearson', 0.0),
+            'cluster_accuracy': node.get('cluster_accuracy', -1.0),
+            'training_time_min': node.get('training_time_min', -1.0),
             'mutation': node.get('mutation', ''),
             'is_current': node_id == current_iteration
         })
@@ -928,10 +954,18 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         for score in ucb_scores:
             parent_str = score['parent'] if score['parent'] is not None else 'root'
             mutation_str = score.get('mutation', '')
+            cluster_acc = score.get('cluster_accuracy', -1.0)
+            training_time = score.get('training_time_min', -1.0)
             line = (f"Node {score['id']}: UCB={score['ucb']:.3f}, "
                     f"parent={parent_str}, visits={score['visits']}, "
                     f"R2={score['connectivity_R2']:.3f}, "
                     f"Pearson={score['test_pearson']:.3f}")
+            # Add cluster accuracy if available (>= 0)
+            if cluster_acc >= 0:
+                line += f", Cluster={cluster_acc:.3f}"
+            # Add training time if available (>= 0)
+            if training_time >= 0:
+                line += f", Time={training_time:.1f}"
             if mutation_str:
                 line += f", Mutation={mutation_str}"
             f.write(line + "\n")

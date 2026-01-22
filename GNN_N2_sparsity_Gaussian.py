@@ -403,7 +403,7 @@ if __name__ == "__main__":
 
                 if "test" in task:
 
-                    config.training.noise_model_level = 0.0
+                    config.simulation.noise_model_level = 0.0
 
                     data_test(
                         config=config,

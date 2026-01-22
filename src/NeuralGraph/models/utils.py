@@ -27,6 +27,136 @@ from collections import Counter
 def linear_model(x, a, b):
     return a * x + b
 
+
+def compute_normalization_value(func_values, x_values, method='plateau',
+                                 x_start=None, x_stop=None, derivative_threshold=0.01,
+                                 per_neuron=False):
+    """
+    Compute normalization value for MLP output (e.g., transfer function psi).
+
+    Args:
+        func_values: tensor of shape (n_neurons, n_points) - function values
+        x_values: tensor of shape (n_points,) - x coordinates
+        method: str - 'max', 'median', 'mean', or 'plateau'
+        x_start: float - start of range for normalization (default: min(x_values))
+        x_stop: float - end of range for normalization (default: max(x_values))
+        derivative_threshold: float - relative threshold for plateau detection
+        per_neuron: bool - if True, return per-neuron values (tensor), else single scalar
+
+    Returns:
+        If per_neuron=False: normalization_value (float) - single value to normalize by
+        If per_neuron=True: normalization_values (tensor) - per-neuron values, shape (n_neurons,)
+    """
+    func_values = func_values.detach()
+    x_values = x_values.detach()
+
+    # Default range
+    if x_start is None:
+        x_start = x_values.min().item()
+    if x_stop is None:
+        x_stop = x_values.max().item()
+
+    # Filter to range [x_start, x_stop]
+    mask = (x_values >= x_start) & (x_values <= x_stop)
+    x_range = x_values[mask]
+    func_range = func_values[:, mask]  # (n_neurons, n_points_in_range)
+
+    if func_range.shape[1] < 2:
+        # Not enough points, fall back to max
+        if per_neuron:
+            return func_values.abs().max(dim=1)[0]
+        return func_values.abs().max().item()
+
+    if method == 'max':
+        # Maximum absolute value in range
+        if per_neuron:
+            return func_range.abs().max(dim=1)[0]
+        return func_range.abs().max().item()
+
+    elif method == 'median':
+        if per_neuron:
+            # Per-neuron median across points in range
+            return func_range.median(dim=1)[0]
+        # Median of mean across neurons
+        neuron_means = func_range.mean(dim=1)
+        return neuron_means.median().item()
+
+    elif method == 'mean':
+        if per_neuron:
+            # Per-neuron mean across points in range
+            return func_range.mean(dim=1)
+        # Mean value in range (across all neurons and points)
+        return func_range.mean().item()
+
+    elif method == 'plateau':
+        # Detect plateau by finding where derivative is flat
+        # Compute finite differences along x
+        dx = x_range[1] - x_range[0]
+        if dx == 0:
+            if per_neuron:
+                return func_range.mean(dim=1)
+            return func_range.mean().item()
+
+        if per_neuron:
+            # Per-neuron plateau detection
+            n_neurons = func_range.shape[0]
+            norm_values = torch.zeros(n_neurons, device=func_values.device)
+
+            for n in range(n_neurons):
+                func_n = func_range[n]  # (n_points_in_range,)
+                d_func = (func_n[1:] - func_n[:-1]) / dx
+                max_derivative = d_func.abs().max().item()
+
+                if max_derivative < 1e-10:
+                    norm_values[n] = func_n.mean()
+                    continue
+
+                threshold = derivative_threshold * max_derivative
+                plateau_mask = d_func.abs() < threshold
+
+                if plateau_mask.sum() < 2:
+                    # No plateau, use mean in range
+                    norm_values[n] = func_n.mean()
+                else:
+                    plateau_indices = torch.where(plateau_mask)[0]
+                    norm_values[n] = func_n[plateau_indices].mean()
+
+            return norm_values
+        else:
+            # Global plateau detection (mean across neurons)
+            func_mean = func_range.mean(dim=0)  # (n_points_in_range,)
+
+            # Compute derivative (finite difference)
+            d_func = (func_mean[1:] - func_mean[:-1]) / dx
+
+            # Find where derivative is small (plateau region)
+            max_derivative = d_func.abs().max().item()
+            if max_derivative < 1e-10:
+                # Function is essentially flat everywhere
+                return func_mean.mean().item()
+
+            threshold = derivative_threshold * max_derivative
+            plateau_mask = d_func.abs() < threshold
+
+            if plateau_mask.sum() < 2:
+                # No clear plateau found, use max
+                print(f"  normalization: no plateau detected, using max value")
+                return func_range.abs().max().item()
+
+            # Get indices where plateau exists
+            plateau_indices = torch.where(plateau_mask)[0]
+
+            # Use the values in plateau region (offset by 1 due to derivative)
+            plateau_values = func_mean[plateau_indices]
+            norm_value = plateau_values.mean().item()
+
+            print(f"  normalization: plateau detected at {plateau_mask.sum().item()} points, value={norm_value:.4f}")
+            return norm_value
+
+    else:
+        raise ValueError(f"Unknown normalization method: {method}")
+
+
 def get_embedding(model_a=None, dataset_number = 0):
     embedding = []
     embedding.append(model_a[dataset_number])
@@ -218,7 +348,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/embedding/{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/embedding/{epoch}_{N}.png", dpi=87)
     plt.close()
 
     x_data = to_numpy(gt_weights)
@@ -264,7 +394,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
     ax.set_xlim([-1, 5])
     ax.set_ylim([-5, 5])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif",
+    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.png",
                 dpi=87, bbox_inches='tight', pad_inches=0)
     plt.close()
 
@@ -287,7 +417,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
                      linewidth=1, alpha=0.1)
     plt.xlim(config.plotting.xlim)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.png", dpi=87)
     plt.close()
 
     # Plot 4: Phi function visualization
@@ -309,7 +439,7 @@ def plot_training_flyvis(x_list, model, config, epoch, N, log_dir, device, cmap,
                      linewidth=1, alpha=0.1)
     plt.xlim(config.plotting.xlim)
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.png", dpi=87)
     plt.close()
 
 def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_neurons, type_list, cmap, mc, device):
@@ -331,7 +461,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/embedding/{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/embedding/{epoch}_{N}.png", dpi=87)
     plt.close()
 
     gt_weight = to_numpy(connectivity)
@@ -366,7 +496,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.xlabel('presynaptic', fontsize=16)
         plt.title(rf'learned {weight_variable}', fontsize=16)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/matrix/matrix_{epoch}_{N}.png", dpi=80)
         plt.close()
 
     # Plot: true vs learned connectivity scatter plot (matching ParticleGraph style)
@@ -387,11 +517,10 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         ss_res = np.sum(residuals ** 2)
         ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
         r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
-
-        ax.text(0.05, 0.95, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
-                fontsize=14, verticalalignment='top', fontweight='bold')
-        ax.text(0.05, 0.88, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
-                fontsize=14, verticalalignment='top', fontweight='bold')
+        ax.text(0.05, 0.96, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
+                fontsize=12, verticalalignment='top')
+        ax.text(0.05, 0.92, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+                fontsize=12, verticalalignment='top')
     except:
         r_squared = 0.0
 
@@ -404,9 +533,8 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
     # Add diagonal line
     lims = [ax.get_xlim()[0], ax.get_xlim()[1]]
     ax.plot(lims, lims, 'r--', alpha=0.5, linewidth=1)
-
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/matrix/comparison_{epoch}_{N}.png", dpi=87)
     plt.close()
 
     # Return r_squared for progress tracking
@@ -439,7 +567,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.ylabel('postsynaptic')
         plt.xlabel('presynaptic')
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/matrix/larynx/matrix_{epoch}_{N}.tif", dpi=87)
+        plt.savefig(f"./{log_dir}/tmp_training/matrix/larynx/matrix_{epoch}_{N}.png", dpi=87)
         plt.close()
 
         rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
@@ -461,7 +589,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.xlabel(r'$x_i-x_j$', fontsize=18)
         plt.ylabel(r'$MLP_1(a_i, a_j, x_i, x_j)$', fontsize=18)
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.tif", dpi=87)
+        plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.png", dpi=87)
         plt.close()
 
     else:
@@ -515,7 +643,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
         plt.ylabel(ylabel, fontsize=48)
         plt.tight_layout()
 
-        plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.tif", dpi=87)
+        plt.savefig(f"./{log_dir}/tmp_training/function/MLP1/func_{epoch}_{N}.png", dpi=87)
         plt.close()
 
     rr = torch.linspace(config.plotting.xlim[0], config.plotting.xlim[1], 1000, device=device)
@@ -549,7 +677,7 @@ def plot_training_signal(config, model, x, connectivity, log_dir, epoch, N, n_ne
 
     plt.tight_layout()
 
-    plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.tif", dpi=87)
+    plt.savefig(f"./{log_dir}/tmp_training/function/MLP0/func_{epoch}_{N}.png", dpi=87)
     plt.close()
 
     return connectivity_r2
@@ -578,7 +706,7 @@ def plot_training_signal_visual_input(x, n_input_neurons, external_input_type, l
     plt.xticks([])
     plt.yticks([])
     plt.tight_layout()
-    plt.savefig(f"./{log_dir}/tmp_training/external_input/external_input_{epoch}_{N}.tif", dpi=80)
+    plt.savefig(f"./{log_dir}/tmp_training/external_input/external_input_{epoch}_{N}.png", dpi=80)
     plt.close()
 
 def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, model_missing_activity, log_dir, epoch, N, device):
@@ -613,7 +741,7 @@ def plot_training_signal_missing_activity(n_frames, k, x_list, baseline_value, m
         prediction_[pos[:,0]]=0
         plt.imshow(to_numpy(prediction_), aspect='auto', cmap='viridis')
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/external_input/missing_activity_{epoch}_{N}.tif", dpi=80)
+        plt.savefig(f"./{log_dir}/tmp_training/external_input/missing_activity_{epoch}_{N}.png", dpi=80)
         plt.close()
 
 def analyze_edge_function(rr=[], vizualize=False, config=None, model_MLP=[], model=None, n_nodes=0, n_neurons=None, ynorm=None, type_list=None, cmap=None, update_type=None, device=None):
@@ -2074,19 +2202,17 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         if os.path.exists(src_config):
             shutil.copy2(src_config, dst_config)
 
-    # save connectivity scatterplot (most recent comparison_*.tif from matrix folder)
+    # save connectivity scatterplot (most recent comparison_*.png from matrix folder)
     matrix_dir = f"{root_dir}/log/{pre_folder}{config_file_}/tmp_training/matrix"
-    scatter_files = glob.glob(f"{matrix_dir}/comparison_*.tif")
+    scatter_files = glob.glob(f"{matrix_dir}/comparison_*.png")
     if scatter_files:
         # get most recent file
         latest_scatter = max(scatter_files, key=os.path.getmtime)
-        dst_scatter = f"{scatter_save_dir}/iter_{iteration:03d}.tif"
+        dst_scatter = f"{scatter_save_dir}/iter_{iteration:03d}.png"
         shutil.copy2(latest_scatter, dst_scatter)
 
     # save connectivity matrix heatmap only at first iteration of each block
     data_folder = f"{root_dir}/graphs_data/{config.dataset}"
-    print(f"DEBUG save_exploration_artifacts: root_dir={root_dir}, pre_folder={pre_folder}, config.dataset={config.dataset}")
-    print(f"DEBUG save_exploration_artifacts: data_folder={data_folder}")
     if is_block_start:
         src_matrix = f"{data_folder}/connectivity_matrix.png"
         dst_matrix = f"{matrix_save_dir}/block_{block_number:03d}.png"

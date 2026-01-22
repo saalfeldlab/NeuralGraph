@@ -308,7 +308,7 @@ if __name__ == "__main__":
 
                 if "test" in task:
 
-                    config.training.noise_model_level = 0.0
+                    config.simulation.noise_model_level = 0.0
 
                     if 'fly' in config_file_:
                         config.simulation.visual_input_type = 'optical_flow'   #'DAVIS'
@@ -482,7 +482,7 @@ Current config: {config_path}"""
                     if hasattr(config.simulation, 'Dale_law_factor'):
                         sim_info += f", E/I={config.simulation.Dale_law_factor}"
                     if hasattr(config.simulation, 'noise_model_level'):
-                        sim_info += f", noise_model_level={config.training.noise_model_level}"
+                        sim_info += f", noise_model_level={config.simulation.noise_model_level}"
                     if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):
                         sim_info += f", connectivity_rank={config.simulation.connectivity_rank}"
 

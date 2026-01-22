@@ -14,6 +14,7 @@ simulation:
     n_frames: 90720
     delta_t: 0.02
     baseline_value: 0
+    noise_model_level: 0.000001
 
     #  visual_input_type: "DAVIS"
 
@@ -58,7 +59,6 @@ training:
     learning_rate_embedding_start: 5.0E-3
 
     measurement_noise_level: 0
-    noise_model_level: 0.000001
     coeff_edge_diff: 0
     coeff_update_u_diff: 0
     coeff_update_msg_diff: 0

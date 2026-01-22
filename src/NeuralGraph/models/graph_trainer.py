@@ -89,7 +89,8 @@ from torch_geometric.loader import DataLoader
 import torch_geometric as pyg
 import seaborn as sns
 # denoise_data import not needed - removed star import
-from tifffile import imread
+import imageio
+imread = imageio.imread
 from matplotlib.colors import LinearSegmentedColormap
 from NeuralGraph.generators.utils import choose_model, plot_signal_loss, generate_compressed_video_mp4, init_connectivity
 from NeuralGraph.generators.graph_data_generator import (
@@ -793,14 +794,15 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
 
-        embedding_files = glob.glob(f"./{log_dir}/tmp_training/embedding/*.tif")
+        embedding_files = glob.glob(f"./{log_dir}/tmp_training/embedding/*.png")
         if embedding_files:
             last_file = max(embedding_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
             filename = os.path.basename(last_file)
-            last_epoch, last_N = filename.replace('.tif', '').split('_')
+            last_epoch, last_N = filename.replace('.png', '').split('_')
 
             # Load and display last saved figures
-            from tifffile import imread
+            import imageio
+            imread = imageio.imread
 
             def safe_load_and_display(ax, filepath):
                 """Load and display image if file exists, otherwise leave panel empty."""
@@ -811,22 +813,22 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
             # Plot 2: Last embedding
             ax = fig.add_subplot(2, 3, 2)
-            safe_load_and_display(ax, f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.tif")
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.png")
 
             # Plot 3: Last weight comparison
             ax = fig.add_subplot(2, 3, 3)
-            safe_load_and_display(ax, f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.tif")
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.png")
 
             # Plot 4: Last phi function
             ax = fig.add_subplot(2, 3, 4)
-            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/MLP0/func_{last_epoch}_{last_N}.tif")
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/MLP0/func_{last_epoch}_{last_N}.png")
 
             # Plot 5: Last edge function
             ax = fig.add_subplot(2, 3, 5)
-            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/MLP1/func_{last_epoch}_{last_N}.tif")
+            safe_load_and_display(ax, f"./{log_dir}/tmp_training/function/MLP1/func_{last_epoch}_{last_N}.png")
 
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
+        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.png")
         plt.close()
 
         if replace_with_cluster:
@@ -1538,39 +1540,40 @@ def data_train_flyvis(config, erase, best_model, device):
         plt.xlabel('epochs', fontsize=12)
 
         # Find the last saved file to get epoch and N
-        embedding_files = glob.glob(f"./{log_dir}/tmp_training/embedding/*.tif")
+        embedding_files = glob.glob(f"./{log_dir}/tmp_training/embedding/*.png")
         if embedding_files:
             last_file = max(embedding_files, key=os.path.getctime)  # or use os.path.getmtime for modification time
             filename = os.path.basename(last_file)
-            last_epoch, last_N = filename.replace('.tif', '').split('_')
+            last_epoch, last_N = filename.replace('.png', '').split('_')
 
             # Load and display last saved figures
-            from tifffile import imread
+            import imageio
+            imread = imageio.imread
 
             # Plot 2: Last embedding
             fig.add_subplot(2, 3, 2)
-            img = imread(f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.tif")
+            img = imread(f"./{log_dir}/tmp_training/embedding/{last_epoch}_{last_N}.png")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Embedding', fontsize=12)
 
             # Plot 3: Last weight comparison
             fig.add_subplot(2, 3, 3)
-            img = imread(f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.tif")
+            img = imread(f"./{log_dir}/tmp_training/matrix/comparison_{last_epoch}_{last_N}.png")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Weight Comparison', fontsize=12)
 
             # Plot 4: Last edge function
             fig.add_subplot(2, 3, 4)
-            img = imread(f"./{log_dir}/tmp_training/function/MLP1/func_{last_epoch}_{last_N}.tif")
+            img = imread(f"./{log_dir}/tmp_training/function/MLP1/func_{last_epoch}_{last_N}.png")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Edge Function', fontsize=12)
 
             # Plot 5: Last phi function
             fig.add_subplot(2, 3, 5)
-            img = imread(f"./{log_dir}/tmp_training/function/MLP0/func_{last_epoch}_{last_N}.tif")
+            img = imread(f"./{log_dir}/tmp_training/function/MLP0/func_{last_epoch}_{last_N}.png")
             plt.imshow(img)
             plt.axis('off')
             plt.title('Phi Function', fontsize=12)
@@ -1620,7 +1623,7 @@ def data_train_flyvis(config, erase, best_model, device):
                                                                  learning_rate_NNR=learning_rate_NNR)
 
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
+        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.png")
         plt.close()
 
 
@@ -2093,7 +2096,7 @@ def data_train_zebra(config, erase, best_model, device):
         plt.imshow(img)
         plt.axis('off')
         plt.tight_layout()
-        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.tif")
+        plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.png")
         plt.close()
 
 
@@ -3299,7 +3302,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 plt.xticks([])
                 plt.yticks([])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/tmp_recons/Fig_{config_file}_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/tmp_recons/Fig_{config_file}_{num}.png", dpi=80)
                 plt.close()
 
             else:
@@ -3318,7 +3321,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
                 plt.xlim([-0.6, 0.6])
                 plt.ylim([-0.6, 0.6])
                 plt.tight_layout()
-                plt.savefig(f"./{log_dir}/tmp_recons/Nodes_{config_file}_{num}.tif", dpi=80)
+                plt.savefig(f"./{log_dir}/tmp_recons/Nodes_{config_file}_{num}.png", dpi=80)
                 plt.close()
 
 
@@ -3762,7 +3765,7 @@ def data_test_flyvis(
     ensemble_id = simulation_config.ensemble_id
     model_id = simulation_config.model_id
 
-    noise_model_level = training_config.noise_model_level
+    noise_model_level = simulation_config.noise_model_level
     warm_up_length = 100
 
     n_extra_null_edges = simulation_config.n_extra_null_edges

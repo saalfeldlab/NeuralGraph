@@ -858,3 +858,60 @@
 2026-01-21 16:30:43 | DAEMON_START | signal_chaotic_1_Claude.yaml
 2026-01-21 16:32:15 | START | signal_chaotic_1_Claude.yaml
 2026-01-21 16:42:08 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-21 17:10:58 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-21 17:12:03 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-21 17:12:24 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-21 17:36:28 | START | signal_chaotic_1_Claude.yaml
+2026-01-21 17:36:28 | STOP (ERROR: CUDA error: invalid device ordinal
+CUDA kernel err) | signal_chaotic_1_Claude.yaml
+2026-01-21 17:40:44 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-21 17:41:40 | DAEMON_START | signal_chaotic_1_Claude.yaml
+2026-01-21 17:42:42 | START | signal_chaotic_1_Claude.yaml
+2026-01-21 17:49:49 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-21 17:54:01 | START | signal_chaotic_1_Claude.yaml
+2026-01-21 18:01:02 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-21 18:05:14 | START | signal_chaotic_1_Claude.yaml
+2026-01-21 18:12:17 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-21 18:16:29 | START | signal_chaotic_1_Claude.yaml
+2026-01-21 18:23:39 | STOP (SUCCESS) | signal_chaotic_1_Claude.yaml
+2026-01-21 18:27:51 | START | signal_chaotic_1_Claude.yaml
+2026-01-21 18:29:01 | DAEMON_STOP | signal_chaotic_1_Claude.yaml
+2026-01-21 19:00:22 | DAEMON_START | signal_landscape_Claude.yaml
+2026-01-21 19:02:55 | START | signal_landscape_Claude.yaml
+2026-01-21 19:08:32 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 19:14:44 | START | signal_landscape_Claude.yaml
+2026-01-21 19:20:21 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 19:25:33 | START | signal_landscape_Claude.yaml
+2026-01-21 19:31:07 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 19:37:19 | START | signal_landscape_Claude.yaml
+2026-01-21 19:42:58 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 19:49:10 | START | signal_landscape_Claude.yaml
+2026-01-21 19:54:37 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 20:02:50 | START | signal_landscape_Claude.yaml
+2026-01-21 20:08:30 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 20:14:42 | START | signal_landscape_Claude.yaml
+2026-01-21 20:20:25 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 20:25:37 | START | signal_landscape_Claude.yaml
+2026-01-21 20:31:12 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 20:36:24 | START | signal_landscape_Claude.yaml
+2026-01-21 20:42:03 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 20:48:15 | START | signal_landscape_Claude.yaml
+2026-01-21 20:53:47 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 20:58:59 | START | signal_landscape_Claude.yaml
+2026-01-21 21:04:35 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 21:10:47 | START | signal_landscape_Claude.yaml
+2026-01-21 21:16:26 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 21:22:39 | START | signal_landscape_Claude.yaml
+2026-01-21 21:28:15 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 21:34:27 | START | signal_landscape_Claude.yaml
+2026-01-21 21:40:02 | STOP (SUCCESS) | signal_landscape_Claude.yaml
+2026-01-21 21:45:15 | START | signal_landscape_Claude.yaml
+2026-01-21 21:48:20 | DAEMON_STOP | signal_landscape_Claude.yaml
+2026-01-21 21:49:19 | DAEMON_START | signal_landscape_Claude.yaml
+2026-01-21 21:50:21 | START | signal_landscape_Claude.yaml
+2026-01-21 21:50:22 | DAEMON_STOP | signal_landscape_Claude.yaml
+2026-01-21 21:51:54 | DAEMON_START | signal_landscape_Claude.yaml
+2026-01-21 21:52:56 | START | signal_landscape_Claude.yaml
+2026-01-21 21:57:45 | DAEMON_STOP | signal_landscape_Claude.yaml
+2026-01-21 22:04:57 | DAEMON_START | signal_landscape_Claude.yaml
+2026-01-21 22:25:01 | DAEMON_STOP | signal_landscape_Claude.yaml

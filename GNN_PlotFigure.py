@@ -37,6 +37,7 @@ from NeuralGraph.models.utils import (
     analyze_odor_responses_by_neuron,
     plot_odor_heatmaps,
     analyze_data_svd,
+    compute_normalization_value,
 )
 from NeuralGraph.models.plot_utils import (
     analyze_mlp_edge_lines,
@@ -512,7 +513,18 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
                 func_list.append(func)
             func_list = torch.stack(func_list).squeeze()
 
-            upper = torch.median(func_list[:,850:1000], dim=1)[0]
+            # Use compute_normalization_value with config parameters
+            xnorm_val = xnorm.squeeze().item()
+            norm_method = getattr(config.plotting, 'norm_method', 'median')
+            norm_x_start = getattr(config.plotting, 'norm_x_start', None)
+            norm_x_stop = getattr(config.plotting, 'norm_x_stop', None)
+            # Default: use 85%-100% of the rr range (which goes to 4*xnorm)
+            x_start = norm_x_start * xnorm_val if norm_x_start is not None else 0.85 * xnorm_val * 4
+            x_stop = norm_x_stop * xnorm_val if norm_x_stop is not None else xnorm_val * 4
+            upper = compute_normalization_value(func_list, rr, method=norm_method,
+                                                x_start=x_start,
+                                                x_stop=x_stop,
+                                                per_neuron=True)
             correction = 1 / (upper + 1E-16)
 
             # Second pass: plot with correction applied
@@ -555,10 +567,8 @@ def create_signal_lin_edge_subplot(fig, ax, model, config, n_neurons, type_list,
 
     ax.set_xlabel(signal_var, fontsize=32)
     ax.set_ylabel(ylabel, fontsize=32)
-    ax.set_xlim([-to_numpy(xnorm).item(), to_numpy(xnorm).item()])
-    # set ylim to normalized range only when correction is applied
-    if apply_weight_correction:
-        ax.set_ylim([-1.2, 1.2])
+    ax.set_xlim(config.plotting.mlp1_xlim)
+    ax.set_ylim(config.plotting.mlp1_ylim)
     ax.tick_params(labelsize=16)
 
 
@@ -609,8 +619,8 @@ def create_signal_lin_phi_subplot(fig, ax, model, config, n_neurons, type_list, 
 
     ax.set_xlabel(signal_var, fontsize=32)
     ax.set_ylabel(ylabel, fontsize=32)
-    ax.set_xlim([-to_numpy(xnorm).item(), to_numpy(xnorm).item()])
-    ax.set_ylim(limits['lin_phi'])
+    ax.set_xlim(config.plotting.mlp0_xlim)
+    ax.set_ylim(config.plotting.mlp0_ylim)
     ax.tick_params(labelsize=16)
 
 
@@ -7881,7 +7891,7 @@ def collect_gnn_results_multimodel(config_list, varied_parameter=None):
         These are the same strings you pass to GNN_Main_multimodel.py.
     varied_parameter : str or None
         Optional 'section.parameter' name inside NeuralGraphConfig to treat
-        as the varied hyperparameter (e.g. 'training.noise_model_level').
+        as the varied hyperparameter (e.g. 'simulation.noise_model_level').
         If None, falls back to using the trailing token in the config name.
     log_root : str
         Root directory containing log folders (default: './log').
@@ -8922,7 +8932,7 @@ def get_figures(index):
             config.config_file = pre_folder + config_file_
             logdir = 'log/fly/fly_N9_44_6'
 
-            # config.training.noise_model_level = 0.0
+            # config.simulation.noise_model_level = 0.0
             config.simulation.visual_input_type = "DAVIS"
 
             data_test(
@@ -9359,7 +9369,7 @@ def get_figures(index):
         case 'weight_vs_noise':
 
             config_list = ['fly_N9_44_15', 'fly_N9_44_16', 'fly_N9_44_17', 'fly_N9_44_18', 'fly_N9_44_19', 'fly_N9_44_20', 'fly_N9_44_21', 'fly_N9_44_22', 'fly_N9_44_23', 'fly_N9_44_24', 'fly_N9_44_25', 'fly_N9_44_26']
-            compare_experiments(config_list,'training.noise_model_level')
+            compare_experiments(config_list,'simulation.noise_model_level')
 
             # copy file ising_comparison_noise level.png
             shutil.copy('fig/ising_comparison_noise level.png', 'fig_paper/ising_comparison_noise_level.png')
