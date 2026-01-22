@@ -466,6 +466,45 @@ class TestChunkLoader(unittest.TestCase):
 
         loader.cleanup()
 
+    def test_chunk_alignment_with_time_units(self):
+        """test that chunk starts are aligned to time_units multiples."""
+        source = MockDataSource(
+            total_timesteps=100000,
+            num_neurons=500,
+            num_stim_dims=50
+        )
+
+        time_units = 10
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=5000,
+            device='cpu',
+            time_units=time_units,
+            seed=123
+        )
+
+        num_chunks = 20
+        loader.start_epoch(num_chunks)
+
+        # collect all chunk starts
+        chunk_starts = []
+        for _ in range(num_chunks):
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_start)
+            chunk_starts.append(chunk_start)
+
+        # verify all chunk starts are multiples of time_units
+        for start in chunk_starts:
+            self.assertEqual(start % time_units, 0,
+                f"chunk start {start} is not aligned to time_units={time_units}")
+
+        # verify chunks are from different aligned locations (randomness preserved)
+        self.assertGreater(len(set(chunk_starts)), 1,
+            "all chunks from same location (not random)")
+
+        loader.cleanup()
+
 
 if __name__ == "__main__":
     unittest.main()
