@@ -15,17 +15,12 @@ from typing import Literal
 import numpy as np
 import tensorstore as ts
 
-from LatentEvolution.load_flyvis import STATIC_COLUMNS, DYNAMIC_COLUMNS
 
-
-# chunking strategies for flyvis data
-# data is accessed by column (axis 2), so use small chunks along that axis
-# typical access: x_list[:, :, 3] (all time, all neurons, single column)
-FLYVIS_CHUNKS = (2000, 14011, 1)  # ~112MB per chunk, optimized for column access
-
-# derive column lists from canonical definitions
-STATIC_COLS = [col.value for col in STATIC_COLUMNS]
-DYNAMIC_COLS = [col.value for col in DYNAMIC_COLUMNS]
+# flyvis format constants (for V2 writer compatibility)
+# static columns: INDEX=0, XPOS=1, YPOS=2, GROUP_TYPE=5, TYPE=6
+# dynamic columns: VOLTAGE=3, STIMULUS=4, CALCIUM=7, FLUORESCENCE=8
+STATIC_COLS = [0, 1, 2, 5, 6]
+DYNAMIC_COLS = [3, 4, 7, 8]
 N_STATIC = len(STATIC_COLS)
 N_DYNAMIC = len(DYNAMIC_COLS)
 
@@ -489,75 +484,6 @@ def load_simulation_data(path: str | Path) -> np.ndarray:
 
     # zarr_v2 format - load and reconstruct full array
     return _load_zarr_v2(base_path)
-
-
-# mapping from dynamic column indices to timeseries column position
-_DYNAMIC_COL_TO_TS = {col.value: i for i, col in enumerate(DYNAMIC_COLUMNS)}
-
-
-def load_column_slice(
-    path: str | Path,
-    column: int,
-    time_start: int,
-    time_end: int,
-    neuron_limit: int | None = None,
-) -> np.ndarray:
-    """load a time series column slice directly from zarr format.
-
-    this avoids loading the full (T, N, 9) array when you only need one column.
-
-    args:
-        path: base path to zarr data (without extension)
-        column: dynamic column index (VOLTAGE=3, STIMULUS=4, CALCIUM=7, FLUORESCENCE=8)
-        time_start: start time index
-        time_end: end time index
-        neuron_limit: optional limit on neurons (first N)
-
-    returns:
-        numpy array of shape (time_end - time_start, N) or (time_end - time_start, neuron_limit)
-
-    raises:
-        AssertionError: if column is a static column (use load_metadata instead)
-    """
-    assert column in _DYNAMIC_COL_TO_TS, (
-        f"column {column} is static, use load_metadata() instead"
-    )
-
-    path = Path(path)
-    base_path = path.with_suffix('') if path.suffix in ('.npy', '.zarr') else path
-
-    ts_col = _DYNAMIC_COL_TO_TS[column]
-    neuron_slice = slice(None, neuron_limit) if neuron_limit else slice(None)
-
-    ts_path = base_path / 'timeseries.zarr'
-    spec = {
-        'driver': 'zarr',
-        'kvstore': {'driver': 'file', 'path': str(ts_path)},
-    }
-    store = ts.open(spec).result()
-    data = store[time_start:time_end, neuron_slice, ts_col].read().result()
-
-    return np.ascontiguousarray(data)
-
-
-def load_metadata(path: str | Path) -> np.ndarray:
-    """load metadata from V2 zarr format.
-
-    args:
-        path: base path to zarr data
-
-    returns:
-        numpy array of shape (N, 5) with static columns
-    """
-    path = Path(path)
-    base_path = path.with_suffix('') if path.suffix in ('.npy', '.zarr') else path
-    meta_path = base_path / 'metadata.zarr'
-
-    spec = {
-        'driver': 'zarr',
-        'kvstore': {'driver': 'file', 'path': str(meta_path)},
-    }
-    return ts.open(spec).result().read().result()
 
 
 def load_zarr_lazy(path: str | Path) -> ts.TensorStore:

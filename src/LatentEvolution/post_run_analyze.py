@@ -20,7 +20,7 @@ from torch.utils.tensorboard import SummaryWriter
 from LatentEvolution.latent import LatentModel, ModelParams, get_device, load_val_only
 from LatentEvolution.diagnostics import PlotMode, run_validation_diagnostics
 from LatentEvolution.load_flyvis import NeuronData
-from NeuralGraph.zarr_io import load_metadata
+from LatentEvolution.load_flyvis import load_metadata
 
 
 def main(run_dir: Path, epoch: int | None = None) -> None:

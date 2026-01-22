@@ -13,7 +13,7 @@ from pathlib import Path
 from LatentEvolution.load_flyvis import FlyVisSim
 from LatentEvolution.latent import ModelParams, LatentModel, train_step, train_step_nocompile
 from LatentEvolution.acquisition import compute_neuron_phases, sample_batch_indices
-from NeuralGraph.zarr_io import load_column_slice
+from LatentEvolution.load_flyvis import load_column_slice
 
 
 def seed_everything(seed: int):
