@@ -63,6 +63,9 @@ def benchmark_epoch(cfg: ModelParams, warmup_batches: int = 50, compile_mode: st
     elif compile_mode == "reduce-overhead":
         train_step_fn = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
         print("using reduce-overhead compiled train_step")
+    elif compile_mode == "max-autotune":
+        train_step_fn = torch.compile(train_step_nocompile, fullgraph=True, mode="max-autotune")
+        print("using max-autotune compiled train_step")
     else:
         train_step_fn = train_step
         print("using default compiled train_step")
