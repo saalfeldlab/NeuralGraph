@@ -300,22 +300,31 @@ class TestChunkLoader(unittest.TestCase):
 
         loader.cleanup()
 
-    def test_chunk_size_validation(self):
-        """test that invalid chunk size raises error."""
+    def test_chunk_size_larger_than_dataset(self):
+        """test that chunk_size > dataset works (returns full dataset)."""
         source = MockDataSource(
             total_timesteps=10000,
             num_neurons=100,
             num_stim_dims=50
         )
 
-        # chunk_size larger than dataset should fail
-        with self.assertRaises(ValueError):
-            RandomChunkLoader(
-                load_fn=source.load_slice,
-                total_timesteps=source.total_timesteps,
-                chunk_size=20000,  # too large!
-                device='cpu'
-            )
+        # chunk_size larger than dataset should work (returns full dataset)
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=20000,  # larger than dataset
+            device='cpu'
+        )
+
+        loader.start_epoch(num_chunks=2)
+
+        # should get 2 chunks, each containing the full dataset
+        for _ in range(2):
+            chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_data)
+            self.assertEqual(chunk_data.shape, (10000, 100))  # full dataset
+
+        loader.cleanup()
 
     def test_cleanup_stops_loading(self):
         """test that cleanup stops background thread."""

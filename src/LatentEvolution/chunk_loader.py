@@ -139,9 +139,31 @@ class RandomChunkLoader:
         args:
             num_chunks: number of random chunks to load this epoch
         """
-        if self.loader_thread is not None and self.loader_thread.is_alive():
-            raise RuntimeError("previous epoch still loading, call cleanup() first")
+        # stop previous thread if still alive and clean up
+        if self.loader_thread is not None:
+            if self.loader_thread.is_alive():
+                # signal thread to stop
+                self.stop_flag = True
+                # drain queue to unblock thread if it's blocked on put()
+                while not self.cpu_queue.empty():
+                    try:
+                        self.cpu_queue.get_nowait()
+                    except:
+                        break
+                # wait for thread to finish
+                self.loader_thread.join(timeout=2.0)
+                if self.loader_thread.is_alive():
+                    print("warning: previous loader thread did not stop cleanly")
+            self.loader_thread = None
 
+        # clear any remaining items in queue (e.g., None sentinel from previous epoch)
+        while not self.cpu_queue.empty():
+            try:
+                self.cpu_queue.get_nowait()
+            except:
+                break
+
+        # reset state for new epoch
         self.stop_flag = False
         self.chunks_loaded = 0
         self.chunks_transferred = 0
