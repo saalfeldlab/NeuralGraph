@@ -505,6 +505,212 @@ class TestChunkLoader(unittest.TestCase):
 
         loader.cleanup()
 
+    def test_acquisition_mode_batch_sampling_bounds(self):
+        """test that batch sampling with acquisition modes stays within chunk bounds."""
+        from LatentEvolution.acquisition import (
+            compute_neuron_phases,
+            sample_batch_indices,
+            TimeAlignedMode,
+            StaggeredRandomMode,
+        )
+
+        source = MockDataSource(
+            total_timesteps=50000,
+            num_neurons=1000,
+            num_stim_dims=100
+        )
+
+        time_units = 5
+        chunk_size = 10000
+        total_steps = time_units * 2  # evolve_multiple_steps = 2
+
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=chunk_size,
+            device='cpu',
+            time_units=time_units,
+            seed=42
+        )
+
+        loader.start_epoch(num_chunks=5)
+
+        for _ in range(5):
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            if chunk_data is None:
+                break
+
+            # test time_aligned mode
+            neuron_phases_aligned = compute_neuron_phases(
+                num_neurons=source.num_neurons,
+                time_units=time_units,
+                acquisition_mode=TimeAlignedMode(),
+                device='cpu'
+            )
+
+            obs_indices_aligned = sample_batch_indices(
+                chunk_size=chunk_size,
+                total_steps=total_steps,
+                time_units=time_units,
+                batch_size=32,
+                num_neurons=source.num_neurons,
+                neuron_phases=neuron_phases_aligned,
+                device='cpu'
+            )
+
+            # all observation indices should be within chunk bounds (batch_size, num_neurons)
+            self.assertTrue(torch.all(obs_indices_aligned >= 0),
+                "time_aligned: observation indices below 0")
+            self.assertTrue(torch.all(obs_indices_aligned < chunk_size),
+                f"time_aligned: observation indices >= chunk_size ({chunk_size})")
+
+            # for time_aligned, all neurons in a batch should have same observation time
+            # so all columns should be identical
+            first_col = obs_indices_aligned[:, 0].numpy()
+            for neuron_idx in range(source.num_neurons):
+                col = obs_indices_aligned[:, neuron_idx].numpy()
+                self.assertTrue(np.array_equal(first_col, col),
+                    "time_aligned: not all neurons observed at same time")
+
+            # check spacing between batch samples
+            sorted_first_col = np.sort(first_col)
+            if len(sorted_first_col) > 1:
+                diffs = np.diff(sorted_first_col)
+                # all should be multiples of time_units
+                self.assertTrue(np.all(diffs % time_units == 0),
+                    f"time_aligned: batch spacing not multiples of time_units={time_units}")
+
+            # test staggered_random mode
+            neuron_phases_staggered = compute_neuron_phases(
+                num_neurons=source.num_neurons,
+                time_units=time_units,
+                acquisition_mode=StaggeredRandomMode(seed=123),
+                device='cpu'
+            )
+
+            obs_indices_staggered = sample_batch_indices(
+                chunk_size=chunk_size,
+                total_steps=total_steps,
+                time_units=time_units,
+                batch_size=32,
+                num_neurons=source.num_neurons,
+                neuron_phases=neuron_phases_staggered,
+                device='cpu'
+            )
+
+            # all observation indices should be within chunk bounds
+            self.assertTrue(torch.all(obs_indices_staggered >= 0),
+                "staggered_random: observation indices below 0")
+            self.assertTrue(torch.all(obs_indices_staggered < chunk_size),
+                f"staggered_random: observation indices >= chunk_size ({chunk_size})")
+
+            # for staggered_random, within each batch row, indices should differ by phases
+            # check that each batch starts at a multiple of time_units
+            batch_starts = obs_indices_staggered[:, 0] - neuron_phases_staggered[0]
+            self.assertTrue(torch.all(batch_starts % time_units == 0),
+                "staggered_random: batch starts not aligned to time_units")
+
+        loader.cleanup()
+
+    def test_staggered_complete_coverage(self):
+        """test that staggered_random gives complete neuron coverage within time_units window."""
+        from LatentEvolution.acquisition import (
+            compute_neuron_phases,
+            StaggeredRandomMode,
+        )
+
+        num_neurons = 100
+        time_units = 10
+        device = 'cpu'
+
+        # generate staggered phases
+        phases = compute_neuron_phases(
+            num_neurons=num_neurons,
+            time_units=time_units,
+            acquisition_mode=StaggeredRandomMode(seed=42),
+            device=device
+        )
+
+        # verify phases are in valid range [0, time_units-1]
+        self.assertTrue(torch.all(phases >= 0))
+        self.assertTrue(torch.all(phases < time_units))
+
+        # check that phases cover a good distribution (not all neurons at the same phase)
+        unique_phases = torch.unique(phases)
+        self.assertGreater(len(unique_phases), 1,
+            "all neurons have same phase (no staggering)")
+
+    def test_acquisition_with_chunk_boundaries(self):
+        """test that acquisition modes work correctly near chunk boundaries."""
+        from LatentEvolution.acquisition import (
+            compute_neuron_phases,
+            sample_batch_indices,
+            StaggeredRandomMode,
+        )
+
+        source = MockDataSource(
+            total_timesteps=30000,
+            num_neurons=200,
+            num_stim_dims=50
+        )
+
+        time_units = 7
+        chunk_size = 5000
+        total_steps = time_units * 3
+
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=chunk_size,
+            device='cpu',
+            time_units=time_units,
+            seed=99
+        )
+
+        loader.start_epoch(num_chunks=3)
+
+        neuron_phases = compute_neuron_phases(
+            num_neurons=source.num_neurons,
+            time_units=time_units,
+            acquisition_mode=StaggeredRandomMode(seed=55),
+            device='cpu'
+        )
+
+        for _ in range(3):
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            if chunk_data is None:
+                break
+
+            # verify chunk_start is aligned
+            self.assertEqual(chunk_start % time_units, 0,
+                f"chunk_start {chunk_start} not aligned to time_units={time_units}")
+
+            # sample many batches to stress test boundaries
+            for _ in range(10):
+                obs_indices = sample_batch_indices(
+                    chunk_size=chunk_size,
+                    total_steps=total_steps,
+                    time_units=time_units,
+                    batch_size=16,
+                    num_neurons=source.num_neurons,
+                    neuron_phases=neuron_phases,
+                    device='cpu'
+                )
+
+                # verify no out-of-bounds access
+                self.assertTrue(torch.all(obs_indices >= 0),
+                    "observation index below 0")
+                self.assertTrue(torch.all(obs_indices < chunk_size),
+                    f"observation index >= chunk_size ({chunk_size})")
+
+                # verify we can actually index the chunk data (would fail if out of bounds)
+                try:
+                    _ = chunk_data[obs_indices]
+                except IndexError as e:
+                    self.fail(f"indexing chunk_data with obs_indices failed: {e}")
+
+        loader.cleanup()
+
 
 if __name__ == "__main__":
     unittest.main()
