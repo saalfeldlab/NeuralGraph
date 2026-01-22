@@ -39,9 +39,6 @@ training:
   # (all neurons observed simultaneously at aligned time points)
   acquisition_mode:
     mode: time_aligned
-  # Intermediate steps (1 to time_units-1) at which to apply evolution loss.
-  # Final step loss is always applied. Examples: [] = final only, [1,2,3,4] = all steps
-  intermediate_loss_steps: []
   # Number of time_units multiples to evolve. Loss applied at each multiple.
   # E.g., evolve_multiple_steps=2 with time_units=5 applies loss at t+5 and t+10
   evolve_multiple_steps: 5
