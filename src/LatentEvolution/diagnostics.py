@@ -448,12 +448,14 @@ def compute_linear_interpolation_baseline(
             x_start = observed_values[i]
             x_end = observed_values[i + 1]
 
-            # linearly interpolate for predictions at t=1, 2, ..., t_end
+            # linearly interpolate predictions between observation points
+            # ground_truth[t] corresponds to actual time t+1
+            # so ground_truth[t_start] is at time t_start+1, ground_truth[t_end-1] is at time t_end
             for t in range(t_start, min(t_end, total_steps)):
-                # t is 0-indexed prediction time (0 = first prediction = x(t=1))
-                # prediction at time t corresponds to ground truth at t+1
-                # alpha: how far between t_start and t_end is t+1?
-                alpha = (t + 1 - t_start) / (t_end - t_start) if t_end > t_start else 0.0
+                # actual_time is the time we're predicting (1-indexed)
+                actual_time = t + 1
+                # interpolate between observation at t_start and observation at t_end
+                alpha = (actual_time - t_start) / (t_end - t_start) if t_end > t_start else 0.0
                 linear_interp_pred[t] = (1 - alpha) * x_start + alpha * x_end
 
         # compute mse at each step (averaged over neurons)
