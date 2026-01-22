@@ -137,17 +137,12 @@ def main(run_dir: Path, epoch: int | None = None) -> None:
                 device=device,
             )
 
-            # Load neuron metadata for cross-validation
-            cv_data_path = f"graphs_data/fly/{cv_config.simulation_config}/x_list_0"
-            cv_metadata = load_metadata(cv_data_path)
-            cv_neuron_data = NeuronData.from_metadata(cv_metadata)
-
             # Run diagnostics on cross-validation dataset
             cv_out_dir = out_dir / "cross_validation" / cv_name
             cv_metrics, cv_figures = run_validation_diagnostics(
                 run_dir=cv_out_dir,
                 val_data=cv_val_data,
-                neuron_data=cv_neuron_data,
+                neuron_data=neuron_data,
                 val_stim=cv_val_stim,
                 model=model,
                 config=cfg,
