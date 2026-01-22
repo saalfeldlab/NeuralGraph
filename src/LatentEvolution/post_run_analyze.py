@@ -17,8 +17,10 @@ import torch
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 
-from LatentEvolution.latent import LatentModel, ModelParams, get_device, load_dataset
+from LatentEvolution.latent import LatentModel, ModelParams, get_device, load_val_only
 from LatentEvolution.diagnostics import PlotMode, run_validation_diagnostics
+from LatentEvolution.load_flyvis import NeuronData
+from NeuralGraph.zarr_io import load_metadata
 
 
 def main(run_dir: Path, epoch: int | None = None) -> None:
@@ -89,15 +91,20 @@ def main(run_dir: Path, epoch: int | None = None) -> None:
     model.eval()
     print(f"Loaded model to {device}")
 
-    # Load main training dataset
+    # Load main validation dataset
     print(f"\nLoading main dataset: {cfg.training.simulation_config}")
-    _, val_data, _, _, val_stim, _, neuron_data = load_dataset(
+    val_data, val_stim = load_val_only(
         simulation_config=cfg.training.simulation_config,
         column_to_model=cfg.training.column_to_model,
         data_split=cfg.training.data_split,
         num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
         device=device,
     )
+
+    # Load neuron metadata
+    data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0"
+    metadata = load_metadata(data_path)
+    neuron_data = NeuronData.from_metadata(metadata)
 
     # Run diagnostics on main validation dataset
     print("\n=== Running diagnostics on main validation dataset ===")
@@ -122,13 +129,18 @@ def main(run_dir: Path, epoch: int | None = None) -> None:
 
             data_split = cv_config.data_split or cfg.training.data_split
             # Load cross-validation dataset (only need validation split)
-            _, cv_val_data, _, _, cv_val_stim, _, cv_neuron_data = load_dataset(
+            cv_val_data, cv_val_stim = load_val_only(
                 simulation_config=cv_config.simulation_config,
                 column_to_model=cfg.training.column_to_model,
                 data_split=data_split,  # Use same time ranges
                 num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
                 device=device,
             )
+
+            # Load neuron metadata for cross-validation
+            cv_data_path = f"graphs_data/fly/{cv_config.simulation_config}/x_list_0"
+            cv_metadata = load_metadata(cv_data_path)
+            cv_neuron_data = NeuronData.from_metadata(cv_metadata)
 
             # Run diagnostics on cross-validation dataset
             cv_out_dir = out_dir / "cross_validation" / cv_name
