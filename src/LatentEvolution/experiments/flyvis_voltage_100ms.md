@@ -267,29 +267,6 @@ The changes work really well. Two nice things happen:
   Over training epochs we observe that the MSE reduces progressively. We also see that
   different random seeds are now comparable and the training is stable.
 
-## Restrict training data to time_units=20
-
-Note: this is an ephemeral branch that we will come back to, or not.
-
-We have been training tu=20 and predicting x(t+20) starting from x(t). But, in order to do so
-we actually use all the data points. So during training the model sees all x(t), x(t+1), ...
-It is very likely that since the model is able to represent intermediate time points we can
-learn the correct dynamics. But we won't ever have access to the intermediate time points.
-
-Let's add a feature `apply_time_units` that only uses time points 0, 20, 40, ..., etc. since
-this will be a model for real data.
-
-```bash
-
-bsub -J data_20x -n 1 -q gpu_a100 -gpu "num=1" -o data_20x.log \
-    python src/LatentEvolution/latent.py tu20_data_20x latent_20step.yaml \
-    --training.apply-time-units
-```
-
-This experiment fails. We see that the error starts out low, and then as training progresses
-we overfit and lose rollout stability. The MSE never really drops below 1e-1 so it's about
-10x worse. This could just be because we have 20x less data now with this subsampling.
-
 ## establish new baseline with youtube dataset
 
 We've downloaded a much larger dataset with ~ 990K unique frames. Let's train on this and
@@ -298,4 +275,25 @@ make sure our results hold up.
 ```bash
 bsub -J youtube -n 1 -q gpu_a100 -gpu "num=1" -o youtube.log \
     python src/LatentEvolution/latent.py tu20_youtube_baseline latent_20step.yaml
+```
+
+## Model acquisition
+
+We have been training tu=20 and predicting x(t+20) starting from x(t). But, in order to do so
+we actually use all the data points. So during training the model sees all x(t), x(t+1), ...
+It is very likely that since the model is able to represent intermediate time points we can
+learn the correct dynamics. But we won't ever have access to the intermediate time points.
+
+```bash
+# time_aligned: observations at 0, 20, 40, ... for all neurons
+bsub -J aligned -q gpu_a100 -gpu "num=1" -n 8 -o acq_aligned.log \
+    python src/LatentEvolution/latent.py test_acq latent_20step.yaml \
+    training.acquisition-mode:time-aligned-mode
+
+# staggered_random: each neuron at different phase
+bsub -J stag -q gpu_a100 -gpu "num=1" -n 8 -o acq_stag.log \
+    python src/LatentEvolution/latent.py test_acq latent_20step.yaml \
+    training.acquisition-mode:staggered-random-mode \
+    --training.acquisition-mode.seed 42
+
 ```

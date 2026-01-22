@@ -5131,7 +5131,7 @@ def data_train_simple(config, erase, best_model, style, device, log_file=None):
     edges = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
 
     print(f'n neurons: {n_neurons}, edges:{edges.shape[1]}, xnorm: {to_numpy(xnorm)}')
-    print(f'Using Signal_Propagation_Simple with full matrix multiplication (W @ lin_edge(u))')
+    print('Using Signal_Propagation_Simple with full matrix multiplication (W @ lin_edge(u))')
     logger.info(f'n neurons: {n_neurons}, edges:{edges.shape[1]}, xnorm: {to_numpy(xnorm)}')
 
     # Two-phase parameters (matching ParticleGraph defaults)

@@ -96,16 +96,18 @@ class TestChunkLoader(unittest.TestCase):
 
         loaded_chunks = []
         for _ in range(num_chunks):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_start)
             self.assertIsNotNone(chunk_data)
             self.assertIsNotNone(chunk_stim)
             self.assertEqual(chunk_data.shape, (10000, 1000))
             self.assertEqual(chunk_stim.shape, (10000, 100))
             self.assertEqual(chunk_data.device.type, 'cpu')
-            loaded_chunks.append((chunk_data, chunk_stim))
+            loaded_chunks.append((chunk_start, chunk_data, chunk_stim))
 
         # verify end of epoch
-        end_data, end_stim = loader.get_next_chunk()
+        end_start, end_data, end_stim = loader.get_next_chunk()
+        self.assertIsNone(end_start)
         self.assertIsNone(end_data)
         self.assertIsNone(end_stim)
 
@@ -179,7 +181,7 @@ class TestChunkLoader(unittest.TestCase):
         for i in range(num_chunks):
             # get chunk (should overlap with previous training)
             get_start = time.time()
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             get_time = time.time() - get_start
 
             # simulate deterministic "training" on this chunk
@@ -235,7 +237,7 @@ class TestChunkLoader(unittest.TestCase):
         # now get chunks - first 2 should be instant (already in queue)
         for i in range(4):
             start = time.time()
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             get_time = time.time() - start
 
             print(f"chunk {i}: get_time={get_time*1000:.1f}ms")
@@ -266,7 +268,7 @@ class TestChunkLoader(unittest.TestCase):
         loader.start_epoch(num_chunks=3)
 
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
             self.assertEqual(chunk_data.device.type, 'cuda')
             self.assertEqual(chunk_stim.device.type, 'cuda')
@@ -320,7 +322,7 @@ class TestChunkLoader(unittest.TestCase):
 
         # should get 2 chunks, each containing the full dataset
         for _ in range(2):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
             self.assertEqual(chunk_data.shape, (10000, 100))  # full dataset
 
@@ -418,13 +420,13 @@ class TestChunkLoader(unittest.TestCase):
         # epoch 1
         loader.start_epoch(num_chunks=3)
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         # epoch 2 immediately after (thread should be cleaned up)
         loader.start_epoch(num_chunks=3)
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         loader.cleanup()
@@ -449,7 +451,7 @@ class TestChunkLoader(unittest.TestCase):
         # epoch 1: ask for 5 chunks but only consume 2
         loader.start_epoch(num_chunks=5)
         for _ in range(2):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
         # break early (don't consume all 5 chunks)
 
@@ -459,8 +461,263 @@ class TestChunkLoader(unittest.TestCase):
         # epoch 2 should work (thread should be done)
         loader.start_epoch(num_chunks=3)
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
+
+        loader.cleanup()
+
+    def test_chunk_alignment_with_time_units(self):
+        """test that chunk starts are aligned to time_units multiples."""
+        source = MockDataSource(
+            total_timesteps=100000,
+            num_neurons=500,
+            num_stim_dims=50
+        )
+
+        time_units = 10
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=5000,
+            device='cpu',
+            time_units=time_units,
+            seed=123
+        )
+
+        num_chunks = 20
+        loader.start_epoch(num_chunks)
+
+        # collect all chunk starts
+        chunk_starts = []
+        for _ in range(num_chunks):
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_start)
+            chunk_starts.append(chunk_start)
+
+        # verify all chunk starts are multiples of time_units
+        for start in chunk_starts:
+            self.assertEqual(start % time_units, 0,
+                f"chunk start {start} is not aligned to time_units={time_units}")
+
+        # verify chunks are from different aligned locations (randomness preserved)
+        self.assertGreater(len(set(chunk_starts)), 1,
+            "all chunks from same location (not random)")
+
+        loader.cleanup()
+
+    def test_acquisition_mode_batch_sampling_bounds(self):
+        """test that batch sampling with acquisition modes stays within chunk bounds."""
+        from LatentEvolution.acquisition import (
+            compute_neuron_phases,
+            sample_batch_indices,
+            TimeAlignedMode,
+            StaggeredRandomMode,
+        )
+
+        source = MockDataSource(
+            total_timesteps=50000,
+            num_neurons=1000,
+            num_stim_dims=100
+        )
+
+        time_units = 5
+        chunk_size = 10000
+        total_steps = time_units * 2  # evolve_multiple_steps = 2
+
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=chunk_size,
+            device='cpu',
+            time_units=time_units,
+            seed=42
+        )
+
+        loader.start_epoch(num_chunks=5)
+
+        for _ in range(5):
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            if chunk_data is None:
+                break
+
+            # test time_aligned mode
+            neuron_phases_aligned = compute_neuron_phases(
+                num_neurons=source.num_neurons,
+                time_units=time_units,
+                acquisition_mode=TimeAlignedMode(),
+                device='cpu'
+            )
+
+            obs_indices_aligned = sample_batch_indices(
+                chunk_size=chunk_size,
+                total_steps=total_steps,
+                time_units=time_units,
+                batch_size=32,
+                num_neurons=source.num_neurons,
+                neuron_phases=neuron_phases_aligned,
+                device='cpu'
+            )
+
+            # all observation indices should be within chunk bounds (batch_size, num_neurons)
+            self.assertTrue(torch.all(obs_indices_aligned >= 0),
+                "time_aligned: observation indices below 0")
+            self.assertTrue(torch.all(obs_indices_aligned < chunk_size),
+                f"time_aligned: observation indices >= chunk_size ({chunk_size})")
+
+            # for time_aligned, all neurons in a batch should have same observation time
+            # so all columns should be identical
+            first_col = obs_indices_aligned[:, 0].numpy()
+            for neuron_idx in range(source.num_neurons):
+                col = obs_indices_aligned[:, neuron_idx].numpy()
+                self.assertTrue(np.array_equal(first_col, col),
+                    "time_aligned: not all neurons observed at same time")
+
+            # every observation index must be divisible by time_units
+            self.assertTrue(np.all(first_col % time_units == 0),
+                f"time_aligned: not all observation indices divisible by time_units={time_units}")
+
+            # check spacing between batch samples
+            sorted_first_col = np.sort(first_col)
+            if len(sorted_first_col) > 1:
+                diffs = np.diff(sorted_first_col)
+                # all should be multiples of time_units
+                self.assertTrue(np.all(diffs % time_units == 0),
+                    f"time_aligned: batch spacing not multiples of time_units={time_units}")
+
+            # test staggered_random mode
+            neuron_phases_staggered = compute_neuron_phases(
+                num_neurons=source.num_neurons,
+                time_units=time_units,
+                acquisition_mode=StaggeredRandomMode(seed=123),
+                device='cpu'
+            )
+
+            obs_indices_staggered = sample_batch_indices(
+                chunk_size=chunk_size,
+                total_steps=total_steps,
+                time_units=time_units,
+                batch_size=32,
+                num_neurons=source.num_neurons,
+                neuron_phases=neuron_phases_staggered,
+                device='cpu'
+            )
+
+            # all observation indices should be within chunk bounds
+            self.assertTrue(torch.all(obs_indices_staggered >= 0),
+                "staggered_random: observation indices below 0")
+            self.assertTrue(torch.all(obs_indices_staggered < chunk_size),
+                f"staggered_random: observation indices >= chunk_size ({chunk_size})")
+
+            # for staggered_random, within each batch row, indices should differ by phases
+            # check that each batch starts at a multiple of time_units
+            batch_starts = obs_indices_staggered[:, 0] - neuron_phases_staggered[0]
+            self.assertTrue(torch.all(batch_starts % time_units == 0),
+                "staggered_random: batch starts not aligned to time_units")
+
+            # every observation index minus its neuron's phase should be divisible by time_units
+            # this verifies observations are at: phase_n + k*tu for each neuron n
+            obs_minus_phases = obs_indices_staggered - neuron_phases_staggered.unsqueeze(0)  # (batch, neurons)
+            self.assertTrue(torch.all(obs_minus_phases % time_units == 0),
+                f"staggered_random: (obs_index - phase) not divisible by time_units={time_units}")
+
+        loader.cleanup()
+
+    def test_staggered_complete_coverage(self):
+        """test that staggered_random gives complete neuron coverage within time_units window."""
+        from LatentEvolution.acquisition import (
+            compute_neuron_phases,
+            StaggeredRandomMode,
+        )
+
+        num_neurons = 100
+        time_units = 10
+        device = 'cpu'
+
+        # generate staggered phases
+        phases = compute_neuron_phases(
+            num_neurons=num_neurons,
+            time_units=time_units,
+            acquisition_mode=StaggeredRandomMode(seed=42),
+            device=device
+        )
+
+        # verify phases are in valid range [0, time_units-1]
+        self.assertTrue(torch.all(phases >= 0))
+        self.assertTrue(torch.all(phases < time_units))
+
+        # check that phases cover a good distribution (not all neurons at the same phase)
+        unique_phases = torch.unique(phases)
+        self.assertGreater(len(unique_phases), 1,
+            "all neurons have same phase (no staggering)")
+
+    def test_acquisition_with_chunk_boundaries(self):
+        """test that acquisition modes work correctly near chunk boundaries."""
+        from LatentEvolution.acquisition import (
+            compute_neuron_phases,
+            sample_batch_indices,
+            StaggeredRandomMode,
+        )
+
+        source = MockDataSource(
+            total_timesteps=30000,
+            num_neurons=200,
+            num_stim_dims=50
+        )
+
+        time_units = 7
+        chunk_size = 5000
+        total_steps = time_units * 3
+
+        loader = RandomChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=chunk_size,
+            device='cpu',
+            time_units=time_units,
+            seed=99
+        )
+
+        loader.start_epoch(num_chunks=3)
+
+        neuron_phases = compute_neuron_phases(
+            num_neurons=source.num_neurons,
+            time_units=time_units,
+            acquisition_mode=StaggeredRandomMode(seed=55),
+            device='cpu'
+        )
+
+        for _ in range(3):
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            if chunk_data is None:
+                break
+
+            # verify chunk_start is aligned
+            self.assertEqual(chunk_start % time_units, 0,
+                f"chunk_start {chunk_start} not aligned to time_units={time_units}")
+
+            # sample many batches to stress test boundaries
+            for _ in range(10):
+                obs_indices = sample_batch_indices(
+                    chunk_size=chunk_size,
+                    total_steps=total_steps,
+                    time_units=time_units,
+                    batch_size=16,
+                    num_neurons=source.num_neurons,
+                    neuron_phases=neuron_phases,
+                    device='cpu'
+                )
+
+                # verify no out-of-bounds access
+                self.assertTrue(torch.all(obs_indices >= 0),
+                    "observation index below 0")
+                self.assertTrue(torch.all(obs_indices < chunk_size),
+                    f"observation index >= chunk_size ({chunk_size})")
+
+                # verify we can actually index the chunk data (would fail if out of bounds)
+                try:
+                    _ = chunk_data[obs_indices]
+                except IndexError as e:
+                    self.fail(f"indexing chunk_data with obs_indices failed: {e}")
 
         loader.cleanup()
 
