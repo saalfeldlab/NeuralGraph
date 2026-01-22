@@ -27,9 +27,9 @@ def test_prefetch_youtube():
         print(f"error: dataset not found at {data_path}")
         return
 
-    print(f"loading from: {data_path}")
-    print(f"column: {column_idx} (CALCIUM)")
-    print(f"stimulus dims: {num_stim_dims}")
+    print(f"loading from: {data_path}", flush=True)
+    print(f"column: {column_idx} (CALCIUM)", flush=True)
+    print(f"stimulus dims: {num_stim_dims}", flush=True)
 
     # create zarr loader
     zarr_load_fn = create_zarr_loader(
@@ -45,15 +45,15 @@ def test_prefetch_youtube():
     train_end = 967680  # typical train split
     train_total_timesteps = train_end - train_start
 
-    print(f"chunk_size: {chunk_size}")
-    print(f"train timesteps: {train_total_timesteps}")
-    print("simulating 3.7s training per chunk\n")
+    print(f"chunk_size: {chunk_size}", flush=True)
+    print(f"train timesteps: {train_total_timesteps}", flush=True)
+    print("simulating 3.7s training per chunk\n", flush=True)
 
     # test with different prefetch values
     for prefetch in [2, 4, 6]:
-        print(f"\n{'='*70}")
-        print(f"testing with prefetch={prefetch}")
-        print(f"{'='*70}\n")
+        print(f"\n{'='*70}", flush=True)
+        print(f"testing with prefetch={prefetch}", flush=True)
+        print(f"{'='*70}\n", flush=True)
 
         loader = RandomChunkLoader(
             load_fn=lambda start, end: zarr_load_fn(train_start + start, train_start + end),
@@ -71,8 +71,8 @@ def test_prefetch_youtube():
         chunk_get_times = []
         queue_sizes_before = []
 
-        print(f"{'Chunk':<6} {'QueueSize':<11} {'GetTime(ms)':<13} {'Shape':<20}")
-        print("-" * 70)
+        print(f"{'Chunk':<6} {'QueueSize':<11} {'GetTime(ms)':<13} {'Shape':<20}", flush=True)
+        print("-" * 70, flush=True)
 
         for i in range(num_chunks):
             # check queue size before getting chunk
@@ -86,10 +86,10 @@ def test_prefetch_youtube():
             chunk_get_times.append(get_time)
 
             if chunk_data is None:
-                print(f"{i:<6} end of epoch")
+                print(f"{i:<6} end of epoch", flush=True)
                 break
 
-            print(f"{i:<6} {queue_size:<11} {get_time*1000:<13.1f} {str(chunk_data.shape):<20}")
+            print(f"{i:<6} {queue_size:<11} {get_time*1000:<13.1f} {str(chunk_data.shape):<20}", flush=True)
 
             # simulate training (3.7 seconds per chunk)
             time.sleep(3.7)
@@ -97,23 +97,23 @@ def test_prefetch_youtube():
         loader.cleanup()
 
         # summary
-        print(f"\n{'='*70}")
-        print(f"summary for prefetch={prefetch}")
-        print(f"{'='*70}")
-        print(f"mean get_time:       {sum(chunk_get_times) / len(chunk_get_times) * 1000:.1f}ms")
-        print(f"min get_time:        {min(chunk_get_times) * 1000:.1f}ms")
-        print(f"max get_time:        {max(chunk_get_times) * 1000:.1f}ms")
-        print(f"queue sizes:         {queue_sizes_before}")
-        print(f"queue empty count:   {queue_sizes_before.count(0)}/{len(queue_sizes_before)} times")
-        print(f"queue full count:    {queue_sizes_before.count(prefetch)}/{len(queue_sizes_before)} times")
+        print(f"\n{'='*70}", flush=True)
+        print(f"summary for prefetch={prefetch}", flush=True)
+        print(f"{'='*70}", flush=True)
+        print(f"mean get_time:       {sum(chunk_get_times) / len(chunk_get_times) * 1000:.1f}ms", flush=True)
+        print(f"min get_time:        {min(chunk_get_times) * 1000:.1f}ms", flush=True)
+        print(f"max get_time:        {max(chunk_get_times) * 1000:.1f}ms", flush=True)
+        print(f"queue sizes:         {queue_sizes_before}", flush=True)
+        print(f"queue empty count:   {queue_sizes_before.count(0)}/{len(queue_sizes_before)} times", flush=True)
+        print(f"queue full count:    {queue_sizes_before.count(prefetch)}/{len(queue_sizes_before)} times", flush=True)
 
         # interpretation
         if queue_sizes_before.count(0) > num_chunks // 2:
-            print(f"\n⚠️  WARNING: Queue empty {queue_sizes_before.count(0)}/{num_chunks} times")
-            print("    Background thread is NOT keeping up with training")
+            print(f"\n⚠️  WARNING: Queue empty {queue_sizes_before.count(0)}/{num_chunks} times", flush=True)
+            print("    Background thread is NOT keeping up with training", flush=True)
         else:
-            print("\n✓  Queue had items ready most of the time")
-            print("    Background prefetching is working!")
+            print("\n✓  Queue had items ready most of the time", flush=True)
+            print("    Background prefetching is working!", flush=True)
 
 
 if __name__ == "__main__":
