@@ -37,13 +37,14 @@ from LatentEvolution.eed_model import (
 from LatentEvolution.chunk_loader import RandomChunkLoader
 from LatentEvolution.chunk_streaming import (
     create_zarr_loader,
-    sample_batch_within_chunk,
     calculate_chunk_params,
     ChunkLatencyStats,
 )
 from LatentEvolution.acquisition import (
     AcquisitionMode,
     AllTimePointsMode,
+    compute_neuron_phases,
+    sample_batch_indices,
 )
 
 
@@ -159,6 +160,16 @@ class TrainingConfig(BaseModel):
             raise ValueError("intermediate_loss_steps is deprecated and must be empty list")
         if self.evolve_multiple_steps < 1:
             raise ValueError("evolve_multiple_steps must be >= 1")
+
+        # validate acquisition mode compatibility
+        from LatentEvolution.acquisition import StaggeredRandomMode
+        if isinstance(self.acquisition_mode, StaggeredRandomMode):
+            if self.unconnected_to_zero.num_neurons > 0:
+                raise ValueError(
+                    "unconnected_to_zero augmentation is incompatible with staggered_random acquisition mode. "
+                    "staggered mode observes neurons at different times, breaking the connectome assumption."
+                )
+
         return self
 
 
@@ -429,7 +440,7 @@ def train_step_reconstruction_only_nocompile(
         model: LatentModel,
         train_data: torch.Tensor,
         _train_stim: torch.Tensor,
-        batch_indices: torch.Tensor,
+        observation_indices: torch.Tensor,
         _selected_neurons: torch.Tensor,
         _needed_indices: torch.Tensor,
         cfg: ModelParams
@@ -448,7 +459,7 @@ def train_step_reconstruction_only_nocompile(
             reg_loss += torch.abs(p).mean() * cfg.decoder_params.l1_reg_loss
 
     # reconstruction loss
-    x_t = train_data[batch_indices]
+    x_t = train_data[observation_indices]
     proj_t = model.encoder(x_t)
     recon_t = model.decoder(proj_t)
     recon_loss = loss_fn(recon_t, x_t)
@@ -469,7 +480,7 @@ def train_step_nocompile(
         model: LatentModel,
         train_data: torch.Tensor,
         train_stim: torch.Tensor,
-        batch_indices: torch.Tensor,
+        observation_indices: torch.Tensor,
         selected_neurons: torch.Tensor,
         needed_indices: torch.Tensor,
         cfg: ModelParams
@@ -500,11 +511,17 @@ def train_step_nocompile(
     dt = cfg.training.time_units
     num_multiples = cfg.training.evolve_multiple_steps
     total_steps = dt * num_multiples
-    x_t = train_data[batch_indices] # b x N
-    proj_t = model.encoder(x_t) # b x L
 
-    stim_indices = torch.unsqueeze(batch_indices, dim=0) + torch.unsqueeze(torch.arange(total_steps, device=device), dim=1)
-    # total_steps x b x 1736
+    # observation_indices: (b, N) - observation time for each neuron in each batch sample
+    # x_t: (b, N) - neural activity at observation times
+    x_t = train_data[observation_indices]  # (b, N)
+    proj_t = model.encoder(x_t)  # (b, L)
+
+    # for stimulus: use minimum observation time in each batch (cycle start time)
+    # this works for both time_aligned (all same) and staggered_random (min is cycle start)
+    batch_start_times = observation_indices.min(dim=1).values  # (b,)
+    stim_indices = batch_start_times.unsqueeze(0) + torch.arange(total_steps, device=device).unsqueeze(1)
+    # stim_indices: (total_steps, b)
     stim_t = train_stim[stim_indices, :]
     dim_stim = train_stim.shape[1]
     dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
@@ -540,7 +557,9 @@ def train_step_nocompile(
 
     # loss at first multiple (dt)
     pred_t_plus_dt = model.decoder(proj_t)
-    x_t_plus_dt = train_data[batch_indices + dt]
+    # target at t+dt: observation_indices + dt
+    target_indices_dt = observation_indices + dt
+    x_t_plus_dt = train_data[target_indices_dt]
     evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus_dt)
 
     # additional multiples (2, 3, ..., num_multiples)
@@ -551,7 +570,9 @@ def train_step_nocompile(
             proj_t = model.evolver(proj_t, proj_stim_t[start_idx + i])
         # loss at this multiple
         pred = model.decoder(proj_t)
-        x_target = train_data[batch_indices + m * dt]
+        # target at t + m*dt
+        target_indices_m = observation_indices + m * dt
+        x_target = train_data[target_indices_m]
         evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
     loss = evolve_loss + recon_loss + reg_loss + aug_loss
@@ -780,6 +801,18 @@ def train(cfg: ModelParams, run_dir: Path):
         )
         print(f"chunking: {chunks_per_epoch} chunks/epoch, {batches_per_chunk} batches/chunk, {batches_per_epoch} total batches/epoch")
 
+        # --- Compute neuron phases for acquisition mode ---
+        neuron_phases = compute_neuron_phases(
+            num_neurons=cfg.num_neurons,
+            time_units=cfg.training.time_units,
+            acquisition_mode=cfg.training.acquisition_mode,
+            device=device,
+        )
+        if neuron_phases is not None:
+            print(f"acquisition mode: {cfg.training.acquisition_mode.mode}, computed phases for {cfg.num_neurons} neurons")
+        else:
+            print("acquisition mode: all_time_points (no phase restrictions)")
+
         # --- Reconstruction warmup loop ---
         recon_warmup_epochs = cfg.training.reconstruction_warmup_epochs
         if recon_warmup_epochs > 0:
@@ -802,21 +835,24 @@ def train(cfg: ModelParams, run_dir: Path):
                     for _ in range(batches_per_chunk):
                         optimizer.zero_grad()
 
-                        # sample batch within current chunk
-                        batch_indices, selected_neurons, needed_indices = sample_batch_within_chunk(
-                            chunk_data=chunk_data,
-                            _chunk_stim=chunk_stim,
-                            wmat_indices=wmat_indices,
-                            wmat_indptr=wmat_indptr,
-                            batch_size=cfg.training.batch_size,
+                        # sample batch observation indices using acquisition mode
+                        observation_indices = sample_batch_indices(
+                            chunk_size=chunk_data.shape[0],
                             total_steps=total_steps,
-                            num_neurons_to_zero=0,  # no augmentation during warmup
+                            time_units=cfg.training.time_units,
+                            batch_size=cfg.training.batch_size,
+                            num_neurons=cfg.num_neurons,
+                            neuron_phases=neuron_phases,
                             device=device,
                         )
 
+                        # no augmentation during warmup
+                        selected_neurons = torch.empty(0, dtype=torch.long, device=device)
+                        needed_indices = torch.empty(0, dtype=torch.long, device=device)
+
                         # use nocompile version for warmup
                         loss_tuple = train_step_reconstruction_only_nocompile(
-                            model, chunk_data, chunk_stim, batch_indices,
+                            model, chunk_data, chunk_stim, observation_indices,
                             selected_neurons, needed_indices, cfg
                         )
                         loss_tuple[0].backward()
@@ -906,22 +942,39 @@ def train(cfg: ModelParams, run_dir: Path):
                 for batch_in_chunk in range(batches_per_chunk):
                     optimizer.zero_grad()
 
-                    # sample batch within current chunk
-                    batch_indices, selected_neurons, needed_indices = sample_batch_within_chunk(
-                        chunk_data=chunk_data,
-                        _chunk_stim=chunk_stim,
-                        wmat_indices=wmat_indices,
-                        wmat_indptr=wmat_indptr,
-                        batch_size=cfg.training.batch_size,
+                    # sample batch observation indices using acquisition mode
+                    observation_indices = sample_batch_indices(
+                        chunk_size=chunk_data.shape[0],
                         total_steps=total_steps,
-                        num_neurons_to_zero=cfg.training.unconnected_to_zero.num_neurons,
+                        time_units=cfg.training.time_units,
+                        batch_size=cfg.training.batch_size,
+                        num_neurons=cfg.num_neurons,
+                        neuron_phases=neuron_phases,
                         device=device,
                     )
+
+                    # handle unconnected_to_zero augmentation
+                    if cfg.training.unconnected_to_zero.num_neurons > 0:
+                        num_neurons_to_zero = cfg.training.unconnected_to_zero.num_neurons
+                        selected_neurons = torch.randint(
+                            0, cfg.num_neurons, size=(num_neurons_to_zero,), device=device
+                        )
+                        # find neurons that can impact selected_neurons via connectome
+                        needed_indices = torch.concatenate([
+                            wmat_indices[wmat_indptr[i]:wmat_indptr[i+1]]
+                            for i in selected_neurons
+                        ])
+                        needed_indices = torch.unique(
+                            torch.concatenate([needed_indices, selected_neurons])
+                        )
+                    else:
+                        selected_neurons = torch.empty(0, dtype=torch.long, device=device)
+                        needed_indices = torch.empty(0, dtype=torch.long, device=device)
 
                     # training step (timing for latency tracking)
                     forward_start = time.time()
                     loss_tuple = train_step_fn(
-                        model, chunk_data, chunk_stim, batch_indices, selected_neurons, needed_indices, cfg
+                        model, chunk_data, chunk_stim, observation_indices, selected_neurons, needed_indices, cfg
                     )
                     forward_time = time.time() - forward_start
 
