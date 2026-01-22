@@ -452,8 +452,8 @@ def compute_linear_interpolation_baseline(
             for t in range(t_start, min(t_end, total_steps)):
                 # t is 0-indexed prediction time (0 = first prediction = x(t=1))
                 # prediction at time t corresponds to ground truth at t+1
-                actual_time = t + 1  # actual time in the sequence
-                alpha = (actual_time - (t_start + start_idx)) / ((t_end + start_idx) - (t_start + start_idx)) if t_end > t_start else 0.0
+                # alpha: how far between t_start and t_end is t+1?
+                alpha = (t + 1 - t_start) / (t_end - t_start) if t_end > t_start else 0.0
                 linear_interp_pred[t] = (1 - alpha) * x_start + alpha * x_end
 
         # compute mse at each step (averaged over neurons)
