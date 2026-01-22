@@ -585,7 +585,7 @@ def train_step_nocompile(
     loss = evolve_loss + recon_loss + reg_loss + aug_loss
     return (loss, recon_loss, evolve_loss, reg_loss, aug_loss)
 
-train_step = torch.compile(train_step_nocompile, fullgraph=True)
+train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
 # -------------------------------------------------------------------
 # Data Loading and Evaluation
