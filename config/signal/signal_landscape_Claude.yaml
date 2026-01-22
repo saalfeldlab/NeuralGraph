@@ -86,7 +86,7 @@ training:
   fix_cluster_embedding: true
   learning_rate_W_start: 0.1
   learning_rate_start: 1.0e-04
-  learning_rate_embedding_start: 1.0e-03
+  learning_rate_embedding_start: 2.5e-03
   coeff_W_L1: 1.0e-05
   coeff_edge_diff: 100
   low_rank_factorization: false
