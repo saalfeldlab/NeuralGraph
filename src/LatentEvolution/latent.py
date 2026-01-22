@@ -88,7 +88,7 @@ class TrainingConfig(BaseModel):
     )
     intermediate_loss_steps: list[int] = Field(
         default_factory=list,
-        description="Intermediate steps (1 to time_units-1) at which to apply evolution loss. Final step loss is always applied.",
+        description="DEPRECATED: Intermediate steps feature has been removed. Must be empty list.",
         json_schema_extra={"short_name": "ils"}
     )
     evolve_multiple_steps: int = Field(
@@ -146,13 +146,8 @@ class TrainingConfig(BaseModel):
 
     @model_validator(mode='after')
     def validate_training_config(self):
-        if len(self.intermediate_loss_steps) != len(set(self.intermediate_loss_steps)):
-            raise ValueError("intermediate_loss_steps must contain unique values")
-        for step in self.intermediate_loss_steps:
-            if step < 1 or step >= self.time_units:
-                raise ValueError(
-                    f"intermediate_loss_steps must be in range [1, {self.time_units - 1}], got {step}"
-                )
+        if len(self.intermediate_loss_steps) > 0:
+            raise ValueError("intermediate_loss_steps is deprecated and must be empty list")
         if self.evolve_multiple_steps < 1:
             raise ValueError("evolve_multiple_steps must be >= 1")
         return self
@@ -529,24 +524,10 @@ def train_step_nocompile(
         pred_t_plus_1_aug = model.decoder(proj_t_aug)
         aug_loss += cfg.training.unconnected_to_zero.loss_coeff * loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
 
-    # intermediate loss steps (in addition to final step, only within first window)
-    intermediate_steps = cfg.training.intermediate_loss_steps
-    evolve_loss = torch.tensor(0.0, device=device)
-
-    # check if step 1 needs intermediate loss
-    if 1 in intermediate_steps:
-        pred_t_plus_1 = model.decoder(proj_t)
-        x_t_plus_1 = train_data[batch_indices + 1]
-        evolve_loss = evolve_loss + loss_fn(pred_t_plus_1, x_t_plus_1)
-
     # evolve for remaining dt-1 time steps (first window)
+    evolve_loss = torch.tensor(0.0, device=device)
     for i in range(1, dt):
         proj_t = model.evolver(proj_t, proj_stim_t[i])
-        step = i + 1  # 1-indexed step number
-        if step in intermediate_steps:
-            pred_t_plus_step = model.decoder(proj_t)
-            x_t_plus_step = train_data[batch_indices + step]
-            evolve_loss = evolve_loss + loss_fn(pred_t_plus_step, x_t_plus_step)
 
     # loss at first multiple (dt)
     pred_t_plus_dt = model.decoder(proj_t)
