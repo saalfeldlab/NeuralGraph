@@ -266,7 +266,7 @@ def compute_multi_start_rollout_mse(
     plot_mode: PlotMode = PlotMode.TRAINING,
     time_units: int = 1,
     evolve_multiple_steps: int = 1,
-) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float]]:
+) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float], list[int]]:
     """
     Compute MSE over time from multiple random starting points.
 
@@ -288,6 +288,7 @@ def compute_multi_start_rollout_mse(
         mse_array: Array of shape (n_starts, n_steps, n_neurons) with MSE at each time/neuron
         figures: figures
         metrics: Dictionary with stability metrics
+        start_indices: List of start indices used (for recomputing baselines)
     """
     assert n_starts > 0
     # Pick random starting points ensuring we have enough data
@@ -390,7 +391,144 @@ def compute_multi_start_rollout_mse(
         mse_array, time_units, evolve_multiple_steps, rollout_type, n_steps
     )
 
-    return mse_array, figures, metrics
+    return mse_array, figures, metrics, start_indices.tolist()
+
+
+def compute_linear_interpolation_baseline(
+    val_data: torch.Tensor,
+    start_indices: list[int],
+    n_steps: int,
+    time_units: int,
+    evolve_multiple_steps: int,
+) -> np.ndarray:
+    """
+    compute linear interpolation baseline mse for time-aligned training.
+
+    linearly interpolates between observation points (0, tu, 2*tu, ..., ems*tu)
+    and computes mse against ground truth.
+
+    args:
+        val_data: validation data (T, N)
+        start_indices: list of starting indices used in rollout
+        n_steps: number of rollout steps (should be >= tu*ems)
+        time_units: observation interval (tu)
+        evolve_multiple_steps: number of multiples (ems)
+
+    returns:
+        linear_interp_mse: mse at each step, averaged over neurons and starts (n_steps,)
+    """
+    total_steps = min(n_steps, time_units * evolve_multiple_steps)
+    n_starts = len(start_indices)
+    linear_interp_accumulator = np.zeros(total_steps)
+
+    for start_idx in start_indices:
+        # ground truth segment (starting from t=1, not t=0)
+        ground_truth = val_data[start_idx + 1:start_idx + 1 + total_steps]  # (total_steps, N)
+
+        # get ground truth at observation points: 0, tu, 2*tu, ..., ems*tu
+        # but shifted for ground truth indexing
+        observation_points = [i * time_units for i in range(evolve_multiple_steps + 1)]
+        observation_points = [p for p in observation_points if p < total_steps]
+
+        # actual ground truth values at these observation points
+        observed_values = []
+        for p in observation_points:
+            if p == 0:
+                observed_values.append(val_data[start_idx])  # initial state
+            else:
+                observed_values.append(val_data[start_idx + p])
+        observed_values = torch.stack(observed_values, dim=0)  # (num_obs, N)
+
+        # linearly interpolate between observation points
+        linear_interp_pred = torch.zeros_like(ground_truth[:total_steps])
+
+        for i in range(len(observation_points) - 1):
+            t_start = observation_points[i]
+            t_end = observation_points[i + 1]
+            x_start = observed_values[i]
+            x_end = observed_values[i + 1]
+
+            # linearly interpolate for predictions at t=1, 2, ..., t_end
+            for t in range(t_start, min(t_end, total_steps)):
+                # t is 0-indexed prediction time (0 = first prediction = x(t=1))
+                # prediction at time t corresponds to ground truth at t+1
+                actual_time = t + 1  # actual time in the sequence
+                alpha = (actual_time - (t_start + start_idx)) / ((t_end + start_idx) - (t_start + start_idx)) if t_end > t_start else 0.0
+                linear_interp_pred[t] = (1 - alpha) * x_start + alpha * x_end
+
+        # compute mse at each step (averaged over neurons)
+        linear_interp_se = torch.pow(linear_interp_pred - ground_truth[:total_steps], 2).mean(dim=1)
+        linear_interp_accumulator += linear_interp_se.detach().cpu().numpy()
+
+    # average over starts
+    linear_interp_mse = linear_interp_accumulator / n_starts
+    return linear_interp_mse
+
+
+def plot_time_aligned_mse(
+    mse_array: np.ndarray,
+    constant_baseline: np.ndarray,
+    linear_interp_baseline: np.ndarray,
+    time_units: int,
+    evolve_multiple_steps: int,
+    rollout_type: str,
+) -> plt.Figure:
+    """
+    plot mse at each time step for time_aligned training.
+
+    uses existing rollout mse_array and baselines to show model performance
+    at intermediate steps and training points.
+
+    args:
+        mse_array: model mse array (n_starts, n_steps, n_neurons)
+        constant_baseline: constant model baseline (n_steps,)
+        linear_interp_baseline: linear interpolation baseline (tu*ems,)
+        time_units: observation interval (tu)
+        evolve_multiple_steps: number of multiples (ems)
+        rollout_type: "latent" or "activity"
+
+    returns:
+        matplotlib figure
+    """
+    total_steps = time_units * evolve_multiple_steps
+
+    # average mse over neurons and starts for model
+    model_mse = mse_array[:, :total_steps, :].mean(axis=(0, 2))  # (total_steps,)
+
+    time_steps = np.arange(total_steps)
+
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    # plot baselines first (background)
+    ax.plot(time_steps, constant_baseline[:total_steps], linewidth=2,
+            label='constant baseline', linestyle='--', alpha=0.7, color="red")
+    ax.plot(time_steps, linear_interp_baseline, linewidth=2,
+            label='linear interpolation baseline', linestyle='--', alpha=0.7, color="green")
+
+    # plot model mse
+    ax.plot(time_steps, model_mse, linewidth=2, label='model', color='C0')
+
+    # mark training points (where loss is applied)
+    # loss is applied at steps tu-1, 2*tu-1, ..., ems*tu-1 (0-indexed)
+    training_points = [i * time_units - 1 for i in range(1, evolve_multiple_steps + 1)]
+    training_points = [p for p in training_points if p < total_steps]
+    if training_points:
+        ax.scatter(training_points, model_mse[training_points],
+                   color='C0', s=100, zorder=5, marker='o', label='training points (loss applied)')
+
+    ax.set_xlabel('time steps', fontsize=14)
+    ax.set_ylabel('mse (averaged over neurons)', fontsize=14)
+    ax.set_yscale('log')
+    ax.set_title(
+        f'time-aligned mse analysis - {rollout_type} rollout (tu={time_units}, ems={evolve_multiple_steps})',
+        fontsize=16,
+        fontweight='bold'
+    )
+    ax.legend(loc='best', fontsize=12)
+    ax.grid(True, alpha=0.3, which='both')
+    fig.tight_layout()
+
+    return fig
 
 
 def run_validation_diagnostics(

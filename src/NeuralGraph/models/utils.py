@@ -140,7 +140,7 @@ def compute_normalization_value(func_values, x_values, method='plateau',
 
             if plateau_mask.sum() < 2:
                 # No clear plateau found, use max
-                print(f"  normalization: no plateau detected, using max value")
+                print("  normalization: no plateau detected, using max value")
                 return func_range.abs().max().item()
 
             # Get indices where plateau exists
