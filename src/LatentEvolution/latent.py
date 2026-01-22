@@ -459,7 +459,11 @@ def train_step_reconstruction_only_nocompile(
             reg_loss += torch.abs(p).mean() * cfg.decoder_params.l1_reg_loss
 
     # reconstruction loss
-    x_t = train_data[observation_indices]
+    # observation_indices: (b, N) - time index for each neuron in each batch sample
+    # use advanced indexing to extract the right (time, neuron) pairs
+    batch_size, num_neurons = observation_indices.shape
+    neuron_indices = torch.arange(num_neurons, device=device).unsqueeze(0).expand(batch_size, num_neurons)
+    x_t = train_data[observation_indices, neuron_indices]  # (b, N)
     proj_t = model.encoder(x_t)
     recon_t = model.decoder(proj_t)
     recon_loss = loss_fn(recon_t, x_t)
@@ -514,7 +518,10 @@ def train_step_nocompile(
 
     # observation_indices: (b, N) - observation time for each neuron in each batch sample
     # x_t: (b, N) - neural activity at observation times
-    x_t = train_data[observation_indices]  # (b, N)
+    # use advanced indexing to extract the right (time, neuron) pairs
+    batch_size, num_neurons = observation_indices.shape
+    neuron_indices = torch.arange(num_neurons, device=device).unsqueeze(0).expand(batch_size, num_neurons)
+    x_t = train_data[observation_indices, neuron_indices]  # (b, N)
     proj_t = model.encoder(x_t)  # (b, L)
 
     # for stimulus: use minimum observation time in each batch (cycle start time)
@@ -559,7 +566,7 @@ def train_step_nocompile(
     pred_t_plus_dt = model.decoder(proj_t)
     # target at t+dt: observation_indices + dt
     target_indices_dt = observation_indices + dt
-    x_t_plus_dt = train_data[target_indices_dt]
+    x_t_plus_dt = train_data[target_indices_dt, neuron_indices]  # (b, N)
     evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus_dt)
 
     # additional multiples (2, 3, ..., num_multiples)
@@ -572,7 +579,7 @@ def train_step_nocompile(
         pred = model.decoder(proj_t)
         # target at t + m*dt
         target_indices_m = observation_indices + m * dt
-        x_target = train_data[target_indices_m]
+        x_target = train_data[target_indices_m, neuron_indices]  # (b, N)
         evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
     loss = evolve_loss + recon_loss + reg_loss + aug_loss
