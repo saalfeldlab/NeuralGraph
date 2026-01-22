@@ -10,7 +10,7 @@ from pathlib import Path
 
 from LatentEvolution.chunk_loader import RandomChunkLoader
 from LatentEvolution.chunk_streaming import create_zarr_loader
-from NeuralGraph.FlyVis import FlyVisSim
+from LatentEvolution.load_flyvis import FlyVisSim
 
 
 def test_prefetch_youtube():
