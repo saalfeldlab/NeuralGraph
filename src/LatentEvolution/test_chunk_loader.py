@@ -572,6 +572,10 @@ class TestChunkLoader(unittest.TestCase):
                 self.assertTrue(np.array_equal(first_col, col),
                     "time_aligned: not all neurons observed at same time")
 
+            # every observation index must be divisible by time_units
+            self.assertTrue(np.all(first_col % time_units == 0),
+                f"time_aligned: not all observation indices divisible by time_units={time_units}")
+
             # check spacing between batch samples
             sorted_first_col = np.sort(first_col)
             if len(sorted_first_col) > 1:
