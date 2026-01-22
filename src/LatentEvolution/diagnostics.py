@@ -430,7 +430,7 @@ def compute_linear_interpolation_baseline(
             low = x_gt[i*time_units].unsqueeze(0)
             high = x_gt[(i+1)*time_units].unsqueeze(0)
             slope = (high - low) / time_units
-            interp[i*time_units:(i+1)*time_units, :] = low + torch.arange(time_units, dtype=torch.float32).unsqueeze(1) * slope
+            interp[i*time_units:(i+1)*time_units, :] = low + torch.arange(time_units, dtype=torch.float32, device=x_gt.device).unsqueeze(1) * slope
         mse += torch.pow(x_gt[:total_steps] - interp[:total_steps], 2).mean(dim=1).cpu().numpy()
     mse /= n_starts
 
