@@ -66,9 +66,9 @@ def main():
             # Run training - this will reload any modified code
             data_train(
                 config=config,
-                erase=args.erase,
-                best_model=args.best_model,
-                style='black',
+                erase='True',
+                best_model='',
+                style='color',
                 device=device,
                 log_file=log_file
             )

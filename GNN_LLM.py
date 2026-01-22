@@ -58,7 +58,7 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude', 'code'
+        task = 'generate_train_test_plot_Claude_cluster'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude', 'code', 'cluster'
         config_list = ['signal_landscape']
         task_params = {'iterations': 2048}
 
@@ -94,6 +94,13 @@ if __name__ == "__main__":
 
             # Only copy and initialize config on fresh start (not when resuming)
             if start_iteration == 1:
+                # Erase config from new/processing/done directories
+                for subdir in ['new', 'processing', 'done']:
+                    cleanup_path = f"{config_root}/{subdir}/{llm_task_name}.yaml"
+                    if os.path.exists(cleanup_path):
+                        os.remove(cleanup_path)
+                        print(f"\033[93mdeleted {cleanup_path}\033[0m")
+
                 if os.path.exists(source_config):
                     shutil.copy2(source_config, target_config)
                     print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
@@ -266,7 +273,7 @@ if __name__ == "__main__":
                 source_config = f"{config_root}/{config_file}.yaml"
                 shutil.copy2(source_config, new_path)
                 submit_time = time.time()
-                print(f"\033[93mSubmitted to daemon: {new_path}\033[0m")
+                print(f"\033[93msubmitted to daemon: {new_path}\033[0m")
 
                 # Wait for job to complete (file appears in done/)
                 print(f"\033[93mWaiting for {config_filename} to be copied into config/done/ ...\033[0m")
@@ -323,91 +330,154 @@ if __name__ == "__main__":
                     data_train_INR(config=config, device=device, total_steps=50000)
 
                 elif "train" in task:
-                    # For Claude tasks, use subprocess only if code changes enabled AND Claude modified code
-                    if 'Claude' in task and code_changes_enabled and code_modified_by_claude:
-                        print("\033[93mcode modified by Claude - running training in subprocess...\033[0m")
+                    # Training execution: cluster > subprocess (code modified) > direct
+                    use_subprocess = 'Claude' in task and code_changes_enabled and code_modified_by_claude
 
-                        # Construct subprocess command
-                        train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
+                    if cluster_enabled or use_subprocess:
+                        # Paths for subprocess/cluster execution
                         config_path = f"{config_root}/{config_file}.yaml"
-
-                        # Create log directory and error log paths
                         log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
                         os.makedirs(log_dir, exist_ok=True)
                         error_log_path = f"{log_dir}/training_output_latest.log"
                         error_details_path = f"{log_dir}/training_error_latest.log"
 
-                        train_cmd = [
-                            sys.executable,  # Use same Python interpreter
-                            '-u',  # Force unbuffered output for real-time streaming
-                            train_script,
-                            '--config', config_path,
-                            '--device', str(device),
-                            '--log_file', analysis_log_path,
-                            '--config_file', config.config_file,
-                            '--error_log', error_details_path,
-                            '--erase'
-                        ]
+                        if cluster_enabled:
+                            # Submit training job to cluster via SSH + bsub
+                            if use_subprocess:
+                                print("\033[93mcode modified by Claude - submitting training to cluster...\033[0m")
+                            else:
+                                print("\033[93msubmitting training to cluster....\033[0m")
 
-                        # Run training subprocess and stream output
-                        env = os.environ.copy()
-                        env['PYTHONUNBUFFERED'] = '1'
-                        env['TQDM_DISABLE'] = '1'  # Disable tqdm in subprocess (doesn't stream well)
+                            # Build the python command
+                            train_cmd = f"python train_signal_subprocess.py --config '{config_path}' --device cuda"
+                            train_cmd += f" --log_file '{analysis_log_path}'"
+                            train_cmd += f" --config_file '{config.config_file}'"
+                            train_cmd += f" --error_log '{error_details_path}'"
+                            if 'Claude' in task:
+                                train_cmd += " --erase"
 
-                        process = subprocess.Popen(
-                            train_cmd,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
-                            text=True,
-                            bufsize=1,
-                            env=env
-                        )
+                            # Create temporary bash script that activates conda and runs training
+                            cluster_script_path = f"{log_dir}/cluster_train.sh"
+                            # Use absolute path for cluster (home directory on cluster)
+                            cluster_home = "/groups/saalfeld/home/allierc"
+                            cluster_root_dir = f"{cluster_home}/Graph/NeuralGraph"
+                            conda_path = f"{cluster_home}/miniforge3/etc/profile.d/conda.sh"
 
-                        # Capture all output for logging while also streaming to console
-                        output_lines = []
-                        with open(error_log_path, 'w') as output_file:
-                            for line in process.stdout:
-                                output_file.write(line)
-                                output_file.flush()
-                                output_lines.append(line.rstrip())
-                                # Filter: skip tqdm-like lines (progress bars)
-                                if '|' in line and '%' in line and 'it/s' in line:
-                                    continue
-                                print(line, end='', flush=True)
+                            # Update paths in train_cmd to use cluster paths
+                            cluster_config_path = config_path.replace(root_dir, cluster_root_dir)
+                            cluster_analysis_log = analysis_log_path.replace(root_dir, cluster_root_dir)
+                            cluster_error_log = error_details_path.replace(root_dir, cluster_root_dir)
 
-                        process.wait()
+                            cluster_train_cmd = f"python train_signal_subprocess.py --config '{cluster_config_path}' --device cuda"
+                            cluster_train_cmd += f" --log_file '{cluster_analysis_log}'"
+                            cluster_train_cmd += f" --config_file '{config.config_file}'"
+                            cluster_train_cmd += f" --error_log '{cluster_error_log}'"
+                            if 'Claude' in task:
+                                cluster_train_cmd += " --erase"
 
-                        if process.returncode != 0:
-                            print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
-                            print("\033[93mthis may indicate a code modification error.\033[0m\n")
+                            with open(cluster_script_path, 'w') as f:
+                                f.write("#!/bin/bash\n")
+                                f.write(f"cd {cluster_root_dir}\n")
+                                f.write(f"conda run -n neural-graph {cluster_train_cmd}\n")
+                            os.chmod(cluster_script_path, 0o755)
 
-                            # Show last 20 lines of output for context
-                            print("\033[93mLast 20 lines of output:\033[0m")
-                            print("-" * 80)
-                            for line in output_lines[-20:]:
-                                print(line)
-                            print("-" * 80)
+                            # Path to script on cluster
+                            cluster_script = cluster_script_path.replace(root_dir, cluster_root_dir)
 
-                            # Show paths to log files
-                            print(f"\nFull output logged to: {error_log_path}")
-                            if os.path.exists(error_details_path):
-                                print(f"Error details logged to: {error_details_path}")
-                                try:
+                            # Submit job to cluster via SSH to login1
+                            # -W 6000 = 100 hours max wall time, -K makes bsub wait for job completion
+                            ssh_cmd = f"ssh login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 -K 'bash {cluster_script}'\""
+
+                            print(f"\033[96msubmitting via SSH: {ssh_cmd}\033[0m")
+
+                            result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
+
+                            if result.returncode != 0:
+                                print(f"\033[91mCluster training failed:\033[0m")
+                                print(f"stdout: {result.stdout}")
+                                print(f"stderr: {result.stderr}")
+                                if os.path.exists(error_details_path):
                                     with open(error_details_path, 'r') as f:
-                                        error_details = f.read()
-                                    if error_details.strip():
-                                        print("\n\033[91mDetailed error information:\033[0m")
-                                        print(error_details)
-                                except Exception as e:
-                                    print(f"Could not read error details: {e}")
+                                        print(f.read())
+                                raise RuntimeError(f"Cluster training failed at iteration {iteration}")
 
-                            raise RuntimeError(f"training failed at iteration {iteration}")
+                            print(f"\033[92mCluster training completed successfully\033[0m")
+                            print(result.stdout)
 
-                        print("\033[92mtraining subprocess completed successfully\033[0m")
+                        else:
+                            # Run training locally in subprocess (code was modified)
+                            print("\033[93mcode modified by Claude - running training in subprocess...\033[0m")
+
+                            train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
+                            train_cmd = [
+                                sys.executable,  # Use same Python interpreter
+                                '-u',  # Force unbuffered output for real-time streaming
+                                train_script,
+                                '--config', config_path,
+                                '--device', str(device),
+                                '--log_file', analysis_log_path,
+                                '--config_file', config.config_file,
+                                '--error_log', error_details_path,
+                                '--erase'
+                            ]
+
+                            # Run training subprocess and stream output
+                            env = os.environ.copy()
+                            env['PYTHONUNBUFFERED'] = '1'
+                            env['TQDM_DISABLE'] = '1'  # Disable tqdm in subprocess (doesn't stream well)
+
+                            process = subprocess.Popen(
+                                train_cmd,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                text=True,
+                                bufsize=1,
+                                env=env
+                            )
+
+                            # Capture all output for logging while also streaming to console
+                            output_lines = []
+                            with open(error_log_path, 'w') as output_file:
+                                for line in process.stdout:
+                                    output_file.write(line)
+                                    output_file.flush()
+                                    output_lines.append(line.rstrip())
+                                    # Filter: skip tqdm-like lines (progress bars)
+                                    if '|' in line and '%' in line and 'it/s' in line:
+                                        continue
+                                    print(line, end='', flush=True)
+
+                            process.wait()
+
+                            if process.returncode != 0:
+                                print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
+                                print("\033[93mthis may indicate a code modification error.\033[0m\n")
+
+                                # Show last 20 lines of output for context
+                                print("\033[93mLast 20 lines of output:\033[0m")
+                                print("-" * 80)
+                                for line in output_lines[-20:]:
+                                    print(line)
+                                print("-" * 80)
+
+                                # Show paths to log files
+                                print(f"\nFull output logged to: {error_log_path}")
+                                if os.path.exists(error_details_path):
+                                    print(f"Error details logged to: {error_details_path}")
+                                    try:
+                                        with open(error_details_path, 'r') as f:
+                                            error_details = f.read()
+                                        if error_details.strip():
+                                            print("\n\033[91mDetailed error information:\033[0m")
+                                            print(error_details)
+                                    except Exception as e:
+                                        print(f"Could not read error details: {e}")
+
+                                raise RuntimeError(f"training failed at iteration {iteration}")
+
+                            print("\033[92mtraining subprocess completed successfully\033[0m")
                     else:
-                        # No code modifications - run training directly (faster)
-                        if 'Claude' in task and code_changes_enabled:
-                            print("\033[92mno code modifications - running training directly...\033[0m")
+                        # No cluster and no code modifications - run training directly (fastest)
                         data_train(
                             config=config,
                             erase='Claude' in task,  # erase old models when iterating with Claude
@@ -608,8 +678,8 @@ Current config: {config_path}"""
                                    block_size=n_iter_block)
 
                 # generate UCB tree visualization from ucb_scores.txt
-                # For block 0: save every iteration; for block 1+: save only final tree
-                should_save_tree = (block_number == 0) or is_block_end
+                # For block 1: save every iteration; for block 2+: save only at block end
+                should_save_tree = (block_number == 1) or is_block_end
                 if should_save_tree:
                     ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
                     nodes = parse_ucb_scores(ucb_path)
@@ -651,4 +721,4 @@ Current config: {config_path}"""
                                   title=f"UCB Tree - Iter {iteration}",
                                   simulation_info=sim_info)
 
-# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_landscape_Claude"
+# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is -W 6000 "python GNN_Daemon.py -o generate_train_test_plot signal_landscape_Claude"
