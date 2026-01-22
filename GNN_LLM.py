@@ -58,7 +58,7 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude_cluster'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude', 'code', 'cluster'
+        task = 'generate_train_test_plot_Claude_code'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude', 'code', 'cluster'
         config_list = ['signal_landscape']
         task_params = {'iterations': 2048}
 
