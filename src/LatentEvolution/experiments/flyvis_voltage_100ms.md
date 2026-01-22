@@ -285,17 +285,16 @@ It is very likely that since the model is able to represent intermediate time po
 learn the correct dynamics. But we won't ever have access to the intermediate time points.
 
 ```bash
-
 # time_aligned: observations at 0, 20, 40, ... for all neurons
-bsub -J test_acq -q gpu_a100 -gpu "num=1" -n 8 -o acq_aligned.log \
+bsub -J aligned -q gpu_a100 -gpu "num=1" -n 8 -o acq_aligned.log \
     python src/LatentEvolution/latent.py test_acq latent_20step.yaml \
-    --training.acquisition-mode.mode time_aligned \
-    --training.data-passes-per-epoch 20
+    --training.data-passes-per-epoch 20 \
+    training.acquisition-mode:time-aligned-mode
 
 # staggered_random: each neuron at different phase
-bsub -J test_acq -q gpu_a100 -gpu "num=1" -n 8 -o acq_stag.log \
+bsub -J stag -q gpu_a100 -gpu "num=1" -n 8 -o acq_stag.log \
     python src/LatentEvolution/latent.py test_acq latent_20step.yaml \
-    --training.acquisition-mode.mode staggered_random \
+    --training.data-passes-per-epoch 20 \
     --training.acquisition-mode.seed 42 \
-    --training.data-passes-per-epoch 20
+    training.acquisition-mode:staggered-random-mode
 ```
