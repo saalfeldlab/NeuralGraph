@@ -477,10 +477,13 @@ def plot_time_aligned_mse(
     ax.plot(time_steps, linear_interp_baseline, linewidth=2,
             label='linear interpolation baseline', linestyle='--', alpha=0.7, color="green")
 
-    # plot model mse with markers for all points
-    ax.plot(time_steps, model_mse, linewidth=2, label='model', color='C0', marker='o', markersize=5, alpha=0.8)
+    # plot model mse line
+    ax.plot(time_steps, model_mse, linewidth=2, label='model', color='C0')
 
-    # mark training points (where loss is applied)
+    # mark all data points with medium markers
+    ax.scatter(time_steps, model_mse, color='C0', s=50, zorder=4, marker='o', alpha=0.8, label='data points')
+
+    # mark training points (where loss is applied) with larger markers
     # loss is applied at steps tu-1, 2*tu-1, ..., ems*tu-1 (0-indexed)
     training_points = [i * time_units - 1 for i in range(1, evolve_multiple_steps + 1)]
     training_points = [p for p in training_points if p < total_steps]
