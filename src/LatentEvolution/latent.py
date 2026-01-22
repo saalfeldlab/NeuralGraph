@@ -636,7 +636,7 @@ def load_dataset(
         total_timesteps=train_total_timesteps,
         chunk_size=chunk_size,
         device=device,
-        prefetch=2,  # buffer 2 chunks ahead
+        prefetch=6,  # buffer 6 chunks ahead for better overlap
         seed=None,  # will be set per epoch in training loop
     )
 
