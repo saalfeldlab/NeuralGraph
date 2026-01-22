@@ -507,7 +507,7 @@ Current config: {config_path}"""
                         sim_info += f", g={g_value}"
                     # Add low_rank training parameters
                     if hasattr(config.training, 'low_rank_factorization') and config.training.low_rank_factorization:
-                        sim_info += f", low_rank_factorization=True"
+                        sim_info += ", low_rank_factorization=True"
                         if hasattr(config.training, 'low_rank'):
                             sim_info += f", low_rank={config.training.low_rank}"
 

@@ -266,7 +266,7 @@ def compute_multi_start_rollout_mse(
     plot_mode: PlotMode = PlotMode.TRAINING,
     time_units: int = 1,
     evolve_multiple_steps: int = 1,
-) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float]]:
+) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float], list[int]]:
     """
     Compute MSE over time from multiple random starting points.
 
@@ -288,6 +288,7 @@ def compute_multi_start_rollout_mse(
         mse_array: Array of shape (n_starts, n_steps, n_neurons) with MSE at each time/neuron
         figures: figures
         metrics: Dictionary with stability metrics
+        start_indices: List of start indices used (for recomputing baselines)
     """
     assert n_starts > 0
     # Pick random starting points ensuring we have enough data
@@ -390,7 +391,120 @@ def compute_multi_start_rollout_mse(
         mse_array, time_units, evolve_multiple_steps, rollout_type, n_steps
     )
 
-    return mse_array, figures, metrics
+    return mse_array, figures, metrics, start_indices.tolist()
+
+
+def compute_linear_interpolation_baseline(
+    val_data: torch.Tensor,
+    start_indices: list[int],
+    n_steps: int,
+    time_units: int,
+    evolve_multiple_steps: int,
+) -> np.ndarray:
+    """
+    compute linear interpolation baseline mse for time-aligned training.
+
+    linearly interpolates between observation points (0, tu, 2*tu, ..., ems*tu)
+    and computes mse against ground truth.
+
+    args:
+        val_data: validation data (T, N)
+        start_indices: list of starting indices used in rollout
+        n_steps: number of rollout steps (should be >= tu*ems)
+        time_units: observation interval (tu)
+        evolve_multiple_steps: number of multiples (ems)
+
+    returns:
+        linear_interp_mse: mse at each step, averaged over neurons and starts (n_steps,)
+    """
+    total_steps = min(n_steps, time_units * evolve_multiple_steps)
+    n_starts = len(start_indices)
+
+
+    mse = np.zeros(total_steps)
+
+    for start_idx in start_indices:
+        x_gt = val_data[start_idx:start_idx+total_steps+1]
+        interp = torch.zeros_like(x_gt)
+        for i in range(evolve_multiple_steps):
+            low = x_gt[i*time_units].unsqueeze(0)
+            high = x_gt[(i+1)*time_units].unsqueeze(0)
+            slope = (high - low) / time_units
+            interp[i*time_units:(i+1)*time_units, :] = low + torch.arange(time_units, dtype=torch.float32, device=x_gt.device).unsqueeze(1) * slope
+        mse += torch.pow(x_gt[:total_steps] - interp[:total_steps], 2).mean(dim=1).cpu().numpy()
+    mse /= n_starts
+
+    return mse
+
+
+def plot_time_aligned_mse(
+    mse_array: np.ndarray,
+    constant_baseline: np.ndarray,
+    linear_interp_baseline: np.ndarray,
+    time_units: int,
+    evolve_multiple_steps: int,
+    rollout_type: str,
+) -> plt.Figure:
+    """
+    plot mse at each time step for time_aligned training.
+
+    uses existing rollout mse_array and baselines to show model performance
+    at intermediate steps and training points.
+
+    args:
+        mse_array: model mse array (n_starts, n_steps, n_neurons)
+        constant_baseline: constant model baseline (n_steps,)
+        linear_interp_baseline: linear interpolation baseline (tu*ems,)
+        time_units: observation interval (tu)
+        evolve_multiple_steps: number of multiples (ems)
+        rollout_type: "latent" or "activity"
+
+    returns:
+        matplotlib figure
+    """
+    total_steps = time_units * evolve_multiple_steps
+
+    # average mse over neurons and starts for model
+    model_mse = mse_array[:, :total_steps, :].mean(axis=(0, 2))  # (total_steps,)
+
+    time_steps = np.arange(total_steps)
+
+    fig, ax = plt.subplots(figsize=(14, 8))
+
+    # plot baselines first (background)
+    ax.plot(time_steps, constant_baseline[:total_steps], linewidth=2,
+            label='constant baseline', linestyle='--', alpha=0.7, color="red")
+    ax.plot(time_steps, linear_interp_baseline, linewidth=2,
+            label='linear interpolation baseline', linestyle='--', alpha=0.7, color="green")
+
+    # plot model mse line
+    ax.plot(time_steps, model_mse, linewidth=2, label='model', color='C0')
+
+    # mark all data points with small markers (no legend entry)
+    ax.scatter(time_steps, model_mse, color='C0', s=30, zorder=4, marker='o', alpha=0.8)
+    ax.scatter(time_steps, linear_interp_baseline, color='green', s=30, zorder=4, marker='o', alpha=0.8)
+
+    # mark training points (where loss is applied) with larger markers
+    # loss is applied at steps tu-1, 2*tu-1, ..., ems*tu-1 (0-indexed)
+    training_points = [i * time_units - 1 for i in range(1, evolve_multiple_steps + 1)]
+    training_points = [p for p in training_points if p < total_steps]
+    if training_points:
+        ax.scatter(training_points, model_mse[training_points],
+                   color='C0', s=100, zorder=5, marker='o', label='training points (loss applied)')
+
+    ax.set_xlabel('time steps', fontsize=14)
+    ax.set_ylabel('mse (averaged over neurons)', fontsize=14)
+    ax.set_yscale('log')
+    ax.set_title(
+        f'time-aligned mse analysis - {rollout_type} rollout (tu={time_units}, ems={evolve_multiple_steps})',
+        fontsize=16,
+        fontweight='bold'
+    )
+    ax.legend(loc='best', fontsize=12)
+    ax.grid(True, alpha=0.3, which='both')
+    fig.tight_layout()
+
+    return fig
 
 
 def run_validation_diagnostics(
@@ -434,12 +548,60 @@ def run_validation_diagnostics(
     # Multi-start rollout evaluation
     for rollout_type in ROLLOUT_TYPES:
         with torch.no_grad():
-            _, new_figs, new_metrics = compute_multi_start_rollout_mse(
+            mse_array, new_figs, new_metrics, start_indices = compute_multi_start_rollout_mse(
                 model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=20, rollout_type=rollout_type,
                 plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps
             )
         metrics.update(new_metrics)
         figures.update(new_figs)
+
+        # time-aligned mse analysis (only if tu > 1)
+        if time_units > 1:
+            print(f"computing time-aligned mse analysis for {rollout_type} rollout...")
+
+            # compute linear interpolation baseline (only new computation needed)
+            linear_interp_baseline = compute_linear_interpolation_baseline(
+                val_data, start_indices, mse_array.shape[1], time_units, evolve_multiple_steps
+            )
+
+            # compute constant baseline from existing data
+            total_steps = time_units * evolve_multiple_steps
+            constant_baseline_accumulator = np.zeros(total_steps)
+            for start_idx in start_indices:
+                x_0 = val_data[start_idx]
+                ground_truth = val_data[start_idx + 1:start_idx + 1 + total_steps]
+                constant_pred = x_0.unsqueeze(0).expand(ground_truth.shape[0], -1)
+                constant_se = torch.pow(constant_pred - ground_truth, 2).mean(dim=1)
+                constant_baseline_accumulator += constant_se.detach().cpu().numpy()
+            constant_baseline = constant_baseline_accumulator / len(start_indices)
+
+            # create plot
+            fig = plot_time_aligned_mse(
+                mse_array, constant_baseline, linear_interp_baseline,
+                time_units, evolve_multiple_steps, rollout_type
+            )
+            figures[f"time_aligned_mse_{rollout_type}"] = fig
+
+            # add scalar metrics
+            model_mse_avg = mse_array[:, :total_steps, :].mean(axis=(0, 2))
+            for m in range(1, evolve_multiple_steps + 1):
+                step_idx = m * time_units - 1
+                if step_idx < len(model_mse_avg):
+                    metrics[f"time_aligned_mse_{rollout_type}_at_{m}tu"] = float(model_mse_avg[step_idx])
+
+            # intermediate steps average (excluding training points)
+            training_point_indices = set([i * time_units - 1 for i in range(1, evolve_multiple_steps + 1)])
+            intermediate_indices = [i for i in range(len(model_mse_avg)) if i not in training_point_indices]
+            if intermediate_indices:
+                metrics[f"time_aligned_mse_{rollout_type}_intermediate_avg"] = float(model_mse_avg[intermediate_indices].mean())
+
+            # max intervening mse between 0 and tu-1 (for early stopping)
+            # use max over starts (worst case) instead of mean
+            model_mse_max_over_starts = mse_array[:, :total_steps, :].mean(axis=2).max(axis=0)  # max over starts, avg over neurons
+            if time_units > 1:
+                intervening_first_window = list(range(time_units - 1))  # 0 to tu-2 (excluding tu-1 which is the loss point)
+                if intervening_first_window:
+                    metrics[f"time_aligned_mse_{rollout_type}_max_intervening_0_to_tu"] = float(model_mse_max_over_starts[intervening_first_window].max())
 
     if plot_mode.save_figures:
         for key, fig in figures.items():

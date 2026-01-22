@@ -138,6 +138,15 @@ class TrainingConfig(BaseModel):
         0, description="Number of warmup epochs to train encoder/decoder only (reconstruction loss) before the main training loop. These are additional epochs, not counted in 'epochs'.", json_schema_extra={"short_name": "recon_wu"}
     )
     unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
+    early_stop_intervening_mse: bool = Field(
+        False, description="Enable early stopping based on max intervening MSE metric (0 to tu-1)", json_schema_extra={"short_name": "es_int"}
+    )
+    early_stop_patience_epochs: int = Field(
+        10, description="Number of epochs to wait for 10% improvement in max intervening MSE before stopping", json_schema_extra={"short_name": "es_patience"}
+    )
+    early_stop_min_divergence: int = Field(
+        1000, description="Minimum first divergence step required for early stopping to activate", json_schema_extra={"short_name": "es_min_div"}
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
@@ -926,6 +935,10 @@ def train(cfg: ModelParams, run_dir: Path):
         # --- Initialize latency tracking ---
         latency_stats = ChunkLatencyStats()
 
+        # --- Early stopping tracking ---
+        early_stop_history = []  # track max intervening mse over epochs
+        best_early_stop_metric = float('inf')
+
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
@@ -1077,6 +1090,59 @@ def train(cfg: ModelParams, run_dir: Path):
                     for fig_name, fig in cv_figures.items():
                         writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, epoch)
                     print(f"  Cross-validation ({cv_name}) completed in {cv_duration:.2f}s")
+
+                # --- Early stopping check ---
+                if cfg.training.early_stop_intervening_mse and cfg.training.time_units > 1:
+                    # get max intervening mse metric and first divergence
+                    max_intervening_key = None
+                    first_divergence_key = None
+                    for key in diagnostic_metrics:
+                        if "max_intervening_0_to_tu" in key:
+                            max_intervening_key = key
+                        if "first_divergence_step" in key:
+                            first_divergence_key = key
+
+                    if max_intervening_key and first_divergence_key:
+                        max_intervening_mse = diagnostic_metrics[max_intervening_key]
+                        first_divergence = diagnostic_metrics[first_divergence_key]
+
+                        # track history
+                        early_stop_history.append(max_intervening_mse)
+                        if max_intervening_mse < best_early_stop_metric:
+                            best_early_stop_metric = max_intervening_mse
+
+                        writer.add_scalar("EarlyStop/max_intervening_mse", max_intervening_mse, epoch)
+                        writer.add_scalar("EarlyStop/best_max_intervening_mse", best_early_stop_metric, epoch)
+                        writer.add_scalar("EarlyStop/first_divergence", first_divergence, epoch)
+
+                        # check early stopping criterion
+                        if (
+                            first_divergence >= cfg.training.early_stop_min_divergence
+                            and len(early_stop_history) >= cfg.training.early_stop_patience_epochs
+                        ):
+                            # check if metric hasn't improved by 10% in last patience epochs
+                            patience_window = early_stop_history[-cfg.training.early_stop_patience_epochs:]
+                            best_in_window = min(patience_window)
+                            current_metric = patience_window[-1]
+
+                            # 10% improvement threshold
+                            improvement_threshold = best_in_window * 0.9
+
+                            if current_metric >= improvement_threshold:
+                                print(f"\n=== Early stopping triggered at epoch {epoch+1} ===")
+                                print(f"  first divergence: {first_divergence}")
+                                print(f"  max intervening mse: {max_intervening_mse:.4e}")
+                                print(f"  best in last {cfg.training.early_stop_patience_epochs} epochs: {best_in_window:.4e}")
+                                print(f"  no 10% improvement in {cfg.training.early_stop_patience_epochs} epochs")
+                                print("=== stopping training early ===\n")
+
+                                # save early stop checkpoint
+                                early_stop_path = checkpoint_dir / "checkpoint_early_stop.pt"
+                                torch.save(model.state_dict(), early_stop_path)
+                                print(f"  → Saved early stop checkpoint at epoch {epoch+1}")
+
+                                # break out of epoch loop
+                                break
 
                 model.train()
 
