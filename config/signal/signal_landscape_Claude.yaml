@@ -2,10 +2,13 @@ description: designed by Claude
 dataset: signal_landscape_Claude
 simulation:
   connectivity_type: chaotic
+  connectivity_rank: 20
   connectivity_init:
   - 0
   - 0.1
   connectivity_filling_factor: 1
+  Dale_law: true
+  Dale_law_factor: 0.5
   params:
   - - 1.0
     - 0.0
@@ -80,8 +83,10 @@ training:
   cluster_method: distance_plot
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.002
-  learning_rate_start: 0.0001
-  learning_rate_embedding_start: 0.00025
+  learning_rate_W_start: 5.0e-03
+  learning_rate_start: 5.0e-04
+  learning_rate_embedding_start: 2.5e-04
   coeff_W_L1: 1.0e-05
   coeff_edge_diff: 100
+  low_rank_factorization: false
+  low_rank: 20
