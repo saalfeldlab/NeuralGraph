@@ -480,8 +480,9 @@ def plot_time_aligned_mse(
     # plot model mse line
     ax.plot(time_steps, model_mse, linewidth=2, label='model', color='C0')
 
-    # mark all data points with medium markers
-    ax.scatter(time_steps, model_mse, color='C0', s=50, zorder=4, marker='o', alpha=0.8, label='data points')
+    # mark all data points with small markers (no legend entry)
+    ax.scatter(time_steps, model_mse, color='C0', s=30, zorder=4, marker='o', alpha=0.8)
+    ax.scatter(time_steps, linear_interp_baseline, color='green', s=30, zorder=4, marker='o', alpha=0.8)
 
     # mark training points (where loss is applied) with larger markers
     # loss is applied at steps tu-1, 2*tu-1, ..., ems*tu-1 (0-indexed)
