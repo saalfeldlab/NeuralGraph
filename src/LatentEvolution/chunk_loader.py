@@ -96,7 +96,7 @@ class RandomChunkLoader:
         """
         # pick random start index
         start_idx = self.rng.randint(0, self.max_start_idx)
-        end_idx = start_idx + self.chunk_size
+        end_idx = min(start_idx + self.chunk_size, self.total_timesteps)
 
         # load from disk via user-provided function
         data_np, stim_np = self.load_fn(start_idx, end_idx)
