@@ -137,7 +137,7 @@ def plot_long_rollout_mse(
     if null_models:
         for label, trace in null_models.items():
             ax.plot(time_steps, trace, linewidth=2, label=label,
-                    linestyle='--', alpha=0.7)
+                    linestyle='--', alpha=0.7, color="pink")
 
     # Plot min/max as shaded region
     ax.fill_between(

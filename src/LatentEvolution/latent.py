@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import random
 import sys
 import re
+import time
 
 import torch
 import torch.nn as nn
@@ -32,6 +33,13 @@ from LatentEvolution.eed_model import (
     EncoderParams,
     DecoderParams,
     StimulusEncoderParams,
+)
+from LatentEvolution.chunk_loader import RandomChunkLoader
+from LatentEvolution.chunk_streaming import (
+    create_zarr_loader,
+    sample_batch_within_chunk,
+    calculate_chunk_params,
+    ChunkLatencyStats,
 )
 
 
@@ -379,6 +387,8 @@ class LossComponents:
 
     def mean(self) -> 'LossComponents':
         """Return a new LossComponents with mean values."""
+        if self.count == 0:
+            return LossComponents(count=0)
         return LossComponents(
             total=self.total / self.count,
             recon=self.recon / self.count,
@@ -570,50 +580,67 @@ def load_dataset(
     data_split: DataSplit,
     num_input_dims: int,
     device: torch.device,
+    chunk_size: int = 65536,
 ):
     """
-    Load and split a dataset from zarr V2 format.
+    load dataset from zarr with chunked streaming for training data.
 
-    Streams data directly from zarr to device memory without creating
-    intermediate full arrays.
+    training data is streamed in chunks via RandomChunkLoader to reduce GPU memory.
+    validation data is loaded directly to GPU (small enough to fit).
 
-    Args:
-        simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
-        column_to_model: Column name to model (e.g., "VOLTAGE", "CALCIUM")
+    args:
+        simulation_config: name of simulation config (e.g., "fly_N9_62_1")
+        column_to_model: column name to model (e.g., "VOLTAGE", "CALCIUM")
         data_split: DataSplit object with train/val time ranges
-        num_input_dims: Number of stimulus input dimensions to keep
-        device: PyTorch device to load data onto
+        num_input_dims: number of stimulus input dimensions to keep
+        device: pytorch device to load data onto
+        chunk_size: chunk size for streaming (default: 65536 = 64K)
 
-    Returns:
-        Tuple of (train_data, val_data, train_stim, val_stim, neuron_data)
+    returns:
+        tuple of (chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps)
     """
     data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
     column_idx = FlyVisSim[column_to_model].value
 
-    # load train data column slice directly to device
-    train_data = torch.from_numpy(
-        load_column_slice(data_path, column_idx, data_split.train_start, data_split.train_end)
-    ).to(device)
-
-    # load val data column slice directly to device
+    # load val data directly to GPU (small enough to fit)
     val_data = torch.from_numpy(
         load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
-    ).to(device)
-
-    # load stimulus slices (column 4 = STIMULUS)
-    train_stim = torch.from_numpy(
-        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.train_start, data_split.train_end, neuron_limit=num_input_dims)
     ).to(device)
 
     val_stim = torch.from_numpy(
         load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.validation_start, data_split.validation_end, neuron_limit=num_input_dims)
     ).to(device)
 
-    # load neuron metadata (small, loaded once)
+    # load neuron metadata
     metadata = load_metadata(data_path)
     neuron_data = NeuronData.from_metadata(metadata)
 
-    return train_data, val_data, train_stim, val_stim, neuron_data
+    # create chunk loader for training data (streams from disk -> GPU)
+    train_total_timesteps = data_split.train_end - data_split.train_start
+
+    # create zarr loading function
+    zarr_load_fn = create_zarr_loader(
+        data_path=data_path,
+        column_idx=column_idx,
+        stim_column_idx=FlyVisSim.STIMULUS.value,
+        num_stim_dims=num_input_dims,
+    )
+
+    # wrap to offset by train_start
+    def offset_load_fn(start: int, end: int):
+        return zarr_load_fn(data_split.train_start + start, data_split.train_start + end)
+
+    # create chunk loader
+    chunk_loader = RandomChunkLoader(
+        load_fn=offset_load_fn,
+        total_timesteps=train_total_timesteps,
+        chunk_size=chunk_size,
+        device=device,
+        prefetch=6,  # buffer 6 chunks ahead for better overlap
+        seed=None,  # will be set per epoch in training loop
+    )
+
+    return chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps
 
 
 def load_val_only(
@@ -707,15 +734,16 @@ def train(cfg: ModelParams, run_dir: Path):
         print("Logged model graph to TensorBoard")
 
         # --- Load data ---
-        train_data, val_data, train_stim, val_stim, neuron_data = load_dataset(
+        chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps = load_dataset(
             simulation_config=cfg.training.simulation_config,
             column_to_model=cfg.training.column_to_model,
             data_split=cfg.training.data_split,
             num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
             device=device,
+            chunk_size=65536,  # 64K timesteps per chunk
         )
 
-        print(f"Data split: train {train_data.shape}, val {val_data.shape}")
+        print(f"chunked streaming: train {train_total_timesteps} timesteps (chunked), val {val_data.shape}")
 
         # Load connectome weights
         wmat = load_connectome_graph(f"graphs_data/fly/{cfg.training.simulation_config}").to(device)
@@ -727,14 +755,10 @@ def train(cfg: ModelParams, run_dir: Path):
             "val_loss_constant_model": torch.nn.functional.mse_loss(
                 val_data[: -total_steps], val_data[total_steps:]
             ).item(),
-            "train_loss_constant_model": torch.nn.functional.mse_loss(
-                train_data[: -total_steps], train_data[total_steps:]
-            ).item(),
         }
-        print(f"Constant model loss: {metrics}")
+        print(f"constant model baseline (val): {metrics['val_loss_constant_model']:.4e}")
 
-        # Log baseline metrics to TensorBoard
-        writer.add_scalar("Baseline/train_loss_constant_model", metrics["train_loss_constant_model"], 0)
+        # log baseline metrics to tensorboard
         writer.add_scalar("Baseline/val_loss_constant_model", metrics["val_loss_constant_model"], 0)
 
         # --- Load cross-validation datasets ---
@@ -752,43 +776,62 @@ def train(cfg: ModelParams, run_dir: Path):
             cv_datasets[cv_name] = (cv_val_data, cv_val_stim)
             print(f"Loaded cross-validation dataset: {cv_name} (val shape: {cv_val_data.shape})")
 
+        # --- Calculate chunking parameters ---
+        chunk_size = 65536
+        chunks_per_epoch, batches_per_chunk, batches_per_epoch = calculate_chunk_params(
+            total_timesteps=train_total_timesteps,
+            chunk_size=chunk_size,
+            batch_size=cfg.training.batch_size,
+            data_passes_per_epoch=cfg.training.data_passes_per_epoch,
+        )
+        print(f"chunking: {chunks_per_epoch} chunks/epoch, {batches_per_chunk} batches/chunk, {batches_per_epoch} total batches/epoch")
+
         # --- Reconstruction warmup loop ---
         recon_warmup_epochs = cfg.training.reconstruction_warmup_epochs
         if recon_warmup_epochs > 0:
-            print(f"\n=== Reconstruction warmup: {recon_warmup_epochs} epochs ===")
+            print(f"\n=== reconstruction warmup: {recon_warmup_epochs} epochs ===")
             model.evolver.requires_grad_(False)
-
-            # simple batch iterator for warmup (don't need augmentation indices)
-            def warmup_batch_iter():
-                total_steps = cfg.training.time_units * cfg.training.evolve_multiple_steps
-                while True:
-                    start_indices = torch.randint(
-                        low=0, high=train_data.shape[0] - total_steps,
-                        size=(cfg.training.batch_size,), device=train_data.device
-                    )
-                    yield start_indices
-
-            warmup_batches = warmup_batch_iter()
-            warmup_batches_per_epoch = max(1, train_data.shape[0] // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
 
             for warmup_epoch in range(recon_warmup_epochs):
                 warmup_epoch_start = datetime.now()
                 warmup_losses = LossComponents()
-                for _ in range(warmup_batches_per_epoch):
-                    optimizer.zero_grad()
-                    batch_indices = next(warmup_batches)
-                    # use nocompile version for warmup (simpler, no need for max-autotune overhead)
-                    loss_tuple = train_step_reconstruction_only_nocompile(
-                        model, train_data, train_stim, batch_indices,
-                        torch.empty(0), torch.empty(0), cfg
-                    )
-                    loss_tuple[0].backward()
-                    optimizer.step()
-                    warmup_losses.accumulate(*loss_tuple)
+
+                # start loading chunks for this warmup epoch
+                chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+
+                for _ in range(chunks_per_epoch):
+                    chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                    if chunk_data is None:
+                        break
+
+                    # train on batches within this chunk
+                    for _ in range(batches_per_chunk):
+                        optimizer.zero_grad()
+
+                        # sample batch within current chunk
+                        batch_indices, selected_neurons, needed_indices = sample_batch_within_chunk(
+                            chunk_data=chunk_data,
+                            _chunk_stim=chunk_stim,
+                            wmat_indices=wmat_indices,
+                            wmat_indptr=wmat_indptr,
+                            batch_size=cfg.training.batch_size,
+                            total_steps=total_steps,
+                            num_neurons_to_zero=0,  # no augmentation during warmup
+                            device=device,
+                        )
+
+                        # use nocompile version for warmup
+                        loss_tuple = train_step_reconstruction_only_nocompile(
+                            model, chunk_data, chunk_stim, batch_indices,
+                            selected_neurons, needed_indices, cfg
+                        )
+                        loss_tuple[0].backward()
+                        optimizer.step()
+                        warmup_losses.accumulate(*loss_tuple)
 
                 warmup_epoch_duration = (datetime.now() - warmup_epoch_start).total_seconds()
                 mean_warmup = warmup_losses.mean()
-                print(f"Warmup {warmup_epoch+1}/{recon_warmup_epochs} | Recon Loss: {mean_warmup.recon:.4e} | Duration: {warmup_epoch_duration:.2f}s")
+                print(f"warmup {warmup_epoch+1}/{recon_warmup_epochs} | recon loss: {mean_warmup.recon:.4e} | duration: {warmup_epoch_duration:.2f}s")
 
                 # log to tensorboard
                 writer.add_scalar("ReconWarmup/loss", mean_warmup.total, warmup_epoch)
@@ -797,18 +840,7 @@ def train(cfg: ModelParams, run_dir: Path):
                 writer.add_scalar("ReconWarmup/epoch_duration", warmup_epoch_duration, warmup_epoch)
 
             model.evolver.requires_grad_(True)
-            print("=== Reconstruction warmup complete ===\n")
-
-        # --- Batching setup ---
-        num_time_points = train_data.shape[0]
-        # one pass over the data is < 1s, so avoid the overhead of an epoch by artificially
-        # resampling data points.
-        batches_per_epoch = (
-            max(1, num_time_points // cfg.training.batch_size) * cfg.training.data_passes_per_epoch
-        )
-        batch_indices_iter = make_batches_random(
-            train_data, train_stim, wmat_indices, wmat_indptr, cfg
-        )
+            print("=== reconstruction warmup complete ===\n")
 
         # --- Initialize GPU monitoring ---
         gpu_monitor = GPUMonitor()
@@ -854,24 +886,66 @@ def train(cfg: ModelParams, run_dir: Path):
         else:
             print("PyTorch profiler disabled")
 
+        # --- Initialize latency tracking ---
+        latency_stats = ChunkLatencyStats()
+
         # --- Epoch loop ---
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
             losses = LossComponents()
 
-            # ---- Training phase ----
-            for _ in range(batches_per_epoch):
-                optimizer.zero_grad()
-                batch_indices, selected_neurons, needed_indices = next(batch_indices_iter)
-                loss_tuple = train_step_fn(
-                    model, train_data, train_stim, batch_indices, selected_neurons, needed_indices, cfg
-                )
-                loss_tuple[0].backward()
-                if cfg.training.grad_clip_max_norm > 0:
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.training.grad_clip_max_norm)
-                optimizer.step()
-                losses.accumulate(*loss_tuple)
+            # start loading chunks for this epoch
+            chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+
+            # ---- Training phase (chunked iteration) ----
+            for _ in range(chunks_per_epoch):
+                # get next chunk (blocks until ready, overlaps with previous training)
+                get_start = time.time()
+                chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                latency_stats.record_chunk_get(time.time() - get_start)
+
+                if chunk_data is None:
+                    break  # end of epoch
+
+                # train on batches within this chunk
+                for batch_in_chunk in range(batches_per_chunk):
+                    optimizer.zero_grad()
+
+                    # sample batch within current chunk
+                    batch_indices, selected_neurons, needed_indices = sample_batch_within_chunk(
+                        chunk_data=chunk_data,
+                        _chunk_stim=chunk_stim,
+                        wmat_indices=wmat_indices,
+                        wmat_indptr=wmat_indptr,
+                        batch_size=cfg.training.batch_size,
+                        total_steps=total_steps,
+                        num_neurons_to_zero=cfg.training.unconnected_to_zero.num_neurons,
+                        device=device,
+                    )
+
+                    # training step (timing for latency tracking)
+                    forward_start = time.time()
+                    loss_tuple = train_step_fn(
+                        model, chunk_data, chunk_stim, batch_indices, selected_neurons, needed_indices, cfg
+                    )
+                    forward_time = time.time() - forward_start
+
+                    backward_start = time.time()
+                    loss_tuple[0].backward()
+                    backward_time = time.time() - backward_start
+
+                    step_start = time.time()
+                    if cfg.training.grad_clip_max_norm > 0:
+                        torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.training.grad_clip_max_norm)
+                    optimizer.step()
+                    step_time = time.time() - step_start
+
+                    losses.accumulate(*loss_tuple)
+
+                    # sample timing every 10 batches
+                    if batch_in_chunk % 10 == 0:
+                        latency_stats.record_batch_times(forward_time, backward_time, step_time)
 
             mean_losses = losses.mean()
 
@@ -887,7 +961,7 @@ def train(cfg: ModelParams, run_dir: Path):
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
-            # Log to TensorBoard
+            # log to tensorboard
             writer.add_scalar("Loss/train", mean_losses.total, epoch)
             writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
             writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
@@ -895,6 +969,14 @@ def train(cfg: ModelParams, run_dir: Path):
             writer.add_scalar("Loss/train_aug_loss", mean_losses.aug_loss, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
+
+            # log latency stats
+            latency_summary = latency_stats.get_summary()
+            writer.add_scalar("Latency/chunk_get_mean_ms", latency_summary["chunk_get_mean_ms"], epoch)
+            writer.add_scalar("Latency/chunk_get_max_ms", latency_summary["chunk_get_max_ms"], epoch)
+            writer.add_scalar("Latency/batch_forward_mean_ms", latency_summary["batch_forward_mean_ms"], epoch)
+            writer.add_scalar("Latency/batch_backward_mean_ms", latency_summary["batch_backward_mean_ms"], epoch)
+            writer.add_scalar("Latency/batch_step_mean_ms", latency_summary["batch_step_mean_ms"], epoch)
 
             # Run periodic diagnostics
             if cfg.training.diagnostics_freq_epochs > 0 and (epoch + 1) % cfg.training.diagnostics_freq_epochs == 0:
@@ -1051,9 +1133,17 @@ def train(cfg: ModelParams, run_dir: Path):
         writer.add_hparams(hparams, metric_dict)
         print("Logged hyperparameters to TensorBoard")
 
-        # Close TensorBoard writer
+        # print final latency statistics
+        print("\n=== final chunked streaming latency stats ===")
+        latency_stats.print_summary()
+
+        # cleanup chunk loader
+        chunk_loader.cleanup()
+        print("chunk loader cleanup complete")
+
+        # close tensorboard writer
         writer.close()
-        print("TensorBoard logging completed")
+        print("tensorboard logging completed")
 
 
 # -------------------------------------------------------------------
