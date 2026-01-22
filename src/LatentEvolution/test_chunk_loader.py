@@ -96,16 +96,18 @@ class TestChunkLoader(unittest.TestCase):
 
         loaded_chunks = []
         for _ in range(num_chunks):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
+            self.assertIsNotNone(chunk_start)
             self.assertIsNotNone(chunk_data)
             self.assertIsNotNone(chunk_stim)
             self.assertEqual(chunk_data.shape, (10000, 1000))
             self.assertEqual(chunk_stim.shape, (10000, 100))
             self.assertEqual(chunk_data.device.type, 'cpu')
-            loaded_chunks.append((chunk_data, chunk_stim))
+            loaded_chunks.append((chunk_start, chunk_data, chunk_stim))
 
         # verify end of epoch
-        end_data, end_stim = loader.get_next_chunk()
+        end_start, end_data, end_stim = loader.get_next_chunk()
+        self.assertIsNone(end_start)
         self.assertIsNone(end_data)
         self.assertIsNone(end_stim)
 
@@ -179,7 +181,7 @@ class TestChunkLoader(unittest.TestCase):
         for i in range(num_chunks):
             # get chunk (should overlap with previous training)
             get_start = time.time()
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             get_time = time.time() - get_start
 
             # simulate deterministic "training" on this chunk
@@ -235,7 +237,7 @@ class TestChunkLoader(unittest.TestCase):
         # now get chunks - first 2 should be instant (already in queue)
         for i in range(4):
             start = time.time()
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             get_time = time.time() - start
 
             print(f"chunk {i}: get_time={get_time*1000:.1f}ms")
@@ -266,7 +268,7 @@ class TestChunkLoader(unittest.TestCase):
         loader.start_epoch(num_chunks=3)
 
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
             self.assertEqual(chunk_data.device.type, 'cuda')
             self.assertEqual(chunk_stim.device.type, 'cuda')
@@ -320,7 +322,7 @@ class TestChunkLoader(unittest.TestCase):
 
         # should get 2 chunks, each containing the full dataset
         for _ in range(2):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
             self.assertEqual(chunk_data.shape, (10000, 100))  # full dataset
 
@@ -418,13 +420,13 @@ class TestChunkLoader(unittest.TestCase):
         # epoch 1
         loader.start_epoch(num_chunks=3)
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         # epoch 2 immediately after (thread should be cleaned up)
         loader.start_epoch(num_chunks=3)
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         loader.cleanup()
@@ -449,7 +451,7 @@ class TestChunkLoader(unittest.TestCase):
         # epoch 1: ask for 5 chunks but only consume 2
         loader.start_epoch(num_chunks=5)
         for _ in range(2):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
         # break early (don't consume all 5 chunks)
 
@@ -459,7 +461,7 @@ class TestChunkLoader(unittest.TestCase):
         # epoch 2 should work (thread should be done)
         loader.start_epoch(num_chunks=3)
         for _ in range(3):
-            chunk_data, chunk_stim = loader.get_next_chunk()
+            _, chunk_data, chunk_stim = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         loader.cleanup()

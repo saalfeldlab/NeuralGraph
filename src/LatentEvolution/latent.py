@@ -41,6 +41,10 @@ from LatentEvolution.chunk_streaming import (
     calculate_chunk_params,
     ChunkLatencyStats,
 )
+from LatentEvolution.acquisition import (
+    AcquisitionMode,
+    AllTimePointsMode,
+)
 
 
 # -------------------------------------------------------------------
@@ -85,6 +89,11 @@ class TrainingConfig(BaseModel):
         1,
         description="Observation interval: activity data available every N steps. Evolver unrolled N times during training.",
         json_schema_extra={"short_name": "tu"}
+    )
+    acquisition_mode: AcquisitionMode = Field(
+        default_factory=AllTimePointsMode,
+        description="Data acquisition mode. Controls which timesteps have observable data for each neuron.",
+        json_schema_extra={"short_name": "acq"}
     )
     intermediate_loss_steps: list[int] = Field(
         default_factory=list,
@@ -562,6 +571,7 @@ def load_dataset(
     num_input_dims: int,
     device: torch.device,
     chunk_size: int = 65536,
+    time_units: int = 1,
 ):
     """
     load dataset from zarr with chunked streaming for training data.
@@ -576,6 +586,7 @@ def load_dataset(
         num_input_dims: number of stimulus input dimensions to keep
         device: pytorch device to load data onto
         chunk_size: chunk size for streaming (default: 65536 = 64K)
+        time_units: alignment constraint for chunk starts (default: 1)
 
     returns:
         tuple of (chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps)
@@ -619,6 +630,7 @@ def load_dataset(
         device=device,
         prefetch=6,  # buffer 6 chunks ahead for better overlap
         seed=None,  # will be set per epoch in training loop
+        time_units=time_units,
     )
 
     return chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps
@@ -722,6 +734,7 @@ def train(cfg: ModelParams, run_dir: Path):
             num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
             device=device,
             chunk_size=65536,  # 64K timesteps per chunk
+            time_units=cfg.training.time_units,
         )
 
         print(f"chunked streaming: train {train_total_timesteps} timesteps (chunked), val {val_data.shape}")
@@ -781,7 +794,7 @@ def train(cfg: ModelParams, run_dir: Path):
                 chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
 
                 for _ in range(chunks_per_epoch):
-                    chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                    chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
                     if chunk_data is None:
                         break
 
@@ -883,7 +896,7 @@ def train(cfg: ModelParams, run_dir: Path):
             for _ in range(chunks_per_epoch):
                 # get next chunk (blocks until ready, overlaps with previous training)
                 get_start = time.time()
-                chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
                 latency_stats.record_chunk_get(time.time() - get_start)
 
                 if chunk_data is None:

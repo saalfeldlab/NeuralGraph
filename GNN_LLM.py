@@ -489,7 +489,7 @@ Current config: {config_path}"""
                         if config.simulation.Dale_law and hasattr(config.simulation, 'Dale_law_factor'):
                             sim_info += f", E/I={config.simulation.Dale_law_factor}"
                         else:
-                            sim_info += f", E/I=NA"
+                            sim_info += ", E/I=NA"
                     if hasattr(config.simulation, 'noise_model_level'):
                         sim_info += f", noise_model_level={config.training.noise_model_level}"
                     if config.simulation.connectivity_type == 'low_rank' and hasattr(config.simulation, 'connectivity_rank'):

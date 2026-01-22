@@ -49,6 +49,7 @@ class RandomChunkLoader:
         device: torch.device | str = 'cuda',
         prefetch: int = 1,
         seed: Optional[int] = None,
+        time_units: int = 1,
     ):
         """initialize chunk loader.
 
@@ -59,18 +60,21 @@ class RandomChunkLoader:
             device: pytorch device to transfer chunks to
             prefetch: number of chunks to buffer in queue (1 or 2 recommended)
             seed: random seed for chunk sampling (optional)
+            time_units: alignment constraint - chunk starts must be multiples of this (default: 1)
         """
         self.load_fn = load_fn
         self.total_timesteps = total_timesteps
         self.chunk_size = chunk_size
         self.device = torch.device(device) if isinstance(device, str) else device
         self.prefetch = prefetch
+        self.time_units = time_units
 
         # random number generator for chunk sampling
         self.rng = random.Random(seed)
 
-        # maximum valid start index (0 if dataset < chunk_size)
-        self.max_start_idx = max(0, total_timesteps - chunk_size)
+        # maximum valid start index (0 if dataset < chunk_size), aligned to time_units
+        max_unaligned_start = max(0, total_timesteps - chunk_size)
+        self.max_start_idx = (max_unaligned_start // time_units) * time_units
 
         # queue holds (chunk_data, chunk_stim) on cpu pinned memory
         self.cpu_queue: Queue = Queue(maxsize=prefetch)
@@ -88,14 +92,16 @@ class RandomChunkLoader:
         self.chunks_loaded = 0
         self.chunks_transferred = 0
 
-    def _load_random_chunk_to_cpu(self) -> tuple[torch.Tensor, torch.Tensor]:
+    def _load_random_chunk_to_cpu(self) -> tuple[int, torch.Tensor, torch.Tensor]:
         """load a random window to cpu pinned memory.
 
         returns:
-            (data_pinned, stim_pinned): tensors on cpu with pinned memory (if cuda available)
+            (start_idx, data_pinned, stim_pinned): start index and tensors on cpu with pinned memory
         """
-        # pick random start index
-        start_idx = self.rng.randint(0, self.max_start_idx)
+        # pick random start index aligned to time_units
+        num_valid_starts = (self.max_start_idx // self.time_units) + 1
+        aligned_idx = self.rng.randint(0, num_valid_starts - 1)
+        start_idx = aligned_idx * self.time_units
         end_idx = min(start_idx + self.chunk_size, self.total_timesteps)
 
         # load from disk via user-provided function
@@ -112,7 +118,7 @@ class RandomChunkLoader:
 
         self.chunks_loaded += 1
 
-        return data_cpu, stim_cpu
+        return start_idx, data_cpu, stim_cpu
 
     def _background_loader(self, num_chunks: int):
         """background thread: load random chunks to cpu queue.
@@ -125,10 +131,10 @@ class RandomChunkLoader:
                 break
 
             # load to cpu
-            cpu_data, cpu_stim = self._load_random_chunk_to_cpu()
+            start_idx, cpu_data, cpu_stim = self._load_random_chunk_to_cpu()
 
             # put in queue (blocks if queue is full - provides backpressure)
-            self.cpu_queue.put((cpu_data, cpu_stim))
+            self.cpu_queue.put((start_idx, cpu_data, cpu_stim))
 
         # signal completion
         self.cpu_queue.put(None)
@@ -176,20 +182,20 @@ class RandomChunkLoader:
         )
         self.loader_thread.start()
 
-    def get_next_chunk(self) -> tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+    def get_next_chunk(self) -> tuple[Optional[int], Optional[torch.Tensor], Optional[torch.Tensor]]:
         """get next random chunk on gpu (blocks until ready).
 
         returns:
-            (chunk_data, chunk_stim): tensors on gpu, or (None, None) if epoch done
+            (chunk_start, chunk_data, chunk_stim): start index and tensors on gpu, or (None, None, None) if epoch done
         """
         # get from cpu queue (blocks if empty - waits for background loader)
         item = self.cpu_queue.get()
 
         if item is None:
             # end of epoch
-            return None, None
+            return None, None, None
 
-        cpu_data, cpu_stim = item
+        start_idx, cpu_data, cpu_stim = item
 
         # transfer to gpu
         if self.device.type == 'cuda' and self.transfer_stream is not None:
@@ -207,7 +213,7 @@ class RandomChunkLoader:
 
         self.chunks_transferred += 1
 
-        return gpu_data, gpu_stim
+        return start_idx, gpu_data, gpu_stim
 
     def cleanup(self):
         """stop background loading and cleanup resources."""
