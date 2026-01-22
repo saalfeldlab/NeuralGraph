@@ -295,5 +295,20 @@ bsub -J stag -q gpu_a100 -gpu "num=1" -n 8 -o acq_stag.log \
     python src/LatentEvolution/latent.py test_acq latent_20step.yaml \
     training.acquisition-mode:staggered-random-mode \
     --training.acquisition-mode.seed 42
+```
 
+We see really nice results - the time-aligned data works! We see low MSE at intervening points
+and we see a long stable roll out. Let's make this the new default since this accurately
+models data availability.
+
+## Sweep ems
+
+I am not sure if we really need ems=5 now. Let's try a few different values. Lower ems values
+would be better since the compiler won't need to unroll large loops.
+
+```bash
+for ems in 1 2 3 5; do \
+    bsub -J ems${ems} -q gpu_a100 -gpu "num=1" -n 8 -o ems${ems}.log \
+        python src/LatentEvolution/latent.py ems_sweep latent_20step.yaml \
+        --training.evolve-multiple-steps $ems
 ```
