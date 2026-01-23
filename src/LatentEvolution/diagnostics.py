@@ -19,8 +19,8 @@ if TYPE_CHECKING:
     from LatentEvolution.latent import ModelParams, LatentModel
     from LatentEvolution.load_flyvis import NeuronData
 
-from LatentEvolution.latent import downsample_stimulus
 from LatentEvolution.training_config import StimulusFrequency
+from LatentEvolution.stimulus_utils import downsample_stimulus
 
 
 class PlotMode(StrEnum):
