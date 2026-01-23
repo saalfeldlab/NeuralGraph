@@ -383,6 +383,6 @@ the stimulus at time `n` and the one at time `n+tu`.
 for mode in TIME_UNITS_INTERPOLATE TIME_UNITS_CONSTANT NONE; do \
     bsub -J stim_${mode} -q gpu_a100 -gpu "num=1" -n 8 -o stim_${mode}.log \
         python src/LatentEvolution/latent.py stim_freq_sweep latent_20step.yaml \
-        --training.stimulus-frequency $mode \
+        --training.stimulus-frequency $mode
 done
 ```
