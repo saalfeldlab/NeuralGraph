@@ -25,6 +25,8 @@ evolver_params:
   l1_reg_loss: 0.0
   activation: Tanh
   use_input_skips: true # Use MLPWithSkips (input fed to each hidden layer via concatenation)
+  zero_init: true # Zero-initialize final layer so evolver starts as identity (z_{t+1} = z_t)
+  tv_reg_loss: 0.0 # Total variation regularization on evolver updates (typical: 1e-5 to 1e-3)
 
 stimulus_encoder_params:
   num_input_dims: 1736

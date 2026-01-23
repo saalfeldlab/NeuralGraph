@@ -312,3 +312,45 @@ for ems in 1 2 3 5; do \
         python src/LatentEvolution/latent.py ems_sweep latent_20step.yaml \
         --training.evolve-multiple-steps $ems
 ```
+
+## Derivative experiment
+
+Prior to changing the evolver (tanh activation, initialized to 0) and using
+pretraining for reconstruction, we observed an instability in training in the
+`tu20_seed_sweep_20260115_f6144bd` experiment. We want to revisit and see if
+adding TV norm regularization can rescue that phenotype.
+
+Understand which feature contributes to the stability. We changed many things at
+the same time to get to a working point.
+
+```bash
+for zero_init in zero-init no-zero-init; do \
+    for activation in Tanh ReLU; do \
+        for warmup in 0 10; do \
+        name="z${zero_init}_${activation}_w${warmup}"
+        bsub -J $name -q gpu_a100 -gpu "num=1" -n 8 -o ${name}.log \
+            python src/LatentEvolution/latent.py test_stability latent_20step.yaml \
+            --evolver_params.${zero_init} \
+            --evolver_params.activation $activation \
+            --training.reconstruction-warmup-epochs $warmup \
+            --training.seed 35235
+        done
+    done
+done
+```
+
+Understand if TV norm can bring stability to the training without pretraining for
+reconstruction or the other features we added.
+
+```bash
+
+for tv in 0.0 0.00001 0.0001 0.001; do \
+    bsub -J tv${tv} -q gpu_a100 -gpu "num=1" -n 8 -o tv${tv}.log \
+        python src/LatentEvolution/latent.py tv_sweep latent_20step.yaml \
+        --evolver_params.no-zero-init \
+        --evolver_params.activation ReLU \
+        --training.reconstruction-warmup-epochs 0 \
+        --evolver_params.tv-reg-loss $tv \
+        --training.seed 97651
+done
+```

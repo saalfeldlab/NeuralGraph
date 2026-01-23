@@ -51,6 +51,12 @@ class EvolverParams(BaseModel):
     time_units: int = Field(
         1, description="DEPRECATED: Use training.time_units instead. Kept for backwards compatibility."
     )
+    zero_init: bool = Field(
+        True, description="If True, zero-initialize final layer so evolver starts as identity (z_{t+1} = z_t). Provides stability but may slow dynamics learning."
+    )
+    tv_reg_loss: float = Field(
+        0.0, description="total variation regularization on evolver updates. penalizes ||Δz|| to stabilize dynamics and prevent explosive rollouts. typical range: 1e-5 to 1e-3."
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("activation")
@@ -215,13 +221,14 @@ class Evolver(nn.Module):
             )
         )
 
-        # zero-init final layer so evolver starts as identity (z_{t+1} = z_t)
-        if evolver_params.use_input_skips:
-            nn.init.zeros_(self.evolver.output_layer.weight)
-            nn.init.zeros_(self.evolver.output_layer.bias)
-        else:
-            nn.init.zeros_(self.evolver.layers[-1].weight)
-            nn.init.zeros_(self.evolver.layers[-1].bias)
+        # optionally zero-init final layer so evolver starts as identity (z_{t+1} = z_t)
+        if evolver_params.zero_init:
+            if evolver_params.use_input_skips:
+                nn.init.zeros_(self.evolver.output_layer.weight)
+                nn.init.zeros_(self.evolver.output_layer.bias)
+            else:
+                nn.init.zeros_(self.evolver.layers[-1].weight)
+                nn.init.zeros_(self.evolver.layers[-1].bias)
 
     def forward(self, proj_t, proj_stim_t):
         """Evolve one time step in latent space."""
