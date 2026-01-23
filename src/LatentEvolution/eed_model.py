@@ -54,6 +54,9 @@ class EvolverParams(BaseModel):
     zero_init: bool = Field(
         True, description="If True, zero-initialize final layer so evolver starts as identity (z_{t+1} = z_t). Provides stability but may slow dynamics learning."
     )
+    tv_reg_loss: float = Field(
+        0.0, description="total variation regularization on evolver updates. penalizes ||Δz|| to stabilize dynamics and prevent explosive rollouts. typical range: 1e-5 to 1e-3."
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("activation")

@@ -178,6 +178,7 @@ class LossType(Enum):
     EVOLVE = auto()
     REG = auto()
     AUG_LOSS = auto()
+    TV_LOSS = auto()
 
 
 # -------------------------------------------------------------------
@@ -334,8 +335,9 @@ def train_step_reconstruction_only_nocompile(
     # return same tuple format for compatibility
     evolve_loss = torch.tensor(0.0, device=device)
     aug_loss = torch.tensor(0.0, device=device)
+    tv_loss = torch.tensor(0.0, device=device)
     loss = recon_loss + reg_loss
-    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss)
+    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss, tv_loss)
 
 
 train_step_reconstruction_only = torch.compile(
@@ -369,6 +371,9 @@ def train_step_nocompile(
     if cfg.evolver_params.l1_reg_loss > 0.:
         for p in model.evolver.parameters():
             reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
+
+    # total variation regularization on evolver updates
+    tv_loss = torch.tensor(0.0, device=device)
 
 
     # b = batch size
@@ -404,7 +409,13 @@ def train_step_nocompile(
 
     # Evolve by 1 time step. This is a special case since we may opt to apply
     # a connectome constraint via data augmentation.
-    proj_t = model.evolver(proj_t, proj_stim_t[0])
+    if cfg.evolver_params.tv_reg_loss > 0.:
+        # compute delta_z explicitly for TV norm
+        delta_z = model.evolver.evolver(torch.cat([proj_t, proj_stim_t[0]], dim=1))
+        tv_loss += torch.abs(delta_z).mean() * cfg.evolver_params.tv_reg_loss
+        proj_t = proj_t + delta_z
+    else:
+        proj_t = model.evolver(proj_t, proj_stim_t[0])
     # apply connectome loss after evolving by 1 time step
     aug_loss = torch.tensor(0.0, device=device)
     if (
@@ -422,8 +433,14 @@ def train_step_nocompile(
 
     # evolve for remaining dt-1 time steps (first window)
     evolve_loss = torch.tensor(0.0, device=device)
-    for i in range(1, dt):
-        proj_t = model.evolver(proj_t, proj_stim_t[i])
+    if cfg.evolver_params.tv_reg_loss > 0.:
+        for i in range(1, dt):
+            delta_z = model.evolver.evolver(torch.cat([proj_t, proj_stim_t[i]], dim=1))
+            tv_loss += torch.abs(delta_z).mean() * cfg.evolver_params.tv_reg_loss
+            proj_t = proj_t + delta_z
+    else:
+        for i in range(1, dt):
+            proj_t = model.evolver(proj_t, proj_stim_t[i])
 
     # loss at first multiple (dt)
     pred_t_plus_dt = model.decoder(proj_t)
@@ -433,20 +450,35 @@ def train_step_nocompile(
     evolve_loss = evolve_loss + loss_fn(pred_t_plus_dt, x_t_plus_dt)
 
     # additional multiples (2, 3, ..., num_multiples)
-    for m in range(2, num_multiples + 1):
-        # evolve dt more steps
-        start_idx = (m - 1) * dt
-        for i in range(dt):
-            proj_t = model.evolver(proj_t, proj_stim_t[start_idx + i])
-        # loss at this multiple
-        pred = model.decoder(proj_t)
-        # target at t + m*dt
-        target_indices_m = observation_indices + m * dt
-        x_target = train_data[target_indices_m, neuron_indices]  # (b, N)
-        evolve_loss = evolve_loss + loss_fn(pred, x_target)
+    if cfg.evolver_params.tv_reg_loss > 0.:
+        for m in range(2, num_multiples + 1):
+            # evolve dt more steps
+            start_idx = (m - 1) * dt
+            for i in range(dt):
+                delta_z = model.evolver.evolver(torch.cat([proj_t, proj_stim_t[start_idx + i]], dim=1))
+                tv_loss += torch.abs(delta_z).mean() * cfg.evolver_params.tv_reg_loss
+                proj_t = proj_t + delta_z
+            # loss at this multiple
+            pred = model.decoder(proj_t)
+            # target at t + m*dt
+            target_indices_m = observation_indices + m * dt
+            x_target = train_data[target_indices_m, neuron_indices]  # (b, N)
+            evolve_loss = evolve_loss + loss_fn(pred, x_target)
+    else:
+        for m in range(2, num_multiples + 1):
+            # evolve dt more steps
+            start_idx = (m - 1) * dt
+            for i in range(dt):
+                proj_t = model.evolver(proj_t, proj_stim_t[start_idx + i])
+            # loss at this multiple
+            pred = model.decoder(proj_t)
+            # target at t + m*dt
+            target_indices_m = observation_indices + m * dt
+            x_target = train_data[target_indices_m, neuron_indices]  # (b, N)
+            evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
-    loss = evolve_loss + recon_loss + reg_loss + aug_loss
-    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss)
+    loss = evolve_loss + recon_loss + reg_loss + aug_loss + tv_loss
+    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss, tv_loss)
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
@@ -618,6 +650,7 @@ def train(cfg: ModelParams, run_dir: Path):
                             LossType.EVOLVE: loss_tuple[2],
                             LossType.REG: loss_tuple[3],
                             LossType.AUG_LOSS: loss_tuple[4],
+                            LossType.TV_LOSS: loss_tuple[5],
                         })
 
                 warmup_epoch_duration = (datetime.now() - warmup_epoch_start).total_seconds()
@@ -759,6 +792,7 @@ def train(cfg: ModelParams, run_dir: Path):
                         LossType.EVOLVE: loss_tuple[2],
                         LossType.REG: loss_tuple[3],
                         LossType.AUG_LOSS: loss_tuple[4],
+                        LossType.TV_LOSS: loss_tuple[5],
                     })
 
                     # sample timing every 10 batches
@@ -785,6 +819,7 @@ def train(cfg: ModelParams, run_dir: Path):
             writer.add_scalar("Loss/train_evolve", mean_losses[LossType.EVOLVE], epoch)
             writer.add_scalar("Loss/train_reg", mean_losses[LossType.REG], epoch)
             writer.add_scalar("Loss/train_aug_loss", mean_losses[LossType.AUG_LOSS], epoch)
+            writer.add_scalar("Loss/train_tv_loss", mean_losses[LossType.TV_LOSS], epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
