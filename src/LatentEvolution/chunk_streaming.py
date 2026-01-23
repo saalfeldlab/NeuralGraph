@@ -11,7 +11,7 @@ from typing import Callable
 import numpy as np
 import torch
 
-from NeuralGraph.zarr_io import load_column_slice
+from LatentEvolution.load_flyvis import load_column_slice
 
 
 # -------------------------------------------------------------------

@@ -1,9 +1,11 @@
 """Module to load flyvis simulation data."""
 
 from enum import IntEnum
+from pathlib import Path
+
 import numpy as np
-from pydantic import BaseModel, field_validator, ConfigDict
 import torch
+import tensorstore as ts
 
 class FlyVisSim(IntEnum):
     """Column interpretation in flyvis simulation outputs."""
@@ -90,32 +92,6 @@ class NeuronData:
         return obj
 
 
-class DataSplit(BaseModel):
-    """Split the time series into train/validation sets."""
-
-    train_start: int
-    train_end: int
-    validation_start: int
-    validation_end: int
-
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-    @field_validator("*")
-    @classmethod
-    def check_non_negative(cls, v: int) -> int:
-        if v < 0:
-            raise ValueError("Indices in data_split must be non-negative.")
-        return v
-
-    @field_validator("train_end")
-    @classmethod
-    def check_order(cls, v, info):
-        # very basic ordering sanity check
-        d = info.data
-        if "train_start" in d and v <= d["train_start"]:
-            raise ValueError("train_end must be greater than train_start.")
-        return v
-
 def load_connectome_graph(data_path: str):
     """FlyVis connectome.
 
@@ -129,3 +105,72 @@ def load_connectome_graph(data_path: str):
     weights =  torch.load(f"{data_path}/weights.pt", map_location="cpu").numpy()
     wmat = torch.sparse_coo_tensor(edge_index, weights).to_sparse_csr()
     return wmat
+
+
+# mapping from dynamic column indices to timeseries column position
+_DYNAMIC_COL_TO_TS = {col.value: i for i, col in enumerate(DYNAMIC_COLUMNS)}
+
+
+def load_column_slice(
+    path: str | Path,
+    column: int,
+    time_start: int,
+    time_end: int,
+    neuron_limit: int | None = None,
+) -> np.ndarray:
+    """load a time series column slice directly from zarr format.
+
+    this avoids loading the full (T, N, 9) array when you only need one column.
+
+    args:
+        path: base path to zarr data (without extension)
+        column: dynamic column index (VOLTAGE=3, STIMULUS=4, CALCIUM=7, FLUORESCENCE=8)
+        time_start: start time index
+        time_end: end time index
+        neuron_limit: optional limit on neurons (first N)
+
+    returns:
+        numpy array of shape (time_end - time_start, N) or (time_end - time_start, neuron_limit)
+
+    raises:
+        AssertionError: if column is a static column (use load_metadata instead)
+    """
+    assert column in _DYNAMIC_COL_TO_TS, (
+        f"column {column} is static, use load_metadata() instead"
+    )
+
+    path = Path(path)
+    base_path = path.with_suffix('') if path.suffix in ('.npy', '.zarr') else path
+
+    ts_col = _DYNAMIC_COL_TO_TS[column]
+    neuron_slice = slice(None, neuron_limit) if neuron_limit else slice(None)
+
+    ts_path = base_path / 'timeseries.zarr'
+    spec = {
+        'driver': 'zarr',
+        'kvstore': {'driver': 'file', 'path': str(ts_path)},
+    }
+    store = ts.open(spec).result()
+    data = store[time_start:time_end, neuron_slice, ts_col].read().result()
+
+    return np.ascontiguousarray(data)
+
+
+def load_metadata(path: str | Path) -> np.ndarray:
+    """load metadata from V2 zarr format.
+
+    args:
+        path: base path to zarr data
+
+    returns:
+        numpy array of shape (N, 5) with static columns
+    """
+    path = Path(path)
+    base_path = path.with_suffix('') if path.suffix in ('.npy', '.zarr') else path
+    meta_path = base_path / 'metadata.zarr'
+
+    spec = {
+        'driver': 'zarr',
+        'kvstore': {'driver': 'file', 'path': str(meta_path)},
+    }
+    return ts.open(spec).result().read().result()

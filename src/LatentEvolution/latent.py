@@ -6,8 +6,7 @@ and reproducible training with run logging.
 from pathlib import Path
 from typing import Callable, Iterator
 from datetime import datetime
-from dataclasses import dataclass
-import random
+from enum import Enum, auto
 import sys
 import re
 import time
@@ -17,10 +16,15 @@ import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
 import yaml
 import tyro
-import numpy as np
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
-from LatentEvolution.load_flyvis import NeuronData, FlyVisSim, DataSplit, load_connectome_graph
-from NeuralGraph.zarr_io import load_column_slice, load_metadata
+from LatentEvolution.load_flyvis import (
+    NeuronData,
+    FlyVisSim,
+    load_connectome_graph,
+    load_column_slice,
+    load_metadata,
+)
+from LatentEvolution.training_config import DataSplit
+from LatentEvolution.chunk_loader import RandomChunkLoader
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
@@ -29,243 +33,151 @@ from LatentEvolution.eed_model import (
     MLPWithSkips,
     MLPParams,
     Evolver,
-    EvolverParams,
-    EncoderParams,
-    DecoderParams,
-    StimulusEncoderParams,
+    ModelParams,
 )
-from LatentEvolution.chunk_loader import RandomChunkLoader
+from LatentEvolution.training_utils import (
+    LossAccumulator,
+    seed_everything,
+    get_device,
+)
 from LatentEvolution.chunk_streaming import (
-    create_zarr_loader,
     calculate_chunk_params,
     ChunkLatencyStats,
+    create_zarr_loader,
 )
 from LatentEvolution.acquisition import (
-    AcquisitionMode,
-    AllTimePointsMode,
     compute_neuron_phases,
     sample_batch_indices,
 )
 
 
 # -------------------------------------------------------------------
-# Pydantic Config Classes
+# Data Loading
 # -------------------------------------------------------------------
 
 
-class ProfileConfig(BaseModel):
-    """Configuration for PyTorch profiler to generate Chrome traces."""
-    wait: int = Field(
-        1, description="Number of epochs to skip before starting profiler warmup"
-    )
-    warmup: int = Field(
-        1, description="Number of epochs for profiler warmup"
-    )
-    active: int = Field(
-        1, description="Number of epochs to actively profile"
-    )
-    repeat: int = Field(
-        0, description="Number of times to repeat the profiling cycle"
-    )
-    record_shapes: bool = Field(
-        True, description="Record tensor shapes in the trace"
-    )
-    profile_memory: bool = Field(
-        True, description="Profile memory usage"
-    )
-    with_stack: bool = Field(
-        False, description="Record source code stack traces (increases overhead)"
-    )
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+def load_dataset(
+    simulation_config: str,
+    column_to_model: str,
+    data_split: DataSplit,
+    num_input_dims: int,
+    device: torch.device,
+    chunk_size: int = 65536,
+    time_units: int = 1,
+):
+    """
+    load dataset from zarr with chunked streaming for training data.
 
+    training data is streamed in chunks via RandomChunkLoader to reduce GPU memory.
+    validation data is loaded directly to GPU (small enough to fit).
 
-class UnconnectedToZeroConfig(BaseModel):
-    """Augmentation: add synthetic unconnected neurons with zero activity."""
-    num_neurons: int = Field(0, description="Number of unconnected neurons to add")
-    loss_coeff: float = Field(1.0, description="Scalar weighting of the loss for unconnected neurons")
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+    args:
+        simulation_config: name of simulation config (e.g., "fly_N9_62_1")
+        column_to_model: column name to model (e.g., "VOLTAGE", "CALCIUM")
+        data_split: DataSplit object with train/val time ranges
+        num_input_dims: number of stimulus input dimensions to keep
+        device: pytorch device to load data onto
+        chunk_size: chunk size for streaming (default: 65536 = 64K)
+        time_units: alignment constraint for chunk starts (default: 1)
 
-class TrainingConfig(BaseModel):
-    time_units: int = Field(
-        1,
-        description="Observation interval: activity data available every N steps. Evolver unrolled N times during training.",
-        json_schema_extra={"short_name": "tu"}
-    )
-    acquisition_mode: AcquisitionMode = Field(
-        default_factory=AllTimePointsMode,
-        description="Data acquisition mode. Controls which timesteps have observable data for each neuron.",
-        json_schema_extra={"short_name": "acq"}
-    )
-    intermediate_loss_steps: list[int] = Field(
-        default_factory=list,
-        description="DEPRECATED: Intermediate steps feature has been removed. Must be empty list.",
-        json_schema_extra={"short_name": "ils"}
-    )
-    evolve_multiple_steps: int = Field(
-        1,
-        description="Number of time_units multiples to evolve. Loss applied at each multiple.",
-        json_schema_extra={"short_name": "ems"}
-    )
-    epochs: int = Field(10, json_schema_extra={"short_name": "ep"})
-    batch_size: int = Field(32, json_schema_extra={"short_name": "bs"})
-    learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
-    optimizer: str = Field("Adam", description="Optimizer name from torch.optim", json_schema_extra={"short_name": "opt"})
-    train_step: str = Field("train_step", description="Compiled train step function")
-    simulation_config: str
-    column_to_model: str = "CALCIUM"
-    use_tf32_matmul: bool = Field(
-        False, description="Enable fast tf32 multiplication on certain NVIDIA GPUs"
-    )
-    seed: int = Field(42, json_schema_extra={"short_name": "seed"})
-    data_split: DataSplit
-    data_passes_per_epoch: int = 1
-    diagnostics_freq_epochs: int = Field(
-        0, description="Run validation diagnostics every N epochs (0 = only at end of training)"
-    )
-    save_checkpoint_every_n_epochs: int = Field(
-        10, description="Save model checkpoint every N epochs (0 = disabled)"
-    )
-    save_best_checkpoint: bool = Field(
-        True, description="Save checkpoint when validation loss improves"
-    )
-    loss_function: str = Field(
-        "mse_loss", description="Loss function name from torch.nn.functional (e.g., 'mse_loss', 'huber_loss', 'l1_loss')"
-    )
-    grad_clip_max_norm: float = Field(
-        0.0, description="Max gradient norm for clipping (0 = disabled)", json_schema_extra={"short_name": "gc"}
-    )
-    reconstruction_warmup_epochs: int = Field(
-        0, description="Number of warmup epochs to train encoder/decoder only (reconstruction loss) before the main training loop. These are additional epochs, not counted in 'epochs'.", json_schema_extra={"short_name": "recon_wu"}
-    )
-    unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
-    early_stop_intervening_mse: bool = Field(
-        False, description="Enable early stopping based on max intervening MSE metric (0 to tu-1)", json_schema_extra={"short_name": "es_int"}
-    )
-    early_stop_patience_epochs: int = Field(
-        10, description="Number of epochs to wait for 10% improvement in max intervening MSE before stopping", json_schema_extra={"short_name": "es_patience"}
-    )
-    early_stop_min_divergence: int = Field(
-        1000, description="Minimum first divergence step required for early stopping to activate", json_schema_extra={"short_name": "es_min_div"}
-    )
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+    returns:
+        tuple of (chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps)
+    """
+    data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
+    column_idx = FlyVisSim[column_to_model].value
 
-    @field_validator("optimizer")
-    @classmethod
-    def validate_optimizer(cls, v: str) -> str:
-        if not hasattr(torch.optim, v):
-            raise ValueError(f"Unknown optimizer '{v}' in torch.optim")
-        return v
+    # load val data directly to GPU (small enough to fit)
+    val_data = torch.from_numpy(
+        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
+    ).to(device)
 
-    @field_validator("loss_function")
-    @classmethod
-    def validate_loss_function(cls, v: str) -> str:
-        if not hasattr(torch.nn.functional, v):
-            raise ValueError(f"Unknown loss function '{v}' in torch.nn.functional")
-        return v
+    val_stim = torch.from_numpy(
+        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.validation_start, data_split.validation_end, neuron_limit=num_input_dims)
+    ).to(device)
 
-    @model_validator(mode='after')
-    def validate_training_config(self):
-        if len(self.intermediate_loss_steps) > 0:
-            raise ValueError("intermediate_loss_steps is deprecated and must be empty list")
-        if self.evolve_multiple_steps < 1:
-            raise ValueError("evolve_multiple_steps must be >= 1")
+    # load neuron metadata
+    metadata = load_metadata(data_path)
+    neuron_data = NeuronData.from_metadata(metadata)
 
-        # validate acquisition mode compatibility
-        from LatentEvolution.acquisition import StaggeredRandomMode
-        if isinstance(self.acquisition_mode, StaggeredRandomMode):
-            if self.unconnected_to_zero.num_neurons > 0:
-                raise ValueError(
-                    "unconnected_to_zero augmentation is incompatible with staggered_random acquisition mode. "
-                    "staggered mode observes neurons at different times, breaking the connectome assumption."
-                )
+    # create chunk loader for training data (streams from disk -> GPU)
+    train_total_timesteps = data_split.train_end - data_split.train_start
 
-        return self
-
-
-class CrossValidationConfig(BaseModel):
-    """Configuration for cross-dataset validation."""
-    simulation_config: str
-    name: str | None = None  # Optional human-readable name
-    data_split: DataSplit | None = None # data split
-
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
-
-
-class ModelParams(BaseModel):
-    latent_dims: int = Field(..., json_schema_extra={"short_name": "ld"})
-    num_neurons: int
-    use_batch_norm: bool = True
-    activation: str = Field("ReLU", description="Activation function from torch.nn")
-    encoder_params: EncoderParams
-    decoder_params: DecoderParams
-    evolver_params: EvolverParams
-    stimulus_encoder_params: StimulusEncoderParams
-    training: TrainingConfig
-    profiling: ProfileConfig | None = Field(
-        None, description="Optional profiler configuration to generate Chrome traces for performance analysis"
-    )
-    cross_validation_configs: list[CrossValidationConfig] = Field(
-        default_factory=lambda: [CrossValidationConfig(simulation_config="fly_N9_62_0")],
-        description="List of datasets to validate on after training"
+    # create zarr loading function
+    zarr_load_fn = create_zarr_loader(
+        data_path=data_path,
+        column_idx=column_idx,
+        stim_column_idx=FlyVisSim.STIMULUS.value,
+        num_stim_dims=num_input_dims,
     )
 
-    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+    # wrap to offset by train_start
+    def offset_load_fn(start: int, end: int):
+        return zarr_load_fn(data_split.train_start + start, data_split.train_start + end)
 
-    @field_validator("activation")
-    @classmethod
-    def validate_activation(cls, v: str) -> str:
-        if not hasattr(nn, v):
-            raise ValueError(f"Unknown activation '{v}' in torch.nn")
-        return v
+    # create chunk loader
+    chunk_loader = RandomChunkLoader(
+        load_fn=offset_load_fn,
+        total_timesteps=train_total_timesteps,
+        chunk_size=chunk_size,
+        device=device,
+        prefetch=6,  # buffer 6 chunks ahead for better overlap
+        seed=None,  # will be set per epoch in training loop
+        time_units=time_units,
+    )
 
-    @model_validator(mode='after')
-    def validate_encoder_decoder_symmetry(self):
-        """Ensure encoder and decoder have symmetric MLP parameters."""
-        if self.encoder_params.num_hidden_units != self.decoder_params.num_hidden_units:
-            raise ValueError(
-                f"Encoder and decoder must have the same num_hidden_units. "
-                f"Got encoder={self.encoder_params.num_hidden_units}, decoder={self.decoder_params.num_hidden_units}"
-            )
-        if self.encoder_params.num_hidden_layers != self.decoder_params.num_hidden_layers:
-            raise ValueError(
-                f"Encoder and decoder must have the same num_hidden_layers. "
-                f"Got encoder={self.encoder_params.num_hidden_layers}, decoder={self.decoder_params.num_hidden_layers}"
-            )
-        if self.encoder_params.use_input_skips != self.decoder_params.use_input_skips:
-            raise ValueError(
-                f"Encoder and decoder must have the same use_input_skips setting. "
-                f"Got encoder={self.encoder_params.use_input_skips}, decoder={self.decoder_params.use_input_skips}"
-            )
-        return self
+    return chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps
 
-    def flatten(self, sep: str = ".") -> dict[str, int | float | str | bool]:
-        """
-        Flatten the ModelParams into a single-level dictionary.
 
-        Args:
-            sep: Separator to use for nested keys (default: ".")
+def load_val_only(
+    simulation_config: str,
+    column_to_model: str,
+    data_split: DataSplit,
+    num_input_dims: int,
+    device: torch.device
+):
+    """
+    load only validation data for cross-validation (memory efficient).
 
-        Returns:
-            A flat dictionary with nested keys joined by the separator.
+    streams data directly from zarr to device memory.
 
-        Example:
-            >>> params.flatten()
-            {'latent_dims': 10, 'encoder_params.num_hidden_units': 64, ...}
-        """
-        def _flatten_dict(
-            d: dict[str, int | float | str | bool | dict],
-            parent_key: str = "",
-        ) -> dict[str, int | float | str | bool]:
-            items: list[tuple[str, int | float | str | bool]] = []
-            for k, v in d.items():
-                new_key = f"{parent_key}{sep}{k}" if parent_key else k
-                if isinstance(v, dict):
-                    items.extend(_flatten_dict(v, new_key).items())
-                else:
-                    items.append((new_key, v))
-            return dict(items)
+    args:
+        simulation_config: name of simulation config (e.g., "fly_N9_62_1")
+        column_to_model: column name to model (e.g., "VOLTAGE", "CALCIUM")
+        data_split: DataSplit object with train/val time ranges
+        num_input_dims: number of stimulus input dimensions to keep
+        device: pytorch device to load data onto
 
-        return _flatten_dict(self.model_dump())
+    returns:
+        tuple of (val_data, val_stim)
+    """
+    data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
+    column_idx = FlyVisSim[column_to_model].value
+
+    # load val data column slice directly to device
+    val_data = torch.from_numpy(
+        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
+    ).to(device)
+
+    # load val stimulus slice directly to device
+    val_stim = torch.from_numpy(
+        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.validation_start, data_split.validation_end, neuron_limit=num_input_dims)
+    ).to(device)
+
+    return val_data, val_stim
+
+
+# -------------------------------------------------------------------
+# Loss Types
+# -------------------------------------------------------------------
+
+
+class LossType(Enum):
+    """loss component types for EED model."""
+    TOTAL = auto()
+    RECON = auto()
+    EVOLVE = auto()
+    REG = auto()
+    AUG_LOSS = auto()
 
 
 # -------------------------------------------------------------------
@@ -385,64 +297,6 @@ def make_batches_random(
         yield start_indices, selected_neurons, needed_indices
 
 
-# -------------------------------------------------------------------
-# Utilities
-# -------------------------------------------------------------------
-
-
-@dataclass
-class LossComponents:
-    """Accumulator for tracking loss components."""
-    total: float = 0.0
-    recon: float = 0.0
-    evolve: float = 0.0
-    reg: float = 0.0
-    aug_loss: float = 0.0
-    count: int = 0
-
-    def accumulate(self, *losses):
-        """Add losses from one batch (total, recon, evolve, reg, aug_loss)."""
-        self.total += losses[0].detach().item()
-        self.recon += losses[1].detach().item()
-        self.evolve += losses[2].detach().item()
-        self.reg += losses[3].detach().item()
-        self.aug_loss += losses[4].detach().item()
-        self.count += 1
-
-    def mean(self) -> 'LossComponents':
-        """Return a new LossComponents with mean values."""
-        if self.count == 0:
-            return LossComponents(count=0)
-        return LossComponents(
-            total=self.total / self.count,
-            recon=self.recon / self.count,
-            evolve=self.evolve / self.count,
-            reg=self.reg / self.count,
-            aug_loss=self.aug_loss / self.count,
-            count=self.count,
-        )
-
-
-def seed_everything(seed: int):
-    """Set all random seeds for reproducibility."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed_all(seed)
-
-
-def get_device() -> torch.device:
-    """Cross-platform device selection."""
-    if torch.backends.mps.is_available() and torch.backends.mps.is_built():
-        print("Using Apple MPS backend for training.")
-        return torch.device("mps")
-    elif torch.cuda.is_available():
-        print(f"Using CUDA device: {torch.cuda.get_device_name(0)}")
-        return torch.device("cuda")
-    else:
-        print("Using CPU for training.")
-        return torch.device("cpu")
 
 
 def train_step_reconstruction_only_nocompile(
@@ -597,121 +451,6 @@ def train_step_nocompile(
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
 # -------------------------------------------------------------------
-# Data Loading and Evaluation
-# -------------------------------------------------------------------
-
-
-def load_dataset(
-    simulation_config: str,
-    column_to_model: str,
-    data_split: DataSplit,
-    num_input_dims: int,
-    device: torch.device,
-    chunk_size: int = 65536,
-    time_units: int = 1,
-):
-    """
-    load dataset from zarr with chunked streaming for training data.
-
-    training data is streamed in chunks via RandomChunkLoader to reduce GPU memory.
-    validation data is loaded directly to GPU (small enough to fit).
-
-    args:
-        simulation_config: name of simulation config (e.g., "fly_N9_62_1")
-        column_to_model: column name to model (e.g., "VOLTAGE", "CALCIUM")
-        data_split: DataSplit object with train/val time ranges
-        num_input_dims: number of stimulus input dimensions to keep
-        device: pytorch device to load data onto
-        chunk_size: chunk size for streaming (default: 65536 = 64K)
-        time_units: alignment constraint for chunk starts (default: 1)
-
-    returns:
-        tuple of (chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps)
-    """
-    data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
-    column_idx = FlyVisSim[column_to_model].value
-
-    # load val data directly to GPU (small enough to fit)
-    val_data = torch.from_numpy(
-        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
-    ).to(device)
-
-    val_stim = torch.from_numpy(
-        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.validation_start, data_split.validation_end, neuron_limit=num_input_dims)
-    ).to(device)
-
-    # load neuron metadata
-    metadata = load_metadata(data_path)
-    neuron_data = NeuronData.from_metadata(metadata)
-
-    # create chunk loader for training data (streams from disk -> GPU)
-    train_total_timesteps = data_split.train_end - data_split.train_start
-
-    # create zarr loading function
-    zarr_load_fn = create_zarr_loader(
-        data_path=data_path,
-        column_idx=column_idx,
-        stim_column_idx=FlyVisSim.STIMULUS.value,
-        num_stim_dims=num_input_dims,
-    )
-
-    # wrap to offset by train_start
-    def offset_load_fn(start: int, end: int):
-        return zarr_load_fn(data_split.train_start + start, data_split.train_start + end)
-
-    # create chunk loader
-    chunk_loader = RandomChunkLoader(
-        load_fn=offset_load_fn,
-        total_timesteps=train_total_timesteps,
-        chunk_size=chunk_size,
-        device=device,
-        prefetch=6,  # buffer 6 chunks ahead for better overlap
-        seed=None,  # will be set per epoch in training loop
-        time_units=time_units,
-    )
-
-    return chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps
-
-
-def load_val_only(
-    simulation_config: str,
-    column_to_model: str,
-    data_split: DataSplit,
-    num_input_dims: int,
-    device: torch.device
-):
-    """
-    Load only validation data for cross-validation (memory efficient).
-
-    Streams data directly from zarr to device memory.
-
-    Args:
-        simulation_config: Name of simulation config (e.g., "fly_N9_62_1")
-        column_to_model: Column name to model (e.g., "VOLTAGE", "CALCIUM")
-        data_split: DataSplit object with train/val time ranges
-        num_input_dims: Number of stimulus input dimensions to keep
-        device: PyTorch device to load data onto
-
-    Returns:
-        Tuple of (val_data, val_stim)
-    """
-    data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
-    column_idx = FlyVisSim[column_to_model].value
-
-    # load val data column slice directly to device
-    val_data = torch.from_numpy(
-        load_column_slice(data_path, column_idx, data_split.validation_start, data_split.validation_end)
-    ).to(device)
-
-    # load val stimulus slice directly to device
-    val_stim = torch.from_numpy(
-        load_column_slice(data_path, FlyVisSim.STIMULUS.value, data_split.validation_start, data_split.validation_end, neuron_limit=num_input_dims)
-    ).to(device)
-
-    return val_data, val_stim
-
-
-# -------------------------------------------------------------------
 # Training
 # -------------------------------------------------------------------
 
@@ -837,7 +576,7 @@ def train(cfg: ModelParams, run_dir: Path):
 
             for warmup_epoch in range(recon_warmup_epochs):
                 warmup_epoch_start = datetime.now()
-                warmup_losses = LossComponents()
+                warmup_losses = LossAccumulator(LossType)
 
                 # start loading chunks for this warmup epoch
                 chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
@@ -873,16 +612,22 @@ def train(cfg: ModelParams, run_dir: Path):
                         )
                         loss_tuple[0].backward()
                         optimizer.step()
-                        warmup_losses.accumulate(*loss_tuple)
+                        warmup_losses.accumulate({
+                            LossType.TOTAL: loss_tuple[0],
+                            LossType.RECON: loss_tuple[1],
+                            LossType.EVOLVE: loss_tuple[2],
+                            LossType.REG: loss_tuple[3],
+                            LossType.AUG_LOSS: loss_tuple[4],
+                        })
 
                 warmup_epoch_duration = (datetime.now() - warmup_epoch_start).total_seconds()
                 mean_warmup = warmup_losses.mean()
-                print(f"warmup {warmup_epoch+1}/{recon_warmup_epochs} | recon loss: {mean_warmup.recon:.4e} | duration: {warmup_epoch_duration:.2f}s")
+                print(f"warmup {warmup_epoch+1}/{recon_warmup_epochs} | recon loss: {mean_warmup[LossType.RECON]:.4e} | duration: {warmup_epoch_duration:.2f}s")
 
                 # log to tensorboard
-                writer.add_scalar("ReconWarmup/loss", mean_warmup.total, warmup_epoch)
-                writer.add_scalar("ReconWarmup/recon_loss", mean_warmup.recon, warmup_epoch)
-                writer.add_scalar("ReconWarmup/reg_loss", mean_warmup.reg, warmup_epoch)
+                writer.add_scalar("ReconWarmup/loss", mean_warmup[LossType.TOTAL], warmup_epoch)
+                writer.add_scalar("ReconWarmup/recon_loss", mean_warmup[LossType.RECON], warmup_epoch)
+                writer.add_scalar("ReconWarmup/reg_loss", mean_warmup[LossType.REG], warmup_epoch)
                 writer.add_scalar("ReconWarmup/epoch_duration", warmup_epoch_duration, warmup_epoch)
 
             model.evolver.requires_grad_(True)
@@ -943,7 +688,7 @@ def train(cfg: ModelParams, run_dir: Path):
         for epoch in range(cfg.training.epochs):
             epoch_start = datetime.now()
             gpu_monitor.sample_epoch_start()
-            losses = LossComponents()
+            losses = LossAccumulator(LossType)
 
             # start loading chunks for this epoch
             chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
@@ -1008,7 +753,13 @@ def train(cfg: ModelParams, run_dir: Path):
                     optimizer.step()
                     step_time = time.time() - step_start
 
-                    losses.accumulate(*loss_tuple)
+                    losses.accumulate({
+                        LossType.TOTAL: loss_tuple[0],
+                        LossType.RECON: loss_tuple[1],
+                        LossType.EVOLVE: loss_tuple[2],
+                        LossType.REG: loss_tuple[3],
+                        LossType.AUG_LOSS: loss_tuple[4],
+                    })
 
                     # sample timing every 10 batches
                     if batch_in_chunk % 10 == 0:
@@ -1024,16 +775,16 @@ def train(cfg: ModelParams, run_dir: Path):
 
             print(
                 f"Epoch {epoch+1}/{cfg.training.epochs} | "
-                f"Train Loss: {mean_losses.total:.4e} | "
+                f"Train Loss: {mean_losses[LossType.TOTAL]:.4e} | "
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
             # log to tensorboard
-            writer.add_scalar("Loss/train", mean_losses.total, epoch)
-            writer.add_scalar("Loss/train_recon", mean_losses.recon, epoch)
-            writer.add_scalar("Loss/train_evolve", mean_losses.evolve, epoch)
-            writer.add_scalar("Loss/train_reg", mean_losses.reg, epoch)
-            writer.add_scalar("Loss/train_aug_loss", mean_losses.aug_loss, epoch)
+            writer.add_scalar("Loss/train", mean_losses[LossType.TOTAL], epoch)
+            writer.add_scalar("Loss/train_recon", mean_losses[LossType.RECON], epoch)
+            writer.add_scalar("Loss/train_evolve", mean_losses[LossType.EVOLVE], epoch)
+            writer.add_scalar("Loss/train_reg", mean_losses[LossType.REG], epoch)
+            writer.add_scalar("Loss/train_aug_loss", mean_losses[LossType.AUG_LOSS], epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
@@ -1172,7 +923,7 @@ def train(cfg: ModelParams, run_dir: Path):
 
         metrics.update(
             {
-                    "final_train_loss": mean_losses.total,
+                    "final_train_loss": mean_losses[LossType.TOTAL],
                     "commit_hash": commit_hash,
                     "training_duration_seconds": round(total_training_duration, 2),
                     "avg_epoch_duration_seconds": round(avg_epoch_duration, 2),
