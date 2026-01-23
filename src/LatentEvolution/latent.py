@@ -308,7 +308,7 @@ def train_step_reconstruction_only_nocompile(
         _selected_neurons: torch.Tensor,
         _needed_indices: torch.Tensor,
         cfg: ModelParams
-    ):
+    ) -> dict[LossType, torch.Tensor]:
     """Train encoder/decoder only with reconstruction loss."""
     device = train_data.device
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
@@ -332,12 +332,15 @@ def train_step_reconstruction_only_nocompile(
     recon_t = model.decoder(proj_t)
     recon_loss = loss_fn(recon_t, x_t)
 
-    # return same tuple format for compatibility
-    evolve_loss = torch.tensor(0.0, device=device)
-    aug_loss = torch.tensor(0.0, device=device)
-    tv_loss = torch.tensor(0.0, device=device)
-    loss = recon_loss + reg_loss
-    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss, tv_loss)
+    # total loss
+    total_loss = recon_loss + reg_loss
+
+    # return only computed losses (no evolve, aug, tv during warmup)
+    return {
+        LossType.TOTAL: total_loss,
+        LossType.RECON: recon_loss,
+        LossType.REG: reg_loss,
+    }
 
 
 train_step_reconstruction_only = torch.compile(
@@ -353,9 +356,12 @@ def train_step_nocompile(
         selected_neurons: torch.Tensor,
         needed_indices: torch.Tensor,
         cfg: ModelParams
-    ):
+    ) -> dict[LossType, torch.Tensor]:
 
     device=train_data.device
+
+    # initialize loss dict
+    losses: dict[LossType, torch.Tensor] = {}
 
     # Get loss function from config
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
@@ -371,6 +377,7 @@ def train_step_nocompile(
     if cfg.evolver_params.l1_reg_loss > 0.:
         for p in model.evolver.parameters():
             reg_loss += torch.abs(p).mean()*cfg.evolver_params.l1_reg_loss
+    losses[LossType.REG] = reg_loss
 
     # total variation regularization on evolver updates
     tv_loss = torch.tensor(0.0, device=device)
@@ -405,7 +412,7 @@ def train_step_nocompile(
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)
-    recon_loss = loss_fn(recon_t, x_t)
+    losses[LossType.RECON] = loss_fn(recon_t, x_t)
 
     # Evolve by 1 time step. This is a special case since we may opt to apply
     # a connectome constraint via data augmentation.
@@ -430,6 +437,7 @@ def train_step_nocompile(
         proj_t_aug = model.evolver(model.encoder(x_t_aug), proj_stim_t[0])
         pred_t_plus_1_aug = model.decoder(proj_t_aug)
         aug_loss += cfg.training.unconnected_to_zero.loss_coeff * loss_fn(pred_t_plus_1_aug[:, selected_neurons], pred_t_plus_1[:, selected_neurons])
+    losses[LossType.AUG_LOSS] = aug_loss
 
     # evolve for remaining dt-1 time steps (first window)
     evolve_loss = torch.tensor(0.0, device=device)
@@ -477,8 +485,13 @@ def train_step_nocompile(
             x_target = train_data[target_indices_m, neuron_indices]  # (b, N)
             evolve_loss = evolve_loss + loss_fn(pred, x_target)
 
-    loss = evolve_loss + recon_loss + reg_loss + aug_loss + tv_loss
-    return (loss, recon_loss, evolve_loss, reg_loss, aug_loss, tv_loss)
+    losses[LossType.EVOLVE] = evolve_loss
+    losses[LossType.TV_LOSS] = tv_loss
+
+    # compute total loss
+    losses[LossType.TOTAL] = sum(losses.values())
+
+    return losses
 
 train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
 
@@ -638,29 +651,21 @@ def train(cfg: ModelParams, run_dir: Path):
                         needed_indices = torch.empty(0, dtype=torch.long, device=device)
 
                         # use nocompile version for warmup
-                        loss_tuple = train_step_reconstruction_only_nocompile(
+                        losses = train_step_reconstruction_only_nocompile(
                             model, chunk_data, chunk_stim, observation_indices,
                             selected_neurons, needed_indices, cfg
                         )
-                        loss_tuple[0].backward()
+                        losses[LossType.TOTAL].backward()
                         optimizer.step()
-                        warmup_losses.accumulate({
-                            LossType.TOTAL: loss_tuple[0],
-                            LossType.RECON: loss_tuple[1],
-                            LossType.EVOLVE: loss_tuple[2],
-                            LossType.REG: loss_tuple[3],
-                            LossType.AUG_LOSS: loss_tuple[4],
-                            LossType.TV_LOSS: loss_tuple[5],
-                        })
+                        warmup_losses.accumulate(losses)
 
                 warmup_epoch_duration = (datetime.now() - warmup_epoch_start).total_seconds()
                 mean_warmup = warmup_losses.mean()
                 print(f"warmup {warmup_epoch+1}/{recon_warmup_epochs} | recon loss: {mean_warmup[LossType.RECON]:.4e} | duration: {warmup_epoch_duration:.2f}s")
 
-                # log to tensorboard
-                writer.add_scalar("ReconWarmup/loss", mean_warmup[LossType.TOTAL], warmup_epoch)
-                writer.add_scalar("ReconWarmup/recon_loss", mean_warmup[LossType.RECON], warmup_epoch)
-                writer.add_scalar("ReconWarmup/reg_loss", mean_warmup[LossType.REG], warmup_epoch)
+                # log to tensorboard (only computed losses during warmup)
+                for loss_type, loss_value in mean_warmup.items():
+                    writer.add_scalar(f"ReconWarmup/{loss_type.name.lower()}", loss_value, warmup_epoch)
                 writer.add_scalar("ReconWarmup/epoch_duration", warmup_epoch_duration, warmup_epoch)
 
             model.evolver.requires_grad_(True)
@@ -771,13 +776,13 @@ def train(cfg: ModelParams, run_dir: Path):
 
                     # training step (timing for latency tracking)
                     forward_start = time.time()
-                    loss_tuple = train_step_fn(
+                    loss_dict = train_step_fn(
                         model, chunk_data, chunk_stim, observation_indices, selected_neurons, needed_indices, cfg
                     )
                     forward_time = time.time() - forward_start
 
                     backward_start = time.time()
-                    loss_tuple[0].backward()
+                    loss_dict[LossType.TOTAL].backward()
                     backward_time = time.time() - backward_start
 
                     step_start = time.time()
@@ -786,14 +791,7 @@ def train(cfg: ModelParams, run_dir: Path):
                     optimizer.step()
                     step_time = time.time() - step_start
 
-                    losses.accumulate({
-                        LossType.TOTAL: loss_tuple[0],
-                        LossType.RECON: loss_tuple[1],
-                        LossType.EVOLVE: loss_tuple[2],
-                        LossType.REG: loss_tuple[3],
-                        LossType.AUG_LOSS: loss_tuple[4],
-                        LossType.TV_LOSS: loss_tuple[5],
-                    })
+                    losses.accumulate(loss_dict)
 
                     # sample timing every 10 batches
                     if batch_in_chunk % 10 == 0:
@@ -813,13 +811,9 @@ def train(cfg: ModelParams, run_dir: Path):
                 f"Duration: {epoch_duration:.2f}s (Total: {total_elapsed:.1f}s)"
             )
 
-            # log to tensorboard
-            writer.add_scalar("Loss/train", mean_losses[LossType.TOTAL], epoch)
-            writer.add_scalar("Loss/train_recon", mean_losses[LossType.RECON], epoch)
-            writer.add_scalar("Loss/train_evolve", mean_losses[LossType.EVOLVE], epoch)
-            writer.add_scalar("Loss/train_reg", mean_losses[LossType.REG], epoch)
-            writer.add_scalar("Loss/train_aug_loss", mean_losses[LossType.AUG_LOSS], epoch)
-            writer.add_scalar("Loss/train_tv_loss", mean_losses[LossType.TV_LOSS], epoch)
+            # log to tensorboard (programmatically iterate over all losses)
+            for loss_type, loss_value in mean_losses.items():
+                writer.add_scalar(f"Loss/train_{loss_type.name.lower()}", loss_value, epoch)
             writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
             writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
 
