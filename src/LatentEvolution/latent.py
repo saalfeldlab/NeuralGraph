@@ -172,7 +172,16 @@ def load_val_only(
 
 
 class LossType(Enum):
-    """loss component types for EED model."""
+    """loss component types for EED model.
+
+    train steps return dict[LossType, Tensor] for semantic access.
+
+    benchmarking results (gpu, 256 batch, realistic encoder/decoder ops):
+    - dict with enum keys: +0.5% to +1.4% overhead vs tuple
+    - namedtuple: +0.8% to +2.0% overhead vs tuple
+    - compilation speedup: 1.87-1.93x faster (all return types)
+    - conclusion: negligible overhead, semantic access worth it
+    """
     TOTAL = auto()
     RECON = auto()
     EVOLVE = auto()
