@@ -378,3 +378,11 @@ We want to avoid depending on the details of the stimulus provided since in gene
 it won't be known with such granularity. As a first step, we only provide the
 stimulus every `tu` steps. At time step `n <= t < n + tu` we linearly interpolate between
 the stimulus at time `n` and the one at time `n+tu`.
+
+```bash
+for mode in TIME_UNITS_INTERPOLATE TIME_UNITS_CONSTANT NONE; do \
+    bsub -J stim_${mode} -q gpu_a100 -gpu "num=1" -n 8 -o stim_${mode}.log \
+        python src/LatentEvolution/latent.py stim_freq_sweep latent_20step.yaml \
+        --training.stimulus-frequency $mode \
+done
+```
