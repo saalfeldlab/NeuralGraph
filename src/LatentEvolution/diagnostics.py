@@ -503,6 +503,7 @@ def plot_time_aligned_mse(
     ax.set_xlabel('time steps', fontsize=14)
     ax.set_ylabel('mse (averaged over neurons)', fontsize=14)
     ax.set_yscale('log')
+    ax.set_ylim(1e-3, 1.0)
     ax.set_title(
         f'time-aligned mse analysis - {rollout_type} rollout (tu={time_units}, ems={evolve_multiple_steps})',
         fontsize=16,
