@@ -38,13 +38,23 @@ def downsample_stimulus(
 
     elif stimulus_frequency == StimulusFrequency.TIME_UNITS_CONSTANT:
         # sample at 0, tu, 2*tu, ..., and hold constant
-        # only sample at indices that exist in the input tensor
-        num_samples = min(num_multiples + 1, (total_steps + tu - 1) // tu)  # how many complete intervals we can sample
+        # each stimulus at time t is used for interval [t-tu/2, t+tu/2)
+        # i.e., centered around its time point
+        num_samples = min(num_multiples + 1, (total_steps + tu - 1) // tu)
         sample_indices = torch.arange(num_samples, device=device) * tu  # [0, tu, 2*tu, ...]
         proj_samples = proj_stim_t[sample_indices, :, :]  # (num_samples, b, dim_stim_latent)
 
-        # repeat each sample tu times
-        downsampled = torch.repeat_interleave(proj_samples, tu, dim=0)[:total_steps]
+        # build output by assigning each sample to its centered interval
+        half_tu = tu // 2
+        downsampled = torch.zeros(total_steps, batch_size, dim_stim_latent, device=device, dtype=proj_stim_t.dtype)
+
+        for step in range(total_steps):
+            # find which sample this step belongs to
+            # step is in interval [t-tu/2, t+tu/2) centered at t
+            # so we find the nearest sample point
+            nearest_sample_idx = min((step + half_tu) // tu, num_samples - 1)
+            downsampled[step] = proj_samples[nearest_sample_idx]
+
         return downsampled
 
     elif stimulus_frequency == StimulusFrequency.TIME_UNITS_INTERPOLATE:

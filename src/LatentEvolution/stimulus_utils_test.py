@@ -51,26 +51,57 @@ class TestDownsampleStimulus(unittest.TestCase):
         self.assertEqual(result.shape, self.sample_stimulus.shape)
 
     def test_constant_mode_values_held(self):
-        """test that TIME_UNITS_CONSTANT mode holds values constant within intervals."""
-        # create known stimulus: each interval has distinct value
-        proj_stim = torch.zeros(20, 1, 3, device=self.device)
-        proj_stim[0, :, :] = 1.0  # first interval
-        proj_stim[5, :, :] = 2.0  # second interval
-        proj_stim[10, :, :] = 3.0  # third interval
-        proj_stim[15, :, :] = 4.0  # fourth interval
+        """test that TIME_UNITS_CONSTANT mode holds values constant within centered intervals."""
+        # create known stimulus: each sample has distinct value
+        # with tu=10, samples at t=0, 10, 20, 30
+        proj_stim = torch.zeros(40, 1, 3, device=self.device)
+        proj_stim[0, :, :] = 1.0   # sample at t=0
+        proj_stim[10, :, :] = 2.0  # sample at t=10
+        proj_stim[20, :, :] = 3.0  # sample at t=20
+        proj_stim[30, :, :] = 4.0  # sample at t=30
 
         result = downsample_stimulus(
             proj_stim,
-            tu=5,
+            tu=10,
             num_multiples=4,
             stimulus_frequency=StimulusFrequency.TIME_UNITS_CONSTANT,
         )
 
-        # check that each interval holds the value from its boundary
+        # each sample is centered around its time point
+        # sample at t=0: used for [0, 5) (first sample starts at 0)
+        # sample at t=10: used for [5, 15)
+        # sample at t=20: used for [15, 25)
+        # sample at t=30: used for [25, 40) (last sample extends to end)
         self.assertTrue(torch.all(result[0:5] == 1.0))
-        self.assertTrue(torch.all(result[5:10] == 2.0))
-        self.assertTrue(torch.all(result[10:15] == 3.0))
-        self.assertTrue(torch.all(result[15:20] == 4.0))
+        self.assertTrue(torch.all(result[5:15] == 2.0))
+        self.assertTrue(torch.all(result[15:25] == 3.0))
+        self.assertTrue(torch.all(result[25:40] == 4.0))
+
+    def test_constant_mode_centered_intervals(self):
+        """test that TIME_UNITS_CONSTANT mode uses centered intervals around sample points."""
+        # test with tu=20: samples at 0, 20, 40, 60
+        proj_stim = torch.zeros(80, 1, 1, device=self.device)
+        proj_stim[0, :, :] = 10.0   # sample at t=0
+        proj_stim[20, :, :] = 20.0  # sample at t=20
+        proj_stim[40, :, :] = 30.0  # sample at t=40
+        proj_stim[60, :, :] = 40.0  # sample at t=60
+
+        result = downsample_stimulus(
+            proj_stim,
+            tu=20,
+            num_multiples=4,
+            stimulus_frequency=StimulusFrequency.TIME_UNITS_CONSTANT,
+        )
+
+        # centered intervals (half_tu = 10):
+        # t=0:  [0, 10)    -> value 10.0
+        # t=20: [10, 30)   -> value 20.0
+        # t=40: [30, 50)   -> value 30.0
+        # t=60: [50, 80)   -> value 40.0 (last sample extends to end)
+        self.assertTrue(torch.all(result[0:10] == 10.0))
+        self.assertTrue(torch.all(result[10:30] == 20.0))
+        self.assertTrue(torch.all(result[30:50] == 30.0))
+        self.assertTrue(torch.all(result[50:80] == 40.0))
 
     def test_interpolate_mode_shape(self):
         """test that TIME_UNITS_INTERPOLATE mode returns correct shape."""
