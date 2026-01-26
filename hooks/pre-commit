@@ -52,6 +52,33 @@ fi
 
 echo -e "${GREEN}File size check passed!${NC}"
 
+# 2. Run ruff linting
+echo ""
+echo "Running ruff linting..."
+if ! ruff check --exclude "*.ipynb" .; then
+    echo -e "${RED}Error: Ruff linting failed${NC}"
+    echo "Please fix the linting errors before committing."
+    echo "You can run 'ruff check --fix --exclude \"*.ipynb\" .' to auto-fix some issues."
+    echo ""
+    echo "Note: Stricter rules (including unused variable checks) apply to src/LatentEvolution"
+    exit 1
+fi
+echo "All checks passed!"
+echo -e "${GREEN}Ruff linting passed!${NC}"
+
+# 3. Run unit tests in parallel
+echo ""
+echo "Running unit tests..."
+
+# Run tests in parallel using python's unittest with buffer to capture output
+if python -m unittest discover -s src -p "*_test.py" -v; then
+    echo -e "${GREEN}Unit tests passed!${NC}"
+else
+    echo -e "${RED}Error: Unit tests failed${NC}"
+    echo "Please fix failing tests before committing."
+    exit 1
+fi
+
 echo ""
 echo -e "${GREEN}All pre-commit checks passed!${NC}"
 exit 0
