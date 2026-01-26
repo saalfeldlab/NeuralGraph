@@ -4,10 +4,22 @@ shared training configuration classes for neural dynamics models.
 includes profiling, training hyperparameters, and cross-validation configs.
 """
 
+from enum import Enum, auto
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 import torch
 
 from LatentEvolution.acquisition import AcquisitionMode, AllTimePointsMode
+
+
+class StimulusFrequency(Enum):
+    """stimulus frequency for training.
+
+    controls how stimulus is provided during evolution steps between observations.
+    """
+    ALL = auto()                    # use stimulus at every time step (current behavior)
+    NONE = auto()                   # no stimulus provided (set to zero)
+    TIME_UNITS_CONSTANT = auto()    # use stimulus at time_units intervals, hold constant between
+    TIME_UNITS_INTERPOLATE = auto() # use stimulus at time_units intervals, linearly interpolate between
 
 
 class DataSplit(BaseModel):
@@ -80,6 +92,11 @@ class TrainingConfig(BaseModel):
         default_factory=AllTimePointsMode,
         description="data acquisition mode. controls which timesteps have observable data for each neuron.",
         json_schema_extra={"short_name": "acq"}
+    )
+    stimulus_frequency: StimulusFrequency = Field(
+        StimulusFrequency.ALL,
+        description="stimulus frequency. controls how stimulus is provided during evolution steps.",
+        json_schema_extra={"short_name": "stim_freq"}
     )
     intermediate_loss_steps: list[int] = Field(
         default_factory=list,
@@ -163,6 +180,13 @@ class TrainingConfig(BaseModel):
                     "unconnected_to_zero augmentation is incompatible with staggered_random acquisition mode. "
                     "staggered mode observes neurons at different times, breaking the connectome assumption."
                 )
+
+        # validate stimulus frequency compatibility
+        if self.time_units == 1 and self.stimulus_frequency != StimulusFrequency.ALL:
+            raise ValueError(
+                f"stimulus_frequency must be ALL when time_units=1. "
+                f"got stimulus_frequency={self.stimulus_frequency.name}, time_units={self.time_units}"
+            )
 
         return self
 

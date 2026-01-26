@@ -339,6 +339,16 @@ for zero_init in zero-init no-zero-init; do \
 done
 ```
 
+Results:
+
+- it turns out the evolver initialization is the key change. This removes the blow up
+  and allows the system to learn the right update rule.
+- warmup and activation don't seem to make a significant difference once the evolver
+  is correctly initialized.
+- warmup does two nice things
+  - lower mse at intervening time steps
+  - training after epoch 1 is already stable in terms of rollout
+
 Understand if TV norm can bring stability to the training without pretraining for
 reconstruction or the other features we added.
 
@@ -354,3 +364,31 @@ for tv in 0.0 0.00001 0.0001 0.001; do \
         --training.seed 97651
 done
 ```
+
+Results:
+
+- tv norm at 1e-3 successfully mitigates the artifact
+- the mse at t->t+1 is closer to a constant than from the previous experiment. So
+  while tv norm does help the training converge to a sensible evolution model, it
+  does harm the t->t+1 mse.
+
+# Stimulus downsampling
+
+We want to avoid depending on the details of the stimulus provided since in general
+it won't be known with such granularity. As a first step, we only provide the
+stimulus every `tu` steps. At time step `n <= t < n + tu` we linearly interpolate between
+the stimulus at time `n` and the one at time `n+tu`.
+
+```bash
+for mode in TIME_UNITS_INTERPOLATE TIME_UNITS_CONSTANT NONE; do \
+    bsub -J stim_${mode} -q gpu_a100 -gpu "num=1" -n 8 -o stim_${mode}.log \
+        python src/LatentEvolution/latent.py stim_freq_sweep latent_20step.yaml \
+        --training.stimulus-frequency $mode
+done
+```
+
+The results suggest that in the current setup we are critically reliant on the stimulus
+being provided at every time step. When it is not, we see a blow up in the MSE when we
+roll out past the training horizon. Even within the training horizon the error does not
+fall below the linear interpolation baseline. And we are unable to learn the right
+rule even at the loss time points 0, `tu`, `2tu`, ...

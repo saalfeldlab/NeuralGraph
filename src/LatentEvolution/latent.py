@@ -24,6 +24,7 @@ from LatentEvolution.load_flyvis import (
     load_metadata,
 )
 from LatentEvolution.training_config import DataSplit
+from LatentEvolution.stimulus_utils import downsample_stimulus
 from LatentEvolution.chunk_loader import RandomChunkLoader
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
@@ -307,8 +308,6 @@ def make_batches_random(
         yield start_indices, selected_neurons, needed_indices
 
 
-
-
 def train_step_reconstruction_only_nocompile(
         model: LatentModel,
         train_data: torch.Tensor,
@@ -417,7 +416,15 @@ def train_step_nocompile(
     dim_stim = train_stim.shape[1]
     dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
     # total_steps x b x Ls
-    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
+    proj_stim_t_all = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
+
+    # downsample stimulus based on frequency mode
+    proj_stim_t = downsample_stimulus(
+        proj_stim_t_all,
+        tu=dt,
+        num_multiples=num_multiples,
+        stimulus_frequency=cfg.training.stimulus_frequency,
+    )
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)

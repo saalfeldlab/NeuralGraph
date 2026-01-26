@@ -19,6 +19,9 @@ if TYPE_CHECKING:
     from LatentEvolution.latent import ModelParams, LatentModel
     from LatentEvolution.load_flyvis import NeuronData
 
+from LatentEvolution.training_config import StimulusFrequency
+from LatentEvolution.stimulus_utils import downsample_stimulus
+
 
 class PlotMode(StrEnum):
     """Control plotting that happens during training vs post training"""
@@ -266,6 +269,7 @@ def compute_multi_start_rollout_mse(
     plot_mode: PlotMode = PlotMode.TRAINING,
     time_units: int = 1,
     evolve_multiple_steps: int = 1,
+    stimulus_frequency: StimulusFrequency = StimulusFrequency.ALL,
 ) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float], list[int]]:
     """
     Compute MSE over time from multiple random starting points.
@@ -330,9 +334,13 @@ def compute_multi_start_rollout_mse(
 
         # Perform rollout
         if rollout_type == "latent":
-            predicted_segment = evolve_n_steps_latent(model, initial_state, stimulus_segment, n_steps)
+            predicted_segment = evolve_n_steps_latent(
+                model, initial_state, stimulus_segment, n_steps, stimulus_frequency, time_units
+            )
         else:  # activity
-            predicted_segment = evolve_n_steps(model, initial_state, stimulus_segment, n_steps)
+            predicted_segment = evolve_n_steps_activity(
+                model, initial_state, stimulus_segment, n_steps, stimulus_frequency, time_units
+            )
 
         # Compute MSE per time step per neuron (squared error, not averaged)
         squared_error = torch.pow(predicted_segment - real_segment, 2).detach().cpu().numpy()
@@ -495,6 +503,7 @@ def plot_time_aligned_mse(
     ax.set_xlabel('time steps', fontsize=14)
     ax.set_ylabel('mse (averaged over neurons)', fontsize=14)
     ax.set_yscale('log')
+    ax.set_ylim(1e-3, 1.0)
     ax.set_title(
         f'time-aligned mse analysis - {rollout_type} rollout (tu={time_units}, ems={evolve_multiple_steps})',
         fontsize=16,
@@ -550,7 +559,8 @@ def run_validation_diagnostics(
         with torch.no_grad():
             mse_array, new_figs, new_metrics, start_indices = compute_multi_start_rollout_mse(
                 model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=20, rollout_type=rollout_type,
-                plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps
+                plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps,
+                stimulus_frequency=config.training.stimulus_frequency
             )
         metrics.update(new_metrics)
         figures.update(new_figs)
@@ -612,52 +622,103 @@ def run_validation_diagnostics(
     return metrics, figures
 
 
-def evolve_n_steps(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
+def evolve_n_steps_activity(
+    model: LatentModel,
+    initial_state: torch.Tensor,
+    stimulus: torch.Tensor,
+    n_steps: int,
+    stimulus_frequency: StimulusFrequency,
+    time_units: int,
+) -> torch.Tensor:
     """
-    Evolve the model by n time steps using the predicted state at each step.
+    evolve the model by n time steps using the predicted state at each step.
 
-    This performs an autoregressive rollout starting from a single initial state.
-    At each step, encodes the current state, evolves in latent space, and decodes.
+    this performs an autoregressive rollout starting from a single initial state.
+    at each step, encodes the current state, evolves in latent space, and decodes.
 
-    Args:
-        model: The LatentModel to evolve
-        initial_state: Initial state tensor of shape (neurons,)
-        stimulus: Stimulus tensor of shape (T, stimulus_dim) where T >= n_steps
-        n_steps: Number of time steps to evolve
+    args:
+        model: the latentmodel to evolve
+        initial_state: initial state tensor of shape (neurons,)
+        stimulus: stimulus tensor of shape (T, stimulus_dim) where T >= n_steps
+        n_steps: number of time steps to evolve
+        stimulus_frequency: stimulus downsampling mode
+        time_units: observation interval for downsampling
 
-    Returns:
-        predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
+    returns:
+        predicted_trace: tensor of shape (n_steps, neurons) with predicted states
     """
+    # pre-encode and downsample stimulus
+    stimulus_latent_all = model.stimulus_encoder(stimulus[:n_steps])  # shape (n_steps, stim_latent_dim)
+    stimulus_latent_all = stimulus_latent_all.unsqueeze(1)  # (n_steps, 1, stim_latent_dim)
+
+    num_multiples = max(1, n_steps // time_units)
+    stimulus_latent = downsample_stimulus(
+        stimulus_latent_all,
+        tu=time_units,
+        num_multiples=num_multiples,
+        stimulus_frequency=stimulus_frequency,
+    )
+    stimulus_latent = stimulus_latent.squeeze(1)  # (n_steps, stim_latent_dim)
+
     predicted_trace = []
     current_state = initial_state.unsqueeze(0)  # shape (1, neurons)
 
     for t in range(n_steps):
-        current_stimulus = stimulus[t:t+1]  # shape (1, stimulus_dim)
-        next_state = model(current_state, current_stimulus)
+        # encode current state
+        current_latent = model.encoder(current_state)
+        # evolve with downsampled stimulus
+        next_latent = model.evolver(current_latent, stimulus_latent[t:t+1])
+        # decode
+        next_state = model.decoder(next_latent)
         predicted_trace.append(next_state.squeeze(0))
         current_state = next_state
 
     return torch.stack(predicted_trace, dim=0)
 
 
-def evolve_n_steps_latent(model: LatentModel, initial_state: torch.Tensor, stimulus: torch.Tensor, n_steps: int) -> torch.Tensor:
+def evolve_n_steps_latent(
+    model: LatentModel,
+    initial_state: torch.Tensor,
+    stimulus: torch.Tensor,
+    n_steps: int,
+    stimulus_frequency: StimulusFrequency,
+    time_units: int,
+) -> torch.Tensor:
     """
-    Evolve the model by n time steps entirely in latent space.
+    evolve the model by n time steps entirely in latent space.
 
-    This performs an autoregressive rollout starting from a single initial state.
-    Encodes once, evolves in latent space for n steps, then decodes all states.
+    this performs an autoregressive rollout starting from a single initial state.
+    encodes once, evolves in latent space for n steps, then decodes all states.
 
-    Args:
-        model: The LatentModel to evolve
-        initial_state: Initial state tensor of shape (neurons,)
-        stimulus: Stimulus tensor of shape (T, stimulus_dim) where T >= n_steps
-        n_steps: Number of time steps to evolve
+    args:
+        model: the latentmodel to evolve
+        initial_state: initial state tensor of shape (neurons,)
+        stimulus: stimulus tensor of shape (T, stimulus_dim) where T >= n_steps
+        n_steps: number of time steps to evolve
+        stimulus_frequency: stimulus downsampling mode
+        time_units: observation interval for downsampling
 
-    Returns:
-        predicted_trace: Tensor of shape (n_steps, neurons) with predicted states
+    returns:
+        predicted_trace: tensor of shape (n_steps, neurons) with predicted states
     """
     current_latent = model.encoder(initial_state.unsqueeze(0))  # shape (1, latent_dim)
-    stimulus_latent = model.stimulus_encoder(stimulus)  # shape (n_steps, stim_latent_dim)
+    stimulus_latent_all = model.stimulus_encoder(stimulus[:n_steps])  # shape (n_steps, stim_latent_dim)
+
+    # downsample stimulus based on frequency mode
+    # need to add batch dimension for downsample_stimulus
+    stimulus_latent_all = stimulus_latent_all.unsqueeze(1)  # (n_steps, 1, stim_latent_dim)
+
+    # calculate num_multiples for downsampling
+    num_multiples = max(1, n_steps // time_units)
+
+    stimulus_latent = downsample_stimulus(
+        stimulus_latent_all,
+        tu=time_units,
+        num_multiples=num_multiples,
+        stimulus_frequency=stimulus_frequency,
+    )  # (n_steps, 1, stim_latent_dim)
+
+    stimulus_latent = stimulus_latent.squeeze(1)  # (n_steps, stim_latent_dim)
 
     latent_trace = []
     for t in range(n_steps):
