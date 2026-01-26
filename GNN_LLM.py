@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 64
+    start_iteration = 81
 
 
     n_iterations = task_params.get('iterations', 5)
