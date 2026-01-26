@@ -386,3 +386,9 @@ for mode in TIME_UNITS_INTERPOLATE TIME_UNITS_CONSTANT NONE; do \
         --training.stimulus-frequency $mode
 done
 ```
+
+The results suggest that in the current setup we are critically reliant on the stimulus
+being provided at every time step. When it is not, we see a blow up in the MSE when we
+roll out past the training horizon. Even within the training horizon the error does not
+fall below the linear interpolation baseline. And we are unable to learn the right
+rule even at the loss time points 0, `tu`, `2tu`, ...
