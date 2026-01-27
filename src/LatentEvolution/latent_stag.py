@@ -310,7 +310,8 @@ def train(cfg: StagModelParams, run_dir: Path):
         print(f"model parameters: {sum(p.numel() for p in model.parameters()):,}")
         model.train()
 
-        # pipeline profiler for chrome tracing
+        # pipeline profiler for chrome tracing (only profile first N epochs to limit file size)
+        profile_first_n_epochs = 5
         profiler = PipelineProfiler()
         profiler.start()
 
@@ -396,6 +397,11 @@ def train(cfg: StagModelParams, run_dir: Path):
 
         # epoch loop
         for epoch in range(cfg.training.epochs):
+          # stop profiler after first N epochs to limit file size
+          if epoch == profile_first_n_epochs and profiler.is_enabled():
+              profiler.stop()
+              print(f"profiler stopped after epoch {epoch} (profiled first {profile_first_n_epochs} epochs)")
+
           with profiler.event("epoch", "training", thread="main", epoch=epoch):
             epoch_start = datetime.now()
             losses = LossAccumulator(LossType)
