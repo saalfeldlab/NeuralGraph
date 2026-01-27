@@ -13,6 +13,8 @@ if os.path.isdir('/scratch'):
     os.makedirs('/scratch/allierc', exist_ok=True)
 
 
+import sys
+
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
 from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
@@ -21,6 +23,7 @@ from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_
 from NeuralGraph.models.utils import save_exploration_artifacts
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
+from NeuralGraph.git_code_tracker import track_code_modifications, is_git_repo, get_modified_code_files
 from GNN_PlotFigure import data_plot
 
 import warnings
@@ -55,14 +58,14 @@ if __name__ == "__main__":
                 task_params[key] = int(value) if value.isdigit() else value
     else:
         best_model = ''
-        task = 'generate_train_test_plot_Claude'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude'
+        task = 'generate_train_test_plot_Claude_cluster'  # 'train', 'test', 'generate', 'plot', 'train_NGP', 'train_INR', 'Claude', 'code', 'cluster'
         config_list = ['signal_landscape']
         task_params = {'iterations': 2048}
 
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 1
+    start_iteration = 89
 
 
     n_iterations = task_params.get('iterations', 5)
@@ -91,6 +94,13 @@ if __name__ == "__main__":
 
             # Only copy and initialize config on fresh start (not when resuming)
             if start_iteration == 1:
+                # Erase config from new/processing/done directories
+                for subdir in ['new', 'processing', 'done']:
+                    cleanup_path = f"{config_root}/{subdir}/{llm_task_name}.yaml"
+                    if os.path.exists(cleanup_path):
+                        os.remove(cleanup_path)
+                        print(f"\033[93mdeleted {cleanup_path}\033[0m")
+
                 if os.path.exists(source_config):
                     shutil.copy2(source_config, target_config)
                     print(f"\033[93mcopied {source_config} -> {target_config}\033[0m")
@@ -137,9 +147,26 @@ if __name__ == "__main__":
             print(f"\033[93mpreserving {ucb_file} (resuming from iter {start_iteration})\033[0m")
 
         config_list = [llm_task_name]
-    else:
 
-        iteration_range = range(1, 2)  
+        # Track if code was modified by Claude (starts False, set True after Claude modifies code)
+        code_modified_by_claude = False
+        # Check if code modifications are enabled (task contains 'code')
+        code_changes_enabled = 'code' in task
+        # Check if cluster execution is enabled (task contains 'cluster')
+        cluster_enabled = 'cluster' in task
+        if code_changes_enabled:
+            print("\033[93mCode modifications ENABLED (task contains 'code')\033[0m")
+            if cluster_enabled:
+                print("\033[93mCluster execution ENABLED (task contains 'cluster')\033[0m")
+            else:
+                print("\033[90mCluster execution disabled (add 'cluster' to task to enable)\033[0m")
+        else:
+            print("\033[90mCode modifications disabled (add 'code' to task to enable)\033[0m")
+    else:
+        iteration_range = range(1, 2)
+        code_modified_by_claude = False
+        code_changes_enabled = False
+        cluster_enabled = False  
 
 
 
@@ -246,7 +273,7 @@ if __name__ == "__main__":
                 source_config = f"{config_root}/{config_file}.yaml"
                 shutil.copy2(source_config, new_path)
                 submit_time = time.time()
-                print(f"\033[93mSubmitted to daemon: {new_path}\033[0m")
+                print(f"\033[93msubmitted to daemon: {new_path}\033[0m")
 
                 # Wait for job to complete (file appears in done/)
                 print(f"\033[93mWaiting for {config_filename} to be copied into config/done/ ...\033[0m")
@@ -303,14 +330,250 @@ if __name__ == "__main__":
                     data_train_INR(config=config, device=device, total_steps=50000)
 
                 elif "train" in task:
-                    data_train(
-                        config=config,
-                        erase='Claude' in task,  # erase old models when iterating with Claude
-                        best_model=best_model,
-                        style = 'color',
-                        device=device,
-                        log_file=log_file
-                    )
+                    # Training execution: cluster > subprocess (code modified) > direct
+                    use_subprocess = 'Claude' in task and code_changes_enabled and code_modified_by_claude
+
+                    if cluster_enabled or use_subprocess:
+                        # Paths for subprocess/cluster execution
+                        config_path = f"{config_root}/{config_file}.yaml"
+                        log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}"
+                        os.makedirs(log_dir, exist_ok=True)
+                        error_log_path = f"{log_dir}/training_output_latest.log"
+                        error_details_path = f"{log_dir}/training_error_latest.log"
+
+                        if cluster_enabled:
+                            # Submit training job to cluster via SSH + bsub
+                            if use_subprocess:
+                                print("\033[93mcode modified by Claude - submitting training to cluster...\033[0m")
+                            else:
+                                print("\033[93msubmitting training to cluster....\033[0m")
+
+                            # Build the python command
+                            train_cmd = f"python train_signal_subprocess.py --config '{config_path}' --device cuda"
+                            train_cmd += f" --log_file '{analysis_log_path}'"
+                            train_cmd += f" --config_file '{config.config_file}'"
+                            train_cmd += f" --error_log '{error_details_path}'"
+                            if 'Claude' in task:
+                                train_cmd += " --erase"
+
+                            # Create temporary bash script that activates conda and runs training
+                            cluster_script_path = f"{log_dir}/cluster_train.sh"
+                            # Use absolute path for cluster (home directory on cluster)
+                            cluster_home = "/groups/saalfeld/home/allierc"
+                            cluster_root_dir = f"{cluster_home}/Graph/NeuralGraph"
+                            conda_path = f"{cluster_home}/miniforge3/etc/profile.d/conda.sh"
+
+                            # Update paths in train_cmd to use cluster paths
+                            cluster_config_path = config_path.replace(root_dir, cluster_root_dir)
+                            cluster_analysis_log = analysis_log_path.replace(root_dir, cluster_root_dir)
+                            cluster_error_log = error_details_path.replace(root_dir, cluster_root_dir)
+
+                            cluster_train_cmd = f"python train_signal_subprocess.py --config '{cluster_config_path}' --device cuda"
+                            cluster_train_cmd += f" --log_file '{cluster_analysis_log}'"
+                            cluster_train_cmd += f" --config_file '{config.config_file}'"
+                            cluster_train_cmd += f" --error_log '{cluster_error_log}'"
+                            if 'Claude' in task:
+                                cluster_train_cmd += " --erase"
+
+                            with open(cluster_script_path, 'w') as f:
+                                f.write("#!/bin/bash\n")
+                                f.write(f"cd {cluster_root_dir}\n")
+                                f.write(f"conda run -n neural-graph {cluster_train_cmd}\n")
+                            os.chmod(cluster_script_path, 0o755)
+
+                            # Path to script on cluster
+                            cluster_script = cluster_script_path.replace(root_dir, cluster_root_dir)
+
+                            # Submit job to cluster via SSH to login1
+                            # -W 6000 = 100 hours max wall time, -K makes bsub wait for job completion
+                            ssh_cmd = f"ssh login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 -K 'bash {cluster_script}'\""
+
+                            print(f"\033[96msubmitting via SSH: {ssh_cmd}\033[0m")
+
+                            result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
+
+                            if result.returncode != 0:
+                                print(f"\033[91mCluster training failed:\033[0m")
+                                print(f"stdout: {result.stdout}")
+                                print(f"stderr: {result.stderr}")
+                                if os.path.exists(error_details_path):
+                                    with open(error_details_path, 'r') as f:
+                                        print(f.read())
+                                raise RuntimeError(f"Cluster training failed at iteration {iteration}")
+
+                            print(f"\033[92mCluster training completed successfully\033[0m")
+                            print(result.stdout)
+
+                        else:
+                            # Run training locally in subprocess (code was modified)
+                            print("\033[93mcode modified by Claude - running training in subprocess...\033[0m")
+
+                            train_script = os.path.join(root_dir, 'train_signal_subprocess.py')
+                            train_cmd = [
+                                sys.executable,  # Use same Python interpreter
+                                '-u',  # Force unbuffered output for real-time streaming
+                                train_script,
+                                '--config', config_path,
+                                '--device', str(device),
+                                '--log_file', analysis_log_path,
+                                '--config_file', config.config_file,
+                                '--error_log', error_details_path,
+                                '--erase'
+                            ]
+
+                            # Run training subprocess with repair loop
+                            env = os.environ.copy()
+                            env['PYTHONUNBUFFERED'] = '1'
+                            env['TQDM_DISABLE'] = '1'  # Disable tqdm in subprocess (doesn't stream well)
+
+                            # Code files that Claude might modify
+                            code_files = [
+                                'src/NeuralGraph/models/graph_trainer.py',
+                                'src/NeuralGraph/generators/graph_data_generator.py',
+                            ]
+
+                            max_repair_attempts = 10
+                            training_success = False
+                            error_traceback = None
+
+                            for repair_attempt in range(max_repair_attempts + 1):
+                                process = subprocess.Popen(
+                                    train_cmd,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT,
+                                    text=True,
+                                    bufsize=1,
+                                    env=env
+                                )
+
+                                # Capture all output for logging while also streaming to console
+                                output_lines = []
+                                with open(error_log_path, 'w') as output_file:
+                                    for line in process.stdout:
+                                        output_file.write(line)
+                                        output_file.flush()
+                                        output_lines.append(line.rstrip())
+                                        # Filter: skip tqdm-like lines (progress bars)
+                                        if '|' in line and '%' in line and 'it/s' in line:
+                                            continue
+                                        print(line, end='', flush=True)
+
+                                process.wait()
+
+                                if process.returncode == 0:
+                                    training_success = True
+                                    break
+
+                                # Training failed - capture error info
+                                error_traceback = '\n'.join(output_lines[-50:])  # Last 50 lines
+
+                                if repair_attempt == 0:
+                                    print(f"\033[91m\ntraining subprocess failed with code {process.returncode}\033[0m")
+                                    print("\033[93mthis may indicate a code modification error.\033[0m\n")
+
+                                    # Show last 20 lines of output for context
+                                    print("\033[93mLast 20 lines of output:\033[0m")
+                                    print("-" * 80)
+                                    for line in output_lines[-20:]:
+                                        print(line)
+                                    print("-" * 80)
+
+                                    # Show paths to log files
+                                    print(f"\nFull output logged to: {error_log_path}")
+                                    if os.path.exists(error_details_path):
+                                        print(f"Error details logged to: {error_details_path}")
+                                        try:
+                                            with open(error_details_path, 'r') as f:
+                                                error_details = f.read()
+                                            if error_details.strip():
+                                                print("\n\033[91mDetailed error information:\033[0m")
+                                                print(error_details)
+                                                error_traceback = error_details + '\n' + error_traceback
+                                        except Exception as e:
+                                            print(f"Could not read error details: {e}")
+
+                                # Check if code was modified (only attempt repair for code errors)
+                                modified_code = get_modified_code_files(root_dir, code_files) if is_git_repo(root_dir) else []
+
+                                if not modified_code and repair_attempt == 0:
+                                    print("\033[93mNo code modifications detected - skipping repair attempts\033[0m")
+                                    break
+
+                                # Attempt repair only if code was modified
+                                if repair_attempt < max_repair_attempts and modified_code:
+                                    print(f"\033[93mRepair attempt {repair_attempt + 1}/{max_repair_attempts}: Asking Claude to fix the code error...\033[0m")
+
+                                    repair_prompt = f"""TRAINING CRASHED - Please fix the code error.
+
+Attempt {repair_attempt + 1}/{max_repair_attempts}
+
+Error traceback:
+```
+{error_traceback[-3000:] if error_traceback else 'No traceback available'}
+```
+
+Modified code files that may contain the bug:
+{chr(10).join(f'- {root_dir}/{f}' for f in modified_code)}
+
+Instructions:
+1. Read the error traceback carefully
+2. Identify the bug in the modified code
+3. Fix the bug using the Edit tool
+4. Do NOT make other changes, only fix the crash
+
+If you cannot fix it, say "CANNOT_FIX" and explain why."""
+
+                                    repair_cmd = [
+                                        'claude',
+                                        '-p', repair_prompt,
+                                        '--output-format', 'text',
+                                        '--max-turns', '10',
+                                        '--allowedTools', 'Read', 'Edit', 'Write'
+                                    ]
+
+                                    repair_result = subprocess.run(repair_cmd, cwd=root_dir, capture_output=True, text=True)
+                                    repair_output = repair_result.stdout
+
+                                    if 'CANNOT_FIX' in repair_output:
+                                        print("\033[91mClaude cannot fix the error\033[0m")
+                                        break
+
+                                    print(f"\033[92mRepair attempt {repair_attempt + 1} complete, retrying training...\033[0m")
+
+                            # If still failing after all attempts, rollback and skip iteration
+                            if not training_success:
+                                print("\033[91mAll repair attempts failed - rolling back code changes\033[0m")
+
+                                # Rollback modified files using git
+                                if is_git_repo(root_dir):
+                                    for file_path in code_files:
+                                        try:
+                                            subprocess.run(['git', 'checkout', 'HEAD', '--', file_path],
+                                                          cwd=root_dir, capture_output=True, timeout=10)
+                                        except:
+                                            pass
+                                    print("\033[93mRolled back code to last working state\033[0m")
+
+                                # Log failed modification to memory
+                                if os.path.exists(memory_path):
+                                    with open(memory_path, 'a') as f:
+                                        f.write(f"\n### Failed Code Modification (Iter {iteration})\n")
+                                        f.write(f"Error: {error_traceback[-500:] if error_traceback else 'Unknown'}\n")
+                                        f.write("**DO NOT retry this modification**\n\n")
+
+                                continue  # Skip to next iteration
+
+                            print("\033[92mtraining subprocess completed successfully\033[0m")
+                    else:
+                        # No cluster and no code modifications - run training directly (fastest)
+                        data_train(
+                            config=config,
+                            erase='Claude' in task,  # erase old models when iterating with Claude
+                            best_model=best_model,
+                            style = 'color',
+                            device=device,
+                            log_file=log_file
+                        )
 
                 if "test" in task:
 
@@ -406,9 +669,9 @@ Current config: {config_path}"""
                     'claude',
                     '-p', claude_prompt,
                     '--output-format', 'text',
-                    '--max-turns', '100',
+                    '--max-turns', '500',
                     '--allowedTools',
-                    'Read', 'Edit'
+                    'Read', 'Edit', 'Write'
                 ]
 
                 # run with real-time output streaming and token expiry detection
@@ -450,6 +713,37 @@ Current config: {config_path}"""
                         f.write(output_text.strip())
                         f.write("\n\n")
 
+                # Git tracking: commit any code modifications made by Claude (only if code changes enabled)
+                if code_changes_enabled:
+                    if is_git_repo(root_dir):
+                        print("\n\033[96mchecking for code modifications to commit\033[0m")
+                        git_results = track_code_modifications(
+                            root_dir=root_dir,
+                            iteration=iteration,
+                            analysis_path=analysis_path,
+                            reasoning_path=reasoning_log_path
+                        )
+
+                        if git_results:
+                            for file_path, success, message in git_results:
+                                if success:
+                                    print(f"\033[92m✓ Git: {message}\033[0m")
+                                    # Set flag so next iteration uses subprocess
+                                    code_modified_by_claude = True
+                                else:
+                                    print(f"\033[93m⚠ Git: {message}\033[0m")
+                        else:
+                            print("\033[90m  No code modifications detected\033[0m")
+                    else:
+                        # Not a git repo - check for code modifications directly
+                        tracked_code_files = ['src/NeuralGraph/models/graph_trainer.py']
+                        modified_files = get_modified_code_files(root_dir, tracked_code_files)
+                        if modified_files:
+                            code_modified_by_claude = True
+                            print(f"\033[93m  Code modified (no git): {modified_files}\033[0m")
+                        if iteration == 1:
+                            print("\033[90m  Not a git repository - code modifications will not be version controlled\033[0m")
+
                 # save instruction file at first iteration of each block
                 if iter_in_block == 1:
                     dst_instruction = f"{protocol_save_dir}/block_{block_number:03d}.md"
@@ -472,8 +766,8 @@ Current config: {config_path}"""
                                    block_size=n_iter_block)
 
                 # generate UCB tree visualization from ucb_scores.txt
-                # For block 0: save every iteration; for block 1+: save only final tree
-                should_save_tree = (block_number == 0) or is_block_end
+                # For block 1: save every iteration; for block 2+: save only at block end
+                should_save_tree = (block_number == 1) or is_block_end
                 if should_save_tree:
                     ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{iteration:03d}.png"
                     nodes = parse_ucb_scores(ucb_path)
@@ -515,4 +809,4 @@ Current config: {config_path}"""
                                   title=f"UCB Tree - Iter {iteration}",
                                   simulation_info=sim_info)
 
-# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is "python GNN_Daemon.py -o generate_train_test_plot signal_landscape_Claude"
+# bsub -n 8 -gpu "num=1" -q gpu_h100 -Is -W 6000 "python GNN_Daemon.py -o generate_train_test_plot signal_landscape_Claude"

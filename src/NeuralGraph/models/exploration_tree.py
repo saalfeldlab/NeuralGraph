@@ -908,9 +908,13 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
     # Backpropagate: for each node, increment all ancestors
     for node_id in sorted_node_ids:
         parent_id = nodes[node_id]['parent']
-        while parent_id is not None and parent_id in nodes:
+        visited = set()  # Protect against circular parent references
+        while parent_id is not None and parent_id in nodes and parent_id not in visited:
+            visited.add(parent_id)
             visits[parent_id] += 1
             parent_id = nodes[parent_id]['parent']
+        if parent_id in visited:
+            print(f"Warning: circular parent reference detected at node {node_id}")
 
     # Compute UCB for each node
     # Google PUCT formula: UCB(u) = RankScore(u) + c * sqrt(N_total) / (1 + V(u))

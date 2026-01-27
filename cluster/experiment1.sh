@@ -1,7 +1,12 @@
 #!/bin/bash
 
-#cd /the/place/where/everything/happens
-conda run -n neural-graph \
-  python /somewhere/do_thework.py
-echo "Some success message"
+cd /groups/saalfeld/home/allierc/Graph/NeuralGraph
+
+# Activate conda environment
+source /groups/saalfeld/home/allierc/miniforge3/etc/profile.d/conda.sh
+conda activate neural-graph
+
+python GNN_LLM.py
+
+echo "Experiment completed"
 

@@ -230,6 +230,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     torch.random.fork_rng(devices=device)
     if simulation_config.seed != 42:
         torch.random.manual_seed(simulation_config.seed)
+        np.random.seed(simulation_config.seed)  # Ensure numpy random state is also seeded for reproducibility
 
     dataset_name = config.dataset
     n_neurons = simulation_config.n_neurons
@@ -1092,6 +1093,7 @@ def data_generate_synaptic(
 
     torch.random.fork_rng(devices=device)
     torch.random.manual_seed(simulation_config.seed)
+    np.random.seed(simulation_config.seed)  # Ensure numpy random state is also seeded for reproducibility
 
     print(
         "generating data ..."
@@ -1271,8 +1273,6 @@ def data_generate_synaptic(
                 Dale_law=simulation_config.Dale_law,
                 Dale_law_factor=simulation_config.Dale_law_factor,
             )
-            torch.save(edge_index, f"./graphs_data/{dataset_name}/edge_index.pt")
-            torch.save(mask, f"./graphs_data/{dataset_name}/mask.pt")
             torch.save(connectivity, f"./graphs_data/{dataset_name}/connectivity.pt")
 
             # Plot eigenvalue spectrum and connectivity matrix
@@ -1472,7 +1472,6 @@ def data_generate_synaptic(
         if measurement_noise_level > 0:
             np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
-            torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
             for k in range(x_list.shape[0]):
                 x_list[k, :, 3] = x_list[k, :, 3] + np.random.normal(
                     0, measurement_noise_level, x_list.shape[1]
@@ -1499,7 +1498,6 @@ def data_generate_synaptic(
                     inv_particle_dropout_mask,
                 )
 
-        torch.save(model.p, f"graphs_data/{dataset_name}/model_p_{run}.pt")
         print("data saved ...")
 
 

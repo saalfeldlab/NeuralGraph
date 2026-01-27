@@ -1,6 +1,7 @@
 import os
 import time
 import glob
+import shutil
 import warnings
 import logging
 
@@ -204,6 +205,15 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         np.random.seed(config.training.seed)
 
     log_dir, logger = create_log_dir(config, erase)
+
+    # Backup connectivity.pt to log folder for safety
+    data_folder = f'graphs_data/{dataset_name}'
+    src_path = os.path.join(data_folder, 'connectivity.pt')
+    if os.path.exists(src_path):
+        dst_path = os.path.join(log_dir, 'connectivity.pt')
+        shutil.copy(src_path, dst_path)
+        print(f'backed up connectivity.pt to {log_dir}')
+
     print('loading data...')
 
     x_list = []
@@ -2834,7 +2844,11 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         adj_t = adj_t.t()
         edge_index = adj_t.nonzero().t().contiguous()
     else:
-        edge_index = torch.load(f'./graphs_data/{dataset_name}/edge_index.pt', map_location=device)
+        # Create fully connected edges (all pairs except self-loops)
+        i_indices = torch.arange(n_neurons, device=device).repeat_interleave(n_neurons)
+        j_indices = torch.arange(n_neurons, device=device).repeat(n_neurons)
+        mask_edges = i_indices != j_indices
+        edge_index = torch.stack([i_indices[mask_edges], j_indices[mask_edges]], dim=0)
 
     edge_index_generated = edge_index.clone().detach()
 
@@ -3382,7 +3396,8 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
             elif 'CElegans' in dataset_name:
                 n = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
             else:
-                n = [20, 30, 100, 150, 260, 270, 520, 620, 720, 780]
+                # Generate 10 evenly spaced indices within valid range
+                n = np.linspace(0, n_neurons - 1, 10, dtype=int).tolist()
 
             neuron_gt_list_ = torch.cat(neuron_gt_list, 0)
             neuron_pred_list_ = torch.cat(neuron_pred_list, 0)
