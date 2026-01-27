@@ -11,6 +11,7 @@ from datetime import datetime
 from enum import Enum, auto
 import sys
 import re
+import signal
 
 import torch
 import torch.nn as nn
@@ -271,6 +272,16 @@ train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-ov
 def train(cfg: StagModelParams, run_dir: Path):
     """training loop for staggered latent model."""
     seed_everything(cfg.training.seed)
+
+    # --- Signal handling for graceful termination ---
+    terminate_flag = {"value": False}
+
+    def handle_sigusr2(signum, frame):
+        terminate_flag["value"] = True
+        print("\nSIGUSR2 received - will terminate after current epoch")
+
+    signal.signal(signal.SIGUSR2, handle_sigusr2)
+
     commit_hash = get_git_commit_hash()
 
     log_path = run_dir / "stdout.log"
@@ -492,6 +503,18 @@ def train(cfg: StagModelParams, run_dir: Path):
                 }, checkpoint_path)
                 print(f"  -> saved checkpoint at epoch {epoch+1}")
 
+            # save latest checkpoint (overwrite each epoch)
+            latest_checkpoint_path = checkpoint_dir / "checkpoint_latest.pt"
+            torch.save({
+                'model': model.state_dict(),
+                'z0_bank': z0_bank.state_dict(),
+            }, latest_checkpoint_path)
+
+            # check for graceful termination signal
+            if terminate_flag["value"]:
+                print(f"\n=== graceful termination at epoch {epoch+1} ===")
+                break
+
         # training complete
         training_end = datetime.now()
         total_training_duration = (training_end - training_start).total_seconds()
@@ -519,6 +542,8 @@ def train(cfg: StagModelParams, run_dir: Path):
         chunk_loader.cleanup()
         writer.close()
         print("training complete")
+
+        return terminate_flag["value"]
 
 
 # -------------------------------------------------------------------
@@ -690,7 +715,9 @@ Example:
 
     cfg = tyro.cli(StagModelParams, default=default_cfg, args=tyro_args)
 
-    train(cfg, run_dir)
+    was_terminated = train(cfg, run_dir)
 
-    with open(run_dir / "complete", "w"):
+    # add a completion/termination flag
+    flag_file = "terminated" if was_terminated else "complete"
+    with open(run_dir / flag_file, "w"):
         pass

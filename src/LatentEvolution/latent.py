@@ -10,6 +10,7 @@ from enum import Enum, auto
 import sys
 import re
 import time
+import signal
 
 import torch
 import torch.nn as nn
@@ -526,6 +527,15 @@ def train(cfg: ModelParams, run_dir: Path):
     # --- Reproducibility ---
     seed_everything(cfg.training.seed)
 
+    # --- Signal handling for graceful termination ---
+    terminate_flag = {"value": False}
+
+    def handle_sigusr2(signum, frame):
+        terminate_flag["value"] = True
+        print("\nSIGUSR2 received - will terminate after current epoch")
+
+    signal.signal(signal.SIGUSR2, handle_sigusr2)
+
     # --- Get git commit hash ---
     commit_hash = get_git_commit_hash()
 
@@ -955,9 +965,18 @@ def train(cfg: ModelParams, run_dir: Path):
                 torch.save(model.state_dict(), checkpoint_path)
                 print(f"  → Saved periodic checkpoint at epoch {epoch+1}")
 
+            # Save latest checkpoint (overwrite each epoch)
+            latest_checkpoint_path = checkpoint_dir / "checkpoint_latest.pt"
+            torch.save(model.state_dict(), latest_checkpoint_path)
+
             # Step profiler if enabled
             if profiler is not None:
                 profiler.step()
+
+            # Check for graceful termination signal
+            if terminate_flag["value"]:
+                print(f"\n=== graceful termination at epoch {epoch+1} ===")
+                break
 
         # --- Cleanup profiler ---
         if profiler is not None:
@@ -1067,6 +1086,8 @@ def train(cfg: ModelParams, run_dir: Path):
         writer.close()
         print("tensorboard logging completed")
 
+        return terminate_flag["value"]
+
 
 # -------------------------------------------------------------------
 # CLI Entry Point
@@ -1128,10 +1149,11 @@ To view available overrides:
     # Parse CLI overrides with Tyro, passing filtered args explicitly
     cfg = tyro.cli(ModelParams, default=default_cfg, args=tyro_args)
 
-    train(cfg, run_dir)
+    was_terminated = train(cfg, run_dir)
 
-    # add a completion flag
-    with open(run_dir / "complete", "w"):
+    # add a completion/termination flag
+    flag_file = "terminated" if was_terminated else "complete"
+    with open(run_dir / flag_file, "w"):
         pass
 
 
