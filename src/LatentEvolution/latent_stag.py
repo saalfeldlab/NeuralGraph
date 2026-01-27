@@ -1,0 +1,686 @@
+"""
+Latent staggered model: decode-only architecture with learned initial latents.
+
+This model removes the encoder and instead learns z0 for each time window.
+Requires staggered acquisition mode where different neurons are observed at
+different phases within each time_units cycle.
+"""
+
+from pathlib import Path
+from datetime import datetime
+from enum import Enum, auto
+import sys
+import re
+
+import torch
+import torch.nn as nn
+from torch.utils.tensorboard import SummaryWriter
+import yaml
+import tyro
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+
+from LatentEvolution.training_config import TrainingConfig, CrossValidationConfig
+from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
+from LatentEvolution.eed_model import (
+    MLP,
+    MLPWithSkips,
+    MLPParams,
+    Evolver,
+    DecoderParams,
+    EvolverParams,
+    StimulusEncoderParams,
+)
+from LatentEvolution.training_utils import (
+    LossAccumulator,
+    seed_everything,
+    get_device,
+)
+from LatentEvolution.chunk_streaming import calculate_chunk_params
+from LatentEvolution.acquisition import (
+    compute_neuron_phases,
+    sample_batch_indices,
+    StaggeredRandomMode,
+)
+from LatentEvolution.latent import load_dataset, load_val_only
+from LatentEvolution.diagnostics_stag import run_validation_diagnostics
+
+
+# -------------------------------------------------------------------
+# Config Classes
+# -------------------------------------------------------------------
+
+
+class StagModelParams(BaseModel):
+    """model parameters for staggered latent model (no encoder)."""
+    latent_dims: int = Field(..., json_schema_extra={"short_name": "ld"})
+    num_neurons: int
+    use_batch_norm: bool = True
+    activation: str = Field("ReLU", description="activation function from torch.nn")
+    decoder_params: DecoderParams
+    evolver_params: EvolverParams
+    stimulus_encoder_params: StimulusEncoderParams
+    training: TrainingConfig
+    cross_validation_configs: list[CrossValidationConfig] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
+
+    @field_validator("activation")
+    @classmethod
+    def validate_activation(cls, v: str) -> str:
+        if not hasattr(nn, v):
+            raise ValueError(f"unknown activation '{v}' in torch.nn")
+        return v
+
+    @model_validator(mode='after')
+    def validate_staggered_acquisition(self):
+        """ensure acquisition mode is staggered_random."""
+        if not isinstance(self.training.acquisition_mode, StaggeredRandomMode):
+            raise ValueError(
+                f"latent_stag requires staggered_random acquisition mode. "
+                f"got: {self.training.acquisition_mode.mode}"
+            )
+        return self
+
+    def flatten(self, sep: str = ".") -> dict[str, int | float | str | bool]:
+        """flatten the params into a single-level dictionary."""
+        def _flatten_dict(
+            d: dict[str, int | float | str | bool | dict],
+            parent_key: str = "",
+        ) -> dict[str, int | float | str | bool]:
+            items: list[tuple[str, int | float | str | bool]] = []
+            for k, v in d.items():
+                new_key = f"{parent_key}{sep}{k}" if parent_key else k
+                if isinstance(v, dict):
+                    items.extend(_flatten_dict(v, new_key).items())
+                else:
+                    items.append((new_key, v))
+            return dict(items)
+
+        return _flatten_dict(self.model_dump())
+
+
+# -------------------------------------------------------------------
+# Loss Types
+# -------------------------------------------------------------------
+
+
+class LossType(Enum):
+    """loss component types for staggered model."""
+    TOTAL = auto()
+    EVOLVE = auto()
+    REG = auto()
+    TV_LOSS = auto()
+
+
+# -------------------------------------------------------------------
+# PyTorch Models
+# -------------------------------------------------------------------
+
+
+class LatentStagModel(nn.Module):
+    """decode-only model with evolver and stimulus encoder (no encoder)."""
+
+    def __init__(self, params: StagModelParams):
+        super().__init__()
+
+        # decoder
+        decoder_cls = MLPWithSkips if params.decoder_params.use_input_skips else MLP
+        self.decoder = decoder_cls(
+            MLPParams(
+                num_input_dims=params.latent_dims,
+                num_hidden_layers=params.decoder_params.num_hidden_layers,
+                num_hidden_units=params.decoder_params.num_hidden_units,
+                num_output_dims=params.num_neurons,
+                use_batch_norm=params.use_batch_norm,
+                activation=params.activation,
+            )
+        )
+
+        # stimulus encoder
+        stimulus_encoder_cls = MLPWithSkips if params.stimulus_encoder_params.use_input_skips else MLP
+        self.stimulus_encoder = stimulus_encoder_cls(
+            MLPParams(
+                num_input_dims=params.stimulus_encoder_params.num_input_dims,
+                num_hidden_units=params.stimulus_encoder_params.num_hidden_units,
+                num_hidden_layers=params.stimulus_encoder_params.num_hidden_layers,
+                num_output_dims=params.stimulus_encoder_params.num_output_dims,
+                use_batch_norm=False,
+                activation=params.activation,
+            )
+        )
+
+        # evolver
+        self.evolver = Evolver(
+            latent_dims=params.latent_dims,
+            stim_dims=params.stimulus_encoder_params.num_output_dims,
+            evolver_params=params.evolver_params,
+            use_batch_norm=params.use_batch_norm,
+            activation=params.activation,
+        )
+
+
+# -------------------------------------------------------------------
+# Training Step
+# -------------------------------------------------------------------
+
+
+def train_step_nocompile(
+    model: LatentStagModel,
+    z0: torch.Tensor,
+    train_data: torch.Tensor,
+    train_stim: torch.Tensor,
+    observation_indices: torch.Tensor,
+    cfg: StagModelParams,
+) -> dict[LossType, torch.Tensor]:
+    """
+    training step for staggered model.
+
+    args:
+        model: the staggered model (decoder, evolver, stim encoder)
+        z0: initial latent for this batch (batch_size, latent_dims)
+        train_data: chunk data (chunk_timesteps, num_neurons)
+        train_stim: chunk stimulus (chunk_timesteps, stim_dims)
+        observation_indices: (batch_size, num_neurons) observation times
+        cfg: model configuration
+
+    returns:
+        dict of loss components
+    """
+    device = train_data.device
+    loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
+
+    losses: dict[LossType, torch.Tensor] = {}
+
+    # regularization loss
+    reg_loss = torch.tensor(0.0, device=device)
+    if cfg.decoder_params.l1_reg_loss > 0.:
+        for p in model.decoder.parameters():
+            reg_loss += torch.abs(p).mean() * cfg.decoder_params.l1_reg_loss
+    if cfg.evolver_params.l1_reg_loss > 0.:
+        for p in model.evolver.parameters():
+            reg_loss += torch.abs(p).mean() * cfg.evolver_params.l1_reg_loss
+    losses[LossType.REG] = reg_loss
+
+    # total variation regularization
+    tv_loss = torch.tensor(0.0, device=device)
+
+    dt = cfg.training.time_units
+    num_multiples = cfg.training.evolve_multiple_steps
+    total_steps = dt * num_multiples
+
+    batch_size, num_neurons = observation_indices.shape
+    neuron_indices = torch.arange(num_neurons, device=device).unsqueeze(0).expand(batch_size, num_neurons)
+
+    # stimulus for the full window
+    batch_start_times = observation_indices.min(dim=1).values  # (batch_size,)
+    stim_indices = batch_start_times.unsqueeze(0) + torch.arange(total_steps, device=device).unsqueeze(1)
+    stim_t = train_stim[stim_indices, :]  # (total_steps, batch_size, stim_dims)
+    dim_stim = train_stim.shape[1]
+    dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
+
+    # encode all stimulus: (total_steps, batch_size, stim_latent_dims)
+    proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
+
+    # evolve from z0, compute loss at tu boundaries
+    proj_t = z0  # (batch_size, latent_dims)
+    evolve_loss = torch.tensor(0.0, device=device)
+
+    if cfg.evolver_params.tv_reg_loss > 0.:
+        for t in range(total_steps):
+            delta_z = model.evolver.evolver(torch.cat([proj_t, proj_stim_t[t]], dim=1))
+            tv_loss += torch.abs(delta_z).mean() * cfg.evolver_params.tv_reg_loss
+            proj_t = proj_t + delta_z
+
+            # at tu boundaries, compute loss
+            if (t + 1) % dt == 0:
+                m = (t + 1) // dt
+                x_pred = model.decoder(proj_t)  # prediction at tu boundary
+                # ground truth at staggered observation times
+                target_indices = observation_indices + m * dt
+                x_target = train_data[target_indices, neuron_indices]
+                evolve_loss = evolve_loss + loss_fn(x_pred, x_target)
+    else:
+        for t in range(total_steps):
+            proj_t = model.evolver(proj_t, proj_stim_t[t])
+
+            # at tu boundaries, compute loss
+            if (t + 1) % dt == 0:
+                m = (t + 1) // dt
+                x_pred = model.decoder(proj_t)  # prediction at tu boundary
+                # ground truth at staggered observation times
+                target_indices = observation_indices + m * dt
+                x_target = train_data[target_indices, neuron_indices]
+                evolve_loss = evolve_loss + loss_fn(x_pred, x_target)
+
+    losses[LossType.EVOLVE] = evolve_loss
+    losses[LossType.TV_LOSS] = tv_loss
+    losses[LossType.TOTAL] = reg_loss + tv_loss + evolve_loss
+
+    return losses
+
+
+train_step = torch.compile(train_step_nocompile, fullgraph=True, mode="reduce-overhead")
+
+
+# -------------------------------------------------------------------
+# Training
+# -------------------------------------------------------------------
+
+
+def train(cfg: StagModelParams, run_dir: Path):
+    """training loop for staggered latent model."""
+    seed_everything(cfg.training.seed)
+    commit_hash = get_git_commit_hash()
+
+    log_path = run_dir / "stdout.log"
+    err_path = run_dir / "stderr.log"
+    with open(log_path, "w", buffering=1) as log_file, open(err_path, "w", buffering=1) as err_log:
+        sys.stdout = log_file
+        sys.stderr = err_log
+
+        print(f"run directory: {run_dir.resolve()}")
+
+        # save config
+        config_path = run_dir / "config.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(cfg.model_dump(), f, sort_keys=False, indent=2)
+        print(f"saved config to {config_path}")
+
+        # device setup
+        device = get_device()
+        if cfg.training.use_tf32_matmul and device.type == "cuda":
+            torch.set_float32_matmul_precision("high")
+            print("tf32 matmul precision: enabled ('high')")
+
+        # model
+        model = LatentStagModel(cfg).to(device)
+        print(f"model parameters: {sum(p.numel() for p in model.parameters()):,}")
+        model.train()
+
+        # load data (reuse from latent.py)
+        dt = cfg.training.time_units
+        chunk_loader, val_data, val_stim, _neuron_data, train_total_timesteps = load_dataset(
+            simulation_config=cfg.training.simulation_config,
+            column_to_model=cfg.training.column_to_model,
+            data_split=cfg.training.data_split,
+            num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
+            device=device,
+            chunk_size=65536,
+            time_units=dt,
+            training_data_path=cfg.training.training_data_path,
+        )
+        print(f"training data: {train_total_timesteps} timesteps (chunked streaming)")
+
+        # z0 bank
+        num_z0_windows = train_total_timesteps // dt
+        print(f"z0 bank: {num_z0_windows} windows (one per {dt} timesteps)")
+
+        z0_bank = nn.Embedding(num_z0_windows, cfg.latent_dims).to(device)
+        nn.init.normal_(z0_bank.weight, mean=0.0, std=0.01)
+        print(f"z0 bank parameters: {z0_bank.weight.numel():,}")
+
+        # optimizer
+        OptimizerClass = getattr(torch.optim, cfg.training.optimizer)
+        optimizer = OptimizerClass(
+            [
+                {'params': model.parameters()},
+                {'params': z0_bank.parameters()},
+            ],
+            lr=cfg.training.learning_rate
+        )
+
+        # tensorboard
+        writer = SummaryWriter(log_dir=run_dir)
+        print(f"tensorboard --logdir={run_dir}")
+
+        # chunking
+        chunk_size = 65536
+        chunks_per_epoch, batches_per_chunk, batches_per_epoch = calculate_chunk_params(
+            total_timesteps=train_total_timesteps,
+            chunk_size=chunk_size,
+            batch_size=cfg.training.batch_size,
+            data_passes_per_epoch=cfg.training.data_passes_per_epoch,
+        )
+        print(f"chunking: {chunks_per_epoch} chunks/epoch, {batches_per_chunk} batches/chunk, {batches_per_epoch} total batches/epoch")
+
+        # neuron phases
+        neuron_phases = compute_neuron_phases(
+            num_neurons=cfg.num_neurons,
+            time_units=dt,
+            acquisition_mode=cfg.training.acquisition_mode,
+            device=device,
+        )
+        print(f"acquisition mode: staggered_random, phases for {cfg.num_neurons} neurons")
+
+        # --- load cross-validation datasets ---
+        cv_datasets: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
+        for cv_config in cfg.cross_validation_configs:
+            cv_name = cv_config.name or cv_config.simulation_config
+            data_split = cv_config.data_split or cfg.training.data_split
+            cv_val_data, cv_val_stim = load_val_only(
+                simulation_config=cv_config.simulation_config,
+                column_to_model=cfg.training.column_to_model,
+                data_split=data_split,
+                num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
+                device=device,
+            )
+            cv_datasets[cv_name] = (cv_val_data, cv_val_stim)
+            print(f"loaded cross-validation dataset: {cv_name} (val shape: {cv_val_data.shape})")
+
+        train_step_fn = globals()[cfg.training.train_step]
+        total_steps = dt * cfg.training.evolve_multiple_steps
+        training_start = datetime.now()
+        epoch_durations = []
+
+        checkpoint_dir = run_dir / "checkpoints"
+        checkpoint_dir.mkdir(exist_ok=True)
+
+        # epoch loop
+        for epoch in range(cfg.training.epochs):
+            epoch_start = datetime.now()
+            losses = LossAccumulator(LossType)
+
+            chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+
+            for _ in range(chunks_per_epoch):
+                chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                if chunk_data is None or chunk_start is None or chunk_stim is None:
+                    break
+
+                for _ in range(batches_per_chunk):
+                    optimizer.zero_grad()
+
+                    observation_indices = sample_batch_indices(
+                        chunk_size=chunk_data.shape[0],
+                        total_steps=total_steps,
+                        time_units=dt,
+                        batch_size=cfg.training.batch_size,
+                        num_neurons=cfg.num_neurons,
+                        neuron_phases=neuron_phases,
+                        device=device,
+                    )
+
+                    # z0 for this batch
+                    batch_start_times = observation_indices.min(dim=1).values
+                    global_start_times = chunk_start + batch_start_times
+                    z0_indices = global_start_times // dt
+                    z0 = z0_bank(z0_indices)
+
+                    loss_dict = train_step_fn(
+                        model, z0, chunk_data, chunk_stim, observation_indices, cfg
+                    )
+                    loss_dict[LossType.TOTAL].backward()
+
+                    if cfg.training.grad_clip_max_norm > 0:
+                        torch.nn.utils.clip_grad_norm_(
+                            list(model.parameters()) + list(z0_bank.parameters()),
+                            cfg.training.grad_clip_max_norm
+                        )
+                    optimizer.step()
+                    losses.accumulate(loss_dict)
+
+            mean_losses = losses.mean()
+            epoch_end = datetime.now()
+            epoch_duration = (epoch_end - epoch_start).total_seconds()
+            epoch_durations.append(epoch_duration)
+            total_elapsed = (epoch_end - training_start).total_seconds()
+
+            print(
+                f"epoch {epoch+1}/{cfg.training.epochs} | "
+                f"loss: {mean_losses[LossType.TOTAL]:.4e} | "
+                f"evolve: {mean_losses[LossType.EVOLVE]:.4e} | "
+                f"duration: {epoch_duration:.2f}s"
+            )
+
+            for loss_type, loss_value in mean_losses.items():
+                writer.add_scalar(f"Loss/train_{loss_type.name.lower()}", loss_value, epoch)
+            writer.add_scalar("Time/epoch_duration", epoch_duration, epoch)
+            writer.add_scalar("Time/total_elapsed", total_elapsed, epoch)
+
+            # run validation diagnostics
+            if cfg.training.diagnostics_freq_epochs > 0 and (epoch + 1) % cfg.training.diagnostics_freq_epochs == 0:
+                model.eval()
+
+                # main validation dataset
+                diag_start = datetime.now()
+                run_validation_diagnostics(
+                    run_dir=run_dir,
+                    val_data=val_data,
+                    val_stim=val_stim,
+                    model=model,
+                    cfg=cfg,
+                    writer=writer,
+                    epoch=epoch,
+                    dataset_name="validation",
+                )
+                diag_duration = (datetime.now() - diag_start).total_seconds()
+                print(f"  validation diagnostics: {diag_duration:.1f}s")
+
+                # cross-validation datasets
+                for cv_name, (cv_val_data, cv_val_stim) in cv_datasets.items():
+                    cv_start = datetime.now()
+                    run_validation_diagnostics(
+                        run_dir=run_dir,
+                        val_data=cv_val_data,
+                        val_stim=cv_val_stim,
+                        model=model,
+                        cfg=cfg,
+                        writer=writer,
+                        epoch=epoch,
+                        dataset_name=f"cv_{cv_name}",
+                    )
+                    cv_duration = (datetime.now() - cv_start).total_seconds()
+                    print(f"  cv/{cv_name} diagnostics: {cv_duration:.1f}s")
+
+                model.train()
+
+            if cfg.training.save_checkpoint_every_n_epochs > 0 and (epoch + 1) % cfg.training.save_checkpoint_every_n_epochs == 0:
+                checkpoint_path = checkpoint_dir / f"checkpoint_epoch_{epoch+1:04d}.pt"
+                torch.save({
+                    'model': model.state_dict(),
+                    'z0_bank': z0_bank.state_dict(),
+                }, checkpoint_path)
+                print(f"  -> saved checkpoint at epoch {epoch+1}")
+
+        # training complete
+        training_end = datetime.now()
+        total_training_duration = (training_end - training_start).total_seconds()
+        avg_epoch_duration = sum(epoch_durations) / len(epoch_durations) if epoch_durations else 0.0
+
+        model_path = run_dir / "model_final.pt"
+        torch.save({
+            'model': model.state_dict(),
+            'z0_bank': z0_bank.state_dict(),
+        }, model_path)
+        print(f"saved final model to {model_path}")
+
+        metrics = {
+            "final_train_loss": float(mean_losses[LossType.TOTAL]),
+            "commit_hash": commit_hash,
+            "training_duration_seconds": round(total_training_duration, 2),
+            "avg_epoch_duration_seconds": round(avg_epoch_duration, 2),
+            "num_z0_windows": num_z0_windows,
+        }
+        metrics_path = run_dir / "final_metrics.yaml"
+        with open(metrics_path, "w") as f:
+            yaml.dump(metrics, f, sort_keys=False, indent=2)
+        print(f"saved metrics to {metrics_path}")
+
+        chunk_loader.cleanup()
+        writer.close()
+        print("training complete")
+
+
+# -------------------------------------------------------------------
+# Inference / Rollout
+# -------------------------------------------------------------------
+
+
+def optimize_z0(
+    model: LatentStagModel,
+    target_data: torch.Tensor,
+    stimulus: torch.Tensor,
+    latent_dims: int,
+    n_steps: int = 100,
+    lr: float = 1e-2,
+) -> torch.Tensor:
+    """
+    optimize z0 to fit a short window of data with frozen model.
+
+    args:
+        model: the staggered model (must be in eval mode, params frozen)
+        target_data: ground truth data (window_len, num_neurons)
+        stimulus: stimulus for the window (window_len, stim_dims)
+        latent_dims: dimension of latent space
+        n_steps: number of optimization steps
+        lr: learning rate for z0 optimization
+
+    returns:
+        optimized z0 tensor (1, latent_dims)
+    """
+    device = target_data.device
+    window_len = target_data.shape[0]
+
+    # learnable z0
+    z0 = torch.randn(1, latent_dims, device=device, requires_grad=True)
+    optimizer = torch.optim.Adam([z0], lr=lr)
+
+    # pre-encode stimulus (detach so it's not part of the backward graph)
+    with torch.no_grad():
+        stim_latent = model.stimulus_encoder(stimulus)  # (window_len, stim_latent_dim)
+
+    for _ in range(n_steps):
+        optimizer.zero_grad()
+
+        # evolve from z0
+        z = z0
+        predictions = []
+        for t in range(window_len):
+            z = model.evolver(z, stim_latent[t:t+1])
+            pred = model.decoder(z)
+            predictions.append(pred)
+
+        pred_trace = torch.cat(predictions, dim=0)  # (window_len, num_neurons)
+        loss = torch.nn.functional.mse_loss(pred_trace, target_data)
+        loss.backward()
+        optimizer.step()
+
+    return z0.detach()
+
+
+def evolve_n_steps_latent(
+    model: LatentStagModel,
+    fit_target_data: torch.Tensor,
+    fit_stimulus: torch.Tensor,
+    rollout_stimulus: torch.Tensor,
+    latent_dims: int,
+    fit_steps: int = 100,
+    fit_lr: float = 1e-2,
+) -> torch.Tensor:
+    """
+    evolve the staggered model by n time steps in latent space.
+
+    first optimizes z0 to fit a window of data (e.g., ems * time_units steps),
+    then rolls out from that z0.
+
+    args:
+        model: the staggered model (decoder, evolver, stim encoder)
+        fit_target_data: target data for fitting z0 (fit_window, num_neurons)
+            this is x[t+1], x[t+2], ..., x[t+fit_window]
+        fit_stimulus: stimulus for fitting window (fit_window, stim_dims)
+            this is stim[t], stim[t+1], ..., stim[t+fit_window-1]
+        rollout_stimulus: stimulus for rollout (n_steps, stim_dims)
+            starts after fit window
+        latent_dims: dimension of latent space
+        fit_steps: number of optimization steps for z0
+        fit_lr: learning rate for z0 optimization
+
+    returns:
+        predicted_trace: tensor of shape (n_steps, neurons) with predicted states
+    """
+    # fit z0 using the fit window
+    z0 = optimize_z0(
+        model=model,
+        target_data=fit_target_data,
+        stimulus=fit_stimulus,
+        latent_dims=latent_dims,
+        n_steps=fit_steps,
+        lr=fit_lr,
+    )
+
+    # evolve through fit window to get to the rollout start point
+    fit_window = fit_target_data.shape[0]
+    fit_stim_latent = model.stimulus_encoder(fit_stimulus)
+    z = z0
+    for t in range(fit_window):
+        z = model.evolver(z, fit_stim_latent[t:t+1])
+
+    # now roll out from z (which is at the end of fit window)
+    n_steps = rollout_stimulus.shape[0]
+    rollout_stim_latent = model.stimulus_encoder(rollout_stimulus)
+
+    latent_trace = []
+    for t in range(n_steps):
+        z = model.evolver(z, rollout_stim_latent[t:t+1])
+        latent_trace.append(z.squeeze(0))
+
+    latent_trace = torch.stack(latent_trace, dim=0)  # (n_steps, latent_dims)
+    predicted_trace = model.decoder(latent_trace)  # (n_steps, neurons)
+
+    return predicted_trace
+
+
+# -------------------------------------------------------------------
+# CLI Entry Point
+# -------------------------------------------------------------------
+
+
+if __name__ == "__main__":
+    msg = """Usage: python latent_stag.py <expt_code> <default_config> [overrides...]
+
+Arguments:
+  expt_code       Experiment code (must match [A-Za-z0-9_]+)
+  default_config  Base config file (e.g., latent_stag_20step.yaml)
+
+Example:
+  python latent_stag.py my_experiment latent_stag_20step.yaml --training.epochs 100"""
+
+    if len(sys.argv) < 3:
+        print(msg)
+        sys.exit(1)
+
+    expt_code = sys.argv[1]
+    default_yaml = sys.argv[2]
+
+    if not re.match("[A-Za-z0-9_]+", expt_code):
+        print(f"error: expt_code must match [A-Za-z0-9_]+, got: {expt_code}")
+        sys.exit(1)
+
+    default_path = Path(__file__).resolve().parent / default_yaml
+    if not default_path.exists():
+        print(f"error: config file not found: {default_path}")
+        sys.exit(1)
+
+    tyro_args = sys.argv[3:]
+    commit_hash = get_git_commit_hash()
+
+    run_dir = create_run_directory(
+        expt_code=expt_code,
+        tyro_args=tyro_args,
+        model_class=StagModelParams,
+        commit_hash=commit_hash,
+    )
+
+    with open(run_dir / "command_line.txt", "w") as out:
+        out.write("\n".join(sys.argv))
+
+    with open(default_path, "r") as f:
+        data = yaml.safe_load(f)
+    default_cfg = StagModelParams(**data)
+
+    cfg = tyro.cli(StagModelParams, default=default_cfg, args=tyro_args)
+
+    train(cfg, run_dir)
+
+    with open(run_dir / "complete", "w"):
+        pass

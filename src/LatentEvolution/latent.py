@@ -65,6 +65,7 @@ def load_dataset(
     device: torch.device,
     chunk_size: int = 65536,
     time_units: int = 1,
+    training_data_path: str | None = None,
 ):
     """
     load dataset from zarr with chunked streaming for training data.
@@ -80,11 +81,15 @@ def load_dataset(
         device: pytorch device to load data onto
         chunk_size: chunk size for streaming (default: 65536 = 64K)
         time_units: alignment constraint for chunk starts (default: 1)
+        training_data_path: absolute path to data directory (overrides simulation_config)
 
     returns:
         tuple of (chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps)
     """
-    data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
+    if training_data_path is not None:
+        data_path = training_data_path
+    else:
+        data_path = f"graphs_data/fly/{simulation_config}/x_list_0"
     column_idx = FlyVisSim[column_to_model].value
 
     # load val data directly to GPU (small enough to fit)
@@ -572,6 +577,7 @@ def train(cfg: ModelParams, run_dir: Path):
             device=device,
             chunk_size=65536,  # 64K timesteps per chunk
             time_units=cfg.training.time_units,
+            training_data_path=cfg.training.training_data_path,
         )
 
         print(f"chunked streaming: train {train_total_timesteps} timesteps (chunked), val {val_data.shape}")

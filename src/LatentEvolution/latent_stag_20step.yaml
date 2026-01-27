@@ -1,0 +1,74 @@
+# configuration for staggered latent model (no encoder)
+# requires staggered_random acquisition mode
+
+latent_dims: 256
+num_neurons: 13741
+use_batch_norm: false
+activation: ReLU
+
+decoder_params:
+  num_hidden_layers: 1
+  num_hidden_units: 256
+  l1_reg_loss: 0.0
+  use_input_skips: true
+
+evolver_params:
+  num_hidden_layers: 1
+  num_hidden_units: 256
+  l1_reg_loss: 0.0
+  activation: Tanh
+  use_input_skips: true
+  zero_init: true
+  tv_reg_loss: 0.0
+
+stimulus_encoder_params:
+  num_input_dims: 1736
+  num_hidden_layers: 3
+  num_hidden_units: 64
+  num_output_dims: 64
+  use_input_skips: true
+
+training:
+  time_units: 20
+  acquisition_mode:
+    mode: staggered_random
+    seed: 653
+  evolve_multiple_steps: 5
+  simulation_config: "fly_N9_62_1_youtube-vos_calcium"
+  data_passes_per_epoch: 1
+  epochs: 100
+  save_best_checkpoint: true
+  save_checkpoint_every_n_epochs: 0
+  diagnostics_freq_epochs: 1
+  batch_size: 256
+  learning_rate: 0.00001
+  optimizer: Adam
+  train_step: train_step
+  column_to_model: "VOLTAGE"
+  use_tf32_matmul: true
+  seed: 234
+  loss_function: mse_loss
+  grad_clip_max_norm: 0.0
+
+  data_split:
+    train_start: 5120
+    train_end: 972800
+    validation_start: 973056
+    validation_end: 987648
+
+# cross-dataset validation (evaluates trained model on different datasets)
+cross_validation_configs:
+  - simulation_config: "fly_N9_62_0_optical_flow_calcium"
+    name: "optical_flow"
+    data_split:
+      train_start: 0
+      train_end: 1
+      validation_start: 5000
+      validation_end: 15000
+  - simulation_config: "fly_N9_62_0_davis_calcium"
+    name: "davis_2016_2017"
+    data_split:
+      train_start: 0
+      train_end: 1
+      validation_start: 5000
+      validation_end: 25000
