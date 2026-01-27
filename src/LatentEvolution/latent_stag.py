@@ -407,37 +407,38 @@ def train(cfg: StagModelParams, run_dir: Path):
                 if chunk_data is None or chunk_start is None or chunk_stim is None:
                     break
 
-                for _ in range(batches_per_chunk):
-                    optimizer.zero_grad()
+                with profiler.event("train", "compute", thread="main"):
+                    for _ in range(batches_per_chunk):
+                        optimizer.zero_grad()
 
-                    observation_indices = sample_batch_indices(
-                        chunk_size=chunk_data.shape[0],
-                        total_steps=total_steps,
-                        time_units=dt,
-                        batch_size=cfg.training.batch_size,
-                        num_neurons=cfg.num_neurons,
-                        neuron_phases=neuron_phases,
-                        device=device,
-                    )
-
-                    # z0 for this batch
-                    batch_start_times = observation_indices.min(dim=1).values
-                    global_start_times = chunk_start + batch_start_times
-                    z0_indices = global_start_times // dt
-                    z0 = z0_bank(z0_indices)
-
-                    loss_dict = train_step_fn(
-                        model, z0, chunk_data, chunk_stim, observation_indices, cfg
-                    )
-                    loss_dict[LossType.TOTAL].backward()
-
-                    if cfg.training.grad_clip_max_norm > 0:
-                        torch.nn.utils.clip_grad_norm_(
-                            list(model.parameters()) + list(z0_bank.parameters()),
-                            cfg.training.grad_clip_max_norm
+                        observation_indices = sample_batch_indices(
+                            chunk_size=chunk_data.shape[0],
+                            total_steps=total_steps,
+                            time_units=dt,
+                            batch_size=cfg.training.batch_size,
+                            num_neurons=cfg.num_neurons,
+                            neuron_phases=neuron_phases,
+                            device=device,
                         )
-                    optimizer.step()
-                    losses.accumulate(loss_dict)
+
+                        # z0 for this batch
+                        batch_start_times = observation_indices.min(dim=1).values
+                        global_start_times = chunk_start + batch_start_times
+                        z0_indices = global_start_times // dt
+                        z0 = z0_bank(z0_indices)
+
+                        loss_dict = train_step_fn(
+                            model, z0, chunk_data, chunk_stim, observation_indices, cfg
+                        )
+                        loss_dict[LossType.TOTAL].backward()
+
+                        if cfg.training.grad_clip_max_norm > 0:
+                            torch.nn.utils.clip_grad_norm_(
+                                list(model.parameters()) + list(z0_bank.parameters()),
+                                cfg.training.grad_clip_max_norm
+                            )
+                        optimizer.step()
+                        losses.accumulate(loss_dict)
 
             mean_losses = losses.mean()
             epoch_end = datetime.now()
