@@ -15,6 +15,7 @@ import re
 import torch
 import torch.nn as nn
 from torch.utils.tensorboard import SummaryWriter
+import matplotlib.pyplot as plt
 import yaml
 import tyro
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
@@ -443,32 +444,42 @@ def train(cfg: StagModelParams, run_dir: Path):
 
                 # main validation dataset
                 diag_start = datetime.now()
-                run_validation_diagnostics(
+                val_metrics, val_figures = run_validation_diagnostics(
                     val_data=val_data,
                     val_stim=val_stim,
                     model=model,
                     cfg=cfg,
-                    writer=writer,
                     epoch=epoch,
-                    dataset_name="validation",
                 )
                 diag_duration = (datetime.now() - diag_start).total_seconds()
+
+                for metric_name, metric_value in val_metrics.items():
+                    writer.add_scalar(f"Val/{metric_name}", metric_value, epoch)
+                for fig_name, fig in val_figures.items():
+                    writer.add_figure(f"Val/{fig_name}", fig, epoch)
+                    plt.close(fig)
+
                 writer.add_scalar("Time/diagnostics_duration", diag_duration, epoch)
                 print(f"  validation diagnostics: {diag_duration:.1f}s")
 
                 # cross-validation datasets
                 for cv_name, (cv_val_data, cv_val_stim) in cv_datasets.items():
                     cv_start = datetime.now()
-                    run_validation_diagnostics(
+                    cv_metrics, cv_figures = run_validation_diagnostics(
                         val_data=cv_val_data,
                         val_stim=cv_val_stim,
                         model=model,
                         cfg=cfg,
-                        writer=writer,
                         epoch=epoch,
-                        dataset_name=f"cv_{cv_name}",
                     )
                     cv_duration = (datetime.now() - cv_start).total_seconds()
+
+                    for metric_name, metric_value in cv_metrics.items():
+                        writer.add_scalar(f"CrossVal/{cv_name}/{metric_name}", metric_value, epoch)
+                    for fig_name, fig in cv_figures.items():
+                        writer.add_figure(f"CrossVal/{cv_name}/{fig_name}", fig, epoch)
+                        plt.close(fig)
+
                     print(f"  cv/{cv_name} diagnostics: {cv_duration:.1f}s")
 
                 model.train()

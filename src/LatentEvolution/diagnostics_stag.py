@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 if TYPE_CHECKING:
     from LatentEvolution.latent_stag import LatentStagModel, StagModelParams
 
-from torch.utils.tensorboard import SummaryWriter
 from LatentEvolution.diagnostics import (
     compute_linear_interpolation_baseline,
     compute_rollout_stability_metrics,
@@ -143,15 +142,17 @@ def run_validation_diagnostics(
     val_stim: torch.Tensor,
     model: LatentStagModel,
     cfg: StagModelParams,
-    writer: SummaryWriter,
     epoch: int,
-    dataset_name: str = "validation",
     n_starts: int = 10,
     n_rollout_steps: int = 2000,
     fit_window: int | None = None,
-) -> dict[str, float]:
+) -> tuple[dict[str, float], dict[str, plt.Figure]]:
     """
     run validation diagnostics for LatentStagModel.
+
+    returns:
+        metrics: dict of metric name -> value
+        figures: dict of figure name -> matplotlib figure
     """
     time_units = cfg.training.time_units
     evolve_multiple_steps = cfg.training.evolve_multiple_steps
@@ -197,29 +198,31 @@ def run_validation_diagnostics(
         val_data, start_indices, n_rollout_steps, time_units, evolve_multiple_steps
     )
 
-    # determine tensorboard prefix (match latent.py convention)
-    if dataset_name == "validation":
-        tb_prefix = "Val"
-    elif dataset_name.startswith("cv_"):
-        tb_prefix = f"CrossVal/{dataset_name[3:]}"
-    else:
-        tb_prefix = dataset_name
-
     # metrics (average over neurons first, then over starts)
     mse_avg_neurons = mse_array.mean(axis=2)  # (n_starts, n_steps)
     total_steps = time_units * evolve_multiple_steps
     mse_fit = mse_avg_neurons[:, :total_steps].mean()
     mse_beyond = mse_avg_neurons[:, total_steps:].mean()
-    metrics = {
-        f"{tb_prefix}/mse_fit_window": float(mse_fit),
-        f"{tb_prefix}/mse_beyond": float(mse_beyond),
-        f"{tb_prefix}/mse_overall": float(mse_avg_neurons.mean()),
+    metrics: dict[str, float] = {
+        "mse_fit_window": float(mse_fit),
+        "mse_beyond": float(mse_beyond),
+        "mse_overall": float(mse_avg_neurons.mean()),
     }
 
-    for key, val in metrics.items():
-        writer.add_scalar(key, val, epoch)
+    # compute stability metrics
+    stability_metrics = compute_rollout_stability_metrics(
+        mse_array=mse_array,
+        time_units=time_units,
+        evolve_multiple_steps=evolve_multiple_steps,
+        rollout_type="latent",
+        n_steps=n_rollout_steps,
+    )
+    metrics.update(stability_metrics)
 
-    # long rollout plot (reuse from diagnostics.py)
+    # figures
+    figures: dict[str, plt.Figure] = {}
+
+    # long rollout plot
     null_models = {"constant baseline": constant_baseline}
     fig_long = plot_long_rollout_mse(
         mse_array=mse_array,
@@ -228,22 +231,9 @@ def run_validation_diagnostics(
         n_starts=n_starts,
         null_models=null_models,
     )
-    writer.add_figure(f"{tb_prefix}/multi_start_{n_rollout_steps}step_latent_rollout_mses_by_time", fig_long, epoch)
-    plt.close(fig_long)
+    figures[f"multi_start_{n_rollout_steps}step_latent_rollout_mses_by_time"] = fig_long
 
-    # compute and log stability metrics
-    stability_metrics = compute_rollout_stability_metrics(
-        mse_array=mse_array,
-        time_units=time_units,
-        evolve_multiple_steps=evolve_multiple_steps,
-        rollout_type="latent",
-        n_steps=n_rollout_steps,
-    )
-    for metric_name, metric_value in stability_metrics.items():
-        metrics[f"{tb_prefix}/{metric_name}"] = metric_value
-        writer.add_scalar(f"{tb_prefix}/{metric_name}", metric_value, epoch)
-
-    # zoomed time-aligned plot (reuse from diagnostics.py)
+    # zoomed time-aligned plot
     fig_zoomed = plot_time_aligned_mse(
         mse_array=mse_array,
         constant_baseline=constant_baseline,
@@ -252,9 +242,6 @@ def run_validation_diagnostics(
         evolve_multiple_steps=evolve_multiple_steps,
         rollout_type="latent",
     )
-    writer.add_figure(f"{tb_prefix}/time_aligned_mse_latent", fig_zoomed, epoch)
-    plt.close(fig_zoomed)
+    figures["time_aligned_mse_latent"] = fig_zoomed
 
-    print(f"  {dataset_name}: mse_fit={mse_fit:.4e}, mse_beyond={mse_beyond:.4e}")
-
-    return metrics
+    return metrics, figures
