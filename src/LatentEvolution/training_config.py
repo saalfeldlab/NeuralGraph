@@ -113,7 +113,14 @@ class TrainingConfig(BaseModel):
     learning_rate: float = Field(1e-3, json_schema_extra={"short_name": "lr"})
     optimizer: str = Field("Adam", description="optimizer name from torch.optim", json_schema_extra={"short_name": "opt"})
     train_step: str = Field("train_step", description="compiled train step function")
-    simulation_config: str
+    simulation_config: str | None = Field(
+        None,
+        description="name of simulation config (e.g., 'fly_N9_62_1'). mutually exclusive with training_data_path."
+    )
+    training_data_path: str | None = Field(
+        None,
+        description="absolute path to data directory. mutually exclusive with simulation_config. should point to x_list_0 directory."
+    )
     column_to_model: str = "CALCIUM"
     use_tf32_matmul: bool = Field(
         False, description="enable fast tf32 multiplication on certain nvidia gpus"

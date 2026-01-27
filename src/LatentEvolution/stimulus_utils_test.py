@@ -130,11 +130,11 @@ class TestDownsampleStimulus(unittest.TestCase):
         )
 
         # check boundary values are preserved (at start of each interval)
-        self.assertTrue(torch.allclose(result[0, 0, :], torch.tensor([0.0, 0.0])))
-        self.assertTrue(torch.allclose(result[5, 0, :], torch.tensor([1.0, 2.0])))
-        self.assertTrue(torch.allclose(result[10, 0, :], torch.tensor([2.0, 4.0])))
+        self.assertTrue(torch.allclose(result[0, 0, :], torch.tensor([0.0, 0.0], device=self.device)))
+        self.assertTrue(torch.allclose(result[5, 0, :], torch.tensor([1.0, 2.0], device=self.device)))
+        self.assertTrue(torch.allclose(result[10, 0, :], torch.tensor([2.0, 4.0], device=self.device)))
         # last interval uses constant (no final boundary), so check it matches previous boundary
-        self.assertTrue(torch.allclose(result[15, 0, :], torch.tensor([3.0, 6.0])))
+        self.assertTrue(torch.allclose(result[15, 0, :], torch.tensor([3.0, 6.0], device=self.device)))
 
     def test_interpolate_mode_midpoint_values(self):
         """test that TIME_UNITS_INTERPOLATE mode correctly interpolates midpoints."""
