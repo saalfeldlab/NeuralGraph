@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 81
+    start_iteration = 89
 
 
     n_iterations = task_params.get('iterations', 5)
@@ -669,7 +669,7 @@ Current config: {config_path}"""
                     'claude',
                     '-p', claude_prompt,
                     '--output-format', 'text',
-                    '--max-turns', '100',
+                    '--max-turns', '500',
                     '--allowedTools',
                     'Read', 'Edit', 'Write'
                 ]

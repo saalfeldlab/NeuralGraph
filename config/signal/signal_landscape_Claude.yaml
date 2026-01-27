@@ -6,10 +6,10 @@ simulation:
   connectivity_init:
     - 0
     - 0.1
-  connectivity_filling_factor: 0.2
+  connectivity_filling_factor: 0.9
   Dale_law: false
   Dale_law_factor: 0.5
-  noise_model_level: 0.5
+  noise_model_level: 0
   params:
     - - 1.0
       - 0.0
@@ -84,10 +84,10 @@ training:
   cluster_method: distance_plot
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 5.0e-03
+  learning_rate_W_start: 1.2e-02
   learning_rate_start: 1.0e-03
   learning_rate_embedding_start: 2.5e-04
-  coeff_W_L1: 0
+  coeff_W_L1: 1.0e-05
   coeff_edge_diff: 100
   low_rank_factorization: false
   low_rank: 20

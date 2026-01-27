@@ -149,6 +149,7 @@ def data_generate_fly_voltage(config, visualize=True, run_vizualized=0, style="c
     torch.random.fork_rng(devices=device)
     if simulation_config.seed != 42:
         torch.random.manual_seed(simulation_config.seed)
+        np.random.seed(simulation_config.seed)  # Ensure numpy random state is also seeded for reproducibility
 
     print(
         f"generating data ... {model_config.particle_model_name} {model_config.mesh_model_name} seed: {simulation_config.seed}")
