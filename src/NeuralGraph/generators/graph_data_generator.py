@@ -1472,7 +1472,6 @@ def data_generate_synaptic(
         if measurement_noise_level > 0:
             np.save(f"graphs_data/{dataset_name}/raw_x_list_{run}.npy", x_list)
             np.save(f"graphs_data/{dataset_name}/raw_y_list_{run}.npy", y_list)
-            torch.save(model.p, f"graphs_data/{dataset_name}/model_p.pt")
             for k in range(x_list.shape[0]):
                 x_list[k, :, 3] = x_list[k, :, 3] + np.random.normal(
                     0, measurement_noise_level, x_list.shape[1]
@@ -1499,7 +1498,6 @@ def data_generate_synaptic(
                     inv_particle_dropout_mask,
                 )
 
-        torch.save(model.p, f"graphs_data/{dataset_name}/model_p_{run}.pt")
         print("data saved ...")
 
 
