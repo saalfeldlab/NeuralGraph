@@ -595,6 +595,7 @@ def train(cfg: ModelParams, run_dir: Path):
             chunk_size=65536,  # 64K timesteps per chunk
             time_units=cfg.training.time_units,
             training_data_path=cfg.training.training_data_path,
+            gpu_prefetch=2,  # double buffer for cpu->gpu transfer overlap
         )
 
         print(f"chunked streaming: train {train_total_timesteps} timesteps (chunked), val {val_data.shape}")
