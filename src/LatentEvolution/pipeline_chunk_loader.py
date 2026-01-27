@@ -9,13 +9,176 @@ architecture:
 this enables overlap of disk i/o, cpu->gpu transfer, and training.
 """
 
+from collections import defaultdict
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+import json
+from pathlib import Path
 from queue import Queue
 from threading import Thread
 import random
-from typing import Callable, Optional
+import threading
+import time
+from typing import Callable, Optional, Generator
 
 import torch
 import numpy as np
+
+
+# -------------------------------------------------------------------
+# Profiler
+# -------------------------------------------------------------------
+
+
+@dataclass
+class TraceEvent:
+    """a single trace event for chrome tracing."""
+    name: str
+    category: str
+    start_us: int  # microseconds since profiler start
+    duration_us: int
+    tid: int  # thread id
+    pid: int = 1  # process id (default 1)
+    args: dict = field(default_factory=dict)
+
+
+class PipelineProfiler:
+    """records pipeline events for chrome tracing visualization.
+
+    usage:
+        profiler = PipelineProfiler()
+        profiler.start()
+
+        with profiler.event("disk_load", "io", thread="cpu_loader"):
+            load_data()
+
+        profiler.save("trace.json")
+        # load in chrome://tracing or https://ui.perfetto.dev/
+    """
+
+    THREAD_IDS = {"main": 0, "cpu_loader": 1, "gpu_transfer": 2}
+
+    def __init__(self):
+        self.events: list[TraceEvent] = []
+        self.start_time_ns: int = 0
+        self.lock = threading.Lock()
+        self._enabled = False
+
+    def start(self):
+        """start profiling."""
+        self.start_time_ns = time.perf_counter_ns()
+        self._enabled = True
+        self.events.clear()
+
+    def stop(self):
+        """stop profiling."""
+        self._enabled = False
+
+    def is_enabled(self) -> bool:
+        """check if profiling is enabled."""
+        return self._enabled
+
+    @contextmanager
+    def event(
+        self, name: str, category: str = "pipeline", thread: Optional[str] = None, **kwargs
+    ) -> Generator[None, None, None]:
+        """context manager to record an event."""
+        if not self._enabled:
+            yield
+            return
+
+        start_ns = time.perf_counter_ns()
+        try:
+            yield
+        finally:
+            end_ns = time.perf_counter_ns()
+            duration_ns = end_ns - start_ns
+
+            if thread is not None:
+                tid = self.THREAD_IDS.get(thread, hash(thread) % 100)
+            else:
+                tid = threading.current_thread().ident or 0
+
+            trace_event = TraceEvent(
+                name=name,
+                category=category,
+                start_us=(start_ns - self.start_time_ns) // 1000,
+                duration_us=duration_ns // 1000,
+                tid=tid,
+                args=kwargs if kwargs else {},
+            )
+
+            with self.lock:
+                self.events.append(trace_event)
+
+    def to_chrome_trace(self) -> dict:
+        """convert events to chrome tracing format."""
+        trace_events = []
+
+        # thread name metadata
+        for name, tid in self.THREAD_IDS.items():
+            trace_events.append({
+                "name": "thread_name", "ph": "M", "pid": 1, "tid": tid,
+                "args": {"name": name},
+            })
+
+        # process name metadata
+        trace_events.append({
+            "name": "process_name", "ph": "M", "pid": 1, "tid": 0,
+            "args": {"name": "PipelineChunkLoader"},
+        })
+
+        # events
+        for event in self.events:
+            trace_event = {
+                "name": event.name, "cat": event.category, "ph": "X",
+                "ts": event.start_us, "dur": event.duration_us,
+                "pid": event.pid, "tid": event.tid,
+            }
+            if event.args:
+                trace_event["args"] = event.args
+            trace_events.append(trace_event)
+
+        return {"traceEvents": trace_events}
+
+    def save(self, path: str | Path):
+        """save trace to JSON file."""
+        with open(Path(path), "w") as f:
+            json.dump(self.to_chrome_trace(), f)
+
+    def get_stats(self) -> dict[str, dict[str, float]]:
+        """compute summary statistics per event name."""
+        stats: dict[str, list[float]] = defaultdict(list)
+        for event in self.events:
+            stats[event.name].append(event.duration_us / 1000.0)
+
+        result = {}
+        for name, durations in stats.items():
+            result[name] = {
+                "count": len(durations),
+                "mean_ms": sum(durations) / len(durations),
+                "min_ms": min(durations),
+                "max_ms": max(durations),
+                "total_ms": sum(durations),
+            }
+        return result
+
+    def print_stats(self):
+        """print summary statistics."""
+        stats = self.get_stats()
+        print("\npipeline profiler stats:")
+        print("-" * 60)
+        for name, s in sorted(stats.items()):
+            print(f"  {name:20s}: n={s['count']:4d}  "
+                  f"mean={s['mean_ms']:7.2f}ms  "
+                  f"min={s['min_ms']:7.2f}ms  "
+                  f"max={s['max_ms']:7.2f}ms")
+        print("-" * 60)
+
+
+# -------------------------------------------------------------------
+# Chunk Loader
+# -------------------------------------------------------------------
 
 
 class PipelineChunkLoader:
@@ -67,6 +230,7 @@ class PipelineChunkLoader:
         seed: Optional[int] = None,
         time_units: int = 1,
         gpu_prefetch: int = 1,
+        profiler: Optional[PipelineProfiler] = None,
     ):
         """initialize pipeline chunk loader.
 
@@ -80,6 +244,7 @@ class PipelineChunkLoader:
             time_units: alignment constraint - chunk starts must be multiples of this
             gpu_prefetch: number of chunks to buffer in gpu_queue (on device). set to 2
                 for double buffering to overlap cpu->gpu transfer with training.
+            profiler: optional PipelineProfiler for chrome tracing
         """
         self.load_fn = load_fn
         self.total_timesteps = total_timesteps
@@ -88,6 +253,7 @@ class PipelineChunkLoader:
         self.prefetch = prefetch
         self.time_units = time_units
         self.gpu_prefetch = gpu_prefetch
+        self.profiler = profiler
 
         # random number generator for chunk sampling
         self.rng = random.Random(seed)
@@ -150,11 +316,17 @@ class PipelineChunkLoader:
         args:
             num_chunks: number of random chunks to load
         """
-        for _ in range(num_chunks):
+        for chunk_idx in range(num_chunks):
             if self.stop_flag:
                 break
 
-            start_idx, cpu_data, cpu_stim = self._load_random_chunk_to_cpu()
+            # profile disk load
+            if self.profiler and self.profiler.is_enabled():
+                with self.profiler.event("disk_load", "io", thread="cpu_loader", chunk=chunk_idx):
+                    start_idx, cpu_data, cpu_stim = self._load_random_chunk_to_cpu()
+            else:
+                start_idx, cpu_data, cpu_stim = self._load_random_chunk_to_cpu()
+
             self.cpu_queue.put((start_idx, cpu_data, cpu_stim))
 
         # signal completion to gpu_transfer thread
@@ -162,6 +334,7 @@ class PipelineChunkLoader:
 
     def _gpu_transfer_worker(self):
         """gpu_transfer thread: cpu_queue -> gpu_queue."""
+        chunk_idx = 0
         while True:
             if self.stop_flag:
                 break
@@ -176,19 +349,29 @@ class PipelineChunkLoader:
 
             start_idx, cpu_data, cpu_stim = item
 
-            # transfer to device
-            if self.device.type == 'cuda' and self.transfer_stream is not None:
-                with torch.cuda.stream(self.transfer_stream):
-                    gpu_data = cpu_data.to(self.device, non_blocking=True)
-                    gpu_stim = cpu_stim.to(self.device, non_blocking=True)
-                self.transfer_stream.synchronize()
+            # profile gpu transfer
+            if self.profiler and self.profiler.is_enabled():
+                with self.profiler.event("gpu_transfer", "transfer", thread="gpu_transfer", chunk=chunk_idx):
+                    gpu_data, gpu_stim = self._do_transfer(cpu_data, cpu_stim)
             else:
-                # cpu or mps - blocking transfer
-                gpu_data = cpu_data.to(self.device)
-                gpu_stim = cpu_stim.to(self.device)
+                gpu_data, gpu_stim = self._do_transfer(cpu_data, cpu_stim)
 
             self.chunks_transferred += 1
             self.gpu_queue.put((start_idx, gpu_data, gpu_stim))
+            chunk_idx += 1
+
+    def _do_transfer(self, cpu_data: torch.Tensor, cpu_stim: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """transfer tensors from cpu to device."""
+        if self.device.type == 'cuda' and self.transfer_stream is not None:
+            with torch.cuda.stream(self.transfer_stream):
+                gpu_data = cpu_data.to(self.device, non_blocking=True)
+                gpu_stim = cpu_stim.to(self.device, non_blocking=True)
+            self.transfer_stream.synchronize()
+        else:
+            # cpu or mps - blocking transfer
+            gpu_data = cpu_data.to(self.device)
+            gpu_stim = cpu_stim.to(self.device)
+        return gpu_data, gpu_stim
 
     def start_epoch(self, num_chunks: int):
         """start pipeline for an epoch.
@@ -231,7 +414,12 @@ class PipelineChunkLoader:
         returns:
             (chunk_start, chunk_data, chunk_stim) or (None, None, None) if epoch done
         """
-        item = self.gpu_queue.get()
+        # profile queue wait time
+        if self.profiler and self.profiler.is_enabled():
+            with self.profiler.event("gpu_queue_wait", "sync", thread="main"):
+                item = self.gpu_queue.get()
+        else:
+            item = self.gpu_queue.get()
 
         if item is None:
             return None, None, None

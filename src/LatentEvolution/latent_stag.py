@@ -44,6 +44,7 @@ from LatentEvolution.acquisition import (
     StaggeredRandomMode,
 )
 from LatentEvolution.latent import load_dataset, load_val_only
+from LatentEvolution.pipeline_chunk_loader import PipelineProfiler
 from LatentEvolution.diagnostics_stag import run_validation_diagnostics
 
 
@@ -309,6 +310,10 @@ def train(cfg: StagModelParams, run_dir: Path):
         print(f"model parameters: {sum(p.numel() for p in model.parameters()):,}")
         model.train()
 
+        # pipeline profiler for chrome tracing
+        profiler = PipelineProfiler()
+        profiler.start()
+
         # load data (reuse from latent.py)
         dt = cfg.training.time_units
         chunk_loader, val_data, val_stim, _neuron_data, train_total_timesteps = load_dataset(
@@ -321,6 +326,7 @@ def train(cfg: StagModelParams, run_dir: Path):
             time_units=dt,
             training_data_path=cfg.training.training_data_path,
             gpu_prefetch=2,  # double buffer for cpu->gpu transfer overlap
+            profiler=profiler,
         )
         print(f"training data: {train_total_timesteps} timesteps (pipeline chunked streaming)")
 
@@ -390,6 +396,7 @@ def train(cfg: StagModelParams, run_dir: Path):
 
         # epoch loop
         for epoch in range(cfg.training.epochs):
+          with profiler.event("epoch", "training", thread="main", epoch=epoch):
             epoch_start = datetime.now()
             losses = LossAccumulator(LossType)
 
@@ -541,6 +548,14 @@ def train(cfg: StagModelParams, run_dir: Path):
         print(f"saved metrics to {metrics_path}")
 
         chunk_loader.cleanup()
+
+        # save profiler trace and stats
+        profiler.stop()
+        trace_path = run_dir / "pipeline_trace.json"
+        profiler.save(trace_path)
+        print(f"saved pipeline trace to {trace_path}")
+        profiler.print_stats()
+
         writer.close()
         print("training complete")
 

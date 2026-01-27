@@ -15,7 +15,7 @@ from typing import Callable
 import numpy as np
 import torch
 
-from LatentEvolution.pipeline_chunk_loader import PipelineChunkLoader
+from LatentEvolution.pipeline_chunk_loader import PipelineChunkLoader, PipelineProfiler
 
 
 class MockDataSource:
@@ -654,6 +654,98 @@ class PipelineChunkLoaderWithTransferDelay(PipelineChunkLoader):
 
             self.chunks_transferred += 1
             self.gpu_queue.put((start_idx, gpu_data, gpu_stim))
+
+
+class TestPipelineProfiler(unittest.TestCase):
+    """test suite for PipelineProfiler."""
+
+    def test_profiler_records_events(self):
+        """test that profiler records events from pipeline."""
+        source = MockDataSource(
+            total_timesteps=20000,
+            num_neurons=100,
+            num_stim_dims=50,
+            load_delay_ms=10,
+        )
+
+        profiler = PipelineProfiler()
+        profiler.start()
+
+        loader = PipelineChunkLoader(
+            load_fn=source.load_slice,
+            total_timesteps=source.total_timesteps,
+            chunk_size=5000,
+            device='cpu',
+            prefetch=2,
+            gpu_prefetch=2,
+            profiler=profiler,
+        )
+
+        loader.start_epoch(num_chunks=3)
+
+        for _ in range(3):
+            _, chunk_data, _ = loader.get_next_chunk()
+            if chunk_data is None:
+                break
+            # simulate training
+            time.sleep(0.01)
+
+        loader.cleanup()
+        profiler.stop()
+
+        # verify events were recorded
+        self.assertGreater(len(profiler.events), 0)
+
+        # check event names
+        event_names = {e.name for e in profiler.events}
+        self.assertIn("disk_load", event_names)
+        self.assertIn("gpu_transfer", event_names)
+        self.assertIn("gpu_queue_wait", event_names)
+
+        # verify stats
+        stats = profiler.get_stats()
+        self.assertIn("disk_load", stats)
+        self.assertEqual(stats["disk_load"]["count"], 3)
+
+    def test_profiler_chrome_trace_format(self):
+        """test that chrome trace output has correct format."""
+        profiler = PipelineProfiler()
+        profiler.start()
+
+        with profiler.event("test_event", "test", thread="main"):
+            time.sleep(0.001)
+
+        profiler.stop()
+
+        trace = profiler.to_chrome_trace()
+
+        # verify structure
+        self.assertIn("traceEvents", trace)
+        events = trace["traceEvents"]
+
+        # should have metadata events + our event
+        self.assertGreater(len(events), 1)
+
+        # find our event
+        test_events = [e for e in events if e.get("name") == "test_event"]
+        self.assertEqual(len(test_events), 1)
+
+        event = test_events[0]
+        self.assertEqual(event["cat"], "test")
+        self.assertEqual(event["ph"], "X")  # complete event
+        self.assertIn("ts", event)
+        self.assertIn("dur", event)
+        self.assertEqual(event["tid"], 0)  # main thread
+
+    def test_profiler_disabled_by_default(self):
+        """test that profiler doesn't record when not started."""
+        profiler = PipelineProfiler()
+
+        # don't call start()
+        with profiler.event("test_event", "test"):
+            pass
+
+        self.assertEqual(len(profiler.events), 0)
 
 
 if __name__ == "__main__":

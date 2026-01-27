@@ -26,7 +26,7 @@ from LatentEvolution.load_flyvis import (
 )
 from LatentEvolution.training_config import DataSplit
 from LatentEvolution.stimulus_utils import downsample_stimulus
-from LatentEvolution.pipeline_chunk_loader import PipelineChunkLoader
+from LatentEvolution.pipeline_chunk_loader import PipelineChunkLoader, PipelineProfiler
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
@@ -68,6 +68,7 @@ def load_dataset(
     time_units: int = 1,
     training_data_path: str | None = None,
     gpu_prefetch: int = 1,
+    profiler: PipelineProfiler | None = None,
 ):
     """
     load dataset from zarr with chunked streaming for training data.
@@ -86,6 +87,7 @@ def load_dataset(
         training_data_path: absolute path to data directory (overrides simulation_config)
         gpu_prefetch: number of chunks to buffer on gpu (1=no overlap, 2=double buffer
             for overlapping cpu->gpu transfer with training)
+        profiler: optional PipelineProfiler for chrome tracing
 
     returns:
         tuple of (chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps)
@@ -134,6 +136,7 @@ def load_dataset(
         seed=None,  # will be set per epoch in training loop
         time_units=time_units,
         gpu_prefetch=gpu_prefetch,  # buffer chunks in gpu_queue for transfer/training overlap
+        profiler=profiler,
     )
 
     return chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps
