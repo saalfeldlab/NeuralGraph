@@ -26,7 +26,7 @@ from LatentEvolution.load_flyvis import (
 )
 from LatentEvolution.training_config import DataSplit
 from LatentEvolution.stimulus_utils import downsample_stimulus
-from LatentEvolution.chunk_loader import RandomChunkLoader
+from LatentEvolution.pipeline_chunk_loader import PipelineChunkLoader
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import run_validation_diagnostics, PlotMode
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
@@ -67,11 +67,12 @@ def load_dataset(
     chunk_size: int = 65536,
     time_units: int = 1,
     training_data_path: str | None = None,
+    gpu_prefetch: int = 1,
 ):
     """
     load dataset from zarr with chunked streaming for training data.
 
-    training data is streamed in chunks via RandomChunkLoader to reduce GPU memory.
+    training data is streamed in chunks via PipelineChunkLoader to reduce GPU memory.
     validation data is loaded directly to GPU (small enough to fit).
 
     args:
@@ -83,6 +84,8 @@ def load_dataset(
         chunk_size: chunk size for streaming (default: 65536 = 64K)
         time_units: alignment constraint for chunk starts (default: 1)
         training_data_path: absolute path to data directory (overrides simulation_config)
+        gpu_prefetch: number of chunks to buffer on gpu (1=no overlap, 2=double buffer
+            for overlapping cpu->gpu transfer with training)
 
     returns:
         tuple of (chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps)
@@ -121,15 +124,16 @@ def load_dataset(
     def offset_load_fn(start: int, end: int):
         return zarr_load_fn(data_split.train_start + start, data_split.train_start + end)
 
-    # create chunk loader
-    chunk_loader = RandomChunkLoader(
+    # create chunk loader with 3-stage pipeline
+    chunk_loader = PipelineChunkLoader(
         load_fn=offset_load_fn,
         total_timesteps=train_total_timesteps,
         chunk_size=chunk_size,
         device=device,
-        prefetch=6,  # buffer 6 chunks ahead for better overlap
+        prefetch=6,  # buffer 6 chunks in cpu_queue
         seed=None,  # will be set per epoch in training loop
         time_units=time_units,
+        gpu_prefetch=gpu_prefetch,  # buffer chunks in gpu_queue for transfer/training overlap
     )
 
     return chunk_loader, val_data, val_stim, neuron_data, train_total_timesteps

@@ -320,8 +320,9 @@ def train(cfg: StagModelParams, run_dir: Path):
             chunk_size=65536,
             time_units=dt,
             training_data_path=cfg.training.training_data_path,
+            gpu_prefetch=2,  # double buffer for cpu->gpu transfer overlap
         )
-        print(f"training data: {train_total_timesteps} timesteps (chunked streaming)")
+        print(f"training data: {train_total_timesteps} timesteps (pipeline chunked streaming)")
 
         # z0 bank
         num_z0_windows = train_total_timesteps // dt
