@@ -44,6 +44,7 @@ from LatentEvolution.acquisition import (
     StaggeredRandomMode,
 )
 from LatentEvolution.latent import load_dataset, load_val_only
+from LatentEvolution.pipeline_chunk_loader import PipelineProfiler
 from LatentEvolution.diagnostics_stag import run_validation_diagnostics
 
 
@@ -309,6 +310,11 @@ def train(cfg: StagModelParams, run_dir: Path):
         print(f"model parameters: {sum(p.numel() for p in model.parameters()):,}")
         model.train()
 
+        # pipeline profiler for chrome tracing (only profile first N epochs to limit file size)
+        profile_first_n_epochs = 5
+        profiler = PipelineProfiler()
+        profiler.start()
+
         # load data (reuse from latent.py)
         dt = cfg.training.time_units
         chunk_loader, val_data, val_stim, _neuron_data, train_total_timesteps = load_dataset(
@@ -320,8 +326,10 @@ def train(cfg: StagModelParams, run_dir: Path):
             chunk_size=65536,
             time_units=dt,
             training_data_path=cfg.training.training_data_path,
+            gpu_prefetch=2,  # double buffer for cpu->gpu transfer overlap
+            profiler=profiler,
         )
-        print(f"training data: {train_total_timesteps} timesteps (chunked streaming)")
+        print(f"training data: {train_total_timesteps} timesteps (pipeline chunked streaming)")
 
         # z0 bank
         num_z0_windows = train_total_timesteps // dt
@@ -389,47 +397,55 @@ def train(cfg: StagModelParams, run_dir: Path):
 
         # epoch loop
         for epoch in range(cfg.training.epochs):
+          # stop profiler after first N epochs to limit file size
+          if epoch == profile_first_n_epochs and profiler.is_enabled():
+              profiler.stop()
+              print(f"profiler stopped after epoch {epoch} (profiled first {profile_first_n_epochs} epochs)")
+
+          with profiler.event("epoch", "training", thread="main", epoch=epoch):
             epoch_start = datetime.now()
             losses = LossAccumulator(LossType)
 
             chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
 
-            for _ in range(chunks_per_epoch):
+            for chunk_idx in range(chunks_per_epoch):
+              with profiler.event("chunk", "pipeline", thread="main", chunk=chunk_idx):
                 chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
                 if chunk_data is None or chunk_start is None or chunk_stim is None:
                     break
 
-                for _ in range(batches_per_chunk):
-                    optimizer.zero_grad()
+                with profiler.event("train", "compute", thread="main"):
+                    for _ in range(batches_per_chunk):
+                        optimizer.zero_grad()
 
-                    observation_indices = sample_batch_indices(
-                        chunk_size=chunk_data.shape[0],
-                        total_steps=total_steps,
-                        time_units=dt,
-                        batch_size=cfg.training.batch_size,
-                        num_neurons=cfg.num_neurons,
-                        neuron_phases=neuron_phases,
-                        device=device,
-                    )
-
-                    # z0 for this batch
-                    batch_start_times = observation_indices.min(dim=1).values
-                    global_start_times = chunk_start + batch_start_times
-                    z0_indices = global_start_times // dt
-                    z0 = z0_bank(z0_indices)
-
-                    loss_dict = train_step_fn(
-                        model, z0, chunk_data, chunk_stim, observation_indices, cfg
-                    )
-                    loss_dict[LossType.TOTAL].backward()
-
-                    if cfg.training.grad_clip_max_norm > 0:
-                        torch.nn.utils.clip_grad_norm_(
-                            list(model.parameters()) + list(z0_bank.parameters()),
-                            cfg.training.grad_clip_max_norm
+                        observation_indices = sample_batch_indices(
+                            chunk_size=chunk_data.shape[0],
+                            total_steps=total_steps,
+                            time_units=dt,
+                            batch_size=cfg.training.batch_size,
+                            num_neurons=cfg.num_neurons,
+                            neuron_phases=neuron_phases,
+                            device=device,
                         )
-                    optimizer.step()
-                    losses.accumulate(loss_dict)
+
+                        # z0 for this batch
+                        batch_start_times = observation_indices.min(dim=1).values
+                        global_start_times = chunk_start + batch_start_times
+                        z0_indices = global_start_times // dt
+                        z0 = z0_bank(z0_indices)
+
+                        loss_dict = train_step_fn(
+                            model, z0, chunk_data, chunk_stim, observation_indices, cfg
+                        )
+                        loss_dict[LossType.TOTAL].backward()
+
+                        if cfg.training.grad_clip_max_norm > 0:
+                            torch.nn.utils.clip_grad_norm_(
+                                list(model.parameters()) + list(z0_bank.parameters()),
+                                cfg.training.grad_clip_max_norm
+                            )
+                        optimizer.step()
+                        losses.accumulate(loss_dict)
 
             mean_losses = losses.mean()
             epoch_end = datetime.now()
@@ -540,6 +556,14 @@ def train(cfg: StagModelParams, run_dir: Path):
         print(f"saved metrics to {metrics_path}")
 
         chunk_loader.cleanup()
+
+        # save profiler trace and stats
+        profiler.stop()
+        trace_path = run_dir / "pipeline_trace.json"
+        profiler.save(trace_path)
+        print(f"saved pipeline trace to {trace_path}")
+        profiler.print_stats()
+
         writer.close()
         print("training complete")
 
