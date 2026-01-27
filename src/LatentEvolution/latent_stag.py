@@ -444,7 +444,6 @@ def train(cfg: StagModelParams, run_dir: Path):
                 # main validation dataset
                 diag_start = datetime.now()
                 run_validation_diagnostics(
-                    run_dir=run_dir,
                     val_data=val_data,
                     val_stim=val_stim,
                     model=model,
@@ -461,7 +460,6 @@ def train(cfg: StagModelParams, run_dir: Path):
                 for cv_name, (cv_val_data, cv_val_stim) in cv_datasets.items():
                     cv_start = datetime.now()
                     run_validation_diagnostics(
-                        run_dir=run_dir,
                         val_data=cv_val_data,
                         val_stim=cv_val_stim,
                         model=model,

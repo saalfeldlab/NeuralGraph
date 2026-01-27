@@ -4,7 +4,6 @@ Validation diagnostics for LatentStagModel.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 import numpy as np
 import torch
@@ -140,7 +139,6 @@ def compute_constant_baseline(
 
 
 def run_validation_diagnostics(
-    run_dir: Path,
     val_data: torch.Tensor,
     val_stim: torch.Tensor,
     model: LatentStagModel,
@@ -221,10 +219,6 @@ def run_validation_diagnostics(
     for key, val in metrics.items():
         writer.add_scalar(key, val, epoch)
 
-    # plots
-    diag_dir = run_dir / "diagnostics" / dataset_name
-    diag_dir.mkdir(parents=True, exist_ok=True)
-
     # long rollout plot (reuse from diagnostics.py)
     null_models = {"constant baseline": constant_baseline}
     fig_long = plot_long_rollout_mse(
@@ -234,7 +228,6 @@ def run_validation_diagnostics(
         n_starts=n_starts,
         null_models=null_models,
     )
-    fig_long.savefig(diag_dir / f"long_rollout_epoch{epoch:04d}.png", dpi=150)
     writer.add_figure(f"{tb_prefix}/multi_start_{n_rollout_steps}step_latent_rollout_mses_by_time", fig_long, epoch)
     plt.close(fig_long)
 
@@ -259,7 +252,6 @@ def run_validation_diagnostics(
         evolve_multiple_steps=evolve_multiple_steps,
         rollout_type="latent",
     )
-    fig_zoomed.savefig(diag_dir / f"zoomed_epoch{epoch:04d}.png", dpi=150)
     writer.add_figure(f"{tb_prefix}/time_aligned_mse_latent", fig_zoomed, epoch)
     plt.close(fig_zoomed)
 
