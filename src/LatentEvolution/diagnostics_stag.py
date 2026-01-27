@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 from torch.utils.tensorboard import SummaryWriter
 from LatentEvolution.diagnostics import (
     compute_linear_interpolation_baseline,
+    compute_rollout_stability_metrics,
     plot_long_rollout_mse,
     plot_time_aligned_mse,
 )
@@ -226,7 +227,7 @@ def run_validation_diagnostics(
 
     # long rollout plot (reuse from diagnostics.py)
     null_models = {"constant baseline": constant_baseline}
-    fig_long, long_rollout_metrics = plot_long_rollout_mse(
+    fig_long = plot_long_rollout_mse(
         mse_array=mse_array,
         rollout_type="latent",
         n_steps=n_rollout_steps,
@@ -237,8 +238,15 @@ def run_validation_diagnostics(
     writer.add_figure(f"{tb_prefix}/multi_start_{n_rollout_steps}step_latent_rollout_mses_by_time", fig_long, epoch)
     plt.close(fig_long)
 
-    # log long rollout metrics
-    for metric_name, metric_value in long_rollout_metrics.items():
+    # compute and log stability metrics
+    stability_metrics = compute_rollout_stability_metrics(
+        mse_array=mse_array,
+        time_units=time_units,
+        evolve_multiple_steps=evolve_multiple_steps,
+        rollout_type="latent",
+        n_steps=n_rollout_steps,
+    )
+    for metric_name, metric_value in stability_metrics.items():
         metrics[f"{tb_prefix}/{metric_name}"] = metric_value
         writer.add_scalar(f"{tb_prefix}/{metric_name}", metric_value, epoch)
 

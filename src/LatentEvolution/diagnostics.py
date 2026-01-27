@@ -114,7 +114,7 @@ def plot_long_rollout_mse(
     n_steps: int,
     n_starts: int,
     null_models: dict[str, np.ndarray] | None = None
-) -> tuple[plt.Figure, dict[str, float]]:
+) -> plt.Figure:
     """
     plot mse over time for model rollout and optional null models.
 
