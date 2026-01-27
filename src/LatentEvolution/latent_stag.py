@@ -454,6 +454,7 @@ def train(cfg: StagModelParams, run_dir: Path):
                     dataset_name="validation",
                 )
                 diag_duration = (datetime.now() - diag_start).total_seconds()
+                writer.add_scalar("Time/diagnostics_duration", diag_duration, epoch)
                 print(f"  validation diagnostics: {diag_duration:.1f}s")
 
                 # cross-validation datasets

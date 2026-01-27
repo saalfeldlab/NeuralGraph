@@ -198,15 +198,23 @@ def run_validation_diagnostics(
         val_data, start_indices, n_rollout_steps, time_units, evolve_multiple_steps
     )
 
+    # determine tensorboard prefix (match latent.py convention)
+    if dataset_name == "validation":
+        tb_prefix = "Val"
+    elif dataset_name.startswith("cv_"):
+        tb_prefix = f"CrossVal/{dataset_name[3:]}"
+    else:
+        tb_prefix = dataset_name
+
     # metrics (average over neurons first, then over starts)
     mse_avg_neurons = mse_array.mean(axis=2)  # (n_starts, n_steps)
     total_steps = time_units * evolve_multiple_steps
     mse_fit = mse_avg_neurons[:, :total_steps].mean()
     mse_beyond = mse_avg_neurons[:, total_steps:].mean()
     metrics = {
-        f"{dataset_name}/mse_fit_window": float(mse_fit),
-        f"{dataset_name}/mse_beyond": float(mse_beyond),
-        f"{dataset_name}/mse_overall": float(mse_avg_neurons.mean()),
+        f"{tb_prefix}/mse_fit_window": float(mse_fit),
+        f"{tb_prefix}/mse_beyond": float(mse_beyond),
+        f"{tb_prefix}/mse_overall": float(mse_avg_neurons.mean()),
     }
 
     for key, val in metrics.items():
@@ -218,7 +226,7 @@ def run_validation_diagnostics(
 
     # long rollout plot (reuse from diagnostics.py)
     null_models = {"constant baseline": constant_baseline}
-    fig_long = plot_long_rollout_mse(
+    fig_long, long_rollout_metrics = plot_long_rollout_mse(
         mse_array=mse_array,
         rollout_type="latent",
         n_steps=n_rollout_steps,
@@ -226,8 +234,13 @@ def run_validation_diagnostics(
         null_models=null_models,
     )
     fig_long.savefig(diag_dir / f"long_rollout_epoch{epoch:04d}.png", dpi=150)
-    writer.add_figure(f"{dataset_name}/long_rollout", fig_long, epoch)
+    writer.add_figure(f"{tb_prefix}/multi_start_{n_rollout_steps}step_latent_rollout_mses_by_time", fig_long, epoch)
     plt.close(fig_long)
+
+    # log long rollout metrics
+    for metric_name, metric_value in long_rollout_metrics.items():
+        metrics[f"{tb_prefix}/{metric_name}"] = metric_value
+        writer.add_scalar(f"{tb_prefix}/{metric_name}", metric_value, epoch)
 
     # zoomed time-aligned plot (reuse from diagnostics.py)
     fig_zoomed = plot_time_aligned_mse(
@@ -239,7 +252,7 @@ def run_validation_diagnostics(
         rollout_type="latent",
     )
     fig_zoomed.savefig(diag_dir / f"zoomed_epoch{epoch:04d}.png", dpi=150)
-    writer.add_figure(f"{dataset_name}/zoomed", fig_zoomed, epoch)
+    writer.add_figure(f"{tb_prefix}/time_aligned_mse_latent", fig_zoomed, epoch)
     plt.close(fig_zoomed)
 
     print(f"  {dataset_name}: mse_fit={mse_fit:.4e}, mse_beyond={mse_beyond:.4e}")
