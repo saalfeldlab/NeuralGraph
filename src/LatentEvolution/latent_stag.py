@@ -397,10 +397,13 @@ def train(cfg: StagModelParams, run_dir: Path):
 
         # epoch loop
         for epoch in range(cfg.training.epochs):
-          # stop profiler after first N epochs to limit file size
+          # stop profiler after first N epochs and save trace immediately
           if epoch == profile_first_n_epochs and profiler.is_enabled():
               profiler.stop()
-              print(f"profiler stopped after epoch {epoch} (profiled first {profile_first_n_epochs} epochs)")
+              trace_path = run_dir / "pipeline_trace.json"
+              profiler.save(trace_path)
+              print(f"profiler stopped after epoch {epoch}, saved to {trace_path}")
+              profiler.print_stats()
 
           with profiler.event("epoch", "training", thread="main", epoch=epoch):
             epoch_start = datetime.now()
@@ -557,12 +560,13 @@ def train(cfg: StagModelParams, run_dir: Path):
 
         chunk_loader.cleanup()
 
-        # save profiler trace and stats
-        profiler.stop()
-        trace_path = run_dir / "pipeline_trace.json"
-        profiler.save(trace_path)
-        print(f"saved pipeline trace to {trace_path}")
-        profiler.print_stats()
+        # save profiler if still running (epochs < profile_first_n_epochs)
+        if profiler.is_enabled():
+            profiler.stop()
+            trace_path = run_dir / "pipeline_trace.json"
+            profiler.save(trace_path)
+            print(f"saved pipeline trace to {trace_path}")
+            profiler.print_stats()
 
         writer.close()
         print("training complete")
