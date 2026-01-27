@@ -11,7 +11,7 @@ import yaml
 from pathlib import Path
 
 from LatentEvolution.load_flyvis import FlyVisSim
-from LatentEvolution.latent import ModelParams, LatentModel, train_step, train_step_nocompile
+from LatentEvolution.latent import LossType, ModelParams, LatentModel, train_step, train_step_nocompile
 from LatentEvolution.acquisition import compute_neuron_phases, sample_batch_indices
 from LatentEvolution.load_flyvis import load_column_slice
 
@@ -23,7 +23,7 @@ def seed_everything(seed: int):
     torch.cuda.manual_seed_all(seed)
 
 
-def benchmark_epoch(cfg: ModelParams, warmup_batches: int = 50, compile_mode: str = "default",
+def benchmark_epoch(cfg: ModelParams, warmup_batches: int = 4, compile_mode: str = "default",
                     use_amp: bool = False, use_fused_adam: bool = False,
                     compile_backward: bool = False, compile_optimizer: bool = False):
     """
@@ -77,7 +77,7 @@ def benchmark_epoch(cfg: ModelParams, warmup_batches: int = 50, compile_mode: st
         print("using automatic mixed precision (amp)")
 
     # data - load single 16K chunk directly to GPU
-    chunk_size = 16384
+    chunk_size = 65536
     data_path = f"/groups/saalfeld/home/kumarv4/repos/NeuralGraph/graphs_data/fly/{cfg.training.simulation_config}/x_list_0"
     column_idx = FlyVisSim[cfg.training.column_to_model].value
 
@@ -142,7 +142,7 @@ def benchmark_epoch(cfg: ModelParams, warmup_batches: int = 50, compile_mode: st
                 model, chunk_data, chunk_stim, observation_indices,
                 selected_neurons, needed_indices, cfg
             )
-            loss_tuple[0].backward()
+            loss_tuple[LossType.TOTAL].backward()
             optimizer.step()
 
     torch.cuda.synchronize()
@@ -179,7 +179,7 @@ def benchmark_epoch(cfg: ModelParams, warmup_batches: int = 50, compile_mode: st
                 model, chunk_data, chunk_stim, observation_indices,
                 selected_neurons, needed_indices, cfg
             )
-            loss_tuple[0].backward()
+            loss_tuple[LossType.TOTAL].backward()
             optimizer.step()
 
     torch.cuda.synchronize()
