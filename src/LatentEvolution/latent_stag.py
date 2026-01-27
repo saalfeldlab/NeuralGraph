@@ -402,7 +402,8 @@ def train(cfg: StagModelParams, run_dir: Path):
 
             chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
 
-            for _ in range(chunks_per_epoch):
+            for chunk_idx in range(chunks_per_epoch):
+              with profiler.event("chunk", "pipeline", thread="main", chunk=chunk_idx):
                 chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
                 if chunk_data is None or chunk_start is None or chunk_stim is None:
                     break
