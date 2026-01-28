@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
 
     # resume support: start_iteration parameter (default 1)
-    start_iteration = 89
+    start_iteration = 108
 
 
     n_iterations = task_params.get('iterations', 5)
@@ -386,7 +386,7 @@ if __name__ == "__main__":
 
                             # Submit job to cluster via SSH to login1
                             # -W 6000 = 100 hours max wall time, -K makes bsub wait for job completion
-                            ssh_cmd = f"ssh login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 -K 'bash {cluster_script}'\""
+                            ssh_cmd = f"ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new allierc@login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 -K 'bash {cluster_script}'\""
 
                             print(f"\033[96msubmitting via SSH: {ssh_cmd}\033[0m")
 
