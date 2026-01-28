@@ -136,6 +136,7 @@ class LossType(Enum):
     EVOLVE = auto()
     REG = auto()
     TV_LOSS = auto()
+    Z0_CONSISTENCY = auto()  # consistency between evolved latent and z0_bank
 
 
 # -------------------------------------------------------------------
@@ -264,7 +265,8 @@ def train_step_warmup(
 
 def train_step_nocompile(
     model: LatentStagModel,
-    z0: torch.Tensor,
+    z0_bank: nn.Embedding,
+    z0_indices: torch.Tensor,
     train_data: torch.Tensor,
     train_stim: torch.Tensor,
     observation_indices: torch.Tensor,
@@ -275,7 +277,8 @@ def train_step_nocompile(
 
     args:
         model: the staggered model (decoder, evolver, stim encoder)
-        z0: initial latent for this batch (batch_size, latent_dims)
+        z0_bank: embedding layer storing z0 for each time window
+        z0_indices: window indices for this batch (batch_size,)
         train_data: chunk data (chunk_timesteps, num_neurons)
         train_stim: chunk stimulus (chunk_timesteps, stim_dims)
         observation_indices: (batch_size, num_neurons) observation times
@@ -320,8 +323,11 @@ def train_step_nocompile(
     proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
 
     # evolve from z0, compute loss at tu boundaries
-    proj_t = z0  # (batch_size, latent_dims)
+    z0 = z0_bank(z0_indices)  # (batch_size, latent_dims)
+    proj_t = z0
     evolve_loss = torch.tensor(0.0, device=device)
+    z0_consistency_loss = torch.tensor(0.0, device=device)
+    z0c_weight = cfg.training.z0_consistency_loss
 
     if cfg.evolver_params.tv_reg_loss > 0.:
         for t in range(total_steps):
@@ -337,6 +343,11 @@ def train_step_nocompile(
                 target_indices = observation_indices + m * dt
                 x_target = train_data[target_indices, neuron_indices]
                 evolve_loss = evolve_loss + loss_fn(x_pred, x_target)
+
+                # z0 consistency: evolved latent should match z0_bank at this window
+                if z0c_weight > 0. and m < num_multiples:
+                    z0_target = z0_bank(z0_indices + m)
+                    z0_consistency_loss = z0_consistency_loss + loss_fn(proj_t, z0_target)
     else:
         for t in range(total_steps):
             proj_t = model.evolver(proj_t, proj_stim_t[t])
@@ -350,9 +361,15 @@ def train_step_nocompile(
                 x_target = train_data[target_indices, neuron_indices]
                 evolve_loss = evolve_loss + loss_fn(x_pred, x_target)
 
+                # z0 consistency: evolved latent should match z0_bank at this window
+                if z0c_weight > 0. and m < num_multiples:
+                    z0_target = z0_bank(z0_indices + m)
+                    z0_consistency_loss = z0_consistency_loss + loss_fn(proj_t, z0_target)
+
     losses[LossType.EVOLVE] = evolve_loss
+    losses[LossType.Z0_CONSISTENCY] = z0_consistency_loss
     losses[LossType.TV_LOSS] = tv_loss
-    losses[LossType.TOTAL] = reg_loss + tv_loss + evolve_loss
+    losses[LossType.TOTAL] = reg_loss + tv_loss + evolve_loss + z0c_weight * z0_consistency_loss
 
     return losses
 
@@ -622,14 +639,13 @@ def train(cfg: StagModelParams, run_dir: Path):
                             device=device,
                         )
 
-                        # z0 for this batch
+                        # z0 indices for this batch
                         batch_start_times = observation_indices.min(dim=1).values
                         global_start_times = chunk_start + batch_start_times
                         z0_indices = global_start_times // dt
-                        z0 = z0_bank(z0_indices)
 
                         loss_dict = train_step_fn(
-                            model, z0, chunk_data, chunk_stim, observation_indices, cfg
+                            model, z0_bank, z0_indices, chunk_data, chunk_stim, observation_indices, cfg
                         )
                         loss_dict[LossType.TOTAL].backward()
 
