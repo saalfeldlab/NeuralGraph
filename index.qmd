@@ -24,6 +24,7 @@ flowchart LR
     B --> C[LLM Evaluation]
     C --> D[Hypothesis Update]
     D --> E[Parameter Mutation]
+    E --> A
     E --> B
 
     C --> F[(Memory)]
