@@ -18,53 +18,29 @@ We show that these sequential interactions between experimentation, large langua
 ## The Exploration Loop
 
 ```{mermaid}
-%%| fig-width: 8
+%%| fig-width: 6
 flowchart LR
-    A[Simulation] --> B[GNN Training]
-    B --> C[LLM Evaluation]
-    C --> D[Hypothesis Update]
-    D --> E[Parameter Mutation]
-    E --> A
-    E --> B
+    A[Experiment] --> B[LLM]
+    B --> A
 
-    C --> F[(Memory)]
-    F --> C
+    B --> C[(Memory)]
+    C --> B
 
     style A fill:#e1f5fe
-    style C fill:#fff3e0
-    style F fill:#f3e5f5
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
 ```
 
-The framework implements a **closed-loop exploration engine** composed of five interacting components:
+The framework implements a **closed-loop exploration engine** composed of three interacting components:
 
-1. **Simulation Engine**
-   A physics-based simulator generates neural activity following the Stern et al. (2023) model with configurable connectivity, neuron types, and noise levels. Each configuration produces reproducible time series together with ground-truth connectivity matrices.
+1. **Experiment**
+   A physics-based simulator generates neural activity following the Stern et al. (2023) model. A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W.
 
-2. **GNN Training**
-   A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W. The architecture decomposes dynamics into local (φ) and interaction (ψ) components.
+2. **LLM**
+   The LLM interprets results in context of accumulated memory, performs scientific operations (identify regimes, detect convergence, generate hypotheses), and selects the next intervention via UCB tree search.
 
-3. **LLM Evaluation**
-   The LLM interprets results in context of accumulated memory. Its role is to perform scientific operations: identify regimes, detect convergence or failure, generate mechanistic hypotheses, and assess whether limitations arise from parameters or fundamental constraints.
-
-4. **Hypothesis and Memory Update**
+3. **Memory**
    Observations, failed attempts, and validated principles are written into explicit long-term memory. This memory persists across experimental blocks, enabling cumulative understanding rather than episodic trial-and-error.
-
-5. **Parameter Mutation**
-   Guided by Upper Confidence Bound (UCB) tree search, the LLM selects the next intervention. Mutations are stratified by scope: within blocks for parameter tuning, at block boundaries for regime changes.
-
----
-
-## Simulation Regimes
-
-| Regime | Effective Rank | Convergence | Key Finding |
-|--------|---------------|-------------|-------------|
-| [Chaotic](results.qmd) | ~34 | 100% | "Easy mode" - robust to 100x parameter variation |
-| [Dale's Law](results.qmd) | ~30 | 100% | E/I constraint doesn't add difficulty |
-| [Low-rank](results.qmd) | ~11 | 25-37% | Requires lr boost (1E-4 to 1E-3) |
-| [Sparse (ff=0.2)](results.qmd) | ~6 | 0% | Fundamentally unrecoverable |
-| [Intermediate (ff=0.5)](results.qmd) | ~26 | 50% | W learning challenging but possible |
-| [High fill (ff=0.75)](results.qmd) | ~38 | 100% | Easy transition |
-| [Scale n=200-500](results.qmd) | ~34 | 50-75% | lr_W tolerance scales as 1/√n |
 
 ---
 
@@ -76,7 +52,7 @@ The framework implements a **closed-loop exploration engine** composed of five i
 
 ---
 
-## [Epistemic](epistemic-analysis.qmd)
+## [Epistemics](epistemic-analysis.qmd)
 
 231 reasoning events across 107 iterations. 69% deduction accuracy, 80% analogy transfer success, 100% of falsifications led to refinement.
 
