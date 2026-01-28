@@ -448,3 +448,8 @@ bsub -J 50x2 -W 8:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x2.log \
     --training.evolve-multiple-steps 2 \
     --training.epochs 100
 ```
+
+`ems3` results are promising. The roll out does blow up but remains stable a little
+outside the training window. Perhaps we should just try ems5 and see what happens.
+The time aligned mse plot shows poor performance in the time window [0, tu]. Perhaps
+the tv_norm loss will help here. But first, let's try ems5.
