@@ -453,3 +453,23 @@ bsub -J 50x2 -W 8:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x2.log \
 outside the training window. Perhaps we should just try ems5 and see what happens.
 The time aligned mse plot shows poor performance in the time window [0, tu]. Perhaps
 the tv_norm loss will help here. But first, let's try ems5.
+
+```bash
+bsub -J 50x5 -W 8:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x5.log \
+    python src/LatentEvolution/latent.py 50x_ems5 latent_20step.yaml \
+    --training.time-units 50
+
+bsub -J 50x3_tv -W 4:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x3_tv.log \
+    python src/LatentEvolution/latent.py 50x3_tv latent_20step.yaml \
+    --training.time-units 50 \
+    --training.epochs 50 \
+    --training.evolve-multiple-steps 3 \
+    --evolver_params.tv-reg-loss 0.01
+
+bsub -J 50x3_tv2 -W 4:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x3_tv2.log \
+    python src/LatentEvolution/latent.py 50x3_tv latent_20step.yaml \
+    --training.time-units 50 \
+    --training.epochs 50 \
+    --training.evolve-multiple-steps 3 \
+    --evolver_params.tv-reg-loss 0.001
+```
