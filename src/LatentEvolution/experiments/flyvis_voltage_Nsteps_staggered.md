@@ -43,7 +43,30 @@ dynamics.
 
 ## Time aligned memory bank
 
-TODO: fill this out.
+With staggered acquisition, we never observe all neurons at the same instant - there's
+no clean "snapshot" at time 0 to encode. The z0 memory bank sidesteps this by learning
+a latent vector for each time window. We partition the timeline into windows of
+size `tu`: window k covers `[k*tu, (k+1)*tu)`. The bank stores one learnable z0 per
+window via `nn.Embedding(num_windows, latent_dims)`.
+
+During training, we look up `z0_bank[k]` for the starting window, evolve it forward
+through the dynamics, and compute reconstruction loss against the staggered observations
+at subsequent `tu` boundaries. The z0 entries are optimized jointly with the model, so they
+learn to represent "the latent state at the start of window k" even though no simultaneous
+observation exists there. This gives us a time-aligned anchor point from which to evolve.
+
+```bash
+bsub -J stag -n 8 -gpu "num=1" -q gpu_a100 -o stag.log \
+    python src/LatentEvolution/latent_stag.py test_stag latent_stag_20step.yaml
+
+bsub -J stag2 -n 8 -gpu "num=1" -q gpu_a100 -o stag2.log \
+    python src/LatentEvolution/latent_stag.py test_stag latent_stag_20step.yaml \
+    --evolver-params.tv-reg-loss 0.001
+
+bsub -J stag3 -n 8 -gpu "num=1" -q gpu_a100 -o stag3.log \
+    python src/LatentEvolution/latent_stag.py test_stag latent_stag_20step.yaml \
+    --evolver-params.tv-reg-loss 0.01
+```
 
 ## Add encoder-decoder warm up
 
@@ -53,3 +76,27 @@ a loss. Let's add in an encoder and do an intial training of the encoder/decoder
 pretending that the staggered data are time-aligned. This could help us start off
 the z0 memory bank & the decoder in the right ball park so that the training
 converges to the desired 1-step operator.
+
+```bash
+
+bsub -J stag -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o stag.log \
+    python src/LatentEvolution/latent_stag.py \
+    stag_warmup_autoenc latent_stag_20step.yaml
+```
+
+This still doesn't work, but it performs better than our baseline. So let's adopt it.
+
+## Add z0 consistency loss
+
+The z0 memory bank stores a learned initial latent for each time window. When we evolve from `z0_bank[k]` through `dt` timesteps, we arrive at a latent state that should correspond to window `k+1`. However, `z0_bank[k+1]` is learned independently with no constraint tying it to the evolved state.
+
+The z0 consistency loss enforces temporal coherence: at each `tu` boundary during evolution (m = 1, 2, ..., ems-1), we add an MSE loss between the evolved latent and `z0_bank[k+m]`. This ties adjacent z0 entries together through the dynamics, ensuring the learned initial states are consistent with the evolver.
+
+Controlled by `training.z0_consistency_loss` (default 1.0).
+
+```bash
+
+bsub -J stag -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o stag.log \
+    python src/LatentEvolution/latent_stag.py \
+    stag_z0_consistency latent_stag_20step.yaml
+```
