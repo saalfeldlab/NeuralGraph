@@ -1,0 +1,436 @@
+[
+  {
+    "objectID": "results.html",
+    "href": "results.html",
+    "title": "Results",
+    "section": "",
+    "text": "The signal_landscape_Claude experiment systematically explored GNN training across 14 simulation regimes over 107 iterations.\n\n\n\n\n\n\nNoteObjective\n\n\n\nMap the landscape of GNN training configurations to understand:\n\nWhich simulation regimes are learnable?\nWhat training parameters are critical?\nAre there fundamental limits to connectivity recovery?"
+  },
+  {
+    "objectID": "results.html#experiment-overview",
+    "href": "results.html#experiment-overview",
+    "title": "Results",
+    "section": "",
+    "text": "The signal_landscape_Claude experiment systematically explored GNN training across 14 simulation regimes over 107 iterations.\n\n\n\n\n\n\nNoteObjective\n\n\n\nMap the landscape of GNN training configurations to understand:\n\nWhich simulation regimes are learnable?\nWhat training parameters are critical?\nAre there fundamental limits to connectivity recovery?"
+  },
+  {
+    "objectID": "results.html#regime-summary",
+    "href": "results.html#regime-summary",
+    "title": "Results",
+    "section": "Regime Summary",
+    "text": "Regime Summary\n\nPerformance by Regime\n\n\n\n\n\n\n\n\n\n\n\nBlock\nRegime\neff_rank\nConvergence\nBest R²\nKey Finding\n\n\n\n\n1\nChaotic\n~34\n100%\n0.9999\n“Easy mode” - robust to 100x param variation\n\n\n2\nLow-rank\n~11\n25%\n0.953\nRequires lr boost (1E-4 → 1E-3)\n\n\n3\nDale’s Law\n~30\n100%\n0.9998\nE/I constraint doesn’t add difficulty\n\n\n4\nn_types=2\n~34\n37.5%\n0.987\nDual-objective conflict (W vs embedding)\n\n\n5\nNoise\n~83\n100%\n0.9996\nNoise increases eff_rank\n\n\n6\nLow-rank + n_types\n~11\n37.5%\n0.912\nCombined difficulty\n\n\n7\nSparse (ff=0.2)\n~6\n0%\n0.08\nFundamentally unrecoverable\n\n\n8\nSparse + Noise\n~92\n0% partial\n0.20\nNoise rescues rank but masks W\n\n\n9\nIntermediate (ff=0.5)\n~26\n50%\n0.65\nW learning challenging\n\n\n10\nHigh fill (ff=0.75)\n~38\n100%\n0.985\nEasy transition from ff=0.5\n\n\n11\nScale n=200\n~34\n75%\n0.982\nlr_W tolerance narrower\n\n\n12\nVery high (ff=0.9)\n~45\n100%\n0.992\nNear-full connectivity\n\n\n13\nScale n=300\n~34\n75%\n0.978\nFurther scale sensitivity\n\n\n14\nScale n=500\n~34\n50%\n0.965\nUpper boundary found at lr_W~8E-2\n\n\n\n\n\nVisual Summary\n\n\n\n\n\nquadrantChart\n    title Regime Difficulty vs Recovery\n    x-axis Low Effective Rank --&gt; High Effective Rank\n    y-axis Low Recovery --&gt; High Recovery\n\n    quadrant-1 Easy Mode\n    quadrant-2 Challenging\n    quadrant-3 Unrecoverable\n    quadrant-4 Achievable\n\n    Chaotic: [0.75, 0.95]\n    Dale: [0.70, 0.95]\n    Noise: [0.90, 0.95]\n    n_types=2: [0.75, 0.55]\n    Low-rank: [0.30, 0.40]\n    Low-rank+types: [0.30, 0.45]\n    Sparse: [0.15, 0.05]\n    Sparse+Noise: [0.95, 0.20]\n    ff=0.5: [0.55, 0.50]\n    ff=0.75: [0.65, 0.93]\n    ff=0.9: [0.75, 0.95]\n    n=200: [0.75, 0.88]\n    n=300: [0.75, 0.85]\n    n=500: [0.75, 0.80]"
+  },
+  {
+    "objectID": "results.html#key-discoveries",
+    "href": "results.html#key-discoveries",
+    "title": "Results",
+    "section": "Key Discoveries",
+    "text": "Key Discoveries\n\n1. Effective Rank Determines Difficulty\n\n\n95%\n\n\nConfidence in eff_rank as primary predictor\n\n\nThe effective rank (SVD rank at 99% variance) is the strongest predictor of training difficulty:\n\n\n\neff_rank Range\nConvergence\nInterpretation\n\n\n\n\n&gt; 30\n100%\nEasy - any reasonable parameters work\n\n\n15-30\nVariable\nDepends on other factors\n\n\n9-15\n25-40%\nHard - requires careful tuning\n\n\n&lt; 8\n0%\nUnrecoverable - fundamental limit\n\n\n\n\n\n2. “Easy Mode” Regimes\nThree regimes achieved 100% convergence:\n\nChaoticDale’s LawNoise\n\n\n\neff_rank: ~34\nTolerance: 5x lr_W range, 100x L1 range\nBest config: lr_W=5E-3, L1=1E-4\n\n\n\n\neff_rank: ~30\nTolerance: 100x lr_W range (5E-4 to 5E-2)\nFinding: E/I constraint doesn’t add difficulty\n\n\n\n\neff_rank: ~83 (noise increases rank!)\nTolerance: Very robust\nFinding: “Super easy mode”\n\n\n\n\n\n\n3. Low-Rank Challenge\nLow-rank connectivity (eff_rank ~11) requires specific tuning:\nBlock 2 Progress:\nIter 9:  lr_W=5E-3, lr=1E-4  → R²=0.355 (failed)\nIter 10: factorization=True  → R²=0.355 (no help)\nIter 13: lr_W=8E-3           → R²=0.351 (failed)\nIter 15: lr=5E-4             → R²=0.912 (partial!)\nIter 16: lr=1E-3             → R²=0.953 (BREAKTHROUGH)\n\n\n\n\n\n\nTipKey Insight\n\n\n\nFor low-rank regimes, the MLP learning rate (not lr_W) is the critical parameter. Boosting from 1E-4 to 1E-3 enabled breakthrough.\n\n\n\n\n4. Dual-Objective Conflict\nWith multiple neuron types (n_types &gt; 1), two objectives compete:\n\n\n\n\n\ngraph LR\n    A[High lr_W] --&gt; B[Fast W learning]\n    A --&gt; C[Starved embedding]\n    C --&gt; D[Poor cluster_acc]\n\n    E[Balanced lr_W] --&gt; F[Slower W learning]\n    E --&gt; G[Good embedding]\n    G --&gt; H[High cluster_acc]\n\n    style C fill:#ffcccc\n    style D fill:#ffcccc\n    style G fill:#ccffcc\n    style H fill:#ccffcc\n\n\n\n\n\n\nSolution: Use lr_embedding_start separately to compensate:\n\n\n\nConfig\nlr_W\nlr_emb\nR²\ncluster_acc\n\n\n\n\nBaseline\n5E-3\n1E-4\n0.85\n0.48\n\n\nFixed\n5E-3\n1E-3\n0.92\n0.95\n\n\n\n\n\n5. Sparse Unrecoverability\n\n\n\n\n\n\nWarningFundamental Limit Discovered\n\n\n\nSparse connectivity (ff=0.2) is fundamentally unrecoverable, regardless of training parameters.\n\n\nEvidence from 16 failed attempts:\n\n\n\nIntervention\nResult\n\n\n\n\nlr_W sweep (1E-4 to 5E-2)\nAll failed\n\n\nL1 sweep (1E-6 to 1E-3)\nAll failed\n\n\n5x data augmentation\nNo improvement\n\n\nNoise addition\neff_rank rescued (6→92) but R²=0.20 plateau\n\n\n\nRoot cause: With ff=0.2 and n=100, the connectivity matrix W has only ~200 non-zero entries. The identifiability ceiling is R² ≈ ff (linear law).\n\n\n6. Noise Effects\nNoise has a dual effect:\n\n\n\nEffect\nMechanism\nImpact\n\n\n\n\nPositive\nIncreases eff_rank\nMakes training easier\n\n\nNegative\nMasks W signal\nLimits max R²\n\n\n\nIn sparse regime:\n\nWithout noise: eff_rank=6, R²&lt;0.1 (untrainable)\nWith noise: eff_rank=92, R²~0.20 (trainable but limited)"
+  },
+  {
+    "objectID": "results.html#training-parameter-insights",
+    "href": "results.html#training-parameter-insights",
+    "title": "Results",
+    "section": "Training Parameter Insights",
+    "text": "Training Parameter Insights\n\nLearning Rate Landscape\n                    Low eff_rank (&lt;15)    High eff_rank (&gt;30)\n                    ─────────────────     ────────────────────\nlr_W optimal:       5E-3 to 1E-2         2E-3 to 5E-2\nlr_W range:         ~2x                   ~25x (very tolerant)\n\nlr optimal:         1E-3 (critical!)      1E-4 to 1E-3\nlr range:           narrow                wide\n\nL1 optimal:         1E-5 to 1E-4         1E-6 to 1E-3\nL1 range:           ~10x                  ~1000x\n\n\nParameter Sensitivity\n\n\n\nParameter\nLow eff_rank\nHigh eff_rank\n\n\n\n\nlr_W\nModerate\nLow (very tolerant)\n\n\nlr\nCritical\nLow\n\n\nL1\nHigh\nLow\n\n\ndata_augmentation\nModerate\nLow"
+  },
+  {
+    "objectID": "results.html#scaling-experiments",
+    "href": "results.html#scaling-experiments",
+    "title": "Results",
+    "section": "Scaling Experiments",
+    "text": "Scaling Experiments\n\nn_neurons Scaling (Blocks 13-14)\n\n\n\nn_neurons\nlr_W Range\nConvergence\nNotes\n\n\n\n\n100\n40x (1E-4 to 4E-3)\nBaseline\nWell-explored\n\n\n200\n20x (1E-3 to 2E-2)\nGood\nNarrower than 100\n\n\n300\n10x (5E-3 to 5E-2)\nGood\nEven narrower\n\n\n500\nTesting\nIn progress\nBoundary at ~8E-2\n\n\n\n\n\n\n\n\n\nNoteScaling Law\n\n\n\nAs network size increases, the lr_W tolerance window narrows approximately as 1/√n."
+  },
+  {
+    "objectID": "results.html#summary-statistics",
+    "href": "results.html#summary-statistics",
+    "title": "Results",
+    "section": "Summary Statistics",
+    "text": "Summary Statistics\n\nOverall Performance\n\n\n\n107 Iterations\nAcross 14 simulation regimes\n\n\n12 Principles\nNovel findings with &gt;75% confidence\n\n\n6 Easy Regimes\n100% convergence (chaotic, Dale, noise, ff=0.75, ff=0.9)\n\n\n1 Hard Limit\nff&lt;0.3 fundamentally unrecoverable\n\n\n\nMetric Distributions\n\n\n\nMetric\nMin\nMax\nMean\nStd\n\n\n\n\nconnectivity_R²\n0.02\n0.9999\n0.71\n0.35\n\n\ntest_R²\n0.15\n0.99\n0.82\n0.18\n\n\neffective_rank\n6\n92\n31\n24\n\n\ncluster_accuracy\n0.25\n1.0\n0.78\n0.22"
+  },
+  {
+    "objectID": "results.html#conclusions",
+    "href": "results.html#conclusions",
+    "title": "Results",
+    "section": "Conclusions",
+    "text": "Conclusions\n\neff_rank is primary: Effective rank determines training difficulty more than any single parameter\nEasy modes exist: Chaotic, Dale, noise, ff=0.75, and ff=0.9 regimes are robust to wide parameter ranges\nLow-rank needs lr boost: MLP learning rate (not lr_W) is critical for low-rank recovery\nFundamental limits: Sparse connectivity (ff&lt;0.3) has an identifiability ceiling\nNoise is double-edged: Increases eff_rank but masks connectivity signal\nScale matters: Larger networks require tighter parameter tuning - lr_W tolerance scales as ~1/√n\nFill factor gradient: Connectivity recovery improves smoothly from ff=0.5 through ff=0.9"
+  },
+  {
+    "objectID": "results.html#next-steps",
+    "href": "results.html#next-steps",
+    "title": "Results",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nEpistemic Analysis - How these findings were discovered\nGNN Model - Architecture details\nExperiment Loop - Methodology"
+  },
+  {
+    "objectID": "gnn-model.html",
+    "href": "gnn-model.html",
+    "title": "GNN Model",
+    "section": "",
+    "text": "The GNN architecture is designed to decompose the temporal activity of neural assemblies into interpretable representations. It jointly learns:\n\nConnectivity matrix \\(\\mathbf{W}\\)\nNeuron types via latent embeddings \\(\\vec{a}_i\\)\nSignaling functions \\(\\phi^*\\) and \\(\\psi^*\\)\nExternal stimuli \\(\\Omega^*(t)\\)"
+  },
+  {
+    "objectID": "gnn-model.html#overview",
+    "href": "gnn-model.html#overview",
+    "title": "GNN Model",
+    "section": "",
+    "text": "The GNN architecture is designed to decompose the temporal activity of neural assemblies into interpretable representations. It jointly learns:\n\nConnectivity matrix \\(\\mathbf{W}\\)\nNeuron types via latent embeddings \\(\\vec{a}_i\\)\nSignaling functions \\(\\phi^*\\) and \\(\\psi^*\\)\nExternal stimuli \\(\\Omega^*(t)\\)"
+  },
+  {
+    "objectID": "gnn-model.html#neural-assembly-simulation",
+    "href": "gnn-model.html#neural-assembly-simulation",
+    "title": "GNN Model",
+    "section": "Neural Assembly Simulation",
+    "text": "Neural Assembly Simulation\nThe GNN is trained on simulated neural activity following the model from Stern et al. (2023):\n\\[\n\\dot{x}_i = -\\frac{x_i}{\\tau_i} + s_i\\tanh(x_i) + g_i\\Omega_i(t)\\sum_{j=1}^{N} \\mathbf{W}_{ij} \\left(\\tanh\\left(\\frac{x_j}{\\gamma_i}\\right) - \\theta_j x_j\\right) + \\eta_i(t)\n\\]\n\n\n\n\n\n\n\n\nTerm\nSymbol\nDescription\n\n\n\n\nDamping\n\\(-x_i/\\tau_i\\)\nExponential decay with time constant \\(\\tau\\)\n\n\nSelf-coupling\n\\(s_i\\tanh(x_i)\\)\nNonlinear self-feedback\n\n\nConnectivity\n\\(\\mathbf{W}_{ij}\\)\nSynaptic weights (Cauchy distributed)\n\n\nTransfer function\n\\(\\psi_{ij}(x_j)\\)\nSignal transformation between neurons\n\n\nExternal input\n\\(\\Omega_i(t)\\)\nTime-dependent modulation field\n\n\nNoise\n\\(\\eta_i(t)\\)\nGaussian noise with zero mean"
+  },
+  {
+    "objectID": "gnn-model.html#gnn-architecture",
+    "href": "gnn-model.html#gnn-architecture",
+    "title": "GNN Model",
+    "section": "GNN Architecture",
+    "text": "GNN Architecture\n\n\n\n\n\ngraph LR\n    subgraph Input\n        X[Activity x_i]\n        A[Latent a_i]\n        T[Time t]\n    end\n\n    subgraph \"Message Passing\"\n        PSI[ψ* MLP]\n        W[W_ij]\n        AGG[Σ Aggregate]\n    end\n\n    subgraph \"Node Update\"\n        PHI[φ* MLP]\n        OMEGA[Ω* SIREN]\n    end\n\n    subgraph Output\n        XDOT[Predicted ẋ_i]\n    end\n\n    X --&gt; PSI\n    A --&gt; PSI\n    A --&gt; PHI\n    X --&gt; PHI\n    T --&gt; OMEGA\n\n    PSI --&gt; W\n    W --&gt; AGG\n    AGG --&gt; OMEGA\n    OMEGA --&gt; XDOT\n    PHI --&gt; XDOT\n\n    style PSI fill:#e1f5fe\n    style PHI fill:#e1f5fe\n    style OMEGA fill:#fff3e0\n    style W fill:#f3e5f5\n\n\n\n\n\n\n\nUpdate Rule\nThe GNN learns to predict the activity rate:\n\\[\n\\widehat{\\dot{x}}_i = \\phi^*(\\vec{a}_i, x_i) + \\Omega_i^*(t) \\sum_{j=1}^{N} \\mathbf{W}_{ij}\\psi^*(\\vec{a}_i, \\vec{a}_j, x_j)\n\\]\n\n\nNetwork Components\n\nφ* (Update MLP)ψ* (Transfer MLP)Ω* (External Input SIREN)\n\n\nPurpose: Models neuron-specific local dynamics (damping + self-coupling)\n\n\n\nProperty\nValue\n\n\n\n\nArchitecture\nMLP with ReLU\n\n\nHidden dimension\n64\n\n\nLayers\n3\n\n\nInput\n\\((\\vec{a}_i, x_i)\\)\n\n\nOutput\nScalar\n\n\n\n\n\nPurpose: Models signal transformation between neurons\n\n\n\nProperty\nValue\n\n\n\n\nArchitecture\nMLP with ReLU\n\n\nHidden dimension\n64\n\n\nLayers\n3\n\n\nInput\n\\((\\vec{a}_i, \\vec{a}_j, x_j)\\) or \\((x_j)\\)\n\n\nOutput\nScalar\n\n\n\n\n\nPurpose: Approximates time-dependent external stimuli\n\n\n\nProperty\nValue\n\n\n\n\nArchitecture\nCoordinate-based MLP (SIREN)\n\n\nHidden dimension\n128\n\n\nLayers\n5\n\n\nInput\n\\((x, y, t)\\)\n\n\nOutput\nScalar\n\n\nFrequency\nω = 0.3"
+  },
+  {
+    "objectID": "gnn-model.html#loss-function",
+    "href": "gnn-model.html#loss-function",
+    "title": "GNN Model",
+    "section": "Loss Function",
+    "text": "Loss Function\nThe optimization loss combines prediction accuracy with physical constraints:\n\\[\n\\mathcal{L} = \\underbrace{\\sum_{i=1}^N \\|\\widehat{\\dot{x}}_i - \\dot{x}_i\\|^2}_{\\text{Prediction error}} + \\alpha\\underbrace{\\sum_{i=1}^N \\|\\phi^*(\\vec{a}_i, 0)\\|^2}_{\\text{Steady state = 0}} + \\beta\\underbrace{\\sum_{i=1}^N \\|\\text{ReLU}(\\frac{\\partial\\phi^*}{\\partial x})\\|^2}_{\\text{Decay constraint}}\n\\]\n\\[\n+ \\gamma\\underbrace{\\sum_{i,j} \\|\\text{ReLU}(-\\frac{\\partial\\psi^*}{\\partial x})\\|^2}_{\\text{Sign constraint}} + \\zeta\\underbrace{\\|\\mathbf{W}\\|}_{\\text{Sparsity}}\n\\]\n\nRegularization Terms\n\n\n\nTerm\nSymbol\nPurpose\n\n\n\n\nSteady state\nα\nEncourages zero activity at rest\n\n\nDecay\nβ\nPrevents runaway excitations\n\n\nSign\nγ\nResolves connectivity sign ambiguity\n\n\nSparsity\nζ\nL1 penalty for sparse W"
+  },
+  {
+    "objectID": "gnn-model.html#effective-rank",
+    "href": "gnn-model.html#effective-rank",
+    "title": "GNN Model",
+    "section": "Effective Rank",
+    "text": "Effective Rank\nThe effective rank quantifies the complexity of the connectivity matrix and is the strongest predictor of training difficulty:\n\\[\n\\text{eff\\_rank} = \\text{min}\\{k : \\sum_{i=1}^{k} \\sigma_i^2 \\geq 0.99 \\sum_{i=1}^{N} \\sigma_i^2\\}\n\\]\nwhere \\(\\sigma_i\\) are the singular values of \\(\\mathbf{W}\\).\n\n\neff_rank &gt; 30\n\n\n“Easy mode” - any reasonable parameters work\n\n\n\n\neff_rank &lt; 8\n\n\nFundamentally unrecoverable"
+  },
+  {
+    "objectID": "gnn-model.html#neuron-type-clustering",
+    "href": "gnn-model.html#neuron-type-clustering",
+    "title": "GNN Model",
+    "section": "Neuron Type Clustering",
+    "text": "Neuron Type Clustering\nDuring training, the model jointly optimizes:\n\nShared MLPs (\\(\\phi^*\\), \\(\\psi^*\\))\nLatent vectors \\(\\vec{a}_i\\) for each neuron\n\nTo encourage similar functions to produce similar embeddings:\nEvery 4 epochs:\n├── Sample function profiles F_i = φ*(a_i, x) for x ∈ [-5, 5]\n├── Project to 2D with UMAP\n├── Hierarchical clustering (complete linkage, threshold 0.01)\n├── Replace a_i with cluster medians\n└── Retrain φ* for 20 sub-epochs"
+  },
+  {
+    "objectID": "gnn-model.html#training-parameters",
+    "href": "gnn-model.html#training-parameters",
+    "title": "GNN Model",
+    "section": "Training Parameters",
+    "text": "Training Parameters\n\n\n\nExperiment\nα\nβ\nγ\nζ\nψ* input\n\n\n\n\nBaseline\n1\n0\n0\n0\n\\(x_j\\)\n\n\nExternal inputs\n1\n5\n10\n10⁻⁵\n\\(a_j, x_j\\)\n\n\nSparse\n1\n0\n0\n10⁻⁵\n\\(x_j\\)\n\n\nLarge scale\n1\n0\n0\n5×10⁻⁵\n\\(x_j\\)\n\n\nTransmitters\n1\n0\n100\n0\n\\(a_j, x_j\\)\n\n\nTransmitters & receptors\n1\n0\n500\n0\n\\(a_i, a_j, x_j\\)"
+  },
+  {
+    "objectID": "gnn-model.html#simulation-parameters",
+    "href": "gnn-model.html#simulation-parameters",
+    "title": "GNN Model",
+    "section": "Simulation Parameters",
+    "text": "Simulation Parameters\n\n\n\nParameter\nSymbol\nTypical Range\nDescription\n\n\n\n\nNeurons\nN\n100-8000\nNetwork size\n\n\nFrames\n\\(N_{\\text{frames}}\\)\n10⁴-10⁵\nSimulation length\n\n\nConnectivity\nff\n0.05-1.0\nFilling factor\n\n\nCoupling\n\\(g_i\\)\n10\nMessage scaling\n\n\nSelf-coupling\n\\(s_i\\)\n1-8\nNonlinear feedback\n\n\nTime constant\n\\(\\tau_i\\)\n0.25-1\nDecay rate"
+  },
+  {
+    "objectID": "gnn-model.html#key-results",
+    "href": "gnn-model.html#key-results",
+    "title": "GNN Model",
+    "section": "Key Results",
+    "text": "Key Results\n\nConnectivity Recovery\n\n\n\nN\nConnectivity\nR²\nConditions\n\n\n\n\n1,000\n100%\n1.00\nNoise-free\n\n\n1,000\n5%\n0.99\nWith L1 penalty\n\n\n8,000\n100%\n1.00\nWith noise (16dB)\n\n\n\n\n\nNeuron Type Classification\n\n\n\nTypes\nAccuracy\nMethod\n\n\n\n\n4\n1.00\nK-means on \\(\\vec{a}_i\\)\n\n\n32\n0.99\nK-means on \\(\\vec{a}_i\\)\n\n\n\n\n\nSymbolic Regression\nThe learned functions can be converted to analytical expressions:\n\n\n\nFunction\nTrue\nLearned\n\n\n\n\n\\(\\phi_1\\)\n\\(-x + \\tanh(x)\\)\n\\(-0.998x + \\tanh(x) - 0.0016\\)\n\n\n\\(\\phi_2\\)\n\\(-x + 2\\tanh(x)\\)\n\\(-0.998x + 1.996\\tanh(x)\\)\n\n\n\\(\\psi\\)\n\\(\\tanh(x)\\)\n\\(\\tanh(x)\\)"
+  },
+  {
+    "objectID": "gnn-model.html#implementation",
+    "href": "gnn-model.html#implementation",
+    "title": "GNN Model",
+    "section": "Implementation",
+    "text": "Implementation\nThe GNN is implemented using:\n\nPyTorch Geometric for message passing\nAdamUniform optimizer with lr = 10⁻⁴\n500-1000 epochs covering ~10⁵ time points each"
+  },
+  {
+    "objectID": "gnn-model.html#next-steps",
+    "href": "gnn-model.html#next-steps",
+    "title": "GNN Model",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nArchitecture - System overview\nExperiment Loop - Training automation\nResults - Signal landscape findings"
+  },
+  {
+    "objectID": "epistemic-analysis.html",
+    "href": "epistemic-analysis.html",
+    "title": "Epistemic Analysis",
+    "section": "",
+    "text": "The signal_landscape_Claude experiment generated 231 reasoning events across 107 iterations and 14 exploration blocks. This analysis categorizes these events into formal epistemic modes.\n\n\n\n\n\n\nNoteWhat is Epistemic Analysis?\n\n\n\nEpistemic analysis examines how knowledge is acquired, validated, and refined. By categorizing the LLM’s reasoning into formal modes, we can assess whether it demonstrates genuine scientific thinking versus random exploration."
+  },
+  {
+    "objectID": "epistemic-analysis.html#overview",
+    "href": "epistemic-analysis.html#overview",
+    "title": "Epistemic Analysis",
+    "section": "",
+    "text": "The signal_landscape_Claude experiment generated 231 reasoning events across 107 iterations and 14 exploration blocks. This analysis categorizes these events into formal epistemic modes.\n\n\n\n\n\n\nNoteWhat is Epistemic Analysis?\n\n\n\nEpistemic analysis examines how knowledge is acquired, validated, and refined. By categorizing the LLM’s reasoning into formal modes, we can assess whether it demonstrates genuine scientific thinking versus random exploration."
+  },
+  {
+    "objectID": "epistemic-analysis.html#epistemic-timeline",
+    "href": "epistemic-analysis.html#epistemic-timeline",
+    "title": "Epistemic Analysis",
+    "section": "Epistemic Timeline",
+    "text": "Epistemic Timeline\n\n\n\nReasoning events across 107 iterations and 14 blocks"
+  },
+  {
+    "objectID": "epistemic-analysis.html#reasoning-mode-taxonomy",
+    "href": "epistemic-analysis.html#reasoning-mode-taxonomy",
+    "title": "Epistemic Analysis",
+    "section": "Reasoning Mode Taxonomy",
+    "text": "Reasoning Mode Taxonomy\n\nMode Definitions\n\n\n\n\n\n\n\n\nMode\nDefinition\nExample\n\n\n\n\nInduction\nGeneralize from specific observations\n“lr_W 2E-3 to 1E-2 all converge → easy mode established”\n\n\nDeduction\nPredict from established principles\n“If lr helps low-rank, then lr=1E-3 should improve R²”\n\n\nAbduction\nInfer best explanation for observation\n“R² dropped despite same params → must be eff_rank effect”\n\n\nFalsification\nReject hypothesis via counterexample\n“factorization=True made R² worse → hypothesis rejected”\n\n\nBoundary\nProbe limits of working configurations\n“lr_W=5E-2 still converges, try 1E-1”\n\n\nAnalogy\nTransfer knowledge between regimes\n“Block 1 settings worked → apply to Block 3 Dale regime”\n\n\nMeta-reasoning\nReason about reasoning strategy\n“Need to switch from exploit to explore mode”\n\n\nRegime\nIdentify distinct operating conditions\n“low_rank (eff_rank=11) requires different approach”\n\n\nUncertainty\nQuantify confidence in conclusions\n“75% confident sparse is unrecoverable”\n\n\nCausal\nIdentify cause-effect relationships\n“High lr_W → fast W learning BUT starves embedding”\n\n\nPredictive\nForecast outcomes before testing\n“Noise should increase eff_rank”\n\n\nConstraint\nIdentify hard limits\n“ff=0.2 fundamentally unrecoverable”\n\n\n\n\n\nDistribution\n\n\n\n\n\npie title Reasoning Mode Distribution (231 events)\n    \"Deduction\" : 61\n    \"Induction\" : 44\n    \"Boundary\" : 29\n    \"Falsification\" : 28\n    \"Abduction\" : 16\n    \"Analogy\" : 15\n    \"Regime\" : 9\n    \"Constraint\" : 8\n    \"Causal Chain\" : 6\n    \"Predictive\" : 6\n    \"Meta-reasoning\" : 5\n    \"Uncertainty\" : 4"
+  },
+  {
+    "objectID": "epistemic-analysis.html#reasoning-activity-over-time",
+    "href": "epistemic-analysis.html#reasoning-activity-over-time",
+    "title": "Epistemic Analysis",
+    "section": "Reasoning Activity Over Time",
+    "text": "Reasoning Activity Over Time\n\n\n\nStreamgraph showing the distribution of reasoning modes across 107 iterations. The stacked area chart reveals how different epistemic modes dominate at different phases: early blocks show more Boundary probing and Induction, while later blocks exhibit increased Deduction and Falsification as principles become established."
+  },
+  {
+    "objectID": "epistemic-analysis.html#epistemic-flow",
+    "href": "epistemic-analysis.html#epistemic-flow",
+    "title": "Epistemic Analysis",
+    "section": "Epistemic Flow",
+    "text": "Epistemic Flow\n\n\n\nSankey diagram showing the flow between reasoning modes. Deduction acts as the central hub—nearly all reasoning modes converge through it before branching outward. The dominant Deduction→Falsification pathway demonstrates genuine hypothesis testing rather than mere pattern matching."
+  },
+  {
+    "objectID": "epistemic-analysis.html#validation-rates",
+    "href": "epistemic-analysis.html#validation-rates",
+    "title": "Epistemic Analysis",
+    "section": "Validation Rates",
+    "text": "Validation Rates\nKey finding: The LLM’s predictions were validated at meaningful rates, indicating genuine reasoning rather than random guessing.\n\n\n\nMode\nCount\nValidated\nRate\nSignificance\n\n\n\n\nDeduction\n61\n42\n69%\nWell above chance (50%)\n\n\nAnalogy\n15\n12\n80%\nHigh transfer success\n\n\nFalsification\n28\n28\n100%\nAll led to refinement\n\n\n\n\n\n\n\n\n\nImportantKey Insight\n\n\n\nThe 69% deduction validation rate demonstrates that the LLM is forming genuine predictions based on accumulated knowledge, not randomly sampling the parameter space."
+  },
+  {
+    "objectID": "epistemic-analysis.html#detailed-examples",
+    "href": "epistemic-analysis.html#detailed-examples",
+    "title": "Epistemic Analysis",
+    "section": "Detailed Examples",
+    "text": "Detailed Examples\n\nInduction (44 instances)\nPattern recognition leading to general principles:\n\n\n\n\n\n\n\n\nIter\nObservation\nGeneralization\n\n\n\n\n1-8\nlr_W 2E-3, 5E-3, 1E-2 all R² &gt; 0.99\n“Chaotic regime is easy mode”\n\n\n9-16\nlr=5E-4 and lr=1E-3 both breakthrough\n“Low eff_rank needs higher MLP lr”\n\n\n17-24\nDale regime tolerates 100x lr_W range\n“Dale constraint doesn’t add difficulty”\n\n\n33-40\nAll noise configs converged\n“Noise is super-easy mode”\n\n\n49-56\n8/8 sparse configs failed\n“ff=0.2 fundamentally unrecoverable”\n\n\n81-90\nff=0.9 needs lr_W_start≤5E-3\n“High connectivity still has upper bound”\n\n\n91-100\nn=300 converges with lr_W=5E-3\n“n=300 similar tolerance to n=200”\n\n\n\n\n\nDeduction (61 instances, 69% validated)\nPredictions from principles:\n\nValidatedFalsified\n\n\n\n\n\n\n\n\n\n\n\nIter\nPrinciple Applied\nPrediction\nOutcome\n\n\n\n\n2\n“Higher lr_W should maintain convergence”\nR² &gt; 0.9\nR² = 0.9999\n\n\n15\n“Low-rank needs higher lr”\nlr=1E-3 → breakthrough\nR² = 0.953\n\n\n57\n“Noise increases eff_rank”\nWill rescue sparse\neff_rank 6→92\n\n\n65\n“Higher ff → higher eff_rank”\nff=0.5 viable\neff_rank = 26\n\n\n73\n“ff=0.75 should be easier than ff=0.5”\nExpect R² &gt; 0.9\nR² = 0.985\n\n\n84\n“ff=0.9 with moderate lr_W”\nR² &gt; 0.95\nR² = 0.992\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter\nPrinciple Applied\nPrediction\nOutcome\n\n\n\n\n10\n“Factorization helps low-rank”\nImprove R²\nR² dropped 0.42→0.35\n\n\n28\n“lr_W tolerance same for n_types&gt;1”\nR² &gt; 0.9\ncluster_acc = 0.48\n\n\n62\n“Scale-up breaks plateau”\nR² &gt; 0.25\nR² unchanged at 0.20\n\n\n78\n“n=200 identical tolerance”\nlr_W=4E-3 works\nR² dropped below 0.9\n\n\n102\n“n=500 same as n=300”\nlr_W=5E-3 works\nR² degraded\n\n\n\n\n\n\n\n\nFalsification (28 instances)\nAll falsifications led to principle refinement:\n\n\n\n\n\ngraph LR\n    H1[Hypothesis: factorization helps] --&gt; T1[Test: Iter 10]\n    T1 --&gt; F1[Result: R² dropped]\n    F1 --&gt; P1[Principle: factorization HURTS]\n\n    H2[Hypothesis: same lr_W for n_types] --&gt; T2[Test: Iter 28]\n    T2 --&gt; F2[Result: cluster_acc failed]\n    F2 --&gt; P2[Principle: dual-objective conflict]\n\n    H3[Hypothesis: training fixes sparse] --&gt; T3[Test: Iters 52-56]\n    T3 --&gt; F3[Result: 0% converged]\n    F3 --&gt; P3[Principle: fundamental limit]\n\n    H4[Hypothesis: n=200 identical to n=100] --&gt; T4[Test: Iter 78]\n    T4 --&gt; F4[Result: lr_W boundary shifted]\n    F4 --&gt; P4[Principle: 1/√n scaling law]\n\n    style F1 fill:#ffcccc\n    style F2 fill:#ffcccc\n    style F3 fill:#ffcccc\n    style F4 fill:#ffcccc\n    style P1 fill:#ccffcc\n    style P2 fill:#ccffcc\n    style P3 fill:#ccffcc\n    style P4 fill:#ccffcc\n\n\n\n\n\n\n\n\nAnalogy/Transfer (15 instances, 80% success)\nCross-regime knowledge transfer:\n\n\n\n\n\n\n\n\n\nSource\nTarget\nKnowledge\nOutcome\n\n\n\n\nBlocks 1-2\nBlock 3 (Dale)\nlr_W=5E-3, lr=5E-4\nPerfect\n\n\nBlocks 2-3\nBlock 4 (n_types=2)\nOptimized params\nFull convergence\n\n\nBlock 5 (noise)\nBlock 8 (sparse+noise)\nNoise rescue\neff_rank rescued\n\n\nBlock 2+4\nBlock 6 (low_rank+n_types)\nCombined settings\nPartial (37.5%)\n\n\nBlock 9 (ff=0.5)\nBlock 10 (ff=0.75)\nSparsity scaling\nSuccessful\n\n\nBlock 11 (n=200)\nBlock 13 (n=300)\nSize scaling\nPartial success"
+  },
+  {
+    "objectID": "epistemic-analysis.html#block-summary",
+    "href": "epistemic-analysis.html#block-summary",
+    "title": "Epistemic Analysis",
+    "section": "Block Summary",
+    "text": "Block Summary\n\n\n\nBlock\nRegime\nIterations\nEvents\neff_rank\nKey Finding\n\n\n\n\n1\nChaotic\n1-8\n18\n~34\nEasy mode established\n\n\n2\nLow-rank\n9-16\n16\n~11\nlr breakthrough required\n\n\n3\nDale\n17-24\n14\n~30\nE/I constraint easy\n\n\n4\nn_types=2\n25-32\n15\n~34\nDual-objective conflict\n\n\n5\nNoise\n33-40\n12\n~83\nSuper-easy mode\n\n\n6\nCompound\n41-48\n14\n~11\nCombined difficulty\n\n\n7\nSparse\n49-56\n18\n~6\nFundamental limit\n\n\n8\nSparse+Noise\n57-64\n16\n~92\nNoise rescues rank only\n\n\n9\nff=0.5\n65-72\n14\n~26\nIntermediate viable\n\n\n10\nff=0.75\n73-80\n12\n~38\nEasy transition\n\n\n11\nn=200\n81-90\n18\n~34\nScale sensitivity\n\n\n12\nff=0.9\n81-90\n16\n~45\nHigh connectivity\n\n\n13\nn=300\n91-100\n14\n~34\nFurther scaling\n\n\n14\nn=500\n101-107\n12\n~34\nBoundary found"
+  },
+  {
+    "objectID": "epistemic-analysis.html#epistemic-metrics",
+    "href": "epistemic-analysis.html#epistemic-metrics",
+    "title": "Epistemic Analysis",
+    "section": "Epistemic Metrics",
+    "text": "Epistemic Metrics\n\nPrimary Metrics\n\n\n\nMetric\nDefinition\nValue\n\n\n\n\nHTR\nHypothesis Test Rate (tests/iteration)\n2.16\n\n\nDA\nDeduction Accuracy\n69%\n\n\nTSR\nTransfer Success Rate\n80%\n\n\nCD\nCausal Depth (max chain length)\n4\n\n\nED\nExploration Diversity (unique params)\n18\n\n\n\n\n\nGraph-Theoretic Metrics\nThe reasoning events form a directed graph:\n\n\n\nMetric\nValue\nInterpretation\n\n\n\n\nNodes\n231\nTotal reasoning events\n\n\nEdges\n84\nEvent dependencies\n\n\nDensity\n0.16%\nVery sparse, structured reasoning\n\n\nAvg In-Degree\n0.36\nMost events depend on &lt;1 prior\n\n\nMax In-Degree\n5\nSome events integrate multiple sources"
+  },
+  {
+    "objectID": "epistemic-analysis.html#causal-chains",
+    "href": "epistemic-analysis.html#causal-chains",
+    "title": "Epistemic Analysis",
+    "section": "Causal Chains",
+    "text": "Causal Chains\nKey multi-step causal chains discovered:\n\n\n\n\n\ngraph TD\n    A[low eff_rank observed] --&gt;|leads_to| B[convergence failure]\n    B --&gt;|triggers| C[lr boost hypothesis]\n    C --&gt;|leads_to| D[lr=1E-3 test]\n    D --&gt;|refines| E[low-rank principle established]\n\n    F[sparse ff=0.2] --&gt;|leads_to| G[eff_rank collapse]\n    G --&gt;|triggers| H[noise addition hypothesis]\n    H --&gt;|leads_to| I[eff_rank rescue ~92]\n    I --&gt;|refines| J[W signal masked]\n\n    style A fill:#e3f2fd\n    style E fill:#c8e6c9\n    style F fill:#e3f2fd\n    style J fill:#ffcdd2"
+  },
+  {
+    "objectID": "epistemic-analysis.html#principles-discovered",
+    "href": "epistemic-analysis.html#principles-discovered",
+    "title": "Epistemic Analysis",
+    "section": "Principles Discovered",
+    "text": "Principles Discovered\nTwelve key principles discovered through systematic reasoning:\n\n\n\n\n\n\n\n\n\n#\nPrinciple\nEvidence\nConfidence\n\n\n\n\n1\neff_rank determines difficulty\n14 blocks, consistent\n97%\n\n\n2\nChaotic (eff_rank~34) is “easy mode”\nBlock 1: 100%, 5x lr_W\n92%\n\n\n3\nLow-rank requires lr=1E-3\nBlocks 2,6: breakthrough\n87%\n\n\n4\nlow_rank_factorization=True HURTS\n3 tests, all degraded\n82%\n\n\n5\nDale’s law ≠ increased difficulty\nBlock 3: 100% converged\n87%\n\n\n6\nNoise INCREASES eff_rank\n34→83, 6→92\n92%\n\n\n7\nspectral_radius&lt;0.7 → collapse\nBlock 7: 0%\n87%\n\n\n8\nSparse (ff&lt;0.3) unrecoverable\n16/16 failed\n97%\n\n\n9\nHigh lr_W starves embedding\nBlock 4: cluster_acc ↓\n82%\n\n\n10\nlr_emb compensates for L1\n1E-4 restores cluster\n77%\n\n\n11\nNoise masks W signal in sparse\n8/8 plateau R²~0.20\n87%\n\n\n12\nlr_W tolerance scales as 1/√n\nn=200,300,500 tested\n72%"
+  },
+  {
+    "objectID": "epistemic-analysis.html#summary",
+    "href": "epistemic-analysis.html#summary",
+    "title": "Epistemic Analysis",
+    "section": "Summary",
+    "text": "Summary\nThe epistemic analysis reveals that the LLM demonstrates genuine scientific reasoning:\n\nStructured exploration: 231 events across 14 blocks with clear dependencies\nPredictive power: 69% deduction accuracy (well above chance)\nKnowledge transfer: 80% analogy success rate\nPrinciple discovery: 12 novel, validated findings with quantified confidence\nSelf-correction: 100% of falsifications led to refinement\n\nThis supports the claim that LLMs can act as active scientific agents rather than mere pattern matchers."
+  },
+  {
+    "objectID": "epistemic-analysis.html#detailed-analysis-files",
+    "href": "epistemic-analysis.html#detailed-analysis-files",
+    "title": "Epistemic Analysis",
+    "section": "Detailed Analysis Files",
+    "text": "Detailed Analysis Files\nFor complete records, see:\n\nEpistemic Analysis Summary - Main analysis with all 231 events\nDetailed Event Log - Exhaustive list by reasoning mode\nCausal Edge Documentation - 84 causal relationships"
+  },
+  {
+    "objectID": "epistemic-analysis.html#next-steps",
+    "href": "epistemic-analysis.html#next-steps",
+    "title": "Epistemic Analysis",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nResults - Detailed experimental findings\nGNN Model - Architecture details\nArchitecture - System overview"
+  },
+  {
+    "objectID": "architecture.html",
+    "href": "architecture.html",
+    "title": "System Architecture",
+    "section": "",
+    "text": "The NeuralGraph system implements a closed-loop scientific exploration framework with three tightly coupled components:\n\n\n\n\n\nflowchart TB\n    subgraph EXP[EXPERIMENT]\n        E1[Data Generation]\n        E2[GNN Training]\n        E3[Evaluation]\n        E4[Visualization]\n    end\n\n    subgraph LLM[LLM Agent]\n        L1[Read Inputs]\n        L2[Analyze Results]\n        L3[Select Strategy]\n        L4[Edit Config]\n    end\n\n    subgraph MEM[MEMORY]\n        M1[Working Memory&lt;br/&gt;memory.md]\n        M2[Full Log&lt;br/&gt;analysis.md]\n    end\n\n    E3 --&gt;|activity.png&lt;br/&gt;analysis.log&lt;br/&gt;ucb_scores.txt| L1\n    L4 --&gt;|config.yaml| E1\n    L2 &lt;--&gt;|read/write| M1\n    L2 --&gt;|append| M2\n\n    style EXP fill:#e3f2fd\n    style LLM fill:#fff3e0\n    style MEM fill:#e8f5e9"
+  },
+  {
+    "objectID": "architecture.html#overview",
+    "href": "architecture.html#overview",
+    "title": "System Architecture",
+    "section": "",
+    "text": "The NeuralGraph system implements a closed-loop scientific exploration framework with three tightly coupled components:\n\n\n\n\n\nflowchart TB\n    subgraph EXP[EXPERIMENT]\n        E1[Data Generation]\n        E2[GNN Training]\n        E3[Evaluation]\n        E4[Visualization]\n    end\n\n    subgraph LLM[LLM Agent]\n        L1[Read Inputs]\n        L2[Analyze Results]\n        L3[Select Strategy]\n        L4[Edit Config]\n    end\n\n    subgraph MEM[MEMORY]\n        M1[Working Memory&lt;br/&gt;memory.md]\n        M2[Full Log&lt;br/&gt;analysis.md]\n    end\n\n    E3 --&gt;|activity.png&lt;br/&gt;analysis.log&lt;br/&gt;ucb_scores.txt| L1\n    L4 --&gt;|config.yaml| E1\n    L2 &lt;--&gt;|read/write| M1\n    L2 --&gt;|append| M2\n\n    style EXP fill:#e3f2fd\n    style LLM fill:#fff3e0\n    style MEM fill:#e8f5e9"
+  },
+  {
+    "objectID": "architecture.html#file-exchange-protocol",
+    "href": "architecture.html#file-exchange-protocol",
+    "title": "System Architecture",
+    "section": "File Exchange Protocol",
+    "text": "File Exchange Protocol\nThe system communicates through a well-defined set of files:\n\nExperiment → LLM\n\n\n\n\n\n\n\n\nFile\nFormat\nContents\n\n\n\n\nactivity.png\nPNG\nNeural activity visualization showing simulated dynamics\n\n\nanalysis.log\nText\nKey metrics: connectivity_R², test_R², eff_rank, loss\n\n\nucb_scores.txt\nText\nUCB exploration tree with node scores and parents\n\n\n\n\n\nLLM → Experiment\n\n\n\n\n\n\n\n\nFile\nFormat\nContents\n\n\n\n\nconfig/{task}.yaml\nYAML\nUpdated hyperparameters for next iteration\n\n\n\n\n\nLLM ↔︎ Memory\n\n\n\n\n\n\n\n\nFile\nDirection\nContents\n\n\n\n\n{task}_memory.md\nRead/Write\nWorking memory: established principles, current block progress\n\n\n{task}_analysis.md\nAppend-only\nFull experiment log with iteration details\n\n\n{task}_reasoning.log\nAppend-only\nClaude’s reasoning trace (for debugging)"
+  },
+  {
+    "objectID": "architecture.html#component-details",
+    "href": "architecture.html#component-details",
+    "title": "System Architecture",
+    "section": "Component Details",
+    "text": "Component Details\n\n1. Experiment Module\nThe experiment module handles all computational work:\n\nData GenerationGNN TrainingEvaluation\n\n\n# Simulate neural activity with given parameters\ndata_generate(\n    config=config,\n    visualize=True,\n    device=device\n)\nGenerates synthetic neural activity using configurable dynamics:\n\nConnectivity types: Chaotic, low-rank, Dale’s law, sparse\nNetwork parameters: n_neurons, n_types, spectral_radius\nNoise models: Clean, low, medium, high\n\n\n\n# Train GNN to recover connectivity matrix W\ndata_train(\n    config=config,\n    n_epochs=config.training.n_epochs,\n    device=device\n)\nTrains Signal Propagation GNN with:\n\nLearnable connectivity matrix W\nEmbedding vectors for neuron types\nL1 regularization for sparsity\n\n\n\n# Test connectivity recovery\ndata_test(\n    config=config,\n    best_model=model_path,\n    device=device\n)\nOutputs key metrics:\n\nconnectivity_R²: Correlation between learned and true W\ntest_R²: Activity prediction accuracy\ncluster_accuracy: Neuron type classification (if n_types &gt; 1)\neffective_rank: SVD rank at 99% variance\n\n\n\n\n\n\n2. LLM Agent\nThe LLM (Claude) acts as the scientific reasoning engine:\n\n\n\n\n\n\nNoteCapabilities\n\n\n\n\nRead: Instruction files, memory, metrics, visualizations\nAnalyze: Pattern recognition, hypothesis formation\nDecide: Strategy selection based on UCB scores\nEdit: Config files, memory updates\n\n\n\n\nDecision Framework\n┌─────────────────────────────────────────────────┐\n│  1. READ INPUTS                                 │\n│     - instruction.md (exploration protocol)     │\n│     - memory.md (accumulated knowledge)         │\n│     - analysis.log (current metrics)            │\n│     - ucb_scores.txt (exploration tree)         │\n│     - activity.png (visualization)              │\n└──────────────────────┬──────────────────────────┘\n                       │\n                       v\n┌─────────────────────────────────────────────────┐\n│  2. ANALYZE RESULTS                             │\n│     - Classify: converged / partial / failed    │\n│     - Compare to predictions                    │\n│     - Identify patterns                         │\n└──────────────────────┬──────────────────────────┘\n                       │\n                       v\n┌─────────────────────────────────────────────────┐\n│  3. SELECT STRATEGY                             │\n│     - exploit: follow highest UCB               │\n│     - explore: try new parameter dimension      │\n│     - boundary: probe failure limits            │\n│     - robustness: re-test best configs          │\n└──────────────────────┬──────────────────────────┘\n                       │\n                       v\n┌─────────────────────────────────────────────────┐\n│  4. MUTATE CONFIG                               │\n│     - Change ONE parameter                      │\n│     - Log mutation in analysis.md               │\n│     - Update memory.md                          │\n└─────────────────────────────────────────────────┘\n\n\n\n3. Memory System\nThe memory system maintains state across iterations:\n\nWorking Memory (memory.md)\nStructured document with sections:\n## Knowledge Base\n### Established Principles\n- [Confirmed findings from 3+ tests]\n\n### Open Questions\n- [Hypotheses under investigation]\n\n### Failed Configurations\n- [What to avoid]\n\n## Current Block\n### Block Info\n- Regime: [current simulation settings]\n- Iterations: N to M\n\n### Iterations This Block\n[Logs for current block]\n\n### Emerging Observations\n[Patterns noticed during exploration]\n\n\nAnalysis Log (analysis.md)\nAppend-only log with strict format:\n## Iter N: [converged/partial/failed]\nNode: id=X, parent=Y\nStrategy: [exploit/explore/boundary/...]\nConfig: [key parameters]\nMetrics: connectivity_R²=X.XX, test_R²=X.XX, eff_rank=XX\nObservation: [what was learned]\nMutation: [param]: [old] -&gt; [new]\nNext: parent=Z"
+  },
+  {
+    "objectID": "architecture.html#ucb-exploration-tree",
+    "href": "architecture.html#ucb-exploration-tree",
+    "title": "System Architecture",
+    "section": "UCB Exploration Tree",
+    "text": "UCB Exploration Tree\nThe system uses Upper Confidence Bound (UCB) for exploration:\n\\[\\text{UCB}(n) = \\bar{R}(n) + c \\sqrt{\\frac{\\ln N}{n_{\\text{visits}}}}\\]\nWhere:\n\n\\(\\bar{R}(n)\\) = average reward (connectivity_R²) at node n\n\\(N\\) = total iterations in current block\n\\(n_{\\text{visits}}\\) = visits to node n\n\\(c\\) = exploration constant (default 1.414)\n\n\n\n\n\n\ngraph TD\n    A[Root: lr_W=5E-3] --&gt; B[lr_W=1E-2&lt;br/&gt;R²=0.99]\n    A --&gt; C[lr_W=2E-3&lt;br/&gt;R²=0.97]\n    B --&gt; D[L1=1E-3&lt;br/&gt;R²=0.85]\n    B --&gt; E[L1=1E-4&lt;br/&gt;R²=0.99]\n    C --&gt; F[lr=1E-3&lt;br/&gt;R²=0.95]\n\n    style E fill:#90EE90\n    style D fill:#FFB6C1"
+  },
+  {
+    "objectID": "architecture.html#block-structure",
+    "href": "architecture.html#block-structure",
+    "title": "System Architecture",
+    "section": "Block Structure",
+    "text": "Block Structure\nExploration is organized into blocks of n_iter_block iterations:\n\n\n\nScope\nDuration\nAllowed Changes\n\n\n\n\nIteration\n1 cycle\nTraining parameters only\n\n\nBlock\n8 iterations\nTraining + simulation parameters\n\n\n\n\n\n\n\n\n\nWarningBlock Boundary Rules\n\n\n\nAt the end of each block:\n\nClear UCB scores (fresh exploration tree)\nLLM may modify instruction file\nLLM selects next simulation regime\nMemory snapshot saved for recovery"
+  },
+  {
+    "objectID": "architecture.html#next-steps",
+    "href": "architecture.html#next-steps",
+    "title": "System Architecture",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nExperiment Loop Details - Detailed code walkthrough\nEpistemic Analysis - Reasoning mode taxonomy\nResults - Findings from signal_landscape experiment"
+  },
+  {
+    "objectID": "experiment-loop.html",
+    "href": "experiment-loop.html",
+    "title": "Experiment Loop",
+    "section": "",
+    "text": "The experiment loop in GNN_LLM.py orchestrates the interaction between computation and reasoning:\nfor iteration in range(1, n_iterations + 1):\n    # Phase 1: Experiment\n    config = reload_config()\n    data_generate(config)\n    data_train(config)\n    data_test(config)\n    data_plot(config)\n\n    # Phase 2: UCB Computation\n    compute_ucb_scores()\n    plot_ucb_tree()\n\n    # Phase 3: LLM Analysis\n    call_claude_cli()\n\n    # Phase 4: Block Boundary (if applicable)\n    if is_block_end:\n        clear_ucb_scores()\n        save_memory_snapshot()"
+  },
+  {
+    "objectID": "experiment-loop.html#main-loop-structure",
+    "href": "experiment-loop.html#main-loop-structure",
+    "title": "Experiment Loop",
+    "section": "",
+    "text": "The experiment loop in GNN_LLM.py orchestrates the interaction between computation and reasoning:\nfor iteration in range(1, n_iterations + 1):\n    # Phase 1: Experiment\n    config = reload_config()\n    data_generate(config)\n    data_train(config)\n    data_test(config)\n    data_plot(config)\n\n    # Phase 2: UCB Computation\n    compute_ucb_scores()\n    plot_ucb_tree()\n\n    # Phase 3: LLM Analysis\n    call_claude_cli()\n\n    # Phase 4: Block Boundary (if applicable)\n    if is_block_end:\n        clear_ucb_scores()\n        save_memory_snapshot()"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-1-experiment-execution",
+    "href": "experiment-loop.html#phase-1-experiment-execution",
+    "title": "Experiment Loop",
+    "section": "Phase 1: Experiment Execution",
+    "text": "Phase 1: Experiment Execution\n\n1.1 Config Reload\nEach iteration starts by reloading the config to pick up LLM changes:\n# Reload config (pick up LLM changes from previous iteration)\nconfig = ParticleGraphConfig.from_yaml(target_config)\ndataset_name = f\"{base_config_name}/{config.dataset}\"\n\n\n1.2 Data Generation\nSimulate neural activity with current parameters:\ndata_generate(\n    config=config,\n    visualize=True,\n    style='color',\n    erase=True,  # Clear previous data\n    device=device\n)\n\n\n\n\n\n\nTipSimulation Parameters\n\n\n\nKey parameters that affect the generated data:\n\n\n\nParameter\nRange\nEffect\n\n\n\n\nn_neurons\n100-1000\nNetwork size\n\n\nn_frames\n10k-100k\nSimulation length\n\n\nconnectivity_type\nchaotic/low_rank\nDynamics regime\n\n\nconnectivity_filling_factor\n0.05-1.0\nSparsity\n\n\nnoise_model_level\n0-2\nObservation noise\n\n\n\n\n\n\n\n1.3 GNN Training\nTrain the GNN to recover the connectivity matrix:\ndata_train(\n    config=config,\n    device=device,\n    log_dir=log_dir\n)\nTraining parameters controlled by LLM:\n\n\n\nParameter\nTypical Range\nPurpose\n\n\n\n\nlearning_rate_W_start\n1E-4 to 1E-2\nConnectivity learning rate\n\n\nlearning_rate_start\n1E-5 to 1E-3\nMLP learning rate\n\n\ncoeff_W_L1\n1E-6 to 1E-3\nSparsity regularization\n\n\ndata_augmentation_loop\n10-40\nTraining iterations multiplier\n\n\n\n\n\n1.4 Evaluation\nTest connectivity recovery:\ndata_test(\n    config=config,\n    best_model=model_path,\n    visualize=True,\n    device=device\n)\nOutput metrics written to analysis.log:\nconnectivity_R2: 0.9543\ntest_R2: 0.8721\neffective_rank: 34\ncluster_accuracy: 0.95\nloss: 0.0023"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-2-ucb-computation",
+    "href": "experiment-loop.html#phase-2-ucb-computation",
+    "title": "Experiment Loop",
+    "section": "Phase 2: UCB Computation",
+    "text": "Phase 2: UCB Computation\n\n2.1 Score Calculation\nCompute UCB scores for the exploration tree:\ndef compute_ucb_scores(analysis_path, ucb_path, c=1.414):\n    # Parse previous iterations from analysis.md\n    nodes = parse_iterations(analysis_path)\n\n    # Build tree structure\n    for node in nodes:\n        visits = count_visits(node)\n        reward = node['connectivity_R2']\n        exploration = c * sqrt(log(N_total) / (1 + visits))\n        node['ucb'] = reward + exploration\n\n    # Write sorted scores\n    write_ucb_file(ucb_path, nodes)\n\n\n2.2 Tree Visualization\nGenerate visual representation of exploration:\nplot_ucb_tree(\n    nodes=nodes,\n    output_path=tree_path,\n    title=f\"UCB Tree - Block {block_number}\"\n)"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-3-llm-analysis",
+    "href": "experiment-loop.html#phase-3-llm-analysis",
+    "title": "Experiment Loop",
+    "section": "Phase 3: LLM Analysis",
+    "text": "Phase 3: LLM Analysis\n\n3.1 Prompt Construction\nBuild the prompt for Claude:\nclaude_prompt = f\"\"\"Iteration {iteration}/{n_iterations}\nBlock info: block {block_number}, iteration {iter_in_block}/{n_iter_block}\n{\"&gt;&gt;&gt; BLOCK END &lt;&lt;&lt;\" if is_block_end else \"\"}\n\nInstructions: {instruction_path}\nWorking memory: {memory_path}\nFull log: {analysis_path}\nActivity image: {activity_path}\nMetrics log: {analysis_log_path}\nUCB scores: {ucb_path}\nCurrent config: {config_path}\"\"\"\n\n\n3.2 Claude CLI Call\nExecute with streaming output:\nclaude_cmd = [\n    'claude',\n    '-p', claude_prompt,\n    '--output-format', 'text',\n    '--max-turns', '100',\n    '--allowedTools', 'Read', 'Edit'\n]\n\nprocess = subprocess.Popen(\n    claude_cmd,\n    stdout=subprocess.PIPE,\n    stderr=subprocess.STDOUT,\n    text=True\n)\n\n# Stream output in real-time\nfor line in process.stdout:\n    print(line, end='', flush=True)"
+  },
+  {
+    "objectID": "experiment-loop.html#strategic-decision-rules",
+    "href": "experiment-loop.html#strategic-decision-rules",
+    "title": "Experiment Loop",
+    "section": "Strategic Decision Rules",
+    "text": "Strategic Decision Rules\nThe instruction file defines 19 context-sensitive strategies:\n\nCore StrategiesAdvanced StrategiesRegime-Specific\n\n\n\n\n\nStrategy\nCondition\nAction\n\n\n\n\nexploit\nDefault\nFollow highest UCB node\n\n\nexplore\n4+ consecutive converged\nTry new parameter dimension\n\n\nboundary\n3+ consecutive R² ≥ 0.9\nProbe failure limits\n\n\nrobustness\nR² = 1.0 found\nRe-run same config to verify\n\n\n\n\n\n\n\n\n\n\n\n\n\nStrategy\nCondition\nAction\n\n\n\n\nrecombine\n2+ nodes with R² &gt; 0.9\nMerge best parameters\n\n\nscale-up\nPlateau detected\n5x data augmentation\n\n\nvariance-aware\nHigh variance regime\nWeight UCB by eff_rank similarity\n\n\nforced-branch\n4+ consecutive in same dim\nSwitch parameter dimension\n\n\n\n\n\n\n\n\n\n\n\n\n\nStrategy\nCondition\nAction\n\n\n\n\nlow-rank-lr-boost\neff_rank &lt; 15\nIncrease lr to 1E-3\n\n\nsparse-high-risk\nff &lt; 0.5 AND eff_rank &lt; 10\nAdd noise to rescue\n\n\nidentifiability-ceiling\nR² ≈ ff (linear law)\nAccept fundamental limit"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-4-block-boundary",
+    "href": "experiment-loop.html#phase-4-block-boundary",
+    "title": "Experiment Loop",
+    "section": "Phase 4: Block Boundary",
+    "text": "Phase 4: Block Boundary\n\n4.1 Block End Detection\nblock_number = (iteration - 1) // n_iter_block + 1\niter_in_block = (iteration - 1) % n_iter_block + 1\nis_block_end = iter_in_block == n_iter_block\n\n\n4.2 Block End Actions\nAt block boundaries, the LLM performs additional tasks:\n┌─────────────────────────────────────────────────┐\n│  BLOCK BOUNDARY WORKFLOW                        │\n├─────────────────────────────────────────────────┤\n│  1. Clear UCB scores (fresh exploration tree)   │\n│  2. Edit instruction.md:                        │\n│     - Add rules if branching rate &lt; 20%         │\n│     - Add boundary rules if rate &gt; 80%          │\n│  3. Choose next simulation regime               │\n│  4. Update Knowledge Base in memory.md          │\n│  5. Save memory snapshot                        │\n└─────────────────────────────────────────────────┘\n\n\n4.3 Regime Selection\nAt block end, LLM selects untested simulation configuration:\n# Example regime change\nsimulation:\n  connectivity_type: low_rank     # was: chaotic\n  connectivity_rank: 10           # new parameter\n  n_neuron_types: 2               # was: 1\n  Dale_law: true                  # new parameter"
+  },
+  {
+    "objectID": "experiment-loop.html#error-recovery",
+    "href": "experiment-loop.html#error-recovery",
+    "title": "Experiment Loop",
+    "section": "Error Recovery",
+    "text": "Error Recovery\n\nAuto-Repair Loop\nIf simulation fails due to code error:\nfor attempt in range(max_repair_attempts):\n    success, error = run_simulation(config)\n\n    if success:\n        break\n\n    if is_code_error(error):\n        # Ask Claude to fix the code\n        repair_prompt = f\"Fix this error:\\n{error}\"\n        run_claude_repair(repair_prompt)\n    else:\n        break\n\nif not success:\n    rollback_code_changes()\n    log_failure_to_memory()\n\n\nGit Integration\nCode modifications are tracked and committed:\ndef track_code_modifications(root_dir, iteration):\n    code_files = [\n        'src/generators/PDE_*.py',\n        'src/generators/utils.py',\n        'src/generators/graph_data_generator.py'\n    ]\n\n    for file in get_modified_files(code_files):\n        commit_code_modification(file, iteration)"
+  },
+  {
+    "objectID": "experiment-loop.html#monitoring-output",
+    "href": "experiment-loop.html#monitoring-output",
+    "title": "Experiment Loop",
+    "section": "Monitoring Output",
+    "text": "Monitoring Output\nDuring execution, the console shows:\n=== Iteration 42/64 ===\nTask: Claude_code | mesh: Signal_Propagation | particle: N/A\nRunning simulation...\nTraining GNN...\nEvaluating...\nconnectivity_R2: 0.9234\nComputing UCB scores...\nClaude analysis...\n[Claude reasoning output streams here...]\nGit: Committed config change\nIteration 42 complete"
+  },
+  {
+    "objectID": "experiment-loop.html#next-steps",
+    "href": "experiment-loop.html#next-steps",
+    "title": "Experiment Loop",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nArchitecture - System overview\nEpistemic Analysis - Reasoning taxonomy\nResults - Experimental findings"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Experiment-LLM-Memory",
+    "section": "",
+    "text": "We previously showed that graph neural networks can recover circuit structure and signaling functions of neural assemblies from activity data alone. However, this inverse problem is known to be ill-posed under certain conditions. For instance, when neural activity is low-rank, many different circuits can generate the same neuron traces. It remains an open question whether graph neural networks can recover connectivity in general, or only for specific classes of neural assemblies.\nTo address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.\nWe show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the closed-loop scientific reasoning results from the interactions between the three components rather than residing solely within the large language model."
+  },
+  {
+    "objectID": "index.html#introduction",
+    "href": "index.html#introduction",
+    "title": "Experiment-LLM-Memory",
+    "section": "",
+    "text": "We previously showed that graph neural networks can recover circuit structure and signaling functions of neural assemblies from activity data alone. However, this inverse problem is known to be ill-posed under certain conditions. For instance, when neural activity is low-rank, many different circuits can generate the same neuron traces. It remains an open question whether graph neural networks can recover connectivity in general, or only for specific classes of neural assemblies.\nTo address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.\nWe show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the closed-loop scientific reasoning results from the interactions between the three components rather than residing solely within the large language model."
+  },
+  {
+    "objectID": "index.html#the-exploration-loop",
+    "href": "index.html#the-exploration-loop",
+    "title": "Experiment-LLM-Memory",
+    "section": "The Exploration Loop",
+    "text": "The Exploration Loop\n\n\n\n\n\nflowchart LR\n    A[Experiment] --&gt; B[LLM]\n    B --&gt; A\n\n    B --&gt; C[(Memory)]\n    C --&gt; B\n\n    style A fill:#e1f5fe\n    style B fill:#fff3e0\n    style C fill:#f3e5f5\n\n\n\n\n\n\nThe framework implements a closed-loop exploration engine composed of three interacting components:\n\nExperiment A physics-based simulator generates neural activity following the Stern et al. (2023) model. A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W.\nLLM The LLM interprets results in context of accumulated memory, performs scientific operations (identify regimes, detect convergence, generate hypotheses), and selects the next intervention via UCB tree search.\nMemory Observations, failed attempts, and validated principles are written into explicit long-term memory. This memory persists across experimental blocks, enabling cumulative understanding rather than episodic trial-and-error."
+  },
+  {
+    "objectID": "index.html#simulation-regimes",
+    "href": "index.html#simulation-regimes",
+    "title": "Experiment-LLM-Memory",
+    "section": "Simulation Regimes",
+    "text": "Simulation Regimes\n\n\n\nRegime\nEffective Rank\nConvergence\nKey Finding\n\n\n\n\nChaotic\n~34\n100%\n“Easy mode” - robust to 100x parameter variation\n\n\nDale’s Law\n~30\n100%\nE/I constraint doesn’t add difficulty\n\n\nLow-rank\n~11\n25-37%\nRequires lr boost (1E-4 to 1E-3)\n\n\nSparse (ff=0.2)\n~6\n0%\nFundamentally unrecoverable\n\n\nIntermediate (ff=0.5)\n~26\n50%\nW learning challenging but possible\n\n\nHigh fill (ff=0.75)\n~38\n100%\nEasy transition\n\n\nScale n=200-500\n~34\n50-75%\nlr_W tolerance scales as 1/√n"
+  },
+  {
+    "objectID": "index.html#results",
+    "href": "index.html#results",
+    "title": "Experiment-LLM-Memory",
+    "section": "Results",
+    "text": "Results\n12 principles discovered across 14 simulation regimes. Effective rank determines training difficulty (97% confidence). Sparse connectivity (ff&lt;0.3) is fundamentally unrecoverable."
+  },
+  {
+    "objectID": "index.html#documentation",
+    "href": "index.html#documentation",
+    "title": "Experiment-LLM-Memory",
+    "section": "Documentation",
+    "text": "Documentation\n\n\n\nSection\nDescription\n\n\n\n\nSystem Architecture\nThree-way coupling between Experiment, LLM, and Memory modules\n\n\nExperiment Loop\nDetailed walkthrough of GNN_LLM.py iteration workflow\n\n\nEpistemic Analysis\nFormal analysis of LLM reasoning modes\n\n\nGNN Model\nSignal propagation architecture and loss functions\n\n\nResults\nComprehensive findings across 14 regimes"
+  },
+  {
+    "objectID": "index.html#references",
+    "href": "index.html#references",
+    "title": "Experiment-LLM-Memory",
+    "section": "References",
+    "text": "References\n\nStern, M., et al. (2023). Graph neural networks uncover structure and function underlying the activity of neural assemblies.\nRomera-Paredes, B., et al. (2024). Mathematical discoveries from program search with large language models. Nature.\nNovikov, A., et al. (2025). AlphaEvolve: A coding agent for scientific and algorithmic exploration."
+  },
+  {
+    "objectID": "index.html#epistemic",
+    "href": "index.html#epistemic",
+    "title": "Experiment-LLM-Memory",
+    "section": "Epistemic",
+    "text": "Epistemic\n231 reasoning events across 107 iterations. 69% deduction accuracy, 80% analogy transfer success, 100% of falsifications led to refinement."
+  },
+  {
+    "objectID": "index.html#epistemics",
+    "href": "index.html#epistemics",
+    "title": "Experiment-LLM-Memory",
+    "section": "Epistemics",
+    "text": "Epistemics\n231 reasoning events across 107 iterations. 69% deduction accuracy, 80% analogy transfer success, 100% of falsifications led to refinement."
+  }
+]
