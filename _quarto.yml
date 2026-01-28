@@ -1,0 +1,56 @@
+project:
+  type: website
+  output-dir: docs
+  render:
+    - "*.qmd"
+
+website:
+  title: "NeuralGraph: LLM-in-the-Loop"
+  description: "Autonomous GNN Training via LLM-Guided Exploration"
+  navbar:
+    background: primary
+    left:
+      - href: index.qmd
+        text: Home
+      - text: System
+        menu:
+          - href: architecture.qmd
+            text: Architecture
+          - href: experiment-loop.qmd
+            text: Experiment Loop
+      - text: Analysis
+        menu:
+          - href: epistemic-analysis.qmd
+            text: Epistemic Analysis
+          - href: results.qmd
+            text: Results
+      - href: gnn-model.qmd
+        text: GNN Model
+    right:
+      - icon: github
+        href: https://github.com/allierc/NeuralGraph
+        aria-label: GitHub
+
+  page-footer:
+    center: "NeuralGraph - Janelia Research Campus"
+
+format:
+  html:
+    theme:
+      light: flatly
+      dark: darkly
+    css: styles.css
+    mermaid:
+      theme: neutral
+    toc: true
+    toc-depth: 3
+    toc-expand: 2
+    smooth-scroll: true
+    code-fold: true
+    code-tools: true
+    code-copy: true
+    highlight-style: github
+    anchor-sections: true
+
+execute:
+  freeze: auto

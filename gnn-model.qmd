@@ -1,0 +1,254 @@
+---
+title: "GNN Model"
+subtitle: "Graph Neural Network Architecture for Neural Assembly Analysis"
+---
+
+## Overview
+
+The GNN architecture is designed to decompose the temporal activity of neural assemblies into interpretable representations. It jointly learns:
+
+- **Connectivity matrix** $\mathbf{W}$
+- **Neuron types** via latent embeddings $\vec{a}_i$
+- **Signaling functions** $\phi^*$ and $\psi^*$
+- **External stimuli** $\Omega^*(t)$
+
+## Neural Assembly Simulation
+
+The GNN is trained on simulated neural activity following the model from Stern et al. (2023):
+
+$$
+\dot{x}_i = -\frac{x_i}{\tau_i} + s_i\tanh(x_i) + g_i\Omega_i(t)\sum_{j=1}^{N} \mathbf{W}_{ij} \left(\tanh\left(\frac{x_j}{\gamma_i}\right) - \theta_j x_j\right) + \eta_i(t)
+$$
+
+| Term | Symbol | Description |
+|------|--------|-------------|
+| Damping | $-x_i/\tau_i$ | Exponential decay with time constant $\tau$ |
+| Self-coupling | $s_i\tanh(x_i)$ | Nonlinear self-feedback |
+| Connectivity | $\mathbf{W}_{ij}$ | Synaptic weights (Cauchy distributed) |
+| Transfer function | $\psi_{ij}(x_j)$ | Signal transformation between neurons |
+| External input | $\Omega_i(t)$ | Time-dependent modulation field |
+| Noise | $\eta_i(t)$ | Gaussian noise with zero mean |
+
+## GNN Architecture
+
+```{mermaid}
+graph LR
+    subgraph Input
+        X[Activity x_i]
+        A[Latent a_i]
+        T[Time t]
+    end
+
+    subgraph "Message Passing"
+        PSI[ψ* MLP]
+        W[W_ij]
+        AGG[Σ Aggregate]
+    end
+
+    subgraph "Node Update"
+        PHI[φ* MLP]
+        OMEGA[Ω* SIREN]
+    end
+
+    subgraph Output
+        XDOT[Predicted ẋ_i]
+    end
+
+    X --> PSI
+    A --> PSI
+    A --> PHI
+    X --> PHI
+    T --> OMEGA
+
+    PSI --> W
+    W --> AGG
+    AGG --> OMEGA
+    OMEGA --> XDOT
+    PHI --> XDOT
+
+    style PSI fill:#e1f5fe
+    style PHI fill:#e1f5fe
+    style OMEGA fill:#fff3e0
+    style W fill:#f3e5f5
+```
+
+### Update Rule
+
+The GNN learns to predict the activity rate:
+
+$$
+\widehat{\dot{x}}_i = \phi^*(\vec{a}_i, x_i) + \Omega_i^*(t) \sum_{j=1}^{N} \mathbf{W}_{ij}\psi^*(\vec{a}_i, \vec{a}_j, x_j)
+$$
+
+### Network Components
+
+::: {.panel-tabset}
+
+#### φ* (Update MLP)
+
+**Purpose**: Models neuron-specific local dynamics (damping + self-coupling)
+
+| Property | Value |
+|----------|-------|
+| Architecture | MLP with ReLU |
+| Hidden dimension | 64 |
+| Layers | 3 |
+| Input | $(\vec{a}_i, x_i)$ |
+| Output | Scalar |
+
+#### ψ* (Transfer MLP)
+
+**Purpose**: Models signal transformation between neurons
+
+| Property | Value |
+|----------|-------|
+| Architecture | MLP with ReLU |
+| Hidden dimension | 64 |
+| Layers | 3 |
+| Input | $(\vec{a}_i, \vec{a}_j, x_j)$ or $(x_j)$ |
+| Output | Scalar |
+
+#### Ω* (External Input SIREN)
+
+**Purpose**: Approximates time-dependent external stimuli
+
+| Property | Value |
+|----------|-------|
+| Architecture | Coordinate-based MLP (SIREN) |
+| Hidden dimension | 128 |
+| Layers | 5 |
+| Input | $(x, y, t)$ |
+| Output | Scalar |
+| Frequency | ω = 0.3 |
+
+:::
+
+## Loss Function
+
+The optimization loss combines prediction accuracy with physical constraints:
+
+$$
+\mathcal{L} = \underbrace{\sum_{i=1}^N \|\widehat{\dot{x}}_i - \dot{x}_i\|^2}_{\text{Prediction error}} + \alpha\underbrace{\sum_{i=1}^N \|\phi^*(\vec{a}_i, 0)\|^2}_{\text{Steady state = 0}} + \beta\underbrace{\sum_{i=1}^N \|\text{ReLU}(\frac{\partial\phi^*}{\partial x})\|^2}_{\text{Decay constraint}}
+$$
+
+$$
++ \gamma\underbrace{\sum_{i,j} \|\text{ReLU}(-\frac{\partial\psi^*}{\partial x})\|^2}_{\text{Sign constraint}} + \zeta\underbrace{\|\mathbf{W}\|}_{\text{Sparsity}}
+$$
+
+### Regularization Terms
+
+| Term | Symbol | Purpose |
+|------|--------|---------|
+| Steady state | α | Encourages zero activity at rest |
+| Decay | β | Prevents runaway excitations |
+| Sign | γ | Resolves connectivity sign ambiguity |
+| Sparsity | ζ | L1 penalty for sparse W |
+
+## Effective Rank
+
+The **effective rank** quantifies the complexity of the connectivity matrix and is the strongest predictor of training difficulty:
+
+$$
+\text{eff\_rank} = \text{min}\{k : \sum_{i=1}^{k} \sigma_i^2 \geq 0.99 \sum_{i=1}^{N} \sigma_i^2\}
+$$
+
+where $\sigma_i$ are the singular values of $\mathbf{W}$.
+
+::: {.metric-box}
+::: {.value}
+eff_rank > 30
+:::
+::: {.label}
+"Easy mode" - any reasonable parameters work
+:::
+:::
+
+::: {.metric-box}
+::: {.value}
+eff_rank < 8
+:::
+::: {.label}
+Fundamentally unrecoverable
+:::
+:::
+
+## Neuron Type Clustering
+
+During training, the model jointly optimizes:
+
+1. **Shared MLPs** ($\phi^*$, $\psi^*$)
+2. **Latent vectors** $\vec{a}_i$ for each neuron
+
+To encourage similar functions to produce similar embeddings:
+
+```
+Every 4 epochs:
+├── Sample function profiles F_i = φ*(a_i, x) for x ∈ [-5, 5]
+├── Project to 2D with UMAP
+├── Hierarchical clustering (complete linkage, threshold 0.01)
+├── Replace a_i with cluster medians
+└── Retrain φ* for 20 sub-epochs
+```
+
+## Training Parameters
+
+| Experiment | α | β | γ | ζ | ψ* input |
+|------------|---|---|---|---|----------|
+| Baseline | 1 | 0 | 0 | 0 | $x_j$ |
+| External inputs | 1 | 5 | 10 | 10⁻⁵ | $a_j, x_j$ |
+| Sparse | 1 | 0 | 0 | 10⁻⁵ | $x_j$ |
+| Large scale | 1 | 0 | 0 | 5×10⁻⁵ | $x_j$ |
+| Transmitters | 1 | 0 | 100 | 0 | $a_j, x_j$ |
+| Transmitters & receptors | 1 | 0 | 500 | 0 | $a_i, a_j, x_j$ |
+
+## Simulation Parameters
+
+| Parameter | Symbol | Typical Range | Description |
+|-----------|--------|---------------|-------------|
+| Neurons | N | 100-8000 | Network size |
+| Frames | $N_{\text{frames}}$ | 10⁴-10⁵ | Simulation length |
+| Connectivity | ff | 0.05-1.0 | Filling factor |
+| Coupling | $g_i$ | 10 | Message scaling |
+| Self-coupling | $s_i$ | 1-8 | Nonlinear feedback |
+| Time constant | $\tau_i$ | 0.25-1 | Decay rate |
+
+## Key Results
+
+### Connectivity Recovery
+
+| N | Connectivity | R² | Conditions |
+|---|--------------|------|------------|
+| 1,000 | 100% | 1.00 | Noise-free |
+| 1,000 | 5% | 0.99 | With L1 penalty |
+| 8,000 | 100% | 1.00 | With noise (16dB) |
+
+### Neuron Type Classification
+
+| Types | Accuracy | Method |
+|-------|----------|--------|
+| 4 | 1.00 | K-means on $\vec{a}_i$ |
+| 32 | 0.99 | K-means on $\vec{a}_i$ |
+
+### Symbolic Regression
+
+The learned functions can be converted to analytical expressions:
+
+| Function | True | Learned |
+|----------|------|---------|
+| $\phi_1$ | $-x + \tanh(x)$ | $-0.998x + \tanh(x) - 0.0016$ |
+| $\phi_2$ | $-x + 2\tanh(x)$ | $-0.998x + 1.996\tanh(x)$ |
+| $\psi$ | $\tanh(x)$ | $\tanh(x)$ |
+
+## Implementation
+
+The GNN is implemented using:
+
+- **PyTorch Geometric** for message passing
+- **AdamUniform** optimizer with lr = 10⁻⁴
+- **500-1000 epochs** covering ~10⁵ time points each
+
+## Next Steps
+
+- [Architecture](architecture.qmd) - System overview
+- [Experiment Loop](experiment-loop.qmd) - Training automation
+- [Results](results.qmd) - Signal landscape findings

@@ -1,0 +1,333 @@
+---
+title: "Experiment Loop"
+subtitle: "GNN_LLM.py Walkthrough"
+---
+
+## Main Loop Structure
+
+The experiment loop in `GNN_LLM.py` orchestrates the interaction between computation and reasoning:
+
+```python
+for iteration in range(1, n_iterations + 1):
+    # Phase 1: Experiment
+    config = reload_config()
+    data_generate(config)
+    data_train(config)
+    data_test(config)
+    data_plot(config)
+
+    # Phase 2: UCB Computation
+    compute_ucb_scores()
+    plot_ucb_tree()
+
+    # Phase 3: LLM Analysis
+    call_claude_cli()
+
+    # Phase 4: Block Boundary (if applicable)
+    if is_block_end:
+        clear_ucb_scores()
+        save_memory_snapshot()
+```
+
+## Phase 1: Experiment Execution
+
+### 1.1 Config Reload
+
+Each iteration starts by reloading the config to pick up LLM changes:
+
+```python
+# Reload config (pick up LLM changes from previous iteration)
+config = ParticleGraphConfig.from_yaml(target_config)
+dataset_name = f"{base_config_name}/{config.dataset}"
+```
+
+### 1.2 Data Generation
+
+Simulate neural activity with current parameters:
+
+```python
+data_generate(
+    config=config,
+    visualize=True,
+    style='color',
+    erase=True,  # Clear previous data
+    device=device
+)
+```
+
+::: {.callout-tip}
+## Simulation Parameters
+
+Key parameters that affect the generated data:
+
+| Parameter | Range | Effect |
+|-----------|-------|--------|
+| `n_neurons` | 100-1000 | Network size |
+| `n_frames` | 10k-100k | Simulation length |
+| `connectivity_type` | chaotic/low_rank | Dynamics regime |
+| `connectivity_filling_factor` | 0.05-1.0 | Sparsity |
+| `noise_model_level` | 0-2 | Observation noise |
+:::
+
+### 1.3 GNN Training
+
+Train the GNN to recover the connectivity matrix:
+
+```python
+data_train(
+    config=config,
+    device=device,
+    log_dir=log_dir
+)
+```
+
+Training parameters controlled by LLM:
+
+| Parameter | Typical Range | Purpose |
+|-----------|---------------|---------|
+| `learning_rate_W_start` | 1E-4 to 1E-2 | Connectivity learning rate |
+| `learning_rate_start` | 1E-5 to 1E-3 | MLP learning rate |
+| `coeff_W_L1` | 1E-6 to 1E-3 | Sparsity regularization |
+| `data_augmentation_loop` | 10-40 | Training iterations multiplier |
+
+### 1.4 Evaluation
+
+Test connectivity recovery:
+
+```python
+data_test(
+    config=config,
+    best_model=model_path,
+    visualize=True,
+    device=device
+)
+```
+
+Output metrics written to `analysis.log`:
+
+```
+connectivity_R2: 0.9543
+test_R2: 0.8721
+effective_rank: 34
+cluster_accuracy: 0.95
+loss: 0.0023
+```
+
+## Phase 2: UCB Computation
+
+### 2.1 Score Calculation
+
+Compute UCB scores for the exploration tree:
+
+```python
+def compute_ucb_scores(analysis_path, ucb_path, c=1.414):
+    # Parse previous iterations from analysis.md
+    nodes = parse_iterations(analysis_path)
+
+    # Build tree structure
+    for node in nodes:
+        visits = count_visits(node)
+        reward = node['connectivity_R2']
+        exploration = c * sqrt(log(N_total) / (1 + visits))
+        node['ucb'] = reward + exploration
+
+    # Write sorted scores
+    write_ucb_file(ucb_path, nodes)
+```
+
+### 2.2 Tree Visualization
+
+Generate visual representation of exploration:
+
+```python
+plot_ucb_tree(
+    nodes=nodes,
+    output_path=tree_path,
+    title=f"UCB Tree - Block {block_number}"
+)
+```
+
+## Phase 3: LLM Analysis
+
+### 3.1 Prompt Construction
+
+Build the prompt for Claude:
+
+```python
+claude_prompt = f"""Iteration {iteration}/{n_iterations}
+Block info: block {block_number}, iteration {iter_in_block}/{n_iter_block}
+{">>> BLOCK END <<<" if is_block_end else ""}
+
+Instructions: {instruction_path}
+Working memory: {memory_path}
+Full log: {analysis_path}
+Activity image: {activity_path}
+Metrics log: {analysis_log_path}
+UCB scores: {ucb_path}
+Current config: {config_path}"""
+```
+
+### 3.2 Claude CLI Call
+
+Execute with streaming output:
+
+```python
+claude_cmd = [
+    'claude',
+    '-p', claude_prompt,
+    '--output-format', 'text',
+    '--max-turns', '100',
+    '--allowedTools', 'Read', 'Edit'
+]
+
+process = subprocess.Popen(
+    claude_cmd,
+    stdout=subprocess.PIPE,
+    stderr=subprocess.STDOUT,
+    text=True
+)
+
+# Stream output in real-time
+for line in process.stdout:
+    print(line, end='', flush=True)
+```
+
+## Strategic Decision Rules
+
+The instruction file defines 19 context-sensitive strategies:
+
+::: {.panel-tabset}
+
+### Core Strategies
+
+| Strategy | Condition | Action |
+|----------|-----------|--------|
+| **exploit** | Default | Follow highest UCB node |
+| **explore** | 4+ consecutive converged | Try new parameter dimension |
+| **boundary** | 3+ consecutive R² ≥ 0.9 | Probe failure limits |
+| **robustness** | R² = 1.0 found | Re-run same config to verify |
+
+### Advanced Strategies
+
+| Strategy | Condition | Action |
+|----------|-----------|--------|
+| **recombine** | 2+ nodes with R² > 0.9 | Merge best parameters |
+| **scale-up** | Plateau detected | 5x data augmentation |
+| **variance-aware** | High variance regime | Weight UCB by eff_rank similarity |
+| **forced-branch** | 4+ consecutive in same dim | Switch parameter dimension |
+
+### Regime-Specific
+
+| Strategy | Condition | Action |
+|----------|-----------|--------|
+| **low-rank-lr-boost** | eff_rank < 15 | Increase lr to 1E-3 |
+| **sparse-high-risk** | ff < 0.5 AND eff_rank < 10 | Add noise to rescue |
+| **identifiability-ceiling** | R² ≈ ff (linear law) | Accept fundamental limit |
+
+:::
+
+## Phase 4: Block Boundary
+
+### 4.1 Block End Detection
+
+```python
+block_number = (iteration - 1) // n_iter_block + 1
+iter_in_block = (iteration - 1) % n_iter_block + 1
+is_block_end = iter_in_block == n_iter_block
+```
+
+### 4.2 Block End Actions
+
+At block boundaries, the LLM performs additional tasks:
+
+```
+┌─────────────────────────────────────────────────┐
+│  BLOCK BOUNDARY WORKFLOW                        │
+├─────────────────────────────────────────────────┤
+│  1. Clear UCB scores (fresh exploration tree)   │
+│  2. Edit instruction.md:                        │
+│     - Add rules if branching rate < 20%         │
+│     - Add boundary rules if rate > 80%          │
+│  3. Choose next simulation regime               │
+│  4. Update Knowledge Base in memory.md          │
+│  5. Save memory snapshot                        │
+└─────────────────────────────────────────────────┘
+```
+
+### 4.3 Regime Selection
+
+At block end, LLM selects untested simulation configuration:
+
+```yaml
+# Example regime change
+simulation:
+  connectivity_type: low_rank     # was: chaotic
+  connectivity_rank: 10           # new parameter
+  n_neuron_types: 2               # was: 1
+  Dale_law: true                  # new parameter
+```
+
+## Error Recovery
+
+### Auto-Repair Loop
+
+If simulation fails due to code error:
+
+```python
+for attempt in range(max_repair_attempts):
+    success, error = run_simulation(config)
+
+    if success:
+        break
+
+    if is_code_error(error):
+        # Ask Claude to fix the code
+        repair_prompt = f"Fix this error:\n{error}"
+        run_claude_repair(repair_prompt)
+    else:
+        break
+
+if not success:
+    rollback_code_changes()
+    log_failure_to_memory()
+```
+
+### Git Integration
+
+Code modifications are tracked and committed:
+
+```python
+def track_code_modifications(root_dir, iteration):
+    code_files = [
+        'src/generators/PDE_*.py',
+        'src/generators/utils.py',
+        'src/generators/graph_data_generator.py'
+    ]
+
+    for file in get_modified_files(code_files):
+        commit_code_modification(file, iteration)
+```
+
+## Monitoring Output
+
+During execution, the console shows:
+
+```
+=== Iteration 42/64 ===
+Task: Claude_code | mesh: Signal_Propagation | particle: N/A
+Running simulation...
+Training GNN...
+Evaluating...
+connectivity_R2: 0.9234
+Computing UCB scores...
+Claude analysis...
+[Claude reasoning output streams here...]
+Git: Committed config change
+Iteration 42 complete
+```
+
+## Next Steps
+
+- [Architecture](architecture.qmd) - System overview
+- [Epistemic Analysis](epistemic-analysis.qmd) - Reasoning taxonomy
+- [Results](results.qmd) - Experimental findings

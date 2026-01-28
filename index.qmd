@@ -1,0 +1,92 @@
+---
+title: "Experiment-LLM-Memory"
+subtitle: "Closed-loop scientific exploration in neural connectivity inference"
+author: "Cédric Allier, Stephan Saalfeld"
+date: "2026-01-28"
+---
+
+## Introduction
+
+We previously showed that graph neural networks can recover circuit structure and signaling functions of neural assemblies from activity data alone. However, this inverse problem is known to be ill-posed under certain conditions. For instance, when neural activity is low-rank, many different circuits can generate the same neuron traces. It remains an open question whether graph neural networks can recover connectivity in general, or only for specific classes of neural assemblies.
+
+To address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.
+
+We show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the **closed-loop scientific reasoning results from the interactions between the three components** rather than residing solely within the large language model.
+
+---
+
+## The Exploration Loop
+
+```{mermaid}
+%%| fig-width: 8
+flowchart LR
+    A[Simulation] --> B[GNN Training]
+    B --> C[LLM Evaluation]
+    C --> D[Hypothesis Update]
+    D --> E[Parameter Mutation]
+    E --> B
+
+    C --> F[(Memory)]
+    F --> C
+
+    style A fill:#e1f5fe
+    style C fill:#fff3e0
+    style F fill:#f3e5f5
+```
+
+The framework implements a **closed-loop exploration engine** composed of five interacting components:
+
+1. **Simulation Engine**
+   A physics-based simulator generates neural activity following the Stern et al. (2023) model with configurable connectivity, neuron types, and noise levels. Each configuration produces reproducible time series together with ground-truth connectivity matrices.
+
+2. **GNN Training**
+   A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W. The architecture decomposes dynamics into local (φ) and interaction (ψ) components.
+
+3. **LLM Evaluation**
+   The LLM interprets results in context of accumulated memory. Its role is to perform scientific operations: identify regimes, detect convergence or failure, generate mechanistic hypotheses, and assess whether limitations arise from parameters or fundamental constraints.
+
+4. **Hypothesis and Memory Update**
+   Observations, failed attempts, and validated principles are written into explicit long-term memory. This memory persists across experimental blocks, enabling cumulative understanding rather than episodic trial-and-error.
+
+5. **Parameter Mutation**
+   Guided by Upper Confidence Bound (UCB) tree search, the LLM selects the next intervention. Mutations are stratified by scope: within blocks for parameter tuning, at block boundaries for regime changes.
+
+---
+
+## Simulation Regimes
+
+| Regime | Effective Rank | Convergence | Key Finding |
+|--------|---------------|-------------|-------------|
+| [Chaotic](results.qmd) | ~34 | 100% | "Easy mode" - robust to 100x parameter variation |
+| [Dale's Law](results.qmd) | ~30 | 100% | E/I constraint doesn't add difficulty |
+| [Low-rank](results.qmd) | ~11 | 25-37% | Requires lr boost (1E-4 to 1E-3) |
+| [Sparse (ff=0.2)](results.qmd) | ~6 | 0% | Fundamentally unrecoverable |
+| [Intermediate (ff=0.5)](results.qmd) | ~26 | 50% | W learning challenging but possible |
+| [High fill (ff=0.75)](results.qmd) | ~38 | 100% | Easy transition |
+| [Scale n=200-500](results.qmd) | ~34 | 50-75% | lr_W tolerance scales as 1/√n |
+
+---
+
+## [Results](results.qmd)
+
+12 principles discovered across 14 simulation regimes. Effective rank determines training difficulty (97% confidence). Sparse connectivity (ff<0.3) is fundamentally unrecoverable.
+
+[![](assets/landscape_quadrant.png){.lightbox}](results.qmd)
+
+---
+
+## [Epistemic](epistemic-analysis.qmd)
+
+231 reasoning events across 107 iterations. 69% deduction accuracy, 80% analogy transfer success, 100% of falsifications led to refinement.
+
+[![](assets/Sankey.png){.lightbox}](epistemic-analysis.qmd)
+
+---
+
+## References
+
+1. Stern, M., et al. (2023). Graph neural networks uncover structure and function underlying the activity of neural assemblies.
+
+2. Romera-Paredes, B., et al. (2024). Mathematical discoveries from program search with large language models. *Nature*.
+
+3. Novikov, A., et al. (2025). AlphaEvolve: A coding agent for scientific and algorithmic exploration.

@@ -1,0 +1,279 @@
+---
+title: "Epistemic Analysis"
+subtitle: "Taxonomy of LLM Scientific Reasoning"
+---
+
+## Overview
+
+The signal_landscape_Claude experiment generated **231 reasoning events** across 107 iterations and 14 exploration blocks. This analysis categorizes these events into formal epistemic modes.
+
+::: {.callout-note}
+## What is Epistemic Analysis?
+
+Epistemic analysis examines *how* knowledge is acquired, validated, and refined. By categorizing the LLM's reasoning into formal modes, we can assess whether it demonstrates genuine scientific thinking versus random exploration.
+:::
+
+## Epistemic Timeline
+
+![Reasoning events across 107 iterations and 14 blocks](assets/signal_landscape_Claude_epistemic_timeline.png){.lightbox}
+
+## Reasoning Mode Taxonomy
+
+### Mode Definitions
+
+| Mode | Definition | Example |
+|------|------------|---------|
+| **Induction** | Generalize from specific observations | "lr_W 2E-3 to 1E-2 all converge → easy mode established" |
+| **Deduction** | Predict from established principles | "If lr helps low-rank, then lr=1E-3 should improve R²" |
+| **Abduction** | Infer best explanation for observation | "R² dropped despite same params → must be eff_rank effect" |
+| **Falsification** | Reject hypothesis via counterexample | "factorization=True made R² worse → hypothesis rejected" |
+| **Boundary** | Probe limits of working configurations | "lr_W=5E-2 still converges, try 1E-1" |
+| **Analogy** | Transfer knowledge between regimes | "Block 1 settings worked → apply to Block 3 Dale regime" |
+| **Meta-reasoning** | Reason about reasoning strategy | "Need to switch from exploit to explore mode" |
+| **Regime** | Identify distinct operating conditions | "low_rank (eff_rank=11) requires different approach" |
+| **Uncertainty** | Quantify confidence in conclusions | "75% confident sparse is unrecoverable" |
+| **Causal** | Identify cause-effect relationships | "High lr_W → fast W learning BUT starves embedding" |
+| **Predictive** | Forecast outcomes before testing | "Noise should increase eff_rank" |
+| **Constraint** | Identify hard limits | "ff=0.2 fundamentally unrecoverable" |
+
+### Distribution
+
+```{mermaid}
+pie title Reasoning Mode Distribution (231 events)
+    "Deduction" : 61
+    "Induction" : 44
+    "Boundary" : 29
+    "Falsification" : 28
+    "Abduction" : 16
+    "Analogy" : 15
+    "Regime" : 9
+    "Constraint" : 8
+    "Causal Chain" : 6
+    "Predictive" : 6
+    "Meta-reasoning" : 5
+    "Uncertainty" : 4
+```
+
+## Reasoning Activity Over Time
+
+![Streamgraph showing the distribution of reasoning modes across 107 iterations. The stacked area chart reveals how different epistemic modes dominate at different phases: early blocks show more Boundary probing and Induction, while later blocks exhibit increased Deduction and Falsification as principles become established.](assets/signal_landscape_Claude_epistemic_streamgraph.png){.lightbox}
+
+## Epistemic Flow
+
+![Sankey diagram showing the flow between reasoning modes. Deduction acts as the central hub—nearly all reasoning modes converge through it before branching outward. The dominant Deduction→Falsification pathway demonstrates genuine hypothesis testing rather than mere pattern matching.](assets/Sankey.png){.lightbox}
+
+## Validation Rates
+
+Key finding: The LLM's predictions were validated at meaningful rates, indicating genuine reasoning rather than random guessing.
+
+| Mode | Count | Validated | Rate | Significance |
+|------|-------|-----------|------|--------------|
+| Deduction | 61 | 42 | **69%** | Well above chance (50%) |
+| Analogy | 15 | 12 | **80%** | High transfer success |
+| Falsification | 28 | 28 | **100%** | All led to refinement |
+
+::: {.callout-important}
+## Key Insight
+
+The 69% deduction validation rate demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space.
+:::
+
+## Detailed Examples
+
+### Induction (44 instances)
+
+Pattern recognition leading to general principles:
+
+| Iter | Observation | Generalization |
+|------|-------------|----------------|
+| 1-8 | lr_W 2E-3, 5E-3, 1E-2 all R² > 0.99 | "Chaotic regime is easy mode" |
+| 9-16 | lr=5E-4 and lr=1E-3 both breakthrough | "Low eff_rank needs higher MLP lr" |
+| 17-24 | Dale regime tolerates 100x lr_W range | "Dale constraint doesn't add difficulty" |
+| 33-40 | All noise configs converged | "Noise is super-easy mode" |
+| 49-56 | 8/8 sparse configs failed | "ff=0.2 fundamentally unrecoverable" |
+| 81-90 | ff=0.9 needs lr_W_start≤5E-3 | "High connectivity still has upper bound" |
+| 91-100 | n=300 converges with lr_W=5E-3 | "n=300 similar tolerance to n=200" |
+
+### Deduction (61 instances, 69% validated)
+
+Predictions from principles:
+
+::: {.panel-tabset}
+
+#### Validated
+
+| Iter | Principle Applied | Prediction | Outcome |
+|------|-------------------|------------|---------|
+| 2 | "Higher lr_W should maintain convergence" | R² > 0.9 | R² = 0.9999 |
+| 15 | "Low-rank needs higher lr" | lr=1E-3 → breakthrough | R² = 0.953 |
+| 57 | "Noise increases eff_rank" | Will rescue sparse | eff_rank 6→92 |
+| 65 | "Higher ff → higher eff_rank" | ff=0.5 viable | eff_rank = 26 |
+| 73 | "ff=0.75 should be easier than ff=0.5" | Expect R² > 0.9 | R² = 0.985 |
+| 84 | "ff=0.9 with moderate lr_W" | R² > 0.95 | R² = 0.992 |
+
+#### Falsified
+
+| Iter | Principle Applied | Prediction | Outcome |
+|------|-------------------|------------|---------|
+| 10 | "Factorization helps low-rank" | Improve R² | R² dropped 0.42→0.35 |
+| 28 | "lr_W tolerance same for n_types>1" | R² > 0.9 | cluster_acc = 0.48 |
+| 62 | "Scale-up breaks plateau" | R² > 0.25 | R² unchanged at 0.20 |
+| 78 | "n=200 identical tolerance" | lr_W=4E-3 works | R² dropped below 0.9 |
+| 102 | "n=500 same as n=300" | lr_W=5E-3 works | R² degraded |
+
+:::
+
+### Falsification (28 instances)
+
+All falsifications led to principle refinement:
+
+```{mermaid}
+graph LR
+    H1[Hypothesis: factorization helps] --> T1[Test: Iter 10]
+    T1 --> F1[Result: R² dropped]
+    F1 --> P1[Principle: factorization HURTS]
+
+    H2[Hypothesis: same lr_W for n_types] --> T2[Test: Iter 28]
+    T2 --> F2[Result: cluster_acc failed]
+    F2 --> P2[Principle: dual-objective conflict]
+
+    H3[Hypothesis: training fixes sparse] --> T3[Test: Iters 52-56]
+    T3 --> F3[Result: 0% converged]
+    F3 --> P3[Principle: fundamental limit]
+
+    H4[Hypothesis: n=200 identical to n=100] --> T4[Test: Iter 78]
+    T4 --> F4[Result: lr_W boundary shifted]
+    F4 --> P4[Principle: 1/√n scaling law]
+
+    style F1 fill:#ffcccc
+    style F2 fill:#ffcccc
+    style F3 fill:#ffcccc
+    style F4 fill:#ffcccc
+    style P1 fill:#ccffcc
+    style P2 fill:#ccffcc
+    style P3 fill:#ccffcc
+    style P4 fill:#ccffcc
+```
+
+### Analogy/Transfer (15 instances, 80% success)
+
+Cross-regime knowledge transfer:
+
+| Source | Target | Knowledge | Outcome |
+|--------|--------|-----------|---------|
+| Blocks 1-2 | Block 3 (Dale) | lr_W=5E-3, lr=5E-4 | Perfect |
+| Blocks 2-3 | Block 4 (n_types=2) | Optimized params | Full convergence |
+| Block 5 (noise) | Block 8 (sparse+noise) | Noise rescue | eff_rank rescued |
+| Block 2+4 | Block 6 (low_rank+n_types) | Combined settings | Partial (37.5%) |
+| Block 9 (ff=0.5) | Block 10 (ff=0.75) | Sparsity scaling | Successful |
+| Block 11 (n=200) | Block 13 (n=300) | Size scaling | Partial success |
+
+## Block Summary
+
+| Block | Regime | Iterations | Events | eff_rank | Key Finding |
+|-------|--------|------------|--------|----------|-------------|
+| 1 | Chaotic | 1-8 | 18 | ~34 | Easy mode established |
+| 2 | Low-rank | 9-16 | 16 | ~11 | lr breakthrough required |
+| 3 | Dale | 17-24 | 14 | ~30 | E/I constraint easy |
+| 4 | n_types=2 | 25-32 | 15 | ~34 | Dual-objective conflict |
+| 5 | Noise | 33-40 | 12 | ~83 | Super-easy mode |
+| 6 | Compound | 41-48 | 14 | ~11 | Combined difficulty |
+| 7 | Sparse | 49-56 | 18 | ~6 | Fundamental limit |
+| 8 | Sparse+Noise | 57-64 | 16 | ~92 | Noise rescues rank only |
+| 9 | ff=0.5 | 65-72 | 14 | ~26 | Intermediate viable |
+| 10 | ff=0.75 | 73-80 | 12 | ~38 | Easy transition |
+| 11 | n=200 | 81-90 | 18 | ~34 | Scale sensitivity |
+| 12 | ff=0.9 | 81-90 | 16 | ~45 | High connectivity |
+| 13 | n=300 | 91-100 | 14 | ~34 | Further scaling |
+| 14 | n=500 | 101-107 | 12 | ~34 | Boundary found |
+
+## Epistemic Metrics
+
+### Primary Metrics
+
+| Metric | Definition | Value |
+|--------|------------|-------|
+| **HTR** | Hypothesis Test Rate (tests/iteration) | 2.16 |
+| **DA** | Deduction Accuracy | 69% |
+| **TSR** | Transfer Success Rate | 80% |
+| **CD** | Causal Depth (max chain length) | 4 |
+| **ED** | Exploration Diversity (unique params) | 18 |
+
+### Graph-Theoretic Metrics
+
+The reasoning events form a directed graph:
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| **Nodes** | 231 | Total reasoning events |
+| **Edges** | 84 | Event dependencies |
+| **Density** | 0.16% | Very sparse, structured reasoning |
+| **Avg In-Degree** | 0.36 | Most events depend on <1 prior |
+| **Max In-Degree** | 5 | Some events integrate multiple sources |
+
+## Causal Chains
+
+Key multi-step causal chains discovered:
+
+```{mermaid}
+graph TD
+    A[low eff_rank observed] -->|leads_to| B[convergence failure]
+    B -->|triggers| C[lr boost hypothesis]
+    C -->|leads_to| D[lr=1E-3 test]
+    D -->|refines| E[low-rank principle established]
+
+    F[sparse ff=0.2] -->|leads_to| G[eff_rank collapse]
+    G -->|triggers| H[noise addition hypothesis]
+    H -->|leads_to| I[eff_rank rescue ~92]
+    I -->|refines| J[W signal masked]
+
+    style A fill:#e3f2fd
+    style E fill:#c8e6c9
+    style F fill:#e3f2fd
+    style J fill:#ffcdd2
+```
+
+## Principles Discovered
+
+Twelve key principles discovered through systematic reasoning:
+
+| # | Principle | Evidence | Confidence |
+|---|-----------|----------|------------|
+| 1 | **eff_rank determines difficulty** | 14 blocks, consistent | 97% |
+| 2 | Chaotic (eff_rank~34) is "easy mode" | Block 1: 100%, 5x lr_W | 92% |
+| 3 | Low-rank requires lr=1E-3 | Blocks 2,6: breakthrough | 87% |
+| 4 | low_rank_factorization=True HURTS | 3 tests, all degraded | 82% |
+| 5 | Dale's law ≠ increased difficulty | Block 3: 100% converged | 87% |
+| 6 | Noise INCREASES eff_rank | 34→83, 6→92 | 92% |
+| 7 | spectral_radius<0.7 → collapse | Block 7: 0% | 87% |
+| 8 | **Sparse (ff<0.3) unrecoverable** | 16/16 failed | 97% |
+| 9 | High lr_W starves embedding | Block 4: cluster_acc ↓ | 82% |
+| 10 | lr_emb compensates for L1 | 1E-4 restores cluster | 77% |
+| 11 | Noise masks W signal in sparse | 8/8 plateau R²~0.20 | 87% |
+| 12 | **lr_W tolerance scales as 1/√n** | n=200,300,500 tested | 72% |
+
+## Summary
+
+The epistemic analysis reveals that the LLM demonstrates **genuine scientific reasoning**:
+
+1. **Structured exploration**: 231 events across 14 blocks with clear dependencies
+2. **Predictive power**: 69% deduction accuracy (well above chance)
+3. **Knowledge transfer**: 80% analogy success rate
+4. **Principle discovery**: 12 novel, validated findings with quantified confidence
+5. **Self-correction**: 100% of falsifications led to refinement
+
+This supports the claim that LLMs can act as **active scientific agents** rather than mere pattern matchers.
+
+## Detailed Analysis Files
+
+For complete records, see:
+
+- [Epistemic Analysis Summary](signal_landscape_Claude_epistemic_analysis.md) - Main analysis with all 231 events
+- [Detailed Event Log](signal_landscape_Claude_epistemic_detailed.md) - Exhaustive list by reasoning mode
+- [Causal Edge Documentation](signal_landscape_Claude_epistemic_edges.md) - 84 causal relationships
+
+## Next Steps
+
+- [Results](results.qmd) - Detailed experimental findings
+- [GNN Model](gnn-model.qmd) - Architecture details
+- [Architecture](architecture.qmd) - System overview

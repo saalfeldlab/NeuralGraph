@@ -1,0 +1,275 @@
+---
+title: "System Architecture"
+subtitle: "Three-Way Coupling: Experiment ↔ LLM ↔ Memory"
+---
+
+## Overview
+
+The NeuralGraph system implements a closed-loop scientific exploration framework with three tightly coupled components:
+
+```{mermaid}
+flowchart TB
+    subgraph EXP[EXPERIMENT]
+        E1[Data Generation]
+        E2[GNN Training]
+        E3[Evaluation]
+        E4[Visualization]
+    end
+
+    subgraph LLM[LLM Agent]
+        L1[Read Inputs]
+        L2[Analyze Results]
+        L3[Select Strategy]
+        L4[Edit Config]
+    end
+
+    subgraph MEM[MEMORY]
+        M1[Working Memory<br/>memory.md]
+        M2[Full Log<br/>analysis.md]
+    end
+
+    E3 -->|activity.png<br/>analysis.log<br/>ucb_scores.txt| L1
+    L4 -->|config.yaml| E1
+    L2 <-->|read/write| M1
+    L2 -->|append| M2
+
+    style EXP fill:#e3f2fd
+    style LLM fill:#fff3e0
+    style MEM fill:#e8f5e9
+```
+
+## File Exchange Protocol
+
+The system communicates through a well-defined set of files:
+
+### Experiment → LLM
+
+| File | Format | Contents |
+|------|--------|----------|
+| `activity.png` | PNG | Neural activity visualization showing simulated dynamics |
+| `analysis.log` | Text | Key metrics: connectivity_R², test_R², eff_rank, loss |
+| `ucb_scores.txt` | Text | UCB exploration tree with node scores and parents |
+
+### LLM → Experiment
+
+| File | Format | Contents |
+|------|--------|----------|
+| `config/{task}.yaml` | YAML | Updated hyperparameters for next iteration |
+
+### LLM ↔ Memory
+
+| File | Direction | Contents |
+|------|-----------|----------|
+| `{task}_memory.md` | Read/Write | Working memory: established principles, current block progress |
+| `{task}_analysis.md` | Append-only | Full experiment log with iteration details |
+| `{task}_reasoning.log` | Append-only | Claude's reasoning trace (for debugging) |
+
+## Component Details
+
+### 1. Experiment Module
+
+The experiment module handles all computational work:
+
+::: {.panel-tabset}
+
+#### Data Generation
+
+```python
+# Simulate neural activity with given parameters
+data_generate(
+    config=config,
+    visualize=True,
+    device=device
+)
+```
+
+Generates synthetic neural activity using configurable dynamics:
+
+- **Connectivity types**: Chaotic, low-rank, Dale's law, sparse
+- **Network parameters**: n_neurons, n_types, spectral_radius
+- **Noise models**: Clean, low, medium, high
+
+#### GNN Training
+
+```python
+# Train GNN to recover connectivity matrix W
+data_train(
+    config=config,
+    n_epochs=config.training.n_epochs,
+    device=device
+)
+```
+
+Trains Signal Propagation GNN with:
+
+- Learnable connectivity matrix W
+- Embedding vectors for neuron types
+- L1 regularization for sparsity
+
+#### Evaluation
+
+```python
+# Test connectivity recovery
+data_test(
+    config=config,
+    best_model=model_path,
+    device=device
+)
+```
+
+Outputs key metrics:
+
+- **connectivity_R²**: Correlation between learned and true W
+- **test_R²**: Activity prediction accuracy
+- **cluster_accuracy**: Neuron type classification (if n_types > 1)
+- **effective_rank**: SVD rank at 99% variance
+
+:::
+
+### 2. LLM Agent
+
+The LLM (Claude) acts as the scientific reasoning engine:
+
+::: {.callout-note}
+## Capabilities
+
+- **Read**: Instruction files, memory, metrics, visualizations
+- **Analyze**: Pattern recognition, hypothesis formation
+- **Decide**: Strategy selection based on UCB scores
+- **Edit**: Config files, memory updates
+:::
+
+#### Decision Framework
+
+```
+┌─────────────────────────────────────────────────┐
+│  1. READ INPUTS                                 │
+│     - instruction.md (exploration protocol)     │
+│     - memory.md (accumulated knowledge)         │
+│     - analysis.log (current metrics)            │
+│     - ucb_scores.txt (exploration tree)         │
+│     - activity.png (visualization)              │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       v
+┌─────────────────────────────────────────────────┐
+│  2. ANALYZE RESULTS                             │
+│     - Classify: converged / partial / failed    │
+│     - Compare to predictions                    │
+│     - Identify patterns                         │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       v
+┌─────────────────────────────────────────────────┐
+│  3. SELECT STRATEGY                             │
+│     - exploit: follow highest UCB               │
+│     - explore: try new parameter dimension      │
+│     - boundary: probe failure limits            │
+│     - robustness: re-test best configs          │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       v
+┌─────────────────────────────────────────────────┐
+│  4. MUTATE CONFIG                               │
+│     - Change ONE parameter                      │
+│     - Log mutation in analysis.md               │
+│     - Update memory.md                          │
+└─────────────────────────────────────────────────┘
+```
+
+### 3. Memory System
+
+The memory system maintains state across iterations:
+
+#### Working Memory (`memory.md`)
+
+Structured document with sections:
+
+```markdown
+## Knowledge Base
+### Established Principles
+- [Confirmed findings from 3+ tests]
+
+### Open Questions
+- [Hypotheses under investigation]
+
+### Failed Configurations
+- [What to avoid]
+
+## Current Block
+### Block Info
+- Regime: [current simulation settings]
+- Iterations: N to M
+
+### Iterations This Block
+[Logs for current block]
+
+### Emerging Observations
+[Patterns noticed during exploration]
+```
+
+#### Analysis Log (`analysis.md`)
+
+Append-only log with strict format:
+
+```markdown
+## Iter N: [converged/partial/failed]
+Node: id=X, parent=Y
+Strategy: [exploit/explore/boundary/...]
+Config: [key parameters]
+Metrics: connectivity_R²=X.XX, test_R²=X.XX, eff_rank=XX
+Observation: [what was learned]
+Mutation: [param]: [old] -> [new]
+Next: parent=Z
+```
+
+## UCB Exploration Tree
+
+The system uses Upper Confidence Bound (UCB) for exploration:
+
+$$\text{UCB}(n) = \bar{R}(n) + c \sqrt{\frac{\ln N}{n_{\text{visits}}}}$$
+
+Where:
+
+- $\bar{R}(n)$ = average reward (connectivity_R²) at node n
+- $N$ = total iterations in current block
+- $n_{\text{visits}}$ = visits to node n
+- $c$ = exploration constant (default 1.414)
+
+```{mermaid}
+graph TD
+    A[Root: lr_W=5E-3] --> B[lr_W=1E-2<br/>R²=0.99]
+    A --> C[lr_W=2E-3<br/>R²=0.97]
+    B --> D[L1=1E-3<br/>R²=0.85]
+    B --> E[L1=1E-4<br/>R²=0.99]
+    C --> F[lr=1E-3<br/>R²=0.95]
+
+    style E fill:#90EE90
+    style D fill:#FFB6C1
+```
+
+## Block Structure
+
+Exploration is organized into blocks of `n_iter_block` iterations:
+
+| Scope | Duration | Allowed Changes |
+|-------|----------|-----------------|
+| **Iteration** | 1 cycle | Training parameters only |
+| **Block** | 8 iterations | Training + simulation parameters |
+
+::: {.callout-warning}
+## Block Boundary Rules
+
+At the end of each block:
+
+1. Clear UCB scores (fresh exploration tree)
+2. LLM may modify instruction file
+3. LLM selects next simulation regime
+4. Memory snapshot saved for recovery
+:::
+
+## Next Steps
+
+- [Experiment Loop Details](experiment-loop.qmd) - Detailed code walkthrough
+- [Epistemic Analysis](epistemic-analysis.qmd) - Reasoning mode taxonomy
+- [Results](results.qmd) - Findings from signal_landscape experiment
