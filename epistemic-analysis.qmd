@@ -254,7 +254,7 @@ For complete records, see:
 - [Detailed Event Log](signal_landscape_Claude_epistemic_detailed.md) - Exhaustive list by reasoning mode
 - [Causal Edge Documentation](signal_landscape_Claude_epistemic_edges.md) - 84 causal relationships
 
-## Next Steps
+## Next Pages
 
 - [Results](results.qmd) - Detailed experimental findings
 - [GNN Model](gnn-model.qmd) - Architecture details

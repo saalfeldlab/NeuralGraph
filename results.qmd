@@ -40,32 +40,7 @@ Map the landscape of GNN training configurations to understand:
 
 ### Visual Summary
 
-```{mermaid}
-quadrantChart
-    title Regime Difficulty vs Recovery
-    x-axis Low Effective Rank --> High Effective Rank
-    y-axis Low Recovery --> High Recovery
-
-    quadrant-1 Easy Mode
-    quadrant-2 Challenging
-    quadrant-3 Unrecoverable
-    quadrant-4 Achievable
-
-    Chaotic: [0.75, 0.95]
-    Dale: [0.70, 0.95]
-    Noise: [0.90, 0.95]
-    n_types=2: [0.75, 0.55]
-    Low-rank: [0.30, 0.40]
-    Low-rank+types: [0.30, 0.45]
-    Sparse: [0.15, 0.05]
-    Sparse+Noise: [0.95, 0.20]
-    ff=0.5: [0.55, 0.50]
-    ff=0.75: [0.65, 0.93]
-    ff=0.9: [0.75, 0.95]
-    n=200: [0.75, 0.88]
-    n=300: [0.75, 0.85]
-    n=500: [0.75, 0.80]
-```
+![Regime difficulty vs recovery quadrant chart showing 14 simulation regimes positioned by effective rank (x-axis) and connectivity recovery R² (y-axis). Green quadrant (Easy Mode) contains high-rank regimes like Chaotic, Dale, and Noise. Red quadrant (Unrecoverable) contains sparse regimes with low effective rank.](assets/landscape_quadrant.png){.lightbox}
 
 ## Key Discoveries
 
