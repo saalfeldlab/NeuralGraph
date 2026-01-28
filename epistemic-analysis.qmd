@@ -36,24 +36,6 @@ Epistemic analysis examines *how* knowledge is acquired, validated, and refined.
 | **Predictive** | Forecast outcomes before testing | "Noise should increase eff_rank" |
 | **Constraint** | Identify hard limits | "ff=0.2 fundamentally unrecoverable" |
 
-### Distribution
-
-```{mermaid}
-pie title Reasoning Mode Distribution (231 events)
-    "Deduction" : 61
-    "Induction" : 44
-    "Boundary" : 29
-    "Falsification" : 28
-    "Abduction" : 16
-    "Analogy" : 15
-    "Regime" : 9
-    "Constraint" : 8
-    "Causal Chain" : 6
-    "Predictive" : 6
-    "Meta-reasoning" : 5
-    "Uncertainty" : 4
-```
-
 ## Reasoning Activity Over Time
 
 ![Streamgraph showing the distribution of reasoning modes across 107 iterations. The stacked area chart reveals how different epistemic modes dominate at different phases: early blocks show more Boundary probing and Induction, while later blocks exhibit increased Deduction and Falsification as principles become established.](assets/signal_landscape_Claude_epistemic_streamgraph.png){.lightbox}
