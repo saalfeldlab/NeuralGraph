@@ -162,7 +162,7 @@ def run_validation_diagnostics(
 
     # pick random start indices
     max_start = val_data.shape[0] - n_rollout_steps - fit_window - 1
-    rng = np.random.default_rng(seed=epoch)
+    rng = np.random.default_rng(seed=cfg.training.seed)
     start_indices = sorted(rng.integers(0, max_start, size=n_starts).tolist())
 
     # optimize z0 and rollout

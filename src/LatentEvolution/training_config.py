@@ -156,6 +156,12 @@ class TrainingConfig(BaseModel):
     early_stop_min_divergence: int = Field(
         1000, description="minimum first divergence step required for early stopping to activate", json_schema_extra={"short_name": "es_min_div"}
     )
+    z0_consistency_loss: float = Field(
+        1.0, description="weight for z0 consistency loss. enforces that evolved latent matches z0_bank at subsequent windows.", json_schema_extra={"short_name": "z0c"}
+    )
+    encoder_consistency_loss: float = Field(
+        1.0, description="weight for encoder consistency loss. enforces z ≈ encoder(decoder(z)) at tu boundaries.", json_schema_extra={"short_name": "enc_c"}
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")

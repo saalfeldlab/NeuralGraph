@@ -28,6 +28,7 @@ from LatentEvolution.eed_model import (
     MLPWithSkips,
     MLPParams,
     Evolver,
+    EncoderParams,
     DecoderParams,
     EvolverParams,
     StimulusEncoderParams,
@@ -54,11 +55,12 @@ from LatentEvolution.diagnostics_stag import run_validation_diagnostics
 
 
 class StagModelParams(BaseModel):
-    """model parameters for staggered latent model (no encoder)."""
+    """model parameters for staggered latent model with encoder warmup."""
     latent_dims: int = Field(..., json_schema_extra={"short_name": "ld"})
     num_neurons: int
     use_batch_norm: bool = True
     activation: str = Field("ReLU", description="activation function from torch.nn")
+    encoder_params: EncoderParams
     decoder_params: DecoderParams
     evolver_params: EvolverParams
     stimulus_encoder_params: StimulusEncoderParams
@@ -81,6 +83,26 @@ class StagModelParams(BaseModel):
             raise ValueError(
                 f"latent_stag requires staggered_random acquisition mode. "
                 f"got: {self.training.acquisition_mode.mode}"
+            )
+        return self
+
+    @model_validator(mode='after')
+    def validate_encoder_decoder_symmetry(self):
+        """ensure encoder and decoder have symmetric mlp parameters."""
+        if self.encoder_params.num_hidden_units != self.decoder_params.num_hidden_units:
+            raise ValueError(
+                f"encoder and decoder must have the same num_hidden_units. "
+                f"got encoder={self.encoder_params.num_hidden_units}, decoder={self.decoder_params.num_hidden_units}"
+            )
+        if self.encoder_params.num_hidden_layers != self.decoder_params.num_hidden_layers:
+            raise ValueError(
+                f"encoder and decoder must have the same num_hidden_layers. "
+                f"got encoder={self.encoder_params.num_hidden_layers}, decoder={self.decoder_params.num_hidden_layers}"
+            )
+        if self.encoder_params.use_input_skips != self.decoder_params.use_input_skips:
+            raise ValueError(
+                f"encoder and decoder must have the same use_input_skips setting. "
+                f"got encoder={self.encoder_params.use_input_skips}, decoder={self.decoder_params.use_input_skips}"
             )
         return self
 
@@ -110,9 +132,12 @@ class StagModelParams(BaseModel):
 class LossType(Enum):
     """loss component types for staggered model."""
     TOTAL = auto()
+    RECON = auto()  # reconstruction loss (warmup phase)
     EVOLVE = auto()
     REG = auto()
     TV_LOSS = auto()
+    Z0_CONSISTENCY = auto()  # consistency between evolved latent and z0_bank
+    ENCODER_CONSISTENCY = auto()  # consistency z ≈ encoder(decoder(z))
 
 
 # -------------------------------------------------------------------
@@ -121,10 +146,27 @@ class LossType(Enum):
 
 
 class LatentStagModel(nn.Module):
-    """decode-only model with evolver and stimulus encoder (no encoder)."""
+    """model with encoder (for warmup), decoder, evolver and stimulus encoder.
+
+    the encoder is used during warmup to train encoder/decoder for reconstruction,
+    then frozen. after warmup, the encoder is used to initialize the z0 bank.
+    """
 
     def __init__(self, params: StagModelParams):
         super().__init__()
+
+        # encoder (used for warmup only, then frozen)
+        encoder_cls = MLPWithSkips if params.encoder_params.use_input_skips else MLP
+        self.encoder = encoder_cls(
+            MLPParams(
+                num_input_dims=params.num_neurons,
+                num_hidden_layers=params.encoder_params.num_hidden_layers,
+                num_hidden_units=params.encoder_params.num_hidden_units,
+                num_output_dims=params.latent_dims,
+                use_batch_norm=params.use_batch_norm,
+                activation=params.activation,
+            )
+        )
 
         # decoder
         decoder_cls = MLPWithSkips if params.decoder_params.use_input_skips else MLP
@@ -167,9 +209,65 @@ class LatentStagModel(nn.Module):
 # -------------------------------------------------------------------
 
 
+@torch.compile(fullgraph=True, mode="reduce-overhead")
+def train_step_warmup(
+    model: LatentStagModel,
+    train_data: torch.Tensor,
+    observation_indices: torch.Tensor,
+    cfg: StagModelParams,
+) -> dict[LossType, torch.Tensor]:
+    """
+    warmup training step for encoder/decoder reconstruction.
+
+    trains encoder and decoder to reconstruct observations. the staggered
+    observation_indices are treated as if they were time-aligned (we just
+    encode and decode without evolving).
+
+    args:
+        model: the staggered model (encoder, decoder, evolver, stim encoder)
+        train_data: chunk data (chunk_timesteps, num_neurons)
+        observation_indices: (batch_size, num_neurons) observation times
+        cfg: model configuration
+
+    returns:
+        dict of loss components
+    """
+    device = train_data.device
+    loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
+
+    # regularization loss (encoder + decoder only)
+    reg_loss = torch.tensor(0.0, device=device)
+    if cfg.encoder_params.l1_reg_loss > 0.:
+        for p in model.encoder.parameters():
+            reg_loss += torch.abs(p).mean() * cfg.encoder_params.l1_reg_loss
+    if cfg.decoder_params.l1_reg_loss > 0.:
+        for p in model.decoder.parameters():
+            reg_loss += torch.abs(p).mean() * cfg.decoder_params.l1_reg_loss
+
+    # reconstruction loss
+    # observation_indices: (b, N) - time index for each neuron in each batch sample
+    # use advanced indexing to extract the right (time, neuron) pairs
+    batch_size, num_neurons = observation_indices.shape
+    neuron_indices = torch.arange(num_neurons, device=device).unsqueeze(0).expand(batch_size, num_neurons)
+    x_t = train_data[observation_indices, neuron_indices]  # (b, N)
+    proj_t = model.encoder(x_t)
+    recon_t = model.decoder(proj_t)
+    recon_loss = loss_fn(recon_t, x_t)
+
+    # total loss
+    total_loss = recon_loss + reg_loss
+
+    return {
+        LossType.TOTAL: total_loss,
+        LossType.RECON: recon_loss,
+        LossType.REG: reg_loss,
+    }
+
+
 def train_step_nocompile(
     model: LatentStagModel,
-    z0: torch.Tensor,
+    z0_bank: nn.Embedding,
+    z0_indices: torch.Tensor,
     train_data: torch.Tensor,
     train_stim: torch.Tensor,
     observation_indices: torch.Tensor,
@@ -180,7 +278,8 @@ def train_step_nocompile(
 
     args:
         model: the staggered model (decoder, evolver, stim encoder)
-        z0: initial latent for this batch (batch_size, latent_dims)
+        z0_bank: embedding layer storing z0 for each time window
+        z0_indices: window indices for this batch (batch_size,)
         train_data: chunk data (chunk_timesteps, num_neurons)
         train_stim: chunk stimulus (chunk_timesteps, stim_dims)
         observation_indices: (batch_size, num_neurons) observation times
@@ -225,8 +324,13 @@ def train_step_nocompile(
     proj_stim_t = model.stimulus_encoder(stim_t.reshape((-1, dim_stim))).reshape((total_steps, -1, dim_stim_latent))
 
     # evolve from z0, compute loss at tu boundaries
-    proj_t = z0  # (batch_size, latent_dims)
+    z0 = z0_bank(z0_indices)  # (batch_size, latent_dims)
+    proj_t = z0
     evolve_loss = torch.tensor(0.0, device=device)
+    z0_consistency_loss = torch.tensor(0.0, device=device)
+    encoder_consistency_loss = torch.tensor(0.0, device=device)
+    z0c_weight = cfg.training.z0_consistency_loss
+    enc_weight = cfg.training.encoder_consistency_loss
 
     if cfg.evolver_params.tv_reg_loss > 0.:
         for t in range(total_steps):
@@ -242,6 +346,16 @@ def train_step_nocompile(
                 target_indices = observation_indices + m * dt
                 x_target = train_data[target_indices, neuron_indices]
                 evolve_loss = evolve_loss + loss_fn(x_pred, x_target)
+
+                # z0 consistency: evolved latent should match z0_bank at this window
+                if z0c_weight > 0. and m < num_multiples:
+                    z0_target = z0_bank(z0_indices + m)
+                    z0_consistency_loss = z0_consistency_loss + loss_fn(proj_t, z0_target)
+
+                # encoder consistency: z ≈ encoder(decoder(z))
+                if enc_weight > 0.:
+                    z_recon = model.encoder(x_pred)
+                    encoder_consistency_loss = encoder_consistency_loss + loss_fn(proj_t, z_recon)
     else:
         for t in range(total_steps):
             proj_t = model.evolver(proj_t, proj_stim_t[t])
@@ -255,9 +369,25 @@ def train_step_nocompile(
                 x_target = train_data[target_indices, neuron_indices]
                 evolve_loss = evolve_loss + loss_fn(x_pred, x_target)
 
+                # z0 consistency: evolved latent should match z0_bank at this window
+                if z0c_weight > 0. and m < num_multiples:
+                    z0_target = z0_bank(z0_indices + m)
+                    z0_consistency_loss = z0_consistency_loss + loss_fn(proj_t, z0_target)
+
+                # encoder consistency: z ≈ encoder(decoder(z))
+                if enc_weight > 0.:
+                    z_recon = model.encoder(x_pred)
+                    encoder_consistency_loss = encoder_consistency_loss + loss_fn(proj_t, z_recon)
+
     losses[LossType.EVOLVE] = evolve_loss
+    losses[LossType.Z0_CONSISTENCY] = z0_consistency_loss
+    losses[LossType.ENCODER_CONSISTENCY] = encoder_consistency_loss
     losses[LossType.TV_LOSS] = tv_loss
-    losses[LossType.TOTAL] = reg_loss + tv_loss + evolve_loss
+    losses[LossType.TOTAL] = (
+        reg_loss + tv_loss + evolve_loss
+        + z0c_weight * z0_consistency_loss
+        + enc_weight * encoder_consistency_loss
+    )
 
     return losses
 
@@ -363,13 +493,14 @@ def train(cfg: StagModelParams, run_dir: Path):
         )
         print(f"chunking: {chunks_per_epoch} chunks/epoch, {batches_per_chunk} batches/chunk, {batches_per_epoch} total batches/epoch")
 
-        # neuron phases
+        # neuron phases (required for staggered acquisition)
         neuron_phases = compute_neuron_phases(
             num_neurons=cfg.num_neurons,
             time_units=dt,
             acquisition_mode=cfg.training.acquisition_mode,
             device=device,
         )
+        assert neuron_phases is not None, "staggered_random acquisition mode requires neuron phases"
         print(f"acquisition mode: staggered_random, phases for {cfg.num_neurons} neurons")
 
         # --- load cross-validation datasets ---
@@ -389,11 +520,106 @@ def train(cfg: StagModelParams, run_dir: Path):
 
         train_step_fn = globals()[cfg.training.train_step]
         total_steps = dt * cfg.training.evolve_multiple_steps
-        training_start = datetime.now()
-        epoch_durations = []
 
         checkpoint_dir = run_dir / "checkpoints"
         checkpoint_dir.mkdir(exist_ok=True)
+
+        # --- warmup phase: train encoder/decoder for reconstruction ---
+        warmup_epochs = cfg.training.reconstruction_warmup_epochs
+        if warmup_epochs > 0:
+            print(f"\n=== encoder/decoder warmup: {warmup_epochs} epochs ===")
+
+            # optimizer for warmup (encoder + decoder only)
+            warmup_optimizer = OptimizerClass(
+                [
+                    {'params': model.encoder.parameters()},
+                    {'params': model.decoder.parameters()},
+                ],
+                lr=cfg.training.learning_rate
+            )
+
+            for warmup_epoch in range(warmup_epochs):
+                warmup_epoch_start = datetime.now()
+                warmup_losses = LossAccumulator(LossType)
+
+                chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+
+                for _ in range(chunks_per_epoch):
+                    chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                    if chunk_data is None:
+                        break
+
+                    for _ in range(batches_per_chunk):
+                        warmup_optimizer.zero_grad()
+
+                        observation_indices = sample_batch_indices(
+                            chunk_size=chunk_data.shape[0],
+                            total_steps=total_steps,
+                            time_units=dt,
+                            batch_size=cfg.training.batch_size,
+                            num_neurons=cfg.num_neurons,
+                            neuron_phases=neuron_phases,
+                            device=device,
+                        )
+
+                        loss_dict = train_step_warmup(
+                            model, chunk_data, observation_indices, cfg
+                        )
+                        loss_dict[LossType.TOTAL].backward()
+                        warmup_optimizer.step()
+                        warmup_losses.accumulate(loss_dict)
+
+                warmup_mean = warmup_losses.mean()
+                warmup_duration = (datetime.now() - warmup_epoch_start).total_seconds()
+                print(
+                    f"warmup {warmup_epoch+1}/{warmup_epochs} | "
+                    f"recon loss: {warmup_mean[LossType.RECON]:.4e} | "
+                    f"duration: {warmup_duration:.2f}s"
+                )
+
+                # log to tensorboard
+                for loss_type, loss_value in warmup_mean.items():
+                    writer.add_scalar(f"Warmup/{loss_type.name.lower()}", loss_value, warmup_epoch)
+                writer.add_scalar("Warmup/epoch_duration", warmup_duration, warmup_epoch)
+
+            # --- initialize z0 bank from trained encoder ---
+            print("\n=== initializing z0 bank from trained encoder ===")
+            model.eval()
+
+            chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+            z0_init_count = 0
+
+            with torch.no_grad():
+                for _ in range(chunks_per_epoch):
+                    chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                    if chunk_data is None or chunk_start is None:
+                        break
+
+                    chunk_len = chunk_data.shape[0]
+                    # encode at each tu boundary within this chunk
+                    for offset in range(0, chunk_len - total_steps, dt):
+                        global_time = chunk_start + offset
+                        window_idx = global_time // dt
+
+                        if window_idx >= num_z0_windows:
+                            continue
+
+                        # get observation at this tu boundary using neuron phases
+                        obs_indices = neuron_phases + offset  # (num_neurons,)
+                        obs_indices = obs_indices.unsqueeze(0)  # (1, num_neurons)
+                        neuron_idx = torch.arange(cfg.num_neurons, device=device).unsqueeze(0)
+                        x_t = chunk_data[obs_indices, neuron_idx]  # (1, num_neurons)
+
+                        z0 = model.encoder(x_t)  # (1, latent_dims)
+                        z0_bank.weight.data[window_idx] = z0.squeeze(0)
+                        z0_init_count += 1
+
+            print(f"initialized {z0_init_count} z0 entries from encoder")
+            model.train()
+            print("=== warmup complete ===\n")
+
+        training_start = datetime.now()
+        epoch_durations = []
 
         # epoch loop
         for epoch in range(cfg.training.epochs):
@@ -431,14 +657,13 @@ def train(cfg: StagModelParams, run_dir: Path):
                             device=device,
                         )
 
-                        # z0 for this batch
+                        # z0 indices for this batch
                         batch_start_times = observation_indices.min(dim=1).values
                         global_start_times = chunk_start + batch_start_times
                         z0_indices = global_start_times // dt
-                        z0 = z0_bank(z0_indices)
 
                         loss_dict = train_step_fn(
-                            model, z0, chunk_data, chunk_stim, observation_indices, cfg
+                            model, z0_bank, z0_indices, chunk_data, chunk_stim, observation_indices, cfg
                         )
                         loss_dict[LossType.TOTAL].backward()
 

@@ -1,10 +1,16 @@
-# configuration for staggered latent model (no encoder)
+# configuration for staggered latent model with encoder warmup
 # requires staggered_random acquisition mode
 
 latent_dims: 256
 num_neurons: 13741
 use_batch_norm: false
 activation: ReLU
+
+encoder_params:
+  num_hidden_layers: 1
+  num_hidden_units: 256
+  l1_reg_loss: 0.0
+  use_input_skips: true
 
 decoder_params:
   num_hidden_layers: 1
@@ -36,7 +42,7 @@ training:
   evolve_multiple_steps: 5
   simulation_config: "fly_N9_62_1_youtube-vos_calcium"
   data_passes_per_epoch: 1
-  epochs: 100
+  epochs: 30
   save_best_checkpoint: true
   save_checkpoint_every_n_epochs: 0
   diagnostics_freq_epochs: 1
@@ -49,6 +55,7 @@ training:
   seed: 234
   loss_function: mse_loss
   grad_clip_max_norm: 0.0
+  reconstruction_warmup_epochs: 10
 
   data_split:
     train_start: 5120
