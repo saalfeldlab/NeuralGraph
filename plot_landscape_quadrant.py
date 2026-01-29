@@ -6,7 +6,6 @@ Generate quadrant chart for landscape exploration results.
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import numpy as np
 
 # Data: (name, eff_rank_normalized, recovery, label_offset)
 # eff_rank_normalized: 0-1 scale where 0=low rank, 1=high rank

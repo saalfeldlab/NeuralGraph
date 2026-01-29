@@ -11,8 +11,6 @@ import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from collections import Counter
 from matplotlib.gridspec import GridSpec
-from matplotlib.path import Path
-import matplotlib.patches as mpatches
 
 # Define color scheme for reasoning modes
 COLORS = {
