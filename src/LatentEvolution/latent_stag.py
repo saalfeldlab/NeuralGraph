@@ -137,6 +137,7 @@ class LossType(Enum):
     REG = auto()
     TV_LOSS = auto()
     Z0_CONSISTENCY = auto()  # consistency between evolved latent and z0_bank
+    ENCODER_CONSISTENCY = auto()  # consistency z ≈ encoder(decoder(z))
 
 
 # -------------------------------------------------------------------
@@ -327,7 +328,9 @@ def train_step_nocompile(
     proj_t = z0
     evolve_loss = torch.tensor(0.0, device=device)
     z0_consistency_loss = torch.tensor(0.0, device=device)
+    encoder_consistency_loss = torch.tensor(0.0, device=device)
     z0c_weight = cfg.training.z0_consistency_loss
+    enc_weight = cfg.training.encoder_consistency_loss
 
     if cfg.evolver_params.tv_reg_loss > 0.:
         for t in range(total_steps):
@@ -348,6 +351,11 @@ def train_step_nocompile(
                 if z0c_weight > 0. and m < num_multiples:
                     z0_target = z0_bank(z0_indices + m)
                     z0_consistency_loss = z0_consistency_loss + loss_fn(proj_t, z0_target)
+
+                # encoder consistency: z ≈ encoder(decoder(z))
+                if enc_weight > 0.:
+                    z_recon = model.encoder(x_pred)
+                    encoder_consistency_loss = encoder_consistency_loss + loss_fn(proj_t, z_recon)
     else:
         for t in range(total_steps):
             proj_t = model.evolver(proj_t, proj_stim_t[t])
@@ -366,10 +374,20 @@ def train_step_nocompile(
                     z0_target = z0_bank(z0_indices + m)
                     z0_consistency_loss = z0_consistency_loss + loss_fn(proj_t, z0_target)
 
+                # encoder consistency: z ≈ encoder(decoder(z))
+                if enc_weight > 0.:
+                    z_recon = model.encoder(x_pred)
+                    encoder_consistency_loss = encoder_consistency_loss + loss_fn(proj_t, z_recon)
+
     losses[LossType.EVOLVE] = evolve_loss
     losses[LossType.Z0_CONSISTENCY] = z0_consistency_loss
+    losses[LossType.ENCODER_CONSISTENCY] = encoder_consistency_loss
     losses[LossType.TV_LOSS] = tv_loss
-    losses[LossType.TOTAL] = reg_loss + tv_loss + evolve_loss + z0c_weight * z0_consistency_loss
+    losses[LossType.TOTAL] = (
+        reg_loss + tv_loss + evolve_loss
+        + z0c_weight * z0_consistency_loss
+        + enc_weight * encoder_consistency_loss
+    )
 
     return losses
 
