@@ -100,3 +100,20 @@ bsub -J stag -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o stag.log \
     python src/LatentEvolution/latent_stag.py \
     stag_z0_consistency latent_stag_20step.yaml
 ```
+
+OK, that didn't work - bad roll out beyond training window. But we did improve the MSE
+within the training window.
+
+## Add encoder consistency loss
+
+At each boundary point `k*tu` we enforce that a round trip from:
+z -> decoder(z) -> encoder(decoder(z))
+should produce the same result. The rationale is that requiring a valid encoding
+may better constrain the latent space so we can find the right solution.
+
+```bash
+
+bsub -J stag -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o stag.log \
+    python src/LatentEvolution/latent_stag.py \
+    stag_enc_z0_consistency latent_stag_20step.yaml
+```
