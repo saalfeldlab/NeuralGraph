@@ -11,7 +11,7 @@ if os.path.isdir('/scratch'):
 
 from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.generators.graph_data_generator import data_generate
-from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR, data_train_simple
+from NeuralGraph.models.graph_trainer import data_train, data_test, data_train_INR
 from NeuralGraph.utils import set_device, add_pre_folder
 from NeuralGraph.models.NGP_trainer import data_train_NGP
 from GNN_PlotFigure import data_plot

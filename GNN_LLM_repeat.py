@@ -71,7 +71,7 @@ reasoning_repeat_path = f"{root_dir}/{llm_task_name}_reasoning_repeat.log"
 
 # ── Phase 1: Run full pipeline — generate + train + test + plot (once) ────
 print(f"\n\033[94m{'='*60}\033[0m")
-print(f"\033[94mRepeat Reasoning Script — From Scratch\033[0m")
+print("\033[94mRepeat Reasoning Script — From Scratch\033[0m")
 print(f"\033[94mConfig: {config_file_}\033[0m")
 print(f"\033[94mIteration {ITERATION}, Block {block_number}, iter {iter_in_block}/{n_iter_block}\033[0m")
 print(f"\033[94m{'='*60}\033[0m\n")
@@ -274,7 +274,7 @@ Current config (READ-ONLY): {config_path}"""
 
 print(f"\n\033[94m{'='*60}\033[0m")
 print(f"\033[94mAll {N_REPEATS} repeats completed\033[0m")
-print(f"\033[94mResults:\033[0m")
+print("\033[94mResults:\033[0m")
 print(f"\033[94m  Analysis: {analysis_repeat_path}\033[0m")
 print(f"\033[94m  Memory:   {memory_repeat_path}\033[0m")
 print(f"\033[94m  Reasoning: {reasoning_repeat_path}\033[0m")
