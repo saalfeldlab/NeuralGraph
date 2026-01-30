@@ -3041,7 +3041,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
         plt.close()
 
-        edge_index_, connectivity, mask = init_connectivity(
+        edge_index_, connectivity, mask, _ = init_connectivity(
                 simulation_config.connectivity_file,
                 simulation_config.connectivity_type,
                 simulation_config.connectivity_filling_factor,
@@ -3592,6 +3592,59 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     activity_gt = to_numpy(neuron_gt_stacked)  # ground truth
     activity_pred = to_numpy(neuron_pred_stacked)  # prediction
     n_frames_plot = activity_gt.shape[1]
+
+    # Save kinograph matrices
+    np.save(f"./{log_dir}/results/kinograph_gt.npy", activity_gt)
+    np.save(f"./{log_dir}/results/kinograph_pred.npy", activity_pred)
+
+    # Plot predicted kinograph
+    plt.figure(figsize=(15, 10))
+    vmax_kino = np.abs(activity_pred).max()
+    plt.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_kino, vmax=vmax_kino, origin='lower')
+    cbar = plt.colorbar(fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=32)
+    plt.ylabel('neurons', fontsize=64)
+    plt.xlabel('time', fontsize=64)
+    plt.xticks([0, n_frames_plot - 1], [0, n_frames_plot], fontsize=48)
+    plt.yticks([0, activity_pred.shape[0] - 1], [1, activity_pred.shape[0]], fontsize=48)
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/kinograph_pred.png", dpi=300)
+    plt.close()
+
+    # Compute kinograph metrics
+    from NeuralGraph.models.utils import compute_kinograph_metrics
+    kino_metrics = compute_kinograph_metrics(activity_gt, activity_pred)
+    print(f"Kinograph RMSE: {kino_metrics['rmse']:.4f}, SSIM: {kino_metrics['ssim']:.4f}, Wasserstein: {kino_metrics['mean_wasserstein']:.4f}")
+    if log_file:
+        log_file.write(f"kinograph_RMSE: {kino_metrics['rmse']:.4f}\n")
+        log_file.write(f"kinograph_SSIM: {kino_metrics['ssim']:.4f}\n")
+        log_file.write(f"kinograph_Wasserstein: {kino_metrics['mean_wasserstein']:.4f}\n")
+
+    # Kinograph montage: GT (top) vs GNN prediction (bottom)
+    n_neurons_kino = activity_gt.shape[0]
+    vmax_shared = max(np.abs(activity_gt).max(), np.abs(activity_pred).max())
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 16))
+
+    im1 = ax1.imshow(activity_gt, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower')
+    ax1.set_ylabel('neurons', fontsize=32)
+    ax1.set_title('Ground Truth', fontsize=28)
+    ax1.set_xticks([0, n_frames_plot - 1]); ax1.set_xticklabels([0, n_frames_plot], fontsize=24)
+    ax1.set_yticks([0, n_neurons_kino - 1]); ax1.set_yticklabels([1, n_neurons_kino], fontsize=24)
+
+    im2 = ax2.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower')
+    ax2.set_ylabel('neurons', fontsize=32)
+    ax2.set_xlabel('time', fontsize=32)
+    ax2.set_title('GNN Rollout', fontsize=28)
+    ax2.set_xticks([0, n_frames_plot - 1]); ax2.set_xticklabels([0, n_frames_plot], fontsize=24)
+    ax2.set_yticks([0, n_neurons_kino - 1]); ax2.set_yticklabels([1, n_neurons_kino], fontsize=24)
+
+    fig.subplots_adjust(right=0.88)
+    cbar_ax = fig.add_axes([0.90, 0.15, 0.02, 0.7])
+    fig.colorbar(im1, cax=cbar_ax).ax.tick_params(labelsize=20)
+
+    fig.suptitle(f'RMSE={kino_metrics["rmse"]:.3f} | SSIM={kino_metrics["ssim"]:.3f} | Wasserstein={kino_metrics["mean_wasserstein"]:.3f}', fontsize=24, y=0.98)
+    plt.savefig(f"./{log_dir}/results/kinograph_montage.png", dpi=300, bbox_inches='tight')
+    plt.close()
 
     # Compute per-neuron R² for selected traces
     r2_per_neuron = []

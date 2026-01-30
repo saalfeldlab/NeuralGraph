@@ -1260,7 +1260,7 @@ def data_generate_synaptic(
                 T1 = first_T1.clone().detach()
 
         if run == 0:
-            edge_index, connectivity, mask = init_connectivity(
+            edge_index, connectivity, mask, low_rank_factors = init_connectivity(
                 simulation_config.connectivity_file,
                 simulation_config.connectivity_type,
                 simulation_config.connectivity_filling_factor,
@@ -1274,6 +1274,10 @@ def data_generate_synaptic(
                 Dale_law_factor=simulation_config.Dale_law_factor,
             )
             torch.save(connectivity, f"./graphs_data/{dataset_name}/connectivity.pt")
+            if 'low_rank' in simulation_config.connectivity_type:
+                U, V = low_rank_factors
+                torch.save(torch.tensor(U, dtype=torch.float32), f"./graphs_data/{dataset_name}/connectivity_low_rank_U.pt")
+                torch.save(torch.tensor(V, dtype=torch.float32), f"./graphs_data/{dataset_name}/connectivity_low_rank_V.pt")
 
             # Plot eigenvalue spectrum and connectivity matrix
             plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc, log_file=log_file)

@@ -345,7 +345,7 @@ if __name__ == "__main__":
                         device=device,
                         visualize=False,
                         run_vizualized=0,
-                        style="black color",
+                        style="color",
                         alpha=1,
                         erase=erase,
                         bSave=True,
@@ -618,7 +618,7 @@ If you cannot fix it, say "CANNOT_FIX" and explain why."""
                     data_test(
                         config=config,
                         visualize=False,
-                        style="black name continuous_slice",
+                        style="color name continuous_slice",
                         verbose=False,
                         best_model='best',
                         run=0,
@@ -635,7 +635,7 @@ If you cannot fix it, say "CANNOT_FIX" and explain why."""
                 if 'plot' in task:
                     folder_name = './log/' + pre_folder + '/tmp_results/'
                     os.makedirs(folder_name, exist_ok=True)
-                    data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
+                    data_plot(config=config, config_file=config_file, epoch_list=['best'], style='color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
 
                 log_file.close()
 

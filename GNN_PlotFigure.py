@@ -67,6 +67,7 @@ from NeuralGraph.config import NeuralGraphConfig
 from NeuralGraph.models.Ising_analysis import analyze_ising_model
 
 from scipy import stats
+from scipy.linalg import orthogonal_procrustes
 from io import StringIO
 import sys
 import warnings
@@ -1002,6 +1003,41 @@ def create_signal_movies(config, log_dir, n_runs, device, n_neurons, n_neuron_ty
     return r_squared_list, slope_list
 
 
+def recover_UV_from_missing_diagonal(W_obs, rank):
+    """
+    Given: W_obs where W_true = U @ V.T and diag(W_obs) = 0
+    Returns: U_est, V_est such that U_est @ V_est.T ≈ W_true
+    """
+    U, S, Vt = np.linalg.svd(W_obs, full_matrices=False)
+    sqrt_S = np.sqrt(S[:rank])
+    U_est = U[:, :rank] * sqrt_S
+    V_est = Vt[:rank, :].T * sqrt_S
+    W_recon = U_est @ V_est.T
+    return U_est, V_est, W_recon
+
+
+def align_and_compare(U_true, U_recon):
+    """
+    Aligns U_recon to U_true using Orthogonal Procrustes
+    and computes correlation after alignment + scaling.
+    """
+    R, _ = orthogonal_procrustes(U_recon, U_true)
+    U_aligned = U_recon @ R
+
+    # Optimal scaling factor (least squares)
+    nom = np.trace(U_true.T @ U_aligned)
+    denom = np.trace(U_aligned.T @ U_aligned)
+    s = nom / denom
+    U_aligned = U_aligned * s
+
+    correlation = np.corrcoef(U_true.flatten(), U_aligned.flatten())[0, 1]
+
+    # R² (coefficient of determination)
+    ss_res = np.sum((U_true.flatten() - U_aligned.flatten()) ** 2)
+    ss_tot = np.sum((U_true.flatten() - np.mean(U_true.flatten())) ** 2)
+    r_squared = 1 - (ss_res / ss_tot)
+
+    return correlation, r_squared, U_aligned, R, s
 
 
 def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device, apply_weight_correction=False, log_file=None):
@@ -1661,33 +1697,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         plt.savefig(f'./{log_dir}/results/connectivity_true.png', dpi=300)
         plt.close()
 
-        # Fig2a: Kinograph (activity heatmap - all neurons × all frames)
-        # Use imshow instead of sns.heatmap for large data (much faster)
-        kinograph_path = f'./{log_dir}/results/kinograph.png'
-        # Always regenerate kinograph
-        plt.figure(figsize=(15, 10))
-        # Use LaTeX fonts with Palatino (same as other plots in codebase)
-        # plt.rcParams['text.usetex'] = True
-        # rc('font', **{'family': 'serif', 'serif': ['Palatino']})
-        activity_np = to_numpy(activity)
-        vmax = np.abs(activity_np).max()
-        # origin='lower' so neuron 1 at bottom, n_neurons at top (matching reference)
-        im = plt.imshow(activity_np, aspect='auto', cmap='viridis', vmin=-vmax, vmax=vmax, origin='lower')
-        cbar = plt.colorbar(im, fraction=0.046, pad=0.04)
-        # Set colorbar ticks explicitly (rounded to nearest 10)
-        vmax_rounded = int(np.ceil(vmax / 10) * 10)
-        cbar_ticks = np.arange(-vmax_rounded, vmax_rounded + 1, 10)
-        cbar_ticks = cbar_ticks[(cbar_ticks >= -vmax) & (cbar_ticks <= vmax)]
-        cbar.set_ticks(cbar_ticks)
-        cbar.ax.tick_params(labelsize=32)
-        plt.ylabel('neurons', fontsize=64)
-        plt.xlabel('time', fontsize=64)
-        plt.xticks([0, n_frames - 1], [0, n_frames], fontsize=48)
-        plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-        plt.tight_layout()
-        plt.savefig(kinograph_path, dpi=300)
-        plt.close()
-
         # Fig2b: Sample 100 traces if n_neurons > 200
         if n_neurons >= 200:
             sampled_indices = np.random.choice(n_neurons, 100, replace=False)
@@ -2279,6 +2288,100 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             mean_align_L = np.mean(best_alignment_L)
             print(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
             logger.info(f'eigenvector alignment - right: {mean_align_R:.3f}  left: {mean_align_L:.3f}')
+
+            # Low-rank U/V recovery and comparison
+            if 'low_rank' in simulation_config.connectivity_type:
+                print('low-rank U/V recovery and comparison ...')
+
+                connectivity_rank = simulation_config.connectivity_rank
+                U_true_path = f'./graphs_data/{dataset_name}/connectivity_low_rank_U.pt'
+                V_true_path = f'./graphs_data/{dataset_name}/connectivity_low_rank_V.pt'
+
+                if os.path.exists(U_true_path) and os.path.exists(V_true_path):
+                    U_true = to_numpy(torch.load(U_true_path, map_location=device))  # (N, rank)
+                    V_true = to_numpy(torch.load(V_true_path, map_location=device))  # (rank, N)
+
+                    # Recover U and V from slope-corrected learned W via truncated SVD
+                    learned_W = pred_weight_corrected / lin_fit[0]
+                    U_est, V_est, W_recon = recover_UV_from_missing_diagonal(learned_W, connectivity_rank)
+
+                    # Align recovered factors to ground truth
+                    corr_U, r2_U, U_aligned, R_U, s_U = align_and_compare(U_true, U_est)
+                    corr_V, r2_V, V_aligned, R_V, s_V = align_and_compare(V_true.T, V_est)  # V_true.T: (N, rank)
+
+                    print(f'low-rank U - correlation: {corr_U:.4f}  R²: {r2_U:.4f}  scale: {s_U:.4f}')
+                    print(f'low-rank V - correlation: {corr_V:.4f}  R²: {r2_V:.4f}  scale: {s_V:.4f}')
+                    logger.info(f'low-rank U - correlation: {corr_U:.4f}  R²: {r2_U:.4f}  scale: {s_U:.4f}')
+                    logger.info(f'low-rank V - correlation: {corr_V:.4f}  R²: {r2_V:.4f}  scale: {s_V:.4f}')
+                    if log_file:
+                        log_file.write(f"low_rank_U_correlation: {corr_U:.4f}\n")
+                        log_file.write(f"low_rank_U_R2: {r2_U:.4f}\n")
+                        log_file.write(f"low_rank_V_correlation: {corr_V:.4f}\n")
+                        log_file.write(f"low_rank_V_R2: {r2_V:.4f}\n")
+
+                    # Plot: 2x3 grid (U top row, V bottom row)
+                    fig, axes = plt.subplots(2, 3, figsize=(30, 20))
+
+                    # Row 1: U
+                    vmax_U = max(np.abs(U_true).max(), np.abs(U_aligned).max())
+                    im0 = axes[0, 0].imshow(U_true, aspect='auto', cmap='bwr', vmin=-vmax_U, vmax=vmax_U)
+                    axes[0, 0].set_title('U true', fontsize=28)
+                    axes[0, 0].set_xlabel('rank', fontsize=24)
+                    axes[0, 0].set_ylabel('neuron', fontsize=24)
+                    axes[0, 0].tick_params(labelsize=16)
+                    plt.colorbar(im0, ax=axes[0, 0], fraction=0.046)
+
+                    im1 = axes[0, 1].imshow(U_aligned, aspect='auto', cmap='bwr', vmin=-vmax_U, vmax=vmax_U)
+                    axes[0, 1].set_title('U recovered (aligned)', fontsize=28)
+                    axes[0, 1].set_xlabel('rank', fontsize=24)
+                    axes[0, 1].set_ylabel('neuron', fontsize=24)
+                    axes[0, 1].tick_params(labelsize=16)
+                    plt.colorbar(im1, ax=axes[0, 1], fraction=0.046)
+
+                    axes[0, 2].scatter(U_true.flatten(), U_aligned.flatten(), s=1, c=mc, alpha=0.5)
+                    u_lim = vmax_U * 1.1
+                    axes[0, 2].plot([-u_lim, u_lim], [-u_lim, u_lim], 'g--', linewidth=2)
+                    axes[0, 2].set_xlim([-u_lim, u_lim])
+                    axes[0, 2].set_ylim([-u_lim, u_lim])
+                    axes[0, 2].set_xlabel('true U', fontsize=24)
+                    axes[0, 2].set_ylabel('recovered U', fontsize=24)
+                    axes[0, 2].set_title(f'corr: {corr_U:.4f}   $R^2$: {r2_U:.4f}', fontsize=28)
+                    axes[0, 2].tick_params(labelsize=16)
+                    axes[0, 2].set_aspect('equal')
+
+                    # Row 2: V (V_true transposed to N x rank for comparison)
+                    V_true_T = V_true.T
+                    vmax_V = max(np.abs(V_true_T).max(), np.abs(V_aligned).max())
+                    im2 = axes[1, 0].imshow(V_true_T, aspect='auto', cmap='bwr', vmin=-vmax_V, vmax=vmax_V)
+                    axes[1, 0].set_title('V true (transposed)', fontsize=28)
+                    axes[1, 0].set_xlabel('rank', fontsize=24)
+                    axes[1, 0].set_ylabel('neuron', fontsize=24)
+                    axes[1, 0].tick_params(labelsize=16)
+                    plt.colorbar(im2, ax=axes[1, 0], fraction=0.046)
+
+                    im3 = axes[1, 1].imshow(V_aligned, aspect='auto', cmap='bwr', vmin=-vmax_V, vmax=vmax_V)
+                    axes[1, 1].set_title('V recovered (aligned)', fontsize=28)
+                    axes[1, 1].set_xlabel('rank', fontsize=24)
+                    axes[1, 1].set_ylabel('neuron', fontsize=24)
+                    axes[1, 1].tick_params(labelsize=16)
+                    plt.colorbar(im3, ax=axes[1, 1], fraction=0.046)
+
+                    axes[1, 2].scatter(V_true_T.flatten(), V_aligned.flatten(), s=1, c=mc, alpha=0.5)
+                    v_lim = vmax_V * 1.1
+                    axes[1, 2].plot([-v_lim, v_lim], [-v_lim, v_lim], 'g--', linewidth=2)
+                    axes[1, 2].set_xlim([-v_lim, v_lim])
+                    axes[1, 2].set_ylim([-v_lim, v_lim])
+                    axes[1, 2].set_xlabel('true V', fontsize=24)
+                    axes[1, 2].set_ylabel('recovered V', fontsize=24)
+                    axes[1, 2].set_title(f'corr: {corr_V:.4f}   $R^2$: {r2_V:.4f}', fontsize=28)
+                    axes[1, 2].tick_params(labelsize=16)
+                    axes[1, 2].set_aspect('equal')
+
+                    plt.tight_layout()
+                    plt.savefig(f"./{log_dir}/results/low_rank_UV_comparison.pdf", dpi=170)
+                    plt.close()
+                else:
+                    print(f'low-rank ground truth files not found, skipping U/V comparison')
 
             if has_external_input:
 

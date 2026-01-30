@@ -1,7 +1,8 @@
 description: designed by Claude (parallel)
 dataset: signal_landscape_Claude_02
 simulation:
-  connectivity_type: chaotic
+  connectivity_type: low_rank
+  connectivity_rank: 20
   connectivity_init:
   - 0
   - 0.1
@@ -80,8 +81,10 @@ training:
   cluster_method: distance_plot
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.0015
+  learning_rate_W_start: 0.002
   learning_rate_start: 0.0001
   learning_rate_embedding_start: 0.00025
   coeff_W_L1: 1.0e-05
   coeff_edge_diff: 100
+  low_rank_factorization: true
+  low_rank: 20
