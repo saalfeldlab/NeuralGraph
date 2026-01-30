@@ -61,6 +61,14 @@ training:
   loss_function: mse_loss
   grad_clip_max_norm: 0.0
   reconstruction_warmup_epochs: 10
+  # stimulus autoencoder pretraining: pretrains stimulus encoder/decoder for
+  # reconstruction, copies encoder weights into main model, then freezes encoder
+  pretrain_stimulus_ae: true
+  stimulus_ae:
+    epochs: 10
+    batch_size: 256
+    learning_rate: 0.0001
+    optimizer: Adam
 
   data_split:
     train_start: 5120 # = 256*20 Exclude burn-in

@@ -473,3 +473,31 @@ bsub -J 50x3_tv2 -W 4:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x3_tv2.log \
     --training.evolve-multiple-steps 3 \
     --evolver_params.tv-reg-loss 0.001
 ```
+
+OK, we have a checkpoint for `time_units=50` it works with `ems=5`. We still observe
+that within the first `[0, tu]` time window the MSE is 2x worse for t->t+1 and then
+reaches the floor of ~1e-2. The MSE is marginally worse than the `tu=20` baseline.
+
+## Freeze stimulus encoder
+
+The role of the stimulus encoder is to compress the stimulus that's provided to
+1736 retinal neurons, and we could do this offline outside the main training loop.
+This should speed up the training for the encoder/evolver/decoder modules.
+
+```bash
+bsub -J stimulus_ae -n 8 -gpu "num=1" -q gpu_a100 -o stimulus_ae.log \
+    python src/LatentEvolution/latent.py stimulus_ae_pretrain \
+    latent_20step.yaml --training.pretrain-stimulus-ae
+```
+
+This works! And the training time per epoch is reduced - the `tu=20` training for
+100 epochs takes ~ 123 mins.
+
+## Generate checkpoints for tu=20 and tu=50
+
+Let's run 100 epoch tests for both `tu=20` and `tu=50` for the time-aligned
+acquisition and generate a baseline.
+
+```bash
+
+```
