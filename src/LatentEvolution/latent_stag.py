@@ -741,6 +741,7 @@ def train(cfg: StagModelParams, run_dir: Path):
                     model=model,
                     cfg=cfg,
                     epoch=epoch,
+                    neuron_phases=neuron_phases,
                 )
                 diag_duration = (datetime.now() - diag_start).total_seconds()
 
@@ -762,6 +763,7 @@ def train(cfg: StagModelParams, run_dir: Path):
                         model=model,
                         cfg=cfg,
                         epoch=epoch,
+                        neuron_phases=neuron_phases,
                     )
                     cv_duration = (datetime.now() - cv_start).total_seconds()
 
