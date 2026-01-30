@@ -28,6 +28,8 @@ def optimize_z0_batched(
     num_starts: int,
     start_indices: list[int],
     fit_window: int,
+    neuron_phases: torch.Tensor,
+    time_units: int,
     n_steps: int = 2,
     lr: float = 1.0,
 ) -> torch.Tensor:
@@ -36,6 +38,12 @@ def optimize_z0_batched(
     """
     device = target_data.device
     stim_dims = stimulus.shape[1]
+
+    # build observation mask (fit_window, num_neurons)
+    # (t, i) is True iff t >= phi_i and (t - phi_i) % time_units == 0
+    t_idx = torch.arange(fit_window, device=device).unsqueeze(1)  # (fit_window, 1)
+    phi = neuron_phases.unsqueeze(0)  # (1, num_neurons)
+    obs_mask = (t_idx >= phi) & ((t_idx - phi) % time_units == 0)  # (fit_window, num_neurons)
 
     # extract fit windows for all starts
     fit_targets = torch.stack([
@@ -68,7 +76,8 @@ def optimize_z0_batched(
             pred = model.decoder(z)
             predictions.append(pred)
         pred_trace = torch.stack(predictions, dim=1)
-        loss = torch.nn.functional.mse_loss(pred_trace, fit_targets)
+        diff = (pred_trace - fit_targets)[:, obs_mask]
+        loss = diff.pow(2).mean()
         loss.backward()
         return loss
 
@@ -143,6 +152,7 @@ def run_validation_diagnostics(
     model: LatentStagModel,
     cfg: StagModelParams,
     epoch: int,
+    neuron_phases: torch.Tensor,
     n_starts: int = 10,
     n_rollout_steps: int = 2000,
     fit_window: int | None = None,
@@ -175,6 +185,8 @@ def run_validation_diagnostics(
         num_starts=n_starts,
         start_indices=start_indices,
         fit_window=fit_window,
+        neuron_phases=neuron_phases,
+        time_units=time_units,
     )
 
     rollout = rollout_from_z0_batched(

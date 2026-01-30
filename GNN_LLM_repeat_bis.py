@@ -104,7 +104,7 @@ def write_shuffled_config(src_path, dst_path, seed):
 print(f"\n\033[94m{'='*60}\033[0m")
 print(f"\033[94mRepeat-bis Reasoning Script — Iteration {ITERATION}\033[0m")
 print(f"\033[94mBlock {block_number}, iter {iter_in_block}/{n_iter_block}\033[0m")
-print(f"\033[94mTraining key order will be shuffled each repeat\033[0m")
+print("\033[94mTraining key order will be shuffled each repeat\033[0m")
 print(f"\033[94m{'='*60}\033[0m\n")
 
 # Open analysis.log for test/plot metrics
@@ -267,7 +267,7 @@ if os.path.exists(shuffled_config_path):
 
 print(f"\n\033[94m{'='*60}\033[0m")
 print(f"\033[94mAll {N_REPEATS} repeats completed (shuffled training keys)\033[0m")
-print(f"\033[94mResults:\033[0m")
+print("\033[94mResults:\033[0m")
 print(f"\033[94m  Analysis: {analysis_repeat_path}\033[0m")
 print(f"\033[94m  Memory:   {memory_repeat_path}\033[0m")
 print(f"\033[94m  Reasoning: {reasoning_repeat_path}\033[0m")
