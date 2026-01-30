@@ -50,6 +50,7 @@ from LatentEvolution.stimulus_ae_model import pretrain_stimulus_ae
 from LatentEvolution.load_flyvis import FlyVisSim, load_column_slice
 from LatentEvolution.pipeline_chunk_loader import PipelineProfiler
 from LatentEvolution.diagnostics_stag import run_validation_diagnostics
+from LatentEvolution.interpolate_staggered import interpolate_staggered_to_aligned
 
 
 # -------------------------------------------------------------------
@@ -215,30 +216,36 @@ class LatentStagModel(nn.Module):
 @torch.compile(fullgraph=True, mode="reduce-overhead")
 def train_step_warmup(
     model: LatentStagModel,
-    train_data: torch.Tensor,
-    observation_indices: torch.Tensor,
+    interp_data: torch.Tensor,
+    interp_stim: torch.Tensor,
+    batch_time_indices: torch.Tensor,
     cfg: StagModelParams,
 ) -> dict[LossType, torch.Tensor]:
     """
-    warmup training step for encoder/decoder reconstruction.
+    warmup training step using interpolated (time-aligned) data.
 
-    trains encoder and decoder to reconstruct observations. the staggered
-    observation_indices are treated as if they were time-aligned (we just
-    encode and decode without evolving).
+    trains encoder, decoder, and evolver on linearly interpolated chunk data.
+    batch_time_indices are aligned (same time for all neurons) since the data
+    has been interpolated onto a regular grid.
 
     args:
         model: the staggered model (encoder, decoder, evolver, stim encoder)
-        train_data: chunk data (chunk_timesteps, num_neurons)
-        observation_indices: (batch_size, num_neurons) observation times
+        interp_data: interpolated chunk data (chunk_timesteps, num_neurons)
+        interp_stim: chunk stimulus (chunk_timesteps, stim_dims)
+        batch_time_indices: (batch_size,) aligned time indices into chunk
         cfg: model configuration
 
     returns:
         dict of loss components
     """
-    device = train_data.device
+    device = interp_data.device
     loss_fn = getattr(torch.nn.functional, cfg.training.loss_function)
 
-    # regularization loss (encoder + decoder only)
+    dt = cfg.training.time_units
+    num_multiples = cfg.training.evolve_multiple_steps
+    total_steps = dt * num_multiples
+
+    # regularization loss (encoder + decoder + evolver)
     reg_loss = torch.tensor(0.0, device=device)
     if cfg.encoder_params.l1_reg_loss > 0.:
         for p in model.encoder.parameters():
@@ -246,23 +253,45 @@ def train_step_warmup(
     if cfg.decoder_params.l1_reg_loss > 0.:
         for p in model.decoder.parameters():
             reg_loss += torch.abs(p).mean() * cfg.decoder_params.l1_reg_loss
+    if cfg.evolver_params.l1_reg_loss > 0.:
+        for p in model.evolver.parameters():
+            reg_loss += torch.abs(p).mean() * cfg.evolver_params.l1_reg_loss
 
-    # reconstruction loss
-    # observation_indices: (b, N) - time index for each neuron in each batch sample
-    # use advanced indexing to extract the right (time, neuron) pairs
-    batch_size, num_neurons = observation_indices.shape
-    neuron_indices = torch.arange(num_neurons, device=device).unsqueeze(0).expand(batch_size, num_neurons)
-    x_t = train_data[observation_indices, neuron_indices]  # (b, N)
-    proj_t = model.encoder(x_t)
-    recon_t = model.decoder(proj_t)
-    recon_loss = loss_fn(recon_t, x_t)
+    # reconstruction loss: encode and decode at t0
+    batch_size = batch_time_indices.shape[0]
+    x_t0 = interp_data[batch_time_indices]  # (batch_size, N)
+    z_t0 = model.encoder(x_t0)
+    recon_t0 = model.decoder(z_t0)
+    recon_loss = loss_fn(recon_t0, x_t0)
 
-    # total loss
-    total_loss = recon_loss + reg_loss
+    # evolution loss: evolve from z_t0 and decode at tu boundaries
+    dim_stim = interp_stim.shape[1]
+    dim_stim_latent = cfg.stimulus_encoder_params.num_output_dims
+
+    # stimulus for the full evolution window: (total_steps, batch_size, stim_dims)
+    stim_indices = batch_time_indices.unsqueeze(0) + torch.arange(total_steps, device=device).unsqueeze(1)
+    stim_t = interp_stim[stim_indices]  # (total_steps, batch_size, stim_dims)
+    proj_stim_t = model.stimulus_encoder(stim_t.reshape(-1, dim_stim)).reshape(total_steps, batch_size, dim_stim_latent)
+
+    proj_t = z_t0
+    evolve_loss = torch.tensor(0.0, device=device)
+
+    for t in range(total_steps):
+        proj_t = model.evolver(proj_t, proj_stim_t[t])
+
+        if (t + 1) % dt == 0:
+            m = (t + 1) // dt
+            x_pred = model.decoder(proj_t)
+            target_times = batch_time_indices + m * dt
+            x_target = interp_data[target_times]  # (batch_size, N)
+            evolve_loss = evolve_loss + loss_fn(x_pred, x_target)
+
+    total_loss = recon_loss + evolve_loss + reg_loss
 
     return {
         LossType.TOTAL: total_loss,
         LossType.RECON: recon_loss,
+        LossType.EVOLVE: evolve_loss,
         LossType.REG: reg_loss,
     }
 
@@ -560,16 +589,17 @@ def train(cfg: StagModelParams, run_dir: Path):
         checkpoint_dir = run_dir / "checkpoints"
         checkpoint_dir.mkdir(exist_ok=True)
 
-        # --- warmup phase: train encoder/decoder for reconstruction ---
+        # --- warmup phase: train encoder/decoder/evolver on interpolated data ---
         warmup_epochs = cfg.training.reconstruction_warmup_epochs
         if warmup_epochs > 0:
-            print(f"\n=== encoder/decoder warmup: {warmup_epochs} epochs ===")
+            print(f"\n=== interpolation warmup: {warmup_epochs} epochs ===")
 
-            # optimizer for warmup (encoder + decoder only)
+            # optimizer for warmup (encoder + decoder + evolver)
             warmup_optimizer = OptimizerClass(
                 [
                     {'params': model.encoder.parameters()},
                     {'params': model.decoder.parameters()},
+                    {'params': model.evolver.parameters()},
                 ],
                 lr=cfg.training.learning_rate
             )
@@ -585,21 +615,24 @@ def train(cfg: StagModelParams, run_dir: Path):
                     if chunk_data is None:
                         break
 
+                    # interpolate this chunk's data to aligned grid
+                    interp_data = interpolate_staggered_to_aligned(
+                        chunk_data, neuron_phases, dt
+                    )
+
                     for _ in range(batches_per_chunk):
                         warmup_optimizer.zero_grad()
 
-                        observation_indices = sample_batch_indices(
-                            chunk_size=chunk_data.shape[0],
-                            total_steps=total_steps,
-                            time_units=dt,
-                            batch_size=cfg.training.batch_size,
-                            num_neurons=cfg.num_neurons,
-                            neuron_phases=neuron_phases,
-                            device=device,
+                        # sample aligned time indices (no per-neuron phase offsets)
+                        max_start = chunk_data.shape[0] - total_steps
+                        num_valid = max_start // dt
+                        sampled_multiples = torch.randint(
+                            0, num_valid, size=(cfg.training.batch_size,), device=device
                         )
+                        batch_time_indices = sampled_multiples * dt  # (batch_size,)
 
                         loss_dict = train_step_warmup(
-                            model, chunk_data, observation_indices, cfg
+                            model, interp_data, chunk_stim, batch_time_indices, cfg
                         )
                         loss_dict[LossType.TOTAL].backward()
                         warmup_optimizer.step()
@@ -609,7 +642,8 @@ def train(cfg: StagModelParams, run_dir: Path):
                 warmup_duration = (datetime.now() - warmup_epoch_start).total_seconds()
                 print(
                     f"warmup {warmup_epoch+1}/{warmup_epochs} | "
-                    f"recon loss: {warmup_mean[LossType.RECON]:.4e} | "
+                    f"recon: {warmup_mean[LossType.RECON]:.4e} | "
+                    f"evolve: {warmup_mean[LossType.EVOLVE]:.4e} | "
                     f"duration: {warmup_duration:.2f}s"
                 )
 
