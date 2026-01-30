@@ -500,4 +500,11 @@ acquisition and generate a baseline.
 
 ```bash
 
+bsub -J tu20 -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o tu20.log \
+    python src/LatentEvolution/latent.py tu20_checkpoint \
+    latent_20step.yaml
+
+bsub -J tu50 -n 8 -W 8:00 -gpu "num=1" -q gpu_a100 -o tu50.log \
+    python src/LatentEvolution/latent.py tu50_checkpoint \
+    latent_50step.yaml
 ```
