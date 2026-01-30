@@ -222,6 +222,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
     )
+    parser.add_argument(
+        "--fresh", action="store_true", default=True, help="start from iteration 1 (ignore auto-resume)"
+    )
+    parser.add_argument(
+        "--resume", action="store_true", help="auto-resume from last completed batch"
+    )
 
     print()
     device = []
@@ -257,15 +263,18 @@ if __name__ == "__main__":
     root_dir = os.path.dirname(os.path.abspath(__file__))
     config_root = root_dir + "/config"
 
-    # Auto-resume: detect last completed batch from saved artifacts
-    analysis_path_probe = f"{root_dir}/{llm_task_name}_analysis.md"
-    config_save_dir_probe = f"{root_dir}/log/Claude_exploration/{instruction_name}_parallel/config"
-    start_iteration = detect_last_iteration(analysis_path_probe, config_save_dir_probe, N_PARALLEL)
-
-    if start_iteration > 1:
-        print(f"\033[93mAuto-resume: detected last completed iteration, resuming from batch starting at {start_iteration}\033[0m")
+    # Fresh start (default) or auto-resume (--resume flag)
+    if args.resume:
+        analysis_path_probe = f"{root_dir}/{llm_task_name}_analysis.md"
+        config_save_dir_probe = f"{root_dir}/log/Claude_exploration/{instruction_name}_parallel/config"
+        start_iteration = detect_last_iteration(analysis_path_probe, config_save_dir_probe, N_PARALLEL)
+        if start_iteration > 1:
+            print(f"\033[93mAuto-resume: resuming from batch starting at {start_iteration}\033[0m")
+        else:
+            print(f"\033[93mFresh start (no previous iterations found)\033[0m")
     else:
-        print(f"\033[93mFresh start (no previous iterations found)\033[0m")
+        start_iteration = 1
+        print(f"\033[93mFresh start\033[0m")
 
     # --- Initialize 4 slot configs from source ---
     for cfg in config_list:
