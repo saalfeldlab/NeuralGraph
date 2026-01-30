@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator, ConfigD
 import torch
 
 from LatentEvolution.acquisition import AcquisitionMode, AllTimePointsMode
+from LatentEvolution.stimulus_ae_model import StimulusAETrainingConfig
 
 
 class StimulusFrequency(Enum):
@@ -145,6 +146,12 @@ class TrainingConfig(BaseModel):
     )
     reconstruction_warmup_epochs: int = Field(
         0, description="number of warmup epochs to train encoder/decoder only (reconstruction loss) before the main training loop. these are additional epochs, not counted in 'epochs'.", json_schema_extra={"short_name": "recon_wu"}
+    )
+    pretrain_stimulus_ae: bool = Field(
+        False, description="enable stimulus autoencoder pretraining. pretrains stimulus encoder/decoder for reconstruction, then freezes encoder during main training.", json_schema_extra={"short_name": "psa"}
+    )
+    stimulus_ae: StimulusAETrainingConfig = Field(
+        default_factory=lambda: StimulusAETrainingConfig(), description="stimulus autoencoder training hyperparameters. used when pretrain_stimulus_ae is True."
     )
     unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=lambda: UnconnectedToZeroConfig())
     early_stop_intervening_mse: bool = Field(

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable, Iterator
 from datetime import datetime
 from enum import Enum, auto
+import gc
 import sys
 import re
 import time
@@ -37,6 +38,7 @@ from LatentEvolution.eed_model import (
     Evolver,
     ModelParams,
 )
+from LatentEvolution.stimulus_ae_model import pretrain_stimulus_ae
 from LatentEvolution.training_utils import (
     LossAccumulator,
     seed_everything,
@@ -652,6 +654,39 @@ def train(cfg: ModelParams, run_dir: Path):
             print(f"acquisition mode: {cfg.training.acquisition_mode.mode}, computed phases for {cfg.num_neurons} neurons")
         else:
             print("acquisition mode: all_time_points (no phase restrictions)")
+
+        # --- Stimulus autoencoder pretraining ---
+        if cfg.training.pretrain_stimulus_ae:
+            print("\n=== stimulus autoencoder pretraining ===")
+            if cfg.training.training_data_path is not None:
+                stim_data_path = cfg.training.training_data_path
+            else:
+                stim_data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0"
+
+            stim_np = load_column_slice(
+                stim_data_path,
+                FlyVisSim.STIMULUS.value,
+                cfg.training.data_split.train_start,
+                cfg.training.data_split.train_end,
+                neuron_limit=cfg.stimulus_encoder_params.num_input_dims,
+            )
+
+            stim_ae = pretrain_stimulus_ae(
+                stim_np=stim_np,
+                encoder_params=cfg.stimulus_encoder_params,
+                train_cfg=cfg.training.stimulus_ae,
+                activation=cfg.activation,
+                device=device,
+                run_dir=run_dir,
+                writer=writer,
+            )
+            del stim_np
+            gc.collect()
+
+            # copy pretrained encoder weights into model and freeze
+            model.stimulus_encoder.load_state_dict(stim_ae.encoder.state_dict())
+            model.stimulus_encoder.requires_grad_(False)
+            print("=== stimulus encoder frozen ===\n")
 
         # --- Reconstruction warmup loop ---
         recon_warmup_epochs = cfg.training.reconstruction_warmup_epochs
