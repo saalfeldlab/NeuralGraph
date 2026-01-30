@@ -624,16 +624,51 @@ Write the planned mutations to the working memory file."""
             raw_config = yaml.safe_load(f)
         ucb_c = raw_config.get('claude', {}).get('ucb_c', 1.414)
 
-        # Compute UCB with current analysis logs
+        # Build a temporary analysis file with current batch metrics appended,
+        # so compute_ucb_scores sees all 4 new nodes at once (not just the last one).
+        existing_content = ""
+        if os.path.exists(analysis_path):
+            with open(analysis_path, 'r') as f:
+                existing_content = f.read()
+
+        stub_entries = ""
         for slot_idx, iteration in enumerate(iterations):
-            slot = slot_idx
-            if job_results.get(slot, False):
-                compute_ucb_scores(
-                    analysis_path, ucb_path, c=ucb_c,
-                    current_log_path=analysis_log_paths[slot],
-                    current_iteration=iteration,
-                    block_size=n_iter_block
-                )
+            if not job_results.get(slot_idx, False):
+                continue
+            log_path = analysis_log_paths[slot_idx]
+            if not os.path.exists(log_path):
+                continue
+            with open(log_path, 'r') as f:
+                log_content = f.read()
+            r2_m = re.search(r'connectivity_R2[=:]\s*([\d.eE+-]+|nan)', log_content)
+            pearson_m = re.search(r'test_pearson[=:]\s*([\d.eE+-]+|nan)', log_content)
+            cluster_m = re.search(r'cluster_accuracy[=:]\s*([\d.eE+-]+|nan)', log_content)
+            time_m = re.search(r'training_time_min[=:]\s*([\d.]+)', log_content)
+            if r2_m:
+                r2_val = r2_m.group(1)
+                pearson_val = pearson_m.group(1) if pearson_m else '0.0'
+                cluster_val = cluster_m.group(1) if cluster_m else '0.0'
+                time_val = time_m.group(1) if time_m else '0.0'
+                # Check if this iteration already exists in analysis.md (resume case)
+                if f'## Iter {iteration}:' not in existing_content:
+                    stub_entries += (
+                        f"\n## Iter {iteration}: pending\n"
+                        f"Node: id={iteration}, parent=root\n"
+                        f"Metrics: test_R2=0, test_pearson={pearson_val}, "
+                        f"connectivity_R2={r2_val}, cluster_accuracy={cluster_val}\n"
+                    )
+
+        tmp_analysis = analysis_path + '.tmp_ucb'
+        with open(tmp_analysis, 'w') as f:
+            f.write(existing_content + stub_entries)
+
+        compute_ucb_scores(
+            tmp_analysis, ucb_path, c=ucb_c,
+            current_log_path=None,
+            current_iteration=batch_last,
+            block_size=n_iter_block
+        )
+        os.remove(tmp_analysis)
         print(f"\033[92mUCB scores computed (c={ucb_c}): {ucb_path}\033[0m")
 
         # -------------------------------------------------------------------

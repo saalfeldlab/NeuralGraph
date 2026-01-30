@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import time
+import re
 import yaml
 
 # redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
@@ -28,6 +29,24 @@ from GNN_PlotFigure import data_plot
 
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
+
+def detect_last_iteration(analysis_path):
+    """Detect the last completed iteration from analysis.md.
+
+    Scans for '## Iter N:' entries written by Claude after each iteration.
+    Returns the next iteration to run (1-indexed), or 1 if nothing found.
+    """
+    found_iters = set()
+    if os.path.exists(analysis_path):
+        with open(analysis_path, 'r') as f:
+            for line in f:
+                match = re.match(r'^##+ Iter (\d+):', line)
+                if match:
+                    found_iters.add(int(match.group(1)))
+    if not found_iters:
+        return 1
+    return max(found_iters) + 1
+
 
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
@@ -64,14 +83,14 @@ if __name__ == "__main__":
 
 
 
-    # resume support: start_iteration parameter (default 1)
-    start_iteration = 117
-
-
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'
     instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
+
+    # Auto-resume: detect last completed iteration from analysis.md
+    _root = os.path.dirname(os.path.abspath(__file__))
+    start_iteration = detect_last_iteration(f"{_root}/{llm_task_name}_analysis.md")
 
 
 

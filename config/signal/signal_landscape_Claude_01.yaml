@@ -83,5 +83,5 @@ training:
   learning_rate_W_start: 0.005
   learning_rate_start: 0.0001
   learning_rate_embedding_start: 0.00025
-  coeff_W_L1: 1.0e-05
+  coeff_W_L1: 1.0e-04
   coeff_edge_diff: 100
