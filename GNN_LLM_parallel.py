@@ -29,6 +29,56 @@ warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API
 
 
 # ---------------------------------------------------------------------------
+# Resume helpers
+# ---------------------------------------------------------------------------
+
+def detect_last_iteration(analysis_path, config_save_dir, n_parallel):
+    """Detect the last fully completed batch from saved artifacts.
+
+    Scans two sources:
+      1. analysis.md for ``## Iter N:`` entries (written by Claude after training)
+      2. config save dir for ``iter_NNN_slot_SS.yaml`` files (saved after test+plot)
+
+    Returns the start_iteration for the next batch (1-indexed), or 1 if nothing found.
+    """
+    found_iters = set()
+
+    # Source 1: analysis.md — most reliable, written by Claude
+    if os.path.exists(analysis_path):
+        with open(analysis_path, 'r') as f:
+            for line in f:
+                match = re.match(r'^##+ Iter (\d+):', line)
+                if match:
+                    found_iters.add(int(match.group(1)))
+
+    # Source 2: saved config snapshots
+    if os.path.isdir(config_save_dir):
+        for fname in os.listdir(config_save_dir):
+            match = re.match(r'iter_(\d+)_slot_\d+\.yaml', fname)
+            if match:
+                found_iters.add(int(match.group(1)))
+
+    if not found_iters:
+        return 1
+
+    last_iter = max(found_iters)
+
+    # Find the batch that contains last_iter
+    batch_start = ((last_iter - 1) // n_parallel) * n_parallel + 1
+    batch_iters = set(range(batch_start, batch_start + n_parallel))
+
+    # Check if the full batch completed
+    if batch_iters.issubset(found_iters):
+        # Full batch done → resume from next batch
+        resume_at = batch_start + n_parallel
+    else:
+        # Partial batch → redo this batch
+        resume_at = batch_start
+
+    return resume_at
+
+
+# ---------------------------------------------------------------------------
 # Cluster helpers
 # ---------------------------------------------------------------------------
 
@@ -196,9 +246,6 @@ if __name__ == "__main__":
         config_list = ['signal_landscape']
         task_params = {'iterations': 2048}
 
-    # resume support
-    start_iteration = 1
-
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'
     instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
@@ -210,8 +257,15 @@ if __name__ == "__main__":
     root_dir = os.path.dirname(os.path.abspath(__file__))
     config_root = root_dir + "/config"
 
+    # Auto-resume: detect last completed batch from saved artifacts
+    analysis_path_probe = f"{root_dir}/{llm_task_name}_analysis.md"
+    config_save_dir_probe = f"{root_dir}/log/Claude_exploration/{instruction_name}_parallel/config"
+    start_iteration = detect_last_iteration(analysis_path_probe, config_save_dir_probe, N_PARALLEL)
+
     if start_iteration > 1:
-        print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+        print(f"\033[93mAuto-resume: detected last completed iteration, resuming from batch starting at {start_iteration}\033[0m")
+    else:
+        print(f"\033[93mFresh start (no previous iterations found)\033[0m")
 
     # --- Initialize 4 slot configs from source ---
     for cfg in config_list:
