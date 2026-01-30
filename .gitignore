@@ -219,3 +219,6 @@ instantNGP/imageio_ffmpeg
 **/.julia/
 **/.nfs*
 
+
+/.quarto/
+**/*.quarto_ipynb

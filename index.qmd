@@ -60,6 +60,31 @@ The framework implements a **closed-loop exploration engine** composed of three 
 
 ---
 
+## [Exploration Gallery](exploration-gallery.qmd)
+
+UCB tree search, connectivity matrix heatmaps, and W_pred vs W_true scatter plots across all 115 iterations and 15 blocks.
+
+::: {.feature-grid}
+
+::: {.feature-card}
+### UCB Tree
+[![](assets/exploration_tree/ucb_tree_iter_112.png){.lightbox}](exploration-gallery.qmd)
+:::
+
+::: {.feature-card}
+### Connectivity Matrix
+[![](assets/connectivity_matrix/block_001.png){.lightbox}](exploration-gallery.qmd)
+:::
+
+::: {.feature-card}
+### Connectivity Scatter
+[![](assets/connectivity_scatter/iter_001.png){.lightbox}](exploration-gallery.qmd)
+:::
+
+:::
+
+---
+
 ## References
 
 1. Stern, M., et al. (2023). Graph neural networks uncover structure and function underlying the activity of neural assemblies.

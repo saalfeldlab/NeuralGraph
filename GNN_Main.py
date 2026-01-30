@@ -79,15 +79,6 @@ if __name__ == "__main__":
             # pre-train nnr_f (SIREN) on external_input data before joint GNN learning
             data_train_INR(config=config, device=device, total_steps=50000)
 
-        elif "train_simple" in task:
-            data_train_simple(
-                config=config,
-                erase=True,
-                best_model=best_model,
-                style='color',
-                device=device,
-            )
-
         elif "train" in task:
             data_train(
                 config=config,

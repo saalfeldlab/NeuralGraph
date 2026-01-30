@@ -24,6 +24,8 @@ website:
             text: Epistemic Analysis
           - href: results.qmd
             text: Results
+          - href: exploration-gallery.qmd
+            text: Exploration Gallery
       - href: gnn-model.qmd
         text: GNN Model
     right:

@@ -1,0 +1,539 @@
+---
+title: "Exploration Gallery"
+subtitle: "Visual Record of LLM-Guided Connectivity Recovery"
+---
+
+## UCB Exploration Tree
+
+The LLM navigates the parameter space using **Upper Confidence Bound (UCB) tree search**. Each node represents a configuration; edges represent mutations. The tree grows as the LLM explores new regimes and exploits promising branches.
+
+::: {.panel-tabset}
+
+#### Iter 1
+![](assets/exploration_tree/ucb_tree_iter_001.png){.lightbox}
+
+#### Iter 5
+![](assets/exploration_tree/ucb_tree_iter_005.png){.lightbox}
+
+#### Iter 8
+![](assets/exploration_tree/ucb_tree_iter_008.png){.lightbox}
+
+#### Iter 16
+![](assets/exploration_tree/ucb_tree_iter_016.png){.lightbox}
+
+#### Iter 24
+![](assets/exploration_tree/ucb_tree_iter_024.png){.lightbox}
+
+#### Iter 32
+![](assets/exploration_tree/ucb_tree_iter_032.png){.lightbox}
+
+#### Iter 40
+![](assets/exploration_tree/ucb_tree_iter_040.png){.lightbox}
+
+#### Iter 48
+![](assets/exploration_tree/ucb_tree_iter_048.png){.lightbox}
+
+#### Iter 56
+![](assets/exploration_tree/ucb_tree_iter_056.png){.lightbox}
+
+#### Iter 64
+![](assets/exploration_tree/ucb_tree_iter_064.png){.lightbox}
+
+#### Iter 72
+![](assets/exploration_tree/ucb_tree_iter_072.png){.lightbox}
+
+#### Iter 88
+![](assets/exploration_tree/ucb_tree_iter_088.png){.lightbox}
+
+#### Iter 96
+![](assets/exploration_tree/ucb_tree_iter_096.png){.lightbox}
+
+#### Iter 104
+![](assets/exploration_tree/ucb_tree_iter_104.png){.lightbox}
+
+#### Iter 112
+![](assets/exploration_tree/ucb_tree_iter_112.png){.lightbox}
+
+:::
+
+---
+
+## Connectivity Matrix Recovery
+
+Heatmaps of the recovered connectivity matrix **W** at the end of each training block. Ground truth is compared against the GNN-inferred matrix.
+
+::: {.panel-tabset}
+
+#### Block 1 — Chaotic
+![](assets/connectivity_matrix/block_001.png){.lightbox}
+
+#### Block 2 — Low-rank
+![](assets/connectivity_matrix/block_002.png){.lightbox}
+
+#### Block 3 — Dale
+![](assets/connectivity_matrix/block_003.png){.lightbox}
+
+#### Block 4 — n_types=2
+![](assets/connectivity_matrix/block_004.png){.lightbox}
+
+#### Block 5 — Noise
+![](assets/connectivity_matrix/block_005.png){.lightbox}
+
+#### Block 6 — Low-rank + n_types
+![](assets/connectivity_matrix/block_006.png){.lightbox}
+
+#### Block 7 — Sparse (ff=0.2)
+![](assets/connectivity_matrix/block_007.png){.lightbox}
+
+#### Block 8 — Sparse + Noise
+![](assets/connectivity_matrix/block_008.png){.lightbox}
+
+#### Block 9 — ff=0.5
+![](assets/connectivity_matrix/block_009.png){.lightbox}
+
+#### Block 10 — ff=0.75
+![](assets/connectivity_matrix/block_010.png){.lightbox}
+
+#### Block 11 — n=200
+![](assets/connectivity_matrix/block_011.png){.lightbox}
+
+#### Block 12 — ff=0.9
+![](assets/connectivity_matrix/block_012.png){.lightbox}
+
+#### Block 13 — n=300
+![](assets/connectivity_matrix/block_013.png){.lightbox}
+
+#### Block 14 — n=500
+![](assets/connectivity_matrix/block_014.png){.lightbox}
+
+#### Block 15
+![](assets/connectivity_matrix/block_015.png){.lightbox}
+
+:::
+
+---
+
+## Connectivity Scatter (W_pred vs W_true)
+
+Scatter plots showing predicted vs ground-truth connectivity weights at each iteration. A perfect recovery lies on the diagonal. The spread and R^2^ track learning progress.
+
+::: {.panel-tabset}
+
+#### Block 1 (Chaotic)
+
+::: {.panel-tabset}
+
+##### Iter 1
+![](assets/connectivity_scatter/iter_001.png){.lightbox}
+
+##### Iter 2
+![](assets/connectivity_scatter/iter_002.png){.lightbox}
+
+##### Iter 3
+![](assets/connectivity_scatter/iter_003.png){.lightbox}
+
+##### Iter 4
+![](assets/connectivity_scatter/iter_004.png){.lightbox}
+
+##### Iter 5
+![](assets/connectivity_scatter/iter_005.png){.lightbox}
+
+##### Iter 6
+![](assets/connectivity_scatter/iter_006.png){.lightbox}
+
+##### Iter 7
+![](assets/connectivity_scatter/iter_007.png){.lightbox}
+
+##### Iter 8
+![](assets/connectivity_scatter/iter_008.png){.lightbox}
+
+:::
+
+#### Block 2 (Low-rank)
+
+::: {.panel-tabset}
+
+##### Iter 9
+![](assets/connectivity_scatter/iter_009.png){.lightbox}
+
+##### Iter 10
+![](assets/connectivity_scatter/iter_010.png){.lightbox}
+
+##### Iter 11
+![](assets/connectivity_scatter/iter_011.png){.lightbox}
+
+##### Iter 12
+![](assets/connectivity_scatter/iter_012.png){.lightbox}
+
+##### Iter 13
+![](assets/connectivity_scatter/iter_013.png){.lightbox}
+
+##### Iter 14
+![](assets/connectivity_scatter/iter_014.png){.lightbox}
+
+##### Iter 15
+![](assets/connectivity_scatter/iter_015.png){.lightbox}
+
+##### Iter 16
+![](assets/connectivity_scatter/iter_016.png){.lightbox}
+
+:::
+
+#### Block 3 (Dale)
+
+::: {.panel-tabset}
+
+##### Iter 17
+![](assets/connectivity_scatter/iter_017.png){.lightbox}
+
+##### Iter 18
+![](assets/connectivity_scatter/iter_018.png){.lightbox}
+
+##### Iter 19
+![](assets/connectivity_scatter/iter_019.png){.lightbox}
+
+##### Iter 20
+![](assets/connectivity_scatter/iter_020.png){.lightbox}
+
+##### Iter 21
+![](assets/connectivity_scatter/iter_021.png){.lightbox}
+
+##### Iter 22
+![](assets/connectivity_scatter/iter_022.png){.lightbox}
+
+##### Iter 23
+![](assets/connectivity_scatter/iter_023.png){.lightbox}
+
+##### Iter 24
+![](assets/connectivity_scatter/iter_024.png){.lightbox}
+
+:::
+
+#### Block 4 (n_types=2)
+
+::: {.panel-tabset}
+
+##### Iter 25
+![](assets/connectivity_scatter/iter_025.png){.lightbox}
+
+##### Iter 26
+![](assets/connectivity_scatter/iter_026.png){.lightbox}
+
+##### Iter 27
+![](assets/connectivity_scatter/iter_027.png){.lightbox}
+
+##### Iter 28
+![](assets/connectivity_scatter/iter_028.png){.lightbox}
+
+##### Iter 29
+![](assets/connectivity_scatter/iter_029.png){.lightbox}
+
+##### Iter 30
+![](assets/connectivity_scatter/iter_030.png){.lightbox}
+
+##### Iter 31
+![](assets/connectivity_scatter/iter_031.png){.lightbox}
+
+##### Iter 32
+![](assets/connectivity_scatter/iter_032.png){.lightbox}
+
+:::
+
+#### Block 5 (Noise)
+
+::: {.panel-tabset}
+
+##### Iter 33
+![](assets/connectivity_scatter/iter_033.png){.lightbox}
+
+##### Iter 34
+![](assets/connectivity_scatter/iter_034.png){.lightbox}
+
+##### Iter 35
+![](assets/connectivity_scatter/iter_035.png){.lightbox}
+
+##### Iter 36
+![](assets/connectivity_scatter/iter_036.png){.lightbox}
+
+##### Iter 37
+![](assets/connectivity_scatter/iter_037.png){.lightbox}
+
+##### Iter 38
+![](assets/connectivity_scatter/iter_038.png){.lightbox}
+
+##### Iter 39
+![](assets/connectivity_scatter/iter_039.png){.lightbox}
+
+##### Iter 40
+![](assets/connectivity_scatter/iter_040.png){.lightbox}
+
+:::
+
+#### Block 6 (Compound)
+
+::: {.panel-tabset}
+
+##### Iter 41
+![](assets/connectivity_scatter/iter_041.png){.lightbox}
+
+##### Iter 42
+![](assets/connectivity_scatter/iter_042.png){.lightbox}
+
+##### Iter 43
+![](assets/connectivity_scatter/iter_043.png){.lightbox}
+
+##### Iter 44
+![](assets/connectivity_scatter/iter_044.png){.lightbox}
+
+##### Iter 45
+![](assets/connectivity_scatter/iter_045.png){.lightbox}
+
+##### Iter 46
+![](assets/connectivity_scatter/iter_046.png){.lightbox}
+
+##### Iter 47
+![](assets/connectivity_scatter/iter_047.png){.lightbox}
+
+##### Iter 48
+![](assets/connectivity_scatter/iter_048.png){.lightbox}
+
+:::
+
+#### Block 7 (Sparse)
+
+::: {.panel-tabset}
+
+##### Iter 49
+![](assets/connectivity_scatter/iter_049.png){.lightbox}
+
+##### Iter 50
+![](assets/connectivity_scatter/iter_050.png){.lightbox}
+
+##### Iter 51
+![](assets/connectivity_scatter/iter_051.png){.lightbox}
+
+##### Iter 52
+![](assets/connectivity_scatter/iter_052.png){.lightbox}
+
+##### Iter 53
+![](assets/connectivity_scatter/iter_053.png){.lightbox}
+
+##### Iter 54
+![](assets/connectivity_scatter/iter_054.png){.lightbox}
+
+##### Iter 55
+![](assets/connectivity_scatter/iter_055.png){.lightbox}
+
+##### Iter 56
+![](assets/connectivity_scatter/iter_056.png){.lightbox}
+
+:::
+
+#### Block 8 (Sparse+Noise)
+
+::: {.panel-tabset}
+
+##### Iter 57
+![](assets/connectivity_scatter/iter_057.png){.lightbox}
+
+##### Iter 58
+![](assets/connectivity_scatter/iter_058.png){.lightbox}
+
+##### Iter 59
+![](assets/connectivity_scatter/iter_059.png){.lightbox}
+
+##### Iter 60
+![](assets/connectivity_scatter/iter_060.png){.lightbox}
+
+##### Iter 61
+![](assets/connectivity_scatter/iter_061.png){.lightbox}
+
+##### Iter 62
+![](assets/connectivity_scatter/iter_062.png){.lightbox}
+
+##### Iter 63
+![](assets/connectivity_scatter/iter_063.png){.lightbox}
+
+##### Iter 64
+![](assets/connectivity_scatter/iter_064.png){.lightbox}
+
+:::
+
+#### Block 9 (ff=0.5)
+
+::: {.panel-tabset}
+
+##### Iter 65
+![](assets/connectivity_scatter/iter_065.png){.lightbox}
+
+##### Iter 66
+![](assets/connectivity_scatter/iter_066.png){.lightbox}
+
+##### Iter 67
+![](assets/connectivity_scatter/iter_067.png){.lightbox}
+
+##### Iter 68
+![](assets/connectivity_scatter/iter_068.png){.lightbox}
+
+##### Iter 69
+![](assets/connectivity_scatter/iter_069.png){.lightbox}
+
+##### Iter 70
+![](assets/connectivity_scatter/iter_070.png){.lightbox}
+
+##### Iter 71
+![](assets/connectivity_scatter/iter_071.png){.lightbox}
+
+##### Iter 72
+![](assets/connectivity_scatter/iter_072.png){.lightbox}
+
+:::
+
+#### Block 10 (ff=0.75)
+
+::: {.panel-tabset}
+
+##### Iter 73
+![](assets/connectivity_scatter/iter_073.png){.lightbox}
+
+##### Iter 74
+![](assets/connectivity_scatter/iter_074.png){.lightbox}
+
+##### Iter 75
+![](assets/connectivity_scatter/iter_075.png){.lightbox}
+
+##### Iter 76
+![](assets/connectivity_scatter/iter_076.png){.lightbox}
+
+##### Iter 77
+![](assets/connectivity_scatter/iter_077.png){.lightbox}
+
+##### Iter 78
+![](assets/connectivity_scatter/iter_078.png){.lightbox}
+
+##### Iter 79
+![](assets/connectivity_scatter/iter_079.png){.lightbox}
+
+:::
+
+#### Block 11 (n=200)
+
+::: {.panel-tabset}
+
+##### Iter 81
+![](assets/connectivity_scatter/iter_081.png){.lightbox}
+
+##### Iter 82
+![](assets/connectivity_scatter/iter_082.png){.lightbox}
+
+##### Iter 83
+![](assets/connectivity_scatter/iter_083.png){.lightbox}
+
+##### Iter 84
+![](assets/connectivity_scatter/iter_084.png){.lightbox}
+
+##### Iter 85
+![](assets/connectivity_scatter/iter_085.png){.lightbox}
+
+##### Iter 86
+![](assets/connectivity_scatter/iter_086.png){.lightbox}
+
+##### Iter 87
+![](assets/connectivity_scatter/iter_087.png){.lightbox}
+
+##### Iter 88
+![](assets/connectivity_scatter/iter_088.png){.lightbox}
+
+:::
+
+#### Block 12 (ff=0.9)
+
+::: {.panel-tabset}
+
+##### Iter 89
+![](assets/connectivity_scatter/iter_089.png){.lightbox}
+
+##### Iter 90
+![](assets/connectivity_scatter/iter_090.png){.lightbox}
+
+##### Iter 91
+![](assets/connectivity_scatter/iter_091.png){.lightbox}
+
+##### Iter 92
+![](assets/connectivity_scatter/iter_092.png){.lightbox}
+
+##### Iter 93
+![](assets/connectivity_scatter/iter_093.png){.lightbox}
+
+##### Iter 94
+![](assets/connectivity_scatter/iter_094.png){.lightbox}
+
+##### Iter 95
+![](assets/connectivity_scatter/iter_095.png){.lightbox}
+
+##### Iter 96
+![](assets/connectivity_scatter/iter_096.png){.lightbox}
+
+:::
+
+#### Block 13 (n=300)
+
+::: {.panel-tabset}
+
+##### Iter 97
+![](assets/connectivity_scatter/iter_097.png){.lightbox}
+
+##### Iter 98
+![](assets/connectivity_scatter/iter_098.png){.lightbox}
+
+##### Iter 99
+![](assets/connectivity_scatter/iter_099.png){.lightbox}
+
+##### Iter 100
+![](assets/connectivity_scatter/iter_100.png){.lightbox}
+
+##### Iter 101
+![](assets/connectivity_scatter/iter_101.png){.lightbox}
+
+##### Iter 102
+![](assets/connectivity_scatter/iter_102.png){.lightbox}
+
+##### Iter 103
+![](assets/connectivity_scatter/iter_103.png){.lightbox}
+
+##### Iter 104
+![](assets/connectivity_scatter/iter_104.png){.lightbox}
+
+:::
+
+#### Block 14 (n=500)
+
+::: {.panel-tabset}
+
+##### Iter 105
+![](assets/connectivity_scatter/iter_105.png){.lightbox}
+
+##### Iter 106
+![](assets/connectivity_scatter/iter_106.png){.lightbox}
+
+##### Iter 107
+![](assets/connectivity_scatter/iter_107.png){.lightbox}
+
+##### Iter 108
+![](assets/connectivity_scatter/iter_108.png){.lightbox}
+
+##### Iter 109
+![](assets/connectivity_scatter/iter_109.png){.lightbox}
+
+##### Iter 110
+![](assets/connectivity_scatter/iter_110.png){.lightbox}
+
+##### Iter 111
+![](assets/connectivity_scatter/iter_111.png){.lightbox}
+
+##### Iter 112
+![](assets/connectivity_scatter/iter_112.png){.lightbox}
+
+:::
+
+:::
