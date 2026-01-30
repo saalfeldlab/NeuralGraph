@@ -1,0 +1,696 @@
+import matplotlib
+matplotlib.use('Agg')  # set non-interactive backend before other imports
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import time
+import yaml
+
+# redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
+if os.path.isdir('/scratch'):
+    os.environ['TMPDIR'] = '/scratch/allierc'
+    os.makedirs('/scratch/allierc', exist_ok=True)
+
+import sys
+
+from NeuralGraph.config import NeuralGraphConfig
+from NeuralGraph.generators.graph_data_generator import data_generate
+from NeuralGraph.models.graph_trainer import data_train, data_test
+from NeuralGraph.models.exploration_tree import compute_ucb_scores
+from NeuralGraph.models.plot_exploration_tree import parse_ucb_scores, plot_ucb_tree
+from NeuralGraph.models.utils import save_exploration_artifacts
+from NeuralGraph.utils import set_device, add_pre_folder
+from GNN_PlotFigure import data_plot
+
+import warnings
+warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
+
+
+# ---------------------------------------------------------------------------
+# Cluster helpers
+# ---------------------------------------------------------------------------
+
+CLUSTER_HOME = "/groups/saalfeld/home/allierc"
+CLUSTER_ROOT_DIR = f"{CLUSTER_HOME}/Graph/NeuralGraph"
+
+
+def submit_cluster_job(slot, config_path, analysis_log_path, config_file_field,
+                       log_dir, root_dir, erase=True):
+    """Submit a single training job to the cluster WITHOUT -K (non-blocking).
+
+    Returns the LSF job ID string, or None if submission failed.
+    """
+    cluster_script_path = f"{log_dir}/cluster_train_{slot:02d}.sh"
+    error_details_path = f"{log_dir}/training_error_{slot:02d}.log"
+
+    # Build cluster-side paths
+    cluster_config_path = config_path.replace(root_dir, CLUSTER_ROOT_DIR)
+    cluster_analysis_log = analysis_log_path.replace(root_dir, CLUSTER_ROOT_DIR)
+    cluster_error_log = error_details_path.replace(root_dir, CLUSTER_ROOT_DIR)
+
+    cluster_train_cmd = f"python train_signal_subprocess.py --config '{cluster_config_path}' --device cuda"
+    cluster_train_cmd += f" --log_file '{cluster_analysis_log}'"
+    cluster_train_cmd += f" --config_file '{config_file_field}'"
+    cluster_train_cmd += f" --error_log '{cluster_error_log}'"
+    if erase:
+        cluster_train_cmd += " --erase"
+
+    with open(cluster_script_path, 'w') as f:
+        f.write("#!/bin/bash\n")
+        f.write(f"cd {CLUSTER_ROOT_DIR}\n")
+        f.write(f"conda run -n neural-graph {cluster_train_cmd}\n")
+    os.chmod(cluster_script_path, 0o755)
+
+    cluster_script = cluster_script_path.replace(root_dir, CLUSTER_ROOT_DIR)
+
+    # Submit WITHOUT -K so it returns immediately
+    ssh_cmd = (
+        f"ssh allierc@login1 \"cd {CLUSTER_ROOT_DIR} && "
+        f"bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 'bash {cluster_script}'\""
+    )
+    print(f"\033[96m  slot {slot}: submitting via SSH\033[0m")
+    result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
+
+    match = re.search(r'Job <(\d+)>', result.stdout)
+    if match:
+        job_id = match.group(1)
+        print(f"\033[92m  slot {slot}: job {job_id} submitted\033[0m")
+        return job_id
+    else:
+        print(f"\033[91m  slot {slot}: submission FAILED\033[0m")
+        print(f"    stdout: {result.stdout.strip()}")
+        print(f"    stderr: {result.stderr.strip()}")
+        return None
+
+
+def wait_for_cluster_jobs(job_ids, poll_interval=60):
+    """Poll bjobs via SSH until all jobs finish.
+
+    Args:
+        job_ids: dict {slot: job_id_string}
+        poll_interval: seconds between polls
+
+    Returns:
+        dict {slot: bool} — True if DONE, False if EXIT/failed
+    """
+    pending = dict(job_ids)  # {slot: job_id}
+    results = {}
+
+    while pending:
+        ids_str = ' '.join(pending.values())
+        ssh_cmd = f'ssh allierc@login1 "bjobs {ids_str} 2>/dev/null"'
+        out = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
+
+        for slot, jid in list(pending.items()):
+            for line in out.stdout.splitlines():
+                if jid in line:
+                    if 'DONE' in line:
+                        results[slot] = True
+                        del pending[slot]
+                        print(f"\033[92m  slot {slot} (job {jid}): DONE\033[0m")
+                    elif 'EXIT' in line:
+                        results[slot] = False
+                        del pending[slot]
+                        print(f"\033[91m  slot {slot} (job {jid}): FAILED (EXIT)\033[0m")
+                    # else: PEND or RUN — still waiting
+
+            # If job not found in bjobs output, it may have finished and been cleaned up
+            if slot in pending and jid not in out.stdout:
+                # bjobs doesn't list completed jobs after a while — check if log exists
+                results[slot] = True  # assume done if disappeared from queue
+                del pending[slot]
+                print(f"\033[93m  slot {slot} (job {jid}): no longer in queue (assuming DONE)\033[0m")
+
+        if pending:
+            statuses = []
+            for s in pending:
+                statuses.append(f"slot {s}")
+            print(f"\033[90m  ... waiting for {', '.join(statuses)} ({poll_interval}s)\033[0m")
+            time.sleep(poll_interval)
+
+    return results
+
+
+def run_claude_cli(prompt, root_dir, max_turns=500):
+    """Run Claude CLI with real-time output streaming. Returns output text."""
+    claude_cmd = [
+        'claude',
+        '-p', prompt,
+        '--output-format', 'text',
+        '--max-turns', str(max_turns),
+        '--allowedTools',
+        'Read', 'Edit', 'Write'
+    ]
+
+    output_lines = []
+    process = subprocess.Popen(
+        claude_cmd,
+        cwd=root_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+
+    for line in process.stdout:
+        print(line, end='', flush=True)
+        output_lines.append(line)
+
+    process.wait()
+    return ''.join(output_lines)
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    warnings.filterwarnings("ignore", category=FutureWarning)
+    parser = argparse.ArgumentParser(description="NeuralGraph — Parallel LLM Loop")
+    parser.add_argument(
+        "-o", "--option", nargs="+", help="option that takes multiple values"
+    )
+
+    print()
+    device = []
+    args = parser.parse_args()
+
+    N_PARALLEL = 4
+
+    if args.option:
+        print(f"Options: {args.option}")
+    if args.option is not None:
+        task = args.option[0]
+        config_list = [args.option[1]]
+        best_model = None
+        task_params = {}
+        for arg in args.option[2:]:
+            if '=' in arg:
+                key, value = arg.split('=', 1)
+                task_params[key] = int(value) if value.isdigit() else value
+    else:
+        best_model = ''
+        task = 'generate_train_test_plot_Claude_cluster'
+        config_list = ['signal_landscape']
+        task_params = {'iterations': 2048}
+
+    # resume support
+    start_iteration = 1
+
+    n_iterations = task_params.get('iterations', 5)
+    base_config_name = config_list[0] if config_list else 'signal'
+    instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
+    llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
+
+    # -----------------------------------------------------------------------
+    # Claude mode setup
+    # -----------------------------------------------------------------------
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    config_root = root_dir + "/config"
+
+    if start_iteration > 1:
+        print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+
+    # --- Initialize 4 slot configs from source ---
+    for cfg in config_list:
+        cfg_file, pre = add_pre_folder(cfg)
+        source_config = f"{config_root}/{pre}{cfg}.yaml"
+
+    # Read source config once to extract claude params
+    with open(source_config, 'r') as f:
+        source_data = yaml.safe_load(f)
+    claude_cfg = source_data.get('claude', {})
+    claude_n_epochs = claude_cfg.get('n_epochs', 1)
+    claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
+    claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
+    claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+    n_iter_block = claude_n_iter_block
+
+    # Slot config paths and analysis log paths
+    config_paths = {}
+    analysis_log_paths = {}
+    slot_names = {}
+
+    for slot in range(N_PARALLEL):
+        slot_name = f"{llm_task_name}_{slot:02d}"
+        slot_names[slot] = slot_name
+        target = f"{config_root}/{pre}{slot_name}.yaml"
+        config_paths[slot] = target
+        analysis_log_paths[slot] = f"{root_dir}/{slot_name}_analysis.log"
+
+        if start_iteration == 1:
+            # Fresh start: copy source config, set dataset per slot
+            shutil.copy2(source_config, target)
+            with open(target, 'r') as f:
+                config_data = yaml.safe_load(f)
+            config_data['dataset'] = slot_name
+            config_data['training']['n_epochs'] = claude_n_epochs
+            config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
+            config_data['description'] = 'designed by Claude (parallel)'
+            config_data['claude'] = {
+                'n_epochs': claude_n_epochs,
+                'data_augmentation_loop': claude_data_augmentation_loop,
+                'n_iter_block': claude_n_iter_block,
+                'ucb_c': claude_ucb_c
+            }
+            with open(target, 'w') as f:
+                yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
+            print(f"\033[93m  slot {slot}: created {target} (dataset='{slot_name}')\033[0m")
+        else:
+            print(f"\033[93m  slot {slot}: preserving {target} (resuming)\033[0m")
+
+    # Shared files
+    config_file, pre_folder = add_pre_folder(llm_task_name + '_00')
+    # Use base llm_task_name for shared files
+    analysis_path = f"{root_dir}/{llm_task_name}_analysis.md"
+    memory_path = f"{root_dir}/{llm_task_name}_memory.md"
+    ucb_path = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
+    instruction_path = f"{root_dir}/{instruction_name}.md"
+    parallel_instruction_path = f"{root_dir}/instruction_{base_config_name}_parallel.md"
+    reasoning_log_path = f"{root_dir}/{llm_task_name}_reasoning.log"
+
+    exploration_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}_parallel"
+    log_dir = f"{root_dir}/log/Claude_exploration/{instruction_name}_parallel"
+    os.makedirs(log_dir, exist_ok=True)
+
+    cluster_enabled = 'cluster' in task
+
+    # Check instruction files exist
+    if not os.path.exists(instruction_path):
+        print(f"\033[91merror: instruction file not found: {instruction_path}\033[0m")
+        sys.exit(1)
+    if not os.path.exists(parallel_instruction_path):
+        print(f"\033[93mwarning: parallel instruction file not found: {parallel_instruction_path}\033[0m")
+        print(f"\033[93m  Claude will use base instructions only\033[0m")
+        parallel_instruction_path = None
+
+    # Initialize shared files on fresh start
+    if start_iteration == 1:
+        with open(analysis_path, 'w') as f:
+            f.write(f"# Experiment Log: {base_config_name} (parallel)\n\n")
+        print(f"\033[93mcleared {analysis_path}\033[0m")
+        open(reasoning_log_path, 'w').close()
+        print(f"\033[93mcleared {reasoning_log_path}\033[0m")
+        with open(memory_path, 'w') as f:
+            f.write(f"# Working Memory: {base_config_name} (parallel)\n\n")
+            f.write("## Knowledge Base (accumulated across all blocks)\n\n")
+            f.write("### Regime Comparison Table\n")
+            f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
+            f.write("| ----- | ------ | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |\n\n")
+            f.write("### Established Principles\n\n")
+            f.write("### Open Questions\n\n")
+            f.write("---\n\n")
+            f.write("## Previous Block Summary\n\n")
+            f.write("---\n\n")
+            f.write("## Current Block (Block 1)\n\n")
+            f.write("### Block Info\n\n")
+            f.write("### Hypothesis\n\n")
+            f.write("### Iterations This Block\n\n")
+            f.write("### Emerging Observations\n\n")
+        print(f"\033[93mcleared {memory_path}\033[0m")
+        if os.path.exists(ucb_path):
+            os.remove(ucb_path)
+            print(f"\033[93mdeleted {ucb_path}\033[0m")
+    else:
+        print(f"\033[93mpreserving shared files (resuming from iter {start_iteration})\033[0m")
+
+    print(f"\033[93m{instruction_name} PARALLEL (N={N_PARALLEL}, {n_iterations} iterations, starting at {start_iteration})\033[0m")
+
+    # -----------------------------------------------------------------------
+    # BATCH 0: Claude "start" call — initialize 4 config variations
+    # -----------------------------------------------------------------------
+    if start_iteration == 1:
+        print(f"\n\033[94m{'='*60}\033[0m")
+        print(f"\033[94mBATCH 0: Claude initializing {N_PARALLEL} config variations\033[0m")
+        print(f"\033[94m{'='*60}\033[0m")
+
+        slot_list = "\n".join(
+            f"  Slot {s}: {config_paths[s]}"
+            for s in range(N_PARALLEL)
+        )
+
+        parallel_ref = f"\nParallel instructions: {parallel_instruction_path}" if parallel_instruction_path else ""
+
+        start_prompt = f"""PARALLEL START: Initialize {N_PARALLEL} config variations for the first batch.
+
+Instructions (follow all instructions): {instruction_path}{parallel_ref}
+Working memory: {memory_path}
+Full log (append only): {analysis_path}
+
+Config files to edit (all {N_PARALLEL}):
+{slot_list}
+
+Read the instructions and the base config, then create {N_PARALLEL} diverse initial training
+parameter variations. Each config already has a unique dataset name — do NOT change the
+dataset field. Vary training parameters (e.g. lr_W, lr, coeff_W_L1, batch_size) across
+the {N_PARALLEL} slots to explore different starting points.
+
+Write the planned mutations to the working memory file."""
+
+        print("\033[93mClaude start call...\033[0m")
+        output_text = run_claude_cli(start_prompt, root_dir, max_turns=100)
+
+        # Check for OAuth expiration
+        if 'OAuth token has expired' in output_text or 'authentication_error' in output_text:
+            print(f"\n\033[91mOAuth token expired during start call\033[0m")
+            print("\033[93m  1. Run: claude /login\033[0m")
+            print(f"\033[93m  2. Then re-run this script\033[0m")
+            sys.exit(1)
+
+        # Save reasoning
+        if output_text.strip():
+            with open(reasoning_log_path, 'a') as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"=== BATCH 0 (start call) ===\n")
+                f.write(f"{'='*60}\n")
+                f.write(output_text.strip())
+                f.write("\n\n")
+
+    # -----------------------------------------------------------------------
+    # Main batch loop
+    # -----------------------------------------------------------------------
+    for batch_start in range(start_iteration, n_iterations + 1, N_PARALLEL):
+        iterations = [batch_start + s for s in range(N_PARALLEL)
+                      if batch_start + s <= n_iterations]
+
+        batch_first = iterations[0]
+        batch_last = iterations[-1]
+        n_slots = len(iterations)
+
+        block_number = (batch_first - 1) // n_iter_block + 1
+        iter_in_block_first = (batch_first - 1) % n_iter_block + 1
+        iter_in_block_last = (batch_last - 1) % n_iter_block + 1
+        is_block_end = any((it - 1) % n_iter_block + 1 == n_iter_block for it in iterations)
+
+        # Block boundary: erase UCB at start of new block
+        if batch_first > 1 and (batch_first - 1) % n_iter_block == 0:
+            if os.path.exists(ucb_path):
+                os.remove(ucb_path)
+                print(f"\033[93mblock boundary: deleted {ucb_path}\033[0m")
+
+        print(f"\n\n\033[94m{'='*60}\033[0m")
+        print(f"\033[94mBATCH: iterations {batch_first}-{batch_last} / {n_iterations}  (block {block_number})\033[0m")
+        print(f"\033[94m{'='*60}\033[0m")
+
+        # -------------------------------------------------------------------
+        # PHASE 1: Generate 4 datasets locally
+        # -------------------------------------------------------------------
+        print(f"\n\033[93mPHASE 1: Generating {n_slots} datasets locally\033[0m")
+
+        configs = {}
+        for slot_idx, iteration in enumerate(iterations):
+            slot = slot_idx
+            config = NeuralGraphConfig.from_yaml(config_paths[slot])
+            config.dataset = pre_folder + config.dataset
+            config.config_file = pre_folder + slot_names[slot]
+            configs[slot] = config
+
+            if device == []:
+                device = set_device(config.training.device)
+
+            log_file = open(analysis_log_paths[slot], 'w')
+
+            if "generate" in task:
+                print(f"\033[90m  slot {slot} (iter {iteration}): generating data...\033[0m")
+                data_generate(
+                    config,
+                    device=device,
+                    visualize=False,
+                    run_vizualized=0,
+                    style="black color",
+                    alpha=1,
+                    erase=True,
+                    bSave=True,
+                    step=2,
+                    log_file=log_file
+                )
+
+            log_file.close()
+
+        # -------------------------------------------------------------------
+        # PHASE 2: Submit 4 training jobs to cluster (or run locally)
+        # -------------------------------------------------------------------
+        job_results = {}
+
+        if "train" in task:
+            if cluster_enabled:
+                print(f"\n\033[93mPHASE 2: Submitting {n_slots} training jobs to cluster\033[0m")
+
+                job_ids = {}
+                for slot_idx, iteration in enumerate(iterations):
+                    slot = slot_idx
+                    config = configs[slot]
+                    jid = submit_cluster_job(
+                        slot=slot,
+                        config_path=config_paths[slot],
+                        analysis_log_path=analysis_log_paths[slot],
+                        config_file_field=config.config_file,
+                        log_dir=log_dir,
+                        root_dir=root_dir,
+                        erase=True
+                    )
+                    if jid:
+                        job_ids[slot] = jid
+                    else:
+                        job_results[slot] = False
+
+                # Wait for all submitted jobs
+                if job_ids:
+                    print(f"\n\033[93mPHASE 3: Waiting for {len(job_ids)} cluster jobs to complete\033[0m")
+                    cluster_results = wait_for_cluster_jobs(job_ids, poll_interval=60)
+                    job_results.update(cluster_results)
+
+            else:
+                # Local execution (no cluster) — run sequentially
+                print(f"\n\033[93mPHASE 2: Training {n_slots} models locally (sequential)\033[0m")
+
+                for slot_idx, iteration in enumerate(iterations):
+                    slot = slot_idx
+                    config = configs[slot]
+                    print(f"\033[90m  slot {slot} (iter {iteration}): training locally...\033[0m")
+
+                    log_file = open(analysis_log_paths[slot], 'a')
+                    try:
+                        data_train(
+                            config=config,
+                            erase=True,
+                            best_model=best_model,
+                            style='color',
+                            device=device,
+                            log_file=log_file
+                        )
+                        job_results[slot] = True
+                    except Exception as e:
+                        print(f"\033[91m  slot {slot}: training failed: {e}\033[0m")
+                        job_results[slot] = False
+                    finally:
+                        log_file.close()
+
+        else:
+            # No training — mark all as success
+            for slot in range(n_slots):
+                job_results[slot] = True
+
+        # -------------------------------------------------------------------
+        # PHASE 4: Test + plot for successful slots
+        # -------------------------------------------------------------------
+        print(f"\n\033[93mPHASE 4: Test + plot for successful slots\033[0m")
+
+        activity_paths = {}
+        for slot_idx, iteration in enumerate(iterations):
+            slot = slot_idx
+            if not job_results.get(slot, False):
+                print(f"\033[90m  slot {slot} (iter {iteration}): skipping (training failed)\033[0m")
+                continue
+
+            config = configs[slot]
+
+            log_file = open(analysis_log_paths[slot], 'a')
+
+            if "test" in task:
+                config.simulation.noise_model_level = 0.0
+                data_test(
+                    config=config,
+                    visualize=False,
+                    style="black name continuous_slice",
+                    verbose=False,
+                    best_model='best',
+                    run=0,
+                    test_mode="",
+                    sample_embedding=False,
+                    step=10,
+                    n_rollout_frames=1000,
+                    device=device,
+                    particle_of_interest=0,
+                    new_params=None,
+                    log_file=log_file,
+                )
+
+            if 'plot' in task:
+                slot_config_file = pre_folder + slot_names[slot]
+                folder_name = './log/' + pre_folder + '/tmp_results/'
+                os.makedirs(folder_name, exist_ok=True)
+                data_plot(
+                    config=config,
+                    config_file=slot_config_file,
+                    epoch_list=['best'],
+                    style='black color',
+                    extended='plots',
+                    device=device,
+                    apply_weight_correction=True,
+                    log_file=log_file
+                )
+
+            log_file.close()
+
+            # Save exploration artifacts
+            iter_in_block = (iteration - 1) % n_iter_block + 1
+            artifact_paths = save_exploration_artifacts(
+                root_dir, exploration_dir, config, slot_names[slot],
+                pre_folder, iteration,
+                iter_in_block=iter_in_block, block_number=block_number
+            )
+            activity_paths[slot] = artifact_paths['activity_path']
+
+            # Save config file for EVERY iteration (not just block start)
+            config_save_dir = f"{exploration_dir}/config"
+            os.makedirs(config_save_dir, exist_ok=True)
+            dst_config = f"{config_save_dir}/iter_{iteration:03d}_slot_{slot:02d}.yaml"
+            shutil.copy2(config_paths[slot], dst_config)
+
+        # -------------------------------------------------------------------
+        # PHASE 5: Batch UCB update
+        # -------------------------------------------------------------------
+        print(f"\n\033[93mPHASE 5: Computing UCB scores\033[0m")
+
+        # Read ucb_c from first slot config (all should share same claude section)
+        with open(config_paths[0], 'r') as f:
+            raw_config = yaml.safe_load(f)
+        ucb_c = raw_config.get('claude', {}).get('ucb_c', 1.414)
+
+        # Compute UCB with current analysis logs
+        for slot_idx, iteration in enumerate(iterations):
+            slot = slot_idx
+            if job_results.get(slot, False):
+                compute_ucb_scores(
+                    analysis_path, ucb_path, c=ucb_c,
+                    current_log_path=analysis_log_paths[slot],
+                    current_iteration=iteration,
+                    block_size=n_iter_block
+                )
+        print(f"\033[92mUCB scores computed (c={ucb_c}): {ucb_path}\033[0m")
+
+        # -------------------------------------------------------------------
+        # PHASE 6: Claude analyzes results + proposes next 4 mutations
+        # -------------------------------------------------------------------
+        print(f"\n\033[93mPHASE 6: Claude analysis + next mutations\033[0m")
+
+        # Build per-slot info
+        slot_info_lines = []
+        for slot_idx, iteration in enumerate(iterations):
+            slot = slot_idx
+            status = "COMPLETED" if job_results.get(slot, False) else "FAILED"
+            act_path = activity_paths.get(slot, "N/A")
+            slot_info_lines.append(
+                f"Slot {slot} (iteration {iteration}) [{status}]:\n"
+                f"  Metrics: {analysis_log_paths[slot]}\n"
+                f"  Activity: {act_path}\n"
+                f"  Config: {config_paths[slot]}"
+            )
+        slot_info = "\n\n".join(slot_info_lines)
+
+        block_end_marker = "\n>>> BLOCK END <<<" if is_block_end else ""
+
+        parallel_ref = f"\nParallel instructions: {parallel_instruction_path}" if parallel_instruction_path else ""
+
+        claude_prompt = f"""Batch iterations {batch_first}-{batch_last} / {n_iterations}
+Block info: block {block_number}, iterations {iter_in_block_first}-{iter_in_block_last}/{n_iter_block} within block{block_end_marker}
+
+PARALLEL MODE: Analyze {n_slots} results, then propose next {N_PARALLEL} mutations.
+
+Instructions (follow all instructions): {instruction_path}{parallel_ref}
+Working memory: {memory_path}
+Full log (append only): {analysis_path}
+UCB scores: {ucb_path}
+
+{slot_info}
+
+Analyze all {n_slots} results. For each successful slot, write a separate iteration entry
+(## Iter N: ...) to the full log and memory file. Then edit all {N_PARALLEL} config files
+to set up the next batch of {N_PARALLEL} experiments.
+
+IMPORTANT: Do NOT change the 'dataset' field in any config — it must stay as-is for each slot."""
+
+        print("\033[93mClaude analysis...\033[0m")
+        output_text = run_claude_cli(claude_prompt, root_dir)
+
+        # Check for OAuth expiration
+        if 'OAuth token has expired' in output_text or 'authentication_error' in output_text:
+            print(f"\n\033[91m{'='*60}\033[0m")
+            print(f"\033[91mOAuth token expired at batch {batch_first}-{batch_last}\033[0m")
+            print("\033[93mTo resume:\033[0m")
+            print("\033[93m  1. Run: claude /login\033[0m")
+            print(f"\033[93m  2. Set start_iteration = {batch_first} and re-run\033[0m")
+            print(f"\033[91m{'='*60}\033[0m")
+            sys.exit(1)
+
+        # Save reasoning
+        if output_text.strip():
+            with open(reasoning_log_path, 'a') as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"=== Batch {batch_first}-{batch_last} ===\n")
+                f.write(f"{'='*60}\n")
+                f.write(output_text.strip())
+                f.write("\n\n")
+
+        # Recompute UCB after Claude writes iteration entries to analysis.md
+        compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
+                           current_log_path=None,
+                           current_iteration=batch_last,
+                           block_size=n_iter_block)
+
+        # UCB tree visualization
+        should_save_tree = (block_number == 1) or is_block_end
+        if should_save_tree:
+            tree_save_dir = f"{exploration_dir}/exploration_tree"
+            os.makedirs(tree_save_dir, exist_ok=True)
+            ucb_tree_path = f"{tree_save_dir}/ucb_tree_iter_{batch_last:03d}.png"
+            nodes = parse_ucb_scores(ucb_path)
+            if nodes:
+                config = configs[0]
+                sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
+                sim_info += f", connectivity_type={config.simulation.connectivity_type}"
+                if hasattr(config.simulation, 'connectivity_filling_factor'):
+                    sim_info += f", filling_factor={config.simulation.connectivity_filling_factor}"
+                if hasattr(config.simulation, 'n_neuron_types'):
+                    sim_info += f", n_neuron_types={config.simulation.n_neuron_types}"
+                if hasattr(config.simulation, 'params') and len(config.simulation.params) > 0:
+                    g_value = config.simulation.params[0][2]
+                    sim_info += f", g={g_value}"
+                plot_ucb_tree(nodes, ucb_tree_path,
+                              title=f"UCB Tree - Batch {batch_first}-{batch_last}",
+                              simulation_info=sim_info)
+
+        # Save instruction file at first iteration of each block
+        protocol_save_dir = f"{exploration_dir}/protocol"
+        os.makedirs(protocol_save_dir, exist_ok=True)
+        if iter_in_block_first == 1:
+            dst_instruction = f"{protocol_save_dir}/block_{block_number:03d}.md"
+            if os.path.exists(instruction_path):
+                shutil.copy2(instruction_path, dst_instruction)
+
+        # Save memory file at end of block
+        if is_block_end:
+            memory_save_dir = f"{exploration_dir}/memory"
+            os.makedirs(memory_save_dir, exist_ok=True)
+            dst_memory = f"{memory_save_dir}/block_{block_number:03d}_memory.md"
+            if os.path.exists(memory_path):
+                shutil.copy2(memory_path, dst_memory)
+                print(f"\033[92msaved memory snapshot: {dst_memory}\033[0m")
+
+        # Print batch summary
+        n_success = sum(1 for v in job_results.values() if v)
+        n_failed = sum(1 for v in job_results.values() if not v)
+        print(f"\n\033[92mBatch {batch_first}-{batch_last} complete: {n_success} succeeded, {n_failed} failed\033[0m")
