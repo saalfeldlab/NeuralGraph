@@ -3,7 +3,7 @@
 import torch
 import pytest
 
-from LatentEvolution.interpolate_staggered import interpolate_staggered_to_aligned
+from LatentEvolution.interpolate_staggered import interpolate_staggered
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ class TestExactAtObservationTimes:
         tu = 4
         phases = torch.tensor([0, 1, 2, 3], dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
 
         # check at each neuron's observation times
         for n in range(N):
@@ -45,7 +45,7 @@ class TestMidpointInterpolation:
         tu = 4
         phases = torch.tensor([0, 0, 0, 0], dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
 
         # midpoint at t=2 (between obs at t=0 and t=4)
         for n in range(N):
@@ -59,7 +59,7 @@ class TestMidpointInterpolation:
         tu = 4
         phases = torch.tensor([1, 1, 1, 1], dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
 
         # midpoint at t=3 (between obs at t=1 and t=5)
         for n in range(N):
@@ -78,7 +78,7 @@ class TestFirstWindowBoundary:
         # neuron 3 has phase 3, so first observation is at t=3
         phases = torch.tensor([0, 1, 2, 3], dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
 
         # for neuron 3 at t=0,1,2 the left bracket t_lo is negative, clamped to 0
         # t_lo_clamped=0, t_hi = t_lo + tu. since t_lo was < 0, t_hi could be < tu.
@@ -95,7 +95,7 @@ class TestLastWindowBoundary:
         tu = 4
         phases = torch.tensor([0, 0, 0, 0], dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
 
         # last observation is at t=16 (0 + 4*4). for t=17,18,19 the right bracket
         # t_hi would be 20 which is clamped to 19.
@@ -112,7 +112,7 @@ class TestAllZeroPhases:
         tu = 4
         phases = torch.zeros(N, dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
 
         # at tu boundaries (0, 4, 8, 12, 16), output should match input exactly
         for t in range(0, T, tu):
@@ -125,7 +125,7 @@ class TestAllZeroPhases:
         tu = 4
         phases = torch.zeros(N, dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
 
         # at t=1 (1/4 of the way from t=0 to t=4)
         for n in range(N):
@@ -143,7 +143,7 @@ class TestShapePreservation:
         tu = 4
         phases = torch.tensor([0, 1, 2, 3], dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(simple_data, phases, tu)
+        result = interpolate_staggered(simple_data, phases, tu)
         assert result.shape == simple_data.shape
 
     def test_shape_large(self):
@@ -152,7 +152,7 @@ class TestShapePreservation:
         data = torch.randn(T, N)
         phases = torch.randint(0, tu, (N,))
 
-        result = interpolate_staggered_to_aligned(data, phases, tu)
+        result = interpolate_staggered(data, phases, tu)
         assert result.shape == (T, N)
 
     def test_dtype_float(self):
@@ -161,7 +161,7 @@ class TestShapePreservation:
         data = torch.randn(T, N)
         phases = torch.zeros(N, dtype=torch.long)
 
-        result = interpolate_staggered_to_aligned(data, phases, tu)
+        result = interpolate_staggered(data, phases, tu)
         assert result.dtype == torch.float32
 
 

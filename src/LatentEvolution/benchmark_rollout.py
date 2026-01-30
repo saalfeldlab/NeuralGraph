@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
-from LatentEvolution.latent_stag import (
+from LatentEvolution.latent_stag_z0_bank import (
     LatentStagModel,
     StagModelParams,
 )

@@ -9,7 +9,7 @@ interpolating between each neuron's bracketing staggered observation times.
 import torch
 
 
-def interpolate_staggered_to_aligned(
+def interpolate_staggered(
     data: torch.Tensor,
     neuron_phases: torch.Tensor,
     time_units: int,
@@ -65,3 +65,5 @@ def interpolate_staggered_to_aligned(
     result = (1.0 - w) * val_lo + w * val_hi  # (T, N)
 
     return result
+
+interpolate_staggered_compiled = torch.compile(interpolate_staggered, mode="reduce-overhead", fullgraph=True)
