@@ -891,7 +891,6 @@ See HTML for interactive Sankey"""
 
     # Draw connections (curved lines)
     from matplotlib.path import Path
-    import matplotlib.patches as mpatches
 
     for (from_mode, to_mode), count in transitions.items():
         if from_mode in modes and to_mode in modes:

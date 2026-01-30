@@ -393,7 +393,7 @@ if __name__ == "__main__":
                             result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
 
                             if result.returncode != 0:
-                                print(f"\033[91mCluster training failed:\033[0m")
+                                print("\033[91mCluster training failed:\033[0m")
                                 print(f"stdout: {result.stdout}")
                                 print(f"stderr: {result.stderr}")
                                 if os.path.exists(error_details_path):
@@ -401,7 +401,7 @@ if __name__ == "__main__":
                                         print(f.read())
                                 raise RuntimeError(f"Cluster training failed at iteration {iteration}")
 
-                            print(f"\033[92mCluster training completed successfully\033[0m")
+                            print("\033[92mCluster training completed successfully\033[0m")
                             print(result.stdout)
 
                         else:

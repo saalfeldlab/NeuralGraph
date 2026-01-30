@@ -3,6 +3,45 @@
 Use voltage data that is available every 100ms (5 time steps) and see if we can
 properly model the 1-step connectome-constrained dynamics.
 
+Our goal is to model data that is acquired like this:
+
+```
+  time_aligned mode (tu=5)
+  ============================
+  All neurons observed simultaneously at regular intervals
+
+  Time:     0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20
+           ┌──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐
+  Neuron 1 │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│
+  Neuron 2 │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│
+  Neuron 3 │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│
+  Neuron 4 │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│
+  Neuron 5 │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│  │  │  │  │ X│
+           └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘
+           ↑              ↑              ↑              ↑              ↑
+         t=0            t=5           t=10           t=15           t=20
+```
+
+We use `time_units` or `tu` to refer to the interval between two activity recordings.
+We are assuming that neurons are all measured instantaneously at each time. Of course,
+this is not realistic. See experiments in `flyvis_voltage_Nsteps_staggered.md` that
+describe a more realistic acquisition scenario.
+
+To simplify, we begin with training a latent model to predict t -> t+5, but we allow
+ourselves access to all the data points, t=0, 1, 2, ... etc. We first want to see if
+the evolver can actually learn the correct t->t+1 update when only provided with
+`(x(t), x(t+5))` in the loss function for each batch. Of course, because the network
+has access to the intermediate points `x(t+1), ..., x(t+4)` the encoder and decoder
+can build a good representation of these intermediate states that the evolver can
+then properly arrange in time and find the right one step evolution.
+
+Throughout we assume that the stimulus is provided at each time step. See some
+experiments at the end that show that this is absolutely critical for us to learn
+the right 1 step neural activity evolver in latent space.
+
+The summary as of 1/27/2026 is that we can achieve this goal of learning a good
+model for the t->t+1 evolution with `time_units=5` and even `time_units=20`.
+
 ## Baseline
 
 Run 1 time step & 5 time step with/without the connectome constraint applied.
@@ -372,7 +411,7 @@ Results:
   while tv norm does help the training converge to a sensible evolution model, it
   does harm the t->t+1 mse.
 
-# Stimulus downsampling
+## Stimulus downsampling
 
 We want to avoid depending on the details of the stimulus provided since in general
 it won't be known with such granularity. As a first step, we only provide the
@@ -392,3 +431,45 @@ being provided at every time step. When it is not, we see a blow up in the MSE w
 roll out past the training horizon. Even within the training horizon the error does not
 fall below the linear interpolation baseline. And we are unable to learn the right
 rule even at the loss time points 0, `tu`, `2tu`, ...
+
+We will revisit this experiment later on.
+
+## Attempt tu=50 again
+
+Given the improvements we made to training stability, we will revisit the tu=50
+experiment. Since tu=20 worked with ems=5 we will reason that perhaps showing the
+model a rollout of 100 steps suffices. So maybe we can get away with ems=2 here?
+
+```bash
+
+bsub -J 50x2 -W 8:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x2.log \
+    python src/LatentEvolution/latent.py 50x_redo latent_20step.yaml \
+    --training.time-units 50 \
+    --training.evolve-multiple-steps 2 \
+    --training.epochs 100
+```
+
+`ems3` results are promising. The roll out does blow up but remains stable a little
+outside the training window. Perhaps we should just try ems5 and see what happens.
+The time aligned mse plot shows poor performance in the time window [0, tu]. Perhaps
+the tv_norm loss will help here. But first, let's try ems5.
+
+```bash
+bsub -J 50x5 -W 8:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x5.log \
+    python src/LatentEvolution/latent.py 50x_ems5 latent_20step.yaml \
+    --training.time-units 50
+
+bsub -J 50x3_tv -W 4:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x3_tv.log \
+    python src/LatentEvolution/latent.py 50x3_tv latent_20step.yaml \
+    --training.time-units 50 \
+    --training.epochs 50 \
+    --training.evolve-multiple-steps 3 \
+    --evolver_params.tv-reg-loss 0.01
+
+bsub -J 50x3_tv2 -W 4:00 -q gpu_a100 -gpu "num=1" -n 2 -o 50x3_tv2.log \
+    python src/LatentEvolution/latent.py 50x3_tv latent_20step.yaml \
+    --training.time-units 50 \
+    --training.epochs 50 \
+    --training.evolve-multiple-steps 3 \
+    --evolver_params.tv-reg-loss 0.001
+```
