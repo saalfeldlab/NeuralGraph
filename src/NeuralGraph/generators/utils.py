@@ -31,7 +31,11 @@ def choose_model(config=[], W=[], device=[]):
     bc_pos, bc_dpos = choose_boundary_values(config.simulation.boundary)
 
     params = config.simulation.params
-    p = torch.tensor(params, dtype=torch.float32, device=device).squeeze()
+    p = torch.tensor(params, dtype=torch.float32, device=device)
+    if p.ndim > 2:
+        p = p.squeeze(0)
+    if p.ndim == 1:
+        p = p.unsqueeze(0)
 
 
     match config.simulation.phi:
