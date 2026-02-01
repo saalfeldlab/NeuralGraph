@@ -1,8 +1,10 @@
 description: designed by Claude (parallel)
 dataset: signal_landscape_Claude_03
 simulation:
-  connectivity_type: low_rank
+  connectivity_type: chaotic
   connectivity_rank: 20
+  Dale_law: false
+  Dale_law_factor: 0.5
   connectivity_init:
   - 0
   - 0.1
@@ -14,32 +16,15 @@ simulation:
     - 0.0
     - 1.0
     - 0.0
-  - - 1.0
-    - 0.0
-    - 7.0
-    - 1.0
-    - 1.0
-    - 0.0
-  - - 2.0
-    - 0.0
-    - 7.0
-    - 1.0
-    - 1.0
-    - 0.0
-  - - 2.0
-    - 0.0
-    - 7.0
-    - 2.0
-    - 1.0
-    - 0.0
   phi: tanh
-  n_neurons: 100
+  n_neurons: 200
   n_neuron_types: 1
   n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: 'no'
   start_frame: -100
+  noise_model_level: 0
 graph_model:
   signal_model_name: PDE_N4
   particle_model_name: ''
@@ -53,9 +38,10 @@ graph_model:
   n_layers_update: 3
   hidden_dim_update: 64
   aggr_type: add
+  embedding_dim: 2
   update_type: none
 claude:
-  n_epochs: 1
+  n_epochs: 2
   data_augmentation_loop: 100
   n_iter_block: 12
   ucb_c: 1.414
@@ -69,7 +55,7 @@ plotting:
   - -2
   - 2
 training:
-  n_epochs: 1
+  n_epochs: 2
   n_runs: 1
   device: cuda:0
   batch_size: 8
@@ -81,10 +67,12 @@ training:
   cluster_method: distance_plot
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.01
-  learning_rate_start: 0.0001
-  learning_rate_embedding_start: 0.00025
+  learning_rate_W_start: 0.008
+  learning_rate_start: 0.0002
+  learning_rate_embedding_start: 0.001
   coeff_W_L1: 1.0e-05
   coeff_edge_diff: 100
-  low_rank_factorization: true
-  low_rank: 20
+  recurrent_training: true
+  time_step: 4
+  noise_recurrent_level: 0.05
+  recurrent_training_start_epoch: 0

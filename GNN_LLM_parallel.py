@@ -115,10 +115,17 @@ def submit_cluster_job(slot, config_path, analysis_log_path, config_file_field,
 
     cluster_script = cluster_script_path.replace(root_dir, CLUSTER_ROOT_DIR)
 
-    # Submit WITHOUT -K so it returns immediately
+    # Cluster-side log paths for capturing stdout/stderr
+    cluster_log_dir = log_dir.replace(root_dir, CLUSTER_ROOT_DIR)
+    cluster_stdout = f"{cluster_log_dir}/cluster_train_{slot:02d}.out"
+    cluster_stderr = f"{cluster_log_dir}/cluster_train_{slot:02d}.err"
+
+    # Submit WITHOUT -K so it returns immediately; capture stdout/stderr to files
     ssh_cmd = (
         f"ssh allierc@login1 \"cd {CLUSTER_ROOT_DIR} && "
-        f"bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 'bash {cluster_script}'\""
+        f"bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 "
+        f"-o '{cluster_stdout}' -e '{cluster_stderr}' "
+        f"'bash {cluster_script}'\""
     )
     print(f"\033[96m  slot {slot}: submitting via SSH\033[0m")
     result = subprocess.run(ssh_cmd, shell=True, capture_output=True, text=True)
@@ -135,11 +142,12 @@ def submit_cluster_job(slot, config_path, analysis_log_path, config_file_field,
         return None
 
 
-def wait_for_cluster_jobs(job_ids, poll_interval=60):
+def wait_for_cluster_jobs(job_ids, log_dir=None, poll_interval=60):
     """Poll bjobs via SSH until all jobs finish.
 
     Args:
         job_ids: dict {slot: job_id_string}
+        log_dir: local directory where cluster_train_XX.err files are written
         poll_interval: seconds between polls
 
     Returns:
@@ -164,6 +172,20 @@ def wait_for_cluster_jobs(job_ids, poll_interval=60):
                         results[slot] = False
                         del pending[slot]
                         print(f"\033[91m  slot {slot} (job {jid}): FAILED (EXIT)\033[0m")
+                        # Try to read error log for diagnosis
+                        if log_dir:
+                            err_file = f"{log_dir}/cluster_train_{slot:02d}.err"
+                            if os.path.exists(err_file):
+                                try:
+                                    with open(err_file, 'r') as ef:
+                                        err_content = ef.read().strip()
+                                    if err_content:
+                                        print(f"\033[91m  --- slot {slot} error log ---\033[0m")
+                                        for eline in err_content.splitlines()[-30:]:
+                                            print(f"\033[91m    {eline}\033[0m")
+                                        print(f"\033[91m  --- end error log ---\033[0m")
+                                except Exception:
+                                    pass
                     # else: PEND or RUN — still waiting
 
             # If job not found in bjobs output, it may have finished and been cleaned up
@@ -174,13 +196,46 @@ def wait_for_cluster_jobs(job_ids, poll_interval=60):
                 print(f"\033[93m  slot {slot} (job {jid}): no longer in queue (assuming DONE)\033[0m")
 
         if pending:
-            statuses = []
-            for s in pending:
-                statuses.append(f"slot {s}")
+            statuses = [f"slot {s}" for s in pending]
             print(f"\033[90m  ... waiting for {', '.join(statuses)} ({poll_interval}s)\033[0m")
             time.sleep(poll_interval)
 
     return results
+
+
+def is_git_repo(path):
+    """Check if path is inside a git repository."""
+    try:
+        result = subprocess.run(
+            ['git', 'rev-parse', '--is-inside-work-tree'],
+            cwd=path, capture_output=True, text=True, timeout=10
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def get_modified_code_files(root_dir, code_files):
+    """Return list of code_files that have uncommitted changes (staged or unstaged)."""
+    modified = []
+    try:
+        result = subprocess.run(
+            ['git', 'diff', '--name-only', 'HEAD'],
+            cwd=root_dir, capture_output=True, text=True, timeout=10
+        )
+        changed = set(result.stdout.strip().splitlines())
+        # Also check staged changes
+        result2 = subprocess.run(
+            ['git', 'diff', '--name-only', '--cached'],
+            cwd=root_dir, capture_output=True, text=True, timeout=10
+        )
+        changed.update(result2.stdout.strip().splitlines())
+        for f in code_files:
+            if f in changed:
+                modified.append(f)
+    except Exception:
+        pass
+    return modified
 
 
 def run_claude_cli(prompt, root_dir, max_turns=500):
@@ -274,6 +329,15 @@ if __name__ == "__main__":
             print(f"\033[93mFresh start (no previous iterations found)\033[0m")
     else:
         start_iteration = 1
+        _analysis_check = f"{root_dir}/{llm_task_name}_analysis.md"
+        if os.path.exists(_analysis_check):
+            print(f"\033[91mWARNING: Fresh start will erase existing results in:\033[0m")
+            print(f"\033[91m  {_analysis_check}\033[0m")
+            print(f"\033[91m  {root_dir}/{llm_task_name}_memory.md\033[0m")
+            answer = input("\033[91mContinue? (y/n): \033[0m").strip().lower()
+            if answer != 'y':
+                print("Aborted.")
+                sys.exit(0)
         print(f"\033[93mFresh start\033[0m")
 
     # --- Initialize 4 slot configs from source ---
@@ -303,7 +367,7 @@ if __name__ == "__main__":
         config_paths[slot] = target
         analysis_log_paths[slot] = f"{root_dir}/{slot_name}_analysis.log"
 
-        if start_iteration == 1:
+        if start_iteration == 1 and not args.resume:
             # Fresh start: copy source config, set dataset per slot
             shutil.copy2(source_config, target)
             with open(target, 'r') as f:
@@ -350,7 +414,7 @@ if __name__ == "__main__":
         parallel_instruction_path = None
 
     # Initialize shared files on fresh start
-    if start_iteration == 1:
+    if start_iteration == 1 and not args.resume:
         with open(analysis_path, 'w') as f:
             f.write(f"# Experiment Log: {base_config_name} (parallel)\n\n")
         print(f"\033[93mcleared {analysis_path}\033[0m")
@@ -384,7 +448,7 @@ if __name__ == "__main__":
     # -----------------------------------------------------------------------
     # BATCH 0: Claude "start" call — initialize 4 config variations
     # -----------------------------------------------------------------------
-    if start_iteration == 1:
+    if start_iteration == 1 and not args.resume:
         print(f"\n\033[94m{'='*60}\033[0m")
         print(f"\033[94mBATCH 0: Claude initializing {N_PARALLEL} config variations\033[0m")
         print(f"\033[94m{'='*60}\033[0m")
@@ -522,8 +586,110 @@ Write the planned mutations to the working memory file."""
                 # Wait for all submitted jobs
                 if job_ids:
                     print(f"\n\033[93mPHASE 3: Waiting for {len(job_ids)} cluster jobs to complete\033[0m")
-                    cluster_results = wait_for_cluster_jobs(job_ids, poll_interval=60)
+                    cluster_results = wait_for_cluster_jobs(job_ids, log_dir=log_dir, poll_interval=60)
                     job_results.update(cluster_results)
+
+                # Check for training errors — attempt auto-repair instead of skipping
+                for slot_idx in range(n_slots):
+                    if job_results.get(slot_idx) == False:
+                        # Check application-level error log first, then LSF stderr
+                        err_content = None
+                        err_file = f"{log_dir}/training_error_{slot_idx:02d}.log"
+                        lsf_err_file = f"{log_dir}/cluster_train_{slot_idx:02d}.err"
+
+                        for ef_path in [err_file, lsf_err_file]:
+                            if os.path.exists(ef_path):
+                                try:
+                                    with open(ef_path, 'r') as ef:
+                                        content = ef.read()
+                                    if 'TRAINING SUBPROCESS ERROR' in content or 'Traceback' in content:
+                                        err_content = content
+                                        break
+                                except Exception:
+                                    pass
+
+                        if not err_content:
+                            continue
+
+                        print(f"\033[91m  slot {slot_idx}: TRAINING ERROR detected — attempting auto-repair\033[0m")
+
+                        code_files = [
+                            'src/NeuralGraph/generators/utils.py',
+                            'src/NeuralGraph/generators/graph_data_generator.py',
+                            'src/NeuralGraph/generators/PDE_N4.py',
+                            'src/NeuralGraph/models/graph_trainer.py',
+                        ]
+                        modified_code = get_modified_code_files(root_dir, code_files) if is_git_repo(root_dir) else []
+
+                        if not modified_code:
+                            print(f"\033[93m  slot {slot_idx}: no modified code files to repair — skipping\033[0m")
+                            continue
+
+                        max_repair_attempts = 3
+                        repaired = False
+                        for attempt in range(max_repair_attempts):
+                            print(f"\033[93m  slot {slot_idx}: repair attempt {attempt + 1}/{max_repair_attempts}\033[0m")
+                            repair_prompt = f"""TRAINING CRASHED - Please fix the code error.
+
+Error traceback:
+```
+{err_content[-3000:]}
+```
+
+Modified files: {chr(10).join(f'- {root_dir}/{f}' for f in modified_code)}
+
+Fix the bug. Do NOT make other changes."""
+
+                            repair_cmd = [
+                                'claude', '-p', repair_prompt,
+                                '--output-format', 'text', '--max-turns', '10',
+                                '--allowedTools', 'Read', 'Edit', 'Write'
+                            ]
+                            repair_result = subprocess.run(repair_cmd, cwd=root_dir, capture_output=True, text=True)
+                            if 'CANNOT_FIX' in repair_result.stdout:
+                                print(f"\033[91m  slot {slot_idx}: Claude cannot fix — stopping repair\033[0m")
+                                break
+
+                            # Resubmit repaired slot to cluster
+                            print(f"\033[96m  slot {slot_idx}: resubmitting after repair\033[0m")
+                            config = configs[slot_idx]
+                            jid = submit_cluster_job(
+                                slot=slot_idx,
+                                config_path=config_paths[slot_idx],
+                                analysis_log_path=analysis_log_paths[slot_idx],
+                                config_file_field=config.config_file,
+                                log_dir=log_dir,
+                                root_dir=root_dir,
+                                erase=True
+                            )
+                            if jid:
+                                retry_results = wait_for_cluster_jobs(
+                                    {slot_idx: jid}, log_dir=log_dir, poll_interval=60
+                                )
+                                if retry_results.get(slot_idx):
+                                    job_results[slot_idx] = True
+                                    repaired = True
+                                    print(f"\033[92m  slot {slot_idx}: repair successful!\033[0m")
+                                    break
+                                # Reload error for next attempt
+                                for ef_path in [err_file, lsf_err_file]:
+                                    if os.path.exists(ef_path):
+                                        try:
+                                            with open(ef_path, 'r') as ef:
+                                                err_content = ef.read()
+                                            break
+                                        except Exception:
+                                            pass
+
+                        if not repaired:
+                            print(f"\033[91m  slot {slot_idx}: repair failed after {max_repair_attempts} attempts — skipping\033[0m")
+                            if is_git_repo(root_dir):
+                                for fp in code_files:
+                                    try:
+                                        subprocess.run(['git', 'checkout', 'HEAD', '--', fp],
+                                                      cwd=root_dir, capture_output=True, timeout=10)
+                                    except Exception:
+                                        pass
 
             else:
                 # Local execution (no cluster) — run sequentially
