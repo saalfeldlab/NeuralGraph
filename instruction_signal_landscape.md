@@ -76,6 +76,45 @@ spectral radius: 1.029
 - **Partial**: connectivity_R2 0.1-0.9
 - **Failed**: connectivity_R2 < 0.1
 
+**Degeneracy Detection (CRITICAL — check every iteration):**
+
+Degeneracy occurs when the GNN finds a connectivity matrix W that produces correct activity dynamics but does NOT match the ground-truth W. The MLPs (lin_edge, lin_phi) compensate for wrong W by reshaping their nonlinear mappings. This is a fundamental inverse-problem ambiguity: multiple W can generate indistinguishable time series.
+
+Compute the **degeneracy gap** = `test_pearson - connectivity_R2`:
+
+| test_pearson | connectivity_R2 | Degeneracy gap | Diagnosis |
+|:---:|:---:|:---:|---|
+| > 0.95 | > 0.9 | < 0.1 | **Healthy** — good dynamics from correct W |
+| > 0.95 | 0.3–0.9 | 0.1–0.7 | **Degenerate** — good dynamics from wrong W |
+| > 0.95 | < 0.3 | > 0.7 | **Severely degenerate** — MLPs fully compensating |
+| < 0.5 | < 0.5 | ~0 | **Failed** — both dynamics and W poor (not degeneracy) |
+
+**When degeneracy gap > 0.3, DO NOT trust dynamics metrics as evidence of learning quality.** The model has learned to mimic traces, not to recover connectivity. Parameter tuning (lr_W, L1, batch_size) alone cannot resolve degeneracy — it is a structural problem.
+
+**Regimes prone to degeneracy:**
+- Sparse connectivity (filling_factor < 1): many zero weights give the optimizer freedom to redistribute non-zero entries
+- Subcritical spectral radius (rho < 1): decaying dynamics carry less information about W structure
+- Low eff_rank: fewer distinguishable modes → more equivalent W solutions
+
+**How to detect degeneracy in practice:**
+1. Check `test_pearson` vs `connectivity_R2` every iteration — if pearson is high but conn is low, report degeneracy
+2. Check if connectivity_R2 plateaus while test_pearson stays at ~1.0 — the GNN has converged to a degenerate basin
+3. In the activity plots: if rollout traces look qualitatively correct but the W heatmap differs from ground truth → degeneracy
+
+**Log degeneracy in the iteration entry when detected:**
+```
+Degeneracy: gap=0.53 (test_pearson=0.999, conn_R2=0.466) — MLP compensation suspected
+```
+
+**Interventions to break degeneracy (try in order):**
+1. **Increase coeff_edge_diff** (100 → 500): monotonicity regularizer constrains lin_edge, reducing its ability to compensate for wrong W
+2. **Recurrent training** (time_step=4–16): multi-step rollout accumulates errors from wrong W; correct W produces stable rollouts, wrong W diverges over steps
+3. **Increase n_frames** (10k → 30k–50k): more diverse activity patterns constrain the solution space
+4. **Increase L1 on W** (1E-5 → 1E-4): if true W is sparse, stronger L1 pushes toward sparse solutions that match the true structure
+5. **Increase n_epochs** (2 → 3+): more training passes help escape degenerate basins
+
+**Key insight from Block 7**: At sparse 50%, conn_R2 plateaued at 0.466 despite test_pearson=0.999 across 12 iterations. Parameter sweeps (lr_W: 2E-3→1E-2, n_epochs: 1→3, L1: 1E-5→1E-6) improved conn_R2 by +0.29 but could not close the degeneracy gap. This indicates a structural data limit at 10k frames for sparse subcritical networks.
+
 **Visual Analysis of Embedding Plot (ONLY if n_neuron_types > 1):**
 
 Examine the latest embedding plot to assess cluster quality:
@@ -172,6 +211,7 @@ Step B: Choose strategy
 | 2+ distant nodes with R² > 0.9                                      | **recombine**            | Merge params from both nodes                                                                 |
 | 4+ consecutive partial (0.1 < R² < 0.9) with improving trend        | **scale-up**             | Increase data_augmentation_loop (5x) to break plateau                                        |
 | 4+ consecutive converged (R²>0.9) with same param dimension         | **forced-branch**        | Select 2nd highest UCB node (not recent chain), switch param dimension                       |
+| degeneracy gap > 0.3 for 3+ consecutive iters AND conn_R2 plateaued | **degeneracy-break**     | MLP compensating for wrong W — try: (1) coeff_edge_diff 100→500, (2) recurrent time_step=4-16, (3) increase n_frames, (4) increase L1. Do NOT keep tuning lr_W/lr — parameter sweeps cannot resolve structural degeneracy |
 | eff_rank < 8 AND spectral_radius < 0.7 AND 3+ consecutive R² < 0.05 | **fixed-point-collapse** | Data fundamentally unrecoverable - skip remaining iterations, modify sim params at block end |
 | n_neurons ≥ 500 AND 4+ consecutive partial AND n_epochs < 3         | **epoch-scale-up**       | n≥500 needs more training capacity - increase n_epochs to 3+                                 |
 | new regime block AND block 1 convergence rate > 80%                 | **regime-transfer-test** | first batch of new regime: test if block 1 optimal params transfer; vary the regime-specific param (e.g. factorization for low-rank) |
