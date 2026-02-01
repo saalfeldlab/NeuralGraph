@@ -106,12 +106,12 @@ Compute the **degeneracy gap** = `test_pearson - connectivity_R2`:
 Degeneracy: gap=0.53 (test_pearson=0.999, conn_R2=0.466) — MLP compensation suspected
 ```
 
-**Interventions to break degeneracy (try in order):**
-1. **Increase coeff_edge_diff** (100 → 500): monotonicity regularizer constrains lin_edge, reducing its ability to compensate for wrong W
-2. **Recurrent training** (time_step=4–16): multi-step rollout accumulates errors from wrong W; correct W produces stable rollouts, wrong W diverges over steps
-3. **Increase n_frames** (10k → 30k–50k): more diverse activity patterns constrain the solution space
-4. **Increase L1 on W** (1E-5 → 1E-4): if true W is sparse, stronger L1 pushes toward sparse solutions that match the true structure
-5. **Increase n_epochs** (2 → 3+): more training passes help escape degenerate basins
+**Known interventions that can help break degeneracy:**
+- **Increase coeff_edge_diff** (100 → 500): monotonicity regularizer constrains lin_edge, reducing its ability to compensate for wrong W
+- **Increase n_frames** (10k → 30k–50k): more diverse activity patterns constrain the solution space
+- **Increase L1 on W** (1E-5 → 1E-4): if true W is sparse, stronger L1 pushes toward sparse solutions that match the true structure
+- **Increase n_epochs** (2 → 3+): more training passes help escape degenerate basins
+- The LLM should propose and test additional strategies based on the specific regime
 
 **Key insight from Block 7**: At sparse 50%, conn_R2 plateaued at 0.466 despite test_pearson=0.999 across 12 iterations. Parameter sweeps (lr_W: 2E-3→1E-2, n_epochs: 1→3, L1: 1E-5→1E-6) improved conn_R2 by +0.29 but could not close the degeneracy gap. This indicates a structural data limit at 10k frames for sparse subcritical networks.
 
