@@ -369,9 +369,9 @@ simulation:
   noise_model_level: 0 # can be changed to 0.1 0.5 1 and 2 noise added to the Euler integration of the simulation
 ```
 
-**CRITICAL: graph_model section is READ-ONLY**
+**graph_model section — refer to PARAMS_DOC**
 
-Do NOT modify any parameters in the `graph_model:` section (`input_size`, `input_size_update`, `output_size`, `hidden_dim`, `n_layers`, `embedding_dim`, `signal_model_name`, etc.). These are architectural constants derived from the PDE model. Both `input_size` and `input_size_update` equal `1 + embedding_dim` for PDE_N4 (not related to `n_neuron_types`). Changing `input_size` crashes `lin_edge`; changing `input_size_update` crashes `lin_phi`.
+The `graph_model:` parameters have strict dependencies documented in `Signal_Propagation.PARAMS_DOC` (in `src/NeuralGraph/models/Signal_Propagation.py`). Read the PARAMS_DOC before modifying any graph_model parameter. In particular, `input_size` and `input_size_update` are DERIVED from the model variant and `embedding_dim` — they must be updated together if `embedding_dim` changes.
 
 **Claude Exploration Parameters:**
 
