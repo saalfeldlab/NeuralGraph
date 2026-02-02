@@ -3,195 +3,358 @@ title: "Epistemic Analysis"
 subtitle: "Taxonomy of LLM Scientific Reasoning"
 ---
 
-## Overview
+How does an LLM reason when embedded in a closed-loop scientific exploration? This page dissects the reasoning trace produced by the Experiment--LLM--Memory loop. Every iteration, the LLM writes a structured analysis log; each reasoning step in that log is classified into one of ten formal epistemic modes and the transitions between them are recorded as causal edges. The figures below visualize these annotations at three levels of granularity: individual events over time, compositional trends, and aggregate mode-to-mode flow.
 
-The signal_landscape_Claude experiment generated **231 reasoning events** across 107 iterations and 14 exploration blocks. This analysis categorizes these events into formal epistemic modes.
+::: {.callout-tip}
+## Current status
 
-::: {.callout-note}
-## What is Epistemic Analysis?
-
-Epistemic analysis examines *how* knowledge is acquired, validated, and refined. By categorizing the LLM's reasoning into formal modes, we can assess whether it demonstrates genuine scientific thinking versus random exploration.
+**268 iterations completed** across 23 regimes. The reasoning trace contains 330 annotated events connected by 125 causal edges, 64 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 17--23 extended the frontier: sparse 50% confirmed unsolvable even at 30k frames (block 17), n=1000 mapped at 30k (block 18), low gain (g=3) identified as a new difficulty axis solvable by n_frames (blocks 19--21), and fill=80% revealed a structural conn ceiling at filling_factor (blocks 22--23).
 :::
+
+---
+
+## Outcomes
+
+1. **330 reasoning events** across 268 iterations and 23 blocks, connected by 125 causal edges
+2. **Predictive power**: 74% deduction accuracy (42/57, well above chance)
+3. **Knowledge transfer**: 70% analogy success rate across 40 cross-regime transfers
+4. **Principle discovery**: 64 validated findings with confidence 45--100%
+5. **Self-correction**: 100% of falsifications led to principle refinement
+6. **Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), block 22 (conn ceiling at filling_factor), and block 23 (30k does not break fill=80% plateau) demonstrate the system can distinguish solvable from structural limits
+7. **Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) predictions tested in block 23
+8. **Paradigm shift**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), and blocks 22--23 (conn_ceiling at filling_factor) represent three paradigm-level discoveries. Each overturned or extended previously established principles
+
+---
 
 ## Epistemic Timeline
 
-![Reasoning events across 107 iterations and 14 blocks](assets/signal_landscape_Claude_epistemic_timeline.png){.lightbox}
+![](assets/epistemic_timeline.png){.lightbox}
 
-## Reasoning Mode Taxonomy
+The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM's written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7--8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19--21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22--23 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship.
 
-### Mode Definitions
+---
 
-| Mode | Definition | Example |
-|------|------------|---------|
-| **Induction** | Generalize from specific observations | "lr_W 2E-3 to 1E-2 all converge → easy mode established" |
-| **Deduction** | Predict from established principles | "If lr helps low-rank, then lr=1E-3 should improve R²" |
-| **Abduction** | Infer best explanation for observation | "R² dropped despite same params → must be eff_rank effect" |
-| **Falsification** | Reject hypothesis via counterexample | "factorization=True made R² worse → hypothesis rejected" |
-| **Boundary** | Probe limits of working configurations | "lr_W=5E-2 still converges, try 1E-1" |
-| **Analogy** | Transfer knowledge between regimes | "Block 1 settings worked → apply to Block 3 Dale regime" |
-| **Meta-reasoning** | Reason about reasoning strategy | "Need to switch from exploit to explore mode" |
-| **Regime** | Identify distinct operating conditions | "low_rank (eff_rank=11) requires different approach" |
-| **Uncertainty** | Quantify confidence in conclusions | "75% confident sparse is unrecoverable" |
-| **Causal** | Identify cause-effect relationships | "High lr_W → fast W learning BUT starves embedding" |
-| **Predictive** | Forecast outcomes before testing | "Noise should increase eff_rank" |
-| **Constraint** | Identify hard limits | "ff=0.2 fundamentally unrecoverable" |
+## Reasoning Activity Stream
 
-## Reasoning Activity Over Time
+![](assets/epistemic_streamgraph.png){.lightbox}
 
-![Streamgraph showing the distribution of reasoning modes across 107 iterations. The stacked area chart reveals how different epistemic modes dominate at different phases: early blocks show more Boundary probing and Induction, while later blocks exhibit increased Deduction and Falsification as principles become established.](assets/signal_landscape_Claude_epistemic_streamgraph.png){.lightbox}
+The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream's width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows five distinct phases. In the first phase (blocks 1--3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4--6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7--10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11--16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15--16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17--23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23).
+
+---
 
 ## Epistemic Flow
 
-![Sankey diagram showing the flow between reasoning modes. Deduction acts as the central hub—nearly all reasoning modes converge through it before branching outward. The dominant Deduction→Falsification pathway demonstrates genuine hypothesis testing rather than mere pattern matching.](assets/Sankey.png){.lightbox}
+![](assets/Sankey.png){.lightbox}
 
-## Validation Rates
+The Sankey diagram traces how reasoning modes connect to each other across the full 268-iteration exploration (330 events, 125 causal edges, 23 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain --- for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM's analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next --- this pathway intensifies in blocks 11--21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7--8, 17, 22--23) or paradigm-level shifts (blocks 15--16, 19--21). Blocks 17--23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.
 
-Key finding: The LLM's predictions were validated at meaningful rates, indicating genuine reasoning rather than random guessing.
+---
 
-| Mode | Count | Validated | Rate | Significance |
-|------|-------|-----------|------|--------------|
-| Deduction | 61 | 42 | **69%** | Well above chance (50%) |
-| Analogy | 15 | 12 | **80%** | High transfer success |
-| Falsification | 28 | 28 | **100%** | All led to refinement |
+## Reasoning Mode Taxonomy
 
-::: {.callout-important}
-## Key Insight
+| Mode | Definition | Example from experiment |
+|------|------------|---------:|
+| **Induction** | Generalize from specific observations | "lr_W 2E-3 to 8E-3 all converge in chaotic regime --- easy mode" |
+| **Deduction** | Predict from established principles | "If L1=1E-6 helps low-rank, then it should help Dale (same eff_rank=12)" |
+| **Abduction** | Infer best explanation for observation | "Dynamics dropped despite same lr_W --- must be eff_rank effect" |
+| **Falsification** | Reject hypothesis via counterexample | "factorization=True made conn_R^2^ worse --- hypothesis rejected" |
+| **Boundary** | Probe limits of working configurations | "lr_W=5E-3 in Dale regime --- cliff found" |
+| **Analogy** | Transfer knowledge between regimes | "Block 1 lr_W=4E-3 applied to block 3 Dale regime" |
+| **Meta-reasoning** | Reason about reasoning strategy | "Switch from lr_W sweep to L1 investigation" |
+| **Regime** | Identify distinct operating conditions | "sparse (eff_rank=21, subcritical) requires fundamentally different approach" |
+| **Causal** | Identify cause-effect relationships | "High lr_W → fast W learning BUT starves embedding" |
+| **Constraint** | Identify structural limits | "conn=0.489 is a data limit, not a training limit" |
 
-The 69% deduction validation rate demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space.
-:::
+### Mode Counts
 
-## Detailed Examples
+| Mode | Count | Validation | First Appearance |
+|------|:-----:|:----------:|:----------------:|
+| Boundary Probing | 65 | N/A | Iter 4 |
+| Deduction | 57 | **74%** (42/57) | Iter 5 |
+| Induction | 52 | N/A | Iter 5 |
+| Falsification | 52 | 100% refinement | Iter 9 |
+| Analogy/Transfer | 40 | 70% (28/40) | Iter 13 |
+| Causal Chain | 18 | N/A | Iter 21 |
+| Regime Recognition | 16 | N/A | Iter 13 |
+| Constraint | 10 | N/A | Iter 85 |
+| Meta-reasoning | 11 | N/A | Iter 9 |
+| Abduction | 6 | N/A | Iter 13 |
+| Uncertainty | 3 | N/A | Iter 8 |
 
-### Induction (44 instances)
+---
 
-Pattern recognition leading to general principles:
+## Key Epistemic Events by Block
 
-| Iter | Observation | Generalization |
-|------|-------------|----------------|
-| 1-8 | lr_W 2E-3, 5E-3, 1E-2 all R² > 0.99 | "Chaotic regime is easy mode" |
-| 9-16 | lr=5E-4 and lr=1E-3 both breakthrough | "Low eff_rank needs higher MLP lr" |
-| 17-24 | Dale regime tolerates 100x lr_W range | "Dale constraint doesn't add difficulty" |
-| 33-40 | All noise configs converged | "Noise is super-easy mode" |
-| 49-56 | 8/8 sparse configs failed | "ff=0.2 fundamentally unrecoverable" |
-| 81-90 | ff=0.9 needs lr_W_start≤5E-3 | "High connectivity still has upper bound" |
-| 91-100 | n=300 converges with lr_W=5E-3 | "n=300 similar tolerance to n=200" |
+### Block 1 --- Chaotic Baseline
 
-### Deduction (61 instances, 69% validated)
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 1--4 | Boundary | lr_W sweep [1E-3, 2E-3, 5E-3, 1E-2] | Maps convergence landscape |
+| 5 | Induction | lr_W=4E-3 identified as sweet spot | test_R^2^=0.996, conn=0.9999 |
+| 9 | Falsification | lr=2E-4 tested at optimal lr_W | Degrades dynamics (0.996→0.981) |
+| 11 | Induction | L1=1E-6 at low lr_W | Best dynamics (0.998) but conn partial |
+| 12 | Boundary | batch_size=16 tested | Converges but slight quality loss |
 
-Predictions from principles:
+**Principle extracted**: lr_W=4E-3 sweet spot; lr=1E-4 is optimal; batch_size=16 trades quality for speed.
 
-::: {.panel-tabset}
+### Block 2 --- Low-rank Breakthrough
 
-#### Validated
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 13 | Analogy | Transfer lr_W=4E-3 from block 1 | Connectivity OK (0.999) but dynamics poor (0.902) |
+| 14 | Falsification | factorization=True tested | HURTS (conn 0.899 vs 0.999 without) |
+| 17 | Boundary | lr_W=5E-3 without factorization | Catastrophic failure (0.385) |
+| 18 | Deduction | L1=1E-6 should help dynamics | Confirmed: 0.902→0.925 |
+| 19 | Induction | lr_W=3E-3 tested | Better dynamics (0.943) than 4E-3 |
+| 21 | **Recombination** | lr_W=3E-3 + L1=1E-6 | **BREAKTHROUGH**: test_R^2^=0.996 |
+| 24 | Falsification | batch_size=16 expected to degrade | Surprise: 0.997 (challenges principle) |
 
-| Iter | Principle Applied | Prediction | Outcome |
-|------|-------------------|------------|---------|
-| 2 | "Higher lr_W should maintain convergence" | R² > 0.9 | R² = 0.9999 |
-| 15 | "Low-rank needs higher lr" | lr=1E-3 → breakthrough | R² = 0.953 |
-| 57 | "Noise increases eff_rank" | Will rescue sparse | eff_rank 6→92 |
-| 65 | "Higher ff → higher eff_rank" | ff=0.5 viable | eff_rank = 26 |
-| 73 | "ff=0.75 should be easier than ff=0.5" | Expect R² > 0.9 | R² = 0.985 |
-| 84 | "ff=0.9 with moderate lr_W" | R² > 0.95 | R² = 0.992 |
+**Principle extracted**: L1=1E-6 is critical enabler for low-rank dynamics; lr_W optimal shifts downward at low eff_rank.
 
-#### Falsified
+### Block 3 --- Dale's Law Discovery
 
-| Iter | Principle Applied | Prediction | Outcome |
-|------|-------------------|------------|---------|
-| 10 | "Factorization helps low-rank" | Improve R² | R² dropped 0.42→0.35 |
-| 28 | "lr_W tolerance same for n_types>1" | R² > 0.9 | cluster_acc = 0.48 |
-| 62 | "Scale-up breaks plateau" | R² > 0.25 | R² unchanged at 0.20 |
-| 78 | "n=200 identical tolerance" | lr_W=4E-3 works | R² dropped below 0.9 |
-| 102 | "n=500 same as n=300" | lr_W=5E-3 works | R² degraded |
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 25 | Analogy | Transfer from block 1 | Works (conn 0.972) but eff_rank drops 35→12 |
+| 28 | Boundary | lr_W=6E-3 probed | Catastrophic failure (conn 0.555) |
+| 29--30 | Boundary | lr_W=5E-3 (two independent runs) | Both fail (0.458, 0.455) --- reproducible cliff |
+| 33 | Deduction | lr_W=4.5E-3 predicted safe | Best: conn 0.986, test_R^2^ 0.999 |
+| 36 | Falsification | lr=2E-4 at best config | Does NOT degrade --- challenges principle 1 |
 
-:::
+**Principle extracted**: Dale_law creates sharp lr_W cliff at 5E-3; safe range [3.5E-3, 4.5E-3].
 
-### Falsification (28 instances)
+### Block 4 --- Dual-Objective Conflict
 
-All falsifications led to principle refinement:
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 37 | Analogy | Transfer from block 1 | W converges but cluster_acc=0.67 |
+| 39 | Deduction | lr_emb=1E-3 should fix embedding | FULL convergence: conn 0.9996, cluster 0.990 |
+| 41 | Deduction | lr_W=5E-3 + lr_emb=1E-3 | FULL convergence confirmed (cluster 1.000) |
+| 44 | Deduction | L1=1E-6 critical for embedding | Confirmed: cluster drops 0.990→0.440 at L1=1E-5 |
+| 48 | Falsification | batch_size=16 at best config | Degrades cluster_acc (1.000→0.500) |
 
-```{mermaid}
-graph LR
-    H1[Hypothesis: factorization helps] --> T1[Test: Iter 10]
-    T1 --> F1[Result: R² dropped]
-    F1 --> P1[Principle: factorization HURTS]
+**Principle extracted**: lr_emb=1E-3 required for heterogeneous; batch_size=16 hurts dual-objective.
 
-    H2[Hypothesis: same lr_W for n_types] --> T2[Test: Iter 28]
-    T2 --> F2[Result: cluster_acc failed]
-    F2 --> P2[Principle: dual-objective conflict]
+### Block 5 --- Noise Effects
 
-    H3[Hypothesis: training fixes sparse] --> T3[Test: Iters 52-56]
-    T3 --> F3[Result: 0% converged]
-    F3 --> P3[Principle: fundamental limit]
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 49--52 | Regime | noise=[0.1, 0.5, 1.0] sweep | All converge: eff_rank 42→90 |
+| 57 | Boundary | lr_W=1E-2 at noise=0.5 | Dynamics degraded (0.707) --- upper boundary |
+| 58 | Induction | lr_W=2E-3 at noise=1.0 | Best dynamics (0.998): inverse lr_W-noise |
+| 56 | Falsification | lr=2E-4 at eff_rank=84 | Safe --- modifies principle 1 |
 
-    H4[Hypothesis: n=200 identical to n=100] --> T4[Test: Iter 78]
-    T4 --> F4[Result: lr_W boundary shifted]
-    F4 --> P4[Principle: 1/√n scaling law]
+**Principle extracted**: Noise inflates eff_rank; inverse lr_W-noise relation; lr=2E-4 safe only at eff_rank>80.
 
-    style F1 fill:#ffcccc
-    style F2 fill:#ffcccc
-    style F3 fill:#ffcccc
-    style F4 fill:#ffcccc
-    style P1 fill:#ccffcc
-    style P2 fill:#ccffcc
-    style P3 fill:#ccffcc
-    style P4 fill:#ccffcc
-```
+### Block 6 --- Scale Sensitivity (n=200)
 
-### Analogy/Transfer (15 instances, 80% success)
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 61 | Analogy | Transfer lr_W=4E-3 to n=200 | Converges (conn 0.905) but eff_rank only 43 |
+| 62 | Boundary | lr_W=2E-3 at n=200 | Fails (conn 0.575) --- boundary shifted up |
+| 67 | Deduction | lr=2E-4 safe at n=200 | Best conn (0.956) |
+| 72 | Falsification | lr=3E-4 tested at n=200 | BEST dynamics (0.952) --- challenges principle 1 |
 
-Cross-regime knowledge transfer:
+**Principle extracted**: Scale amplifies lr_W/dynamics trade-off; convergence boundary shifts upward; lr tolerance widens with n.
 
-| Source | Target | Knowledge | Outcome |
-|--------|--------|-----------|---------|
-| Blocks 1-2 | Block 3 (Dale) | lr_W=5E-3, lr=5E-4 | Perfect |
-| Blocks 2-3 | Block 4 (n_types=2) | Optimized params | Full convergence |
-| Block 5 (noise) | Block 8 (sparse+noise) | Noise rescue | eff_rank rescued |
-| Block 2+4 | Block 6 (low_rank+n_types) | Combined settings | Partial (37.5%) |
-| Block 9 (ff=0.5) | Block 10 (ff=0.75) | Sparsity scaling | Successful |
-| Block 11 (n=200) | Block 13 (n=300) | Size scaling | Partial success |
+### Block 7 --- Sparse Connectivity (ff=0.5)
 
-## Block Summary
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 73 | Regime | filling_factor=0.5 new regime | eff_rank=21, spectral_radius=0.746 (subcritical) |
+| 79 | Induction | n_epochs=2 tested | Beats all 1-epoch configs (0.423 vs 0.310) |
+| 82 | Induction | lr_W=1E-2 + 2ep | Best conn in block (0.466) |
+| 82 | Causal | training capacity is bottleneck | More training > higher lr_W |
 
-| Block | Regime | Iterations | Events | eff_rank | Key Finding |
-|-------|--------|------------|--------|----------|-------------|
-| 1 | Chaotic | 1-8 | 18 | ~34 | Easy mode established |
-| 2 | Low-rank | 9-16 | 16 | ~11 | lr breakthrough required |
-| 3 | Dale | 17-24 | 14 | ~30 | E/I constraint easy |
-| 4 | n_types=2 | 25-32 | 15 | ~34 | Dual-objective conflict |
-| 5 | Noise | 33-40 | 12 | ~83 | Super-easy mode |
-| 6 | Compound | 41-48 | 14 | ~11 | Combined difficulty |
-| 7 | Sparse | 49-56 | 18 | ~6 | Fundamental limit |
-| 8 | Sparse+Noise | 57-64 | 16 | ~92 | Noise rescues rank only |
-| 9 | ff=0.5 | 65-72 | 14 | ~26 | Intermediate viable |
-| 10 | ff=0.75 | 73-80 | 12 | ~38 | Easy transition |
-| 11 | n=200 | 81-90 | 18 | ~34 | Scale sensitivity |
-| 12 | ff=0.9 | 81-90 | 16 | ~45 | High connectivity |
-| 13 | n=300 | 91-100 | 14 | ~34 | Further scaling |
-| 14 | n=500 | 101-107 | 12 | ~34 | Boundary found |
+**Principle extracted**: Sparse connectivity is hardest regime (0% convergence); n_epochs is dominant lever; subcritical spectral radius limits dynamics.
 
-## Epistemic Metrics
+### Block 8 --- Sparse + Noise (Structural Limit)
 
-### Primary Metrics
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 85 | Constraint | noise inflates eff_rank 21→91 | But conn plateaus at 0.489 --- structural limit |
+| 86--87 | Induction | lr_W insensitivity | 2E-3 to 8E-3 all give conn=0.489 |
+| 88 | Falsification | n_epochs=1 same as n_epochs=2 | Noise removes epoch dependency |
+| 95 | Falsification | recurrent training | **Catastrophic**: conn collapsed 0.489→0.054 |
+| 96 | Meta-reasoning | recognize structural limit | 0.489 is a data limit, not training limit |
 
-| Metric | Definition | Value |
-|--------|------------|-------|
-| **HTR** | Hypothesis Test Rate (tests/iteration) | 2.16 |
-| **DA** | Deduction Accuracy | 69% |
-| **TSR** | Transfer Success Rate | 80% |
-| **CD** | Causal Depth (max chain length) | 4 |
-| **ED** | Exploration Diversity (unique params) | 18 |
+**Principle extracted**: sparse+noise creates fundamental data limit at 0.489; complete training parameter insensitivity; recurrent training catastrophic in subcritical regime.
 
-### Graph-Theoretic Metrics
+### Block 9 --- Large-Scale (n=300)
 
-The reasoning events form a directed graph:
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 97 | Analogy | Transfer from n=200 | conn 0.699 --- harder than n=200 |
+| 103 | Induction | lr_W=1E-2 optimal | Best conn at 1ep (0.805) |
+| 106 | Induction | n_epochs=2 | **BREAKTHROUGH**: conn 0.890 (+10.6%) |
+| 108 | Constraint | lr/lr_W interaction | lr=3E-4 degrades at high lr_W |
 
-| Metric | Value | Interpretation |
-|--------|-------|----------------|
-| **Nodes** | 231 | Total reasoning events |
-| **Edges** | 84 | Event dependencies |
-| **Density** | 0.16% | Very sparse, structured reasoning |
-| **Avg In-Degree** | 0.36 | Most events depend on <1 prior |
-| **Max In-Degree** | 5 | Some events integrate multiple sources |
+**Principle extracted**: n=300 requires n_epochs≥2; optimal lr_W=1E-2; dynamics cliff at ~1.2E-2.
+
+### Block 10 --- n=300 Refinement (2 epochs baseline)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 109 | Deduction | reproduce baseline | Confirmed: conn 0.893 |
+| 110 | Falsification | 3 epochs tested | Does NOT help conn (0.886 < 0.893) |
+| 112 | Induction | L1=1E-6 at n=300 | Boosts dynamics +6.8% (0.987 vs 0.924) |
+
+**Emerging**: conn ceiling ~0.89 at 10k frames; L1=1E-6 harmful only at n≤200 (revised).
+
+### Block 11 --- n=200 Solved (2--3 epochs)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 117--120 | Analogy | Transfer from block 6 + epochs insight | 100% convergence (4/4) |
+| 126 | Induction | lr_W=8E-3 optimal at 2ep | conn 0.993, test_R^2^ 0.963 |
+| 128 | Falsification | L1=1E-6 tested | Confirmed harmful at n=200 |
+
+**Principle extracted**: n=200 recipe: lr_W=8E-3, lr=2E-4, L1=1E-5, n_epochs=2--3; 100% convergence (12/12).
+
+### Block 12 --- n=600 (Training-Capacity Frontier)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 129--132 | Analogy | Transfer from n=300 recipe | conn 0.540 at 4ep --- harder than expected |
+| 137 | Induction | epochs not diminishing | 4ep→0.540, 8ep→0.580, 10ep→0.626 |
+| 135 | Constraint | lr=1E-4 catastrophic | conn=0.000 at n=600 --- lr floor discovered |
+
+**Principle extracted**: n=600 is severely training-capacity-limited at 10k frames; lr=1E-4 catastrophic; epochs NOT diminishing; needs 15--20ep or more frames.
+
+### Block 13 --- Heterogeneous at Scale (n=200, 4 types)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 145--148 | Analogy | Transfer from blocks 4+11 recipes | 100% conn convergence (4/4) |
+| 149 | **Recombination** | lr_W=8E-3 + L1=1E-5 + 3ep | **FULL DUAL CONVERGENCE** (conn=0.988, cluster=1.000) |
+| 150 | Falsification | L1=1E-6 at n=200/4types | Worse overall (conn ok but dynamics/cluster degraded) |
+| 152 | Falsification | batch_size=16 at n=200/4types | Cluster drops 0.610→0.250 --- heterogeneous batch guard confirmed |
+
+**Principle extracted**: n-dependent L1 effect overrides heterogeneous L1=1E-6 rule at n=200; recipe: lr_W=8E-3, L1=1E-5, lr_emb=1E-3, 3ep.
+
+### Block 14 --- Recurrent Training (n=200, supercritical)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 157--164 | — | 8/8 systemic failures (infrastructure) | No data; retry needed |
+| 165 | Deduction | Baseline n=200 recipe without recurrent | Confirmed: conn=0.990, matches block 11 |
+| 166 | Deduction | Recurrent=True, time_step=4 | Conn +0.3% (0.993) but **dynamics -12.3%** |
+| 167 | Boundary | Warmup (start_ep=1) + noise_rec=0.01 | Dynamics recover (+9.5%) but conn drops (-8.2%) |
+| 168 | Falsification | noise_rec=0.05 tested | Conn partial (0.772); **principle generalized: rollout noise harmful** |
+
+**Principle extracted**: Recurrent training at supercritical rho is NOT catastrophic (unlike subcritical), but creates conn-dynamics trade-off. noise_recurrent_level ceiling is 0.01.
+
+### Block 15 --- n_frames Scaling at n=300 (30k frames)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 169 | Analogy | Block 10 recipe at 30k frames | **conn=0.999** (vs 0.924 at 10k); +8.1%; **MASSIVE** |
+| 170 | Falsification | 2ep tested (block 10 required 3ep) | Converges at 0.999! **3ep requirement overturned** |
+| 171 | Analogy | n=200 recipe (lr_W=8E-3, L1=1E-5) transferred | Also 0.999; both recipes work at 30k |
+| 172 | **Falsification** | **Violate both: 2ep + L1=1E-5** | **PRINCIPLE OVERTURNED** --- neither required at 30k |
+| 175 | Induction | lr_W=5E-3 + 3ep | **BEST**: conn=1.000, test_R^2^=0.986, kino=0.985 |
+| 176 | Falsification | batch=16 tested at n=300/30k | Safe! conn=1.000; **batch guard overturned at 30k** |
+| 177 | Induction | lr_W=3E-3 + 3ep | **Pareto-optimal**: conn=1.000, test_R^2^=0.990 |
+| 178 | Boundary | lr_W=2E-2 probed | Still converges (0.999); safe range extends to 2E-2 |
+
+**Principle extracted**: n_frames is the DOMINANT lever; 30k frames makes ALL training parameters non-critical at n=300; eff_rank doubles (47→80); previous n=300 principles (3ep, L1=1E-6, batch≤8) are n_frames-specific.
+
+### Block 16 --- n=600 at 30k Frames
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 181 | Analogy | Block 12 recipe at 30k frames | **CONVERGED at 0.973** (vs 0.626 at 10k/10ep) |
+| 183 | **Recombination** | lr_W=5E-3 + batch=16 (block 15 pattern) | **Pareto-dominant**: conn=0.976, test_R^2^=0.943 |
+| 184 | Deduction | 2ep at 30k should suffice (principle #37) | Confirmed: conn=0.967 with only 2ep |
+| 185 | Falsification | lr_W=3E-3 (n=300/30k optimal) at n=600 | Worse (0.933); n=300 optimal does NOT transfer |
+| 186 | Induction | lr_W=5E-3 + 4ep | **BEST conn=0.992**; 4ep substantially boosts W |
+| 188 | Falsification | L1=1E-6 vs 1E-5 at n=600/30k | L1=1E-6 marginally better (+0.6%); sensitivity vanishes |
+
+**Principle extracted**: n_frames dominance scales to n=600; 100% convergence (8/8); lr_W=5E-3 optimal (shifted from 1E-2 at 10k); eff_rank=87; L1 sensitivity vanishes at abundant data.
+
+### Block 17 --- Sparse 50% at 30k Frames (Confirmed Unsolvable)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 193 | Analogy | Transfer n=300/30k recipe to sparse | conn=0.320 --- **WORSE** than 10k (0.466) |
+| 195 | **Falsification** | n_frames should rescue sparse | **OVERTURNED**: eff_rank DROPS 21→13; 0% convergence |
+| 197 | Constraint | subcritical rho immune to n_frames | Structural: rho=0.746 constrains eff_rank regardless of data |
+| 201 | Induction | two-phase training only positive signal | +15% marginal but insufficient (0.436 best) |
+| 204 | Meta-reasoning | close sparse investigation | subcritical spectral radius is the ONLY unsolvable axis |
+
+**Principle extracted**: n_frames does NOT rescue subcritical spectral radius; sparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21); two-phase training gives marginal +15%.
+
+### Block 18 --- n=1000 at 30k Frames (Scale Frontier)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 205 | Boundary | n=1000 at 30k frames | eff_rank=144; conn=0.726; 0% convergence |
+| 209 | Induction | lr=1E-4 Pareto-better at n=1000 | conn=0.745 + test_R^2^=0.829 vs lr=2E-4's 0.734/0.588 |
+| 212 | Constraint | 30k insufficient for n=1000 | Needs ~100k frames (user prior confirmed) |
+| 214 | Induction | epoch scaling is lr-dependent | lr=2E-4 REVERSAL at 10ep; lr=1E-4 steady improvement |
+| 216 | Causal | higher lr amplifies overtraining at large n | lr=2E-4 overshoots at 10ep while lr=1E-4 is safe |
+
+**Principle extracted**: n=1000/30k is insufficient (needs ~100k); lr=1E-4 definitively Pareto-better; eff_rank scales superlinearly with n at 30k; epoch scaling is lr-dependent.
+
+### Block 19 --- Low Gain g=3 (n=100, New Difficulty Axis)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 217 | **Regime** | gain=3 identified as new difficulty axis | eff_rank 35→26; rho=1.065 (supercritical); 4/4 degenerate at 1ep |
+| 219 | Induction | n_epochs dominant lever | 1ep→0.636, 2ep→0.906, 3ep→0.955 |
+| 221 | Boundary | no lr_W cliff up to 1.2E-2 | Unlike g=7 cliff at 8E-3; lower gain shifts cliff higher |
+| 224 | Falsification | batch=16 at g=3 | Catastrophic: -42%; low gain amplifies batch sensitivity |
+| 228 | Induction | g=3 recipe established | lr_W=8E-3, 3ep → conn=0.955 |
+
+**Principle extracted**: gain=3 reduces eff_rank 35→26; training-limited like large n; no lr_W cliff; batch=16 and L1=1E-6 catastrophic; n_epochs is dominant lever.
+
+### Block 20 --- Low Gain g=3 at Scale (n=200, 10k)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 229 | **Deduction** | gain × n should compound | Confirmed: 0% convergence, max conn=0.489 at 6ep |
+| 233 | Constraint | epoch scaling diminishing at 4--6ep | Need alternative lever (n_frames predicted) |
+| 236 | Induction | lr_W and epochs substitutable | lr_W=2E-2/3ep matches lr_W=1.2E-2/4ep |
+| 240 | Falsification | batch=16 tested at g=3/n=200 | Catastrophic: -21%; batch guard confirmed at low gain |
+
+**Principle extracted**: gain × n compounds super-additively; 0% convergence at 10k/6ep; universal degeneracy (12/12); batch=16 catastrophic; needs 30k frames.
+
+### Block 21 --- Low Gain g=3 Rescued by 30k Frames (n=200)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 241 | **Analogy** | 30k frames should rescue g=3/n=200 | **CONFIRMED**: conn=0.993 at first attempt |
+| 245 | Induction | Pareto-optimal recipe found | lr_W=4E-3, 2ep → conn=0.996, test_R^2^=0.999 |
+| 248 | Induction | eff_rank increases +80% at 30k | 31→53--57; same pattern as other regimes |
+| 251 | **Falsification** | batch=16 at g=3/30k | **Safe** (-0.4%); overturns block 20's batch catastrophe |
+| 252 | Induction | ALL params non-critical at g=3/30k | No lr_W cliff to 3E-2; gain is NOT an independent unsolvable axis |
+
+**Principle extracted**: 30k frames rescues g=3/n=200 (0%→100%); gain is SOLVABLE by n_frames; batch=16 safe at 30k; all params non-critical; n_frames is the universal solver.
+
+### Block 22 --- Partial Connectivity fill=80% (n=100, 10k)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 253 | **Regime** | fill=80% is intermediate regime | eff_rank=36 (same as 100%); rho=0.985 (near-critical) |
+| 255 | **Constraint** | conn plateau at ~0.802 | COMPLETE parameter insensitivity; 0/12 degenerate |
+| 259 | Induction | conn_ceiling scales linearly with fill | fill=50%→0.49, 80%→0.80, 100%→1.00 |
+| 261 | Induction | sharp transition from 50% to 80% | rho 0.746→0.985; eff_rank 21→36 |
+| 264 | Deduction | n_frames should rescue fill=80% | rho near-critical → predict yes (unlike subcritical 50%) |
+
+**Principle extracted**: fill=80% creates conn plateau at ~0.802 with complete param insensitivity; conn_ceiling approximates filling_factor; sharp rho transition between 50--80%.
+
+### Block 23 --- fill=80% at 30k Frames (4 iterations completed)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 265 | **Falsification** | 30k should break fill=80% plateau | **OVERTURNED**: conn=0.802 identical to 10k |
+| 266 | Constraint | conn is structurally locked at fill% | lr_W 2E-3 to 1.2E-2 all give conn=0.802 |
+| 267 | Induction | dynamics and conn decoupled at fill=80% | kino_R^2^ 0.783--0.999 but conn always 0.802 |
+| 268 | Constraint | conn_ceiling at filling_factor confirmed at 30k | Second regime (after sparse) where n_frames does NOT rescue |
+
+**Principle extracted**: 30k frames does NOT break fill=80% conn plateau; conn_ceiling at filling_factor holds at both 10k and 30k; this is the second structural limit alongside subcritical spectral radius.
+
+---
 
 ## Causal Chains
 
@@ -199,63 +362,173 @@ Key multi-step causal chains discovered:
 
 ```{mermaid}
 graph TD
-    A[low eff_rank observed] -->|leads_to| B[convergence failure]
-    B -->|triggers| C[lr boost hypothesis]
-    C -->|leads_to| D[lr=1E-3 test]
-    D -->|refines| E[low-rank principle established]
+    A[low eff_rank observed<br/>iter 13] -->|leads_to| B[dynamics failure at L1=1E-5<br/>iter 18]
+    B -->|triggers| C[L1 reduction hypothesis<br/>iter 18]
+    C -->|leads_to| D[L1=1E-6 + lr_W=3E-3 test<br/>iter 21]
+    D -->|refines| E[low-rank principle established<br/>BREAKTHROUGH]
 
-    F[sparse ff=0.2] -->|leads_to| G[eff_rank collapse]
-    G -->|triggers| H[noise addition hypothesis]
-    H -->|leads_to| I[eff_rank rescue ~92]
-    I -->|refines| J[W signal masked]
+    F[Dale eff_rank=12<br/>iter 25] -->|leads_to| G[lr_W=5E-3 cliff<br/>iters 29-30]
+    G -->|triggers| H[narrow range hypothesis]
+    H -->|leads_to| I[safe range mapped: 3.5-4.5E-3<br/>iter 33]
+    I -->|refines| J[Dale cliff principle]
+
+    K[sparse subcritical<br/>iter 73] -->|triggers| L[n_epochs exploration<br/>iter 79]
+    L -->|leads_to| M[training capacity bottleneck<br/>iter 82]
+    M -->|triggers| N[n=300 epochs=2 breakthrough<br/>iter 106]
+
+    O[n=300 conn ceiling ~0.92<br/>block 10] -->|triggers| P[n_frames hypothesis<br/>block 15]
+    P -->|leads_to| Q[n=300/30k 100% convergence<br/>iter 177]
+    Q -->|triggers| R[n=600/30k test<br/>block 16]
+    R -->|leads_to| S[n=600 SOLVED: conn=0.992<br/>iter 186]
+
+    S -->|triggers| T[sparse 50% at 30k test<br/>block 17]
+    T -->|leads_to| U[eff_rank DROPS 21→13<br/>iter 195]
+    U -->|refines| V[subcritical rho immune to n_frames<br/>STRUCTURAL LIMIT]
+
+    S -->|triggers| W[gain=3 identified as axis<br/>block 19]
+    W -->|leads_to| X[g=3/n=200 0% conv<br/>block 20]
+    X -->|triggers| Y[30k frames test for g=3<br/>block 21]
+    Y -->|leads_to| Z[g=3/n=200 SOLVED: conn=0.996<br/>iter 245]
+
+    AA[fill=80% conn=0.802<br/>block 22] -->|triggers| AB[30k test for fill=80%<br/>block 23]
+    AB -->|leads_to| AC[conn=0.802 unchanged<br/>iter 265]
+    AC -->|refines| AD[conn_ceiling ≈ filling_factor<br/>STRUCTURAL LIMIT]
 
     style A fill:#e3f2fd
     style E fill:#c8e6c9
     style F fill:#e3f2fd
-    style J fill:#ffcdd2
+    style J fill:#c8e6c9
+    style K fill:#e3f2fd
+    style N fill:#c8e6c9
+    style O fill:#e3f2fd
+    style S fill:#c8e6c9
+    style V fill:#ffcdd2
+    style Z fill:#c8e6c9
+    style AD fill:#ffcdd2
 ```
+
+---
+
+## Validation Rates
+
+| Mode | Count | Validated | Rate | Significance |
+|------|:-----:|:---------:|:----:|:-------------|
+| Deduction | 57 | 42 | **74%** | Well above chance (50%) |
+| Analogy | 40 | 28 | **70%** | Good transfer success |
+| Falsification | 52 | 52 | **100%** | All led to refinement |
+
+::: {.callout-important}
+## Key Insight
+
+The 74% deduction validation rate across 57 predictions demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across 40 cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7--8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15--16 and 19--21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), and blocks 22--23 demonstrate a new structural limit discovery (conn_ceiling at filling_factor). The system can now distinguish three classes of difficulty: solvable by n_frames (large n, low gain), solvable by training (small n, high gain), and structurally unsolvable (subcritical rho, partial connectivity ceiling).
+:::
+
+---
 
 ## Principles Discovered
 
-Twelve key principles discovered through systematic reasoning:
+Sixty-four key principles discovered through systematic reasoning across 23 regimes:
 
 | # | Principle | Evidence | Confidence |
-|---|-----------|----------|------------|
-| 1 | **eff_rank determines difficulty** | 14 blocks, consistent | 97% |
-| 2 | Chaotic (eff_rank~34) is "easy mode" | Block 1: 100%, 5x lr_W | 92% |
-| 3 | Low-rank requires lr=1E-3 | Blocks 2,6: breakthrough | 87% |
-| 4 | low_rank_factorization=True HURTS | 3 tests, all degraded | 82% |
-| 5 | Dale's law ≠ increased difficulty | Block 3: 100% converged | 87% |
-| 6 | Noise INCREASES eff_rank | 34→83, 6→92 | 92% |
-| 7 | spectral_radius<0.7 → collapse | Block 7: 0% | 87% |
-| 8 | **Sparse (ff<0.3) unrecoverable** | 16/16 failed | 97% |
-| 9 | High lr_W starves embedding | Block 4: cluster_acc ↓ | 82% |
-| 10 | lr_emb compensates for L1 | 1E-4 restores cluster | 77% |
-| 11 | Noise masks W signal in sparse | 8/8 plateau R²~0.20 | 87% |
-| 12 | **lr_W tolerance scales as 1/√n** | n=200,300,500 tested | 72% |
+|---|-----------|----------|:----------:|
+| 1 | **lr=1E-4 optimal (base)** | Blocks 1, 3; modified by eff_rank | 85% |
+| 2 | **Convergence boundary lr_W~2E-3** | Blocks 1--3 | 85% |
+| 3 | **L1=1E-6 critical for low_rank** | Block 2 breakthrough | 92% |
+| 4 | **factorization hurts** | Block 2 | 55% |
+| 5 | **lr_W depends on regime** | All blocks | 100% |
+| 6 | **Dale cliff at 5E-3** | Block 3 | 72% |
+| 7 | **Dale reduces eff_rank** | Block 3 | 45% |
+| 8 | **batch_size=16 hurts complex regimes** | Blocks 2--4 | 77% |
+| 9 | **lr_emb coupled to lr_W** | Block 4 | 60% |
+| 10 | **lr_W=5E-3 for dual-objective** | Block 4 | 55% |
+| 11 | **Heterogeneous increases eff_rank** | Block 4 | 45% |
+| 12 | **Noise inflates eff_rank** | Block 5 | 72% |
+| 13 | **Inverse lr_W-noise relation** | Block 5 | 72% |
+| 14 | **Rollout anti-correlates with noise** | Block 5 | 55% |
+| 15 | **eff_rank scales sub-linearly with n** | Blocks 6, 9 | 72% |
+| 16 | **Dynamics cliff scales non-linearly** | Blocks 1, 6, 9 | 85% |
+| 17 | **lr tolerance widens with n** | Blocks 6, 9 | 72% |
+| 18 | **Sparse reduces eff_rank, makes subcritical** | Block 7 | 55% |
+| 19 | **n_epochs dominant in sparse (without noise)** | Block 7 | 72% |
+| 20 | **Noise removes n_epochs dependency in sparse** | Block 8 | 55% |
+| 21 | **Recurrent training catastrophic in subcritical** | Block 8 | 55% |
+| 22 | **Sparse 50% conn~0.49 structural data limit** | Block 8 | 85% |
+| 23 | **n=300 requires n_epochs>=2** | Block 9 | 72% |
+| 24 | **lr tolerance narrows at high lr_W** | Block 9 | 55% |
+| 25 | **n=300 conn ceiling ~0.89 at 10k frames** | Block 10 | 72% |
+| 26 | **n=200 dense chaotic 100% convergence** | Block 11 | 92% |
+| 27 | **n=600 requires >10 epochs** | Block 12 | 55% |
+| 28 | **L1=1E-6 beneficial at n>=300** | Blocks 10--11 | 72% |
+| 29 | **n_types=4 + n=200 converges at 100%** | Block 13 | 85% |
+| 30 | **n=200/4types recipe: lr_W=8E-3, L1=1E-5, 3ep** | Block 13 | 85% |
+| 31 | **lr_emb ceiling at n=200/4types is 1E-3** | Block 13 | 72% |
+| 32 | **Heterogeneous lr_W scales with n like homogeneous** | Blocks 4, 13 | 72% |
+| 33 | **Recurrent at supercritical: conn-dynamics trade-off** | Block 14 | 55% |
+| 34 | **Recurrent warmup shifts capacity from W to MLP** | Block 14 | 55% |
+| 35 | **noise_recurrent_level ceiling is 0.01** | Block 14 | 55% |
+| 36 | **Recurrent NOT catastrophic at supercritical rho** | Blocks 8, 14 | 72% |
+| 37 | **n_frames is DOMINANT lever for large n** | Blocks 15, 16 | 92% |
+| 38 | **At high n_frames, dynamics-optimal lr_W is LOWER** | Blocks 15, 16 | 85% |
+| 39 | **aug_loop=20 preserves conn but costs ~6% dynamics** | Blocks 15, 16 | 72% |
+| 40 | **At high n_frames, all training params non-critical** | Blocks 15, 16 | 85% |
+| 41 | **n_frames doubles eff_rank: n=300 47→80, n=600 50→87** | Blocks 15, 16 | 92% |
+| 42 | **n=600/30k recipe: lr_W=5E-3, lr=2E-4, L1=1E-5, batch=16, 5ep** | Block 16 | 85% |
+| 43 | **n_frames rescues ALL param catastrophes EXCEPT subcritical sparse** | Blocks 15--17 | 92% |
+| 44 | **dynamics-optimal lr_W inversely scales with n_frames** | Blocks 15, 16 | 85% |
+| 45 | **sparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21)** | Block 17 | 72% |
+| 46 | **sparse 50% has complete parameter insensitivity** | Blocks 7, 8, 17 | 92% |
+| 47 | **two-phase training only marginal signal in sparse (+15%)** | Block 17 | 55% |
+| 48 | **n=1000/30k insufficient — max conn=0.745; needs ~100k** | Block 18 | 72% |
+| 49 | **lr=1E-4 Pareto-better at n=1000/30k** | Block 18 | 72% |
+| 50 | **eff_rank scales superlinearly with n at 30k** | Blocks 15, 16, 18 | 72% |
+| 51 | **epoch scaling at large n is lr-dependent** | Block 18 | 55% |
+| 52 | **dynamics variance increases with n** | Block 18 | 55% |
+| 53 | **low gain (g=3) is independent difficulty axis** | Block 19 | 72% |
+| 54 | **gain modulates lr_W cliff position** | Blocks 1, 19, 20 | 72% |
+| 55 | **g=3/n=100 recipe: lr_W=8E-3, 3ep → conn=0.955** | Block 19 | 72% |
+| 56 | **gain × n compounds difficulty super-additively** | Blocks 19, 20 | 85% |
+| 57 | **g=3 eliminates lr_W cliff across n** | Blocks 19, 20 | 72% |
+| 58 | **batch=16 catastrophic at low gain AT 10k only** | Blocks 19--21 | 72% |
+| 59 | **30k frames rescues g=3/n=200 (0%→100%)** | Block 21 | 92% |
+| 60 | **g=3/30k lr tolerance wider than g=7/30k** | Blocks 15, 21 | 55% |
+| 61 | **g=3/n=200/30k recipe: lr_W=4E-3, 2ep → conn=0.996** | Block 21 | 85% |
+| 62 | **fill=80% creates conn plateau at ~0.802** | Block 22 | 85% |
+| 63 | **filling_factor transition 50%→80% is sharp** | Blocks 7, 17, 22 | 72% |
+| 64 | **conn_ceiling scales linearly with filling_factor** | Blocks 1, 7, 22, 23 | 85% |
 
-## Summary
+---
 
-The epistemic analysis reveals that the LLM demonstrates **genuine scientific reasoning**:
+## Block Summary
 
-1. **Structured exploration**: 231 events across 14 blocks with clear dependencies
-2. **Predictive power**: 69% deduction accuracy (well above chance)
-3. **Knowledge transfer**: 80% analogy success rate
-4. **Principle discovery**: 12 novel, validated findings with quantified confidence
-5. **Self-correction**: 100% of falsifications led to refinement
+| Block | Regime | n_frames | n_neurons | Iterations | eff_rank | Convergence | Key Finding |
+|-------|--------|:--------:|:---------:|:----------:|:--------:|:-----------:|:------------|
+| 1 | Chaotic | 10k | 100 | 1--12 | ~35 | 92% | Easy mode: lr_W=4E-3 sweet spot |
+| 2 | Low-rank | 10k | 100 | 13--24 | ~12--14 | 75% | L1=1E-6 breakthrough |
+| 3 | Dale | 10k | 100 | 25--36 | ~12 | 67% | Sharp lr_W cliff at 5E-3 |
+| 4 | Heterogeneous | 10k | 100 | 37--48 | ~38 | 75% | Dual-objective; lr_emb=1E-3 required |
+| 5 | Noise | 10k | 100 | 49--60 | 42--90 | 100% | Inverse lr_W-noise relation |
+| 6 | Scale | 10k | 200 | 61--72 | ~41--44 | 67% | Trade-offs amplified; lr=3E-4 safe |
+| 7 | Sparse 50% | 10k | 100 | 73--84 | ~21 | **0%** | Hardest regime; n_epochs key lever |
+| 8 | Sparse+Noise | 10k | 100 | 85--96 | ~91 | **0%** | Structural data limit (0.489) |
+| 9 | n=300 | 10k | 300 | 97--108 | ~44--47 | **0%** | n_epochs=2 breakthrough (0.890) |
+| 10 | n=300 2ep | 10k | 300 | 109--116 | ~44--47 | 25% | Near-convergence; conn=0.924 |
+| 11 | n=200 v2 | 10k | 200 | 117--128 | ~43 | 100% | Dense chaotic confirmed easy |
+| 12 | n=600 | 10k | 600 | 129--140 | ~50 | **0%** | R^2^=0.63; needs more epochs |
+| 13 | n=200 + 4 types | 10k | 200 | 141--156 | ~42--44 | **100%** conn | Full dual convergence; L1=1E-5 > 1E-6 |
+| 14 | Recurrent | 10k | 200 | 157--168 | ~42--44 | 75% (3/4) | Conn-dynamics trade-off; 8/12 infra failures |
+| 15 | **n=300 (30k)** | **30k** | 300 | 169--180 | **79--80** | **100%** | **n_frames transformative; all params non-critical** |
+| 16 | **n=600 (30k)** | **30k** | 600 | 181--192 | **85--87** | **100%** (8/8) | **n_frames solves n=600; lr_W=5E-3 optimal** |
+| 17 | **Sparse 50% (30k)** | **30k** | 100 | 193--204 | **13** | **0%** | **n_frames does NOT rescue; eff_rank DROPS** |
+| 18 | **n=1000 (30k)** | **30k** | 1000 | 205--216 | **144** | **0%** | **30k insufficient; needs ~100k; lr=1E-4 Pareto** |
+| 19 | **g=3 (n=100)** | 10k | 100 | 217--228 | **26** | 42% | **Gain as new difficulty axis; n_epochs dominant** |
+| 20 | **g=3 (n=200)** | 10k | 200 | 229--240 | **31** | **0%** | **Gain × n compounds; universal degeneracy** |
+| 21 | **g=3/n=200 (30k)** | **30k** | 200 | 241--252 | **53--57** | **100%** | **30k rescues gain; all params non-critical** |
+| 22 | **fill=80% (10k)** | 10k | 100 | 253--264 | **36** | **0%** | **Conn plateau at 0.802; param insensitivity** |
+| 23 | **fill=80% (30k)** | **30k** | 100 | 265--268+ | **48--49** | **0%** (0/4) | **30k does NOT break plateau; conn ≈ fill%** |
 
-This supports the claim that LLMs can act as **active scientific agents** rather than mere pattern matchers.
-
-## Detailed Analysis Files
-
-For complete records, see:
-
-- [Epistemic Analysis Summary](signal_landscape_Claude_epistemic_analysis.md) - Main analysis with all 231 events
-- [Detailed Event Log](signal_landscape_Claude_epistemic_detailed.md) - Exhaustive list by reasoning mode
-- [Causal Edge Documentation](signal_landscape_Claude_epistemic_edges.md) - 84 causal relationships
+---
 
 ## Next Pages
 
-- [Results](results.qmd) - Detailed experimental findings
-- [GNN Model](gnn-model.qmd) - Architecture details
-- [Architecture](architecture.qmd) - System overview
+- [Results](results.qmd) --- Detailed experimental findings
+- [Exploration](exploration-gallery.qmd) --- Visual record

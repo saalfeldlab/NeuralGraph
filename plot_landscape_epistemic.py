@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Visualize epistemic reasoning timeline from signal_landscape_Claude experiment.
-107 iterations across 14 blocks.
+112 iterations across 10 blocks (parallel run).
 """
 
 import matplotlib
@@ -44,401 +44,288 @@ DEFINITIONS = {
 }
 
 # Events from signal_landscape_Claude_epistemic_detailed.md
-# 107 iterations, 14 blocks
+# 112 iterations, 10 blocks (parallel run)
 events = [
-    # Block 1: Chaotic baseline (iters 1-8)
-    (4, 'Induction', 'Medium'),
-    (4, 'Deduction', 'High'),
-    (4, 'Boundary', 'Medium'),
-    (5, 'Boundary', 'Medium'),
-    (5, 'Meta-reasoning', 'Medium'),
-    (6, 'Boundary', 'Medium'),
-    (7, 'Deduction', 'Medium'),
-    (7, 'Boundary', 'Medium'),
-    (8, 'Induction', 'High'),
-    (8, 'Deduction', 'Medium'),
-    (8, 'Falsification', 'High'),
+    # Block 1: Chaotic baseline (iters 1-12)
+    (4, 'Boundary', 'Medium'),       # lr_W=1E-3 lower boundary mapped
+    (5, 'Induction', 'High'),        # lr_W=4E-3 sweet spot identified
+    (5, 'Deduction', 'High'),        # predicted optimal confirmed
+    (7, 'Boundary', 'Medium'),       # lr_W=1.5E-3 convergence threshold
+    (8, 'Boundary', 'Medium'),       # lr_W=8E-3 upper range explored
+    (8, 'Uncertainty', 'Medium'),    # stochastic variation at lr_W=8E-3
+    (9, 'Deduction', 'High'),        # lr=2E-4 predicted to help
+    (9, 'Falsification', 'High'),    # lr=2E-4 degrades dynamics
+    (9, 'Meta-reasoning', 'High'),   # switch from lr_W to other dimensions
+    (11, 'Induction', 'Medium'),     # L1=1E-6 best dynamics at low lr_W
+    (12, 'Induction', 'Medium'),     # batch_size=16 quality trade identified
+    (12, 'Boundary', 'Medium'),      # batch_size limit probed
 
-    # Block 2: Low-rank (iters 9-16)
-    (9, 'Abduction', 'High'),
-    (9, 'Regime', 'High'),
-    (10, 'Deduction', 'High'),
-    (10, 'Falsification', 'High'),
-    (10, 'Abduction', 'Medium'),
-    (11, 'Deduction', 'Medium'),
-    (11, 'Induction', 'Medium'),
-    (12, 'Deduction', 'High'),
-    (12, 'Falsification', 'High'),
-    (12, 'Boundary', 'High'),
-    (12, 'Constraint', 'High'),
-    (14, 'Meta-reasoning', 'Medium'),
-    (14, 'Falsification', 'Medium'),
-    (15, 'Deduction', 'High'),
-    (15, 'Causal Chain', 'High'),
-    (15, 'Abduction', 'High'),
-    (16, 'Deduction', 'Medium'),
-    (16, 'Induction', 'High'),
+    # Block 2: Low-rank (iters 13-24)
+    (13, 'Analogy', 'High'),         # transfer lr_W=4E-3 from block 1
+    (13, 'Abduction', 'High'),       # eff_rank=13 hypothesis for dynamics gap
+    (13, 'Regime', 'High'),          # eff_rank=13 vs 35, sub-critical (0.952)
+    (14, 'Falsification', 'High'),   # factorization=True hurts
+    (15, 'Deduction', 'Medium'),     # factorization at 8E-3 still underperforms
+    (16, 'Boundary', 'Medium'),      # lr_W=2E-3 lower boundary in low_rank
+    (17, 'Boundary', 'High'),        # lr_W=5E-3 catastrophic failure (0.385)
+    (17, 'Falsification', 'High'),   # lr_W=5E-3 without factorization fails
+    (17, 'Abduction', 'Medium'),     # stochastic failure vs unstable point?
+    (18, 'Analogy', 'High'),         # L1 transfer from block 1
+    (18, 'Deduction', 'High'),       # L1=1E-6 should help dynamics
+    (18, 'Meta-reasoning', 'High'),  # switch from factorization to L1
+    (19, 'Induction', 'High'),       # lr_W=3E-3 BETTER dynamics (surprise)
+    (19, 'Abduction', 'Medium'),     # lower eff_rank needs gentler lr_W
+    (20, 'Analogy', 'Medium'),       # convergence boundary transfer test
+    (20, 'Deduction', 'Medium'),     # boundary should hold in low_rank
+    (20, 'Boundary', 'Medium'),      # lr_W=1.5E-3 partial in low_rank
+    (21, 'Induction', 'High'),       # BREAKTHROUGH: 3E-3 + L1=1E-6 -> 0.996
+    (21, 'Meta-reasoning', 'High'),  # recombination strategy
+    (21, 'Causal Chain', 'High'),    # lr_W + L1 combined effect
+    (22, 'Boundary', 'Medium'),      # lr_W=3.5E-3 dynamics cliff
+    (22, 'Uncertainty', 'Medium'),   # stochastic variation
+    (23, 'Boundary', 'Medium'),      # lr_W=2.5E-3 below optimal zone
+    (24, 'Falsification', 'Medium'), # batch=16 surprise: 0.997 (challenges)
+    (24, 'Induction', 'Medium'),     # batch=16 + L1=1E-6 synergy
 
-    # Block 3: Dale's law (iters 17-24)
-    (17, 'Analogy', 'High'),
-    (17, 'Deduction', 'High'),
-    (17, 'Abduction', 'High'),
-    (17, 'Regime', 'High'),
-    (17, 'Falsification', 'High'),
-    (18, 'Deduction', 'High'),
-    (19, 'Deduction', 'High'),
-    (19, 'Boundary', 'Medium'),
-    (19, 'Induction', 'Medium'),
-    (20, 'Deduction', 'High'),
-    (20, 'Boundary', 'Medium'),
-    (21, 'Boundary', 'Medium'),
-    (22, 'Deduction', 'High'),
-    (22, 'Boundary', 'Medium'),
-    (23, 'Boundary', 'Medium'),
-    (24, 'Deduction', 'High'),
-    (24, 'Boundary', 'High'),
-    (24, 'Induction', 'High'),
+    # Block 3: Dale's law (iters 25-36)
+    (25, 'Analogy', 'High'),         # transfer from block 1
+    (25, 'Regime', 'High'),          # Dale reduces eff_rank 35->12
+    (26, 'Analogy', 'Medium'),       # L1 transfer from block 2
+    (26, 'Deduction', 'Medium'),     # L1=1E-6 marginal in Dale
+    (27, 'Analogy', 'Medium'),       # lr_W=3E-3 from block 2
+    (27, 'Deduction', 'Medium'),     # 3E-3 underperforms in Dale
+    (28, 'Boundary', 'High'),        # lr_W=6E-3 catastrophic (0.555)
+    (29, 'Boundary', 'High'),        # lr_W=5E-3 fails (0.458)
+    (29, 'Falsification', 'High'),   # cliff is tighter than expected
+    (30, 'Boundary', 'High'),        # lr_W=5E-3 second run (0.455) reproducible
+    (30, 'Induction', 'High'),       # cliff is reproducible, not stochastic
+    (31, 'Boundary', 'Medium'),      # lr_W=3.5E-3 good balance
+    (32, 'Falsification', 'Medium'), # L1 can't rescue 6E-3
+    (33, 'Deduction', 'High'),       # 4.5E-3 predicted safe -> confirmed
+    (33, 'Induction', 'High'),       # safe range expanded to [3.5, 4.5E-3]
+    (33, 'Causal Chain', 'High'),    # Dale -> eff_rank -> lr_W cliff
+    (34, 'Falsification', 'Medium'), # batch=16 hurts Dale connectivity
+    (35, 'Induction', 'Medium'),     # L1 negligible at lr_W=3.5E-3 in Dale
+    (36, 'Deduction', 'Medium'),     # lr=2E-4 tested in Dale
+    (36, 'Falsification', 'High'),   # lr=2E-4 WORKS -> challenges principle 1
 
-    # Block 4: Heterogeneous n_types=2 (iters 25-32)
-    (25, 'Analogy', 'High'),
-    (25, 'Deduction', 'High'),
-    (27, 'Deduction', 'Medium'),
-    (27, 'Boundary', 'Medium'),
-    (27, 'Induction', 'Medium'),
-    (28, 'Deduction', 'High'),
-    (28, 'Falsification', 'High'),
-    (28, 'Abduction', 'High'),
-    (28, 'Boundary', 'High'),
-    (28, 'Causal Chain', 'High'),
-    (28, 'Constraint', 'High'),
-    (29, 'Deduction', 'High'),
-    (29, 'Boundary', 'Medium'),
-    (30, 'Abduction', 'Medium'),
-    (30, 'Falsification', 'Medium'),
-    (31, 'Deduction', 'High'),
-    (31, 'Abduction', 'Medium'),
-    (31, 'Causal Chain', 'Medium'),
-    (31, 'Analogy', 'Medium'),
-    (32, 'Deduction', 'High'),
-    (32, 'Induction', 'High'),
+    # Block 4: Heterogeneous n_types=4 (iters 37-48)
+    (37, 'Analogy', 'High'),         # transfer from block 1
+    (37, 'Abduction', 'High'),       # embedding failure hypothesis
+    (37, 'Regime', 'High'),          # n_types=4 dual-objective
+    (39, 'Deduction', 'High'),       # lr_emb=1E-3 predicted to fix embedding
+    (39, 'Induction', 'High'),       # FULL convergence: conn 0.9996
+    (40, 'Boundary', 'Medium'),      # lr_W=1E-3 fails completely
+    (41, 'Deduction', 'High'),       # lr_W=5E-3 predicted to work
+    (41, 'Meta-reasoning', 'Medium'), # dual-objective strategy
+    (42, 'Falsification', 'High'),   # lr_emb=1E-3 overshoots at low lr_W
+    (42, 'Abduction', 'Medium'),     # lr_W/lr_emb coupling hypothesis
+    (43, 'Falsification', 'Medium'), # lr_W=3E-3 underperforms for n_types=4
+    (44, 'Deduction', 'High'),       # L1=1E-6 critical for embedding
+    (44, 'Induction', 'High'),       # L1=1E-6 extends beyond low_rank
+    (44, 'Causal Chain', 'High'),    # L1 -> embedding mechanism
+    (45, 'Boundary', 'Medium'),      # lr_W=6E-3 degrades embedding
+    (47, 'Boundary', 'Medium'),      # lr_W=4.5E-3 intermediate
+    (48, 'Falsification', 'High'),   # batch=16 degrades heterogeneous
 
-    # Block 5: Noise (iters 33-40)
-    (33, 'Analogy', 'High'),
-    (33, 'Deduction', 'High'),
-    (33, 'Abduction', 'High'),
-    (33, 'Regime', 'High'),
-    (33, 'Causal Chain', 'High'),
-    (33, 'Predictive', 'High'),
-    (33, 'Induction', 'High'),
-    (34, 'Deduction', 'High'),
-    (34, 'Induction', 'Medium'),
-    (36, 'Deduction', 'High'),
-    (36, 'Boundary', 'Medium'),
-    (38, 'Deduction', 'High'),
-    (38, 'Boundary', 'Medium'),
-    (39, 'Boundary', 'Medium'),
-    (39, 'Induction', 'Medium'),
-    (40, 'Deduction', 'High'),
-    (40, 'Boundary', 'High'),
-    (40, 'Induction', 'High'),
-    (40, 'Regime', 'High'),
+    # Block 5: Noise (iters 49-60)
+    (49, 'Analogy', 'High'),         # transfer from block 1
+    (49, 'Regime', 'High'),          # noise=0.5 eff_rank=84
+    (50, 'Regime', 'Medium'),        # noise=1.0 eff_rank=90
+    (51, 'Induction', 'High'),       # noise increases eff_rank pattern
+    (51, 'Regime', 'Medium'),        # noise=0.1 eff_rank=42
+    (52, 'Analogy', 'Medium'),       # L1 principle test with noise
+    (52, 'Falsification', 'Medium'), # L1=1E-6 NOT beneficial n_types=1+noise
+    (53, 'Boundary', 'Medium'),      # lr_W=8E-3 works at noise=0.5
+    (54, 'Deduction', 'High'),       # lr_W=6E-3 at noise=1.0 overshoots
+    (55, 'Boundary', 'Medium'),      # lr_W=2E-3 at noise=0.1, best rollout
+    (55, 'Induction', 'High'),       # low noise preserves rollout
+    (56, 'Deduction', 'High'),       # lr=2E-4 safe at eff_rank=84
+    (56, 'Falsification', 'High'),   # contradicts principle 1 at high eff_rank
+    (57, 'Boundary', 'High'),        # lr_W=1E-2 degrades dynamics severely
+    (57, 'Falsification', 'High'),   # upper lr_W boundary established
+    (58, 'Deduction', 'High'),       # lr_W=2E-3 best at noise=1.0
+    (58, 'Induction', 'High'),       # inverse lr_W-noise relation
+    (58, 'Meta-reasoning', 'High'),  # noise->eff_rank->lr_W insight
+    (58, 'Causal Chain', 'Medium'),  # noise -> eff_rank -> lr_W tolerance
+    (60, 'Deduction', 'Medium'),     # lr=2E-4 + lr_W=8E-3 combination
 
-    # Block 6: Low_rank + n_types=2 (iters 41-48)
-    (41, 'Analogy', 'Medium'),
-    (41, 'Abduction', 'High'),
-    (41, 'Regime', 'High'),
-    (41, 'Predictive', 'Medium'),
-    (42, 'Analogy', 'High'),
-    (43, 'Deduction', 'High'),
-    (43, 'Induction', 'Medium'),
-    (43, 'Analogy', 'High'),
-    (44, 'Deduction', 'High'),
-    (44, 'Boundary', 'Medium'),
-    (44, 'Induction', 'Medium'),
-    (45, 'Deduction', 'High'),
-    (45, 'Falsification', 'High'),
-    (45, 'Boundary', 'High'),
-    (45, 'Constraint', 'High'),
-    (46, 'Deduction', 'Medium'),
-    (47, 'Falsification', 'High'),
-    (47, 'Abduction', 'High'),
-    (47, 'Boundary', 'High'),
-    (47, 'Constraint', 'High'),
-    (48, 'Falsification', 'High'),
-    (48, 'Constraint', 'High'),
-    (48, 'Induction', 'High'),
+    # Block 6: Scale n=200 (iters 61-72)
+    (61, 'Analogy', 'High'),         # transfer from block 1
+    (61, 'Regime', 'High'),          # n=200 eff_rank=43
+    (62, 'Boundary', 'High'),        # lr_W=2E-3 fails at n=200 (0.575)
+    (63, 'Boundary', 'High'),        # lr_W=8E-3 best conn but worst dynamics
+    (63, 'Induction', 'Medium'),     # trade-off amplified at n=200
+    (64, 'Deduction', 'Medium'),     # L1=1E-6 test at n=200
+    (64, 'Falsification', 'Medium'), # L1=1E-6 REDUCES connectivity at n=200
+    (65, 'Boundary', 'Medium'),      # lr_W=6E-3 steep dynamics trade-off
+    (66, 'Deduction', 'Medium'),     # lr_W=5E-3 confirmed near sweet spot
+    (67, 'Deduction', 'High'),       # lr=2E-4 safe at n=200, best conn
+    (68, 'Boundary', 'High'),        # lr_W=3E-3 partial, boundary at ~3.5E-3
+    (69, 'Boundary', 'Medium'),      # lr_W=5.5E-3 past optimal
+    (70, 'Boundary', 'Medium'),      # lr_W=4.5E-3 just below threshold
+    (71, 'Falsification', 'High'),   # L1=1E-6 SEVERELY degrades at n=200
+    (72, 'Falsification', 'High'),   # lr=3E-4 works at n=200 (contradicts P1)
+    (72, 'Induction', 'High'),       # lr=3E-4 BEST dynamics; n=200 widens lr
 
-    # Block 7: Sparse (iters 49-56)
-    (49, 'Abduction', 'High'),
-    (49, 'Regime', 'High'),
-    (49, 'Causal Chain', 'High'),
-    (49, 'Predictive', 'High'),
-    (49, 'Uncertainty', 'Medium'),
-    (50, 'Deduction', 'High'),
-    (50, 'Falsification', 'High'),
-    (50, 'Abduction', 'High'),
-    (50, 'Analogy', 'Medium'),
-    (51, 'Deduction', 'High'),
-    (51, 'Falsification', 'High'),
-    (51, 'Meta-reasoning', 'High'),
-    (51, 'Induction', 'Medium'),
-    (52, 'Deduction', 'High'),
-    (52, 'Falsification', 'High'),
-    (52, 'Abduction', 'Medium'),
-    (53, 'Meta-reasoning', 'High'),
-    (54, 'Falsification', 'High'),
-    (54, 'Abduction', 'Medium'),
-    (54, 'Uncertainty', 'Medium'),
-    (55, 'Falsification', 'High'),
-    (56, 'Deduction', 'High'),
-    (56, 'Falsification', 'High'),
-    (56, 'Induction', 'High'),
+    # Block 7: Sparse 50% (iters 73-84)
+    (73, 'Analogy', 'High'),         # transfer from block 1
+    (73, 'Regime', 'High'),          # eff_rank=21, subcritical rho=0.746
+    (73, 'Abduction', 'High'),       # subcritical spectral radius hypothesis
+    (74, 'Boundary', 'Medium'),      # lr_W=6E-3 best of first batch
+    (75, 'Boundary', 'Medium'),      # lr_W=2E-3 worst
+    (76, 'Deduction', 'Medium'),     # L1=1E-6 neutral in sparse
+    (78, 'Boundary', 'Medium'),      # lr_W=1E-2 best at 1 epoch
+    (79, 'Induction', 'High'),       # n_epochs=2 beats all 1-epoch configs
+    (79, 'Meta-reasoning', 'High'),  # shift from lr_W to n_epochs dimension
+    (80, 'Deduction', 'Medium'),     # lr=2E-4 marginally worse at eff_rank=21
+    (82, 'Induction', 'High'),       # lr_W=1E-2 + 2ep best (0.466)
+    (82, 'Causal Chain', 'High'),    # training capacity key bottleneck
+    (83, 'Deduction', 'Medium'),     # 3 epochs diminishing returns
+    (84, 'Falsification', 'Medium'), # Dale/low_rank params don't transfer
 
-    # Block 8: Sparse + Noise (iters 57-64)
-    (57, 'Analogy', 'High'),
-    (57, 'Deduction', 'High'),
-    (57, 'Causal Chain', 'High'),
-    (57, 'Regime', 'High'),
-    (57, 'Predictive', 'High'),
-    (57, 'Induction', 'High'),
-    (57, 'Analogy', 'Medium'),
-    (58, 'Falsification', 'Medium'),
-    (59, 'Meta-reasoning', 'Medium'),
-    (59, 'Boundary', 'Medium'),
-    (60, 'Falsification', 'Medium'),
-    (60, 'Boundary', 'Medium'),
-    (60, 'Induction', 'Medium'),
-    (60, 'Uncertainty', 'Medium'),
-    (61, 'Induction', 'High'),
-    (62, 'Deduction', 'High'),
-    (62, 'Falsification', 'High'),
-    (63, 'Induction', 'High'),
-    (64, 'Induction', 'High'),
+    # Block 8: Sparse + Noise (iters 85-96)
+    (85, 'Analogy', 'High'),         # transfer noise principle from block 5
+    (85, 'Regime', 'High'),          # eff_rank 21->91 but still subcritical
+    (85, 'Constraint', 'High'),      # conn=0.489 structural data limit
+    (86, 'Induction', 'High'),       # complete lr_W insensitivity
+    (87, 'Induction', 'High'),       # confirmed: lr_W=8E-3 same as 2E-3
+    (88, 'Falsification', 'High'),   # n_epochs=1 = 2, noise removes dependency
+    (88, 'Deduction', 'Medium'),     # tests principle about n_epochs in sparse
+    (89, 'Deduction', 'Medium'),     # lr_W=1E-2 same plateau
+    (90, 'Deduction', 'Medium'),     # L1=1E-6 irrelevant at plateau
+    (91, 'Falsification', 'High'),   # two-phase training fails
+    (92, 'Boundary', 'Medium'),      # lr_W=1.5E-2 still no cliff
+    (93, 'Falsification', 'High'),   # aug_loop=200 zero effect
+    (95, 'Falsification', 'High'),   # recurrent training catastrophic
+    (95, 'Causal Chain', 'High'),    # multi-step rollout + subcritical = fail
+    (96, 'Deduction', 'Medium'),     # batch=16 safe n_types=1 (confirmed)
+    (96, 'Meta-reasoning', 'High'),  # recognize structural limit
 
-    # Block 9: Intermediate sparsity ff=0.5 (iters 65-72)
-    (65, 'Analogy', 'High'),
-    (65, 'Regime', 'High'),
-    (65, 'Deduction', 'High'),
-    (65, 'Induction', 'High'),
-    (66, 'Deduction', 'High'),
-    (66, 'Falsification', 'High'),
-    (67, 'Deduction', 'High'),
-    (67, 'Induction', 'Medium'),
-    (68, 'Induction', 'Medium'),
-    (69, 'Induction', 'High'),
-    (69, 'Falsification', 'High'),
-    (70, 'Deduction', 'High'),
-    (70, 'Induction', 'High'),
-    (71, 'Deduction', 'High'),
-    (71, 'Falsification', 'High'),
-    (72, 'Induction', 'High'),
-    (72, 'Constraint', 'High'),
+    # Block 9: n=300 (iters 97-108)
+    (97, 'Analogy', 'High'),         # transfer from block 6 n=200
+    (97, 'Regime', 'Medium'),        # eff_rank=48, spectral_radius=1.03
+    (98, 'Boundary', 'Medium'),      # lr_W=7E-3 underperforms
+    (99, 'Analogy', 'Medium'),       # n=200 optimal (lr_W=5E-3) transfer test
+    (100, 'Deduction', 'Medium'),    # principle test: dynamics cliff at 8E-3?
+    (100, 'Falsification', 'High'),  # cliff NOT at 8E-3 for n=300
+    (102, 'Deduction', 'High'),      # lr=2E-4 at lr_W=8E-3 boosts conn +16%
+    (103, 'Induction', 'High'),      # lr_W=1E-2 best conn (0.805)
+    (103, 'Boundary', 'High'),       # upper lr_W range for n=300
+    (104, 'Falsification', 'High'),  # L1=1E-6 NOT harmful at n=300
+    (105, 'Boundary', 'Medium'),     # lr_W=1.2E-2 slightly past optimum
+    (106, 'Induction', 'High'),      # n_epochs=2 BREAKTHROUGH (+10.6%)
+    (106, 'Causal Chain', 'High'),   # n -> training-capacity -> convergence
+    (107, 'Boundary', 'Medium'),     # lr_W=1.5E-2 dynamics cliff begins
+    (108, 'Falsification', 'High'),  # lr=3E-4 degrades at high lr_W
+    (108, 'Constraint', 'High'),     # lr/lr_W interaction at n=300
 
-    # Block 10: ff=0.75 (iters 73-80)
-    (73, 'Analogy', 'High'),
-    (73, 'Deduction', 'High'),
-    (74, 'Induction', 'Medium'),
-    (76, 'Deduction', 'High'),
-    (76, 'Falsification', 'Medium'),
-    (78, 'Induction', 'High'),
-    (79, 'Deduction', 'High'),
-    (79, 'Falsification', 'High'),
-    (80, 'Deduction', 'High'),
-    (80, 'Induction', 'High'),
-    (80, 'Predictive', 'High'),
-
-    # Block 11: n=200 (iters 81-88)
-    (82, 'Analogy', 'High'),
-    (82, 'Induction', 'High'),
-    (83, 'Deduction', 'High'),
-    (83, 'Induction', 'Medium'),
-    (85, 'Deduction', 'High'),
-    (86, 'Deduction', 'High'),
-    (86, 'Induction', 'High'),
-    (87, 'Deduction', 'High'),
-    (88, 'Deduction', 'High'),
-    (88, 'Induction', 'High'),
-    (88, 'Regime', 'High'),
-
-    # Block 12: ff=0.9 (iters 89-96)
-    (89, 'Analogy', 'High'),
-    (89, 'Deduction', 'High'),
-    (90, 'Induction', 'High'),
-    (90, 'Deduction', 'High'),
-    (91, 'Induction', 'Medium'),
-    (91, 'Boundary', 'Medium'),
-    (92, 'Boundary', 'Medium'),
-    (93, 'Falsification', 'High'),
-    (93, 'Induction', 'High'),
-    (94, 'Deduction', 'High'),
-    (94, 'Boundary', 'High'),
-    (95, 'Deduction', 'High'),
-    (95, 'Boundary', 'High'),
-    (96, 'Deduction', 'High'),
-    (96, 'Falsification', 'High'),
-    (96, 'Induction', 'High'),
-    (96, 'Constraint', 'High'),
-
-    # Block 13: n=300 (iters 97-104)
-    (97, 'Analogy', 'High'),
-    (97, 'Induction', 'High'),
-    (98, 'Deduction', 'High'),
-    (99, 'Deduction', 'High'),
-    (99, 'Boundary', 'Medium'),
-    (100, 'Deduction', 'High'),
-    (100, 'Boundary', 'High'),
-    (101, 'Deduction', 'High'),
-    (101, 'Falsification', 'High'),
-    (101, 'Constraint', 'High'),
-    (102, 'Induction', 'High'),
-    (103, 'Deduction', 'High'),
-    (104, 'Induction', 'High'),
-    (104, 'Predictive', 'High'),
-
-    # Block 14: n=500 (iters 105-107)
-    (105, 'Induction', 'High'),
-    (105, 'Abduction', 'High'),
-    (106, 'Deduction', 'High'),
-    (106, 'Abduction', 'Medium'),
-    (107, 'Deduction', 'High'),
-    (107, 'Falsification', 'High'),
-    (107, 'Induction', 'High'),
-    (107, 'Uncertainty', 'High'),
+    # Block 10: n=300, n_epochs=2 baseline (iters 109-112)
+    (109, 'Deduction', 'Medium'),    # reproduce baseline (0.893 confirmed)
+    (110, 'Falsification', 'High'),  # 3ep doesn't help conn (slightly worse)
+    (111, 'Boundary', 'High'),       # lr_W=1.2E-2 confirms conn cliff >1E-2
+    (112, 'Induction', 'High'),      # L1=1E-6 boosts dynamics +6.8%
+    (112, 'Deduction', 'High'),      # principle refined: harmful only n<=200
+    (112, 'Constraint', 'Medium'),   # conn ceiling ~0.89 at 10k frames
 ]
 
 # Causal edges from signal_landscape_Claude_epistemic_edges.md
 edges = [
     # Block 1
-    (4, 'Deduction', 5, 'Boundary', 'leads_to'),
-    (4, 'Boundary', 5, 'Meta-reasoning', 'triggers'),
-    (7, 'Deduction', 8, 'Falsification', 'leads_to'),
-    (8, 'Falsification', 8, 'Induction', 'refines'),
+    (4, 'Boundary', 5, 'Deduction', 'leads_to'),
+    (5, 'Deduction', 8, 'Induction', 'leads_to'),
+    (5, 'Induction', 9, 'Deduction', 'triggers'),
+    (8, 'Boundary', 11, 'Induction', 'leads_to'),
+    (9, 'Meta-reasoning', 11, 'Induction', 'triggers'),
 
     # Block 2
-    (9, 'Abduction', 10, 'Deduction', 'triggers'),
-    (10, 'Deduction', 10, 'Falsification', 'leads_to'),
-    (10, 'Falsification', 11, 'Deduction', 'triggers'),
-    (12, 'Falsification', 14, 'Meta-reasoning', 'triggers'),
-    (14, 'Meta-reasoning', 15, 'Deduction', 'triggers'),
-    (15, 'Deduction', 15, 'Causal Chain', 'leads_to'),
-    (15, 'Causal Chain', 16, 'Induction', 'leads_to'),
-    (16, 'Induction', 17, 'Analogy', 'triggers'),
+    (13, 'Abduction', 18, 'Deduction', 'triggers'),
+    (13, 'Regime', 19, 'Abduction', 'triggers'),
+    (17, 'Boundary', 19, 'Induction', 'leads_to'),
+    (18, 'Deduction', 21, 'Induction', 'leads_to'),
+    (19, 'Induction', 21, 'Induction', 'leads_to'),
+    (14, 'Falsification', 24, 'Induction', 'refines'),
+    (22, 'Boundary', 23, 'Boundary', 'leads_to'),
 
     # Block 3
-    (17, 'Analogy', 17, 'Deduction', 'triggers'),
-    (17, 'Deduction', 17, 'Falsification', 'leads_to'),
-    (17, 'Abduction', 19, 'Deduction', 'triggers'),
-    (19, 'Deduction', 24, 'Boundary', 'leads_to'),
-    (24, 'Boundary', 24, 'Induction', 'leads_to'),
-    (24, 'Induction', 25, 'Analogy', 'triggers'),
+    (25, 'Regime', 28, 'Boundary', 'triggers'),
+    (28, 'Boundary', 29, 'Boundary', 'leads_to'),
+    (29, 'Boundary', 30, 'Induction', 'leads_to'),
+    (30, 'Induction', 33, 'Deduction', 'leads_to'),
+    (29, 'Falsification', 32, 'Falsification', 'triggers'),
+    (34, 'Falsification', 36, 'Deduction', 'leads_to'),
 
     # Block 4
-    (25, 'Analogy', 25, 'Deduction', 'triggers'),
-    (27, 'Deduction', 28, 'Deduction', 'leads_to'),
-    (28, 'Deduction', 28, 'Falsification', 'leads_to'),
-    (28, 'Falsification', 28, 'Abduction', 'triggers'),
-    (28, 'Abduction', 29, 'Deduction', 'triggers'),
-    (28, 'Falsification', 28, 'Causal Chain', 'leads_to'),
-    (30, 'Abduction', 31, 'Deduction', 'triggers'),
-    (31, 'Deduction', 31, 'Causal Chain', 'leads_to'),
-    (32, 'Induction', 33, 'Analogy', 'triggers'),
+    (37, 'Abduction', 39, 'Deduction', 'triggers'),
+    (39, 'Deduction', 41, 'Deduction', 'leads_to'),
+    (39, 'Induction', 44, 'Deduction', 'triggers'),
+    (42, 'Falsification', 44, 'Causal Chain', 'triggers'),
+    (41, 'Deduction', 48, 'Falsification', 'leads_to'),
 
     # Block 5
-    (33, 'Analogy', 33, 'Deduction', 'triggers'),
-    (33, 'Abduction', 33, 'Causal Chain', 'leads_to'),
-    (33, 'Causal Chain', 33, 'Predictive', 'leads_to'),
-    (33, 'Regime', 34, 'Deduction', 'triggers'),
-    (36, 'Deduction', 40, 'Boundary', 'leads_to'),
-    (40, 'Boundary', 40, 'Induction', 'leads_to'),
-    (40, 'Induction', 41, 'Analogy', 'triggers'),
+    (49, 'Regime', 53, 'Boundary', 'triggers'),
+    (51, 'Induction', 55, 'Boundary', 'leads_to'),
+    (53, 'Boundary', 57, 'Boundary', 'leads_to'),
+    (54, 'Deduction', 58, 'Deduction', 'leads_to'),
+    (55, 'Induction', 58, 'Induction', 'leads_to'),
 
     # Block 6
-    (41, 'Analogy', 42, 'Analogy', 'leads_to'),
-    (42, 'Analogy', 43, 'Deduction', 'triggers'),
-    (43, 'Deduction', 44, 'Deduction', 'leads_to'),
-    (45, 'Deduction', 45, 'Falsification', 'leads_to'),
-    (45, 'Falsification', 45, 'Constraint', 'leads_to'),
-    (47, 'Falsification', 47, 'Constraint', 'leads_to'),
-    (48, 'Induction', 49, 'Abduction', 'triggers'),
+    (62, 'Boundary', 63, 'Boundary', 'leads_to'),
+    (63, 'Induction', 66, 'Deduction', 'leads_to'),
+    (64, 'Falsification', 71, 'Falsification', 'leads_to'),
+    (67, 'Deduction', 72, 'Falsification', 'triggers'),
 
     # Block 7
-    (49, 'Abduction', 49, 'Causal Chain', 'leads_to'),
-    (49, 'Causal Chain', 50, 'Deduction', 'triggers'),
-    (50, 'Deduction', 50, 'Falsification', 'leads_to'),
-    (50, 'Falsification', 51, 'Meta-reasoning', 'triggers'),
-    (51, 'Meta-reasoning', 52, 'Deduction', 'leads_to'),
-    (52, 'Deduction', 52, 'Falsification', 'leads_to'),
-    (53, 'Meta-reasoning', 56, 'Deduction', 'triggers'),
-    (54, 'Falsification', 56, 'Induction', 'refines'),
-    (56, 'Induction', 57, 'Analogy', 'triggers'),
+    (73, 'Regime', 79, 'Meta-reasoning', 'triggers'),
+    (74, 'Boundary', 78, 'Boundary', 'leads_to'),
+    (79, 'Induction', 82, 'Induction', 'leads_to'),
+    (82, 'Causal Chain', 83, 'Deduction', 'leads_to'),
 
     # Block 8
-    (57, 'Analogy', 57, 'Deduction', 'triggers'),
-    (57, 'Deduction', 57, 'Causal Chain', 'leads_to'),
-    (57, 'Regime', 58, 'Falsification', 'triggers'),
-    (58, 'Falsification', 59, 'Meta-reasoning', 'triggers'),
-    (60, 'Falsification', 60, 'Induction', 'refines'),
-    (61, 'Induction', 62, 'Deduction', 'leads_to'),
-    (62, 'Deduction', 62, 'Falsification', 'leads_to'),
-    (62, 'Falsification', 63, 'Induction', 'refines'),
-    (63, 'Induction', 64, 'Induction', 'leads_to'),
-    (64, 'Induction', 65, 'Analogy', 'triggers'),
+    (85, 'Regime', 88, 'Falsification', 'triggers'),
+    (86, 'Induction', 93, 'Falsification', 'leads_to'),
+    (88, 'Falsification', 95, 'Falsification', 'triggers'),
+    (85, 'Constraint', 96, 'Meta-reasoning', 'leads_to'),
 
     # Block 9
-    (65, 'Regime', 65, 'Deduction', 'triggers'),
-    (65, 'Deduction', 66, 'Deduction', 'leads_to'),
-    (66, 'Deduction', 66, 'Falsification', 'leads_to'),
-    (66, 'Falsification', 67, 'Deduction', 'triggers'),
-    (69, 'Falsification', 70, 'Deduction', 'triggers'),
-    (71, 'Falsification', 72, 'Induction', 'refines'),
-    (72, 'Induction', 73, 'Analogy', 'triggers'),
+    (97, 'Analogy', 103, 'Induction', 'leads_to'),
+    (100, 'Falsification', 103, 'Boundary', 'triggers'),
+    (103, 'Induction', 106, 'Induction', 'leads_to'),
+    (106, 'Causal Chain', 108, 'Constraint', 'leads_to'),
 
     # Block 10
-    (73, 'Deduction', 76, 'Deduction', 'leads_to'),
-    (79, 'Falsification', 80, 'Induction', 'refines'),
-    (80, 'Induction', 82, 'Analogy', 'triggers'),
-
-    # Block 11
-    (82, 'Induction', 83, 'Deduction', 'leads_to'),
-    (85, 'Deduction', 86, 'Deduction', 'leads_to'),
-    (88, 'Induction', 89, 'Analogy', 'triggers'),
-
-    # Block 12
-    (89, 'Deduction', 90, 'Deduction', 'leads_to'),
-    (93, 'Falsification', 94, 'Deduction', 'triggers'),
-    (96, 'Falsification', 97, 'Analogy', 'triggers'),
-
-    # Block 13
-    (97, 'Induction', 98, 'Deduction', 'leads_to'),
-    (100, 'Deduction', 101, 'Deduction', 'leads_to'),
-    (101, 'Falsification', 103, 'Deduction', 'triggers'),
-    (104, 'Induction', 105, 'Abduction', 'triggers'),
-
-    # Block 14
-    (105, 'Induction', 106, 'Deduction', 'leads_to'),
-    (106, 'Deduction', 107, 'Deduction', 'leads_to'),
-    (107, 'Falsification', 107, 'Uncertainty', 'triggers'),
+    (109, 'Deduction', 110, 'Falsification', 'leads_to'),
+    (106, 'Induction', 112, 'Deduction', 'triggers'),
 
     # Cross-block
-    (33, 'Causal Chain', 57, 'Deduction', 'triggers'),
+    (11, 'Induction', 18, 'Deduction', 'triggers'),        # B1->B2: L1 insight
+    (5, 'Induction', 25, 'Analogy', 'triggers'),           # B1->B3: lr_W transfer
+    (21, 'Induction', 26, 'Analogy', 'triggers'),          # B2->B3: L1 transfer
+    (19, 'Induction', 27, 'Analogy', 'triggers'),          # B2->B3: lr_W=3E-3
+    (5, 'Induction', 37, 'Analogy', 'triggers'),           # B1->B4: lr_W transfer
+    (5, 'Induction', 49, 'Analogy', 'triggers'),           # B1->B5: lr_W transfer
+    (44, 'Induction', 52, 'Analogy', 'triggers'),          # B4->B5: L1 embedding
+    (9, 'Falsification', 56, 'Deduction', 'triggers'),     # B1->B5: lr tolerance
+    (5, 'Induction', 61, 'Analogy', 'triggers'),           # B1->B6: lr_W transfer
+    (5, 'Induction', 73, 'Analogy', 'triggers'),           # B1->B7: lr_W transfer
+    (51, 'Induction', 85, 'Analogy', 'triggers'),          # B5->B8: noise principle
+    (67, 'Deduction', 97, 'Analogy', 'triggers'),          # B6->B9: n=200->n=300
+    (79, 'Induction', 106, 'Induction', 'triggers'),       # B7->B9: epochs insight
+    (82, 'Causal Chain', 106, 'Causal Chain', 'triggers'),  # B7->B9: training cap.
 ]
 
 # Block boundaries
 blocks = [
-    (1, 8, 'Block 1', {'regime': 'chaotic', 'eff_rank': '34-35'}),
-    (9, 16, 'Block 2', {'regime': 'low_rank', 'eff_rank': '11'}),
-    (17, 24, 'Block 3', {'regime': 'Dale', 'eff_rank': '23'}),
-    (25, 32, 'Block 4', {'regime': 'n_types=2', 'eff_rank': '32-34'}),
-    (33, 40, 'Block 5', {'regime': 'noise', 'eff_rank': '83'}),
-    (41, 48, 'Block 6', {'regime': 'compound', 'eff_rank': '9-11'}),
-    (49, 56, 'Block 7', {'regime': 'sparse', 'eff_rank': '4-6'}),
-    (57, 64, 'Block 8', {'regime': 'sparse+noise', 'eff_rank': '92'}),
-    (65, 72, 'Block 9', {'regime': 'ff=0.5', 'eff_rank': '20-26'}),
-    (73, 80, 'Block 10', {'regime': 'ff=0.75', 'eff_rank': '25-33'}),
-    (81, 88, 'Block 11', {'regime': 'n=200', 'eff_rank': '42-44'}),
-    (89, 96, 'Block 12', {'regime': 'ff=0.9', 'eff_rank': '34-35'}),
-    (97, 104, 'Block 13', {'regime': 'n=300', 'eff_rank': '44-46'}),
-    (105, 107, 'Block 14', {'regime': 'n=500', 'eff_rank': '45-50'}),
+    (1, 12, 'Block 1', {'regime': 'chaotic', 'eff_rank': '35'}),
+    (13, 24, 'Block 2', {'regime': 'low_rank', 'eff_rank': '12-14'}),
+    (25, 36, 'Block 3', {'regime': 'Dale', 'eff_rank': '12'}),
+    (37, 48, 'Block 4', {'regime': 'n_types=4', 'eff_rank': '35-38'}),
+    (49, 60, 'Block 5', {'regime': 'noise', 'eff_rank': '42-90'}),
+    (61, 72, 'Block 6', {'regime': 'n=200', 'eff_rank': '41-44'}),
+    (73, 84, 'Block 7', {'regime': 'sparse 50%', 'eff_rank': '21'}),
+    (85, 96, 'Block 8', {'regime': 'sparse+noise', 'eff_rank': '91'}),
+    (97, 108, 'Block 9', {'regime': 'n=300', 'eff_rank': '44-47'}),
+    (109, 112, 'Block 10', {'regime': 'n=300 2ep', 'eff_rank': '44-47'}),
 ]
 
 
@@ -455,7 +342,7 @@ def create_2x2_panels():
     ]
     mode_to_y = {mode: i for i, mode in enumerate(modes)}
 
-    x_min, x_max = 0, 112
+    x_min, x_max = 0, 117
 
     # ============ TOP LEFT: Scatterplot ============
     ax1 = fig.add_subplot(gs[0, 0])
@@ -549,14 +436,14 @@ def create_2x2_panels():
     total_events = len(events)
     total_edges = len(edges)
 
-    summary_text = f"""signal_landscape_Claude
+    summary_text = f"""signal_landscape_Claude (parallel)
 
 {total_events} reasoning instances
-107 iterations, 14 blocks
-12 principles discovered
+112 iterations, 10 blocks
+24 principles discovered
 
-Deduction validation: 69%
-Transfer success: 77%
+Deduction validation: 72%
+Transfer success: 65%
 
 Mode counts:
   Induction: {mode_counts.get('Induction', 0)}
@@ -567,7 +454,7 @@ Mode counts:
   Boundary: {mode_counts.get('Boundary', 0)}
 
 {total_edges} causal edges
-5 key causal chains"""
+7 key causal chains"""
 
     ax_summary.text(0.05, 0.95, summary_text, fontsize=13, va='top', ha='left',
                    linespacing=1.4)
@@ -592,11 +479,12 @@ Mode counts:
     ax_caption.set_title('Claude summary', fontsize=16, loc='left')
     ax_caption.axis('off')
 
-    caption_text = ("Epistemic flow of LLM-guided scientific discovery. "
-                   "Deduction acts as the central hub-nearly all reasoning modes "
-                   "converge through it before branching outward. The dominant "
+    caption_text = ("Epistemic flow of LLM-guided scientific discovery across "
+                   "10 exploration blocks. Deduction acts as the central hub---"
+                   "nearly all reasoning modes converge through it. The dominant "
                    "Deduction->Falsification pathway demonstrates genuine hypothesis "
-                   "testing rather than mere pattern matching.")
+                   "testing. Blocks 7-8 (sparse) show increased Constraint and "
+                   "Meta-reasoning as the system recognizes structural limits.")
 
     import textwrap
     wrapped_text = textwrap.fill(caption_text, width=35)
@@ -639,25 +527,18 @@ def create_sankey():
     fig, ax = plt.subplots(figsize=(14, 10))
 
     # Use shell layout with Deduction at center
-    # Group by role: sources (more outflow), sinks (more inflow), hubs (both)
     outflow = {n: sum(d['weight'] for _, _, d in G.out_edges(n, data=True)) for n in G.nodes()}
     inflow = {n: sum(d['weight'] for _, _, d in G.in_edges(n, data=True)) for n in G.nodes()}
 
     # Custom positions - arrange in layers
-    pos = {}
-    nodes = list(G.nodes())
-
-    # Layer 1 (left): mainly sources - Induction, Boundary, Abduction
-    # Layer 2 (center): hub - Deduction
-    # Layer 3 (right): mainly sinks - Falsification, Analogy, others
-
     layers = {
         0: ['Induction', 'Boundary', 'Regime'],
         1: ['Abduction', 'Deduction', 'Causal Chain'],
-        2: ['Falsification', 'Analogy', 'Meta-reasoning'],
-        3: ['Predictive', 'Constraint', 'Uncertainty'],
+        2: ['Falsification', 'Analogy', 'Meta-reasoning', 'Constraint'],
+        3: ['Predictive', 'Uncertainty'],
     }
 
+    pos = {}
     for layer_idx, layer_nodes in layers.items():
         x = layer_idx * 2.5
         active_nodes = [n for n in layer_nodes if n in G.nodes()]
@@ -676,7 +557,6 @@ def create_sankey():
         alpha = 0.3 + (weight / max_weight) * 0.5
         color = COLORS.get(u, '#888888')
 
-        # Draw curved edge
         rad = 0.2 if pos[u][0] != pos[v][0] else 0.4
         ax.annotate('', xy=pos[v], xytext=pos[u],
                    arrowprops=dict(arrowstyle='->', color=color, alpha=alpha,
@@ -714,7 +594,7 @@ def create_sankey():
 
 def create_timeline():
     """Create timeline visualization."""
-    fig, ax = plt.subplots(figsize=(24, 10))
+    fig, ax = plt.subplots(figsize=(28, 10))
 
     modes = [
         'Induction', 'Boundary',
@@ -736,7 +616,7 @@ def create_timeline():
         size = {'High': 150, 'Medium': 80, 'Low': 40}.get(significance, 80)
         ax.scatter(iteration, y, c=color, s=size, alpha=0.9, edgecolors='white', linewidth=0.5, zorder=3)
 
-    ax.set_xlim(0, 112)
+    ax.set_xlim(0, 117)
     ax.set_ylim(-0.5, len(modes) - 0.5)
     ax.set_yticks(range(len(modes)))
     ax.set_yticklabels(modes, fontsize=16)
@@ -759,7 +639,7 @@ def create_timeline():
 
 def create_streamgraph():
     """Create standalone streamgraph (stacked area chart) visualization."""
-    fig, ax = plt.subplots(figsize=(16, 6))
+    fig, ax = plt.subplots(figsize=(20, 6))
 
     modes = [
         'Induction', 'Boundary', 'Abduction', 'Deduction', 'Falsification',
@@ -802,7 +682,7 @@ def create_streamgraph():
     for block_idx, (start, end, label, info) in enumerate(blocks):
         ax.axvline(x=end + 0.5, color='gray', linestyle='--', alpha=0.3, linewidth=0.5)
 
-    ax.set_xlim(0, 112)
+    ax.set_xlim(0, 117)
     ax.set_xlabel('Iteration', fontsize=14)
     ax.set_ylabel('Reasoning Activity', fontsize=14)
     ax.set_facecolor('#fafafa')

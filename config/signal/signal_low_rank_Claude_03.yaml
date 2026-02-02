@@ -1,10 +1,8 @@
-description: designed by Claude
-dataset: signal_low_rank_3
+description: designed by Claude (parallel)
+dataset: signal_low_rank_Claude_03
 simulation:
   connectivity_type: low_rank
-  connectivity_rank: 50
-  Dale_law: false
-  Dale_law_factor: 0.5
+  connectivity_rank: 20
   connectivity_init:
     - 0
     - 0.1
@@ -24,7 +22,7 @@ simulation:
   phi: tanh
   n_neurons: 100
   n_neuron_types: 1
-  n_frames: 20000
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: "no"
@@ -45,9 +43,10 @@ graph_model:
   embedding_dim: 2
   update_type: none
 claude:
-  n_epochs: 1
-  data_augmentation_loop: 120
-  n_iter_block: 16
+  n_epochs: 2
+  data_augmentation_loop: 200
+  n_iter_block: 12
+  ucb_c: 1.414
 plotting:
   colormap: tab10
   arrow_length: 1
@@ -58,23 +57,24 @@ plotting:
     - -2
     - 2
 training:
-  n_epochs: 1
+  n_epochs: 2
   n_runs: 1
-  device: cuda:1
-  batch_size: 8
+  device: auto
+  seed: 137
+  batch_size: 16
   small_init_batch_size: false
   training_single_type: true
-  seed: 24
-  data_augmentation_loop: 120
+
+  data_augmentation_loop: 200
   sparsity: replace_embedding_function
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.02
+  learning_rate_W_start: 2.0e-03
   learning_rate_start: 1.0e-04
-  learning_rate_embedding_start: 0.001
+  learning_rate_embedding_start: 5.0e-04
+  n_epochs_init: 2
+  first_coeff_L1: 0
   coeff_W_L1: 1.0e-06
   coeff_edge_norm: 0.0
-  coeff_edge_diff: 100
-  low_rank_factorization: true
-  low_rank: 50
+  coeff_edge_diff: 10000

@@ -104,10 +104,16 @@ if __name__ == "__main__":
             print(f"\033[93mNo previous iterations found, starting fresh\033[0m")
     else:
         start_iteration = 1
+        _analysis_check = f"{_root}/{llm_task_name}_analysis.md"
+        if os.path.exists(_analysis_check):
+            print(f"\033[91mWARNING: Fresh start will erase existing results in:\033[0m")
+            print(f"\033[91m  {_analysis_check}\033[0m")
+            print(f"\033[91m  {_root}/{llm_task_name}_memory.md\033[0m")
+            answer = input("\033[91mContinue? (y/n): \033[0m").strip().lower()
+            if answer != 'y':
+                print("Aborted.")
+                sys.exit(0)
         print(f"\033[93mFresh start\033[0m")
-
-
-
 
     if 'Claude' in task:
         iteration_range = range(start_iteration, n_iterations + 1)
@@ -126,7 +132,7 @@ if __name__ == "__main__":
             target_config = f"{config_root}/{pre}{llm_task_name}.yaml"
 
             # Only copy and initialize config on fresh start (not when resuming)
-            if start_iteration == 1:
+            if start_iteration == 1 and not args.resume:
                 # Erase config from new/processing/done directories
                 for subdir in ['new', 'processing', 'done']:
                     cleanup_path = f"{config_root}/{subdir}/{llm_task_name}.yaml"
@@ -171,7 +177,7 @@ if __name__ == "__main__":
         n_iter_block = claude_n_iter_block
 
         ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
-        if start_iteration == 1:
+        if start_iteration == 1 and not args.resume:
             # only delete UCB file when starting fresh (not resuming)
             if os.path.exists(ucb_file):
                 os.remove(ucb_file)
@@ -227,7 +233,7 @@ if __name__ == "__main__":
                 continue
 
             # clear analysis and memory files at start (only if not resuming)
-            if start_iteration == 1:
+            if start_iteration == 1 and not args.resume:
                 with open(analysis_path, 'w') as f:
                     f.write(f"# Experiment Log: {config_file_}\n\n")
                 print(f"\033[93mcleared {analysis_path}\033[0m")
@@ -240,8 +246,8 @@ if __name__ == "__main__":
                     f.write(f"# Working Memory: {config_file_}\n\n")
                     f.write("## Knowledge Base (accumulated across all blocks)\n\n")
                     f.write("### Regime Comparison Table\n")
-                    f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
-                    f.write("| ----- | ------ | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |\n\n")
+                    f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | noise | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Degeneracy | Key finding |\n")
+                    f.write("| ----- | ------ | --- | -------- | --------- | ------- | ----- | -------- | ------- | ------------ | ---------- | ---------- | ----------- |\n\n")
                     f.write("### Established Principles\n\n")
                     f.write("### Open Questions\n\n")
                     f.write("---\n\n")

@@ -3,6 +3,7 @@
 /*.log
 /*.txt
 !README.md
+!instruction_*.md
 
 # Project-specific directories
 Data/
@@ -38,6 +39,7 @@ papers/
 *.ijm
 *.bkup
 *.html
+!assets/landscape_quadrant_interactive.html
 
 # Experiment documentation in config folders
 config/fly/**/*.md

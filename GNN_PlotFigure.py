@@ -1638,8 +1638,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
     else:
 
         files = glob.glob(f'./{log_dir}/results/*.png')
+        _test_patterns = ['svd', 'kinograph', 'connectivity', 'histogram', '_prediction']
         for f in files:
-            if 'svd' not in f:
+            if not any(p in f for p in _test_patterns):
                 os.remove(f)
 
         connectivity = torch.load(f'./graphs_data/{dataset_name}/connectivity.pt', map_location=device)
@@ -4309,8 +4310,9 @@ def plot_synaptic_CElegans(config, epoch_list, log_dir, logger, cc, style, exten
     else:
 
         files = glob.glob(f'./{log_dir}/results/*.png')
+        _test_patterns = ['svd', 'kinograph', 'connectivity', 'histogram', '_prediction']
         for f in files:
-            if 'svd' not in f:
+            if not any(p in f for p in _test_patterns):
                 os.remove(f)
 
         adjacency = torch.load(f'./graphs_data/{dataset_name}/adjacency.pt', map_location=device)
