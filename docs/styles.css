@@ -1,0 +1,132 @@
+/* Custom styles for NeuralGraph documentation */
+
+/* Card grid for features */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.feature-card h3 {
+  color: var(--bs-primary);
+  font-size: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Metrics highlight boxes */
+.metric-box {
+  background: var(--bs-light);
+  border-left: 4px solid var(--bs-primary);
+  padding: 1rem 1.5rem;
+  margin: 1rem 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.metric-box .value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--bs-primary);
+}
+
+.metric-box .label {
+  font-size: 0.9rem;
+  color: var(--bs-secondary);
+}
+
+/* Flow diagram styling */
+.flow-diagram {
+  font-family: monospace;
+  background: var(--bs-light);
+  padding: 1.5rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  line-height: 1.6;
+}
+
+/* Timeline styling */
+.timeline {
+  position: relative;
+  padding-left: 2rem;
+  margin: 2rem 0;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--bs-primary);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 1.5rem;
+  padding-left: 1rem;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -2rem;
+  top: 0.5rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bs-primary);
+  border: 2px solid var(--bs-body-bg);
+}
+
+/* Strategy table enhancement */
+.strategy-table {
+  font-size: 0.9rem;
+}
+
+.strategy-table td:first-child {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Code annotation */
+.code-annotation {
+  background: #fff3cd;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.85rem;
+}
+
+/* Dark mode adjustments */
+[data-bs-theme="dark"] .metric-box {
+  background: var(--bs-dark);
+}
+
+[data-bs-theme="dark"] .flow-diagram {
+  background: var(--bs-dark);
+}
+
+[data-bs-theme="dark"] .code-annotation {
+  background: #664d03;
+  color: #fff3cd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+}

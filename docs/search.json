@@ -1,0 +1,639 @@
+[
+  {
+    "objectID": "results.html",
+    "href": "results.html",
+    "title": "Results",
+    "section": "",
+    "text": "Can a graph neural network recover the connectivity matrix of a neural assembly from its activity alone? This page collects the quantitative results of a closed-loop exploration in which an LLM proposes simulation configurations and training hyper-parameters, a GNN is trained on the resulting synthetic data, and the recovered connectivity is compared to ground truth. The exploration uses UCB tree search with 4 parallel slots per batch to efficiently map the simulation–training landscape."
+  },
+  {
+    "objectID": "results.html#outcomes",
+    "href": "results.html#outcomes",
+    "title": "Results",
+    "section": "Outcomes",
+    "text": "Outcomes\n\nn_frames is the dominant lever: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical.\nFive difficulty axes identified: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g=3), and partial connectivity (fill&lt;100%). Three are solvable by n_frames; two are structural limits.\nTwo structural limits confirmed: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k) and fill=80% (conn=0.802 at both 10k and 30k). For fill=80%, conn_ceiling \\(\\approx\\) filling_factor — a linear relationship confirmed across fill=50%, 80%, and 100%.\neff_rank is necessary but not sufficient: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse.\nL1 effect is n-dependent, non-monotonic, and vanishes at high n_frames: Critical at 1E-6 for low-rank/heterogeneous at n=100; harmful at n&lt;=200; beneficial at n=300/10k; harmful at n&gt;=600/10k. At 30k frames, L1 sensitivity disappears entirely.\nScale shifts boundaries: Convergence boundary, optimal lr_W, and lr tolerance all change non-linearly with n_neurons. At 30k frames, optimal lr_W shifts lower (5E-3 vs 1E-2 at 10k) because abundant data handles W while lower lr_W preserves MLP capacity.\nLow gain compounds with scale but is solvable: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence).\nPartial connectivity creates a structural ceiling: fill=80% gives conn_R2=0.802 with complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k frames. Unlike sparse 50%, there is no degeneracy — the GNN correctly learns 80% of connections.\nDegeneracy is a critical diagnostic: 19/276 iterations (6.9%) show degeneracy. Two mechanisms: structural (subcritical spectral radius) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy.\nn=1000 at 30k is insufficient: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs."
+  },
+  {
+    "objectID": "results.html#regime-landscape-partitioned-by-neuron-count",
+    "href": "results.html#regime-landscape-partitioned-by-neuron-count",
+    "title": "Results",
+    "section": "Regime Landscape — Partitioned by Neuron Count",
+    "text": "Regime Landscape — Partitioned by Neuron Count\nThree panels separate the landscape by network scale (n=100, n=200–600, n=1000). Each data point shows the key mutation (parameter change) on hover."
+  },
+  {
+    "objectID": "results.html#regime-summary",
+    "href": "results.html#regime-summary",
+    "title": "Results",
+    "section": "Regime Summary",
+    "text": "Regime Summary\n\nPerformance by Regime\n\n\n\n\n\n\n\n\n\n\n\n\n\nBlock\nRegime\nn_frames\nn_neurons\neff_rank\nConvergence\nBest conn_R2\nKey Finding\n\n\n\n\n1\nChaotic\n10k\n100\n~35\n92% (11/12)\n0.9999\nlr_W=4E-3 sweet spot; lr=1E-4 optimal\n\n\n2\nLow-rank (r=20)\n10k\n100\n~12–14\n75% (9/12)\n0.9997\nL1=1E-6 critical; lr_W=3E-3\n\n\n3\nDale (50/50 E/I)\n10k\n100\n~12\n67% (8/12)\n0.986\nSharp lr_W cliff at 5E-3\n\n\n4\nHeterogeneous (4 types)\n10k\n100\n~38\n17% FULL\n0.992\nDual-objective; lr_emb=1E-3 critical\n\n\n5\nNoise (0.1–1.0)\n10k\n100\n42–90\n100% (12/12)\n1.000\nNoise inflates eff_rank\n\n\n6\nScale\n10k\n200\n~41–43\n67% (8/12)\n0.956\nBoundary shifts up; lr=3E-4 safe\n\n\n7\nSparse 50%\n10k\n100\n~21\n0% (0/12)\n0.466\nSubcritical rho=0.746\n\n\n8\nSparse+Noise\n10k\n100\n~91\n0% (0/12)\n0.490\nStructural data limit\n\n\n9\nn=300 (1–2ep)\n10k\n300\n~44–47\n0% (0/12)\n0.890\nn_epochs=2 breakthrough\n\n\n10\nn=300 (2ep base)\n10k\n300\n~44–47\n25% (2/8)\n0.924\nL1=1E-6+3ep best\n\n\n11\nn=200 v2\n10k\n200\n~40–43\n100% (12/12)\n0.994\nlr_W=8E-3 optimal\n\n\n12\nn=600\n10k\n600\n~50\n0% (0/12)\n0.626\nTraining-capacity-limited\n\n\n13\nn=200 + 4 types\n10k\n200\n~42–44\n100% conn\n0.991\nFull dual convergence\n\n\n14\nRecurrent test\n10k\n200\n~42–44\n75% (3/4)\n0.993\nConn-dynamics trade-off\n\n\n15\nn=300 (30k)\n30k\n300\n79–80\n100% (12/12)\n1.000\nn_frames: 25%–&gt;100%\n\n\n16\nn=600 (30k)\n30k\n600\n85–87\n100% (8/8)\n0.992\nn_frames: 0%–&gt;100%\n\n\n17\nSparse 50% (30k)\n30k\n100\n~13\n0% (0/12)\n0.436\n30k FAILS; eff_rank DROPS\n\n\n18\nn=1000 (30k)\n30k\n1000\n~144\n0% (0/12)\n0.745\nNeeds ~100k frames\n\n\n19\ng=3 n=100\n10k\n100\n~26\n42% (5/12)\n0.955\nLow gain: new difficulty axis\n\n\n20\ng=3 n=200\n10k\n200\n~31\n0% (0/12)\n0.489\nGain x n compounds; universal degeneracy\n\n\n21\ng=3 n=200 (30k)\n30k\n200\n~53–57\n100% (12/12)\n0.996\n30k rescues g=3; all params non-critical\n\n\n22\nfill=80%\n10k\n100\n~36\n0% (0/12)\n0.802\nConn plateau = filling_factor\n\n\n23\nfill=80% (30k)\n30k\n100\n~48–49\n0% (0/12)\n~0.802\n30k FAILS; structural ceiling; 12/12 at 0.802"
+  },
+  {
+    "objectID": "results.html#key-discoveries",
+    "href": "results.html#key-discoveries",
+    "title": "Results",
+    "section": "Key Discoveries",
+    "text": "Key Discoveries\n\n1. Five Independent Difficulty Axes\n\n\n\n\n\n\nKey Insight\n\n\n\nFive independent axes determine regime difficulty. Three are solvable by data (n_frames); two are structural limits:\n\n\n\n\n\n\n\n\n\nAxis\nExample\nSolvable?\nMechanism\n\n\n\n\nSubcritical spectral radius\nSparse 50% (rho=0.746)\nNo\nrho &lt; 1 limits information flow; eff_rank drops at 30k\n\n\nPartial connectivity ceiling\nfill=80% (rho=0.985)\nNo\nconn_ceiling \\(\\approx\\) filling_factor; 30k has no effect\n\n\nParameter count scaling\nn=300, n=600\nYes (30k)\nMore data reveals more signal dimensions\n\n\nLow gain\ng=3 (eff_rank 35–&gt;26)\nYes (30k)\neff_rank recovers at 30k (+80%)\n\n\nTraining capacity\nn_epochs, lr_W tuning\nYes (30k)\nAt 30k all training params become non-critical\n\n\n\n\n\n\n\n2. Effective Rank Is Necessary but Not Sufficient\n\n\n\n\n\n\n\n\n\n\n\n\nn_neurons\nn_frames\nRegime\neff_rank\nSpectral radius\nConvergence\nInterpretation\n\n\n\n\n100\n10k\nNoise=1.0\n90\n&gt;1.0\n100%\nHigh eff_rank + supercritical = easy\n\n\n100\n10k\nSparse+Noise\n91\n&lt;1.0\n0%\nHigh eff_rank + subcritical = hard\n\n\n100\n10k\nChaotic\n35\n&gt;1.0\n92%\nMedium eff_rank + supercritical = easy\n\n\n100\n10k\nfill=80%\n36\n0.985\n0%\nMedium eff_rank + near-critical = plateau\n\n\n100\n10k\nLow-rank\n12\n~1.0\n75%\nLow eff_rank + critical = recoverable\n\n\n100\n10k\ng=3\n26\n&gt;1.0\n42%\nReduced eff_rank + supercritical = harder\n\n\n200\n10k\ng=3\n31\n&gt;1.0\n0%\nLow eff_rank + scale = training-limited\n\n\n200\n30k\ng=3\n55\n&gt;1.0\n100%\nn_frames restores eff_rank\n\n\n300\n30k\nChaotic\n80\n1.03\n100%\nn_frames doubles eff_rank\n\n\n600\n30k\nChaotic\n87\n1.03\n100%\nn_frames transforms n=600\n\n\n1000\n30k\nChaotic\n144\n~1.0\n0%\nHighest eff_rank but still insufficient\n\n\n100\n30k\nSparse\n13\n0.746\n0%\neff_rank DROPS; rho controls eff_rank\n\n\n100\n30k\nfill=80%\n49\n0.985\n0%\neff_rank rises but conn stuck\n\n\n\n\n\n3. “Easy Mode” — Chaotic Baseline (n=100)\n\nn_neurons: 100\neff_rank: ~35\nTolerance: lr_W range 1.5E-3 to 8E-3 all converge\nSweet spot: lr_W=4E-3 (conn_R2=0.9999, test_R2=0.996)\nlr=1E-4 is optimal: increasing to 2E-4 or 3E-4 degrades dynamics\n\n\n\n4. Low-Rank Breakthrough (n=100)\nLow-rank connectivity (eff_rank ~12) initially appeared much harder than chaotic, but a specific intervention unlocked near-chaotic performance:\nBlock 2 Progress (n=100):\nIter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (dynamics poor)\nIter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (improved!)\nIter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (better lr_W)\nIter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)\n\n\n\n\n\n\nKey Insight\n\n\n\nFor low-rank regimes (n=100), reducing L1 from 1E-5 to 1E-6 is the critical enabler for dynamics recovery. Combined with lr_W=3E-3, this achieves chaotic-baseline-level performance (test_R2=0.996) despite eff_rank=12.\n\n\n\n\n5. Dale’s Law Creates Sharp Cliff (n=100)\nDale’s law (excitatory/inhibitory constraint) reduces eff_rank from 35 to 12 and introduces a sharp lr_W failure boundary:\n\n\n\nn_neurons\nn_frames\nlr_W\nconn_R2\nStatus\n\n\n\n\n100\n10k\n3.5E-3\n0.958\nConverged\n\n\n100\n10k\n4E-3\n0.974\nConverged\n\n\n100\n10k\n4.5E-3\n0.986\nBest\n\n\n100\n10k\n5E-3\n0.458\nFAILED\n\n\n100\n10k\n6E-3\n0.555\nFAILED\n\n\n\n\n\n6. Noise Is Data Augmentation (n=100)\n\n\n\n\n\n\n\n\n\n\n\nn_neurons\nn_frames\nnoise_level\neff_rank\nconn_R2\nConvergence\n\n\n\n\n100\n10k\n0\n35\n0.999\n92%\n\n\n100\n10k\n0.1\n42\n1.000\n100%\n\n\n100\n10k\n0.5\n84\n1.000\n100%\n\n\n100\n10k\n1.0\n90\n1.000\n100%\n\n\n\n\n\n7. Low Gain — Independent Difficulty Axis (Blocks 19–21)\n\n\n\n\n\n\n\n\n\n\n\n\nn_neurons\nn_frames\ngain\neff_rank\nConvergence\nBest conn\nKey\n\n\n\n\n100\n10k\n3\n26\n42% (5/12)\n0.955\nNew axis; no lr_W cliff; 3ep minimum\n\n\n200\n10k\n3\n31\n0% (0/12)\n0.489\nGain x n compounds; universal degeneracy\n\n\n200\n30k\n3\n55\n100% (12/12)\n0.996\n30k rescues; all params non-critical\n\n\n\n\n\n\n\n\n\nKey Insight\n\n\n\nLow gain (g=3) eliminates the lr_W cliff seen at g=7, but compounds with n_neurons to create severe difficulty (g=3/n=200/10k: 0% convergence with universal degeneracy). Unlike sparse connectivity, 30k frames fully rescues low gain (0%–&gt;100% convergence), with eff_rank doubling from 31 to 55.\n\n\n\n\n8. Partial Connectivity — Structural Ceiling (Blocks 22–23)\n\n\n\n\n\n\n\n\n\n\n\n\nn_neurons\nn_frames\nfill\neff_rank\nrho\nBest conn\nKey\n\n\n\n\n100\n10k\n50%\n21\n0.746\n0.466\nSubcritical; degenerate\n\n\n100\n10k\n80%\n36\n0.985\n0.802\nNear-critical; no degeneracy\n\n\n100\n10k\n100%\n35\n1.065\n0.999\nSupercritical; easy\n\n\n100\n30k\n50%\n13\n0.746\n0.436\neff_rank DROPS; not rescued\n\n\n100\n30k\n80%\n49\n0.985\n0.802\neff_rank rises; conn stuck\n\n\n\n\n\n\n\n\n\nStructural Limit\n\n\n\nconn_ceiling \\(\\approx\\) filling_factor: fill=50%–&gt;conn~0.49, fill=80%–&gt;conn~0.80, fill=100%–&gt;conn~1.00. At fill=80%, complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k. The missing 20% of connections cannot be inferred from dynamics data regardless of volume.\n\n\n\n\n9. Sparse Connectivity — Confirmed Unsolvable (Blocks 7, 8, 17)\n\n\n\n\n\n\n\n\n\n\nn_frames\neff_rank\nBest conn\nDegeneracy\nKey\n\n\n\n\n10k\n21\n0.466\n12/12\nUniversal degeneracy; rho=0.746\n\n\n10k (noise)\n91\n0.490\n0/12\nNoise inflates eff_rank; no rescue\n\n\n30k\n13\n0.436\n12/12\neff_rank DROPS (21–&gt;13); 30k useless\n\n\n\n\n\n\n\n\n\nStructural Limit\n\n\n\nSparse 50% at 30k is the ONLY regime where eff_rank decreases with more data (21–&gt;13). Subcritical spectral radius (rho=0.746) determines eff_rank, not data volume. Two-phase training provides marginal +15% but is insufficient. This regime requires architectural intervention.\n\n\n\n\n10. n=1000 at 30k — Insufficient Data (Block 18)\n\n\n\nn_epochs\nlr\nconn\ntest_R2\nKey\n\n\n\n\n3\n1E-4\n0.666\n0.795\nBaseline\n\n\n5\n1E-4\n0.726\n0.820\nSteady improvement\n\n\n8\n1E-4\n0.745\n0.829\nBest\n\n\n10\n2E-4\n0.716\n0.588\nOvertraining\n\n\n\n\n\n\n\n\n\nNote\n\n\n\nn=1000 at 30k reaches max conn=0.745 (eff_rank=144). lr=1E-4 is Pareto-optimal; lr=2E-4 causes overtraining at 10+ epochs. Scaling from n=600/30k: eff_rank increases superlinearly (87–&gt;144) but data is insufficient. Needs ~100k frames based on the pattern.\n\n\n\n\n11. Degeneracy — When Dynamics Quality Misleads\n\n\n\n\n\n\n\n\n\n\n\nBlock\nRegime\nn_frames\nDegenerate iters\nMax gap\nMechanism\n\n\n\n\n1\nChaotic n=100\n10k\n0/12\n0.15\nHealthy\n\n\n2\nLow-rank n=100\n10k\n1/12\n0.45\nStochastic at lr_W=5E-3\n\n\n3\nDale law n=100\n10k\n4/12\n0.53\nlr_W above Dale cliff\n\n\n7\nSparse 50%\n10k\n12/12\n0.82\nUniversal — subcritical rho\n\n\n9\nn=300 1ep\n10k\n2/12\n0.38\nTraining-limited\n\n\n17\nSparse 50%\n30k\n12/12\n~0.80\nStill universal at 30k\n\n\n19\ng=3 n=100\n10k\n4/12\n0.75\nLow gain at 1ep\n\n\n20\ng=3 n=200\n10k\n12/12\n~0.70\nGain x n = universal degeneracy\n\n\n21\ng=3 n=200 (30k)\n30k\n0/12\n0.01\n30k eliminates degeneracy\n\n\n22\nfill=80%\n10k\n0/12\n0.20\nNot degenerate (conn stuck)\n\n\n15–16\nn=300/600 (30k)\n30k\n0/20\n-0.01\nAbundant data eliminates\n\n\n\n\n\n12. n_frames Is the Dominant Lever (Blocks 15–16, 21)\n\n\n\n\n\n\n\n\n\n\n\n\nn_neurons\ngain\nn_frames\neff_rank\nConvergence\nBest conn\nKey\n\n\n\n\n300\n7\n10k\n47\n25% (3–4ep)\n0.924\nTraining-sensitive\n\n\n300\n7\n30k\n80\n100% (even 1ep)\n1.000\nAll params non-critical\n\n\n600\n7\n10k\n50\n0% (10ep)\n0.626\nData-limited\n\n\n600\n7\n30k\n87\n100% (2–4ep)\n0.992\nSolved\n\n\n200\n3\n10k\n31\n0%\n0.489\nGain x n\n\n\n200\n3\n30k\n55\n100% (12/12)\n0.996\nGain rescued\n\n\n\n\n\n\n\n\n\nKey Discovery\n\n\n\nn_frames=30k transforms the training landscape for dense supercritical networks:\n\neff_rank doubles: n=300: 47–&gt;80; n=600: 50–&gt;87; g=3/n=200: 31–&gt;55\nConvergence universalizes: n=300 (25%–&gt;100%), n=600 (0%–&gt;100%), g=3/n=200 (0%–&gt;100%)\nTraining params become non-critical: lr_W safe range widens; batch_size=16 safe; 1–2 epochs suffice\nOptimal lr_W shifts lower: 3–5E-3 at 30k vs 1E-2 at 10k\n\nExceptions: sparse 50% (rho&lt;1), fill=80%, and n=1000 (needs more data)"
+  },
+  {
+    "objectID": "results.html#summary-statistics",
+    "href": "results.html#summary-statistics",
+    "title": "Results",
+    "section": "Summary Statistics",
+    "text": "Summary Statistics\n\nOverall Performance\n\n\n\n276 Iterations\nAcross 23 simulation regimes\n\n\n65 Principles\nNovel findings with 45–100% confidence\n\n\n9 Solved Regimes\n100% convergence (chaotic, noise, n=200, n=200+4types, n=300/30k, n=600/30k, g=3/n=200/30k)\n\n\n2 Structural Limits\nSparse (rho&lt;1, conn~0.44) and fill=80% (conn=0.80)"
+  },
+  {
+    "objectID": "results.html#next-steps",
+    "href": "results.html#next-steps",
+    "title": "Results",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nEpistemic Analysis — How these findings were discovered\nExploration — Visual record per block\nCase Study: Low-Rank — Dedicated low-rank exploration"
+  },
+  {
+    "objectID": "gnn-model.html",
+    "href": "gnn-model.html",
+    "title": "GNN Model",
+    "section": "",
+    "text": "The GNN architecture is designed to decompose the temporal activity of neural assemblies into interpretable representations. It jointly learns:\n\nConnectivity matrix \\(\\mathbf{W}\\)\nNeuron types via latent embeddings \\(\\vec{a}_i\\)\nSignaling functions \\(\\phi^*\\) and \\(\\psi^*\\)\nExternal stimuli \\(\\Omega^*(t)\\)"
+  },
+  {
+    "objectID": "gnn-model.html#overview",
+    "href": "gnn-model.html#overview",
+    "title": "GNN Model",
+    "section": "",
+    "text": "The GNN architecture is designed to decompose the temporal activity of neural assemblies into interpretable representations. It jointly learns:\n\nConnectivity matrix \\(\\mathbf{W}\\)\nNeuron types via latent embeddings \\(\\vec{a}_i\\)\nSignaling functions \\(\\phi^*\\) and \\(\\psi^*\\)\nExternal stimuli \\(\\Omega^*(t)\\)"
+  },
+  {
+    "objectID": "gnn-model.html#neural-assembly-simulation",
+    "href": "gnn-model.html#neural-assembly-simulation",
+    "title": "GNN Model",
+    "section": "Neural Assembly Simulation",
+    "text": "Neural Assembly Simulation\nThe GNN is trained on simulated neural activity following the model from Stern et al. (2023):\n\\[\n\\dot{x}_i = -\\frac{x_i}{\\tau_i} + s_i\\tanh(x_i) + g_i\\Omega_i(t)\\sum_{j=1}^{N} \\mathbf{W}_{ij} \\left(\\tanh\\left(\\frac{x_j}{\\gamma_i}\\right) - \\theta_j x_j\\right) + \\eta_i(t)\n\\]\n\n\n\n\n\n\n\n\nTerm\nSymbol\nDescription\n\n\n\n\nDamping\n\\(-x_i/\\tau_i\\)\nExponential decay with time constant \\(\\tau\\)\n\n\nSelf-coupling\n\\(s_i\\tanh(x_i)\\)\nNonlinear self-feedback\n\n\nConnectivity\n\\(\\mathbf{W}_{ij}\\)\nSynaptic weights (Cauchy distributed)\n\n\nTransfer function\n\\(\\psi_{ij}(x_j)\\)\nSignal transformation between neurons\n\n\nExternal input\n\\(\\Omega_i(t)\\)\nTime-dependent modulation field\n\n\nNoise\n\\(\\eta_i(t)\\)\nGaussian noise with zero mean"
+  },
+  {
+    "objectID": "gnn-model.html#gnn-architecture",
+    "href": "gnn-model.html#gnn-architecture",
+    "title": "GNN Model",
+    "section": "GNN Architecture",
+    "text": "GNN Architecture\n\n\n\n\n\ngraph LR\n    subgraph Input\n        X[Activity x_i]\n        A[Latent a_i]\n        T[Time t]\n    end\n\n    subgraph \"Message Passing\"\n        PSI[ψ* MLP]\n        W[W_ij]\n        AGG[Σ Aggregate]\n    end\n\n    subgraph \"Node Update\"\n        PHI[φ* MLP]\n        OMEGA[Ω* SIREN]\n    end\n\n    subgraph Output\n        XDOT[Predicted ẋ_i]\n    end\n\n    X --&gt; PSI\n    A --&gt; PSI\n    A --&gt; PHI\n    X --&gt; PHI\n    T --&gt; OMEGA\n\n    PSI --&gt; W\n    W --&gt; AGG\n    AGG --&gt; OMEGA\n    OMEGA --&gt; XDOT\n    PHI --&gt; XDOT\n\n    style PSI fill:#e1f5fe\n    style PHI fill:#e1f5fe\n    style OMEGA fill:#fff3e0\n    style W fill:#f3e5f5\n\n\n\n\n\n\n\nUpdate Rule\nThe GNN learns to predict the activity rate:\n\\[\n\\widehat{\\dot{x}}_i = \\phi^*(\\vec{a}_i, x_i) + \\Omega_i^*(t) \\sum_{j=1}^{N} \\mathbf{W}_{ij}\\psi^*(\\vec{a}_i, \\vec{a}_j, x_j)\n\\]\n\n\nNetwork Components\n\nφ* (Update MLP)ψ* (Transfer MLP)Ω* (External Input SIREN)\n\n\nPurpose: Models neuron-specific local dynamics (damping + self-coupling)\n\n\n\nProperty\nValue\n\n\n\n\nArchitecture\nMLP with ReLU\n\n\nHidden dimension\n64\n\n\nLayers\n3\n\n\nInput\n\\((\\vec{a}_i, x_i)\\)\n\n\nOutput\nScalar\n\n\n\n\n\nPurpose: Models signal transformation between neurons\n\n\n\nProperty\nValue\n\n\n\n\nArchitecture\nMLP with ReLU\n\n\nHidden dimension\n64\n\n\nLayers\n3\n\n\nInput\n\\((\\vec{a}_i, \\vec{a}_j, x_j)\\) or \\((x_j)\\)\n\n\nOutput\nScalar\n\n\n\n\n\nPurpose: Approximates time-dependent external stimuli\n\n\n\nProperty\nValue\n\n\n\n\nArchitecture\nCoordinate-based MLP (SIREN)\n\n\nHidden dimension\n128\n\n\nLayers\n5\n\n\nInput\n\\((x, y, t)\\)\n\n\nOutput\nScalar\n\n\nFrequency\nω = 0.3"
+  },
+  {
+    "objectID": "gnn-model.html#loss-function",
+    "href": "gnn-model.html#loss-function",
+    "title": "GNN Model",
+    "section": "Loss Function",
+    "text": "Loss Function\nThe optimization loss combines prediction accuracy with physical constraints:\n\\[\n\\mathcal{L} = \\underbrace{\\sum_{i=1}^N \\|\\widehat{\\dot{x}}_i - \\dot{x}_i\\|^2}_{\\text{Prediction error}} + \\alpha\\underbrace{\\sum_{i=1}^N \\|\\phi^*(\\vec{a}_i, 0)\\|^2}_{\\text{Steady state = 0}} + \\beta\\underbrace{\\sum_{i=1}^N \\|\\text{ReLU}(\\frac{\\partial\\phi^*}{\\partial x})\\|^2}_{\\text{Decay constraint}}\n\\]\n\\[\n+ \\gamma\\underbrace{\\sum_{i,j} \\|\\text{ReLU}(-\\frac{\\partial\\psi^*}{\\partial x})\\|^2}_{\\text{Sign constraint}} + \\zeta\\underbrace{\\|\\mathbf{W}\\|}_{\\text{Sparsity}}\n\\]\n\nRegularization Terms\n\n\n\nTerm\nSymbol\nPurpose\n\n\n\n\nSteady state\nα\nEncourages zero activity at rest\n\n\nDecay\nβ\nPrevents runaway excitations\n\n\nSign\nγ\nResolves connectivity sign ambiguity\n\n\nSparsity\nζ\nL1 penalty for sparse W"
+  },
+  {
+    "objectID": "gnn-model.html#effective-rank",
+    "href": "gnn-model.html#effective-rank",
+    "title": "GNN Model",
+    "section": "Effective Rank",
+    "text": "Effective Rank\nThe effective rank quantifies the complexity of the connectivity matrix and is the strongest predictor of training difficulty:\n\\[\n\\text{eff\\_rank} = \\text{min}\\{k : \\sum_{i=1}^{k} \\sigma_i^2 \\geq 0.99 \\sum_{i=1}^{N} \\sigma_i^2\\}\n\\]\nwhere \\(\\sigma_i\\) are the singular values of \\(\\mathbf{W}\\).\n\n\neff_rank &gt; 30\n\n\n“Easy mode” - any reasonable parameters work\n\n\n\n\neff_rank &lt; 8\n\n\nFundamentally unrecoverable"
+  },
+  {
+    "objectID": "gnn-model.html#neuron-type-clustering",
+    "href": "gnn-model.html#neuron-type-clustering",
+    "title": "GNN Model",
+    "section": "Neuron Type Clustering",
+    "text": "Neuron Type Clustering\nDuring training, the model jointly optimizes:\n\nShared MLPs (\\(\\phi^*\\), \\(\\psi^*\\))\nLatent vectors \\(\\vec{a}_i\\) for each neuron\n\nTo encourage similar functions to produce similar embeddings:\nEvery 4 epochs:\n├── Sample function profiles F_i = φ*(a_i, x) for x ∈ [-5, 5]\n├── Project to 2D with UMAP\n├── Hierarchical clustering (complete linkage, threshold 0.01)\n├── Replace a_i with cluster medians\n└── Retrain φ* for 20 sub-epochs"
+  },
+  {
+    "objectID": "gnn-model.html#training-parameters",
+    "href": "gnn-model.html#training-parameters",
+    "title": "GNN Model",
+    "section": "Training Parameters",
+    "text": "Training Parameters\n\n\n\nExperiment\nα\nβ\nγ\nζ\nψ* input\n\n\n\n\nBaseline\n1\n0\n0\n0\n\\(x_j\\)\n\n\nExternal inputs\n1\n5\n10\n10⁻⁵\n\\(a_j, x_j\\)\n\n\nSparse\n1\n0\n0\n10⁻⁵\n\\(x_j\\)\n\n\nLarge scale\n1\n0\n0\n5×10⁻⁵\n\\(x_j\\)\n\n\nTransmitters\n1\n0\n100\n0\n\\(a_j, x_j\\)\n\n\nTransmitters & receptors\n1\n0\n500\n0\n\\(a_i, a_j, x_j\\)"
+  },
+  {
+    "objectID": "gnn-model.html#simulation-parameters",
+    "href": "gnn-model.html#simulation-parameters",
+    "title": "GNN Model",
+    "section": "Simulation Parameters",
+    "text": "Simulation Parameters\n\n\n\nParameter\nSymbol\nTypical Range\nDescription\n\n\n\n\nNeurons\nN\n100-8000\nNetwork size\n\n\nFrames\n\\(N_{\\text{frames}}\\)\n10⁴-10⁵\nSimulation length\n\n\nConnectivity\nff\n0.05-1.0\nFilling factor\n\n\nCoupling\n\\(g_i\\)\n10\nMessage scaling\n\n\nSelf-coupling\n\\(s_i\\)\n1-8\nNonlinear feedback\n\n\nTime constant\n\\(\\tau_i\\)\n0.25-1\nDecay rate"
+  },
+  {
+    "objectID": "gnn-model.html#key-results",
+    "href": "gnn-model.html#key-results",
+    "title": "GNN Model",
+    "section": "Key Results",
+    "text": "Key Results\n\nConnectivity Recovery\n\n\n\nN\nConnectivity\nR²\nConditions\n\n\n\n\n1,000\n100%\n1.00\nNoise-free\n\n\n1,000\n5%\n0.99\nWith L1 penalty\n\n\n8,000\n100%\n1.00\nWith noise (16dB)\n\n\n\n\n\nNeuron Type Classification\n\n\n\nTypes\nAccuracy\nMethod\n\n\n\n\n4\n1.00\nK-means on \\(\\vec{a}_i\\)\n\n\n32\n0.99\nK-means on \\(\\vec{a}_i\\)\n\n\n\n\n\nSymbolic Regression\nThe learned functions can be converted to analytical expressions:\n\n\n\nFunction\nTrue\nLearned\n\n\n\n\n\\(\\phi_1\\)\n\\(-x + \\tanh(x)\\)\n\\(-0.998x + \\tanh(x) - 0.0016\\)\n\n\n\\(\\phi_2\\)\n\\(-x + 2\\tanh(x)\\)\n\\(-0.998x + 1.996\\tanh(x)\\)\n\n\n\\(\\psi\\)\n\\(\\tanh(x)\\)\n\\(\\tanh(x)\\)"
+  },
+  {
+    "objectID": "gnn-model.html#implementation",
+    "href": "gnn-model.html#implementation",
+    "title": "GNN Model",
+    "section": "Implementation",
+    "text": "Implementation\nThe GNN is implemented using:\n\nPyTorch Geometric for message passing\nAdamUniform optimizer with lr = 10⁻⁴\n500-1000 epochs covering ~10⁵ time points each"
+  },
+  {
+    "objectID": "gnn-model.html#next-steps",
+    "href": "gnn-model.html#next-steps",
+    "title": "GNN Model",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nArchitecture - System overview\nExperiment Loop - Training automation\nResults - Signal landscape findings"
+  },
+  {
+    "objectID": "experiment-loop.html",
+    "href": "experiment-loop.html",
+    "title": "Experiment Loop",
+    "section": "",
+    "text": "The experiment loop in GNN_LLM.py orchestrates the interaction between computation and reasoning:\nfor iteration in range(1, n_iterations + 1):\n    # Phase 1: Experiment\n    config = reload_config()\n    data_generate(config)\n    data_train(config)\n    data_test(config)\n    data_plot(config)\n\n    # Phase 2: UCB Computation\n    compute_ucb_scores()\n    plot_ucb_tree()\n\n    # Phase 3: LLM Analysis\n    call_claude_cli()\n\n    # Phase 4: Block Boundary (if applicable)\n    if is_block_end:\n        clear_ucb_scores()\n        save_memory_snapshot()"
+  },
+  {
+    "objectID": "experiment-loop.html#main-loop-structure",
+    "href": "experiment-loop.html#main-loop-structure",
+    "title": "Experiment Loop",
+    "section": "",
+    "text": "The experiment loop in GNN_LLM.py orchestrates the interaction between computation and reasoning:\nfor iteration in range(1, n_iterations + 1):\n    # Phase 1: Experiment\n    config = reload_config()\n    data_generate(config)\n    data_train(config)\n    data_test(config)\n    data_plot(config)\n\n    # Phase 2: UCB Computation\n    compute_ucb_scores()\n    plot_ucb_tree()\n\n    # Phase 3: LLM Analysis\n    call_claude_cli()\n\n    # Phase 4: Block Boundary (if applicable)\n    if is_block_end:\n        clear_ucb_scores()\n        save_memory_snapshot()"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-1-experiment-execution",
+    "href": "experiment-loop.html#phase-1-experiment-execution",
+    "title": "Experiment Loop",
+    "section": "Phase 1: Experiment Execution",
+    "text": "Phase 1: Experiment Execution\n\n1.1 Config Reload\nEach iteration starts by reloading the config to pick up LLM changes:\n# Reload config (pick up LLM changes from previous iteration)\nconfig = ParticleGraphConfig.from_yaml(target_config)\ndataset_name = f\"{base_config_name}/{config.dataset}\"\n\n\n1.2 Data Generation\nSimulate neural activity with current parameters:\ndata_generate(\n    config=config,\n    visualize=True,\n    style='color',\n    erase=True,  # Clear previous data\n    device=device\n)\n\n\n\n\n\n\nSimulation Parameters\n\n\n\nKey parameters that affect the generated data:\n\n\n\nParameter\nRange\nEffect\n\n\n\n\nn_neurons\n100-1000\nNetwork size\n\n\nn_frames\n10k-100k\nSimulation length\n\n\nconnectivity_type\nchaotic/low_rank\nDynamics regime\n\n\nconnectivity_filling_factor\n0.05-1.0\nSparsity\n\n\nnoise_model_level\n0-2\nObservation noise\n\n\n\n\n\n\n\n1.3 GNN Training\nTrain the GNN to recover the connectivity matrix:\ndata_train(\n    config=config,\n    device=device,\n    log_dir=log_dir\n)\nTraining parameters controlled by LLM:\n\n\n\nParameter\nTypical Range\nPurpose\n\n\n\n\nlearning_rate_W_start\n1E-4 to 1E-2\nConnectivity learning rate\n\n\nlearning_rate_start\n1E-5 to 1E-3\nMLP learning rate\n\n\ncoeff_W_L1\n1E-6 to 1E-3\nSparsity regularization\n\n\ndata_augmentation_loop\n10-40\nTraining iterations multiplier\n\n\n\n\n\n1.4 Evaluation\nTest connectivity recovery:\ndata_test(\n    config=config,\n    best_model=model_path,\n    visualize=True,\n    device=device\n)\nOutput metrics written to analysis.log:\nconnectivity_R2: 0.9543\ntest_R2: 0.8721\neffective_rank: 34\ncluster_accuracy: 0.95\nloss: 0.0023"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-2-ucb-computation",
+    "href": "experiment-loop.html#phase-2-ucb-computation",
+    "title": "Experiment Loop",
+    "section": "Phase 2: UCB Computation",
+    "text": "Phase 2: UCB Computation\n\n2.1 Score Calculation\nCompute UCB scores for the exploration tree:\ndef compute_ucb_scores(analysis_path, ucb_path, c=1.414):\n    # Parse previous iterations from analysis.md\n    nodes = parse_iterations(analysis_path)\n\n    # Build tree structure\n    for node in nodes:\n        visits = count_visits(node)\n        reward = node['connectivity_R2']\n        exploration = c * sqrt(log(N_total) / (1 + visits))\n        node['ucb'] = reward + exploration\n\n    # Write sorted scores\n    write_ucb_file(ucb_path, nodes)\n\n\n2.2 Tree Visualization\nGenerate visual representation of exploration:\nplot_ucb_tree(\n    nodes=nodes,\n    output_path=tree_path,\n    title=f\"UCB Tree - Block {block_number}\"\n)"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-3-llm-analysis",
+    "href": "experiment-loop.html#phase-3-llm-analysis",
+    "title": "Experiment Loop",
+    "section": "Phase 3: LLM Analysis",
+    "text": "Phase 3: LLM Analysis\n\n3.1 Prompt Construction\nBuild the prompt for Claude:\nclaude_prompt = f\"\"\"Iteration {iteration}/{n_iterations}\nBlock info: block {block_number}, iteration {iter_in_block}/{n_iter_block}\n{\"&gt;&gt;&gt; BLOCK END &lt;&lt;&lt;\" if is_block_end else \"\"}\n\nInstructions: {instruction_path}\nWorking memory: {memory_path}\nFull log: {analysis_path}\nActivity image: {activity_path}\nMetrics log: {analysis_log_path}\nUCB scores: {ucb_path}\nCurrent config: {config_path}\"\"\"\n\n\n3.2 Claude CLI Call\nExecute with streaming output:\nclaude_cmd = [\n    'claude',\n    '-p', claude_prompt,\n    '--output-format', 'text',\n    '--max-turns', '100',\n    '--allowedTools', 'Read', 'Edit'\n]\n\nprocess = subprocess.Popen(\n    claude_cmd,\n    stdout=subprocess.PIPE,\n    stderr=subprocess.STDOUT,\n    text=True\n)\n\n# Stream output in real-time\nfor line in process.stdout:\n    print(line, end='', flush=True)"
+  },
+  {
+    "objectID": "experiment-loop.html#strategic-decision-rules",
+    "href": "experiment-loop.html#strategic-decision-rules",
+    "title": "Experiment Loop",
+    "section": "Strategic Decision Rules",
+    "text": "Strategic Decision Rules\nThe instruction file defines 19 context-sensitive strategies:\n\nCore StrategiesAdvanced StrategiesRegime-Specific\n\n\n\n\n\nStrategy\nCondition\nAction\n\n\n\n\nexploit\nDefault\nFollow highest UCB node\n\n\nexplore\n4+ consecutive converged\nTry new parameter dimension\n\n\nboundary\n3+ consecutive R² ≥ 0.9\nProbe failure limits\n\n\nrobustness\nR² = 1.0 found\nRe-run same config to verify\n\n\n\n\n\n\n\n\n\n\n\n\n\nStrategy\nCondition\nAction\n\n\n\n\nrecombine\n2+ nodes with R² &gt; 0.9\nMerge best parameters\n\n\nscale-up\nPlateau detected\n5x data augmentation\n\n\nvariance-aware\nHigh variance regime\nWeight UCB by eff_rank similarity\n\n\nforced-branch\n4+ consecutive in same dim\nSwitch parameter dimension\n\n\n\n\n\n\n\n\n\n\n\n\n\nStrategy\nCondition\nAction\n\n\n\n\nlow-rank-lr-boost\neff_rank &lt; 15\nIncrease lr to 1E-3\n\n\nsparse-high-risk\nff &lt; 0.5 AND eff_rank &lt; 10\nAdd noise to rescue\n\n\nidentifiability-ceiling\nR² ≈ ff (linear law)\nAccept fundamental limit"
+  },
+  {
+    "objectID": "experiment-loop.html#phase-4-block-boundary",
+    "href": "experiment-loop.html#phase-4-block-boundary",
+    "title": "Experiment Loop",
+    "section": "Phase 4: Block Boundary",
+    "text": "Phase 4: Block Boundary\n\n4.1 Block End Detection\nblock_number = (iteration - 1) // n_iter_block + 1\niter_in_block = (iteration - 1) % n_iter_block + 1\nis_block_end = iter_in_block == n_iter_block\n\n\n4.2 Block End Actions\nAt block boundaries, the LLM performs additional tasks:\n┌─────────────────────────────────────────────────┐\n│  BLOCK BOUNDARY WORKFLOW                        │\n├─────────────────────────────────────────────────┤\n│  1. Clear UCB scores (fresh exploration tree)   │\n│  2. Edit instruction.md:                        │\n│     - Add rules if branching rate &lt; 20%         │\n│     - Add boundary rules if rate &gt; 80%          │\n│  3. Choose next simulation regime               │\n│  4. Update Knowledge Base in memory.md          │\n│  5. Save memory snapshot                        │\n└─────────────────────────────────────────────────┘\n\n\n4.3 Regime Selection\nAt block end, LLM selects untested simulation configuration:\n# Example regime change\nsimulation:\n  connectivity_type: low_rank     # was: chaotic\n  connectivity_rank: 10           # new parameter\n  n_neuron_types: 2               # was: 1\n  Dale_law: true                  # new parameter"
+  },
+  {
+    "objectID": "experiment-loop.html#error-recovery",
+    "href": "experiment-loop.html#error-recovery",
+    "title": "Experiment Loop",
+    "section": "Error Recovery",
+    "text": "Error Recovery\n\nAuto-Repair Loop\nIf simulation fails due to code error:\nfor attempt in range(max_repair_attempts):\n    success, error = run_simulation(config)\n\n    if success:\n        break\n\n    if is_code_error(error):\n        # Ask Claude to fix the code\n        repair_prompt = f\"Fix this error:\\n{error}\"\n        run_claude_repair(repair_prompt)\n    else:\n        break\n\nif not success:\n    rollback_code_changes()\n    log_failure_to_memory()\n\n\nGit Integration\nCode modifications are tracked and committed:\ndef track_code_modifications(root_dir, iteration):\n    code_files = [\n        'src/generators/PDE_*.py',\n        'src/generators/utils.py',\n        'src/generators/graph_data_generator.py'\n    ]\n\n    for file in get_modified_files(code_files):\n        commit_code_modification(file, iteration)"
+  },
+  {
+    "objectID": "experiment-loop.html#monitoring-output",
+    "href": "experiment-loop.html#monitoring-output",
+    "title": "Experiment Loop",
+    "section": "Monitoring Output",
+    "text": "Monitoring Output\nDuring execution, the console shows:\n=== Iteration 42/64 ===\nTask: Claude_code | mesh: Signal_Propagation | particle: N/A\nRunning simulation...\nTraining GNN...\nEvaluating...\nconnectivity_R2: 0.9234\nComputing UCB scores...\nClaude analysis...\n[Claude reasoning output streams here...]\nGit: Committed config change\nIteration 42 complete"
+  },
+  {
+    "objectID": "experiment-loop.html#next-steps",
+    "href": "experiment-loop.html#next-steps",
+    "title": "Experiment Loop",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nArchitecture - System overview\nEpistemic Analysis - Reasoning taxonomy\nResults - Experimental findings"
+  },
+  {
+    "objectID": "case-low-rank.html",
+    "href": "case-low-rank.html",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "",
+    "text": "Low-rank connectivity (rank 20, n=100 neurons) produces neural activity with effective rank ~12 — the hardest regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data.\nThe central question: can we find GNN training parameters that reliably recover W from low-rank dynamics?"
+  },
+  {
+    "objectID": "case-low-rank.html#problem-statement",
+    "href": "case-low-rank.html#problem-statement",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "",
+    "text": "Low-rank connectivity (rank 20, n=100 neurons) produces neural activity with effective rank ~12 — the hardest regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data.\nThe central question: can we find GNN training parameters that reliably recover W from low-rank dynamics?"
+  },
+  {
+    "objectID": "case-low-rank.html#what-the-landscape-exploration-found-block-2",
+    "href": "case-low-rank.html#what-the-landscape-exploration-found-block-2",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "What the Landscape Exploration Found (Block 2)",
+    "text": "What the Landscape Exploration Found (Block 2)\nThe general landscape exploration (Block 2, iterations 13–24) devoted 12 iterations to the low-rank regime and achieved 75% convergence (9/12), with a breakthrough at iteration 21.\n\nProgression\nIter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (dynamics poor)\nIter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (improved!)\nIter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (better lr_W)\nIter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)\n\n\nKey discovery\nReducing L1 from 1E-5 to 1E-6 was the critical enabler for dynamics recovery. Combined with lr_W=3E-3, this achieved chaotic-baseline-level performance (test_R2=0.996) despite eff_rank=12.\n\n\nAll 12 iterations\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter\nlr_W\nL1\nFactorization\nbatch\nconn_R2\ntest_R2\neff_rank\nStatus\n\n\n\n\n13\n4E-3\n1E-5\nFalse\n8\n0.999\n0.902\n13\nconverged\n\n\n14\n5E-3\n1E-5\nTrue\n8\n0.899\n0.854\n13\npartial\n\n\n15\n8E-3\n1E-5\nTrue\n8\n0.983\n0.851\n14\nconverged\n\n\n16\n2E-3\n1E-5\nFalse\n8\n0.992\n0.774\n14\nconverged\n\n\n17\n5E-3\n1E-5\nFalse\n8\n0.385\n0.782\n~14\nfailed\n\n\n18\n4E-3\n1E-6\nFalse\n8\n1.000\n0.925\n~14\nconverged\n\n\n19\n3E-3\n1E-5\nFalse\n8\n0.999\n0.943\n~14\nconverged\n\n\n20\n1.5E-3\n1E-5\nFalse\n8\n0.881\n0.802\n~14\npartial\n\n\n21\n3E-3\n1E-6\nFalse\n8\n0.993\n0.996\n12\nconverged\n\n\n22\n3.5E-3\n1E-6\nFalse\n8\n0.999\n0.886\n13\nconverged\n\n\n23\n2.5E-3\n1E-5\nFalse\n8\n0.978\n0.679\n12\nconverged\n\n\n24\n4E-3\n1E-6\nFalse\n16\n0.989\n0.997\n-\nconverged"
+  },
+  {
+    "objectID": "case-low-rank.html#established-principles",
+    "href": "case-low-rank.html#established-principles",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Established Principles",
+    "text": "Established Principles\nFive principles were established or refined during the low-rank exploration:\n\n\n\n\n\n\n1. L1=1E-6 is critical for low-rank dynamics\n\n\n\nAt L1=1E-5, connectivity converges (R2 &gt; 0.99) but dynamics remain poor (test_R2 ~0.90). Reducing L1 to 1E-6 unlocks near-perfect dynamics (test_R2 = 0.996). The mechanism: excessive L1 penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate.\n\n\n\n\n\n\n\n\n2. Factorization hurts in low-rank regime\n\n\n\nlow_rank_factorization=True (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives conn_R2=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full matrix and letting L1 induce sparsity.\n\n\n\n\n\n\n\n\n3. Optimal lr_W shifts downward (4E-3 → 3E-3)\n\n\n\nCompared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower effective rank provides less gradient signal, so smaller learning rate steps avoid overshooting.\n\n\n\n\n\n\n\n\n4. Convergence boundary shifts upward\n\n\n\nThe minimum lr_W for convergence rises from ~1.5E-3 (chaotic) to ~2E-3 (low-rank). Below 2E-3, connectivity still converges but dynamics degrade severely (test_R2 &lt; 0.80).\n\n\n\n\n\n\n\n\n5. Batch size sensitivity depends on L1\n\n\n\nbatch_size=16 degrades quality at L1=1E-5 but is safe at L1=1E-6 (iter 24: test_R2=0.997). Lower L1 removes the batch size sensitivity observed in block 1."
+  },
+  {
+    "objectID": "case-low-rank.html#regime-characteristics",
+    "href": "case-low-rank.html#regime-characteristics",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Regime Characteristics",
+    "text": "Regime Characteristics\n\n\n\nProperty\nLow-rank\nChaotic (baseline)\n\n\n\n\nconnectivity_type\nlow_rank (r=20)\nchaotic\n\n\nn_neurons\n100\n100\n\n\neffective rank (99% var)\n12–14\n31–35\n\n\nspectral radius\n0.952 (subcritical)\n1.065 (supercritical)\n\n\nconvergence rate\n75% (9/12)\n100% (12/12)\n\n\nbest conn_R2\n0.999\n0.999\n\n\nbest test_R2\n0.997\n0.996\n\n\ndegeneracy risk\nmoderate (1/12)\nlow\n\n\n\nDespite eff_rank being 3x lower, the low-rank regime achieves comparable peak performance to chaotic — but the parameter window is narrower and degeneracy is a risk at suboptimal settings."
+  },
+  {
+    "objectID": "case-low-rank.html#connectivity-and-activity",
+    "href": "case-low-rank.html#connectivity-and-activity",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Connectivity and Activity",
+    "text": "Connectivity and Activity\n\n\n\n\n\n\n\n\n\nConnectivity matrix: ground truth vs learned W (block 2, best iteration)\n\n\n\n\n\n\n\nNeural activity: ground truth and GNN rollout (block 2)"
+  },
+  {
+    "objectID": "case-low-rank.html#degeneracy-analysis",
+    "href": "case-low-rank.html#degeneracy-analysis",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Degeneracy Analysis",
+    "text": "Degeneracy Analysis\nOnly 1/12 iterations showed degeneracy (iter 17: conn_R2=0.385 despite test_pearson=0.836). The low degeneracy rate is notable given that low eff_rank is theoretically degeneracy-prone.\nThe key anti-degeneracy levers identified:\n\nL1=1E-6 (not 1E-5): avoids penalizing small-but-real W entries\nlr_W=3E-3: allows W to converge before MLPs can compensate\ncoeff_edge_diff: constrains MLP monotonicity, reducing compensation ability"
+  },
+  {
+    "objectID": "case-low-rank.html#open-questions-dedicated-exploration",
+    "href": "case-low-rank.html#open-questions-dedicated-exploration",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Open Questions → Dedicated Exploration",
+    "text": "Open Questions → Dedicated Exploration\nThe landscape exploration allocated only 12 iterations to low-rank. Several questions remain:\n\nRobustness across seeds: Does lr_W=3E-3 + L1=1E-6 work for all random W realizations, or only for seed=137?\nTwo-phase training: Can n_epochs_init (no L1 in early epochs) + stronger L1 in phase 2 improve further?\ncoeff_edge_diff scaling: Values of 10,000+ constrain MLP compensation — how does this interact with L1?\nTraining duration: The landscape used 1 epoch / 20 augmentation loops. Does 2 epochs / 200 augmentation loops change the optimal parameters?\n\nThese questions motivate a dedicated low-rank LLM exploration loop using GNN_LLM_parallel.py with fixed simulation and training-parameter-only search space.\npython GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster signal_low_rank iterations=120"
+  },
+  {
+    "objectID": "case-low-rank.html#dedicated-low-rank-exploration-64-iterations",
+    "href": "case-low-rank.html#dedicated-low-rank-exploration-64-iterations",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Dedicated Low-Rank Exploration (64 iterations)",
+    "text": "Dedicated Low-Rank Exploration (64 iterations)\nThe dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. 64 iterations across 6 blocks were completed, testing 4 different random seeds (137, 42, 99, 200).\n\n\n\n\n\n\nKey Result\n\n\n\nZero degeneracy in 64/64 iterations. Connectivity recovery is essentially solved (conn_R2 &gt; 0.999 in 63/64 iterations). The remaining challenge is seed-dependent lr_W tuning: optimal lr_W varies from 1E-3 to 2E-3 depending on the W realization.\n\n\n\nPer-Seed Best Configurations\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSeed\nlr_W\nbatch\nlr_emb\nn_ep\naug\ninit\ntest_R2\nconn_R2\nNode\n\n\n\n\n137\n2E-3\n16\n5E-4\n2\n200\n2\n0.9995\n0.9999\n56\n\n\n42\n1.5E-3\n16\n5E-4\n3\n300\n3\n0.9996\n1.0000\n47\n\n\n99\n1.5E-3\n16\n5E-4\n3\n300\n3\n0.9963\n1.0000\n43\n\n\n200\n1E-3\n16\n5E-4\n3\n300\n3\n0.9967\n0.9999\n55\n\n\n\n\n\nBlock-by-Block Progression\n\n\n\n\n\n\n\n\n\n\nBlock\nIters\nFocus\nBest test_R2\nKey Finding\n\n\n\n\n1\n1–12\nlr_W, L1, lr sweep\n0.9994\nlr_W=2E-3 optimal for seed=137; lr_emb=5E-4 breaks 0.999 barrier\n\n\n2\n13–24\nParameter perturbation\n0.9994\nSharp peaks in parameter landscape — all perturbations degrade\n\n\n3\n25–36\nCross-seed (seed=42)\n0.9994\n3ep+300aug is most seed-robust; seed=42 gap closed to 0.004\n\n\n4\n37–48\nSeeds 42, 99; init=3\n0.9996\nlr_W=1.5E-3+init=3 near-universal for seeds 42/99\n\n\n5\n49–60\nSeed=200; lr_W tuning\n0.9997\nOptimal lr_W is seed-dependent: 200 needs 1E-3, not 1.5E-3\n\n\n6\n61–64\nVariance reduction\n0.9995\n2ep+200aug replicates within 0.001 at seed=137\n\n\n\n\n\nConnectivity and Activity (Dedicated Exploration)\n\n\n\n\n\n\n\n\n\nConnectivity matrix (block 5, best iteration)\n\n\n\n\n\n\n\nNeural activity (block 5)\n\n\n\n\n\n\n\nUCB Exploration Trees\n\nBlock 1 (iter 12)Block 2 (iter 24)Block 3 (iter 36)Block 4 (iter 48)Block 5 (iter 60)\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nConnectivity Scatter (Selected Iterations)\n\n\n\n\n\n\n\n\n\nIter 1\n\n\n\n\n\n\n\nIter 13 (node 13)\n\n\n\n\n\n\n\nIter 47 (best)\n\n\n\n\n\n\n\nIter 55 (seed=200)\n\n\n\n\n\n\n\nMLP Functions (Selected Iterations)\n\n\n\n\n\n\n\n\n\nIter 1\n\n\n\n\n\n\n\nIter 13\n\n\n\n\n\n\n\nIter 47\n\n\n\n\n\n\n\nIter 55\n\n\n\n\n\n\n\nKinograph (Selected Iterations)\n\n\n\n\n\n\n\n\n\nIter 1\n\n\n\n\n\n\n\nIter 47 (best overall)"
+  },
+  {
+    "objectID": "case-low-rank.html#established-principles-dedicated-exploration",
+    "href": "case-low-rank.html#established-principles-dedicated-exploration",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Established Principles (Dedicated Exploration)",
+    "text": "Established Principles (Dedicated Exploration)\n32 principles were established across the 6 blocks. Key findings:\n\n\n\n\n\n\nOptimal lr_W is seed-dependent\n\n\n\nHarder W realizations need slower learning rates. Ordering: seed=200 (1E-3) &lt; seed=42/99 (1.5E-3) &lt; seed=137 (2E-3). The viable lr_W window is narrow for each seed (~0.3E-3 wide).\n\n\n\n\n\n\n\n\nL1=1E-6 is a precise sweet spot\n\n\n\nBoth L1=1E-5 (dynamics degrade to ~0.92) and L1=5E-7 (test_R2=0.944) underperform. The optimal L1 is sharply at 1E-6.\n\n\n\n\n\n\n\n\nbatch_size=16 + lr_emb=5E-4 is optimal\n\n\n\nbatch=8 works but batch=16 is better at optimal lr_emb. batch=32 is not viable (0.944). lr_emb has cliff-edge behavior: batch=16 optimal at 5E-4, batch=8 at 2.5E-4.\n\n\n\n\n\n\n\n\nn_epochs_init=2–3 enables two-phase training\n\n\n\nPhase 1 (no L1) lets W start converging; phase 2 (L1=1E-6) refines dynamics. init=3 rescues suboptimal lr_W (seed=99: 0.909 to 0.996) but causes overtraining at 4 epochs.\n\n\n\n\n\n\n\n\nShorter training reduces stochastic variance\n\n\n\n2ep+200aug replicates within 0.001 at seed=137 (nodes 13, 56). 3ep+300aug has ~0.015 variance at seed=200. When lr_W is correct, less training is better.\n\n\n\n\n\n\n\n\nOvertraining harms correct lr_W\n\n\n\nMore training (4ep+400aug) partially compensates for wrong lr_W (seed=200 at lr_W=1.5E-3: 0.854 to 0.991) but degrades correct lr_W (seed=200 at lr_W=1E-3: 0.997 to 0.951). Always tune lr_W first."
+  },
+  {
+    "objectID": "case-low-rank.html#answers-to-open-questions",
+    "href": "case-low-rank.html#answers-to-open-questions",
+    "title": "Case Study: Low-Rank Connectivity",
+    "section": "Answers to Open Questions",
+    "text": "Answers to Open Questions\nAll four questions from the landscape exploration are now answered:\n\nRobustness across seeds: Partially. lr_W=3E-3 + L1=1E-6 is not universal — optimal lr_W is seed-dependent (1E-3 to 2E-3). But the recipe template (L1=1E-6, batch=16, lr_emb=5E-4, coeff_edge_diff=10000) is universal; only lr_W needs per-seed tuning.\nTwo-phase training: Yes. n_epochs_init=2–3 (phase 1 without L1) is beneficial. It rescues suboptimal lr_W and enables higher batch sizes.\ncoeff_edge_diff scaling: 10,000 is optimal. Both 5,000 and 20,000 do not improve. This parameter is not a significant axis of variation in the low-rank regime.\nTraining duration: 2 epochs / 200 augmentation loops is sufficient at correct lr_W and gives the lowest stochastic variance. 3 epochs / 300 augmentation loops is more seed-robust but has higher variance."
+  },
+  {
+    "objectID": "architecture.html",
+    "href": "architecture.html",
+    "title": "System Architecture",
+    "section": "",
+    "text": "The NeuralGraph system implements a closed-loop scientific exploration framework with three tightly coupled components:\n\n\n\n\n\nflowchart TB\n    subgraph EXP[EXPERIMENT]\n        E1[Data Generation]\n        E2[GNN Training]\n        E3[Evaluation]\n        E4[Visualization]\n    end\n\n    subgraph LLM[LLM Agent]\n        L1[Read Inputs]\n        L2[Analyze Results]\n        L3[Select Strategy]\n        L4[Edit Config]\n    end\n\n    subgraph MEM[MEMORY]\n        M1[Working Memory&lt;br/&gt;memory.md]\n        M2[Full Log&lt;br/&gt;analysis.md]\n    end\n\n    E3 --&gt;|activity.png&lt;br/&gt;analysis.log&lt;br/&gt;ucb_scores.txt| L1\n    L4 --&gt;|config.yaml| E1\n    L2 &lt;--&gt;|read/write| M1\n    L2 --&gt;|append| M2\n\n    style EXP fill:#e3f2fd\n    style LLM fill:#fff3e0\n    style MEM fill:#e8f5e9"
+  },
+  {
+    "objectID": "architecture.html#overview",
+    "href": "architecture.html#overview",
+    "title": "System Architecture",
+    "section": "",
+    "text": "The NeuralGraph system implements a closed-loop scientific exploration framework with three tightly coupled components:\n\n\n\n\n\nflowchart TB\n    subgraph EXP[EXPERIMENT]\n        E1[Data Generation]\n        E2[GNN Training]\n        E3[Evaluation]\n        E4[Visualization]\n    end\n\n    subgraph LLM[LLM Agent]\n        L1[Read Inputs]\n        L2[Analyze Results]\n        L3[Select Strategy]\n        L4[Edit Config]\n    end\n\n    subgraph MEM[MEMORY]\n        M1[Working Memory&lt;br/&gt;memory.md]\n        M2[Full Log&lt;br/&gt;analysis.md]\n    end\n\n    E3 --&gt;|activity.png&lt;br/&gt;analysis.log&lt;br/&gt;ucb_scores.txt| L1\n    L4 --&gt;|config.yaml| E1\n    L2 &lt;--&gt;|read/write| M1\n    L2 --&gt;|append| M2\n\n    style EXP fill:#e3f2fd\n    style LLM fill:#fff3e0\n    style MEM fill:#e8f5e9"
+  },
+  {
+    "objectID": "architecture.html#file-exchange-protocol",
+    "href": "architecture.html#file-exchange-protocol",
+    "title": "System Architecture",
+    "section": "File Exchange Protocol",
+    "text": "File Exchange Protocol\nThe system communicates through a well-defined set of files:\n\nExperiment → LLM\n\n\n\n\n\n\n\n\nFile\nFormat\nContents\n\n\n\n\nactivity.png\nPNG\nNeural activity visualization showing simulated dynamics\n\n\nanalysis.log\nText\nKey metrics: connectivity_R², test_R², eff_rank, loss\n\n\nucb_scores.txt\nText\nUCB exploration tree with node scores and parents\n\n\n\n\n\nLLM → Experiment\n\n\n\n\n\n\n\n\nFile\nFormat\nContents\n\n\n\n\nconfig/{task}.yaml\nYAML\nUpdated hyperparameters for next iteration\n\n\n\n\n\nLLM ↔︎ Memory\n\n\n\n\n\n\n\n\nFile\nDirection\nContents\n\n\n\n\n{task}_memory.md\nRead/Write\nWorking memory: established principles, current block progress\n\n\n{task}_analysis.md\nAppend-only\nFull experiment log with iteration details\n\n\n{task}_reasoning.log\nAppend-only\nClaude’s reasoning trace (for debugging)"
+  },
+  {
+    "objectID": "architecture.html#component-details",
+    "href": "architecture.html#component-details",
+    "title": "System Architecture",
+    "section": "Component Details",
+    "text": "Component Details\n\n1. Experiment Module\nThe experiment module handles all computational work:\n\nData GenerationGNN TrainingEvaluation\n\n\n# Simulate neural activity with given parameters\ndata_generate(\n    config=config,\n    visualize=True,\n    device=device\n)\nGenerates synthetic neural activity using configurable dynamics:\n\nConnectivity types: Chaotic, low-rank, Dale’s law, sparse\nNetwork parameters: n_neurons, n_types, spectral_radius\nNoise models: Clean, low, medium, high\n\n\n\n# Train GNN to recover connectivity matrix W\ndata_train(\n    config=config,\n    n_epochs=config.training.n_epochs,\n    device=device\n)\nTrains Signal Propagation GNN with:\n\nLearnable connectivity matrix W\nEmbedding vectors for neuron types\nL1 regularization for sparsity\n\n\n\n# Test connectivity recovery\ndata_test(\n    config=config,\n    best_model=model_path,\n    device=device\n)\nOutputs key metrics:\n\nconnectivity_R²: Correlation between learned and true W\ntest_R²: Activity prediction accuracy\ncluster_accuracy: Neuron type classification (if n_types &gt; 1)\neffective_rank: SVD rank at 99% variance\n\n\n\n\n\n\n2. LLM Agent\nThe LLM (Claude) acts as the scientific reasoning engine:\n\n\n\n\n\n\nCapabilities\n\n\n\n\nRead: Instruction files, memory, metrics, visualizations\nAnalyze: Pattern recognition, hypothesis formation\nDecide: Strategy selection based on UCB scores\nEdit: Config files, memory updates\n\n\n\n\nDecision Framework\n┌─────────────────────────────────────────────────┐\n│  1. READ INPUTS                                 │\n│     - instruction.md (exploration protocol)     │\n│     - memory.md (accumulated knowledge)         │\n│     - analysis.log (current metrics)            │\n│     - ucb_scores.txt (exploration tree)         │\n│     - activity.png (visualization)              │\n└──────────────────────┬──────────────────────────┘\n                       │\n                       v\n┌─────────────────────────────────────────────────┐\n│  2. ANALYZE RESULTS                             │\n│     - Classify: converged / partial / failed    │\n│     - Compare to predictions                    │\n│     - Identify patterns                         │\n└──────────────────────┬──────────────────────────┘\n                       │\n                       v\n┌─────────────────────────────────────────────────┐\n│  3. SELECT STRATEGY                             │\n│     - exploit: follow highest UCB               │\n│     - explore: try new parameter dimension      │\n│     - boundary: probe failure limits            │\n│     - robustness: re-test best configs          │\n└──────────────────────┬──────────────────────────┘\n                       │\n                       v\n┌─────────────────────────────────────────────────┐\n│  4. MUTATE CONFIG                               │\n│     - Change ONE parameter                      │\n│     - Log mutation in analysis.md               │\n│     - Update memory.md                          │\n└─────────────────────────────────────────────────┘\n\n\n\n3. Memory System\nThe memory system maintains state across iterations:\n\nWorking Memory (memory.md)\nStructured document with sections:\n## Knowledge Base\n### Established Principles\n- [Confirmed findings from 3+ tests]\n\n### Open Questions\n- [Hypotheses under investigation]\n\n### Failed Configurations\n- [What to avoid]\n\n## Current Block\n### Block Info\n- Regime: [current simulation settings]\n- Iterations: N to M\n\n### Iterations This Block\n[Logs for current block]\n\n### Emerging Observations\n[Patterns noticed during exploration]\n\n\nAnalysis Log (analysis.md)\nAppend-only log with strict format:\n## Iter N: [converged/partial/failed]\nNode: id=X, parent=Y\nStrategy: [exploit/explore/boundary/...]\nConfig: [key parameters]\nMetrics: connectivity_R²=X.XX, test_R²=X.XX, eff_rank=XX\nObservation: [what was learned]\nMutation: [param]: [old] -&gt; [new]\nNext: parent=Z"
+  },
+  {
+    "objectID": "architecture.html#ucb-exploration-tree",
+    "href": "architecture.html#ucb-exploration-tree",
+    "title": "System Architecture",
+    "section": "UCB Exploration Tree",
+    "text": "UCB Exploration Tree\nThe system uses Upper Confidence Bound (UCB) for exploration:\n\\[\\text{UCB}(n) = \\bar{R}(n) + c \\sqrt{\\frac{\\ln N}{n_{\\text{visits}}}}\\]\nWhere:\n\n\\(\\bar{R}(n)\\) = average reward (connectivity_R²) at node n\n\\(N\\) = total iterations in current block\n\\(n_{\\text{visits}}\\) = visits to node n\n\\(c\\) = exploration constant (default 1.414)\n\n\n\n\n\n\ngraph TD\n    A[Root: lr_W=5E-3] --&gt; B[lr_W=1E-2&lt;br/&gt;R²=0.99]\n    A --&gt; C[lr_W=2E-3&lt;br/&gt;R²=0.97]\n    B --&gt; D[L1=1E-3&lt;br/&gt;R²=0.85]\n    B --&gt; E[L1=1E-4&lt;br/&gt;R²=0.99]\n    C --&gt; F[lr=1E-3&lt;br/&gt;R²=0.95]\n\n    style E fill:#90EE90\n    style D fill:#FFB6C1"
+  },
+  {
+    "objectID": "architecture.html#block-structure",
+    "href": "architecture.html#block-structure",
+    "title": "System Architecture",
+    "section": "Block Structure",
+    "text": "Block Structure\nExploration is organized into blocks of n_iter_block iterations:\n\n\n\nScope\nDuration\nAllowed Changes\n\n\n\n\nIteration\n1 cycle\nTraining parameters only\n\n\nBlock\n8 iterations\nTraining + simulation parameters\n\n\n\n\n\n\n\n\n\nBlock Boundary Rules\n\n\n\nAt the end of each block:\n\nClear UCB scores (fresh exploration tree)\nLLM may modify instruction file\nLLM selects next simulation regime\nMemory snapshot saved for recovery"
+  },
+  {
+    "objectID": "architecture.html#next-steps",
+    "href": "architecture.html#next-steps",
+    "title": "System Architecture",
+    "section": "Next Steps",
+    "text": "Next Steps\n\nExperiment Loop Details - Detailed code walkthrough\nEpistemic Analysis - Reasoning mode taxonomy\nResults - Findings from signal_landscape experiment"
+  },
+  {
+    "objectID": "epistemic-analysis.html",
+    "href": "epistemic-analysis.html",
+    "title": "Epistemic Analysis",
+    "section": "",
+    "text": "How does an LLM reason when embedded in a closed-loop scientific exploration? This page dissects the reasoning trace produced by the Experiment–LLM–Memory loop. Every iteration, the LLM writes a structured analysis log; each reasoning step in that log is classified into one of ten formal epistemic modes and the transitions between them are recorded as causal edges. The figures below visualize these annotations at three levels of granularity: individual events over time, compositional trends, and aggregate mode-to-mode flow."
+  },
+  {
+    "objectID": "epistemic-analysis.html#outcomes",
+    "href": "epistemic-analysis.html#outcomes",
+    "title": "Epistemic Analysis",
+    "section": "Outcomes",
+    "text": "Outcomes\n\n330 reasoning events across 276 iterations and 23 blocks, connected by 125 causal edges\nPredictive power: 74% deduction accuracy (42/57, well above chance)\nKnowledge transfer: 70% analogy success rate across 40 cross-regime transfers\nPrinciple discovery: 65 validated findings with confidence 45–100%\nSelf-correction: 100% of falsifications led to principle refinement\nStructural limit recognition: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), block 22 (conn ceiling at filling_factor), and block 23 (30k does not break fill=80% plateau) demonstrate the system can distinguish solvable from structural limits\nCross-block transfer: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16–18 and 21; block 22 (fill=80%) predictions tested in block 23\nParadigm shift: Blocks 15–16 (n_frames dominance), blocks 19–21 (gain as solvable difficulty axis), and blocks 22–23 (conn_ceiling at filling_factor) represent three paradigm-level discoveries. Each overturned or extended previously established principles"
+  },
+  {
+    "objectID": "epistemic-analysis.html#epistemic-timeline",
+    "href": "epistemic-analysis.html#epistemic-timeline",
+    "title": "Epistemic Analysis",
+    "section": "Epistemic Timeline",
+    "text": "Epistemic Timeline\n\nThe epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM’s written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7–8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19–21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22–23 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship."
+  },
+  {
+    "objectID": "epistemic-analysis.html#reasoning-activity-stream",
+    "href": "epistemic-analysis.html#reasoning-activity-stream",
+    "title": "Epistemic Analysis",
+    "section": "Reasoning Activity Stream",
+    "text": "Reasoning Activity Stream\n\nThe streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream’s width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows five distinct phases. In the first phase (blocks 1–3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4–6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7–10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11–16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15–16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17–23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23)."
+  },
+  {
+    "objectID": "epistemic-analysis.html#epistemic-flow",
+    "href": "epistemic-analysis.html#epistemic-flow",
+    "title": "Epistemic Analysis",
+    "section": "Epistemic Flow",
+    "text": "Epistemic Flow\n\nThe Sankey diagram traces how reasoning modes connect to each other across the full 268-iteration exploration (330 events, 125 causal edges, 23 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain — for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM’s analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next — this pathway intensifies in blocks 11–21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7–8, 17, 22–23) or paradigm-level shifts (blocks 15–16, 19–21). Blocks 17–23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next."
+  },
+  {
+    "objectID": "epistemic-analysis.html#reasoning-mode-taxonomy",
+    "href": "epistemic-analysis.html#reasoning-mode-taxonomy",
+    "title": "Epistemic Analysis",
+    "section": "Reasoning Mode Taxonomy",
+    "text": "Reasoning Mode Taxonomy\n\n\n\n\n\n\n\n\nMode\nDefinition\nExample from experiment\n\n\n\n\nInduction\nGeneralize from specific observations\n“lr_W 2E-3 to 8E-3 all converge in chaotic regime — easy mode”\n\n\nDeduction\nPredict from established principles\n“If L1=1E-6 helps low-rank, then it should help Dale (same eff_rank=12)”\n\n\nAbduction\nInfer best explanation for observation\n“Dynamics dropped despite same lr_W — must be eff_rank effect”\n\n\nFalsification\nReject hypothesis via counterexample\n“factorization=True made conn_R2 worse — hypothesis rejected”\n\n\nBoundary\nProbe limits of working configurations\n“lr_W=5E-3 in Dale regime — cliff found”\n\n\nAnalogy\nTransfer knowledge between regimes\n“Block 1 lr_W=4E-3 applied to block 3 Dale regime”\n\n\nMeta-reasoning\nReason about reasoning strategy\n“Switch from lr_W sweep to L1 investigation”\n\n\nRegime\nIdentify distinct operating conditions\n“sparse (eff_rank=21, subcritical) requires fundamentally different approach”\n\n\nCausal\nIdentify cause-effect relationships\n“High lr_W → fast W learning BUT starves embedding”\n\n\nConstraint\nIdentify structural limits\n“conn=0.489 is a data limit, not a training limit”\n\n\n\n\nMode Counts\n\n\n\nMode\nCount\nValidation\nFirst Appearance\n\n\n\n\nBoundary Probing\n65\nN/A\nIter 4\n\n\nDeduction\n57\n74% (42/57)\nIter 5\n\n\nInduction\n52\nN/A\nIter 5\n\n\nFalsification\n52\n100% refinement\nIter 9\n\n\nAnalogy/Transfer\n40\n70% (28/40)\nIter 13\n\n\nCausal Chain\n18\nN/A\nIter 21\n\n\nRegime Recognition\n16\nN/A\nIter 13\n\n\nConstraint\n10\nN/A\nIter 85\n\n\nMeta-reasoning\n11\nN/A\nIter 9\n\n\nAbduction\n6\nN/A\nIter 13\n\n\nUncertainty\n3\nN/A\nIter 8"
+  },
+  {
+    "objectID": "epistemic-analysis.html#key-epistemic-events-by-block",
+    "href": "epistemic-analysis.html#key-epistemic-events-by-block",
+    "title": "Epistemic Analysis",
+    "section": "Key Epistemic Events by Block",
+    "text": "Key Epistemic Events by Block\n\nBlock 1 — Chaotic Baseline\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n1–4\nBoundary\nlr_W sweep [1E-3, 2E-3, 5E-3, 1E-2]\nMaps convergence landscape\n\n\n5\nInduction\nlr_W=4E-3 identified as sweet spot\ntest_R2=0.996, conn=0.9999\n\n\n9\nFalsification\nlr=2E-4 tested at optimal lr_W\nDegrades dynamics (0.996→0.981)\n\n\n11\nInduction\nL1=1E-6 at low lr_W\nBest dynamics (0.998) but conn partial\n\n\n12\nBoundary\nbatch_size=16 tested\nConverges but slight quality loss\n\n\n\nPrinciple extracted: lr_W=4E-3 sweet spot; lr=1E-4 is optimal; batch_size=16 trades quality for speed.\n\n\nBlock 2 — Low-rank Breakthrough\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n13\nAnalogy\nTransfer lr_W=4E-3 from block 1\nConnectivity OK (0.999) but dynamics poor (0.902)\n\n\n14\nFalsification\nfactorization=True tested\nHURTS (conn 0.899 vs 0.999 without)\n\n\n17\nBoundary\nlr_W=5E-3 without factorization\nCatastrophic failure (0.385)\n\n\n18\nDeduction\nL1=1E-6 should help dynamics\nConfirmed: 0.902→0.925\n\n\n19\nInduction\nlr_W=3E-3 tested\nBetter dynamics (0.943) than 4E-3\n\n\n21\nRecombination\nlr_W=3E-3 + L1=1E-6\nBREAKTHROUGH: test_R2=0.996\n\n\n24\nFalsification\nbatch_size=16 expected to degrade\nSurprise: 0.997 (challenges principle)\n\n\n\nPrinciple extracted: L1=1E-6 is critical enabler for low-rank dynamics; lr_W optimal shifts downward at low eff_rank.\n\n\nBlock 3 — Dale’s Law Discovery\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n25\nAnalogy\nTransfer from block 1\nWorks (conn 0.972) but eff_rank drops 35→12\n\n\n28\nBoundary\nlr_W=6E-3 probed\nCatastrophic failure (conn 0.555)\n\n\n29–30\nBoundary\nlr_W=5E-3 (two independent runs)\nBoth fail (0.458, 0.455) — reproducible cliff\n\n\n33\nDeduction\nlr_W=4.5E-3 predicted safe\nBest: conn 0.986, test_R2 0.999\n\n\n36\nFalsification\nlr=2E-4 at best config\nDoes NOT degrade — challenges principle 1\n\n\n\nPrinciple extracted: Dale_law creates sharp lr_W cliff at 5E-3; safe range [3.5E-3, 4.5E-3].\n\n\nBlock 4 — Dual-Objective Conflict\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n37\nAnalogy\nTransfer from block 1\nW converges but cluster_acc=0.67\n\n\n39\nDeduction\nlr_emb=1E-3 should fix embedding\nFULL convergence: conn 0.9996, cluster 0.990\n\n\n41\nDeduction\nlr_W=5E-3 + lr_emb=1E-3\nFULL convergence confirmed (cluster 1.000)\n\n\n44\nDeduction\nL1=1E-6 critical for embedding\nConfirmed: cluster drops 0.990→0.440 at L1=1E-5\n\n\n48\nFalsification\nbatch_size=16 at best config\nDegrades cluster_acc (1.000→0.500)\n\n\n\nPrinciple extracted: lr_emb=1E-3 required for heterogeneous; batch_size=16 hurts dual-objective.\n\n\nBlock 5 — Noise Effects\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n49–52\nRegime\nnoise=[0.1, 0.5, 1.0] sweep\nAll converge: eff_rank 42→90\n\n\n57\nBoundary\nlr_W=1E-2 at noise=0.5\nDynamics degraded (0.707) — upper boundary\n\n\n58\nInduction\nlr_W=2E-3 at noise=1.0\nBest dynamics (0.998): inverse lr_W-noise\n\n\n56\nFalsification\nlr=2E-4 at eff_rank=84\nSafe — modifies principle 1\n\n\n\nPrinciple extracted: Noise inflates eff_rank; inverse lr_W-noise relation; lr=2E-4 safe only at eff_rank&gt;80.\n\n\nBlock 6 — Scale Sensitivity (n=200)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n61\nAnalogy\nTransfer lr_W=4E-3 to n=200\nConverges (conn 0.905) but eff_rank only 43\n\n\n62\nBoundary\nlr_W=2E-3 at n=200\nFails (conn 0.575) — boundary shifted up\n\n\n67\nDeduction\nlr=2E-4 safe at n=200\nBest conn (0.956)\n\n\n72\nFalsification\nlr=3E-4 tested at n=200\nBEST dynamics (0.952) — challenges principle 1\n\n\n\nPrinciple extracted: Scale amplifies lr_W/dynamics trade-off; convergence boundary shifts upward; lr tolerance widens with n.\n\n\nBlock 7 — Sparse Connectivity (ff=0.5)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n73\nRegime\nfilling_factor=0.5 new regime\neff_rank=21, spectral_radius=0.746 (subcritical)\n\n\n79\nInduction\nn_epochs=2 tested\nBeats all 1-epoch configs (0.423 vs 0.310)\n\n\n82\nInduction\nlr_W=1E-2 + 2ep\nBest conn in block (0.466)\n\n\n82\nCausal\ntraining capacity is bottleneck\nMore training &gt; higher lr_W\n\n\n\nPrinciple extracted: Sparse connectivity is hardest regime (0% convergence); n_epochs is dominant lever; subcritical spectral radius limits dynamics.\n\n\nBlock 8 — Sparse + Noise (Structural Limit)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n85\nConstraint\nnoise inflates eff_rank 21→91\nBut conn plateaus at 0.489 — structural limit\n\n\n86–87\nInduction\nlr_W insensitivity\n2E-3 to 8E-3 all give conn=0.489\n\n\n88\nFalsification\nn_epochs=1 same as n_epochs=2\nNoise removes epoch dependency\n\n\n95\nFalsification\nrecurrent training\nCatastrophic: conn collapsed 0.489→0.054\n\n\n96\nMeta-reasoning\nrecognize structural limit\n0.489 is a data limit, not training limit\n\n\n\nPrinciple extracted: sparse+noise creates fundamental data limit at 0.489; complete training parameter insensitivity; recurrent training catastrophic in subcritical regime.\n\n\nBlock 9 — Large-Scale (n=300)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n97\nAnalogy\nTransfer from n=200\nconn 0.699 — harder than n=200\n\n\n103\nInduction\nlr_W=1E-2 optimal\nBest conn at 1ep (0.805)\n\n\n106\nInduction\nn_epochs=2\nBREAKTHROUGH: conn 0.890 (+10.6%)\n\n\n108\nConstraint\nlr/lr_W interaction\nlr=3E-4 degrades at high lr_W\n\n\n\nPrinciple extracted: n=300 requires n_epochs≥2; optimal lr_W=1E-2; dynamics cliff at ~1.2E-2.\n\n\nBlock 10 — n=300 Refinement (2 epochs baseline)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n109\nDeduction\nreproduce baseline\nConfirmed: conn 0.893\n\n\n110\nFalsification\n3 epochs tested\nDoes NOT help conn (0.886 &lt; 0.893)\n\n\n112\nInduction\nL1=1E-6 at n=300\nBoosts dynamics +6.8% (0.987 vs 0.924)\n\n\n\nEmerging: conn ceiling ~0.89 at 10k frames; L1=1E-6 harmful only at n≤200 (revised).\n\n\nBlock 11 — n=200 Solved (2–3 epochs)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n117–120\nAnalogy\nTransfer from block 6 + epochs insight\n100% convergence (4/4)\n\n\n126\nInduction\nlr_W=8E-3 optimal at 2ep\nconn 0.993, test_R2 0.963\n\n\n128\nFalsification\nL1=1E-6 tested\nConfirmed harmful at n=200\n\n\n\nPrinciple extracted: n=200 recipe: lr_W=8E-3, lr=2E-4, L1=1E-5, n_epochs=2–3; 100% convergence (12/12).\n\n\nBlock 12 — n=600 (Training-Capacity Frontier)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n129–132\nAnalogy\nTransfer from n=300 recipe\nconn 0.540 at 4ep — harder than expected\n\n\n137\nInduction\nepochs not diminishing\n4ep→0.540, 8ep→0.580, 10ep→0.626\n\n\n135\nConstraint\nlr=1E-4 catastrophic\nconn=0.000 at n=600 — lr floor discovered\n\n\n\nPrinciple extracted: n=600 is severely training-capacity-limited at 10k frames; lr=1E-4 catastrophic; epochs NOT diminishing; needs 15–20ep or more frames.\n\n\nBlock 13 — Heterogeneous at Scale (n=200, 4 types)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n145–148\nAnalogy\nTransfer from blocks 4+11 recipes\n100% conn convergence (4/4)\n\n\n149\nRecombination\nlr_W=8E-3 + L1=1E-5 + 3ep\nFULL DUAL CONVERGENCE (conn=0.988, cluster=1.000)\n\n\n150\nFalsification\nL1=1E-6 at n=200/4types\nWorse overall (conn ok but dynamics/cluster degraded)\n\n\n152\nFalsification\nbatch_size=16 at n=200/4types\nCluster drops 0.610→0.250 — heterogeneous batch guard confirmed\n\n\n\nPrinciple extracted: n-dependent L1 effect overrides heterogeneous L1=1E-6 rule at n=200; recipe: lr_W=8E-3, L1=1E-5, lr_emb=1E-3, 3ep.\n\n\nBlock 14 — Recurrent Training (n=200, supercritical)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n157–164\n—\n8/8 systemic failures (infrastructure)\nNo data; retry needed\n\n\n165\nDeduction\nBaseline n=200 recipe without recurrent\nConfirmed: conn=0.990, matches block 11\n\n\n166\nDeduction\nRecurrent=True, time_step=4\nConn +0.3% (0.993) but dynamics -12.3%\n\n\n167\nBoundary\nWarmup (start_ep=1) + noise_rec=0.01\nDynamics recover (+9.5%) but conn drops (-8.2%)\n\n\n168\nFalsification\nnoise_rec=0.05 tested\nConn partial (0.772); principle generalized: rollout noise harmful\n\n\n\nPrinciple extracted: Recurrent training at supercritical rho is NOT catastrophic (unlike subcritical), but creates conn-dynamics trade-off. noise_recurrent_level ceiling is 0.01.\n\n\nBlock 15 — n_frames Scaling at n=300 (30k frames)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n169\nAnalogy\nBlock 10 recipe at 30k frames\nconn=0.999 (vs 0.924 at 10k); +8.1%; MASSIVE\n\n\n170\nFalsification\n2ep tested (block 10 required 3ep)\nConverges at 0.999! 3ep requirement overturned\n\n\n171\nAnalogy\nn=200 recipe (lr_W=8E-3, L1=1E-5) transferred\nAlso 0.999; both recipes work at 30k\n\n\n172\nFalsification\nViolate both: 2ep + L1=1E-5\nPRINCIPLE OVERTURNED — neither required at 30k\n\n\n175\nInduction\nlr_W=5E-3 + 3ep\nBEST: conn=1.000, test_R2=0.986, kino=0.985\n\n\n176\nFalsification\nbatch=16 tested at n=300/30k\nSafe! conn=1.000; batch guard overturned at 30k\n\n\n177\nInduction\nlr_W=3E-3 + 3ep\nPareto-optimal: conn=1.000, test_R2=0.990\n\n\n178\nBoundary\nlr_W=2E-2 probed\nStill converges (0.999); safe range extends to 2E-2\n\n\n\nPrinciple extracted: n_frames is the DOMINANT lever; 30k frames makes ALL training parameters non-critical at n=300; eff_rank doubles (47→80); previous n=300 principles (3ep, L1=1E-6, batch≤8) are n_frames-specific.\n\n\nBlock 16 — n=600 at 30k Frames\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n181\nAnalogy\nBlock 12 recipe at 30k frames\nCONVERGED at 0.973 (vs 0.626 at 10k/10ep)\n\n\n183\nRecombination\nlr_W=5E-3 + batch=16 (block 15 pattern)\nPareto-dominant: conn=0.976, test_R2=0.943\n\n\n184\nDeduction\n2ep at 30k should suffice (principle #37)\nConfirmed: conn=0.967 with only 2ep\n\n\n185\nFalsification\nlr_W=3E-3 (n=300/30k optimal) at n=600\nWorse (0.933); n=300 optimal does NOT transfer\n\n\n186\nInduction\nlr_W=5E-3 + 4ep\nBEST conn=0.992; 4ep substantially boosts W\n\n\n188\nFalsification\nL1=1E-6 vs 1E-5 at n=600/30k\nL1=1E-6 marginally better (+0.6%); sensitivity vanishes\n\n\n\nPrinciple extracted: n_frames dominance scales to n=600; 100% convergence (8/8); lr_W=5E-3 optimal (shifted from 1E-2 at 10k); eff_rank=87; L1 sensitivity vanishes at abundant data.\n\n\nBlock 17 — Sparse 50% at 30k Frames (Confirmed Unsolvable)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n193\nAnalogy\nTransfer n=300/30k recipe to sparse\nconn=0.320 — WORSE than 10k (0.466)\n\n\n195\nFalsification\nn_frames should rescue sparse\nOVERTURNED: eff_rank DROPS 21→13; 0% convergence\n\n\n197\nConstraint\nsubcritical rho immune to n_frames\nStructural: rho=0.746 constrains eff_rank regardless of data\n\n\n201\nInduction\ntwo-phase training only positive signal\n+15% marginal but insufficient (0.436 best)\n\n\n204\nMeta-reasoning\nclose sparse investigation\nsubcritical spectral radius is the ONLY unsolvable axis\n\n\n\nPrinciple extracted: n_frames does NOT rescue subcritical spectral radius; sparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21); two-phase training gives marginal +15%.\n\n\nBlock 18 — n=1000 at 30k Frames (Scale Frontier)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n205\nBoundary\nn=1000 at 30k frames\neff_rank=144; conn=0.726; 0% convergence\n\n\n209\nInduction\nlr=1E-4 Pareto-better at n=1000\nconn=0.745 + test_R2=0.829 vs lr=2E-4’s 0.734/0.588\n\n\n212\nConstraint\n30k insufficient for n=1000\nNeeds ~100k frames (user prior confirmed)\n\n\n214\nInduction\nepoch scaling is lr-dependent\nlr=2E-4 REVERSAL at 10ep; lr=1E-4 steady improvement\n\n\n216\nCausal\nhigher lr amplifies overtraining at large n\nlr=2E-4 overshoots at 10ep while lr=1E-4 is safe\n\n\n\nPrinciple extracted: n=1000/30k is insufficient (needs ~100k); lr=1E-4 definitively Pareto-better; eff_rank scales superlinearly with n at 30k; epoch scaling is lr-dependent.\n\n\nBlock 19 — Low Gain g=3 (n=100, New Difficulty Axis)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n217\nRegime\ngain=3 identified as new difficulty axis\neff_rank 35→26; rho=1.065 (supercritical); 4/4 degenerate at 1ep\n\n\n219\nInduction\nn_epochs dominant lever\n1ep→0.636, 2ep→0.906, 3ep→0.955\n\n\n221\nBoundary\nno lr_W cliff up to 1.2E-2\nUnlike g=7 cliff at 8E-3; lower gain shifts cliff higher\n\n\n224\nFalsification\nbatch=16 at g=3\nCatastrophic: -42%; low gain amplifies batch sensitivity\n\n\n228\nInduction\ng=3 recipe established\nlr_W=8E-3, 3ep → conn=0.955\n\n\n\nPrinciple extracted: gain=3 reduces eff_rank 35→26; training-limited like large n; no lr_W cliff; batch=16 and L1=1E-6 catastrophic; n_epochs is dominant lever.\n\n\nBlock 20 — Low Gain g=3 at Scale (n=200, 10k)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n229\nDeduction\ngain × n should compound\nConfirmed: 0% convergence, max conn=0.489 at 6ep\n\n\n233\nConstraint\nepoch scaling diminishing at 4–6ep\nNeed alternative lever (n_frames predicted)\n\n\n236\nInduction\nlr_W and epochs substitutable\nlr_W=2E-2/3ep matches lr_W=1.2E-2/4ep\n\n\n240\nFalsification\nbatch=16 tested at g=3/n=200\nCatastrophic: -21%; batch guard confirmed at low gain\n\n\n\nPrinciple extracted: gain × n compounds super-additively; 0% convergence at 10k/6ep; universal degeneracy (12/12); batch=16 catastrophic; needs 30k frames.\n\n\nBlock 21 — Low Gain g=3 Rescued by 30k Frames (n=200)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n241\nAnalogy\n30k frames should rescue g=3/n=200\nCONFIRMED: conn=0.993 at first attempt\n\n\n245\nInduction\nPareto-optimal recipe found\nlr_W=4E-3, 2ep → conn=0.996, test_R2=0.999\n\n\n248\nInduction\neff_rank increases +80% at 30k\n31→53–57; same pattern as other regimes\n\n\n251\nFalsification\nbatch=16 at g=3/30k\nSafe (-0.4%); overturns block 20’s batch catastrophe\n\n\n252\nInduction\nALL params non-critical at g=3/30k\nNo lr_W cliff to 3E-2; gain is NOT an independent unsolvable axis\n\n\n\nPrinciple extracted: 30k frames rescues g=3/n=200 (0%→100%); gain is SOLVABLE by n_frames; batch=16 safe at 30k; all params non-critical; n_frames is the universal solver.\n\n\nBlock 22 — Partial Connectivity fill=80% (n=100, 10k)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n253\nRegime\nfill=80% is intermediate regime\neff_rank=36 (same as 100%); rho=0.985 (near-critical)\n\n\n255\nConstraint\nconn plateau at ~0.802\nCOMPLETE parameter insensitivity; 0/12 degenerate\n\n\n259\nInduction\nconn_ceiling scales linearly with fill\nfill=50%→0.49, 80%→0.80, 100%→1.00\n\n\n261\nInduction\nsharp transition from 50% to 80%\nrho 0.746→0.985; eff_rank 21→36\n\n\n264\nDeduction\nn_frames should rescue fill=80%\nrho near-critical → predict yes (unlike subcritical 50%)\n\n\n\nPrinciple extracted: fill=80% creates conn plateau at ~0.802 with complete param insensitivity; conn_ceiling approximates filling_factor; sharp rho transition between 50–80%.\n\n\nBlock 23 — fill=80% at 30k Frames (4 iterations completed)\n\n\n\n\n\n\n\n\n\nIter\nMode\nEvent\nOutcome\n\n\n\n\n265\nFalsification\n30k should break fill=80% plateau\nOVERTURNED: conn=0.802 identical to 10k\n\n\n266\nConstraint\nconn is structurally locked at fill%\nlr_W 2E-3 to 1.2E-2 all give conn=0.802\n\n\n267\nInduction\ndynamics and conn decoupled at fill=80%\nkino_R2 0.783–0.999 but conn always 0.802\n\n\n268\nConstraint\nconn_ceiling at filling_factor confirmed at 30k\nSecond regime (after sparse) where n_frames does NOT rescue\n\n\n\nPrinciple extracted: 30k frames does NOT break fill=80% conn plateau; conn_ceiling at filling_factor holds at both 10k and 30k; this is the second structural limit alongside subcritical spectral radius."
+  },
+  {
+    "objectID": "epistemic-analysis.html#causal-chains",
+    "href": "epistemic-analysis.html#causal-chains",
+    "title": "Epistemic Analysis",
+    "section": "Causal Chains",
+    "text": "Causal Chains\nKey multi-step causal chains discovered:\n\n\n\n\n\ngraph TD\n    A[low eff_rank observed&lt;br/&gt;iter 13] --&gt;|leads_to| B[dynamics failure at L1=1E-5&lt;br/&gt;iter 18]\n    B --&gt;|triggers| C[L1 reduction hypothesis&lt;br/&gt;iter 18]\n    C --&gt;|leads_to| D[L1=1E-6 + lr_W=3E-3 test&lt;br/&gt;iter 21]\n    D --&gt;|refines| E[low-rank principle established&lt;br/&gt;BREAKTHROUGH]\n\n    F[Dale eff_rank=12&lt;br/&gt;iter 25] --&gt;|leads_to| G[lr_W=5E-3 cliff&lt;br/&gt;iters 29-30]\n    G --&gt;|triggers| H[narrow range hypothesis]\n    H --&gt;|leads_to| I[safe range mapped: 3.5-4.5E-3&lt;br/&gt;iter 33]\n    I --&gt;|refines| J[Dale cliff principle]\n\n    K[sparse subcritical&lt;br/&gt;iter 73] --&gt;|triggers| L[n_epochs exploration&lt;br/&gt;iter 79]\n    L --&gt;|leads_to| M[training capacity bottleneck&lt;br/&gt;iter 82]\n    M --&gt;|triggers| N[n=300 epochs=2 breakthrough&lt;br/&gt;iter 106]\n\n    O[n=300 conn ceiling ~0.92&lt;br/&gt;block 10] --&gt;|triggers| P[n_frames hypothesis&lt;br/&gt;block 15]\n    P --&gt;|leads_to| Q[n=300/30k 100% convergence&lt;br/&gt;iter 177]\n    Q --&gt;|triggers| R[n=600/30k test&lt;br/&gt;block 16]\n    R --&gt;|leads_to| S[n=600 SOLVED: conn=0.992&lt;br/&gt;iter 186]\n\n    S --&gt;|triggers| T[sparse 50% at 30k test&lt;br/&gt;block 17]\n    T --&gt;|leads_to| U[eff_rank DROPS 21→13&lt;br/&gt;iter 195]\n    U --&gt;|refines| V[subcritical rho immune to n_frames&lt;br/&gt;STRUCTURAL LIMIT]\n\n    S --&gt;|triggers| W[gain=3 identified as axis&lt;br/&gt;block 19]\n    W --&gt;|leads_to| X[g=3/n=200 0% conv&lt;br/&gt;block 20]\n    X --&gt;|triggers| Y[30k frames test for g=3&lt;br/&gt;block 21]\n    Y --&gt;|leads_to| Z[g=3/n=200 SOLVED: conn=0.996&lt;br/&gt;iter 245]\n\n    AA[fill=80% conn=0.802&lt;br/&gt;block 22] --&gt;|triggers| AB[30k test for fill=80%&lt;br/&gt;block 23]\n    AB --&gt;|leads_to| AC[conn=0.802 unchanged&lt;br/&gt;iter 265]\n    AC --&gt;|refines| AD[conn_ceiling ≈ filling_factor&lt;br/&gt;STRUCTURAL LIMIT]\n\n    style A fill:#e3f2fd\n    style E fill:#c8e6c9\n    style F fill:#e3f2fd\n    style J fill:#c8e6c9\n    style K fill:#e3f2fd\n    style N fill:#c8e6c9\n    style O fill:#e3f2fd\n    style S fill:#c8e6c9\n    style V fill:#ffcdd2\n    style Z fill:#c8e6c9\n    style AD fill:#ffcdd2"
+  },
+  {
+    "objectID": "epistemic-analysis.html#validation-rates",
+    "href": "epistemic-analysis.html#validation-rates",
+    "title": "Epistemic Analysis",
+    "section": "Validation Rates",
+    "text": "Validation Rates\n\n\n\nMode\nCount\nValidated\nRate\nSignificance\n\n\n\n\nDeduction\n57\n42\n74%\nWell above chance (50%)\n\n\nAnalogy\n40\n28\n70%\nGood transfer success\n\n\nFalsification\n52\n52\n100%\nAll led to refinement\n\n\n\n\n\n\n\n\n\nKey Insight\n\n\n\nThe 74% deduction validation rate across 57 predictions demonstrates that the LLM is forming genuine predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across 40 cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7–8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15–16 and 19–21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), and blocks 22–23 demonstrate a new structural limit discovery (conn_ceiling at filling_factor). The system can now distinguish three classes of difficulty: solvable by n_frames (large n, low gain), solvable by training (small n, high gain), and structurally unsolvable (subcritical rho, partial connectivity ceiling)."
+  },
+  {
+    "objectID": "epistemic-analysis.html#principles-discovered",
+    "href": "epistemic-analysis.html#principles-discovered",
+    "title": "Epistemic Analysis",
+    "section": "Principles Discovered",
+    "text": "Principles Discovered\nSixty-four key principles discovered through systematic reasoning across 23 regimes:\n\n\n\n\n\n\n\n\n\n#\nPrinciple\nEvidence\nConfidence\n\n\n\n\n1\nlr=1E-4 optimal (base)\nBlocks 1, 3; modified by eff_rank\n85%\n\n\n2\nConvergence boundary lr_W~2E-3\nBlocks 1–3\n85%\n\n\n3\nL1=1E-6 critical for low_rank\nBlock 2 breakthrough\n92%\n\n\n4\nfactorization hurts\nBlock 2\n55%\n\n\n5\nlr_W depends on regime\nAll blocks\n100%\n\n\n6\nDale cliff at 5E-3\nBlock 3\n72%\n\n\n7\nDale reduces eff_rank\nBlock 3\n45%\n\n\n8\nbatch_size=16 hurts complex regimes\nBlocks 2–4\n77%\n\n\n9\nlr_emb coupled to lr_W\nBlock 4\n60%\n\n\n10\nlr_W=5E-3 for dual-objective\nBlock 4\n55%\n\n\n11\nHeterogeneous increases eff_rank\nBlock 4\n45%\n\n\n12\nNoise inflates eff_rank\nBlock 5\n72%\n\n\n13\nInverse lr_W-noise relation\nBlock 5\n72%\n\n\n14\nRollout anti-correlates with noise\nBlock 5\n55%\n\n\n15\neff_rank scales sub-linearly with n\nBlocks 6, 9\n72%\n\n\n16\nDynamics cliff scales non-linearly\nBlocks 1, 6, 9\n85%\n\n\n17\nlr tolerance widens with n\nBlocks 6, 9\n72%\n\n\n18\nSparse reduces eff_rank, makes subcritical\nBlock 7\n55%\n\n\n19\nn_epochs dominant in sparse (without noise)\nBlock 7\n72%\n\n\n20\nNoise removes n_epochs dependency in sparse\nBlock 8\n55%\n\n\n21\nRecurrent training catastrophic in subcritical\nBlock 8\n55%\n\n\n22\nSparse 50% conn~0.49 structural data limit\nBlock 8\n85%\n\n\n23\nn=300 requires n_epochs&gt;=2\nBlock 9\n72%\n\n\n24\nlr tolerance narrows at high lr_W\nBlock 9\n55%\n\n\n25\nn=300 conn ceiling ~0.89 at 10k frames\nBlock 10\n72%\n\n\n26\nn=200 dense chaotic 100% convergence\nBlock 11\n92%\n\n\n27\nn=600 requires &gt;10 epochs\nBlock 12\n55%\n\n\n28\nL1=1E-6 beneficial at n&gt;=300\nBlocks 10–11\n72%\n\n\n29\nn_types=4 + n=200 converges at 100%\nBlock 13\n85%\n\n\n30\nn=200/4types recipe: lr_W=8E-3, L1=1E-5, 3ep\nBlock 13\n85%\n\n\n31\nlr_emb ceiling at n=200/4types is 1E-3\nBlock 13\n72%\n\n\n32\nHeterogeneous lr_W scales with n like homogeneous\nBlocks 4, 13\n72%\n\n\n33\nRecurrent at supercritical: conn-dynamics trade-off\nBlock 14\n55%\n\n\n34\nRecurrent warmup shifts capacity from W to MLP\nBlock 14\n55%\n\n\n35\nnoise_recurrent_level ceiling is 0.01\nBlock 14\n55%\n\n\n36\nRecurrent NOT catastrophic at supercritical rho\nBlocks 8, 14\n72%\n\n\n37\nn_frames is DOMINANT lever for large n\nBlocks 15, 16\n92%\n\n\n38\nAt high n_frames, dynamics-optimal lr_W is LOWER\nBlocks 15, 16\n85%\n\n\n39\naug_loop=20 preserves conn but costs ~6% dynamics\nBlocks 15, 16\n72%\n\n\n40\nAt high n_frames, all training params non-critical\nBlocks 15, 16\n85%\n\n\n41\nn_frames doubles eff_rank: n=300 47→80, n=600 50→87\nBlocks 15, 16\n92%\n\n\n42\nn=600/30k recipe: lr_W=5E-3, lr=2E-4, L1=1E-5, batch=16, 5ep\nBlock 16\n85%\n\n\n43\nn_frames rescues ALL param catastrophes EXCEPT subcritical sparse\nBlocks 15–17\n92%\n\n\n44\ndynamics-optimal lr_W inversely scales with n_frames\nBlocks 15, 16\n85%\n\n\n45\nsparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21)\nBlock 17\n72%\n\n\n46\nsparse 50% has complete parameter insensitivity\nBlocks 7, 8, 17\n92%\n\n\n47\ntwo-phase training only marginal signal in sparse (+15%)\nBlock 17\n55%\n\n\n48\nn=1000/30k insufficient — max conn=0.745; needs ~100k\nBlock 18\n72%\n\n\n49\nlr=1E-4 Pareto-better at n=1000/30k\nBlock 18\n72%\n\n\n50\neff_rank scales superlinearly with n at 30k\nBlocks 15, 16, 18\n72%\n\n\n51\nepoch scaling at large n is lr-dependent\nBlock 18\n55%\n\n\n52\ndynamics variance increases with n\nBlock 18\n55%\n\n\n53\nlow gain (g=3) is independent difficulty axis\nBlock 19\n72%\n\n\n54\ngain modulates lr_W cliff position\nBlocks 1, 19, 20\n72%\n\n\n55\ng=3/n=100 recipe: lr_W=8E-3, 3ep → conn=0.955\nBlock 19\n72%\n\n\n56\ngain × n compounds difficulty super-additively\nBlocks 19, 20\n85%\n\n\n57\ng=3 eliminates lr_W cliff across n\nBlocks 19, 20\n72%\n\n\n58\nbatch=16 catastrophic at low gain AT 10k only\nBlocks 19–21\n72%\n\n\n59\n30k frames rescues g=3/n=200 (0%→100%)\nBlock 21\n92%\n\n\n60\ng=3/30k lr tolerance wider than g=7/30k\nBlocks 15, 21\n55%\n\n\n61\ng=3/n=200/30k recipe: lr_W=4E-3, 2ep → conn=0.996\nBlock 21\n85%\n\n\n62\nfill=80% creates conn plateau at ~0.802\nBlock 22\n85%\n\n\n63\nfilling_factor transition 50%→80% is sharp\nBlocks 7, 17, 22\n72%\n\n\n64\nconn_ceiling scales linearly with filling_factor\nBlocks 1, 7, 22, 23\n85%"
+  },
+  {
+    "objectID": "epistemic-analysis.html#block-summary",
+    "href": "epistemic-analysis.html#block-summary",
+    "title": "Epistemic Analysis",
+    "section": "Block Summary",
+    "text": "Block Summary\n\n\n\n\n\n\n\n\n\n\n\n\n\nBlock\nRegime\nn_frames\nn_neurons\nIterations\neff_rank\nConvergence\nKey Finding\n\n\n\n\n1\nChaotic\n10k\n100\n1–12\n~35\n92%\nEasy mode: lr_W=4E-3 sweet spot\n\n\n2\nLow-rank\n10k\n100\n13–24\n~12–14\n75%\nL1=1E-6 breakthrough\n\n\n3\nDale\n10k\n100\n25–36\n~12\n67%\nSharp lr_W cliff at 5E-3\n\n\n4\nHeterogeneous\n10k\n100\n37–48\n~38\n75%\nDual-objective; lr_emb=1E-3 required\n\n\n5\nNoise\n10k\n100\n49–60\n42–90\n100%\nInverse lr_W-noise relation\n\n\n6\nScale\n10k\n200\n61–72\n~41–44\n67%\nTrade-offs amplified; lr=3E-4 safe\n\n\n7\nSparse 50%\n10k\n100\n73–84\n~21\n0%\nHardest regime; n_epochs key lever\n\n\n8\nSparse+Noise\n10k\n100\n85–96\n~91\n0%\nStructural data limit (0.489)\n\n\n9\nn=300\n10k\n300\n97–108\n~44–47\n0%\nn_epochs=2 breakthrough (0.890)\n\n\n10\nn=300 2ep\n10k\n300\n109–116\n~44–47\n25%\nNear-convergence; conn=0.924\n\n\n11\nn=200 v2\n10k\n200\n117–128\n~43\n100%\nDense chaotic confirmed easy\n\n\n12\nn=600\n10k\n600\n129–140\n~50\n0%\nR2=0.63; needs more epochs\n\n\n13\nn=200 + 4 types\n10k\n200\n141–156\n~42–44\n100% conn\nFull dual convergence; L1=1E-5 &gt; 1E-6\n\n\n14\nRecurrent\n10k\n200\n157–168\n~42–44\n75% (3/4)\nConn-dynamics trade-off; 8/12 infra failures\n\n\n15\nn=300 (30k)\n30k\n300\n169–180\n79–80\n100%\nn_frames transformative; all params non-critical\n\n\n16\nn=600 (30k)\n30k\n600\n181–192\n85–87\n100% (8/8)\nn_frames solves n=600; lr_W=5E-3 optimal\n\n\n17\nSparse 50% (30k)\n30k\n100\n193–204\n13\n0%\nn_frames does NOT rescue; eff_rank DROPS\n\n\n18\nn=1000 (30k)\n30k\n1000\n205–216\n144\n0%\n30k insufficient; needs ~100k; lr=1E-4 Pareto\n\n\n19\ng=3 (n=100)\n10k\n100\n217–228\n26\n42%\nGain as new difficulty axis; n_epochs dominant\n\n\n20\ng=3 (n=200)\n10k\n200\n229–240\n31\n0%\nGain × n compounds; universal degeneracy\n\n\n21\ng=3/n=200 (30k)\n30k\n200\n241–252\n53–57\n100%\n30k rescues gain; all params non-critical\n\n\n22\nfill=80% (10k)\n10k\n100\n253–264\n36\n0%\nConn plateau at 0.802; param insensitivity\n\n\n23\nfill=80% (30k)\n30k\n100\n265–276\n48–49\n0% (0/12)\n30k does NOT break plateau; conn ≈ fill%; structural invariant"
+  },
+  {
+    "objectID": "epistemic-analysis.html#next-pages",
+    "href": "epistemic-analysis.html#next-pages",
+    "title": "Epistemic Analysis",
+    "section": "Next Pages",
+    "text": "Next Pages\n\nResults — Detailed experimental findings\nExploration — Visual record"
+  },
+  {
+    "objectID": "exploration-gallery.html",
+    "href": "exploration-gallery.html",
+    "title": "Exploration",
+    "section": "",
+    "text": "This page presents the visual record of the closed-loop exploration: learned connectivity matrices, neural activity traces, UCB exploration trees, connectivity scatter plots, kinographs, and learned signaling functions for each block. Each block introduces a new simulation regime; within each block, the LLM proposes training parameter mutations via UCB tree search with 4 parallel slots per batch."
+  },
+  {
+    "objectID": "exploration-gallery.html#block-1-chaotic-baseline-n100-iters-112",
+    "href": "exploration-gallery.html#block-1-chaotic-baseline-n100-iters-112",
+    "title": "Exploration",
+    "section": "Block 1 — Chaotic Baseline (n=100, iters 1–12)",
+    "text": "Block 1 — Chaotic Baseline (n=100, iters 1–12)\nFull-rank chaotic dynamics with spectral radius ~1.3 and eff_rank ~35. The GNN achieves near-perfect connectivity recovery (R2 = 1.000) with lr_W = 4E-3 and L1 = 1E-5.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 1\n\n\n\n\n\n\n\nIter 4\n\n\n\n\n\n\n\nIter 8\n\n\n\n\n\n\n\nIter 12\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 1\n\n\n\n\n\n\n\nIter 5\n\n\n\n\n\n\n\n\n\nIter 8\n\n\n\n\n\n\n\nIter 12\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 1\n\n\n\n\n\n\n\nIter 5\n\n\n\n\n\n\n\nIter 12"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-2-low-rank-n100-iters-1324",
+    "href": "exploration-gallery.html#block-2-low-rank-n100-iters-1324",
+    "title": "Exploration",
+    "section": "Block 2 — Low-Rank (n=100, iters 13–24)",
+    "text": "Block 2 — Low-Rank (n=100, iters 13–24)\nRank-20 connectivity reduces eff_rank to 12–13. L1 = 1E-6 is critical for dynamics recovery (test_R2 = 0.996). Best conn_R2 = 0.993.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 13\n\n\n\n\n\n\n\nIter 17\n\n\n\n\n\n\n\nIter 21\n\n\n\n\n\n\n\nIter 24\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 13\n\n\n\n\n\n\n\nIter 18\n\n\n\n\n\n\n\n\n\nIter 21\n\n\n\n\n\n\n\nIter 24\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 13\n\n\n\n\n\n\n\nIter 21\n\n\n\n\n\n\n\nIter 24"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-3-dale-constraint-n100-iters-2536",
+    "href": "exploration-gallery.html#block-3-dale-constraint-n100-iters-2536",
+    "title": "Exploration",
+    "section": "Block 3 — Dale Constraint (n=100, iters 25–36)",
+    "text": "Block 3 — Dale Constraint (n=100, iters 25–36)\nExcitatory/inhibitory (50/50) constraint reduces eff_rank from 35 to 12. Sharp lr_W cliff at 5E-3; safe range [3.5E-3, 4.5E-3]. Best conn_R2 = 0.986.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 25\n\n\n\n\n\n\n\nIter 29\n\n\n\n\n\n\n\nIter 33\n\n\n\n\n\n\n\nIter 36\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 25\n\n\n\n\n\n\n\nIter 29\n\n\n\n\n\n\n\n\n\nIter 33\n\n\n\n\n\n\n\nIter 36\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 25\n\n\n\n\n\n\n\nIter 33\n\n\n\n\n\n\n\nIter 36"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-4-heterogeneous-n_types4-n100-iters-3748",
+    "href": "exploration-gallery.html#block-4-heterogeneous-n_types4-n100-iters-3748",
+    "title": "Exploration",
+    "section": "Block 4 — Heterogeneous n_types=4 (n=100, iters 37–48)",
+    "text": "Block 4 — Heterogeneous n_types=4 (n=100, iters 37–48)\nFour neuron types with distinct signaling functions. Dual objective: connectivity recovery + embedding learning. eff_rank = 38. Best conn_R2 = 0.992 at lr_W = 5E-3.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 37\n\n\n\n\n\n\n\nIter 41\n\n\n\n\n\n\n\nIter 45\n\n\n\n\n\n\n\nIter 48\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 37\n\n\n\n\n\n\n\nIter 41\n\n\n\n\n\n\n\n\n\nIter 45\n\n\n\n\n\n\n\nIter 48\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 37\n\n\n\n\n\n\n\nIter 41\n\n\n\n\n\n\n\nIter 48"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-5-noise-n100-iters-4960",
+    "href": "exploration-gallery.html#block-5-noise-n100-iters-4960",
+    "title": "Exploration",
+    "section": "Block 5 — Noise (n=100, iters 49–60)",
+    "text": "Block 5 — Noise (n=100, iters 49–60)\nAdditive noise (sigma = 0.1–1.0) inflates eff_rank from 35 to 42–90. Easiest regime: 100% convergence. Inverse lr_W–noise relationship discovered.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 49\n\n\n\n\n\n\n\nIter 53\n\n\n\n\n\n\n\nIter 57\n\n\n\n\n\n\n\nIter 60\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 49\n\n\n\n\n\n\n\nIter 53\n\n\n\n\n\n\n\n\n\nIter 57\n\n\n\n\n\n\n\nIter 60\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 49\n\n\n\n\n\n\n\nIter 55\n\n\n\n\n\n\n\nIter 60"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-6-scale-n200-iters-6172",
+    "href": "exploration-gallery.html#block-6-scale-n200-iters-6172",
+    "title": "Exploration",
+    "section": "Block 6 — Scale n=200 (iters 61–72)",
+    "text": "Block 6 — Scale n=200 (iters 61–72)\nDoubling neurons to 200. Harder than n=100 (67% vs 92% convergence). Convergence boundary shifts to lr_W ~ 3.5E-3. Best conn_R2 = 0.956.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 61\n\n\n\n\n\n\n\nIter 65\n\n\n\n\n\n\n\nIter 69\n\n\n\n\n\n\n\nIter 72\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 61\n\n\n\n\n\n\n\nIter 65\n\n\n\n\n\n\n\n\n\nIter 69\n\n\n\n\n\n\n\nIter 72\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 61\n\n\n\n\n\n\n\nIter 67\n\n\n\n\n\n\n\nIter 72"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-7-sparse-50-n100-iters-7384",
+    "href": "exploration-gallery.html#block-7-sparse-50-n100-iters-7384",
+    "title": "Exploration",
+    "section": "Block 7 — Sparse 50% (n=100, iters 73–84)",
+    "text": "Block 7 — Sparse 50% (n=100, iters 73–84)\nHalf the connections zeroed. Subcritical spectral radius (rho = 0.746) drops eff_rank to 21. Hardest regime without noise: 0% convergence. n_epochs is the dominant lever.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 73\n\n\n\n\n\n\n\nIter 77\n\n\n\n\n\n\n\nIter 81\n\n\n\n\n\n\n\nIter 84\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 73\n\n\n\n\n\n\n\nIter 77\n\n\n\n\n\n\n\n\n\nIter 81\n\n\n\n\n\n\n\nIter 84\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 73\n\n\n\n\n\n\n\nIter 79\n\n\n\n\n\n\n\nIter 84"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-8-sparse-noise-n100-iters-8596",
+    "href": "exploration-gallery.html#block-8-sparse-noise-n100-iters-8596",
+    "title": "Exploration",
+    "section": "Block 8 — Sparse + Noise (n=100, iters 85–96)",
+    "text": "Block 8 — Sparse + Noise (n=100, iters 85–96)\nSparse 50% with additive noise (sigma = 0.5). Noise inflates eff_rank from 21 to 91 but does not rescue connectivity: stuck at conn_R2 ~ 0.490. Complete parameter insensitivity.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 85\n\n\n\n\n\n\n\nIter 89\n\n\n\n\n\n\n\nIter 93\n\n\n\n\n\n\n\nIter 96\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 85\n\n\n\n\n\n\n\nIter 89\n\n\n\n\n\n\n\n\n\nIter 93\n\n\n\n\n\n\n\nIter 96\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 85\n\n\n\n\n\n\n\nIter 91\n\n\n\n\n\n\n\nIter 96"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-9-scale-n300-iters-97108",
+    "href": "exploration-gallery.html#block-9-scale-n300-iters-97108",
+    "title": "Exploration",
+    "section": "Block 9 — Scale n=300 (iters 97–108)",
+    "text": "Block 9 — Scale n=300 (iters 97–108)\nTripling neurons to 300. Zero convergence at 1 epoch; n_epochs = 2 is a breakthrough (+10.6%). Near-convergence at conn_R2 = 0.890. Optimal lr_W = 1E-2.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 97\n\n\n\n\n\n\n\nIter 101\n\n\n\n\n\n\n\nIter 105\n\n\n\n\n\n\n\nIter 108\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 97\n\n\n\n\n\n\n\nIter 101\n\n\n\n\n\n\n\n\n\nIter 105\n\n\n\n\n\n\n\nIter 108\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 97\n\n\n\n\n\n\n\nIter 104\n\n\n\n\n\n\n\nIter 108"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-10-scale-n300-2-epoch-baseline-iters-109116",
+    "href": "exploration-gallery.html#block-10-scale-n300-2-epoch-baseline-iters-109116",
+    "title": "Exploration",
+    "section": "Block 10 — Scale n=300, 2-epoch Baseline (iters 109–116)",
+    "text": "Block 10 — Scale n=300, 2-epoch Baseline (iters 109–116)\nContinued n=300 exploration with 2-epoch baseline. L1 = 1E-6 + n_epochs = 3 yields best conn_R2 = 0.897. L1 = 1E-6 is neutral at n=300 (unlike harmful at n=200).\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 109\n\n\n\n\n\n\n\nIter 112\n\n\n\n\n\n\n\nIter 114\n\n\n\n\n\n\n\nIter 116\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 109\n\n\n\n\n\n\n\nIter 112\n\n\n\n\n\n\n\n\n\nIter 114\n\n\n\n\n\n\n\nIter 116\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 109\n\n\n\n\n\n\n\nIter 114\n\n\n\n\n\n\n\nIter 116"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-11-n200-solved-iters-117128",
+    "href": "exploration-gallery.html#block-11-n200-solved-iters-117128",
+    "title": "Exploration",
+    "section": "Block 11 — n=200 Solved (iters 117–128)",
+    "text": "Block 11 — n=200 Solved (iters 117–128)\nDense chaotic n=200 revisited with 2–3 epochs. 100% convergence (12/12). The recipe: lr_W=8E-3, lr=2E-4, L1=1E-5, n_epochs=2–3. L1=1E-6 confirmed harmful at n=200.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 117\n\n\n\n\n\n\n\nIter 121\n\n\n\n\n\n\n\nIter 125\n\n\n\n\n\n\n\nIter 128\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 117\n\n\n\n\n\n\n\nIter 121\n\n\n\n\n\n\n\n\n\nIter 125\n\n\n\n\n\n\n\nIter 128\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 117\n\n\n\n\n\n\n\nIter 125\n\n\n\n\n\n\n\nIter 128"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-12-n600-training-capacity-frontier-iters-129140",
+    "href": "exploration-gallery.html#block-12-n600-training-capacity-frontier-iters-129140",
+    "title": "Exploration",
+    "section": "Block 12 — n=600 Training-Capacity Frontier (iters 129–140)",
+    "text": "Block 12 — n=600 Training-Capacity Frontier (iters 129–140)\nSix hundred neurons at 10k frames. 0% convergence even at 10 epochs, but gains are NOT diminishing (~4–8% per +2 epochs). Best conn_R2 = 0.626. lr=1E-4 is catastrophic (conn=0.000).\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 129\n\n\n\n\n\n\n\nIter 133\n\n\n\n\n\n\n\nIter 137\n\n\n\n\n\n\n\nIter 140\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 129\n\n\n\n\n\n\n\nIter 133\n\n\n\n\n\n\n\n\n\nIter 137\n\n\n\n\n\n\n\nIter 140\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 129\n\n\n\n\n\n\n\nIter 137\n\n\n\n\n\n\n\nIter 140"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-13-heterogeneous-at-scale-n200-4-types-iters-141156",
+    "href": "exploration-gallery.html#block-13-heterogeneous-at-scale-n200-4-types-iters-141156",
+    "title": "Exploration",
+    "section": "Block 13 — Heterogeneous at Scale (n=200, 4 types, iters 141–156)",
+    "text": "Block 13 — Heterogeneous at Scale (n=200, 4 types, iters 141–156)\nn=200 with 4 neuron types. Full dual convergence achieved (conn=0.988, cluster=1.000). The n-dependent L1 effect overrides the heterogeneous L1=1E-6 rule: L1=1E-5 is better at n=200. Recipe: lr_W=8E-3, lr=2E-4, lr_emb=1E-3, L1=1E-5, batch=8, 3 epochs.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 145\n\n\n\n\n\n\n\nIter 149\n\n\n\n\n\n\n\nIter 153\n\n\n\n\n\n\n\nIter 156\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 145\n\n\n\n\n\n\n\nIter 149\n\n\n\n\n\n\n\n\n\nIter 153\n\n\n\n\n\n\n\nIter 156\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 145\n\n\n\n\n\n\n\nIter 149\n\n\n\n\n\n\n\nIter 156"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-14-recurrent-training-test-n200-iters-157168",
+    "href": "exploration-gallery.html#block-14-recurrent-training-test-n200-iters-157168",
+    "title": "Exploration",
+    "section": "Block 14 — Recurrent Training Test (n=200, iters 157–168)",
+    "text": "Block 14 — Recurrent Training Test (n=200, iters 157–168)\nRecurrent training (time_step=4) at n=200 with supercritical rho=1.064. 8/12 iterations had infrastructure failures; 4 completed in batch 3 (iters 165–168). Recurrent boosts conn +0.3% but dynamics -12.3%. Warmup (start_ep=1) partially recovers dynamics. noise_rec=0.05 too high (partial).\n\nUCB TreeConnectivity ScatterKinographMLP Functions\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 165\n\n\n\n\n\n\n\nIter 166\n\n\n\n\n\n\n\nIter 167\n\n\n\n\n\n\n\nIter 168\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 165\n\n\n\n\n\n\n\nIter 166\n\n\n\n\n\n\n\n\n\nIter 167\n\n\n\n\n\n\n\nIter 168\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 165\n\n\n\n\n\n\n\nIter 167\n\n\n\n\n\n\n\nIter 168"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-15-n300-at-30k-frames-solved-iters-169180",
+    "href": "exploration-gallery.html#block-15-n300-at-30k-frames-solved-iters-169180",
+    "title": "Exploration",
+    "section": "Block 15 — n=300 at 30k Frames — SOLVED (iters 169–180)",
+    "text": "Block 15 — n=300 at 30k Frames — SOLVED (iters 169–180)\nThe transformative block: n_frames=30k makes n=300 trivially easy. 100% convergence (12/12), best conn=1.000, best test_R2=0.990. eff_rank doubled from 47 to 80. All training parameters become non-critical. Pareto-optimal: lr_W=3E-3, 3ep.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 169\n\n\n\n\n\n\n\nIter 175\n\n\n\n\n\n\n\nIter 177\n\n\n\n\n\n\n\nIter 180\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 169\n\n\n\n\n\n\n\nIter 175\n\n\n\n\n\n\n\n\n\nIter 177\n\n\n\n\n\n\n\nIter 180\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 169\n\n\n\n\n\n\n\nIter 175\n\n\n\n\n\n\n\nIter 180"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-16-n600-at-30k-frames-solved-iters-181192",
+    "href": "exploration-gallery.html#block-16-n600-at-30k-frames-solved-iters-181192",
+    "title": "Exploration",
+    "section": "Block 16 — n=600 at 30k Frames — SOLVED (iters 181–192)",
+    "text": "Block 16 — n=600 at 30k Frames — SOLVED (iters 181–192)\nn_frames=30k transforms n=600 from 0% convergence (block 12, 10k) to 100% convergence (8/8). Best conn=0.992, eff_rank=87. lr_W=5E-3 is Pareto-optimal. batch=16 safe. Even 2 epochs at 30k outperforms 10 epochs at 10k.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 181\n\n\n\n\n\n\n\nIter 183\n\n\n\n\n\n\n\nIter 186\n\n\n\n\n\n\n\nIter 188\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 181\n\n\n\n\n\n\n\nIter 183\n\n\n\n\n\n\n\n\n\nIter 186\n\n\n\n\n\n\n\nIter 188\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 181\n\n\n\n\n\n\n\nIter 186\n\n\n\n\n\n\n\nIter 188"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-17-sparse-50-at-30k-frames-not-rescued-iters-193204",
+    "href": "exploration-gallery.html#block-17-sparse-50-at-30k-frames-not-rescued-iters-193204",
+    "title": "Exploration",
+    "section": "Block 17 — Sparse 50% at 30k Frames — NOT RESCUED (iters 193–204)",
+    "text": "Block 17 — Sparse 50% at 30k Frames — NOT RESCUED (iters 193–204)\nSparse 50% connectivity tested at 30k frames. n_frames does NOT rescue subcritical spectral radius: 0% convergence (12/12), best conn=0.436. eff_rank paradoxically DROPS from 21 (10k) to 13 (30k). Two-phase training gives marginal +15% but insufficient. Subcritical rho=0.746 confirmed as the only unsolvable difficulty axis.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 193\n\n\n\n\n\n\n\nIter 197\n\n\n\n\n\n\n\nIter 201\n\n\n\n\n\n\n\nIter 204\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 193\n\n\n\n\n\n\n\nIter 197\n\n\n\n\n\n\n\n\n\nIter 201\n\n\n\n\n\n\n\nIter 204\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 193\n\n\n\n\n\n\n\nIter 199\n\n\n\n\n\n\n\nIter 204"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-18-n1000-at-30k-frames-iters-205216",
+    "href": "exploration-gallery.html#block-18-n1000-at-30k-frames-iters-205216",
+    "title": "Exploration",
+    "section": "Block 18 — n=1000 at 30k Frames (iters 205–216)",
+    "text": "Block 18 — n=1000 at 30k Frames (iters 205–216)\nThe scale frontier: n=1000 neurons at 30k frames. eff_rank=144, max conn=0.745 (0% convergence). 30k is insufficient — needs ~100k frames per user prior. lr=1E-4 is definitively Pareto-better than lr=2E-4 at this scale. Epoch scaling is lr-dependent: lr=2E-4 shows overtraining reversal at 10ep.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 205\n\n\n\n\n\n\n\nIter 209\n\n\n\n\n\n\n\nIter 213\n\n\n\n\n\n\n\nIter 216\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 205\n\n\n\n\n\n\n\nIter 209\n\n\n\n\n\n\n\n\n\nIter 213\n\n\n\n\n\n\n\nIter 216\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 205\n\n\n\n\n\n\n\nIter 211\n\n\n\n\n\n\n\nIter 216"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-19-low-gain-g3-n100-iters-217228",
+    "href": "exploration-gallery.html#block-19-low-gain-g3-n100-iters-217228",
+    "title": "Exploration",
+    "section": "Block 19 — Low Gain g=3 (n=100, iters 217–228)",
+    "text": "Block 19 — Low Gain g=3 (n=100, iters 217–228)\nGain reduced from 7 to 3. eff_rank drops 35→26; spectral radius stays supercritical (1.065). New difficulty axis: universal degeneracy at 1 epoch (4/4), resolved at 2ep. n_epochs is the dominant lever (1ep→0.636, 2ep→0.906, 3ep→0.955). No lr_W cliff up to 1.2E-2 (unlike g=7 cliff at 8E-3). batch=16 catastrophic (-42%).\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 217\n\n\n\n\n\n\n\nIter 221\n\n\n\n\n\n\n\nIter 225\n\n\n\n\n\n\n\nIter 228\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 217\n\n\n\n\n\n\n\nIter 221\n\n\n\n\n\n\n\n\n\nIter 225\n\n\n\n\n\n\n\nIter 228\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 217\n\n\n\n\n\n\n\nIter 223\n\n\n\n\n\n\n\nIter 228"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-20-low-gain-g3-at-scale-n200-10k-iters-229240",
+    "href": "exploration-gallery.html#block-20-low-gain-g3-at-scale-n200-10k-iters-229240",
+    "title": "Exploration",
+    "section": "Block 20 — Low Gain g=3 at Scale (n=200, 10k, iters 229–240)",
+    "text": "Block 20 — Low Gain g=3 at Scale (n=200, 10k, iters 229–240)\ng=3 combined with n=200 at 10k frames. Gain × n compounds difficulty super-additively: 0% convergence, max conn=0.489 at 6 epochs. Universal degeneracy (12/12). Epoch scaling is diminishing at 4–6ep. batch=16 catastrophic (-21%). lr_W and epochs are substitutable but both saturate. Predicted to need 30k frames.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 229\n\n\n\n\n\n\n\nIter 233\n\n\n\n\n\n\n\nIter 237\n\n\n\n\n\n\n\nIter 240\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 229\n\n\n\n\n\n\n\nIter 233\n\n\n\n\n\n\n\n\n\nIter 237\n\n\n\n\n\n\n\nIter 240\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 229\n\n\n\n\n\n\n\nIter 235\n\n\n\n\n\n\n\nIter 240"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-21-g3n200-at-30k-frames-solved-iters-241252",
+    "href": "exploration-gallery.html#block-21-g3n200-at-30k-frames-solved-iters-241252",
+    "title": "Exploration",
+    "section": "Block 21 — g=3/n=200 at 30k Frames — SOLVED (iters 241–252)",
+    "text": "Block 21 — g=3/n=200 at 30k Frames — SOLVED (iters 241–252)\n30k frames rescues g=3/n=200: 0% convergence at 10k transforms to 100% (12/12) at 30k. eff_rank increases 31→53–57 (+80%). Pareto-optimal: lr_W=4E-3, 2ep → conn=0.996, test_R2=0.999. ALL parameters non-critical. batch=16 safe at 30k. Gain confirmed as SOLVABLE by n_frames.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 241\n\n\n\n\n\n\n\nIter 245\n\n\n\n\n\n\n\nIter 249\n\n\n\n\n\n\n\nIter 252\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 241\n\n\n\n\n\n\n\nIter 245\n\n\n\n\n\n\n\n\n\nIter 249\n\n\n\n\n\n\n\nIter 252\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 241\n\n\n\n\n\n\n\nIter 247\n\n\n\n\n\n\n\nIter 252"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-22-partial-connectivity-fill80-n100-10k-iters-253264",
+    "href": "exploration-gallery.html#block-22-partial-connectivity-fill80-n100-10k-iters-253264",
+    "title": "Exploration",
+    "section": "Block 22 — Partial Connectivity fill=80% (n=100, 10k, iters 253–264)",
+    "text": "Block 22 — Partial Connectivity fill=80% (n=100, 10k, iters 253–264)\nFilling factor reduced from 100% to 80%. eff_rank=36 (same as 100% fill), rho=0.985 (near-critical, NOT subcritical). Conn plateau at exactly 0.802 with COMPLETE parameter insensitivity across all training params. 0/12 degenerate. Sharp transition from 50% fill: rho jumps 0.746→0.985. conn_ceiling approximately equals filling_factor.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 253\n\n\n\n\n\n\n\nIter 257\n\n\n\n\n\n\n\nIter 261\n\n\n\n\n\n\n\nIter 264\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 253\n\n\n\n\n\n\n\nIter 257\n\n\n\n\n\n\n\n\n\nIter 261\n\n\n\n\n\n\n\nIter 264\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 253\n\n\n\n\n\n\n\nIter 259\n\n\n\n\n\n\n\nIter 264"
+  },
+  {
+    "objectID": "exploration-gallery.html#block-23-fill80-at-30k-frames-iters-265276",
+    "href": "exploration-gallery.html#block-23-fill80-at-30k-frames-iters-265276",
+    "title": "Exploration",
+    "section": "Block 23 — fill=80% at 30k Frames (iters 265–276)",
+    "text": "Block 23 — fill=80% at 30k Frames (iters 265–276)\nTesting whether 30k frames can break the fill=80% conn plateau. All 12 iterations confirm: conn=0.802 at ALL configs, identical to 10k. eff_rank increases 36→48–49 but conn is structurally locked. Complete parameter insensitivity (12/12 at 0.802). conn_ceiling ≈ filling_factor is a structural invariant immune to n_frames.\n\n\n\n\n\nUCB TreeConnectivity ScatterKinographMLP FunctionsEmbedding\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 265\n\n\n\n\n\n\n\nIter 266\n\n\n\n\n\n\n\nIter 267\n\n\n\n\n\n\n\nIter 268\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 265\n\n\n\n\n\n\n\nIter 266\n\n\n\n\n\n\n\n\n\nIter 267\n\n\n\n\n\n\n\nIter 268\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIter 265\n\n\n\n\n\n\n\nIter 267\n\n\n\n\n\n\n\nIter 268"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Experiment-LLM-Memory",
+    "section": "",
+    "text": "We previously showed that graph neural networks can recover circuit structure and signaling functions of neural assemblies from activity data alone. However, this inverse problem is known to be ill-posed under certain conditions. For instance, when neural activity is low-rank, many different circuits can generate the same neuron traces. It remains an open question whether graph neural networks can recover connectivity in general, or only for specific classes of neural assemblies.\nTo address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.\nWe show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the closed-loop scientific reasoning results from the interactions between the three components rather than residing solely within the large language model."
+  },
+  {
+    "objectID": "index.html#introduction",
+    "href": "index.html#introduction",
+    "title": "Experiment-LLM-Memory",
+    "section": "",
+    "text": "We previously showed that graph neural networks can recover circuit structure and signaling functions of neural assemblies from activity data alone. However, this inverse problem is known to be ill-posed under certain conditions. For instance, when neural activity is low-rank, many different circuits can generate the same neuron traces. It remains an open question whether graph neural networks can recover connectivity in general, or only for specific classes of neural assemblies.\nTo address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.\nWe show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the closed-loop scientific reasoning results from the interactions between the three components rather than residing solely within the large language model."
+  },
+  {
+    "objectID": "index.html#the-exploration-loop",
+    "href": "index.html#the-exploration-loop",
+    "title": "Experiment-LLM-Memory",
+    "section": "The Exploration Loop",
+    "text": "The Exploration Loop\n\n\n\n\n\nflowchart LR\n    A[Experiment] --&gt; B[LLM]\n    B --&gt; A\n\n    B --&gt; C[(Memory)]\n    C --&gt; B\n\n    style A fill:#e1f5fe\n    style B fill:#fff3e0\n    style C fill:#f3e5f5\n\n\n\n\n\n\nThe framework implements a closed-loop exploration engine composed of three interacting components:\n\nExperiment A physics-based simulator generates neural activity following the Stern et al. (2023) model. A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W. 4 parallel slots run simultaneously per batch via UCB tree search.\nLLM The LLM interprets results in context of accumulated memory, performs scientific operations (identify regimes, detect convergence, generate hypotheses), and selects the next intervention via UCB tree search.\nMemory Observations, failed attempts, and validated principles are written into explicit long-term memory. This memory persists across experimental blocks, enabling cumulative understanding rather than episodic trial-and-error."
+  },
+  {
+    "objectID": "index.html#results",
+    "href": "index.html#results",
+    "title": "Experiment-LLM-Memory",
+    "section": "Results",
+    "text": "Results\nConnectivity recovery succeeds for dense chaotic networks up to n=600 (100% convergence at 30k frames) and low-gain networks (g=3, n=200) rescued by 30k frames. The dominant lever is n_frames: tripling from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%, with best conn_R2 = 0.996. Two structural limits identified: subcritical spectral radius (sparse 50%, conn stuck at ~0.49) and partial connectivity ceiling (fill=80%, conn locked at ~0.80 = filling_factor). n=1000 mapped at 30k (conn=0.745, needs ~100k frames). 65 principles established across 23 regimes over 276 iterations."
+  },
+  {
+    "objectID": "index.html#epistemics",
+    "href": "index.html#epistemics",
+    "title": "Experiment-LLM-Memory",
+    "section": "Epistemics",
+    "text": "Epistemics\n330+ reasoning events classified across 276 iterations and 23 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 125+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. 65 principles discovered with confidence 45–100%.\nFive distinct reasoning phases emerge: (1) boundary probing and induction dominate early as the system maps each new regime, (2) deduction and analogy grow as accumulated principles enable cross-regime predictions, (3) falsification and constraint recognition widen when structurally hard regimes are encountered, (4) analogy drives scaling discoveries as n_frames dominance overturns multiple principles (blocks 15–16), and (5) constraint recognition peaks as the system maps structural limits — subcritical spectral radius (block 17), conn_ceiling at filling_factor (blocks 22–23) — while confirming that gain is a solvable difficulty axis (blocks 19–21)."
+  },
+  {
+    "objectID": "index.html#exploration",
+    "href": "index.html#exploration",
+    "title": "Experiment-LLM-Memory",
+    "section": "Exploration",
+    "text": "Exploration\nUCB tree search guides the exploration across 276 iterations and 23 blocks, processing 4 parallel slots per batch. At each step, the LLM selects parent configurations to mutate using an Upper Confidence Bound strategy that balances exploitation of high-performing branches with exploration of under-visited regions. The tree grows through 23 regime blocks — from chaotic baselines (n=100) through sparse connectivity, scale challenges (n=200, 300, 600, 1000), heterogeneous networks, recurrent training, n_frames scaling experiments, gain reduction (g=3), and partial connectivity (fill=80%).\nEach iteration produces a connectivity scatter plot, kinograph (dynamics visualization), and MLP embedding analysis. The UCB tree snapshots show how the search progressively narrows: early blocks fan out widely as the system maps parameter boundaries, middle blocks concentrate on promising subtrees while pruning failed branches, and late blocks show rapid convergence as n_frames dominance reduces the effective search dimension. Blocks 17–23 show flat UCB landscapes when structural limits dominate (sparse, fill=80%) versus rapid convergence when n_frames rescues a regime (g=3/n=200)."
+  },
+  {
+    "objectID": "index.html#case-studies",
+    "href": "index.html#case-studies",
+    "title": "Experiment-LLM-Memory",
+    "section": "Case Studies",
+    "text": "Case Studies\n\nLow-Rank Connectivity\nCan GNN recover connectivity from rank-20 dynamics (eff_rank ~12)? The landscape exploration found a breakthrough recipe (lr_W=3E-3, L1=1E-6 → conn_R2=0.993, test_R2=0.996) in 12 iterations. A dedicated exploration loop now probes robustness across seeds, two-phase training, and edge differentiation priors."
+  },
+  {
+    "objectID": "index.html#references",
+    "href": "index.html#references",
+    "title": "Experiment-LLM-Memory",
+    "section": "References",
+    "text": "References\n\nStern, M., et al. (2023). Graph neural networks uncover structure and function underlying the activity of neural assemblies.\nRomera-Paredes, B., et al. (2024). Mathematical discoveries from program search with large language models. Nature.\nNovikov, A., et al. (2025). AlphaEvolve: A coding agent for scientific and algorithmic exploration."
+  }
+]
