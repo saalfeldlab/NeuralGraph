@@ -69,7 +69,6 @@ from NeuralGraph.models.Neural_ode_wrapper_Signal import integrate_neural_ode_Si
 from NeuralGraph.models.Signal_Propagation_Temporal import Signal_Propagation_Temporal
 from NeuralGraph.models.Signal_Propagation_RNN import Signal_Propagation_RNN
 from NeuralGraph.models.Signal_Propagation_LSTM import Signal_Propagation_LSTM
-from NeuralGraph.models.Signal_Propagation_Simple import Signal_Propagation_Simple
 from NeuralGraph.models.utils_zebra import (
     plot_field_comparison,
     plot_field_comparison_continuous_slices,

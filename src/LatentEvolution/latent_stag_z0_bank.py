@@ -9,6 +9,7 @@ different phases within each time_units cycle.
 from pathlib import Path
 from datetime import datetime
 from enum import Enum, auto
+import gc
 import sys
 import re
 import signal
@@ -45,6 +46,8 @@ from LatentEvolution.acquisition import (
     StaggeredRandomMode,
 )
 from LatentEvolution.latent import load_dataset, load_val_only
+from LatentEvolution.stimulus_ae_model import pretrain_stimulus_ae
+from LatentEvolution.load_flyvis import FlyVisSim, load_column_slice
 from LatentEvolution.pipeline_chunk_loader import PipelineProfiler
 from LatentEvolution.diagnostics_stag import run_validation_diagnostics
 
@@ -518,6 +521,39 @@ def train(cfg: StagModelParams, run_dir: Path):
             cv_datasets[cv_name] = (cv_val_data, cv_val_stim)
             print(f"loaded cross-validation dataset: {cv_name} (val shape: {cv_val_data.shape})")
 
+        # --- Stimulus autoencoder pretraining ---
+        if cfg.training.pretrain_stimulus_ae:
+            print("\n=== stimulus autoencoder pretraining ===")
+            if cfg.training.training_data_path is not None:
+                stim_data_path = cfg.training.training_data_path
+            else:
+                stim_data_path = f"graphs_data/fly/{cfg.training.simulation_config}/x_list_0"
+
+            stim_np = load_column_slice(
+                stim_data_path,
+                FlyVisSim.STIMULUS.value,
+                cfg.training.data_split.train_start,
+                cfg.training.data_split.train_end,
+                neuron_limit=cfg.stimulus_encoder_params.num_input_dims,
+            )
+
+            stim_ae = pretrain_stimulus_ae(
+                stim_np=stim_np,
+                encoder_params=cfg.stimulus_encoder_params,
+                train_cfg=cfg.training.stimulus_ae,
+                activation=cfg.activation,
+                device=device,
+                run_dir=run_dir,
+                writer=writer,
+            )
+            del stim_np
+            gc.collect()
+
+            # copy pretrained encoder weights into model and freeze
+            model.stimulus_encoder.load_state_dict(stim_ae.encoder.state_dict())
+            model.stimulus_encoder.requires_grad_(False)
+            print("=== stimulus encoder frozen ===\n")
+
         train_step_fn = globals()[cfg.training.train_step]
         total_steps = dt * cfg.training.evolve_multiple_steps
 
@@ -705,6 +741,7 @@ def train(cfg: StagModelParams, run_dir: Path):
                     model=model,
                     cfg=cfg,
                     epoch=epoch,
+                    neuron_phases=neuron_phases,
                 )
                 diag_duration = (datetime.now() - diag_start).total_seconds()
 
@@ -726,6 +763,7 @@ def train(cfg: StagModelParams, run_dir: Path):
                         model=model,
                         cfg=cfg,
                         epoch=epoch,
+                        neuron_phases=neuron_phases,
                     )
                     cv_duration = (datetime.now() - cv_start).total_seconds()
 
