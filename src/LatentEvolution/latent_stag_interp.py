@@ -215,8 +215,8 @@ def train(cfg: ModelParams, run_dir: Path):
             acquisition_mode=cfg.training.acquisition_mode,
             device=device,
         )
-        # TODO: save neuron phases since we will need this for post run analysis
         assert neuron_phases is not None, "staggered_random acquisition mode requires neuron phases"
+        torch.save(neuron_phases, run_dir / "neuron_phases.pt")
         print(f"acquisition mode: staggered_random, phases for {cfg.num_neurons} neurons")
 
         # --- load cross-validation datasets ---

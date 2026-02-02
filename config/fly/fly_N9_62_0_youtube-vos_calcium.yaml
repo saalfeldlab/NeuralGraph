@@ -1,4 +1,4 @@
-description: "no extra null edges, noise_model_level: 0.05 YouTube-VOS N unique frames augmented objective coeff_edge_norm: 1"
+description: "no extra null edges, no noise, YouTube-VOS N unique frames augmented objective coeff_edge_norm: 1"
 dataset: "fly_N9_62_0_youtube-vos_calcium"
 
 simulation:
@@ -22,7 +22,7 @@ simulation:
 
   visual_input_type: "DAVIS-like"
   skip_short_videos: false
-  noise_model_level: 0.05
+  noise_model_level: 0.0
 
 graph_model:
   signal_model_name: "PDE_N9_A"
@@ -64,7 +64,6 @@ training:
   learning_rate_W_start: 1.0E-3
   learning_rate_start: 5.0E-4
   learning_rate_embedding_start: 1.0E-3
-
 
   coeff_edge_diff: 500
   coeff_update_u_diff: 0
