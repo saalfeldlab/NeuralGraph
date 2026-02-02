@@ -41,6 +41,13 @@ papers/
 *.html
 !assets/landscape_quadrant_interactive.html
 !assets/landscape_partitioned_interactive.html
+!docs/*.html
+!docs/assets/**
+!docs/site_libs/**
+!docs/search.json
+!docs/styles.css
+!docs/.nojekyll
+docs/log/
 
 # Experiment documentation in config folders
 config/fly/**/*.md
