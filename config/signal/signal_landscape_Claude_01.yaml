@@ -8,7 +8,7 @@ simulation:
   connectivity_init:
   - 0
   - 0.1
-  connectivity_filling_factor: 0.8
+  connectivity_filling_factor: 0.9
   params:
   - - 1.0
     - 0.0
@@ -19,7 +19,7 @@ simulation:
   phi: tanh
   n_neurons: 100
   n_neuron_types: 1
-  n_frames: 30000
+  n_frames: 10000
   delta_t: 0.01
   dpos_init: 0
   boundary: 'no'
@@ -45,6 +45,7 @@ claude:
   data_augmentation_loop: 40
   n_iter_block: 12
   ucb_c: 1.414
+  node_name: a100
 plotting:
   colormap: tab10
   arrow_length: 1
@@ -67,10 +68,10 @@ training:
   cluster_method: distance_plot
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.004
+  learning_rate_W_start: 0.006
   learning_rate_start: 0.0001
   learning_rate_embedding_start: 0.001
-  coeff_W_L1: 1.0e-06
+  coeff_W_L1: 1.0e-05
   n_epochs_init: 0
   first_coeff_L1: 0
   coeff_lin_phi_zero: 0

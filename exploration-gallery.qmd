@@ -31,7 +31,7 @@ This page presents the visual record of the closed-loop exploration: learned con
 ::: {.callout-tip}
 ## Current status
 
-**Block 23 in progress** (fill=80%, 30k frames). 268 iterations completed across 23 regimes. n_frames=30k rescues dense and low-gain networks (n=300, n=600, g=3/n=200) but NOT sparse connectivity (subcritical rho) or partial connectivity (fill=80%, conn locked at filling_factor). Two structural limits confirmed. n=1000 mapped at 30k (conn=0.745, needs ~100k). 64 principles established.
+**Block 23 completed** (fill=80%, 30k frames). 276 iterations completed across 23 regimes. n_frames=30k rescues dense and low-gain networks (n=300, n=600, g=3/n=200) but NOT sparse connectivity (subcritical rho) or partial connectivity (fill=80%, conn locked at filling_factor). Two structural limits confirmed. n=1000 mapped at 30k (conn=0.745, needs ~100k). 65 principles established.
 :::
 
 ---
@@ -1406,9 +1406,9 @@ Filling factor reduced from 100% to 80%. eff_rank=36 (same as 100% fill), rho=0.
 
 ---
 
-## Block 23 --- fill=80% at 30k Frames (iters 265--268+, in progress)
+## Block 23 --- fill=80% at 30k Frames (iters 265--276)
 
-Testing whether 30k frames can break the fill=80% conn plateau. First 4 iterations confirm: conn=0.802 at ALL configs, identical to 10k. eff_rank increases 36→48--49 but conn is structurally locked. Dynamics decouple from connectivity (kino_R^2^ 0.783--0.999 while conn fixed). Second regime where n_frames does NOT rescue. conn_ceiling at filling_factor confirmed at both 10k and 30k.
+Testing whether 30k frames can break the fill=80% conn plateau. All 12 iterations confirm: conn=0.802 at ALL configs, identical to 10k. eff_rank increases 36→48--49 but conn is structurally locked. Complete parameter insensitivity (12/12 at 0.802). conn_ceiling ≈ filling_factor is a structural invariant immune to n_frames.
 
 ::: {.block-hero}
 

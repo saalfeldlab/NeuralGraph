@@ -1040,6 +1040,9 @@ def align_and_compare(U_true, U_recon):
     return correlation, r_squared, U_aligned, R, s
 
 
+
+
+
 def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device, apply_weight_correction=False, log_file=None):
 
     dataset_name = config.dataset
@@ -2082,6 +2085,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             plt.close()
 
 
+
+
+
             print('plot weights ...')
 
             fig, ax = fig_init()
@@ -2302,8 +2308,18 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     U_true = to_numpy(torch.load(U_true_path, map_location=device))  # (N, rank)
                     V_true = to_numpy(torch.load(V_true_path, map_location=device))  # (rank, N)
 
+                    GT_UV = U_true @ V_true / np.sqrt(20 * n_neurons)
+                    np.fill_diagonal(GT_UV, 0)
+                    GT_weights= to_numpy(connectivity)
+                    plt.figure()
+                    plt.scatter(pred_weight_corrected, GT_UV, s=1, c=mc, alpha=1)
+                    plt.tight_layout()
+                    plt.savefig(f"./UV_comparison.png", dpi=87)
+                    plt.close()
+
                     # Recover U and V from slope-corrected learned W via truncated SVD
                     learned_W = pred_weight_corrected / lin_fit[0]
+                    learned_W = learned_W.T
                     U_est, V_est, W_recon = recover_UV_from_missing_diagonal(learned_W, connectivity_rank)
 
                     # Align recovered factors to ground truth
@@ -2383,6 +2399,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.close()
                 else:
                     print(f'low-rank ground truth files not found, skipping U/V comparison')
+
 
             if has_external_input:
 
@@ -2935,6 +2952,9 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     # for n in range(4, 7):
                     #     print(symbolic(n))
                     #     logger.info(symbolic(n))
+
+
+
 
 
 

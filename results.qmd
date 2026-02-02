@@ -8,7 +8,7 @@ Can a graph neural network recover the connectivity matrix of a neural assembly 
 ::: {.callout-tip}
 ## Current status
 
-**268 iterations completed** across 23 regimes. n_frames=30k is the dominant lever for dense networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is also rescued by 30k frames. Two regimes remain structurally unsolvable: sparse 50% (subcritical rho=0.746, conn~0.44) and fill=80% (conn plateau at 0.802, immune to n_frames). n=1000 at 30k reaches conn=0.745 (needs ~100k frames). 64 principles established.
+**276 iterations completed** across 23 regimes. n_frames=30k is the dominant lever for dense networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is also rescued by 30k frames. Two regimes remain structurally unsolvable: sparse 50% (subcritical rho=0.746, conn~0.44) and fill=80% (conn plateau at 0.802, immune to n_frames). n=1000 at 30k reaches conn=0.745 (needs ~100k frames). 65 principles established.
 :::
 
 ## Outcomes
@@ -29,21 +29,19 @@ Can a graph neural network recover the connectivity matrix of a neural assembly 
 
 8. **Partial connectivity creates a structural ceiling**: fill=80% gives conn_R^2^=0.802 with complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k frames. Unlike sparse 50%, there is no degeneracy --- the GNN correctly learns 80% of connections.
 
-9. **Degeneracy is a critical diagnostic**: 19/268 iterations (7.1%) show degeneracy. Two mechanisms: structural (subcritical spectral radius) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy.
+9. **Degeneracy is a critical diagnostic**: 19/276 iterations (6.9%) show degeneracy. Two mechanisms: structural (subcritical spectral radius) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy.
 
 10. **n=1000 at 30k is insufficient**: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs.
 
 ---
 
-## Regime Landscape
+## Regime Landscape — Partitioned by Neuron Count
+
+Three panels separate the landscape by network scale (n=100, n=200--600, n=1000). Each data point shows the key mutation (parameter change) on hover.
 
 ```{=html}
-<iframe src="assets/landscape_quadrant_interactive.html" width="100%" height="700" style="border:none; border-radius:8px;"></iframe>
+<iframe src="assets/landscape_partitioned_interactive.html" width="100%" height="1450" style="border:none; border-radius:8px;"></iframe>
 ```
-
-<details><summary>Static version (for print)</summary>
-![](assets/landscape_quadrant.png){.lightbox}
-</details>
 
 ## Regime Summary
 
@@ -73,7 +71,7 @@ Can a graph neural network recover the connectivity matrix of a neural assembly 
 | 20 | **g=3 n=200** | 10k | 200 | **~31** | **0%** (0/12) | **0.489** | **Gain x n compounds; universal degeneracy** |
 | 21 | **g=3 n=200 (30k)** | **30k** | 200 | **~53--57** | **100%** (12/12) | **0.996** | **30k rescues g=3; all params non-critical** |
 | 22 | **fill=80%** | 10k | 100 | **~36** | **0%** (0/12) | **0.802** | **Conn plateau = filling_factor** |
-| 23 | **fill=80% (30k)** | **30k** | 100 | **~48--49** | **0%** (0/4) | **~0.802** | **30k FAILS; structural ceiling** |
+| 23 | **fill=80% (30k)** | **30k** | 100 | **~48--49** | **0%** (0/12) | **~0.802** | **30k FAILS; structural ceiling; 12/12 at 0.802** |
 
 ## Key Discoveries
 
@@ -262,12 +260,12 @@ n_frames=30k transforms the training landscape for dense supercritical networks:
 ::: {.feature-grid}
 
 ::: {.feature-card}
-### 268 Iterations
+### 276 Iterations
 Across 23 simulation regimes
 :::
 
 ::: {.feature-card}
-### 64 Principles
+### 65 Principles
 Novel findings with 45--100% confidence
 :::
 

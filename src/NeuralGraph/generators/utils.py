@@ -351,6 +351,7 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_filling
             V = np.random.randn(connectivity_rank, n_neurons)
             connectivity = U @ V / np.sqrt(connectivity_rank * n_neurons)
             low_rank_factors = (U, V)
+
         elif 'successor' in connectivity_type:
             # Successor Representation
             T = np.eye(n_neurons, k=1)

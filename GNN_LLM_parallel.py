@@ -87,7 +87,7 @@ CLUSTER_ROOT_DIR = f"{CLUSTER_HOME}/Graph/NeuralGraph"
 
 
 def submit_cluster_job(slot, config_path, analysis_log_path, config_file_field,
-                       log_dir, root_dir, erase=True):
+                       log_dir, root_dir, erase=True, node_name='a100'):
     """Submit a single training job to the cluster WITHOUT -K (non-blocking).
 
     Returns the LSF job ID string, or None if submission failed.
@@ -123,7 +123,7 @@ def submit_cluster_job(slot, config_path, analysis_log_path, config_file_field,
     # Submit WITHOUT -K so it returns immediately; capture stdout/stderr to files
     ssh_cmd = (
         f"ssh allierc@login1 \"cd {CLUSTER_ROOT_DIR} && "
-        f"bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 "
+        f"bsub -n 8 -gpu 'num=1' -q gpu_{node_name} -W 6000 "
         f"-o '{cluster_stdout}' -e '{cluster_stderr}' "
         f"'bash {cluster_script}'\""
     )
@@ -353,7 +353,10 @@ if __name__ == "__main__":
     claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
     claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
     claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+    claude_node_name = claude_cfg.get('node_name', 'a100')
     n_iter_block = claude_n_iter_block
+
+    print(f"\033[94mCluster node: gpu_{claude_node_name}\033[0m")
 
     # Slot config paths and analysis log paths
     config_paths = {}
@@ -380,7 +383,8 @@ if __name__ == "__main__":
                 'n_epochs': claude_n_epochs,
                 'data_augmentation_loop': claude_data_augmentation_loop,
                 'n_iter_block': claude_n_iter_block,
-                'ucb_c': claude_ucb_c
+                'ucb_c': claude_ucb_c,
+                'node_name': claude_node_name
             }
             with open(target, 'w') as f:
                 yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
@@ -576,7 +580,8 @@ Write the planned mutations to the working memory file."""
                         config_file_field=config.config_file,
                         log_dir=log_dir,
                         root_dir=root_dir,
-                        erase=True
+                        erase=True,
+                        node_name=claude_node_name
                     )
                     if jid:
                         job_ids[slot] = jid
@@ -660,7 +665,8 @@ Fix the bug. Do NOT make other changes."""
                                 config_file_field=config.config_file,
                                 log_dir=log_dir,
                                 root_dir=root_dir,
-                                erase=True
+                                erase=True,
+                                node_name=claude_node_name
                             )
                             if jid:
                                 retry_results = wait_for_cluster_jobs(
@@ -958,3 +964,8 @@ IMPORTANT: Do NOT change the 'dataset' field in any config — it must stay as-i
         n_success = sum(1 for v in job_results.values() if v)
         n_failed = sum(1 for v in job_results.values() if not v)
         print(f"\n\033[92mBatch {batch_first}-{batch_last} complete: {n_success} succeeded, {n_failed} failed\033[0m")
+
+
+
+# python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster signal_sparse iterations=120
+# python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster signal_low_rank iterations=120 --resume

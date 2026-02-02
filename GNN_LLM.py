@@ -150,6 +150,7 @@ if __name__ == "__main__":
                     claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
                     claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
                     claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+                    claude_node_name = claude_cfg.get('node_name', 'a100')
                     config_data['dataset'] = llm_task_name
                     config_data['training']['n_epochs'] = claude_n_epochs
                     config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
@@ -158,11 +159,12 @@ if __name__ == "__main__":
                         'n_epochs': claude_n_epochs,
                         'data_augmentation_loop': claude_data_augmentation_loop,
                         'n_iter_block': claude_n_iter_block,
-                        'ucb_c': claude_ucb_c
+                        'ucb_c': claude_ucb_c,
+                        'node_name': claude_node_name
                     }
                     with open(target_config, 'w') as f:
                         yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-                    print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}, ucb_c={claude_ucb_c}\033[0m")
+                    print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}, ucb_c={claude_ucb_c}, node_name={claude_node_name}\033[0m")
             else:
                 print(f"\033[93mpreserving {target_config} (resuming from iter {start_iteration})\033[0m")
                 # Load existing config to get claude parameters
@@ -173,8 +175,11 @@ if __name__ == "__main__":
                 claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
                 claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
                 claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+                claude_node_name = claude_cfg.get('node_name', 'a100')
 
         n_iter_block = claude_n_iter_block
+
+        print(f"\033[94mCluster node: gpu_{claude_node_name}\033[0m")
 
         ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
         if start_iteration == 1 and not args.resume:
@@ -425,7 +430,7 @@ if __name__ == "__main__":
 
                             # Submit job to cluster via SSH to login1
                             # -W 6000 = 100 hours max wall time, -K makes bsub wait for job completion
-                            ssh_cmd = f"ssh allierc@login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 -K 'bash {cluster_script}'\""
+                            ssh_cmd = f"ssh allierc@login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_{claude_node_name} -W 6000 -K 'bash {cluster_script}'\""
 
                             print(f"\033[96msubmitting via SSH: {ssh_cmd}\033[0m")
 

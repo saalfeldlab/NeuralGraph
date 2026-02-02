@@ -8,17 +8,17 @@ How does an LLM reason when embedded in a closed-loop scientific exploration? Th
 ::: {.callout-tip}
 ## Current status
 
-**268 iterations completed** across 23 regimes. The reasoning trace contains 330 annotated events connected by 125 causal edges, 64 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 17--23 extended the frontier: sparse 50% confirmed unsolvable even at 30k frames (block 17), n=1000 mapped at 30k (block 18), low gain (g=3) identified as a new difficulty axis solvable by n_frames (blocks 19--21), and fill=80% revealed a structural conn ceiling at filling_factor (blocks 22--23).
+**276 iterations completed** across 23 regimes. The reasoning trace contains 330 annotated events connected by 125 causal edges, 65 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 17--23 extended the frontier: sparse 50% confirmed unsolvable even at 30k frames (block 17), n=1000 mapped at 30k (block 18), low gain (g=3) identified as a new difficulty axis solvable by n_frames (blocks 19--21), and fill=80% revealed a structural conn ceiling at filling_factor (blocks 22--23).
 :::
 
 ---
 
 ## Outcomes
 
-1. **330 reasoning events** across 268 iterations and 23 blocks, connected by 125 causal edges
+1. **330 reasoning events** across 276 iterations and 23 blocks, connected by 125 causal edges
 2. **Predictive power**: 74% deduction accuracy (42/57, well above chance)
 3. **Knowledge transfer**: 70% analogy success rate across 40 cross-regime transfers
-4. **Principle discovery**: 64 validated findings with confidence 45--100%
+4. **Principle discovery**: 65 validated findings with confidence 45--100%
 5. **Self-correction**: 100% of falsifications led to principle refinement
 6. **Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), block 22 (conn ceiling at filling_factor), and block 23 (30k does not break fill=80% plateau) demonstrate the system can distinguish solvable from structural limits
 7. **Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) predictions tested in block 23
@@ -524,7 +524,7 @@ Sixty-four key principles discovered through systematic reasoning across 23 regi
 | 20 | **g=3 (n=200)** | 10k | 200 | 229--240 | **31** | **0%** | **Gain × n compounds; universal degeneracy** |
 | 21 | **g=3/n=200 (30k)** | **30k** | 200 | 241--252 | **53--57** | **100%** | **30k rescues gain; all params non-critical** |
 | 22 | **fill=80% (10k)** | 10k | 100 | 253--264 | **36** | **0%** | **Conn plateau at 0.802; param insensitivity** |
-| 23 | **fill=80% (30k)** | **30k** | 100 | 265--268+ | **48--49** | **0%** (0/4) | **30k does NOT break plateau; conn ≈ fill%** |
+| 23 | **fill=80% (30k)** | **30k** | 100 | 265--276 | **48--49** | **0%** (0/12) | **30k does NOT break plateau; conn ≈ fill%; structural invariant** |
 
 ---
 
