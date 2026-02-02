@@ -1,0 +1,276 @@
+---
+title: "Case Study: Low-Rank Connectivity"
+subtitle: "Recovering W from rank-20 neural dynamics --- 64 iterations of dedicated LLM-guided exploration"
+---
+
+## Problem Statement
+
+Low-rank connectivity (rank 20, n=100 neurons) produces neural activity with effective rank ~12 --- the hardest regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data.
+
+The central question: **can we find GNN training parameters that reliably recover W from low-rank dynamics?**
+
+---
+
+## What the Landscape Exploration Found (Block 2)
+
+The general landscape exploration (Block 2, iterations 13--24) devoted 12 iterations to the low-rank regime and achieved **75% convergence** (9/12), with a breakthrough at iteration 21.
+
+### Progression
+
+```
+Iter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (dynamics poor)
+Iter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (improved!)
+Iter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (better lr_W)
+Iter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)
+```
+
+### Key discovery
+
+Reducing L1 from 1E-5 to 1E-6 was the critical enabler for dynamics recovery. Combined with lr_W=3E-3, this achieved chaotic-baseline-level performance (test_R^2^=0.996) despite eff_rank=12.
+
+### All 12 iterations
+
+| Iter | lr_W | L1 | Factorization | batch | conn_R^2^ | test_R^2^ | eff_rank | Status |
+|:----:|:----:|:--:|:---:|:---:|:----:|:----:|:---:|---|
+| 13 | 4E-3 | 1E-5 | False | 8 | 0.999 | 0.902 | 13 | converged |
+| 14 | 5E-3 | 1E-5 | **True** | 8 | 0.899 | 0.854 | 13 | partial |
+| 15 | 8E-3 | 1E-5 | **True** | 8 | 0.983 | 0.851 | 14 | converged |
+| 16 | 2E-3 | 1E-5 | False | 8 | 0.992 | 0.774 | 14 | converged |
+| 17 | 5E-3 | 1E-5 | False | 8 | 0.385 | 0.782 | ~14 | **failed** |
+| 18 | 4E-3 | **1E-6** | False | 8 | 1.000 | 0.925 | ~14 | converged |
+| 19 | 3E-3 | 1E-5 | False | 8 | 0.999 | 0.943 | ~14 | converged |
+| 20 | 1.5E-3 | 1E-5 | False | 8 | 0.881 | 0.802 | ~14 | partial |
+| **21** | **3E-3** | **1E-6** | **False** | **8** | **0.993** | **0.996** | **12** | **converged** |
+| 22 | 3.5E-3 | 1E-6 | False | 8 | 0.999 | 0.886 | 13 | converged |
+| 23 | 2.5E-3 | 1E-5 | False | 8 | 0.978 | 0.679 | 12 | converged |
+| 24 | 4E-3 | 1E-6 | False | **16** | 0.989 | 0.997 | - | converged |
+
+---
+
+## Established Principles
+
+Five principles were established or refined during the low-rank exploration:
+
+::: {.callout-note}
+### 1. L1=1E-6 is critical for low-rank dynamics
+At L1=1E-5, connectivity converges (R^2^ > 0.99) but dynamics remain poor (test_R^2^ ~0.90). Reducing L1 to 1E-6 unlocks near-perfect dynamics (test_R^2^ = 0.996). The mechanism: excessive L1 penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate.
+:::
+
+::: {.callout-note}
+### 2. Factorization hurts in low-rank regime
+`low_rank_factorization=True` (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives conn_R^2^=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full matrix and letting L1 induce sparsity.
+:::
+
+::: {.callout-note}
+### 3. Optimal lr_W shifts downward (4E-3 → 3E-3)
+Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower effective rank provides less gradient signal, so smaller learning rate steps avoid overshooting.
+:::
+
+::: {.callout-note}
+### 4. Convergence boundary shifts upward
+The minimum lr_W for convergence rises from ~1.5E-3 (chaotic) to ~2E-3 (low-rank). Below 2E-3, connectivity still converges but dynamics degrade severely (test_R^2^ < 0.80).
+:::
+
+::: {.callout-note}
+### 5. Batch size sensitivity depends on L1
+batch_size=16 degrades quality at L1=1E-5 but is safe at L1=1E-6 (iter 24: test_R^2^=0.997). Lower L1 removes the batch size sensitivity observed in block 1.
+:::
+
+---
+
+## Regime Characteristics
+
+| Property | Low-rank | Chaotic (baseline) |
+|---|:---:|:---:|
+| connectivity_type | low_rank (r=20) | chaotic |
+| n_neurons | 100 | 100 |
+| effective rank (99% var) | 12--14 | 31--35 |
+| spectral radius | 0.952 (subcritical) | 1.065 (supercritical) |
+| convergence rate | 75% (9/12) | 100% (12/12) |
+| best conn_R^2^ | 0.999 | 0.999 |
+| best test_R^2^ | 0.997 | 0.996 |
+| degeneracy risk | moderate (1/12) | low |
+
+Despite eff_rank being 3x lower, the low-rank regime achieves comparable peak performance to chaotic --- but the parameter window is narrower and degeneracy is a risk at suboptimal settings.
+
+---
+
+## Connectivity and Activity
+
+::: {layout-ncol=2}
+![Connectivity matrix: ground truth vs learned W (block 2, best iteration)](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_002.png){.lightbox group="block2"}
+
+![Neural activity: ground truth and GNN rollout (block 2)](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_002.png){.lightbox group="block2"}
+:::
+
+---
+
+## Degeneracy Analysis
+
+Only 1/12 iterations showed degeneracy (iter 17: conn_R^2^=0.385 despite test_pearson=0.836). The low degeneracy rate is notable given that low eff_rank is theoretically degeneracy-prone.
+
+The key anti-degeneracy levers identified:
+
+- **L1=1E-6** (not 1E-5): avoids penalizing small-but-real W entries
+- **lr_W=3E-3**: allows W to converge before MLPs can compensate
+- **coeff_edge_diff**: constrains MLP monotonicity, reducing compensation ability
+
+---
+
+## Open Questions → Dedicated Exploration
+
+The landscape exploration allocated only 12 iterations to low-rank. Several questions remain:
+
+1. **Robustness across seeds**: Does lr_W=3E-3 + L1=1E-6 work for all random W realizations, or only for seed=137?
+2. **Two-phase training**: Can `n_epochs_init` (no L1 in early epochs) + stronger L1 in phase 2 improve further?
+3. **coeff_edge_diff scaling**: Values of 10,000+ constrain MLP compensation --- how does this interact with L1?
+4. **Training duration**: The landscape used 1 epoch / 20 augmentation loops. Does 2 epochs / 200 augmentation loops change the optimal parameters?
+
+These questions motivate a **dedicated low-rank LLM exploration loop** using `GNN_LLM_parallel.py` with fixed simulation and training-parameter-only search space.
+
+```bash
+python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster signal_low_rank iterations=120
+```
+
+---
+
+## Dedicated Low-Rank Exploration (64 iterations)
+
+The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. **64 iterations across 6 blocks** were completed, testing 4 different random seeds (137, 42, 99, 200).
+
+::: {.callout-tip}
+## Key Result
+
+**Zero degeneracy in 64/64 iterations.** Connectivity recovery is essentially solved (conn_R^2^ > 0.999 in 63/64 iterations). The remaining challenge is seed-dependent lr_W tuning: optimal lr_W varies from 1E-3 to 2E-3 depending on the W realization.
+:::
+
+### Per-Seed Best Configurations
+
+| Seed | lr_W | batch | lr_emb | n_ep | aug | init | test_R^2^ | conn_R^2^ | Node |
+|:----:|:----:|:-----:|:------:|:----:|:---:|:----:|:---------:|:---------:|:----:|
+| 137 | 2E-3 | 16 | 5E-4 | 2 | 200 | 2 | **0.9995** | 0.9999 | 56 |
+| 42 | 1.5E-3 | 16 | 5E-4 | 3 | 300 | 3 | **0.9996** | 1.0000 | 47 |
+| 99 | 1.5E-3 | 16 | 5E-4 | 3 | 300 | 3 | 0.9963 | 1.0000 | 43 |
+| 200 | 1E-3 | 16 | 5E-4 | 3 | 300 | 3 | 0.9967 | 0.9999 | 55 |
+
+### Block-by-Block Progression
+
+| Block | Iters | Focus | Best test_R^2^ | Key Finding |
+|:-----:|:-----:|-------|:---------------:|:------------|
+| 1 | 1--12 | lr_W, L1, lr sweep | 0.9994 | lr_W=2E-3 optimal for seed=137; lr_emb=5E-4 breaks 0.999 barrier |
+| 2 | 13--24 | Parameter perturbation | 0.9994 | Sharp peaks in parameter landscape --- all perturbations degrade |
+| 3 | 25--36 | Cross-seed (seed=42) | 0.9994 | 3ep+300aug is most seed-robust; seed=42 gap closed to 0.004 |
+| 4 | 37--48 | Seeds 42, 99; init=3 | **0.9996** | lr_W=1.5E-3+init=3 near-universal for seeds 42/99 |
+| 5 | 49--60 | Seed=200; lr_W tuning | 0.9997 | Optimal lr_W is seed-dependent: 200 needs 1E-3, not 1.5E-3 |
+| 6 | 61--64 | Variance reduction | 0.9995 | 2ep+200aug replicates within 0.001 at seed=137 |
+
+### Connectivity and Activity (Dedicated Exploration)
+
+::: {layout-ncol=2}
+![Connectivity matrix (block 5, best iteration)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_matrix/block_005.png){.lightbox group="dedicated"}
+
+![Neural activity (block 5)](log/Claude_exploration/instruction_signal_low_rank_parallel/activity/block_005.png){.lightbox group="dedicated"}
+:::
+
+### UCB Exploration Trees
+
+::: {.panel-tabset}
+
+#### Block 1 (iter 12)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_012.png){.lightbox group="ucb-lr"}
+
+#### Block 2 (iter 24)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_024.png){.lightbox group="ucb-lr"}
+
+#### Block 3 (iter 36)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_036.png){.lightbox group="ucb-lr"}
+
+#### Block 4 (iter 48)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_048.png){.lightbox group="ucb-lr"}
+
+#### Block 5 (iter 60)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_060.png){.lightbox group="ucb-lr"}
+
+:::
+
+### Connectivity Scatter (Selected Iterations)
+
+::: {layout-ncol=4}
+![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_001.png){.lightbox group="scatter-lr"}
+
+![Iter 13 (node 13)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_013.png){.lightbox group="scatter-lr"}
+
+![Iter 47 (best)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_047.png){.lightbox group="scatter-lr"}
+
+![Iter 55 (seed=200)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_055.png){.lightbox group="scatter-lr"}
+:::
+
+### MLP Functions (Selected Iterations)
+
+::: {layout-ncol=4}
+![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_001_MLP.png){.lightbox group="mlp-lr"}
+
+![Iter 13](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_013_MLP.png){.lightbox group="mlp-lr"}
+
+![Iter 47](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_047_MLP.png){.lightbox group="mlp-lr"}
+
+![Iter 55](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_055_MLP.png){.lightbox group="mlp-lr"}
+:::
+
+### Kinograph (Selected Iterations)
+
+::: {layout-ncol=2}
+![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/kinograph/iter_001.png){.lightbox group="kino-lr"}
+
+![Iter 47 (best overall)](log/Claude_exploration/instruction_signal_low_rank_parallel/kinograph/iter_047.png){.lightbox group="kino-lr"}
+:::
+
+---
+
+## Established Principles (Dedicated Exploration)
+
+32 principles were established across the 6 blocks. Key findings:
+
+::: {.callout-important}
+### Optimal lr_W is seed-dependent
+Harder W realizations need slower learning rates. Ordering: seed=200 (1E-3) < seed=42/99 (1.5E-3) < seed=137 (2E-3). The viable lr_W window is narrow for each seed (~0.3E-3 wide).
+:::
+
+::: {.callout-note}
+### L1=1E-6 is a precise sweet spot
+Both L1=1E-5 (dynamics degrade to ~0.92) and L1=5E-7 (test_R^2^=0.944) underperform. The optimal L1 is sharply at 1E-6.
+:::
+
+::: {.callout-note}
+### batch_size=16 + lr_emb=5E-4 is optimal
+batch=8 works but batch=16 is better at optimal lr_emb. batch=32 is not viable (0.944). lr_emb has cliff-edge behavior: batch=16 optimal at 5E-4, batch=8 at 2.5E-4.
+:::
+
+::: {.callout-note}
+### n_epochs_init=2--3 enables two-phase training
+Phase 1 (no L1) lets W start converging; phase 2 (L1=1E-6) refines dynamics. init=3 rescues suboptimal lr_W (seed=99: 0.909 to 0.996) but causes overtraining at 4 epochs.
+:::
+
+::: {.callout-note}
+### Shorter training reduces stochastic variance
+2ep+200aug replicates within 0.001 at seed=137 (nodes 13, 56). 3ep+300aug has ~0.015 variance at seed=200. When lr_W is correct, less training is better.
+:::
+
+::: {.callout-warning}
+### Overtraining harms correct lr_W
+More training (4ep+400aug) partially compensates for wrong lr_W (seed=200 at lr_W=1.5E-3: 0.854 to 0.991) but degrades correct lr_W (seed=200 at lr_W=1E-3: 0.997 to 0.951). Always tune lr_W first.
+:::
+
+---
+
+## Answers to Open Questions
+
+All four questions from the landscape exploration are now answered:
+
+1. **Robustness across seeds**: Partially. lr_W=3E-3 + L1=1E-6 is not universal --- optimal lr_W is seed-dependent (1E-3 to 2E-3). But the recipe template (L1=1E-6, batch=16, lr_emb=5E-4, coeff_edge_diff=10000) is universal; only lr_W needs per-seed tuning.
+
+2. **Two-phase training**: Yes. n_epochs_init=2--3 (phase 1 without L1) is beneficial. It rescues suboptimal lr_W and enables higher batch sizes.
+
+3. **coeff_edge_diff scaling**: 10,000 is optimal. Both 5,000 and 20,000 do not improve. This parameter is not a significant axis of variation in the low-rank regime.
+
+4. **Training duration**: 2 epochs / 200 augmentation loops is sufficient at correct lr_W and gives the lowest stochastic variance. 3 epochs / 300 augmentation loops is more seed-robust but has higher variance.

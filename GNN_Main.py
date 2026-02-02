@@ -40,9 +40,9 @@ if __name__ == "__main__":
         else:
             best_model = None
     else:
-        best_model = '1_0'
-        task = task = 'train'
-        config_list = ['signal_fig_supp_bis']
+        best_model = ''
+        task = task = 'plot'
+        config_list = ['signal_low_rank_2']
 
     for config_file_ in config_list:
         print(" ")
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         elif "train" in task:
             data_train(
                 config=config,
-                erase=True,
+                erase=False,
                 best_model=best_model,
                 style='color',
                 device=device,
@@ -104,7 +104,7 @@ if __name__ == "__main__":
                 test_mode="",
                 sample_embedding=False,
                 step=10,
-                n_rollout_frames=1000,
+                n_rollout_frames=10000,
                 device=device,
                 particle_of_interest=0,
                 new_params=None,

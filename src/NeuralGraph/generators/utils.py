@@ -31,7 +31,11 @@ def choose_model(config=[], W=[], device=[]):
     bc_pos, bc_dpos = choose_boundary_values(config.simulation.boundary)
 
     params = config.simulation.params
-    p = torch.tensor(params, dtype=torch.float32, device=device).squeeze()
+    p = torch.tensor(params, dtype=torch.float32, device=device)
+    if p.ndim > 2:
+        p = p.squeeze(0)
+    if p.ndim == 1:
+        p = p.unsqueeze(0)
 
 
     match config.simulation.phi:
@@ -305,6 +309,8 @@ def init_mesh(config, device):
 
 def init_connectivity(connectivity_file, connectivity_type, connectivity_filling_factor, T1, n_neurons, n_neuron_types, dataset_name, device, connectivity_rank=1, Dale_law=False, Dale_law_factor=0.5):
 
+    low_rank_factors = None
+
     if 'adjacency.pt' in connectivity_file:
         connectivity = torch.load(connectivity_file, map_location=device)
     elif 'mat' in connectivity_file:
@@ -331,10 +337,10 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_filling
     elif connectivity_type != 'none':
 
         if 'chaotic' in connectivity_type:
-            # Chaotic network 
+            # Chaotic network
             connectivity = np.random.randn(n_neurons,n_neurons) * np.sqrt(1/n_neurons)
         elif 'ring attractor' in connectivity_type:
-            # Ring attractor network 
+            # Ring attractor network
             th = np.linspace(0, 2 * np.pi, n_neurons, endpoint=False)   # Preferred firing location (angle)
             J1 = 1.0
             J0 = 0.5
@@ -344,6 +350,8 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_filling
             U = np.random.randn(n_neurons, connectivity_rank)
             V = np.random.randn(connectivity_rank, n_neurons)
             connectivity = U @ V / np.sqrt(connectivity_rank * n_neurons)
+            low_rank_factors = (U, V)
+
         elif 'successor' in connectivity_type:
             # Successor Representation
             T = np.eye(n_neurons, k=1)
@@ -509,7 +517,7 @@ def init_connectivity(connectivity_file, connectivity_type, connectivity_filling
 
     edge_index = edge_index.to(device=device)
 
-    return edge_index, connectivity, mask
+    return edge_index, connectivity, mask, low_rank_factors
 
 
 def generate_compressed_video_mp4(output_dir, run=0, framerate=10, output_name=None, crf=23, log_dir=None):

@@ -39,6 +39,73 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         first derivative du/dt (n_neurons x 1)
     """
 
+    PARAMS_DOC = {
+        "model_name": "Signal_Propagation",
+        "description": "GNN for neural signal dynamics: du/dt = lin_phi(u, a) + W @ lin_edge(u, a)",
+        "equations": {
+            "message": "msg_j = W[i,j] * lin_edge(in_features_j)",
+            "update_default": "du/dt = lin_phi(u, a) + sum(msg)",
+            "update_generic": "du/dt = lin_phi(u, a, sum(msg), external_input)",
+        },
+        "graph_model_config": {
+            "description": "Parameters in the graph_model: section of the YAML config. "
+                           "input_size and input_size_update are DERIVED from the model variant "
+                           "and embedding_dim — they must NOT be set independently.",
+            "lin_edge (MLP0)": {
+                "description": "Edge message function — computes per-edge features before W multiplication",
+                "input_size": {
+                    "description": "DERIVED — do not set manually. Depends on signal_model_name:",
+                    "PDE_N2": "input_size = 1  (u_j only)",
+                    "PDE_N3": "input_size = 1  (u_j only)",
+                    "PDE_N4": "input_size = 1 + embedding_dim  (u_j, a_j)",
+                    "PDE_N5": "input_size = 1 + 2*embedding_dim  (u_j, a_i, a_j)",
+                    "PDE_N7": "input_size = 1 + embedding_dim  (u_j, a_j)",
+                    "PDE_N8": "input_size = 2 + 2*embedding_dim  (u_i, u_j, a_i, a_j)",
+                    "PDE_N11": "input_size = 1 + embedding_dim  (u_j, a_j)",
+                },
+                "output_size": "1 (scalar edge weight)",
+                "hidden_dim": {"description": "Hidden layer width", "typical_range": [32, 128], "default": 64},
+                "n_layers": {"description": "Number of MLP layers", "typical_range": [2, 5], "default": 3},
+            },
+            "lin_phi (MLP1)": {
+                "description": "Node update function — computes du/dt from node state + aggregated messages",
+                "input_size_update": {
+                    "description": "DERIVED — do not set manually. Depends on update_type:",
+                    "update_type='none'": "input_size_update = 1 + embedding_dim  (u, a)",
+                    "update_type='generic'": "input_size_update = 1 + embedding_dim + output_size + 1  (u, a, msg, external)",
+                },
+                "output_size": "1 (du/dt scalar)",
+                "hidden_dim_update": {"description": "Hidden layer width", "typical_range": [32, 128], "default": 64},
+                "n_layers_update": {"description": "Number of MLP layers", "typical_range": [2, 5], "default": 3},
+            },
+            "embedding": {
+                "embedding_dim": {"description": "Dimension of learnable node embedding a_i", "typical_range": [1, 8], "default": 2},
+            },
+        },
+        "simulation_params": {
+            "description": "Parameters in the simulation: section of the YAML config (data generation)",
+            "slots": [
+                {"index": 0, "name": "tau", "description": "Time constant (params[0][0])", "typical_range": [0.5, 2.0]},
+                {"index": 1, "name": "noise_level", "description": "Process noise (params[0][1])", "typical_range": [0.0, 0.1]},
+                {"index": 2, "name": "g", "description": "Coupling gain — scales connectivity matrix W (params[0][2])", "typical_range": [1.0, 15.0]},
+                {"index": 3, "name": "bias", "description": "Constant input bias (params[0][3])", "typical_range": [-1.0, 1.0]},
+                {"index": 4, "name": "self_coupling", "description": "Diagonal self-coupling strength (params[0][4])", "typical_range": [0.5, 2.0]},
+                {"index": 5, "name": "unused", "description": "Reserved (params[0][5])"},
+            ],
+        },
+        "training_params": {
+            "description": "Parameters in the training: section that affect model architecture or loss",
+            "tunable": [
+                {"name": "learning_rate_W_start", "description": "Learning rate for connectivity W", "typical_range": [1e-4, 5e-2]},
+                {"name": "learning_rate_start", "description": "Learning rate for MLPs", "typical_range": [1e-4, 5e-3]},
+                {"name": "learning_rate_embedding_start", "description": "Learning rate for embeddings a", "typical_range": [1e-4, 5e-3]},
+                {"name": "coeff_W_L1", "description": "L1 sparsity penalty on W", "typical_range": [1e-6, 1e-3]},
+                {"name": "coeff_edge_diff", "description": "Regularizer: lin_edge output variance penalty", "typical_range": [0, 500]},
+                {"name": "batch_size", "description": "Number of time frames per batch", "typical_range": [1, 16]},
+            ],
+        },
+    }
+
     def __init__(self, aggr_type=None, config=None, device=None, bc_dpos=None, projections=None):
         super(Signal_Propagation, self).__init__(aggr=aggr_type)
 

@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import time
+import re
 import yaml
 
 # redirect PyTorch JIT cache to /scratch instead of /tmp (per IT request)
@@ -29,11 +30,35 @@ from GNN_PlotFigure import data_plot
 import warnings
 warnings.filterwarnings("ignore", message="pkg_resources is deprecated as an API")
 
+def detect_last_iteration(analysis_path):
+    """Detect the last completed iteration from analysis.md.
+
+    Scans for '## Iter N:' entries written by Claude after each iteration.
+    Returns the next iteration to run (1-indexed), or 1 if nothing found.
+    """
+    found_iters = set()
+    if os.path.exists(analysis_path):
+        with open(analysis_path, 'r') as f:
+            for line in f:
+                match = re.match(r'^##+ Iter (\d+):', line)
+                if match:
+                    found_iters.add(int(match.group(1)))
+    if not found_iters:
+        return 1
+    return max(found_iters) + 1
+
+
 if __name__ == "__main__":
     warnings.filterwarnings("ignore", category=FutureWarning)
     parser = argparse.ArgumentParser(description="NeuralGraph")
     parser.add_argument(
         "-o", "--option", nargs="+", help="option that takes multiple values"
+    )
+    parser.add_argument(
+        "--fresh", action="store_true", default=True, help="start from iteration 1 (default)"
+    )
+    parser.add_argument(
+        "--resume", action="store_true", help="auto-resume from last completed iteration"
     )
 
 
@@ -64,17 +89,31 @@ if __name__ == "__main__":
 
 
 
-    # resume support: start_iteration parameter (default 1)
-    start_iteration = 117
-
-
     n_iterations = task_params.get('iterations', 5)
     base_config_name = config_list[0] if config_list else 'signal'
     instruction_name = task_params.get('instruction', f'instruction_{base_config_name}')
     llm_task_name = task_params.get('llm_task', f'{base_config_name}_Claude')
 
-
-
+    # Auto-resume or fresh start
+    _root = os.path.dirname(os.path.abspath(__file__))
+    if args.resume:
+        start_iteration = detect_last_iteration(f"{_root}/{llm_task_name}_analysis.md")
+        if start_iteration > 1:
+            print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
+        else:
+            print(f"\033[93mNo previous iterations found, starting fresh\033[0m")
+    else:
+        start_iteration = 1
+        _analysis_check = f"{_root}/{llm_task_name}_analysis.md"
+        if os.path.exists(_analysis_check):
+            print(f"\033[91mWARNING: Fresh start will erase existing results in:\033[0m")
+            print(f"\033[91m  {_analysis_check}\033[0m")
+            print(f"\033[91m  {_root}/{llm_task_name}_memory.md\033[0m")
+            answer = input("\033[91mContinue? (y/n): \033[0m").strip().lower()
+            if answer != 'y':
+                print("Aborted.")
+                sys.exit(0)
+        print(f"\033[93mFresh start\033[0m")
 
     if 'Claude' in task:
         iteration_range = range(start_iteration, n_iterations + 1)
@@ -93,7 +132,7 @@ if __name__ == "__main__":
             target_config = f"{config_root}/{pre}{llm_task_name}.yaml"
 
             # Only copy and initialize config on fresh start (not when resuming)
-            if start_iteration == 1:
+            if start_iteration == 1 and not args.resume:
                 # Erase config from new/processing/done directories
                 for subdir in ['new', 'processing', 'done']:
                     cleanup_path = f"{config_root}/{subdir}/{llm_task_name}.yaml"
@@ -111,6 +150,7 @@ if __name__ == "__main__":
                     claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
                     claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
                     claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+                    claude_node_name = claude_cfg.get('node_name', 'a100')
                     config_data['dataset'] = llm_task_name
                     config_data['training']['n_epochs'] = claude_n_epochs
                     config_data['training']['data_augmentation_loop'] = claude_data_augmentation_loop
@@ -119,11 +159,12 @@ if __name__ == "__main__":
                         'n_epochs': claude_n_epochs,
                         'data_augmentation_loop': claude_data_augmentation_loop,
                         'n_iter_block': claude_n_iter_block,
-                        'ucb_c': claude_ucb_c
+                        'ucb_c': claude_ucb_c,
+                        'node_name': claude_node_name
                     }
                     with open(target_config, 'w') as f:
                         yaml.dump(config_data, f, default_flow_style=False, sort_keys=False)
-                    print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}, ucb_c={claude_ucb_c}\033[0m")
+                    print(f"\033[93mmodified {target_config}: dataset='{llm_task_name}', n_epochs={claude_n_epochs}, data_augmentation_loop={claude_data_augmentation_loop}, n_iter_block={claude_n_iter_block}, ucb_c={claude_ucb_c}, node_name={claude_node_name}\033[0m")
             else:
                 print(f"\033[93mpreserving {target_config} (resuming from iter {start_iteration})\033[0m")
                 # Load existing config to get claude parameters
@@ -134,11 +175,14 @@ if __name__ == "__main__":
                 claude_data_augmentation_loop = claude_cfg.get('data_augmentation_loop', 100)
                 claude_n_iter_block = claude_cfg.get('n_iter_block', 24)
                 claude_ucb_c = claude_cfg.get('ucb_c', 1.414)
+                claude_node_name = claude_cfg.get('node_name', 'a100')
 
         n_iter_block = claude_n_iter_block
 
+        print(f"\033[94mCluster node: gpu_{claude_node_name}\033[0m")
+
         ucb_file = f"{root_dir}/{llm_task_name}_ucb_scores.txt"
-        if start_iteration == 1:
+        if start_iteration == 1 and not args.resume:
             # only delete UCB file when starting fresh (not resuming)
             if os.path.exists(ucb_file):
                 os.remove(ucb_file)
@@ -194,7 +238,7 @@ if __name__ == "__main__":
                 continue
 
             # clear analysis and memory files at start (only if not resuming)
-            if start_iteration == 1:
+            if start_iteration == 1 and not args.resume:
                 with open(analysis_path, 'w') as f:
                     f.write(f"# Experiment Log: {config_file_}\n\n")
                 print(f"\033[93mcleared {analysis_path}\033[0m")
@@ -207,8 +251,8 @@ if __name__ == "__main__":
                     f.write(f"# Working Memory: {config_file_}\n\n")
                     f.write("## Knowledge Base (accumulated across all blocks)\n\n")
                     f.write("### Regime Comparison Table\n")
-                    f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Key finding |\n")
-                    f.write("| ----- | ------ | --- | -------- | --------- | ------- | -------- | ------- | ------------ | ---------- | ----------- |\n\n")
+                    f.write("| Block | Regime | E/I | n_frames | n_neurons | n_types | noise | eff_rank | Best R² | Optimal lr_W | Optimal L1 | Degeneracy | Key finding |\n")
+                    f.write("| ----- | ------ | --- | -------- | --------- | ------- | ----- | -------- | ------- | ------------ | ---------- | ---------- | ----------- |\n\n")
                     f.write("### Established Principles\n\n")
                     f.write("### Open Questions\n\n")
                     f.write("---\n\n")
@@ -312,7 +356,7 @@ if __name__ == "__main__":
                         device=device,
                         visualize=False,
                         run_vizualized=0,
-                        style="black color",
+                        style="color",
                         alpha=1,
                         erase=erase,
                         bSave=True,
@@ -386,7 +430,7 @@ if __name__ == "__main__":
 
                             # Submit job to cluster via SSH to login1
                             # -W 6000 = 100 hours max wall time, -K makes bsub wait for job completion
-                            ssh_cmd = f"ssh allierc@login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_h100 -W 6000 -K 'bash {cluster_script}'\""
+                            ssh_cmd = f"ssh allierc@login1 \"cd {cluster_root_dir} && bsub -n 8 -gpu 'num=1' -q gpu_{claude_node_name} -W 6000 -K 'bash {cluster_script}'\""
 
                             print(f"\033[96msubmitting via SSH: {ssh_cmd}\033[0m")
 
@@ -585,7 +629,7 @@ If you cannot fix it, say "CANNOT_FIX" and explain why."""
                     data_test(
                         config=config,
                         visualize=False,
-                        style="black name continuous_slice",
+                        style="color name continuous_slice",
                         verbose=False,
                         best_model='best',
                         run=0,
@@ -602,7 +646,7 @@ If you cannot fix it, say "CANNOT_FIX" and explain why."""
                 if 'plot' in task:
                     folder_name = './log/' + pre_folder + '/tmp_results/'
                     os.makedirs(folder_name, exist_ok=True)
-                    data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
+                    data_plot(config=config, config_file=config_file, epoch_list=['best'], style='color', extended='plots', device=device, apply_weight_correction=True, log_file=log_file)
 
                 log_file.close()
 

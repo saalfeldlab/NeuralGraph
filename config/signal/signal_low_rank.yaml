@@ -1,5 +1,5 @@
-description: "one type low_rank 20"
-dataset: "signal_low_rank_2"
+description: "low_rank regime — baseline for LLM exploration"
+dataset: "signal_low_rank"
 
 simulation:
   connectivity_type: "low_rank"
@@ -36,6 +36,12 @@ graph_model:
   embedding_dim: 2
   update_type: "none"
 
+claude:
+  n_epochs: 2
+  data_augmentation_loop: 200
+  n_iter_block: 12
+  ucb_c: 1.414
+
 plotting:
   colormap: "tab10"
   arrow_length: 1
@@ -43,7 +49,7 @@ plotting:
   ylim: [-2, 2]
 
 training:
-  n_epochs: 4
+  n_epochs: 2
   n_runs: 1
   device: "auto"
 
@@ -51,19 +57,21 @@ training:
   small_init_batch_size: False
   training_single_type: True
 
-  seed: 137
-
-  data_augmentation_loop: 200
+  data_augmentation_loop: 40
 
   sparsity: "replace_embedding_function"
   sparsity_freq: 4
   cluster_method: "distance_plot"
   fix_cluster_embedding: True
 
-  learning_rate_W_start: 2.0E-3
+  learning_rate_W_start: 3.0E-3
   learning_rate_start: 1.0E-4
   learning_rate_embedding_start: 2.5E-4
 
+  # Two-phase training
+  n_epochs_init: 2
+  first_coeff_L1: 0
   coeff_W_L1: 1.0E-5
+
   coeff_edge_norm: 0.0
-  coeff_edge_diff: 100
+  coeff_edge_diff: 10000

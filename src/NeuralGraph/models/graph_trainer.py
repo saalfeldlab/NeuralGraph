@@ -3040,7 +3040,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         plt.savefig(f'./{log_dir}/results/true connectivity.png', dpi=300)
         plt.close()
 
-        edge_index_, connectivity, mask = init_connectivity(
+        edge_index_, connectivity, mask, _ = init_connectivity(
                 simulation_config.connectivity_file,
                 simulation_config.connectivity_type,
                 simulation_config.connectivity_filling_factor,
@@ -3552,8 +3552,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
 
 
-
-
     dataset_name_ = dataset_name.split('/')[-1]
     generate_compressed_video_mp4(output_dir=f"./{log_dir}/results/", run=run, output_name=dataset_name_, framerate=20)
 
@@ -3591,6 +3589,86 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     activity_gt = to_numpy(neuron_gt_stacked)  # ground truth
     activity_pred = to_numpy(neuron_pred_stacked)  # prediction
     n_frames_plot = activity_gt.shape[1]
+
+    # Save kinograph matrices
+    np.save(f"./{log_dir}/results/kinograph_gt.npy", activity_gt)
+    np.save(f"./{log_dir}/results/kinograph_pred.npy", activity_pred)
+
+    # Plot predicted kinograph
+    plt.figure(figsize=(15, 10))
+    vmax_kino = np.abs(activity_pred).max()
+    plt.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_kino, vmax=vmax_kino, origin='lower')
+    cbar = plt.colorbar(fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=32)
+    plt.ylabel('neurons', fontsize=64)
+    plt.xlabel('time', fontsize=64)
+    plt.xticks([0, n_frames_plot - 1], [0, n_frames_plot], fontsize=48)
+    plt.yticks([0, activity_pred.shape[0] - 1], [1, activity_pred.shape[0]], fontsize=48)
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/kinograph_pred.png", dpi=300)
+    plt.close()
+
+    # Compute kinograph metrics
+    from NeuralGraph.models.utils import compute_kinograph_metrics
+    kino_metrics = compute_kinograph_metrics(activity_gt, activity_pred)
+    if log_file:
+        log_file.write(f"kinograph_R2: {kino_metrics['r2']:.4f}\n")
+        log_file.write(f"kinograph_SSIM: {kino_metrics['ssim']:.4f}\n")
+        log_file.write(f"kinograph_Wasserstein: {kino_metrics['mean_wasserstein']:.4f}\n")
+    print(f"kinograph_R2: {kino_metrics['r2']:.4f}, kinograph_SSIM: {kino_metrics['ssim']:.4f}, kinograph_Wasserstein: {kino_metrics['mean_wasserstein']:.4f}")
+
+    # Kinograph montage 2x2: GT, pred, residual, scatter
+    n_neurons_kino = activity_gt.shape[0]
+    vmax_shared = max(np.abs(activity_gt).max(), np.abs(activity_pred).max())
+    residual = activity_gt - activity_pred
+    vmax_res = np.abs(residual).max()
+
+    fig, axes = plt.subplots(2, 2, figsize=(24, 16))
+    ax_gt, ax_pred, ax_res, ax_scat = axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]
+
+    # Top-left: GT
+    im_gt = ax_gt.imshow(activity_gt, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower')
+    ax_gt.set_ylabel('neurons', fontsize=28)
+    ax_gt.set_title('ground truth', fontsize=24)
+    ax_gt.set_xticks([0, n_frames_plot - 1]); ax_gt.set_xticklabels([0, n_frames_plot], fontsize=20)
+    ax_gt.set_yticks([0, n_neurons_kino - 1]); ax_gt.set_yticklabels([1, n_neurons_kino], fontsize=20)
+    fig.colorbar(im_gt, ax=ax_gt, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
+
+    # Top-right: GNN prediction
+    im_pred = ax_pred.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower')
+    ax_pred.set_title('GNN', fontsize=24)
+    ax_pred.set_xticks([0, n_frames_plot - 1]); ax_pred.set_xticklabels([0, n_frames_plot], fontsize=20)
+    ax_pred.set_yticks([0, n_neurons_kino - 1]); ax_pred.set_yticklabels([1, n_neurons_kino], fontsize=20)
+    fig.colorbar(im_pred, ax=ax_pred, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
+
+    # Bottom-left: Residual
+    im_res = ax_res.imshow(residual, aspect='auto', cmap='RdBu_r', vmin=-vmax_res, vmax=vmax_res, origin='lower')
+    ax_res.set_ylabel('neurons', fontsize=28)
+    ax_res.set_xlabel('time', fontsize=28)
+    ax_res.set_title('residuals ', fontsize=24)
+    ax_res.set_xticks([0, n_frames_plot - 1]); ax_res.set_xticklabels([0, n_frames_plot], fontsize=20)
+    ax_res.set_yticks([0, n_neurons_kino - 1]); ax_res.set_yticklabels([1, n_neurons_kino], fontsize=20)
+    fig.colorbar(im_res, ax=ax_res, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
+
+    # Bottom-right: Scatter true vs predicted
+    gt_flat = activity_gt.flatten()
+    pred_flat = activity_pred.flatten()
+    ax_scat.scatter(gt_flat, pred_flat, s=1, alpha=0.1, c='k', rasterized=True)
+    lim = [min(gt_flat.min(), pred_flat.min()), max(gt_flat.max(), pred_flat.max())]
+    ax_scat.plot(lim, lim, 'r--', linewidth=2)
+    ax_scat.set_xlim(lim); ax_scat.set_ylim(lim)
+    ax_scat.set_xlabel('ground truth activity', fontsize=28)
+    ax_scat.set_ylabel('predicted activity', fontsize=28)
+    ax_scat.set_title('true vs predicted', fontsize=24)
+    ax_scat.tick_params(labelsize=18)
+    ax_scat.text(0.05, 0.95, f'R²={kino_metrics["r2"]:.3f}\nSSIM={kino_metrics["ssim"]:.3f}\nWD={kino_metrics["mean_wasserstein"]:.3f}',
+                 transform=ax_scat.transAxes, fontsize=20, va='top')
+
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/kinograph_montage.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+    print('')
 
     # Compute per-neuron R² for selected traces
     r2_per_neuron = []
@@ -5029,5 +5107,3 @@ def data_test_zebra(config, visualize, style, verbose, best_model, step, test_mo
 
     reconstructed = reconstructed.squeeze()
     true = true.squeeze()
-00
-22

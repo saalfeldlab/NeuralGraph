@@ -1,38 +1,22 @@
-description: designed by Claude
-dataset: signal_landscape_Claude
+description: designed by Claude (parallel)
+dataset: signal_sparse_Claude_01
 simulation:
   connectivity_type: chaotic
-  connectivity_rank: 20
+  connectivity_filling_factor: 0.5
   connectivity_init:
   - 0
   - 0.1
-  connectivity_filling_factor: 0.5
-  Dale_law: false
-  Dale_law_factor: 0.5
-  noise_model_level: 0
   params:
   - - 1.0
     - 0.0
-    - 10.0
+    - 7.0
     - 0.0
     - 1.0
     - 0.0
   - - 1.0
     - 0.0
-    - 10.0
-    - 1.0
-    - 1.0
+    - 7.0
     - 0.0
-  - - 2.0
-    - 0.0
-    - 10.0
-    - 1.0
-    - 1.0
-    - 0.0
-  - - 2.0
-    - 0.0
-    - 10.0
-    - 2.0
     - 1.0
     - 0.0
   phi: tanh
@@ -56,13 +40,13 @@ graph_model:
   n_layers_update: 3
   hidden_dim_update: 64
   aggr_type: add
+  embedding_dim: 2
   update_type: none
 claude:
   n_epochs: 2
-  data_augmentation_loop: 500
-  n_iter_block: 8
+  data_augmentation_loop: 200
+  n_iter_block: 12
   ucb_c: 1.414
-  n_parallel: 4
   node_name: a100
 plotting:
   colormap: tab10
@@ -76,22 +60,20 @@ plotting:
 training:
   n_epochs: 2
   n_runs: 1
-  device: cuda:0
-  batch_size: 16
+  device: auto
+  batch_size: 8
   small_init_batch_size: false
-  seed: 24
-  data_augmentation_loop: 500
+  training_single_type: true
+  data_augmentation_loop: 200
   sparsity: replace_embedding_function
   sparsity_freq: 4
   cluster_method: distance_plot
-  cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.01
-  learning_rate_start: 0.002
+  learning_rate_W_start: 0.003
+  learning_rate_start: 0.0001
   learning_rate_embedding_start: 0.00025
-  n_epochs_init: 1
+  n_epochs_init: 2
   first_coeff_L1: 0
-  coeff_W_L1: 0
-  coeff_edge_diff: 100
-  low_rank_factorization: false
-  low_rank: 20
+  coeff_W_L1: 1.0e-04
+  coeff_edge_norm: 0.0
+  coeff_edge_diff: 10000

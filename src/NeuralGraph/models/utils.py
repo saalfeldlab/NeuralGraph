@@ -2177,6 +2177,8 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
     mlp_save_dir = f"{exploration_dir}/mlp"
     tree_save_dir = f"{exploration_dir}/exploration_tree"
     protocol_save_dir = f"{exploration_dir}/protocol"
+    kinograph_save_dir = f"{exploration_dir}/kinograph"
+    embedding_save_dir = f"{exploration_dir}/embedding"
 
     # create directories at start of experiment (clear only on iteration 1)
     if iteration == 1:
@@ -2191,6 +2193,8 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
     os.makedirs(mlp_save_dir, exist_ok=True)
     os.makedirs(tree_save_dir, exist_ok=True)
     os.makedirs(protocol_save_dir, exist_ok=True)
+    os.makedirs(kinograph_save_dir, exist_ok=True)
+    os.makedirs(embedding_save_dir, exist_ok=True)
 
     # determine if this is first iteration of a block
     is_block_start = (iter_in_block == 1)
@@ -2250,6 +2254,22 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         except Exception as e:
             print(f"\033[93mwarning: could not combine MLP plots: {e}\033[0m")
 
+    # save kinograph montage (every iteration)
+    src_montage = f"{results_dir}/kinograph_montage.png"
+    if os.path.exists(src_montage):
+        shutil.copy2(src_montage, f"{kinograph_save_dir}/iter_{iteration:03d}.png")
+
+    # save embedding plot (latest from tmp_training/embedding/)
+    embedding_dir = f"{root_dir}/log/{pre_folder}{config_file_}/tmp_training/embedding"
+    if os.path.isdir(embedding_dir):
+        embed_files = glob.glob(f"{embedding_dir}/*.png")
+        if embed_files:
+            latest_embed = max(embed_files, key=os.path.getmtime)
+            shutil.copy2(latest_embed, f"{embedding_save_dir}/iter_{iteration:03d}.png")
+            # also save per-block snapshot at block start
+            if is_block_start:
+                shutil.copy2(latest_embed, f"{embedding_save_dir}/block_{block_number:03d}.png")
+
     return {
         'config_save_dir': config_save_dir,
         'scatter_save_dir': scatter_save_dir,
@@ -2258,8 +2278,76 @@ def save_exploration_artifacts(root_dir, exploration_dir, config, config_file_, 
         'mlp_save_dir': mlp_save_dir,
         'tree_save_dir': tree_save_dir,
         'protocol_save_dir': protocol_save_dir,
+        'kinograph_save_dir': kinograph_save_dir,
+        'embedding_save_dir': embedding_save_dir,
         'activity_path': activity_path
     }
+
+
+def compute_kinograph_metrics(gt, pred):
+    """Compare two kinograph matrices [n_neurons, n_frames].
+    Returns dict: r2, ssim, mean_wasserstein.
+
+    r2: mean per-frame R² (consistent with data_test rollout R²).
+    Wasserstein: time-unaligned comparison of population activity modes.
+    Projects population snapshots (columns) onto top PCs via SVD, then
+    compares the marginal distributions along each PC axis using 1D
+    Wasserstein distance normalized by GT std (dimensionless) — averaged
+    across PCs. 0 = identical mode distributions, 1 = shift of one GT
+    standard deviation. Captures whether GT and GNN visit the same
+    collective modes regardless of timing.
+    """
+    from skimage.metrics import structural_similarity
+    from scipy.stats import wasserstein_distance
+
+    # Per-frame R² (consistent with data_test per-frame R²)
+    n_frames = gt.shape[1]
+    r2_list = []
+    for t in range(n_frames):
+        gt_col = gt[:, t]
+        pred_col = pred[:, t]
+        ss_tot = np.sum((gt_col - np.mean(gt_col)) ** 2)
+        if ss_tot > 0:
+            ss_res = np.sum((gt_col - pred_col) ** 2)
+            r2_list.append(1 - ss_res / ss_tot)
+        else:
+            r2_list.append(0.0)
+    r2_mean = np.mean(r2_list)
+
+    data_range = max(np.abs(gt).max(), np.abs(pred).max()) * 2
+    if data_range == 0:
+        data_range = 1.0
+    ssim_val = structural_similarity(gt, pred, data_range=data_range)
+
+    # Time-unaligned mode Wasserstein via PCA projection
+    # Columns of gt/pred are population snapshots [n_neurons] at each time
+    # Transpose to [n_frames, n_neurons] for SVD
+    gt_T = gt.T  # [n_frames, n_neurons]
+    pred_T = pred.T
+
+    # SVD on GT to get principal mode axes
+    gt_centered = gt_T - gt_T.mean(axis=0)
+    U, S, Vt = np.linalg.svd(gt_centered, full_matrices=False)
+
+    # Number of PCs covering 99% variance
+    cumvar = np.cumsum(S ** 2) / np.sum(S ** 2)
+    n_pcs = max(1, int(np.searchsorted(cumvar, 0.99) + 1))
+    n_pcs = min(n_pcs, 20)  # cap at 20 for efficiency
+
+    # Project both GT and pred onto these PC axes
+    basis = Vt[:n_pcs]  # [n_pcs, n_neurons]
+    gt_proj = (gt_T - gt_T.mean(axis=0)) @ basis.T  # [n_frames, n_pcs]
+    pred_proj = (pred_T - gt_T.mean(axis=0)) @ basis.T  # center pred with GT mean
+
+    # 1D Wasserstein along each PC, normalized by GT std to be dimensionless
+    wd_per_pc = []
+    for k in range(n_pcs):
+        wd = wasserstein_distance(gt_proj[:, k], pred_proj[:, k])
+        std_k = gt_proj[:, k].std()
+        wd_per_pc.append(wd / std_k if std_k > 0 else 0.0)
+    mean_wd = np.mean(wd_per_pc)
+
+    return {'r2': r2_mean, 'ssim': ssim_val, 'mean_wasserstein': mean_wd}
 
 
 class LossRegularizer:

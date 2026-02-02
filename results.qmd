@@ -1,215 +1,256 @@
 ---
 title: "Results"
-subtitle: "Signal Landscape Exploration Findings"
+subtitle: "Signal Landscape Parallel Exploration Findings"
 ---
 
-## Experiment Overview
+Can a graph neural network recover the connectivity matrix of a neural assembly from its activity alone? This page collects the quantitative results of a closed-loop exploration in which an LLM proposes simulation configurations and training hyper-parameters, a GNN is trained on the resulting synthetic data, and the recovered connectivity is compared to ground truth. The exploration uses UCB tree search with 4 parallel slots per batch to efficiently map the simulation--training landscape.
 
-The signal_landscape_Claude experiment systematically explored GNN training across 14 simulation regimes over 107 iterations.
+::: {.callout-tip}
+## Current status
 
-::: {.callout-note}
-## Objective
-
-Map the landscape of GNN training configurations to understand:
-
-- Which simulation regimes are learnable?
-- What training parameters are critical?
-- Are there fundamental limits to connectivity recovery?
+**276 iterations completed** across 23 regimes. n_frames=30k is the dominant lever for dense networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is also rescued by 30k frames. Two regimes remain structurally unsolvable: sparse 50% (subcritical rho=0.746, conn~0.44) and fill=80% (conn plateau at 0.802, immune to n_frames). n=1000 at 30k reaches conn=0.745 (needs ~100k frames). 65 principles established.
 :::
+
+## Outcomes
+
+1. **n_frames is the dominant lever**: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical.
+
+2. **Five difficulty axes identified**: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g=3), and partial connectivity (fill<100%). Three are solvable by n_frames; two are structural limits.
+
+3. **Two structural limits confirmed**: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k) and fill=80% (conn=0.802 at both 10k and 30k). For fill=80%, conn_ceiling $\approx$ filling_factor --- a linear relationship confirmed across fill=50%, 80%, and 100%.
+
+4. **eff_rank is necessary but not sufficient**: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse.
+
+5. **L1 effect is n-dependent, non-monotonic, and vanishes at high n_frames**: Critical at 1E-6 for low-rank/heterogeneous at n=100; harmful at n<=200; beneficial at n=300/10k; harmful at n>=600/10k. At 30k frames, L1 sensitivity disappears entirely.
+
+6. **Scale shifts boundaries**: Convergence boundary, optimal lr_W, and lr tolerance all change non-linearly with n_neurons. At 30k frames, optimal lr_W shifts **lower** (5E-3 vs 1E-2 at 10k) because abundant data handles W while lower lr_W preserves MLP capacity.
+
+7. **Low gain compounds with scale but is solvable**: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence).
+
+8. **Partial connectivity creates a structural ceiling**: fill=80% gives conn_R^2^=0.802 with complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k frames. Unlike sparse 50%, there is no degeneracy --- the GNN correctly learns 80% of connections.
+
+9. **Degeneracy is a critical diagnostic**: 19/276 iterations (6.9%) show degeneracy. Two mechanisms: structural (subcritical spectral radius) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy.
+
+10. **n=1000 at 30k is insufficient**: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs.
+
+---
+
+## Regime Landscape — Partitioned by Neuron Count
+
+Three panels separate the landscape by network scale (n=100, n=200--600, n=1000). Each data point shows the key mutation (parameter change) on hover.
+
+```{=html}
+<iframe src="assets/landscape_partitioned_interactive.html" width="100%" height="1450" style="border:none; border-radius:8px;"></iframe>
+```
 
 ## Regime Summary
 
 ### Performance by Regime
 
-| Block | Regime | eff_rank | Convergence | Best R² | Key Finding |
-|-------|--------|----------|-------------|---------|-------------|
-| 1 | Chaotic | ~34 | **100%** | 0.9999 | "Easy mode" - robust to 100x param variation |
-| 2 | Low-rank | ~11 | 25% | 0.953 | Requires lr boost (1E-4 → 1E-3) |
-| 3 | Dale's Law | ~30 | **100%** | 0.9998 | E/I constraint doesn't add difficulty |
-| 4 | n_types=2 | ~34 | 37.5% | 0.987 | Dual-objective conflict (W vs embedding) |
-| 5 | Noise | ~83 | **100%** | 0.9996 | Noise increases eff_rank |
-| 6 | Low-rank + n_types | ~11 | 37.5% | 0.912 | Combined difficulty |
-| 7 | Sparse (ff=0.2) | ~6 | **0%** | 0.08 | Fundamentally unrecoverable |
-| 8 | Sparse + Noise | ~92 | 0% partial | 0.20 | Noise rescues rank but masks W |
-| 9 | Intermediate (ff=0.5) | ~26 | 50% | 0.65 | W learning challenging |
-| 10 | High fill (ff=0.75) | ~38 | **100%** | 0.985 | Easy transition from ff=0.5 |
-| 11 | Scale n=200 | ~34 | 75% | 0.982 | lr_W tolerance narrower |
-| 12 | Very high (ff=0.9) | ~45 | **100%** | 0.992 | Near-full connectivity |
-| 13 | Scale n=300 | ~34 | 75% | 0.978 | Further scale sensitivity |
-| 14 | Scale n=500 | ~34 | 50% | 0.965 | Upper boundary found at lr_W~8E-2 |
-
-### Visual Summary
-
-![Regime difficulty vs recovery quadrant chart showing 14 simulation regimes positioned by effective rank (x-axis) and connectivity recovery R² (y-axis). Green quadrant (Easy Mode) contains high-rank regimes like Chaotic, Dale, and Noise. Red quadrant (Unrecoverable) contains sparse regimes with low effective rank.](assets/landscape_quadrant.png){.lightbox}
+| Block | Regime | n_frames | n_neurons | eff_rank | Convergence | Best conn_R^2^ | Key Finding |
+|:-----:|--------|:--------:|:---------:|----------|:-----------:|:---------------:|:------------|
+| 1 | Chaotic | 10k | 100 | ~35 | **92%** (11/12) | 0.9999 | lr_W=4E-3 sweet spot; lr=1E-4 optimal |
+| 2 | Low-rank (r=20) | 10k | 100 | ~12--14 | 75% (9/12) | 0.9997 | L1=1E-6 critical; lr_W=3E-3 |
+| 3 | Dale (50/50 E/I) | 10k | 100 | ~12 | 67% (8/12) | 0.986 | Sharp lr_W cliff at 5E-3 |
+| 4 | Heterogeneous (4 types) | 10k | 100 | ~38 | 17% FULL | 0.992 | Dual-objective; lr_emb=1E-3 critical |
+| 5 | Noise (0.1--1.0) | 10k | 100 | 42--90 | **100%** (12/12) | 1.000 | Noise inflates eff_rank |
+| 6 | Scale | 10k | 200 | ~41--43 | 67% (8/12) | 0.956 | Boundary shifts up; lr=3E-4 safe |
+| 7 | Sparse 50% | 10k | 100 | ~21 | **0%** (0/12) | 0.466 | Subcritical rho=0.746 |
+| 8 | Sparse+Noise | 10k | 100 | ~91 | **0%** (0/12) | 0.490 | Structural data limit |
+| 9 | n=300 (1--2ep) | 10k | 300 | ~44--47 | **0%** (0/12) | 0.890 | n_epochs=2 breakthrough |
+| 10 | n=300 (2ep base) | 10k | 300 | ~44--47 | 25% (2/8) | 0.924 | L1=1E-6+3ep best |
+| 11 | n=200 v2 | 10k | 200 | ~40--43 | **100%** (12/12) | 0.994 | lr_W=8E-3 optimal |
+| 12 | n=600 | 10k | 600 | ~50 | **0%** (0/12) | 0.626 | Training-capacity-limited |
+| 13 | n=200 + 4 types | 10k | 200 | ~42--44 | **100%** conn | 0.991 | Full dual convergence |
+| 14 | Recurrent test | 10k | 200 | ~42--44 | 75% (3/4) | 0.993 | Conn-dynamics trade-off |
+| 15 | **n=300 (30k)** | **30k** | 300 | **79--80** | **100%** (12/12) | **1.000** | **n_frames: 25%-->100%** |
+| 16 | **n=600 (30k)** | **30k** | 600 | **85--87** | **100%** (8/8) | **0.992** | **n_frames: 0%-->100%** |
+| 17 | **Sparse 50% (30k)** | **30k** | 100 | **~13** | **0%** (0/12) | **0.436** | **30k FAILS; eff_rank DROPS** |
+| 18 | **n=1000 (30k)** | **30k** | 1000 | **~144** | **0%** (0/12) | **0.745** | **Needs ~100k frames** |
+| 19 | **g=3 n=100** | 10k | 100 | **~26** | 42% (5/12) | **0.955** | **Low gain: new difficulty axis** |
+| 20 | **g=3 n=200** | 10k | 200 | **~31** | **0%** (0/12) | **0.489** | **Gain x n compounds; universal degeneracy** |
+| 21 | **g=3 n=200 (30k)** | **30k** | 200 | **~53--57** | **100%** (12/12) | **0.996** | **30k rescues g=3; all params non-critical** |
+| 22 | **fill=80%** | 10k | 100 | **~36** | **0%** (0/12) | **0.802** | **Conn plateau = filling_factor** |
+| 23 | **fill=80% (30k)** | **30k** | 100 | **~48--49** | **0%** (0/12) | **~0.802** | **30k FAILS; structural ceiling; 12/12 at 0.802** |
 
 ## Key Discoveries
 
-### 1. Effective Rank Determines Difficulty
+### 1. Five Independent Difficulty Axes
 
-::: {.metric-box}
-::: {.value}
-95%
-:::
-::: {.label}
-Confidence in eff_rank as primary predictor
-:::
-:::
+::: {.callout-important}
+## Key Insight
 
-The effective rank (SVD rank at 99% variance) is the strongest predictor of training difficulty:
+Five independent axes determine regime difficulty. Three are solvable by data (n_frames); two are structural limits:
 
-| eff_rank Range | Convergence | Interpretation |
-|----------------|-------------|----------------|
-| > 30 | 100% | Easy - any reasonable parameters work |
-| 15-30 | Variable | Depends on other factors |
-| 9-15 | 25-40% | Hard - requires careful tuning |
-| < 8 | 0% | Unrecoverable - fundamental limit |
-
-### 2. "Easy Mode" Regimes
-
-Three regimes achieved 100% convergence:
-
-::: {.panel-tabset}
-
-#### Chaotic
-
-- **eff_rank**: ~34
-- **Tolerance**: 5x lr_W range, 100x L1 range
-- **Best config**: lr_W=5E-3, L1=1E-4
-
-#### Dale's Law
-
-- **eff_rank**: ~30
-- **Tolerance**: 100x lr_W range (5E-4 to 5E-2)
-- **Finding**: E/I constraint doesn't add difficulty
-
-#### Noise
-
-- **eff_rank**: ~83 (noise increases rank!)
-- **Tolerance**: Very robust
-- **Finding**: "Super easy mode"
-
+| Axis | Example | Solvable? | Mechanism |
+|------|---------|:---------:|-----------|
+| Subcritical spectral radius | Sparse 50% (rho=0.746) | **No** | rho < 1 limits information flow; eff_rank drops at 30k |
+| Partial connectivity ceiling | fill=80% (rho=0.985) | **No** | conn_ceiling $\approx$ filling_factor; 30k has no effect |
+| Parameter count scaling | n=300, n=600 | **Yes** (30k) | More data reveals more signal dimensions |
+| Low gain | g=3 (eff_rank 35-->26) | **Yes** (30k) | eff_rank recovers at 30k (+80%) |
+| Training capacity | n_epochs, lr_W tuning | **Yes** (30k) | At 30k all training params become non-critical |
 :::
 
-### 3. Low-Rank Challenge
+### 2. Effective Rank Is Necessary but Not Sufficient
 
-Low-rank connectivity (eff_rank ~11) requires specific tuning:
+| n_neurons | n_frames | Regime | eff_rank | Spectral radius | Convergence | Interpretation |
+|:---------:|:--------:|--------|:--------:|:---------------:|:-----------:|:---------------|
+| 100 | 10k | Noise=1.0 | 90 | >1.0 | **100%** | High eff_rank + supercritical = easy |
+| 100 | 10k | Sparse+Noise | 91 | <1.0 | **0%** | High eff_rank + subcritical = hard |
+| 100 | 10k | Chaotic | 35 | >1.0 | **92%** | Medium eff_rank + supercritical = easy |
+| 100 | 10k | fill=80% | 36 | 0.985 | **0%** | Medium eff_rank + near-critical = plateau |
+| 100 | 10k | Low-rank | 12 | ~1.0 | 75% | Low eff_rank + critical = recoverable |
+| 100 | 10k | g=3 | 26 | >1.0 | 42% | Reduced eff_rank + supercritical = harder |
+| 200 | 10k | g=3 | 31 | >1.0 | **0%** | Low eff_rank + scale = training-limited |
+| 200 | **30k** | g=3 | **55** | >1.0 | **100%** | **n_frames restores eff_rank** |
+| 300 | **30k** | Chaotic | **80** | 1.03 | **100%** | **n_frames doubles eff_rank** |
+| 600 | **30k** | Chaotic | **87** | 1.03 | **100%** | **n_frames transforms n=600** |
+| 1000 | **30k** | Chaotic | **144** | ~1.0 | **0%** | **Highest eff_rank but still insufficient** |
+| 100 | **30k** | Sparse | **13** | 0.746 | **0%** | **eff_rank DROPS; rho controls eff_rank** |
+| 100 | **30k** | fill=80% | **49** | 0.985 | **0%** | **eff_rank rises but conn stuck** |
+
+### 3. "Easy Mode" --- Chaotic Baseline (n=100)
+
+- **n_neurons**: 100
+- **eff_rank**: ~35
+- **Tolerance**: lr_W range 1.5E-3 to 8E-3 all converge
+- **Sweet spot**: lr_W=4E-3 (conn_R^2^=0.9999, test_R^2^=0.996)
+- **lr=1E-4 is optimal**: increasing to 2E-4 or 3E-4 degrades dynamics
+
+### 4. Low-Rank Breakthrough (n=100)
+
+Low-rank connectivity (eff_rank ~12) initially appeared much harder than chaotic, but a specific intervention unlocked near-chaotic performance:
 
 ```
-Block 2 Progress:
-Iter 9:  lr_W=5E-3, lr=1E-4  → R²=0.355 (failed)
-Iter 10: factorization=True  → R²=0.355 (no help)
-Iter 13: lr_W=8E-3           → R²=0.351 (failed)
-Iter 15: lr=5E-4             → R²=0.912 (partial!)
-Iter 16: lr=1E-3             → R²=0.953 (BREAKTHROUGH)
+Block 2 Progress (n=100):
+Iter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (dynamics poor)
+Iter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (improved!)
+Iter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (better lr_W)
+Iter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)
 ```
 
 ::: {.callout-tip}
 ## Key Insight
 
-For low-rank regimes, the **MLP learning rate** (not lr_W) is the critical parameter. Boosting from 1E-4 to 1E-3 enabled breakthrough.
+For low-rank regimes (n=100), **reducing L1 from 1E-5 to 1E-6** is the critical enabler for dynamics recovery. Combined with lr_W=3E-3, this achieves chaotic-baseline-level performance (test_R^2^=0.996) despite eff_rank=12.
 :::
 
-### 4. Dual-Objective Conflict
+### 5. Dale's Law Creates Sharp Cliff (n=100)
 
-With multiple neuron types (n_types > 1), two objectives compete:
+Dale's law (excitatory/inhibitory constraint) reduces eff_rank from 35 to 12 and introduces a sharp lr_W failure boundary:
 
-```{mermaid}
-graph LR
-    A[High lr_W] --> B[Fast W learning]
-    A --> C[Starved embedding]
-    C --> D[Poor cluster_acc]
+| n_neurons | n_frames | lr_W | conn_R^2^ | Status |
+|:---------:|:--------:|------|-----------|--------|
+| 100 | 10k | 3.5E-3 | 0.958 | Converged |
+| 100 | 10k | 4E-3 | 0.974 | Converged |
+| 100 | 10k | 4.5E-3 | 0.986 | **Best** |
+| 100 | 10k | 5E-3 | 0.458 | **FAILED** |
+| 100 | 10k | 6E-3 | 0.555 | **FAILED** |
 
-    E[Balanced lr_W] --> F[Slower W learning]
-    E --> G[Good embedding]
-    G --> H[High cluster_acc]
+### 6. Noise Is Data Augmentation (n=100)
 
-    style C fill:#ffcccc
-    style D fill:#ffcccc
-    style G fill:#ccffcc
-    style H fill:#ccffcc
-```
+| n_neurons | n_frames | noise_level | eff_rank | conn_R^2^ | Convergence |
+|:---------:|:--------:|-------------|:--------:|-----------|:-----------:|
+| 100 | 10k | 0 | 35 | 0.999 | 92% |
+| 100 | 10k | 0.1 | 42 | 1.000 | **100%** |
+| 100 | 10k | 0.5 | 84 | 1.000 | **100%** |
+| 100 | 10k | 1.0 | 90 | 1.000 | **100%** |
 
-**Solution**: Use `lr_embedding_start` separately to compensate:
+### 7. Low Gain --- Independent Difficulty Axis (Blocks 19--21)
 
-| Config | lr_W | lr_emb | R² | cluster_acc |
-|--------|------|--------|-----|-------------|
-| Baseline | 5E-3 | 1E-4 | 0.85 | 0.48 |
-| Fixed | 5E-3 | 1E-3 | 0.92 | 0.95 |
+| n_neurons | n_frames | gain | eff_rank | Convergence | Best conn | Key |
+|:---------:|:--------:|:----:|:--------:|:-----------:|:---------:|:----|
+| 100 | 10k | 3 | 26 | 42% (5/12) | 0.955 | New axis; no lr_W cliff; 3ep minimum |
+| 200 | 10k | 3 | 31 | **0%** (0/12) | 0.489 | Gain x n compounds; universal degeneracy |
+| 200 | **30k** | 3 | **55** | **100%** (12/12) | **0.996** | **30k rescues; all params non-critical** |
 
-### 5. Sparse Unrecoverability
+::: {.callout-tip}
+## Key Insight
+
+Low gain (g=3) eliminates the lr_W cliff seen at g=7, but compounds with n_neurons to create severe difficulty (g=3/n=200/10k: 0% convergence with universal degeneracy). Unlike sparse connectivity, **30k frames fully rescues low gain** (0%-->100% convergence), with eff_rank doubling from 31 to 55.
+:::
+
+### 8. Partial Connectivity --- Structural Ceiling (Blocks 22--23)
+
+| n_neurons | n_frames | fill | eff_rank | rho | Best conn | Key |
+|:---------:|:--------:|:----:|:--------:|:---:|:---------:|:----|
+| 100 | 10k | 50% | 21 | 0.746 | 0.466 | Subcritical; degenerate |
+| 100 | 10k | 80% | 36 | 0.985 | 0.802 | Near-critical; no degeneracy |
+| 100 | 10k | 100% | 35 | 1.065 | 0.999 | Supercritical; easy |
+| 100 | **30k** | 50% | **13** | 0.746 | 0.436 | **eff_rank DROPS; not rescued** |
+| 100 | **30k** | 80% | **49** | 0.985 | **0.802** | **eff_rank rises; conn stuck** |
 
 ::: {.callout-warning}
-## Fundamental Limit Discovered
+## Structural Limit
 
-Sparse connectivity (ff=0.2) is **fundamentally unrecoverable**, regardless of training parameters.
+conn_ceiling $\approx$ filling_factor: fill=50%-->conn~0.49, fill=80%-->conn~0.80, fill=100%-->conn~1.00. At fill=80%, complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k. The missing 20% of connections cannot be inferred from dynamics data regardless of volume.
 :::
 
-Evidence from 16 failed attempts:
+### 9. Sparse Connectivity --- Confirmed Unsolvable (Blocks 7, 8, 17)
 
-| Intervention | Result |
-|--------------|--------|
-| lr_W sweep (1E-4 to 5E-2) | All failed |
-| L1 sweep (1E-6 to 1E-3) | All failed |
-| 5x data augmentation | No improvement |
-| Noise addition | eff_rank rescued (6→92) but R²=0.20 plateau |
+| n_frames | eff_rank | Best conn | Degeneracy | Key |
+|:--------:|:--------:|:---------:|:----------:|:----|
+| 10k | 21 | 0.466 | 12/12 | Universal degeneracy; rho=0.746 |
+| 10k (noise) | 91 | 0.490 | 0/12 | Noise inflates eff_rank; no rescue |
+| **30k** | **13** | **0.436** | **12/12** | **eff_rank DROPS (21-->13); 30k useless** |
 
-**Root cause**: With ff=0.2 and n=100, the connectivity matrix W has only ~200 non-zero entries. The identifiability ceiling is R² ≈ ff (linear law).
+::: {.callout-warning}
+## Structural Limit
 
-### 6. Noise Effects
+Sparse 50% at 30k is the ONLY regime where eff_rank **decreases** with more data (21-->13). Subcritical spectral radius (rho=0.746) determines eff_rank, not data volume. Two-phase training provides marginal +15% but is insufficient. This regime requires architectural intervention.
+:::
 
-Noise has a dual effect:
+### 10. n=1000 at 30k --- Insufficient Data (Block 18)
 
-| Effect | Mechanism | Impact |
-|--------|-----------|--------|
-| **Positive** | Increases eff_rank | Makes training easier |
-| **Negative** | Masks W signal | Limits max R² |
-
-In sparse regime:
-
-- Without noise: eff_rank=6, R²<0.1 (untrainable)
-- With noise: eff_rank=92, R²~0.20 (trainable but limited)
-
-## Training Parameter Insights
-
-### Learning Rate Landscape
-
-```
-                    Low eff_rank (<15)    High eff_rank (>30)
-                    ─────────────────     ────────────────────
-lr_W optimal:       5E-3 to 1E-2         2E-3 to 5E-2
-lr_W range:         ~2x                   ~25x (very tolerant)
-
-lr optimal:         1E-3 (critical!)      1E-4 to 1E-3
-lr range:           narrow                wide
-
-L1 optimal:         1E-5 to 1E-4         1E-6 to 1E-3
-L1 range:           ~10x                  ~1000x
-```
-
-### Parameter Sensitivity
-
-| Parameter | Low eff_rank | High eff_rank |
-|-----------|--------------|---------------|
-| lr_W | Moderate | Low (very tolerant) |
-| lr | **Critical** | Low |
-| L1 | High | Low |
-| data_augmentation | Moderate | Low |
-
-## Scaling Experiments
-
-### n_neurons Scaling (Blocks 13-14)
-
-| n_neurons | lr_W Range | Convergence | Notes |
-|-----------|------------|-------------|-------|
-| 100 | 40x (1E-4 to 4E-3) | Baseline | Well-explored |
-| 200 | 20x (1E-3 to 2E-2) | Good | Narrower than 100 |
-| 300 | 10x (5E-3 to 5E-2) | Good | Even narrower |
-| 500 | Testing | In progress | Boundary at ~8E-2 |
+| n_epochs | lr | conn | test_R^2^ | Key |
+|:--------:|:--:|:----:|:---------:|:----|
+| 3 | 1E-4 | 0.666 | 0.795 | Baseline |
+| 5 | 1E-4 | 0.726 | 0.820 | Steady improvement |
+| 8 | 1E-4 | 0.745 | 0.829 | **Best** |
+| 10 | 2E-4 | 0.716 | 0.588 | **Overtraining** |
 
 ::: {.callout-note}
-## Scaling Law
+n=1000 at 30k reaches max conn=0.745 (eff_rank=144). lr=1E-4 is Pareto-optimal; lr=2E-4 causes overtraining at 10+ epochs. Scaling from n=600/30k: eff_rank increases superlinearly (87-->144) but data is insufficient. Needs ~100k frames based on the pattern.
+:::
 
-As network size increases, the lr_W tolerance window narrows approximately as 1/√n.
+### 11. Degeneracy --- When Dynamics Quality Misleads
+
+| Block | Regime | n_frames | Degenerate iters | Max gap | Mechanism |
+|:-----:|--------|:--------:|:----------------:|:-------:|-----------|
+| 1 | Chaotic n=100 | 10k | 0/12 | 0.15 | Healthy |
+| 2 | Low-rank n=100 | 10k | 1/12 | 0.45 | Stochastic at lr_W=5E-3 |
+| 3 | Dale law n=100 | 10k | 4/12 | 0.53 | lr_W above Dale cliff |
+| 7 | **Sparse 50%** | 10k | **12/12** | **0.82** | **Universal --- subcritical rho** |
+| 9 | n=300 1ep | 10k | 2/12 | 0.38 | Training-limited |
+| 17 | **Sparse 50%** | **30k** | **12/12** | **~0.80** | **Still universal at 30k** |
+| 19 | **g=3 n=100** | 10k | **4/12** | **0.75** | **Low gain at 1ep** |
+| 20 | **g=3 n=200** | 10k | **12/12** | **~0.70** | **Gain x n = universal degeneracy** |
+| 21 | **g=3 n=200 (30k)** | **30k** | **0/12** | **0.01** | **30k eliminates degeneracy** |
+| 22 | fill=80% | 10k | 0/12 | 0.20 | **Not degenerate** (conn stuck) |
+| 15--16 | n=300/600 (30k) | 30k | 0/20 | -0.01 | Abundant data eliminates |
+
+### 12. n_frames Is the Dominant Lever (Blocks 15--16, 21)
+
+| n_neurons | gain | n_frames | eff_rank | Convergence | Best conn | Key |
+|:---------:|:----:|:--------:|:--------:|:-----------:|:---------:|:----|
+| 300 | 7 | 10k | 47 | 25% (3--4ep) | 0.924 | Training-sensitive |
+| 300 | 7 | **30k** | **80** | **100%** (even 1ep) | **1.000** | All params non-critical |
+| 600 | 7 | 10k | 50 | 0% (10ep) | 0.626 | Data-limited |
+| 600 | 7 | **30k** | **87** | **100%** (2--4ep) | **0.992** | Solved |
+| 200 | 3 | 10k | 31 | 0% | 0.489 | Gain x n |
+| 200 | 3 | **30k** | **55** | **100%** (12/12) | **0.996** | **Gain rescued** |
+
+::: {.callout-important}
+## Key Discovery
+
+n_frames=30k transforms the training landscape for dense supercritical networks:
+
+1. **eff_rank doubles**: n=300: 47-->80; n=600: 50-->87; g=3/n=200: 31-->55
+2. **Convergence universalizes**: n=300 (25%-->100%), n=600 (0%-->100%), g=3/n=200 (0%-->100%)
+3. **Training params become non-critical**: lr_W safe range widens; batch_size=16 safe; 1--2 epochs suffice
+4. **Optimal lr_W shifts lower**: 3--5E-3 at 30k vs 1E-2 at 10k
+
+**Exceptions**: sparse 50% (rho<1), fill=80%, and n=1000 (needs more data)
 :::
 
 ## Summary Statistics
@@ -219,54 +260,29 @@ As network size increases, the lr_W tolerance window narrows approximately as 1/
 ::: {.feature-grid}
 
 ::: {.feature-card}
-### 107 Iterations
-Across 14 simulation regimes
+### 276 Iterations
+Across 23 simulation regimes
 :::
 
 ::: {.feature-card}
-### 12 Principles
-Novel findings with >75% confidence
+### 65 Principles
+Novel findings with 45--100% confidence
 :::
 
 ::: {.feature-card}
-### 6 Easy Regimes
-100% convergence (chaotic, Dale, noise, ff=0.75, ff=0.9)
+### 9 Solved Regimes
+100% convergence (chaotic, noise, n=200, n=200+4types, n=300/30k, n=600/30k, g=3/n=200/30k)
 :::
 
 ::: {.feature-card}
-### 1 Hard Limit
-ff<0.3 fundamentally unrecoverable
+### 2 Structural Limits
+Sparse (rho<1, conn~0.44) and fill=80% (conn=0.80)
 :::
 
 :::
-
-### Metric Distributions
-
-| Metric | Min | Max | Mean | Std |
-|--------|-----|-----|------|-----|
-| connectivity_R² | 0.02 | 0.9999 | 0.71 | 0.35 |
-| test_R² | 0.15 | 0.99 | 0.82 | 0.18 |
-| effective_rank | 6 | 92 | 31 | 24 |
-| cluster_accuracy | 0.25 | 1.0 | 0.78 | 0.22 |
-
-## Conclusions
-
-1. **eff_rank is primary**: Effective rank determines training difficulty more than any single parameter
-
-2. **Easy modes exist**: Chaotic, Dale, noise, ff=0.75, and ff=0.9 regimes are robust to wide parameter ranges
-
-3. **Low-rank needs lr boost**: MLP learning rate (not lr_W) is critical for low-rank recovery
-
-4. **Fundamental limits**: Sparse connectivity (ff<0.3) has an identifiability ceiling
-
-5. **Noise is double-edged**: Increases eff_rank but masks connectivity signal
-
-6. **Scale matters**: Larger networks require tighter parameter tuning - lr_W tolerance scales as ~1/√n
-
-7. **Fill factor gradient**: Connectivity recovery improves smoothly from ff=0.5 through ff=0.9
 
 ## Next Steps
 
-- [Epistemic Analysis](epistemic-analysis.qmd) - How these findings were discovered
-- [GNN Model](gnn-model.qmd) - Architecture details
-- [Experiment Loop](experiment-loop.qmd) - Methodology
+- [Epistemic Analysis](epistemic-analysis.qmd) --- How these findings were discovered
+- [Exploration](exploration-gallery.qmd) --- Visual record per block
+- [Case Study: Low-Rank](case-low-rank.qmd) --- Dedicated low-rank exploration
