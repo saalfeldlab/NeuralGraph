@@ -413,6 +413,7 @@ class TrainingConfig(BaseModel):
     coeff_lin_phi_zero: float = 0
     coeff_entropy_loss: float = 0
     coeff_edge_diff: float = 0
+    phi_scale: float = 1.0
 
     # Simple training parameters (matching ParticleGraph conceptually)
     first_coeff_L1: float = 0.0  # Phase 1 weak L1 regularization

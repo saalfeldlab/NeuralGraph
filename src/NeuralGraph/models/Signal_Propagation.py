@@ -216,6 +216,9 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.register_buffer('mask', torch.ones((int(self.n_neurons),int(self.n_neurons)), requires_grad=False, dtype=torch.float32))
         self.mask.fill_diagonal_(0)
 
+        # scaling factor for lin_phi output (1.0 = default, <1.0 reduces lin_phi bypass)
+        self.phi_scale = 1.0
+
     def get_interp_a(self, k, particle_id):
 
         id = particle_id * 100 + k // self.embedding_step
@@ -269,11 +272,11 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             in_features = torch.cat([u, embedding], dim=1)
 
             if self.external_input_mode == "multiplicative":
-                pred = self.lin_phi(in_features) + msg * external_input
+                pred = self.phi_scale * self.lin_phi(in_features) + msg * external_input
             elif self.external_input_mode == "additive":
-                pred = self.lin_phi(in_features) + msg + external_input
+                pred = self.phi_scale * self.lin_phi(in_features) + msg + external_input
             else:
-                pred = self.lin_phi(in_features) + msg
+                pred = self.phi_scale * self.lin_phi(in_features) + msg
 
         
 

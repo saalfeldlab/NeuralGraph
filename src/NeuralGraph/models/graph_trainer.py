@@ -1077,6 +1077,14 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
     model = model.to(device)
+
+    # scale lin_phi output to reduce degeneracy bypass (1.0 = default, <1.0 forces dynamics through W @ lin_edge)
+    phi_scale = getattr(train_config, 'phi_scale', 1.0)
+    if hasattr(model, 'phi_scale'):
+        model.phi_scale = phi_scale
+        if phi_scale != 1.0:
+            print(f'phi_scale set to {phi_scale}')
+
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
 
