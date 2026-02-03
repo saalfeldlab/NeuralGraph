@@ -8,21 +8,21 @@ How does an LLM reason when embedded in a closed-loop scientific exploration? Th
 ::: {.callout-tip}
 ## Current status
 
-**276 iterations completed** across 23 regimes. The reasoning trace contains 330 annotated events connected by 125 causal edges, 65 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 17--23 extended the frontier: sparse 50% confirmed unsolvable even at 30k frames (block 17), n=1000 mapped at 30k (block 18), low gain (g=3) identified as a new difficulty axis solvable by n_frames (blocks 19--21), and fill=80% revealed a structural conn ceiling at filling_factor (blocks 22--23).
+**336 iterations completed** across 28 regimes. The reasoning trace contains ~400 annotated events connected by ~150 causal edges, ~80 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24--28 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis --- fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25--26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27--28).
 :::
 
 ---
 
 ## Outcomes
 
-1. **330 reasoning events** across 276 iterations and 23 blocks, connected by 125 causal edges
-2. **Predictive power**: 74% deduction accuracy (42/57, well above chance)
-3. **Knowledge transfer**: 70% analogy success rate across 40 cross-regime transfers
-4. **Principle discovery**: 65 validated findings with confidence 45--100%
+1. **~400 reasoning events** across 336 iterations and 28 blocks, connected by ~150 causal edges
+2. **Predictive power**: 74% deduction accuracy (well above chance)
+3. **Knowledge transfer**: 70% analogy success rate across cross-regime transfers
+4. **Principle discovery**: ~80 validated findings with confidence 45--100%
 5. **Self-correction**: 100% of falsifications led to principle refinement
-6. **Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), block 22 (conn ceiling at filling_factor), and block 23 (30k does not break fill=80% plateau) demonstrate the system can distinguish solvable from structural limits
-7. **Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) predictions tested in block 23
-8. **Paradigm shift**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), and blocks 22--23 (conn_ceiling at filling_factor) represent three paradigm-level discoveries. Each overturned or extended previously established principles
+6. **Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22--24 (conn ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse --- eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits
+7. **Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25--28 (g=1, g=2)
+8. **Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse) represent four paradigm-level discoveries. Each overturned or extended previously established principles
 
 ---
 
@@ -30,7 +30,7 @@ How does an LLM reason when embedded in a closed-loop scientific exploration? Th
 
 ![](assets/epistemic_timeline.png){.lightbox}
 
-The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM's written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7--8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19--21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22--23 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship.
+The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM's written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7--8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19--21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22--24 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship across three data points. Blocks 25--28 show a distinctive regime recognition → constraint identification pattern as the system discovers g=1 fixed-point collapse (blocks 25--26) and the g=2 inverse lr_W regime (blocks 27--28).
 
 ---
 
@@ -38,7 +38,7 @@ The epistemic timeline is constructed by classifying each LLM reasoning event in
 
 ![](assets/epistemic_streamgraph.png){.lightbox}
 
-The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream's width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows five distinct phases. In the first phase (blocks 1--3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4--6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7--10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11--16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15--16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17--23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23).
+The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream's width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows six distinct phases. In the first phase (blocks 1--3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4--6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7--10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11--16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15--16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17--23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23). In the sixth phase (blocks 24--28), the system maps the gain--eff_rank critical transition: regime recognition dominates as g=1 and g=2 are explored, constraint identification peaks as fixed-point collapse is discovered (blocks 25--26), and causal reasoning intensifies as the system builds a quantitative model of how gain modulates eff_rank non-linearly.
 
 ---
 
@@ -46,7 +46,7 @@ The streamgraph aggregates reasoning mode counts into a smoothed, stacked area c
 
 ![](assets/Sankey.png){.lightbox}
 
-The Sankey diagram traces how reasoning modes connect to each other across the full 268-iteration exploration (330 events, 125 causal edges, 23 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain --- for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM's analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next --- this pathway intensifies in blocks 11--21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7--8, 17, 22--23) or paradigm-level shifts (blocks 15--16, 19--21). Blocks 17--23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.
+The Sankey diagram traces how reasoning modes connect to each other across the full exploration (400+ events, 150+ causal edges, 28 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain --- for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM's analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next --- this pathway intensifies in blocks 11--21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7--8, 17, 22--23) or paradigm-level shifts (blocks 15--16, 19--21). Blocks 17--23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.
 
 ---
 
@@ -343,7 +343,7 @@ The Sankey diagram traces how reasoning modes connect to each other across the f
 
 **Principle extracted**: fill=80% creates conn plateau at ~0.802 with complete param insensitivity; conn_ceiling approximates filling_factor; sharp rho transition between 50--80%.
 
-### Block 23 --- fill=80% at 30k Frames (4 iterations completed)
+### Block 23 --- fill=80% at 30k Frames (12 iterations)
 
 | Iter | Mode | Event | Outcome |
 |------|------|-------|---------:|
@@ -353,6 +353,61 @@ The Sankey diagram traces how reasoning modes connect to each other across the f
 | 268 | Constraint | conn_ceiling at filling_factor confirmed at 30k | Second regime (after sparse) where n_frames does NOT rescue |
 
 **Principle extracted**: 30k frames does NOT break fill=80% conn plateau; conn_ceiling at filling_factor holds at both 10k and 30k; this is the second structural limit alongside subcritical spectral radius.
+
+### Block 24 --- fill=90% (Transitional Regime)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 289 | **Regime** | fill=90% is transitional between 80% and 100% | rho=0.995 (near-critical); eff_rank=35--36 |
+| 291 | Induction | conn plateau at 0.907 ≈ fill% | Extends linear relationship to 4th data point |
+| 295 | Constraint | complete parameter insensitivity | lr_W, L1, epochs all irrelevant (same as fill=80%) |
+| 298 | Deduction | above R^2^>0.9 convergence boundary | 83% convergence rate (vs 0% at fill=80%) |
+
+**Principle extracted**: fill=90% confirms conn_ceiling ≈ filling_factor at 4th point (50%→0.49, 80%→0.80, 90%→0.91, 100%→1.00); transitional regime above convergence threshold.
+
+### Block 25 --- g=1: Fixed-Point Collapse (10k)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 301 | **Regime** | g=1 produces flat-line dynamics | eff_rank=5 (catastrophically low); fixed points |
+| 303 | Constraint | below eff_rank threshold (~10) | 0% convergence; max conn=0.007; 12/12 degenerate |
+| 307 | Boundary | lr_W range [1E-3, 3E-2] all equally useless | Complete parameter insensitivity |
+| 310 | Induction | two-phase training only marginal signal | conn=0.007 vs 0.000--0.002 (negligible) |
+
+**Principle extracted**: g=1 produces fixed-point collapse; eff_rank=5 is below critical threshold ~10; hardest regime encountered; more severe than sparse 50%.
+
+### Block 26 --- g=1 at 30k: Confirmed Unsolvable
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 313 | **Falsification** | 30k should rescue g=1 | **OVERTURNED**: eff_rank DROPS 5→1; 0% convergence |
+| 317 | **Constraint** | g=1 unsolvable by n_frames | Unique: n_frames NEGATIVELY correlated with eff_rank |
+| 319 | Causal | fixed points converge faster with more data | More frames → tighter fixed-point basin → lower dimensionality |
+| 322 | Meta-reasoning | identify g=1 as third structural limit | Alongside sparse (rho<1) and fill<100% (conn=fill%) |
+
+**Principle extracted**: g=1 is UNSOLVABLE by n_frames; eff_rank drops from 5 to 1 at 30k (unique negative correlation); n_frames-amplified degeneracy.
+
+### Block 27 --- g=2: Inverse lr_W Regime (10k)
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 325 | **Regime** | g=2 has eff_rank=17 (above threshold) | Supercritical (rho=1.065) but very low gain |
+| 327 | Induction | lr_W=5E-4 optimal (100x lower than g=7) | **Inverse lr_W** --- new phenomenon |
+| 331 | Causal | gain--eff_rank critical transition | g=1→5 (+240%→) g=2→17 (+53%→) g=3→26 (+35%→) g=7→35 |
+| 335 | Deduction | epoch scaling not diminishing at low lr_W | 5ep→0.356, 8ep→0.397, 12ep→0.519 (steady) |
+
+**Principle extracted**: g=2 requires inverse lr_W (~5E-4, 100x lower than g=7); epoch scaling NOT diminishing; steepest gain--eff_rank slope between g=1 and g=2.
+
+### Block 28 --- g=2 at 30k: Partially Rescued
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 337 | **Analogy** | 30k should rescue g=2 (like g=3) | **Partially confirmed**: 42% convergence (vs 0% at 10k) |
+| 341 | Induction | eff_rank FLAT at 16 (unchanged from 17) | Unique: 30k does NOT increase dimensionality at g=2 |
+| 343 | Deduction | inverse lr_W should persist at 30k | **Confirmed**: lr_W≥2E-3 catastrophic; 5E-4--7E-4 optimal |
+| 347 | Causal | eff_rank-n_frames correlation depends on gain | g=1: negative (5→1); g=2: flat (17→16); g≥3: positive |
+
+**Principle extracted**: g=2 IS partially solvable at 30k (42% conv); eff_rank does NOT increase with n_frames at g=2; inverse lr_W is structural (persists at 30k); 30k helps via variance reduction, not more dynamic modes.
 
 ---
 
@@ -394,6 +449,20 @@ graph TD
     AB -->|leads_to| AC[conn=0.802 unchanged<br/>iter 265]
     AC -->|refines| AD[conn_ceiling ≈ filling_factor<br/>STRUCTURAL LIMIT]
 
+    AD -->|triggers| AE[fill=90% test<br/>block 24]
+    AE -->|leads_to| AF[conn=0.907 ≈ 91%<br/>iter 291]
+    AF -->|refines| AG[4th data point confirms<br/>linear filling_factor law]
+
+    W -->|triggers| AH[g=1 test<br/>block 25]
+    AH -->|leads_to| AI[fixed-point collapse<br/>eff_rank=5]
+    AI -->|triggers| AJ[30k test for g=1<br/>block 26]
+    AJ -->|leads_to| AK[eff_rank DROPS 5→1<br/>STRUCTURAL LIMIT]
+
+    AI -->|triggers| AL[g=2 test<br/>block 27]
+    AL -->|leads_to| AM[inverse lr_W=5E-4<br/>eff_rank=17]
+    AM -->|triggers| AN[30k test for g=2<br/>block 28]
+    AN -->|leads_to| AO[42% conv; lr_W persists<br/>PARTIALLY RESCUED]
+
     style A fill:#e3f2fd
     style E fill:#c8e6c9
     style F fill:#e3f2fd
@@ -405,6 +474,9 @@ graph TD
     style V fill:#ffcdd2
     style Z fill:#c8e6c9
     style AD fill:#ffcdd2
+    style AG fill:#c8e6c9
+    style AK fill:#ffcdd2
+    style AO fill:#fff9c4
 ```
 
 ---
@@ -420,14 +492,14 @@ graph TD
 ::: {.callout-important}
 ## Key Insight
 
-The 74% deduction validation rate across 57 predictions demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across 40 cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7--8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15--16 and 19--21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), and blocks 22--23 demonstrate a new structural limit discovery (conn_ceiling at filling_factor). The system can now distinguish three classes of difficulty: solvable by n_frames (large n, low gain), solvable by training (small n, high gain), and structurally unsolvable (subcritical rho, partial connectivity ceiling).
+The 74% deduction validation rate demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7--8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15--16 and 19--21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), blocks 22--24 demonstrate conn_ceiling at filling_factor, and blocks 25--26 discover a new structural limit (g=1 fixed-point collapse). The system can now distinguish four classes of difficulty: solvable by n_frames (large n, moderate gain), solvable by training (small n, high gain), partially solvable (g=2 with inverse lr_W), and structurally unsolvable (subcritical rho, partial connectivity ceiling, g=1 fixed-point collapse).
 :::
 
 ---
 
 ## Principles Discovered
 
-Sixty-four key principles discovered through systematic reasoning across 23 regimes:
+~80 key principles discovered through systematic reasoning across 28 regimes (showing first 75):
 
 | # | Principle | Evidence | Confidence |
 |---|-----------|----------|:----------:|
@@ -494,7 +566,18 @@ Sixty-four key principles discovered through systematic reasoning across 23 regi
 | 61 | **g=3/n=200/30k recipe: lr_W=4E-3, 2ep → conn=0.996** | Block 21 | 85% |
 | 62 | **fill=80% creates conn plateau at ~0.802** | Block 22 | 85% |
 | 63 | **filling_factor transition 50%→80% is sharp** | Blocks 7, 17, 22 | 72% |
-| 64 | **conn_ceiling scales linearly with filling_factor** | Blocks 1, 7, 22, 23 | 85% |
+| 64 | **conn_ceiling scales linearly with filling_factor** | Blocks 1, 7, 22, 23, 24 | 92% |
+| 65 | **fill=90% is transitional regime (above R^2^>0.9 boundary)** | Block 24 | 72% |
+| 66 | **fill=90% has complete parameter insensitivity** | Block 24 | 85% |
+| 67 | **g=1 produces fixed-point collapse** | Block 25 | 92% |
+| 68 | **eff_rank threshold ~10 below which recovery impossible** | Blocks 25, 27 | 72% |
+| 69 | **g=1 unsolvable by n_frames (eff_rank DROPS 5→1)** | Block 26 | 92% |
+| 70 | **n_frames-amplified degeneracy at g=1** | Block 26 | 72% |
+| 71 | **g=2 requires inverse lr_W (5E-4, 100x lower than g=7)** | Blocks 27, 28 | 85% |
+| 72 | **gain--eff_rank transition: g=1→5, g=2→17, g=3→26, g=7→35** | Blocks 19, 25, 27 | 85% |
+| 73 | **epoch scaling not diminishing at g=2** | Block 27 | 72% |
+| 74 | **g=2 partially solvable at 30k (42% conv)** | Block 28 | 72% |
+| 75 | **eff_rank-n_frames correlation reverses at low gain** | Blocks 25--28 | 85% |
 
 ---
 
@@ -525,6 +608,11 @@ Sixty-four key principles discovered through systematic reasoning across 23 regi
 | 21 | **g=3/n=200 (30k)** | **30k** | 200 | 241--252 | **53--57** | **100%** | **30k rescues gain; all params non-critical** |
 | 22 | **fill=80% (10k)** | 10k | 100 | 253--264 | **36** | **0%** | **Conn plateau at 0.802; param insensitivity** |
 | 23 | **fill=80% (30k)** | **30k** | 100 | 265--276 | **48--49** | **0%** (0/12) | **30k does NOT break plateau; conn ≈ fill%; structural invariant** |
+| 24 | **fill=90%** | 10k | 100 | 289--300 | **35--36** | **83%** (10/12) | **conn ≈ fill%; transitional; 4th linear data point** |
+| 25 | **g=1 (10k)** | 10k | 100 | 301--312 | **5** | **0%** (0/12) | **Fixed-point collapse; eff_rank=5; hardest regime** |
+| 26 | **g=1 (30k)** | **30k** | 100 | 313--324 | **1** | **0%** (0/12) | **eff_rank DROPS 5→1; 30k makes g=1 WORSE** |
+| 27 | **g=2 (10k)** | 10k | 100 | 325--336 | **17** | **0%** (0/12) | **Inverse lr_W=5E-4; epoch scaling not diminishing** |
+| 28 | **g=2 (30k)** | **30k** | 100 | 337--348 | **16** | **42%** (5/12) | **Partially rescued; inverse lr_W persists; eff_rank flat** |
 
 ---
 

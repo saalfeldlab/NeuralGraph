@@ -8,30 +8,34 @@ Can a graph neural network recover the connectivity matrix of a neural assembly 
 ::: {.callout-tip}
 ## Current status
 
-**276 iterations completed** across 23 regimes. n_frames=30k is the dominant lever for dense networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is also rescued by 30k frames. Two regimes remain structurally unsolvable: sparse 50% (subcritical rho=0.746, conn~0.44) and fill=80% (conn plateau at 0.802, immune to n_frames). n=1000 at 30k reaches conn=0.745 (needs ~100k frames). 65 principles established.
+**336 iterations completed** across 28 regimes. n_frames=30k is the dominant lever for dense supercritical networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is rescued by 30k frames; g=2 is partially rescued (42% convergence at 30k). Three structural limits confirmed: subcritical spectral radius (sparse 50%, conn~0.44), partial connectivity ceiling (fill=80%/90%, conn ≈ filling_factor), and fixed-point collapse (g=1, eff_rank drops to 1 at 30k). The gain--eff_rank transition is sharp: g=1→5, g=2→17, g=3→26, g=7→35. n=1000 at 30k reaches conn=0.745 (needs ~100k frames). ~80 principles established.
 :::
 
 ## Outcomes
 
-1. **n_frames is the dominant lever**: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical.
+1. **n_frames is the dominant lever**: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical --- except when gain is too low (g≤2).
 
-2. **Five difficulty axes identified**: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g=3), and partial connectivity (fill<100%). Three are solvable by n_frames; two are structural limits.
+2. **Six difficulty axes identified**: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g≤3), partial connectivity (fill<100%), and fixed-point collapse (g=1). Four are solvable by n_frames; two are structural limits; one is a new unsolvable axis.
 
-3. **Two structural limits confirmed**: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k) and fill=80% (conn=0.802 at both 10k and 30k). For fill=80%, conn_ceiling $\approx$ filling_factor --- a linear relationship confirmed across fill=50%, 80%, and 100%.
+3. **Three structural limits confirmed**: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k), fill<100% (conn_ceiling $\approx$ filling_factor --- confirmed across fill=50%, 80%, 90%, and 100%), and g=1 fixed-point collapse (eff_rank=5 at 10k, drops to 1 at 30k --- n_frames makes it worse).
 
-4. **eff_rank is necessary but not sufficient**: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse.
+4. **eff_rank is necessary but not sufficient**: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse and negative effect at g=1.
 
 5. **L1 effect is n-dependent, non-monotonic, and vanishes at high n_frames**: Critical at 1E-6 for low-rank/heterogeneous at n=100; harmful at n<=200; beneficial at n=300/10k; harmful at n>=600/10k. At 30k frames, L1 sensitivity disappears entirely.
 
 6. **Scale shifts boundaries**: Convergence boundary, optimal lr_W, and lr tolerance all change non-linearly with n_neurons. At 30k frames, optimal lr_W shifts **lower** (5E-3 vs 1E-2 at 10k) because abundant data handles W while lower lr_W preserves MLP capacity.
 
-7. **Low gain compounds with scale but is solvable**: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence).
+7. **Low gain compounds with scale but is solvable (g≥2)**: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence). g=2 requires inverse lr_W (5E-4, 100x lower than g=7) and is partially rescued at 30k (42% convergence).
 
-8. **Partial connectivity creates a structural ceiling**: fill=80% gives conn_R^2^=0.802 with complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k frames. Unlike sparse 50%, there is no degeneracy --- the GNN correctly learns 80% of connections.
+8. **Gain modulates eff_rank non-linearly**: The gain--eff_rank relationship shows a sharp transition: g=1→5, g=2→17 (+240%), g=3→26, g=7→35. A critical threshold exists at eff_rank~10 (between g=1 and g=2). Below this threshold, no amount of training or data helps.
 
-9. **Degeneracy is a critical diagnostic**: 19/276 iterations (6.9%) show degeneracy. Two mechanisms: structural (subcritical spectral radius) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy.
+9. **Partial connectivity creates a structural ceiling**: conn_ceiling $\approx$ filling_factor, confirmed at four points: fill=50%→0.49, fill=80%→0.80, fill=90%→0.91, fill=100%→1.00. Complete parameter insensitivity at fill<100%, at both 10k and 30k frames.
 
-10. **n=1000 at 30k is insufficient**: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs.
+10. **g=1 is a new unsolvable axis (fixed-point collapse)**: At g=1, tanh saturates weak-gain dynamics into stable fixed points. eff_rank=5 at 10k drops to 1 at 30k --- the only regime where n_frames is anti-correlated with eff_rank. More severe than sparse 50%. Conn_R^2^<0.02 regardless of training.
+
+11. **Degeneracy is a critical diagnostic**: Two mechanisms: structural (subcritical spectral radius, g=1 fixed-point) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy but amplifies g=1 degeneracy.
+
+12. **n=1000 at 30k is insufficient**: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs.
 
 ---
 
@@ -72,22 +76,28 @@ Three panels separate the landscape by network scale (n=100, n=200--600, n=1000)
 | 21 | **g=3 n=200 (30k)** | **30k** | 200 | **~53--57** | **100%** (12/12) | **0.996** | **30k rescues g=3; all params non-critical** |
 | 22 | **fill=80%** | 10k | 100 | **~36** | **0%** (0/12) | **0.802** | **Conn plateau = filling_factor** |
 | 23 | **fill=80% (30k)** | **30k** | 100 | **~48--49** | **0%** (0/12) | **~0.802** | **30k FAILS; structural ceiling; 12/12 at 0.802** |
+| 24 | **fill=90%** | 10k | 100 | **~35--36** | **83%** (10/12) | **0.907** | **conn ≈ fill%; transitional regime; param insensitive** |
+| 25 | **g=1 (10k)** | 10k | 100 | **~5** | **0%** (0/12) | **0.007** | **Fixed-point collapse; hardest regime; eff_rank=5** |
+| 26 | **g=1 (30k)** | **30k** | 100 | **~1** | **0%** (0/12) | **0.018** | **eff_rank DROPS 5→1; 30k makes g=1 WORSE** |
+| 27 | **g=2 (10k)** | 10k | 100 | **~17** | **0%** (0/12) | **0.519** | **Inverse lr_W=5E-4; epoch scaling not diminishing** |
+| 28 | **g=2 (30k)** | **30k** | 100 | **~16** | **42%** (5/12) | **0.997** | **30k partially rescues; inverse lr_W persists** |
 
 ## Key Discoveries
 
-### 1. Five Independent Difficulty Axes
+### 1. Six Independent Difficulty Axes
 
 ::: {.callout-important}
 ## Key Insight
 
-Five independent axes determine regime difficulty. Three are solvable by data (n_frames); two are structural limits:
+Six independent axes determine regime difficulty. Three are solvable by data (n_frames); three are structural limits:
 
 | Axis | Example | Solvable? | Mechanism |
 |------|---------|:---------:|-----------|
 | Subcritical spectral radius | Sparse 50% (rho=0.746) | **No** | rho < 1 limits information flow; eff_rank drops at 30k |
-| Partial connectivity ceiling | fill=80% (rho=0.985) | **No** | conn_ceiling $\approx$ filling_factor; 30k has no effect |
+| Partial connectivity ceiling | fill=80%/90% (rho~0.99) | **No** | conn_ceiling $\approx$ filling_factor; 30k has no effect |
+| Fixed-point collapse | g=1 (eff_rank=5→1) | **No** | tanh saturates; eff_rank drops at 30k; hardest regime |
 | Parameter count scaling | n=300, n=600 | **Yes** (30k) | More data reveals more signal dimensions |
-| Low gain | g=3 (eff_rank 35-->26) | **Yes** (30k) | eff_rank recovers at 30k (+80%) |
+| Low gain | g=2--3 (eff_rank 17--26) | **Yes** (30k) | g=3: 100% at 30k; g=2: 42% at 30k |
 | Training capacity | n_epochs, lr_W tuning | **Yes** (30k) | At 30k all training params become non-critical |
 :::
 
@@ -186,7 +196,41 @@ Low gain (g=3) eliminates the lr_W cliff seen at g=7, but compounds with n_neuro
 conn_ceiling $\approx$ filling_factor: fill=50%-->conn~0.49, fill=80%-->conn~0.80, fill=100%-->conn~1.00. At fill=80%, complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k. The missing 20% of connections cannot be inferred from dynamics data regardless of volume.
 :::
 
-### 9. Sparse Connectivity --- Confirmed Unsolvable (Blocks 7, 8, 17)
+### 9. Fixed-Point Collapse --- g=1 Unsolvable (Blocks 25--26)
+
+| n_frames | eff_rank | Best conn | Degeneracy | Key |
+|:--------:|:--------:|:---------:|:----------:|:----|
+| 10k | 5 | 0.007 | 12/12 | Flat-line dynamics; universal degeneracy |
+| **30k** | **1** | **0.018** | **12/12** | **eff_rank DROPS (5→1); 30k makes it WORSE** |
+
+::: {.callout-warning}
+## Structural Limit
+
+g=1 produces fixed-point collapse: tanh saturates weak-gain dynamics into stable fixed points (flat lines). eff_rank=5 at 10k (catastrophically low) drops to 1 at 30k --- the only regime where n_frames is negatively correlated with eff_rank. Below the critical eff_rank threshold (~10), no amount of training or data helps. More severe than sparse 50%.
+:::
+
+### 10. g=2 --- Inverse lr_W Regime (Blocks 27--28)
+
+| n_frames | eff_rank | Best conn | Convergence | Key |
+|:--------:|:--------:|:---------:|:-----------:|:----|
+| 10k | 17 | 0.519 | 0% (0/12) | Inverse lr_W=5E-4 (100x lower than g=7) |
+| **30k** | **16** | **0.997** | **42%** (5/12) | **Partially rescued; inverse lr_W persists; eff_rank flat** |
+
+::: {.callout-tip}
+## Key Insight
+
+g=2 sits above the critical eff_rank threshold (17 > 10) and is partially rescued by 30k frames (0%→42% convergence). However, it requires **inverse lr_W** (~5E-4, 100x lower than g=7's 4E-3) --- a structural property that persists at 30k. Epoch scaling is not diminishing at g=2 (5ep→0.356, 8ep→0.397, 12ep→0.519 at 10k). At 30k/8ep, the Pareto-optimal config reaches conn=0.997.
+:::
+
+### 11. fill=90% --- Transitional Regime (Block 24)
+
+| n_frames | eff_rank | rho | Best conn | Convergence | Key |
+|:--------:|:--------:|:---:|:---------:|:-----------:|:----|
+| 10k | 35--36 | 0.995 | 0.907 | 83% (10/12) | conn ≈ fill%; above R^2^=0.9 convergence boundary |
+
+The fill=90% regime extends the conn_ceiling $\approx$ filling_factor relationship to a fourth data point: fill=50%→0.49, fill=80%→0.80, fill=90%→0.91, fill=100%→1.00. Unlike fill=80%, the 90% regime crosses the R^2^>0.9 convergence threshold, making it a transitional regime.
+
+### 12. Sparse Connectivity --- Confirmed Unsolvable (Blocks 7, 8, 17)
 
 | n_frames | eff_rank | Best conn | Degeneracy | Key |
 |:--------:|:--------:|:---------:|:----------:|:----|
@@ -200,7 +244,7 @@ conn_ceiling $\approx$ filling_factor: fill=50%-->conn~0.49, fill=80%-->conn~0.8
 Sparse 50% at 30k is the ONLY regime where eff_rank **decreases** with more data (21-->13). Subcritical spectral radius (rho=0.746) determines eff_rank, not data volume. Two-phase training provides marginal +15% but is insufficient. This regime requires architectural intervention.
 :::
 
-### 10. n=1000 at 30k --- Insufficient Data (Block 18)
+### 13. n=1000 at 30k --- Insufficient Data (Block 18)
 
 | n_epochs | lr | conn | test_R^2^ | Key |
 |:--------:|:--:|:----:|:---------:|:----|
@@ -213,7 +257,7 @@ Sparse 50% at 30k is the ONLY regime where eff_rank **decreases** with more data
 n=1000 at 30k reaches max conn=0.745 (eff_rank=144). lr=1E-4 is Pareto-optimal; lr=2E-4 causes overtraining at 10+ epochs. Scaling from n=600/30k: eff_rank increases superlinearly (87-->144) but data is insufficient. Needs ~100k frames based on the pattern.
 :::
 
-### 11. Degeneracy --- When Dynamics Quality Misleads
+### 14. Degeneracy --- When Dynamics Quality Misleads
 
 | Block | Regime | n_frames | Degenerate iters | Max gap | Mechanism |
 |:-----:|--------|:--------:|:----------------:|:-------:|-----------|
@@ -227,9 +271,14 @@ n=1000 at 30k reaches max conn=0.745 (eff_rank=144). lr=1E-4 is Pareto-optimal; 
 | 20 | **g=3 n=200** | 10k | **12/12** | **~0.70** | **Gain x n = universal degeneracy** |
 | 21 | **g=3 n=200 (30k)** | **30k** | **0/12** | **0.01** | **30k eliminates degeneracy** |
 | 22 | fill=80% | 10k | 0/12 | 0.20 | **Not degenerate** (conn stuck) |
+| 24 | fill=90% | 10k | 0/12 | 0.09 | **Not degenerate** (conn stuck at 0.907) |
+| 25 | **g=1 n=100** | 10k | **12/12** | **~0.99** | **Fixed-point collapse; flat-line dynamics** |
+| 26 | **g=1 n=100 (30k)** | **30k** | **12/12** | **~0.99** | **30k amplifies degeneracy; eff_rank→1** |
+| 27 | **g=2 n=100** | 10k | **12/12** | **0.48--0.90** | **Low gain; inverse lr_W needed** |
+| 28 | **g=2 n=100 (30k)** | **30k** | **5/12** | **0.003--0.80** | **Partially rescued; 42% convergence** |
 | 15--16 | n=300/600 (30k) | 30k | 0/20 | -0.01 | Abundant data eliminates |
 
-### 12. n_frames Is the Dominant Lever (Blocks 15--16, 21)
+### 15. n_frames Is the Dominant Lever (Blocks 15--16, 21)
 
 | n_neurons | gain | n_frames | eff_rank | Convergence | Best conn | Key |
 |:---------:|:----:|:--------:|:--------:|:-----------:|:---------:|:----|
@@ -250,7 +299,7 @@ n_frames=30k transforms the training landscape for dense supercritical networks:
 3. **Training params become non-critical**: lr_W safe range widens; batch_size=16 safe; 1--2 epochs suffice
 4. **Optimal lr_W shifts lower**: 3--5E-3 at 30k vs 1E-2 at 10k
 
-**Exceptions**: sparse 50% (rho<1), fill=80%, and n=1000 (needs more data)
+**Exceptions**: sparse 50% (rho<1), fill=80%/90%, g=1 (fixed-point collapse), and n=1000 (needs more data). g=2 is partially rescued (42% convergence at 30k)
 :::
 
 ## Summary Statistics
@@ -260,12 +309,12 @@ n_frames=30k transforms the training landscape for dense supercritical networks:
 ::: {.feature-grid}
 
 ::: {.feature-card}
-### 276 Iterations
-Across 23 simulation regimes
+### 336 Iterations
+Across 28 simulation regimes
 :::
 
 ::: {.feature-card}
-### 65 Principles
+### ~80 Principles
 Novel findings with 45--100% confidence
 :::
 
@@ -275,8 +324,8 @@ Novel findings with 45--100% confidence
 :::
 
 ::: {.feature-card}
-### 2 Structural Limits
-Sparse (rho<1, conn~0.44) and fill=80% (conn=0.80)
+### 3 Structural Limits
+Sparse (rho<1), fill<100% (conn≈fill%), g=1 (fixed-point collapse)
 :::
 
 :::
@@ -286,3 +335,4 @@ Sparse (rho<1, conn~0.44) and fill=80% (conn=0.80)
 - [Epistemic Analysis](epistemic-analysis.qmd) --- How these findings were discovered
 - [Exploration](exploration-gallery.qmd) --- Visual record per block
 - [Case Study: Low-Rank](case-low-rank.qmd) --- Dedicated low-rank exploration
+- [Case Study: Sparse](case-sparse.qmd) --- Dedicated sparse exploration with code modifications

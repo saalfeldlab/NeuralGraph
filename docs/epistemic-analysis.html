@@ -179,6 +179,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <a class="dropdown-item" href="./case-low-rank.html">
  <span class="dropdown-text">Low-Rank Connectivity</span></a>
   </li>  
+        <li>
+    <a class="dropdown-item" href="./case-sparse.html">
+ <span class="dropdown-text">Sparse Connectivity</span></a>
+  </li>  
     </ul>
   </li>
   <li class="nav-item">
@@ -241,7 +245,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#block-20-low-gain-g3-at-scale-n200-10k" id="toc-block-20-low-gain-g3-at-scale-n200-10k" class="nav-link" data-scroll-target="#block-20-low-gain-g3-at-scale-n200-10k">Block 20 — Low Gain g=3 at Scale (n=200, 10k)</a></li>
   <li><a href="#block-21-low-gain-g3-rescued-by-30k-frames-n200" id="toc-block-21-low-gain-g3-rescued-by-30k-frames-n200" class="nav-link" data-scroll-target="#block-21-low-gain-g3-rescued-by-30k-frames-n200">Block 21 — Low Gain g=3 Rescued by 30k Frames (n=200)</a></li>
   <li><a href="#block-22-partial-connectivity-fill80-n100-10k" id="toc-block-22-partial-connectivity-fill80-n100-10k" class="nav-link" data-scroll-target="#block-22-partial-connectivity-fill80-n100-10k">Block 22 — Partial Connectivity fill=80% (n=100, 10k)</a></li>
-  <li><a href="#block-23-fill80-at-30k-frames-4-iterations-completed" id="toc-block-23-fill80-at-30k-frames-4-iterations-completed" class="nav-link" data-scroll-target="#block-23-fill80-at-30k-frames-4-iterations-completed">Block 23 — fill=80% at 30k Frames (4 iterations completed)</a></li>
+  <li><a href="#block-23-fill80-at-30k-frames-12-iterations" id="toc-block-23-fill80-at-30k-frames-12-iterations" class="nav-link" data-scroll-target="#block-23-fill80-at-30k-frames-12-iterations">Block 23 — fill=80% at 30k Frames (12 iterations)</a></li>
+  <li><a href="#block-24-fill90-transitional-regime" id="toc-block-24-fill90-transitional-regime" class="nav-link" data-scroll-target="#block-24-fill90-transitional-regime">Block 24 — fill=90% (Transitional Regime)</a></li>
+  <li><a href="#block-25-g1-fixed-point-collapse-10k" id="toc-block-25-g1-fixed-point-collapse-10k" class="nav-link" data-scroll-target="#block-25-g1-fixed-point-collapse-10k">Block 25 — g=1: Fixed-Point Collapse (10k)</a></li>
+  <li><a href="#block-26-g1-at-30k-confirmed-unsolvable" id="toc-block-26-g1-at-30k-confirmed-unsolvable" class="nav-link" data-scroll-target="#block-26-g1-at-30k-confirmed-unsolvable">Block 26 — g=1 at 30k: Confirmed Unsolvable</a></li>
+  <li><a href="#block-27-g2-inverse-lr_w-regime-10k" id="toc-block-27-g2-inverse-lr_w-regime-10k" class="nav-link" data-scroll-target="#block-27-g2-inverse-lr_w-regime-10k">Block 27 — g=2: Inverse lr_W Regime (10k)</a></li>
+  <li><a href="#block-28-g2-at-30k-partially-rescued" id="toc-block-28-g2-at-30k-partially-rescued" class="nav-link" data-scroll-target="#block-28-g2-at-30k-partially-rescued">Block 28 — g=2 at 30k: Partially Rescued</a></li>
   </ul></li>
   <li><a href="#causal-chains" id="toc-causal-chains" class="nav-link" data-scroll-target="#causal-chains">Causal Chains</a></li>
   <li><a href="#validation-rates" id="toc-validation-rates" class="nav-link" data-scroll-target="#validation-rates">Validation Rates</a></li>
@@ -285,40 +294,40 @@ Current status
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>276 iterations completed</strong> across 23 regimes. The reasoning trace contains 330 annotated events connected by 125 causal edges, 65 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 17–23 extended the frontier: sparse 50% confirmed unsolvable even at 30k frames (block 17), n=1000 mapped at 30k (block 18), low gain (g=3) identified as a new difficulty axis solvable by n_frames (blocks 19–21), and fill=80% revealed a structural conn ceiling at filling_factor (blocks 22–23).</p>
+<p><strong>336 iterations completed</strong> across 28 regimes. The reasoning trace contains ~400 annotated events connected by ~150 causal edges, ~80 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24–28 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis — fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25–26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27–28).</p>
 </div>
 </div>
 <hr>
 <section id="outcomes" class="level2">
 <h2 class="anchored" data-anchor-id="outcomes">Outcomes</h2>
 <ol type="1">
-<li><strong>330 reasoning events</strong> across 276 iterations and 23 blocks, connected by 125 causal edges</li>
-<li><strong>Predictive power</strong>: 74% deduction accuracy (42/57, well above chance)</li>
-<li><strong>Knowledge transfer</strong>: 70% analogy success rate across 40 cross-regime transfers</li>
-<li><strong>Principle discovery</strong>: 65 validated findings with confidence 45–100%</li>
+<li><strong>~400 reasoning events</strong> across 336 iterations and 28 blocks, connected by ~150 causal edges</li>
+<li><strong>Predictive power</strong>: 74% deduction accuracy (well above chance)</li>
+<li><strong>Knowledge transfer</strong>: 70% analogy success rate across cross-regime transfers</li>
+<li><strong>Principle discovery</strong>: ~80 validated findings with confidence 45–100%</li>
 <li><strong>Self-correction</strong>: 100% of falsifications led to principle refinement</li>
-<li><strong>Structural limit recognition</strong>: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), block 22 (conn ceiling at filling_factor), and block 23 (30k does not break fill=80% plateau) demonstrate the system can distinguish solvable from structural limits</li>
-<li><strong>Cross-block transfer</strong>: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16–18 and 21; block 22 (fill=80%) predictions tested in block 23</li>
-<li><strong>Paradigm shift</strong>: Blocks 15–16 (n_frames dominance), blocks 19–21 (gain as solvable difficulty axis), and blocks 22–23 (conn_ceiling at filling_factor) represent three paradigm-level discoveries. Each overturned or extended previously established principles</li>
+<li><strong>Structural limit recognition</strong>: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22–24 (conn ceiling at filling_factor), and blocks 25–26 (g=1 fixed-point collapse — eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits</li>
+<li><strong>Cross-block transfer</strong>: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16–18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25–28 (g=1, g=2)</li>
+<li><strong>Paradigm shifts</strong>: Blocks 15–16 (n_frames dominance), blocks 19–21 (gain as solvable difficulty axis), blocks 22–24 (conn_ceiling at filling_factor), and blocks 25–26 (g=1 fixed-point collapse) represent four paradigm-level discoveries. Each overturned or extended previously established principles</li>
 </ol>
 <hr>
 </section>
 <section id="epistemic-timeline" class="level2">
 <h2 class="anchored" data-anchor-id="epistemic-timeline">Epistemic Timeline</h2>
 <p><a href="assets/epistemic_timeline.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1"><img src="assets/epistemic_timeline.png" class="img-fluid"></a></p>
-<p>The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM’s written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7–8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19–21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22–23 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship.</p>
+<p>The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM’s written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7–8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19–21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22–24 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship across three data points. Blocks 25–28 show a distinctive regime recognition → constraint identification pattern as the system discovers g=1 fixed-point collapse (blocks 25–26) and the g=2 inverse lr_W regime (blocks 27–28).</p>
 <hr>
 </section>
 <section id="reasoning-activity-stream" class="level2">
 <h2 class="anchored" data-anchor-id="reasoning-activity-stream">Reasoning Activity Stream</h2>
 <p><a href="assets/epistemic_streamgraph.png" class="lightbox" data-gallery="quarto-lightbox-gallery-2"><img src="assets/epistemic_streamgraph.png" class="img-fluid"></a></p>
-<p>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream’s width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows five distinct phases. In the first phase (blocks 1–3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4–6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7–10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11–16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15–16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17–23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23).</p>
+<p>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream’s width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows six distinct phases. In the first phase (blocks 1–3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4–6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7–10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11–16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15–16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17–23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23). In the sixth phase (blocks 24–28), the system maps the gain–eff_rank critical transition: regime recognition dominates as g=1 and g=2 are explored, constraint identification peaks as fixed-point collapse is discovered (blocks 25–26), and causal reasoning intensifies as the system builds a quantitative model of how gain modulates eff_rank non-linearly.</p>
 <hr>
 </section>
 <section id="epistemic-flow" class="level2">
 <h2 class="anchored" data-anchor-id="epistemic-flow">Epistemic Flow</h2>
 <p><a href="assets/Sankey.png" class="lightbox" data-gallery="quarto-lightbox-gallery-3"><img src="assets/Sankey.png" class="img-fluid"></a></p>
-<p>The Sankey diagram traces how reasoning modes connect to each other across the full 268-iteration exploration (330 events, 125 causal edges, 23 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain — for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM’s analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next — this pathway intensifies in blocks 11–21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7–8, 17, 22–23) or paradigm-level shifts (blocks 15–16, 19–21). Blocks 17–23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</p>
+<p>The Sankey diagram traces how reasoning modes connect to each other across the full exploration (400+ events, 150+ causal edges, 28 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain — for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM’s analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next — this pathway intensifies in blocks 11–21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7–8, 17, 22–23) or paradigm-level shifts (blocks 15–16, 19–21). Blocks 17–23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</p>
 <hr>
 </section>
 <section id="reasoning-mode-taxonomy" class="level2">
@@ -1582,8 +1591,8 @@ Current status
 </table>
 <p><strong>Principle extracted</strong>: fill=80% creates conn plateau at ~0.802 with complete param insensitivity; conn_ceiling approximates filling_factor; sharp rho transition between 50–80%.</p>
 </section>
-<section id="block-23-fill80-at-30k-frames-4-iterations-completed" class="level3">
-<h3 class="anchored" data-anchor-id="block-23-fill80-at-30k-frames-4-iterations-completed">Block 23 — fill=80% at 30k Frames (4 iterations completed)</h3>
+<section id="block-23-fill80-at-30k-frames-12-iterations" class="level3">
+<h3 class="anchored" data-anchor-id="block-23-fill80-at-30k-frames-12-iterations">Block 23 — fill=80% at 30k Frames (12 iterations)</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 20%">
@@ -1627,6 +1636,236 @@ Current status
 </tbody>
 </table>
 <p><strong>Principle extracted</strong>: 30k frames does NOT break fill=80% conn plateau; conn_ceiling at filling_factor holds at both 10k and 30k; this is the second structural limit alongside subcritical spectral radius.</p>
+</section>
+<section id="block-24-fill90-transitional-regime" class="level3">
+<h3 class="anchored" data-anchor-id="block-24-fill90-transitional-regime">Block 24 — fill=90% (Transitional Regime)</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 24%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Iter</th>
+<th>Mode</th>
+<th>Event</th>
+<th style="text-align: right;">Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>289</td>
+<td><strong>Regime</strong></td>
+<td>fill=90% is transitional between 80% and 100%</td>
+<td style="text-align: right;">rho=0.995 (near-critical); eff_rank=35–36</td>
+</tr>
+<tr class="even">
+<td>291</td>
+<td>Induction</td>
+<td>conn plateau at 0.907 ≈ fill%</td>
+<td style="text-align: right;">Extends linear relationship to 4th data point</td>
+</tr>
+<tr class="odd">
+<td>295</td>
+<td>Constraint</td>
+<td>complete parameter insensitivity</td>
+<td style="text-align: right;">lr_W, L1, epochs all irrelevant (same as fill=80%)</td>
+</tr>
+<tr class="even">
+<td>298</td>
+<td>Deduction</td>
+<td>above R<sup>2</sup>&gt;0.9 convergence boundary</td>
+<td style="text-align: right;">83% convergence rate (vs 0% at fill=80%)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Principle extracted</strong>: fill=90% confirms conn_ceiling ≈ filling_factor at 4th point (50%→0.49, 80%→0.80, 90%→0.91, 100%→1.00); transitional regime above convergence threshold.</p>
+</section>
+<section id="block-25-g1-fixed-point-collapse-10k" class="level3">
+<h3 class="anchored" data-anchor-id="block-25-g1-fixed-point-collapse-10k">Block 25 — g=1: Fixed-Point Collapse (10k)</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 24%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Iter</th>
+<th>Mode</th>
+<th>Event</th>
+<th style="text-align: right;">Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>301</td>
+<td><strong>Regime</strong></td>
+<td>g=1 produces flat-line dynamics</td>
+<td style="text-align: right;">eff_rank=5 (catastrophically low); fixed points</td>
+</tr>
+<tr class="even">
+<td>303</td>
+<td>Constraint</td>
+<td>below eff_rank threshold (~10)</td>
+<td style="text-align: right;">0% convergence; max conn=0.007; 12/12 degenerate</td>
+</tr>
+<tr class="odd">
+<td>307</td>
+<td>Boundary</td>
+<td>lr_W range [1E-3, 3E-2] all equally useless</td>
+<td style="text-align: right;">Complete parameter insensitivity</td>
+</tr>
+<tr class="even">
+<td>310</td>
+<td>Induction</td>
+<td>two-phase training only marginal signal</td>
+<td style="text-align: right;">conn=0.007 vs 0.000–0.002 (negligible)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Principle extracted</strong>: g=1 produces fixed-point collapse; eff_rank=5 is below critical threshold ~10; hardest regime encountered; more severe than sparse 50%.</p>
+</section>
+<section id="block-26-g1-at-30k-confirmed-unsolvable" class="level3">
+<h3 class="anchored" data-anchor-id="block-26-g1-at-30k-confirmed-unsolvable">Block 26 — g=1 at 30k: Confirmed Unsolvable</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 24%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Iter</th>
+<th>Mode</th>
+<th>Event</th>
+<th style="text-align: right;">Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>313</td>
+<td><strong>Falsification</strong></td>
+<td>30k should rescue g=1</td>
+<td style="text-align: right;"><strong>OVERTURNED</strong>: eff_rank DROPS 5→1; 0% convergence</td>
+</tr>
+<tr class="even">
+<td>317</td>
+<td><strong>Constraint</strong></td>
+<td>g=1 unsolvable by n_frames</td>
+<td style="text-align: right;">Unique: n_frames NEGATIVELY correlated with eff_rank</td>
+</tr>
+<tr class="odd">
+<td>319</td>
+<td>Causal</td>
+<td>fixed points converge faster with more data</td>
+<td style="text-align: right;">More frames → tighter fixed-point basin → lower dimensionality</td>
+</tr>
+<tr class="even">
+<td>322</td>
+<td>Meta-reasoning</td>
+<td>identify g=1 as third structural limit</td>
+<td style="text-align: right;">Alongside sparse (rho&lt;1) and fill&lt;100% (conn=fill%)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Principle extracted</strong>: g=1 is UNSOLVABLE by n_frames; eff_rank drops from 5 to 1 at 30k (unique negative correlation); n_frames-amplified degeneracy.</p>
+</section>
+<section id="block-27-g2-inverse-lr_w-regime-10k" class="level3">
+<h3 class="anchored" data-anchor-id="block-27-g2-inverse-lr_w-regime-10k">Block 27 — g=2: Inverse lr_W Regime (10k)</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 24%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Iter</th>
+<th>Mode</th>
+<th>Event</th>
+<th style="text-align: right;">Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>325</td>
+<td><strong>Regime</strong></td>
+<td>g=2 has eff_rank=17 (above threshold)</td>
+<td style="text-align: right;">Supercritical (rho=1.065) but very low gain</td>
+</tr>
+<tr class="even">
+<td>327</td>
+<td>Induction</td>
+<td>lr_W=5E-4 optimal (100x lower than g=7)</td>
+<td style="text-align: right;"><strong>Inverse lr_W</strong> — new phenomenon</td>
+</tr>
+<tr class="odd">
+<td>331</td>
+<td>Causal</td>
+<td>gain–eff_rank critical transition</td>
+<td style="text-align: right;">g=1→5 (+240%→) g=2→17 (+53%→) g=3→26 (+35%→) g=7→35</td>
+</tr>
+<tr class="even">
+<td>335</td>
+<td>Deduction</td>
+<td>epoch scaling not diminishing at low lr_W</td>
+<td style="text-align: right;">5ep→0.356, 8ep→0.397, 12ep→0.519 (steady)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Principle extracted</strong>: g=2 requires inverse lr_W (~5E-4, 100x lower than g=7); epoch scaling NOT diminishing; steepest gain–eff_rank slope between g=1 and g=2.</p>
+</section>
+<section id="block-28-g2-at-30k-partially-rescued" class="level3">
+<h3 class="anchored" data-anchor-id="block-28-g2-at-30k-partially-rescued">Block 28 — g=2 at 30k: Partially Rescued</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 24%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Iter</th>
+<th>Mode</th>
+<th>Event</th>
+<th style="text-align: right;">Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>337</td>
+<td><strong>Analogy</strong></td>
+<td>30k should rescue g=2 (like g=3)</td>
+<td style="text-align: right;"><strong>Partially confirmed</strong>: 42% convergence (vs 0% at 10k)</td>
+</tr>
+<tr class="even">
+<td>341</td>
+<td>Induction</td>
+<td>eff_rank FLAT at 16 (unchanged from 17)</td>
+<td style="text-align: right;">Unique: 30k does NOT increase dimensionality at g=2</td>
+</tr>
+<tr class="odd">
+<td>343</td>
+<td>Deduction</td>
+<td>inverse lr_W should persist at 30k</td>
+<td style="text-align: right;"><strong>Confirmed</strong>: lr_W≥2E-3 catastrophic; 5E-4–7E-4 optimal</td>
+</tr>
+<tr class="even">
+<td>347</td>
+<td>Causal</td>
+<td>eff_rank-n_frames correlation depends on gain</td>
+<td style="text-align: right;">g=1: negative (5→1); g=2: flat (17→16); g≥3: positive</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Principle extracted</strong>: g=2 IS partially solvable at 30k (42% conv); eff_rank does NOT increase with n_frames at g=2; inverse lr_W is structural (persists at 30k); 30k helps via variance reduction, not more dynamic modes.</p>
 <hr>
 </section>
 </section>
@@ -1671,6 +1910,20 @@ Current status
     AB --&gt;|leads_to| AC[conn=0.802 unchanged&lt;br/&gt;iter 265]
     AC --&gt;|refines| AD[conn_ceiling ≈ filling_factor&lt;br/&gt;STRUCTURAL LIMIT]
 
+    AD --&gt;|triggers| AE[fill=90% test&lt;br/&gt;block 24]
+    AE --&gt;|leads_to| AF[conn=0.907 ≈ 91%&lt;br/&gt;iter 291]
+    AF --&gt;|refines| AG[4th data point confirms&lt;br/&gt;linear filling_factor law]
+
+    W --&gt;|triggers| AH[g=1 test&lt;br/&gt;block 25]
+    AH --&gt;|leads_to| AI[fixed-point collapse&lt;br/&gt;eff_rank=5]
+    AI --&gt;|triggers| AJ[30k test for g=1&lt;br/&gt;block 26]
+    AJ --&gt;|leads_to| AK[eff_rank DROPS 5→1&lt;br/&gt;STRUCTURAL LIMIT]
+
+    AI --&gt;|triggers| AL[g=2 test&lt;br/&gt;block 27]
+    AL --&gt;|leads_to| AM[inverse lr_W=5E-4&lt;br/&gt;eff_rank=17]
+    AM --&gt;|triggers| AN[30k test for g=2&lt;br/&gt;block 28]
+    AN --&gt;|leads_to| AO[42% conv; lr_W persists&lt;br/&gt;PARTIALLY RESCUED]
+
     style A fill:#e3f2fd
     style E fill:#c8e6c9
     style F fill:#e3f2fd
@@ -1682,6 +1935,9 @@ Current status
     style V fill:#ffcdd2
     style Z fill:#c8e6c9
     style AD fill:#ffcdd2
+    style AG fill:#c8e6c9
+    style AK fill:#ffcdd2
+    style AO fill:#fff9c4
 </pre>
 </div>
 <p></p></figure><p></p>
@@ -1736,14 +1992,14 @@ Key Insight
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>The 74% deduction validation rate across 57 predictions demonstrates that the LLM is forming <em>genuine</em> predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across 40 cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7–8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15–16 and 19–21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), and blocks 22–23 demonstrate a new structural limit discovery (conn_ceiling at filling_factor). The system can now distinguish three classes of difficulty: solvable by n_frames (large n, low gain), solvable by training (small n, high gain), and structurally unsolvable (subcritical rho, partial connectivity ceiling).</p>
+<p>The 74% deduction validation rate demonstrates that the LLM is forming <em>genuine</em> predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7–8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15–16 and 19–21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), blocks 22–24 demonstrate conn_ceiling at filling_factor, and blocks 25–26 discover a new structural limit (g=1 fixed-point collapse). The system can now distinguish four classes of difficulty: solvable by n_frames (large n, moderate gain), solvable by training (small n, high gain), partially solvable (g=2 with inverse lr_W), and structurally unsolvable (subcritical rho, partial connectivity ceiling, g=1 fixed-point collapse).</p>
 </div>
 </div>
 <hr>
 </section>
 <section id="principles-discovered" class="level2">
 <h2 class="anchored" data-anchor-id="principles-discovered">Principles Discovered</h2>
-<p>Sixty-four key principles discovered through systematic reasoning across 23 regimes:</p>
+<p>~80 key principles discovered through systematic reasoning across 28 regimes (showing first 75):</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 8%">
@@ -2141,7 +2397,73 @@ Key Insight
 <tr class="even">
 <td>64</td>
 <td><strong>conn_ceiling scales linearly with filling_factor</strong></td>
-<td>Blocks 1, 7, 22, 23</td>
+<td>Blocks 1, 7, 22, 23, 24</td>
+<td style="text-align: center;">92%</td>
+</tr>
+<tr class="odd">
+<td>65</td>
+<td><strong>fill=90% is transitional regime (above R<sup>2</sup>&gt;0.9 boundary)</strong></td>
+<td>Block 24</td>
+<td style="text-align: center;">72%</td>
+</tr>
+<tr class="even">
+<td>66</td>
+<td><strong>fill=90% has complete parameter insensitivity</strong></td>
+<td>Block 24</td>
+<td style="text-align: center;">85%</td>
+</tr>
+<tr class="odd">
+<td>67</td>
+<td><strong>g=1 produces fixed-point collapse</strong></td>
+<td>Block 25</td>
+<td style="text-align: center;">92%</td>
+</tr>
+<tr class="even">
+<td>68</td>
+<td><strong>eff_rank threshold ~10 below which recovery impossible</strong></td>
+<td>Blocks 25, 27</td>
+<td style="text-align: center;">72%</td>
+</tr>
+<tr class="odd">
+<td>69</td>
+<td><strong>g=1 unsolvable by n_frames (eff_rank DROPS 5→1)</strong></td>
+<td>Block 26</td>
+<td style="text-align: center;">92%</td>
+</tr>
+<tr class="even">
+<td>70</td>
+<td><strong>n_frames-amplified degeneracy at g=1</strong></td>
+<td>Block 26</td>
+<td style="text-align: center;">72%</td>
+</tr>
+<tr class="odd">
+<td>71</td>
+<td><strong>g=2 requires inverse lr_W (5E-4, 100x lower than g=7)</strong></td>
+<td>Blocks 27, 28</td>
+<td style="text-align: center;">85%</td>
+</tr>
+<tr class="even">
+<td>72</td>
+<td><strong>gain–eff_rank transition: g=1→5, g=2→17, g=3→26, g=7→35</strong></td>
+<td>Blocks 19, 25, 27</td>
+<td style="text-align: center;">85%</td>
+</tr>
+<tr class="odd">
+<td>73</td>
+<td><strong>epoch scaling not diminishing at g=2</strong></td>
+<td>Block 27</td>
+<td style="text-align: center;">72%</td>
+</tr>
+<tr class="even">
+<td>74</td>
+<td><strong>g=2 partially solvable at 30k (42% conv)</strong></td>
+<td>Block 28</td>
+<td style="text-align: center;">72%</td>
+</tr>
+<tr class="odd">
+<td>75</td>
+<td><strong>eff_rank-n_frames correlation reverses at low gain</strong></td>
+<td>Blocks 25–28</td>
 <td style="text-align: center;">85%</td>
 </tr>
 </tbody>
@@ -2403,6 +2725,56 @@ Key Insight
 <td style="text-align: center;"><strong>48–49</strong></td>
 <td style="text-align: center;"><strong>0%</strong> (0/12)</td>
 <td style="text-align: left;"><strong>30k does NOT break plateau; conn ≈ fill%; structural invariant</strong></td>
+</tr>
+<tr class="even">
+<td>24</td>
+<td><strong>fill=90%</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">100</td>
+<td style="text-align: center;">289–300</td>
+<td style="text-align: center;"><strong>35–36</strong></td>
+<td style="text-align: center;"><strong>83%</strong> (10/12)</td>
+<td style="text-align: left;"><strong>conn ≈ fill%; transitional; 4th linear data point</strong></td>
+</tr>
+<tr class="odd">
+<td>25</td>
+<td><strong>g=1 (10k)</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">100</td>
+<td style="text-align: center;">301–312</td>
+<td style="text-align: center;"><strong>5</strong></td>
+<td style="text-align: center;"><strong>0%</strong> (0/12)</td>
+<td style="text-align: left;"><strong>Fixed-point collapse; eff_rank=5; hardest regime</strong></td>
+</tr>
+<tr class="even">
+<td>26</td>
+<td><strong>g=1 (30k)</strong></td>
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;">100</td>
+<td style="text-align: center;">313–324</td>
+<td style="text-align: center;"><strong>1</strong></td>
+<td style="text-align: center;"><strong>0%</strong> (0/12)</td>
+<td style="text-align: left;"><strong>eff_rank DROPS 5→1; 30k makes g=1 WORSE</strong></td>
+</tr>
+<tr class="odd">
+<td>27</td>
+<td><strong>g=2 (10k)</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">100</td>
+<td style="text-align: center;">325–336</td>
+<td style="text-align: center;"><strong>17</strong></td>
+<td style="text-align: center;"><strong>0%</strong> (0/12)</td>
+<td style="text-align: left;"><strong>Inverse lr_W=5E-4; epoch scaling not diminishing</strong></td>
+</tr>
+<tr class="even">
+<td>28</td>
+<td><strong>g=2 (30k)</strong></td>
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;">100</td>
+<td style="text-align: center;">337–348</td>
+<td style="text-align: center;"><strong>16</strong></td>
+<td style="text-align: center;"><strong>42%</strong> (5/12)</td>
+<td style="text-align: left;"><strong>Partially rescued; inverse lr_W persists; eff_rank flat</strong></td>
 </tr>
 </tbody>
 </table>
@@ -3043,21 +3415,21 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">## Current status</span></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>**276 iterations completed** across 23 regimes. The reasoning trace contains 330 annotated events connected by 125 causal edges, 65 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 17--23 extended the frontier: sparse 50% confirmed unsolvable even at 30k frames (block 17), n=1000 mapped at 30k (block 18), low gain (g=3) identified as a new difficulty axis solvable by n_frames (blocks 19--21), and fill=80% revealed a structural conn ceiling at filling_factor (blocks 22--23).</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>**336 iterations completed** across 28 regimes. The reasoning trace contains ~400 annotated events connected by ~150 causal edges, ~80 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24--28 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis --- fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25--26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27--28).</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">## Outcomes</span></span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**330 reasoning events** across 276 iterations and 23 blocks, connected by 125 causal edges</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Predictive power**: 74% deduction accuracy (42/57, well above chance)</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Knowledge transfer**: 70% analogy success rate across 40 cross-regime transfers</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Principle discovery**: 65 validated findings with confidence 45--100%</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**~400 reasoning events** across 336 iterations and 28 blocks, connected by ~150 causal edges</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Predictive power**: 74% deduction accuracy (well above chance)</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Knowledge transfer**: 70% analogy success rate across cross-regime transfers</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Principle discovery**: ~80 validated findings with confidence 45--100%</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Self-correction**: 100% of falsifications led to principle refinement</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), block 22 (conn ceiling at filling_factor), and block 23 (30k does not break fill=80% plateau) demonstrate the system can distinguish solvable from structural limits</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) predictions tested in block 23</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Paradigm shift**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), and blocks 22--23 (conn_ceiling at filling_factor) represent three paradigm-level discoveries. Each overturned or extended previously established principles</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22--24 (conn ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse --- eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25--28 (g=1, g=2)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse) represent four paradigm-level discoveries. Each overturned or extended previously established principles</span>
 <span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
@@ -3065,7 +3437,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="al">![](assets/epistemic_timeline.png)</span>{.lightbox}</span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM's written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7--8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19--21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22--23 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship.</span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM's written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7--8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19--21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22--24 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship across three data points. Blocks 25--28 show a distinctive regime recognition → constraint identification pattern as the system discovers g=1 fixed-point collapse (blocks 25--26) and the g=2 inverse lr_W regime (blocks 27--28).</span>
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
@@ -3073,7 +3445,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="al">![](assets/epistemic_streamgraph.png)</span>{.lightbox}</span>
 <span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream's width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows five distinct phases. In the first phase (blocks 1--3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4--6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7--10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11--16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15--16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17--23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23).</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream's width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows six distinct phases. In the first phase (blocks 1--3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4--6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7--10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11--16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15--16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17--23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23). In the sixth phase (blocks 24--28), the system maps the gain--eff_rank critical transition: regime recognition dominates as g=1 and g=2 are explored, constraint identification peaks as fixed-point collapse is discovered (blocks 25--26), and causal reasoning intensifies as the system builds a quantitative model of how gain modulates eff_rank non-linearly.</span>
 <span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
@@ -3081,7 +3453,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="al">![](assets/Sankey.png)</span>{.lightbox}</span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>The Sankey diagram traces how reasoning modes connect to each other across the full 268-iteration exploration (330 events, 125 causal edges, 23 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain --- for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM's analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next --- this pathway intensifies in blocks 11--21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7--8, 17, 22--23) or paradigm-level shifts (blocks 15--16, 19--21). Blocks 17--23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>The Sankey diagram traces how reasoning modes connect to each other across the full exploration (400+ events, 150+ causal edges, 28 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain --- for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM's analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next --- this pathway intensifies in blocks 11--21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7--8, 17, 22--23) or paradigm-level shifts (blocks 15--16, 19--21). Blocks 17--23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</span>
 <span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
@@ -3378,7 +3750,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-343"><a href="#cb1-343" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-344"><a href="#cb1-344" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: fill=80% creates conn plateau at ~0.802 with complete param insensitivity; conn_ceiling approximates filling_factor; sharp rho transition between 50--80%.</span>
 <span id="cb1-345"><a href="#cb1-345" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-346"><a href="#cb1-346" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 23 --- fill=80% at 30k Frames (4 iterations completed)</span></span>
+<span id="cb1-346"><a href="#cb1-346" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 23 --- fill=80% at 30k Frames (12 iterations)</span></span>
 <span id="cb1-347"><a href="#cb1-347" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-348"><a href="#cb1-348" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
 <span id="cb1-349"><a href="#cb1-349" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
@@ -3389,184 +3761,272 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-354"><a href="#cb1-354" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-355"><a href="#cb1-355" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: 30k frames does NOT break fill=80% conn plateau; conn_ceiling at filling_factor holds at both 10k and 30k; this is the second structural limit alongside subcritical spectral radius.</span>
 <span id="cb1-356"><a href="#cb1-356" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-357"><a href="#cb1-357" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-357"><a href="#cb1-357" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 24 --- fill=90% (Transitional Regime)</span></span>
 <span id="cb1-358"><a href="#cb1-358" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-359"><a href="#cb1-359" aria-hidden="true" tabindex="-1"></a><span class="fu">## Causal Chains</span></span>
-<span id="cb1-360"><a href="#cb1-360" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-361"><a href="#cb1-361" aria-hidden="true" tabindex="-1"></a>Key multi-step causal chains discovered:</span>
-<span id="cb1-362"><a href="#cb1-362" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-365"><a href="#cb1-365" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb1-366"><a href="#cb1-366" aria-hidden="true" tabindex="-1"></a><span class="in">graph TD</span></span>
-<span id="cb1-367"><a href="#cb1-367" aria-hidden="true" tabindex="-1"></a><span class="in">    A[low eff_rank observed&lt;br/&gt;iter 13] --&gt;|leads_to| B[dynamics failure at L1=1E-5&lt;br/&gt;iter 18]</span></span>
-<span id="cb1-368"><a href="#cb1-368" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt;|triggers| C[L1 reduction hypothesis&lt;br/&gt;iter 18]</span></span>
-<span id="cb1-369"><a href="#cb1-369" aria-hidden="true" tabindex="-1"></a><span class="in">    C --&gt;|leads_to| D[L1=1E-6 + lr_W=3E-3 test&lt;br/&gt;iter 21]</span></span>
-<span id="cb1-370"><a href="#cb1-370" aria-hidden="true" tabindex="-1"></a><span class="in">    D --&gt;|refines| E[low-rank principle established&lt;br/&gt;BREAKTHROUGH]</span></span>
-<span id="cb1-371"><a href="#cb1-371" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-372"><a href="#cb1-372" aria-hidden="true" tabindex="-1"></a><span class="in">    F[Dale eff_rank=12&lt;br/&gt;iter 25] --&gt;|leads_to| G[lr_W=5E-3 cliff&lt;br/&gt;iters 29-30]</span></span>
-<span id="cb1-373"><a href="#cb1-373" aria-hidden="true" tabindex="-1"></a><span class="in">    G --&gt;|triggers| H[narrow range hypothesis]</span></span>
-<span id="cb1-374"><a href="#cb1-374" aria-hidden="true" tabindex="-1"></a><span class="in">    H --&gt;|leads_to| I[safe range mapped: 3.5-4.5E-3&lt;br/&gt;iter 33]</span></span>
-<span id="cb1-375"><a href="#cb1-375" aria-hidden="true" tabindex="-1"></a><span class="in">    I --&gt;|refines| J[Dale cliff principle]</span></span>
+<span id="cb1-359"><a href="#cb1-359" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
+<span id="cb1-360"><a href="#cb1-360" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
+<span id="cb1-361"><a href="#cb1-361" aria-hidden="true" tabindex="-1"></a>| 289 | **Regime** | fill=90% is transitional between 80% and 100% | rho=0.995 (near-critical); eff_rank=35--36 |</span>
+<span id="cb1-362"><a href="#cb1-362" aria-hidden="true" tabindex="-1"></a>| 291 | Induction | conn plateau at 0.907 ≈ fill% | Extends linear relationship to 4th data point |</span>
+<span id="cb1-363"><a href="#cb1-363" aria-hidden="true" tabindex="-1"></a>| 295 | Constraint | complete parameter insensitivity | lr_W, L1, epochs all irrelevant (same as fill=80%) |</span>
+<span id="cb1-364"><a href="#cb1-364" aria-hidden="true" tabindex="-1"></a>| 298 | Deduction | above R^2^&gt;0.9 convergence boundary | 83% convergence rate (vs 0% at fill=80%) |</span>
+<span id="cb1-365"><a href="#cb1-365" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-366"><a href="#cb1-366" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: fill=90% confirms conn_ceiling ≈ filling_factor at 4th point (50%→0.49, 80%→0.80, 90%→0.91, 100%→1.00); transitional regime above convergence threshold.</span>
+<span id="cb1-367"><a href="#cb1-367" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-368"><a href="#cb1-368" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 25 --- g=1: Fixed-Point Collapse (10k)</span></span>
+<span id="cb1-369"><a href="#cb1-369" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-370"><a href="#cb1-370" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
+<span id="cb1-371"><a href="#cb1-371" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
+<span id="cb1-372"><a href="#cb1-372" aria-hidden="true" tabindex="-1"></a>| 301 | **Regime** | g=1 produces flat-line dynamics | eff_rank=5 (catastrophically low); fixed points |</span>
+<span id="cb1-373"><a href="#cb1-373" aria-hidden="true" tabindex="-1"></a>| 303 | Constraint | below eff_rank threshold (~10) | 0% convergence; max conn=0.007; 12/12 degenerate |</span>
+<span id="cb1-374"><a href="#cb1-374" aria-hidden="true" tabindex="-1"></a>| 307 | Boundary | lr_W range <span class="co">[</span><span class="ot">1E-3, 3E-2</span><span class="co">]</span> all equally useless | Complete parameter insensitivity |</span>
+<span id="cb1-375"><a href="#cb1-375" aria-hidden="true" tabindex="-1"></a>| 310 | Induction | two-phase training only marginal signal | conn=0.007 vs 0.000--0.002 (negligible) |</span>
 <span id="cb1-376"><a href="#cb1-376" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-377"><a href="#cb1-377" aria-hidden="true" tabindex="-1"></a><span class="in">    K[sparse subcritical&lt;br/&gt;iter 73] --&gt;|triggers| L[n_epochs exploration&lt;br/&gt;iter 79]</span></span>
-<span id="cb1-378"><a href="#cb1-378" aria-hidden="true" tabindex="-1"></a><span class="in">    L --&gt;|leads_to| M[training capacity bottleneck&lt;br/&gt;iter 82]</span></span>
-<span id="cb1-379"><a href="#cb1-379" aria-hidden="true" tabindex="-1"></a><span class="in">    M --&gt;|triggers| N[n=300 epochs=2 breakthrough&lt;br/&gt;iter 106]</span></span>
+<span id="cb1-377"><a href="#cb1-377" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: g=1 produces fixed-point collapse; eff_rank=5 is below critical threshold ~10; hardest regime encountered; more severe than sparse 50%.</span>
+<span id="cb1-378"><a href="#cb1-378" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-379"><a href="#cb1-379" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 26 --- g=1 at 30k: Confirmed Unsolvable</span></span>
 <span id="cb1-380"><a href="#cb1-380" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-381"><a href="#cb1-381" aria-hidden="true" tabindex="-1"></a><span class="in">    O[n=300 conn ceiling ~0.92&lt;br/&gt;block 10] --&gt;|triggers| P[n_frames hypothesis&lt;br/&gt;block 15]</span></span>
-<span id="cb1-382"><a href="#cb1-382" aria-hidden="true" tabindex="-1"></a><span class="in">    P --&gt;|leads_to| Q[n=300/30k 100% convergence&lt;br/&gt;iter 177]</span></span>
-<span id="cb1-383"><a href="#cb1-383" aria-hidden="true" tabindex="-1"></a><span class="in">    Q --&gt;|triggers| R[n=600/30k test&lt;br/&gt;block 16]</span></span>
-<span id="cb1-384"><a href="#cb1-384" aria-hidden="true" tabindex="-1"></a><span class="in">    R --&gt;|leads_to| S[n=600 SOLVED: conn=0.992&lt;br/&gt;iter 186]</span></span>
-<span id="cb1-385"><a href="#cb1-385" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-386"><a href="#cb1-386" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| T[sparse 50% at 30k test&lt;br/&gt;block 17]</span></span>
-<span id="cb1-387"><a href="#cb1-387" aria-hidden="true" tabindex="-1"></a><span class="in">    T --&gt;|leads_to| U[eff_rank DROPS 21→13&lt;br/&gt;iter 195]</span></span>
-<span id="cb1-388"><a href="#cb1-388" aria-hidden="true" tabindex="-1"></a><span class="in">    U --&gt;|refines| V[subcritical rho immune to n_frames&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-381"><a href="#cb1-381" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
+<span id="cb1-382"><a href="#cb1-382" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
+<span id="cb1-383"><a href="#cb1-383" aria-hidden="true" tabindex="-1"></a>| 313 | **Falsification** | 30k should rescue g=1 | **OVERTURNED**: eff_rank DROPS 5→1; 0% convergence |</span>
+<span id="cb1-384"><a href="#cb1-384" aria-hidden="true" tabindex="-1"></a>| 317 | **Constraint** | g=1 unsolvable by n_frames | Unique: n_frames NEGATIVELY correlated with eff_rank |</span>
+<span id="cb1-385"><a href="#cb1-385" aria-hidden="true" tabindex="-1"></a>| 319 | Causal | fixed points converge faster with more data | More frames → tighter fixed-point basin → lower dimensionality |</span>
+<span id="cb1-386"><a href="#cb1-386" aria-hidden="true" tabindex="-1"></a>| 322 | Meta-reasoning | identify g=1 as third structural limit | Alongside sparse (rho&lt;1) and fill&lt;100% (conn=fill%) |</span>
+<span id="cb1-387"><a href="#cb1-387" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-388"><a href="#cb1-388" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: g=1 is UNSOLVABLE by n_frames; eff_rank drops from 5 to 1 at 30k (unique negative correlation); n_frames-amplified degeneracy.</span>
 <span id="cb1-389"><a href="#cb1-389" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-390"><a href="#cb1-390" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| W[gain=3 identified as axis&lt;br/&gt;block 19]</span></span>
-<span id="cb1-391"><a href="#cb1-391" aria-hidden="true" tabindex="-1"></a><span class="in">    W --&gt;|leads_to| X[g=3/n=200 0% conv&lt;br/&gt;block 20]</span></span>
-<span id="cb1-392"><a href="#cb1-392" aria-hidden="true" tabindex="-1"></a><span class="in">    X --&gt;|triggers| Y[30k frames test for g=3&lt;br/&gt;block 21]</span></span>
-<span id="cb1-393"><a href="#cb1-393" aria-hidden="true" tabindex="-1"></a><span class="in">    Y --&gt;|leads_to| Z[g=3/n=200 SOLVED: conn=0.996&lt;br/&gt;iter 245]</span></span>
-<span id="cb1-394"><a href="#cb1-394" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-395"><a href="#cb1-395" aria-hidden="true" tabindex="-1"></a><span class="in">    AA[fill=80% conn=0.802&lt;br/&gt;block 22] --&gt;|triggers| AB[30k test for fill=80%&lt;br/&gt;block 23]</span></span>
-<span id="cb1-396"><a href="#cb1-396" aria-hidden="true" tabindex="-1"></a><span class="in">    AB --&gt;|leads_to| AC[conn=0.802 unchanged&lt;br/&gt;iter 265]</span></span>
-<span id="cb1-397"><a href="#cb1-397" aria-hidden="true" tabindex="-1"></a><span class="in">    AC --&gt;|refines| AD[conn_ceiling ≈ filling_factor&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-390"><a href="#cb1-390" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 27 --- g=2: Inverse lr_W Regime (10k)</span></span>
+<span id="cb1-391"><a href="#cb1-391" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-392"><a href="#cb1-392" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
+<span id="cb1-393"><a href="#cb1-393" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
+<span id="cb1-394"><a href="#cb1-394" aria-hidden="true" tabindex="-1"></a>| 325 | **Regime** | g=2 has eff_rank=17 (above threshold) | Supercritical (rho=1.065) but very low gain |</span>
+<span id="cb1-395"><a href="#cb1-395" aria-hidden="true" tabindex="-1"></a>| 327 | Induction | lr_W=5E-4 optimal (100x lower than g=7) | **Inverse lr_W** --- new phenomenon |</span>
+<span id="cb1-396"><a href="#cb1-396" aria-hidden="true" tabindex="-1"></a>| 331 | Causal | gain--eff_rank critical transition | g=1→5 (+240%→) g=2→17 (+53%→) g=3→26 (+35%→) g=7→35 |</span>
+<span id="cb1-397"><a href="#cb1-397" aria-hidden="true" tabindex="-1"></a>| 335 | Deduction | epoch scaling not diminishing at low lr_W | 5ep→0.356, 8ep→0.397, 12ep→0.519 (steady) |</span>
 <span id="cb1-398"><a href="#cb1-398" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-399"><a href="#cb1-399" aria-hidden="true" tabindex="-1"></a><span class="in">    style A fill:#e3f2fd</span></span>
-<span id="cb1-400"><a href="#cb1-400" aria-hidden="true" tabindex="-1"></a><span class="in">    style E fill:#c8e6c9</span></span>
-<span id="cb1-401"><a href="#cb1-401" aria-hidden="true" tabindex="-1"></a><span class="in">    style F fill:#e3f2fd</span></span>
-<span id="cb1-402"><a href="#cb1-402" aria-hidden="true" tabindex="-1"></a><span class="in">    style J fill:#c8e6c9</span></span>
-<span id="cb1-403"><a href="#cb1-403" aria-hidden="true" tabindex="-1"></a><span class="in">    style K fill:#e3f2fd</span></span>
-<span id="cb1-404"><a href="#cb1-404" aria-hidden="true" tabindex="-1"></a><span class="in">    style N fill:#c8e6c9</span></span>
-<span id="cb1-405"><a href="#cb1-405" aria-hidden="true" tabindex="-1"></a><span class="in">    style O fill:#e3f2fd</span></span>
-<span id="cb1-406"><a href="#cb1-406" aria-hidden="true" tabindex="-1"></a><span class="in">    style S fill:#c8e6c9</span></span>
-<span id="cb1-407"><a href="#cb1-407" aria-hidden="true" tabindex="-1"></a><span class="in">    style V fill:#ffcdd2</span></span>
-<span id="cb1-408"><a href="#cb1-408" aria-hidden="true" tabindex="-1"></a><span class="in">    style Z fill:#c8e6c9</span></span>
-<span id="cb1-409"><a href="#cb1-409" aria-hidden="true" tabindex="-1"></a><span class="in">    style AD fill:#ffcdd2</span></span>
-<span id="cb1-410"><a href="#cb1-410" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb1-399"><a href="#cb1-399" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: g=2 requires inverse lr_W (~5E-4, 100x lower than g=7); epoch scaling NOT diminishing; steepest gain--eff_rank slope between g=1 and g=2.</span>
+<span id="cb1-400"><a href="#cb1-400" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-401"><a href="#cb1-401" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 28 --- g=2 at 30k: Partially Rescued</span></span>
+<span id="cb1-402"><a href="#cb1-402" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-403"><a href="#cb1-403" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
+<span id="cb1-404"><a href="#cb1-404" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
+<span id="cb1-405"><a href="#cb1-405" aria-hidden="true" tabindex="-1"></a>| 337 | **Analogy** | 30k should rescue g=2 (like g=3) | **Partially confirmed**: 42% convergence (vs 0% at 10k) |</span>
+<span id="cb1-406"><a href="#cb1-406" aria-hidden="true" tabindex="-1"></a>| 341 | Induction | eff_rank FLAT at 16 (unchanged from 17) | Unique: 30k does NOT increase dimensionality at g=2 |</span>
+<span id="cb1-407"><a href="#cb1-407" aria-hidden="true" tabindex="-1"></a>| 343 | Deduction | inverse lr_W should persist at 30k | **Confirmed**: lr_W≥2E-3 catastrophic; 5E-4--7E-4 optimal |</span>
+<span id="cb1-408"><a href="#cb1-408" aria-hidden="true" tabindex="-1"></a>| 347 | Causal | eff_rank-n_frames correlation depends on gain | g=1: negative (5→1); g=2: flat (17→16); g≥3: positive |</span>
+<span id="cb1-409"><a href="#cb1-409" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-410"><a href="#cb1-410" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: g=2 IS partially solvable at 30k (42% conv); eff_rank does NOT increase with n_frames at g=2; inverse lr_W is structural (persists at 30k); 30k helps via variance reduction, not more dynamic modes.</span>
 <span id="cb1-411"><a href="#cb1-411" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-412"><a href="#cb1-412" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-413"><a href="#cb1-413" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-414"><a href="#cb1-414" aria-hidden="true" tabindex="-1"></a><span class="fu">## Validation Rates</span></span>
+<span id="cb1-414"><a href="#cb1-414" aria-hidden="true" tabindex="-1"></a><span class="fu">## Causal Chains</span></span>
 <span id="cb1-415"><a href="#cb1-415" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-416"><a href="#cb1-416" aria-hidden="true" tabindex="-1"></a>| Mode | Count | Validated | Rate | Significance |</span>
-<span id="cb1-417"><a href="#cb1-417" aria-hidden="true" tabindex="-1"></a>|------|:-----:|:---------:|:----:|:-------------|</span>
-<span id="cb1-418"><a href="#cb1-418" aria-hidden="true" tabindex="-1"></a>| Deduction | 57 | 42 | **74%** | Well above chance (50%) |</span>
-<span id="cb1-419"><a href="#cb1-419" aria-hidden="true" tabindex="-1"></a>| Analogy | 40 | 28 | **70%** | Good transfer success |</span>
-<span id="cb1-420"><a href="#cb1-420" aria-hidden="true" tabindex="-1"></a>| Falsification | 52 | 52 | **100%** | All led to refinement |</span>
-<span id="cb1-421"><a href="#cb1-421" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-422"><a href="#cb1-422" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb1-423"><a href="#cb1-423" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
-<span id="cb1-424"><a href="#cb1-424" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-425"><a href="#cb1-425" aria-hidden="true" tabindex="-1"></a>The 74% deduction validation rate across 57 predictions demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across 40 cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7--8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15--16 and 19--21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), and blocks 22--23 demonstrate a new structural limit discovery (conn_ceiling at filling_factor). The system can now distinguish three classes of difficulty: solvable by n_frames (large n, low gain), solvable by training (small n, high gain), and structurally unsolvable (subcritical rho, partial connectivity ceiling).</span>
-<span id="cb1-426"><a href="#cb1-426" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb1-427"><a href="#cb1-427" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-428"><a href="#cb1-428" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-429"><a href="#cb1-429" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-430"><a href="#cb1-430" aria-hidden="true" tabindex="-1"></a><span class="fu">## Principles Discovered</span></span>
+<span id="cb1-416"><a href="#cb1-416" aria-hidden="true" tabindex="-1"></a>Key multi-step causal chains discovered:</span>
+<span id="cb1-417"><a href="#cb1-417" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-420"><a href="#cb1-420" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb1-421"><a href="#cb1-421" aria-hidden="true" tabindex="-1"></a><span class="in">graph TD</span></span>
+<span id="cb1-422"><a href="#cb1-422" aria-hidden="true" tabindex="-1"></a><span class="in">    A[low eff_rank observed&lt;br/&gt;iter 13] --&gt;|leads_to| B[dynamics failure at L1=1E-5&lt;br/&gt;iter 18]</span></span>
+<span id="cb1-423"><a href="#cb1-423" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt;|triggers| C[L1 reduction hypothesis&lt;br/&gt;iter 18]</span></span>
+<span id="cb1-424"><a href="#cb1-424" aria-hidden="true" tabindex="-1"></a><span class="in">    C --&gt;|leads_to| D[L1=1E-6 + lr_W=3E-3 test&lt;br/&gt;iter 21]</span></span>
+<span id="cb1-425"><a href="#cb1-425" aria-hidden="true" tabindex="-1"></a><span class="in">    D --&gt;|refines| E[low-rank principle established&lt;br/&gt;BREAKTHROUGH]</span></span>
+<span id="cb1-426"><a href="#cb1-426" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-427"><a href="#cb1-427" aria-hidden="true" tabindex="-1"></a><span class="in">    F[Dale eff_rank=12&lt;br/&gt;iter 25] --&gt;|leads_to| G[lr_W=5E-3 cliff&lt;br/&gt;iters 29-30]</span></span>
+<span id="cb1-428"><a href="#cb1-428" aria-hidden="true" tabindex="-1"></a><span class="in">    G --&gt;|triggers| H[narrow range hypothesis]</span></span>
+<span id="cb1-429"><a href="#cb1-429" aria-hidden="true" tabindex="-1"></a><span class="in">    H --&gt;|leads_to| I[safe range mapped: 3.5-4.5E-3&lt;br/&gt;iter 33]</span></span>
+<span id="cb1-430"><a href="#cb1-430" aria-hidden="true" tabindex="-1"></a><span class="in">    I --&gt;|refines| J[Dale cliff principle]</span></span>
 <span id="cb1-431"><a href="#cb1-431" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-432"><a href="#cb1-432" aria-hidden="true" tabindex="-1"></a>Sixty-four key principles discovered through systematic reasoning across 23 regimes:</span>
-<span id="cb1-433"><a href="#cb1-433" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-434"><a href="#cb1-434" aria-hidden="true" tabindex="-1"></a>| # | Principle | Evidence | Confidence |</span>
-<span id="cb1-435"><a href="#cb1-435" aria-hidden="true" tabindex="-1"></a>|---|-----------|----------|:----------:|</span>
-<span id="cb1-436"><a href="#cb1-436" aria-hidden="true" tabindex="-1"></a>| 1 | **lr=1E-4 optimal (base)** | Blocks 1, 3; modified by eff_rank | 85% |</span>
-<span id="cb1-437"><a href="#cb1-437" aria-hidden="true" tabindex="-1"></a>| 2 | **Convergence boundary lr_W~2E-3** | Blocks 1--3 | 85% |</span>
-<span id="cb1-438"><a href="#cb1-438" aria-hidden="true" tabindex="-1"></a>| 3 | **L1=1E-6 critical for low_rank** | Block 2 breakthrough | 92% |</span>
-<span id="cb1-439"><a href="#cb1-439" aria-hidden="true" tabindex="-1"></a>| 4 | **factorization hurts** | Block 2 | 55% |</span>
-<span id="cb1-440"><a href="#cb1-440" aria-hidden="true" tabindex="-1"></a>| 5 | **lr_W depends on regime** | All blocks | 100% |</span>
-<span id="cb1-441"><a href="#cb1-441" aria-hidden="true" tabindex="-1"></a>| 6 | **Dale cliff at 5E-3** | Block 3 | 72% |</span>
-<span id="cb1-442"><a href="#cb1-442" aria-hidden="true" tabindex="-1"></a>| 7 | **Dale reduces eff_rank** | Block 3 | 45% |</span>
-<span id="cb1-443"><a href="#cb1-443" aria-hidden="true" tabindex="-1"></a>| 8 | **batch_size=16 hurts complex regimes** | Blocks 2--4 | 77% |</span>
-<span id="cb1-444"><a href="#cb1-444" aria-hidden="true" tabindex="-1"></a>| 9 | **lr_emb coupled to lr_W** | Block 4 | 60% |</span>
-<span id="cb1-445"><a href="#cb1-445" aria-hidden="true" tabindex="-1"></a>| 10 | **lr_W=5E-3 for dual-objective** | Block 4 | 55% |</span>
-<span id="cb1-446"><a href="#cb1-446" aria-hidden="true" tabindex="-1"></a>| 11 | **Heterogeneous increases eff_rank** | Block 4 | 45% |</span>
-<span id="cb1-447"><a href="#cb1-447" aria-hidden="true" tabindex="-1"></a>| 12 | **Noise inflates eff_rank** | Block 5 | 72% |</span>
-<span id="cb1-448"><a href="#cb1-448" aria-hidden="true" tabindex="-1"></a>| 13 | **Inverse lr_W-noise relation** | Block 5 | 72% |</span>
-<span id="cb1-449"><a href="#cb1-449" aria-hidden="true" tabindex="-1"></a>| 14 | **Rollout anti-correlates with noise** | Block 5 | 55% |</span>
-<span id="cb1-450"><a href="#cb1-450" aria-hidden="true" tabindex="-1"></a>| 15 | **eff_rank scales sub-linearly with n** | Blocks 6, 9 | 72% |</span>
-<span id="cb1-451"><a href="#cb1-451" aria-hidden="true" tabindex="-1"></a>| 16 | **Dynamics cliff scales non-linearly** | Blocks 1, 6, 9 | 85% |</span>
-<span id="cb1-452"><a href="#cb1-452" aria-hidden="true" tabindex="-1"></a>| 17 | **lr tolerance widens with n** | Blocks 6, 9 | 72% |</span>
-<span id="cb1-453"><a href="#cb1-453" aria-hidden="true" tabindex="-1"></a>| 18 | **Sparse reduces eff_rank, makes subcritical** | Block 7 | 55% |</span>
-<span id="cb1-454"><a href="#cb1-454" aria-hidden="true" tabindex="-1"></a>| 19 | **n_epochs dominant in sparse (without noise)** | Block 7 | 72% |</span>
-<span id="cb1-455"><a href="#cb1-455" aria-hidden="true" tabindex="-1"></a>| 20 | **Noise removes n_epochs dependency in sparse** | Block 8 | 55% |</span>
-<span id="cb1-456"><a href="#cb1-456" aria-hidden="true" tabindex="-1"></a>| 21 | **Recurrent training catastrophic in subcritical** | Block 8 | 55% |</span>
-<span id="cb1-457"><a href="#cb1-457" aria-hidden="true" tabindex="-1"></a>| 22 | **Sparse 50% conn~0.49 structural data limit** | Block 8 | 85% |</span>
-<span id="cb1-458"><a href="#cb1-458" aria-hidden="true" tabindex="-1"></a>| 23 | **n=300 requires n_epochs&gt;=2** | Block 9 | 72% |</span>
-<span id="cb1-459"><a href="#cb1-459" aria-hidden="true" tabindex="-1"></a>| 24 | **lr tolerance narrows at high lr_W** | Block 9 | 55% |</span>
-<span id="cb1-460"><a href="#cb1-460" aria-hidden="true" tabindex="-1"></a>| 25 | **n=300 conn ceiling ~0.89 at 10k frames** | Block 10 | 72% |</span>
-<span id="cb1-461"><a href="#cb1-461" aria-hidden="true" tabindex="-1"></a>| 26 | **n=200 dense chaotic 100% convergence** | Block 11 | 92% |</span>
-<span id="cb1-462"><a href="#cb1-462" aria-hidden="true" tabindex="-1"></a>| 27 | **n=600 requires &gt;10 epochs** | Block 12 | 55% |</span>
-<span id="cb1-463"><a href="#cb1-463" aria-hidden="true" tabindex="-1"></a>| 28 | **L1=1E-6 beneficial at n&gt;=300** | Blocks 10--11 | 72% |</span>
-<span id="cb1-464"><a href="#cb1-464" aria-hidden="true" tabindex="-1"></a>| 29 | **n_types=4 + n=200 converges at 100%** | Block 13 | 85% |</span>
-<span id="cb1-465"><a href="#cb1-465" aria-hidden="true" tabindex="-1"></a>| 30 | **n=200/4types recipe: lr_W=8E-3, L1=1E-5, 3ep** | Block 13 | 85% |</span>
-<span id="cb1-466"><a href="#cb1-466" aria-hidden="true" tabindex="-1"></a>| 31 | **lr_emb ceiling at n=200/4types is 1E-3** | Block 13 | 72% |</span>
-<span id="cb1-467"><a href="#cb1-467" aria-hidden="true" tabindex="-1"></a>| 32 | **Heterogeneous lr_W scales with n like homogeneous** | Blocks 4, 13 | 72% |</span>
-<span id="cb1-468"><a href="#cb1-468" aria-hidden="true" tabindex="-1"></a>| 33 | **Recurrent at supercritical: conn-dynamics trade-off** | Block 14 | 55% |</span>
-<span id="cb1-469"><a href="#cb1-469" aria-hidden="true" tabindex="-1"></a>| 34 | **Recurrent warmup shifts capacity from W to MLP** | Block 14 | 55% |</span>
-<span id="cb1-470"><a href="#cb1-470" aria-hidden="true" tabindex="-1"></a>| 35 | **noise_recurrent_level ceiling is 0.01** | Block 14 | 55% |</span>
-<span id="cb1-471"><a href="#cb1-471" aria-hidden="true" tabindex="-1"></a>| 36 | **Recurrent NOT catastrophic at supercritical rho** | Blocks 8, 14 | 72% |</span>
-<span id="cb1-472"><a href="#cb1-472" aria-hidden="true" tabindex="-1"></a>| 37 | **n_frames is DOMINANT lever for large n** | Blocks 15, 16 | 92% |</span>
-<span id="cb1-473"><a href="#cb1-473" aria-hidden="true" tabindex="-1"></a>| 38 | **At high n_frames, dynamics-optimal lr_W is LOWER** | Blocks 15, 16 | 85% |</span>
-<span id="cb1-474"><a href="#cb1-474" aria-hidden="true" tabindex="-1"></a>| 39 | **aug_loop=20 preserves conn but costs ~6% dynamics** | Blocks 15, 16 | 72% |</span>
-<span id="cb1-475"><a href="#cb1-475" aria-hidden="true" tabindex="-1"></a>| 40 | **At high n_frames, all training params non-critical** | Blocks 15, 16 | 85% |</span>
-<span id="cb1-476"><a href="#cb1-476" aria-hidden="true" tabindex="-1"></a>| 41 | **n_frames doubles eff_rank: n=300 47→80, n=600 50→87** | Blocks 15, 16 | 92% |</span>
-<span id="cb1-477"><a href="#cb1-477" aria-hidden="true" tabindex="-1"></a>| 42 | **n=600/30k recipe: lr_W=5E-3, lr=2E-4, L1=1E-5, batch=16, 5ep** | Block 16 | 85% |</span>
-<span id="cb1-478"><a href="#cb1-478" aria-hidden="true" tabindex="-1"></a>| 43 | **n_frames rescues ALL param catastrophes EXCEPT subcritical sparse** | Blocks 15--17 | 92% |</span>
-<span id="cb1-479"><a href="#cb1-479" aria-hidden="true" tabindex="-1"></a>| 44 | **dynamics-optimal lr_W inversely scales with n_frames** | Blocks 15, 16 | 85% |</span>
-<span id="cb1-480"><a href="#cb1-480" aria-hidden="true" tabindex="-1"></a>| 45 | **sparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21)** | Block 17 | 72% |</span>
-<span id="cb1-481"><a href="#cb1-481" aria-hidden="true" tabindex="-1"></a>| 46 | **sparse 50% has complete parameter insensitivity** | Blocks 7, 8, 17 | 92% |</span>
-<span id="cb1-482"><a href="#cb1-482" aria-hidden="true" tabindex="-1"></a>| 47 | **two-phase training only marginal signal in sparse (+15%)** | Block 17 | 55% |</span>
-<span id="cb1-483"><a href="#cb1-483" aria-hidden="true" tabindex="-1"></a>| 48 | **n=1000/30k insufficient — max conn=0.745; needs ~100k** | Block 18 | 72% |</span>
-<span id="cb1-484"><a href="#cb1-484" aria-hidden="true" tabindex="-1"></a>| 49 | **lr=1E-4 Pareto-better at n=1000/30k** | Block 18 | 72% |</span>
-<span id="cb1-485"><a href="#cb1-485" aria-hidden="true" tabindex="-1"></a>| 50 | **eff_rank scales superlinearly with n at 30k** | Blocks 15, 16, 18 | 72% |</span>
-<span id="cb1-486"><a href="#cb1-486" aria-hidden="true" tabindex="-1"></a>| 51 | **epoch scaling at large n is lr-dependent** | Block 18 | 55% |</span>
-<span id="cb1-487"><a href="#cb1-487" aria-hidden="true" tabindex="-1"></a>| 52 | **dynamics variance increases with n** | Block 18 | 55% |</span>
-<span id="cb1-488"><a href="#cb1-488" aria-hidden="true" tabindex="-1"></a>| 53 | **low gain (g=3) is independent difficulty axis** | Block 19 | 72% |</span>
-<span id="cb1-489"><a href="#cb1-489" aria-hidden="true" tabindex="-1"></a>| 54 | **gain modulates lr_W cliff position** | Blocks 1, 19, 20 | 72% |</span>
-<span id="cb1-490"><a href="#cb1-490" aria-hidden="true" tabindex="-1"></a>| 55 | **g=3/n=100 recipe: lr_W=8E-3, 3ep → conn=0.955** | Block 19 | 72% |</span>
-<span id="cb1-491"><a href="#cb1-491" aria-hidden="true" tabindex="-1"></a>| 56 | **gain × n compounds difficulty super-additively** | Blocks 19, 20 | 85% |</span>
-<span id="cb1-492"><a href="#cb1-492" aria-hidden="true" tabindex="-1"></a>| 57 | **g=3 eliminates lr_W cliff across n** | Blocks 19, 20 | 72% |</span>
-<span id="cb1-493"><a href="#cb1-493" aria-hidden="true" tabindex="-1"></a>| 58 | **batch=16 catastrophic at low gain AT 10k only** | Blocks 19--21 | 72% |</span>
-<span id="cb1-494"><a href="#cb1-494" aria-hidden="true" tabindex="-1"></a>| 59 | **30k frames rescues g=3/n=200 (0%→100%)** | Block 21 | 92% |</span>
-<span id="cb1-495"><a href="#cb1-495" aria-hidden="true" tabindex="-1"></a>| 60 | **g=3/30k lr tolerance wider than g=7/30k** | Blocks 15, 21 | 55% |</span>
-<span id="cb1-496"><a href="#cb1-496" aria-hidden="true" tabindex="-1"></a>| 61 | **g=3/n=200/30k recipe: lr_W=4E-3, 2ep → conn=0.996** | Block 21 | 85% |</span>
-<span id="cb1-497"><a href="#cb1-497" aria-hidden="true" tabindex="-1"></a>| 62 | **fill=80% creates conn plateau at ~0.802** | Block 22 | 85% |</span>
-<span id="cb1-498"><a href="#cb1-498" aria-hidden="true" tabindex="-1"></a>| 63 | **filling_factor transition 50%→80% is sharp** | Blocks 7, 17, 22 | 72% |</span>
-<span id="cb1-499"><a href="#cb1-499" aria-hidden="true" tabindex="-1"></a>| 64 | **conn_ceiling scales linearly with filling_factor** | Blocks 1, 7, 22, 23 | 85% |</span>
-<span id="cb1-500"><a href="#cb1-500" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-501"><a href="#cb1-501" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-502"><a href="#cb1-502" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-503"><a href="#cb1-503" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block Summary</span></span>
-<span id="cb1-504"><a href="#cb1-504" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-505"><a href="#cb1-505" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | n_neurons | Iterations | eff_rank | Convergence | Key Finding |</span>
-<span id="cb1-506"><a href="#cb1-506" aria-hidden="true" tabindex="-1"></a>|-------|--------|:--------:|:---------:|:----------:|:--------:|:-----------:|:------------|</span>
-<span id="cb1-507"><a href="#cb1-507" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic | 10k | 100 | 1--12 | ~35 | 92% | Easy mode: lr_W=4E-3 sweet spot |</span>
-<span id="cb1-508"><a href="#cb1-508" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank | 10k | 100 | 13--24 | ~12--14 | 75% | L1=1E-6 breakthrough |</span>
-<span id="cb1-509"><a href="#cb1-509" aria-hidden="true" tabindex="-1"></a>| 3 | Dale | 10k | 100 | 25--36 | ~12 | 67% | Sharp lr_W cliff at 5E-3 |</span>
-<span id="cb1-510"><a href="#cb1-510" aria-hidden="true" tabindex="-1"></a>| 4 | Heterogeneous | 10k | 100 | 37--48 | ~38 | 75% | Dual-objective; lr_emb=1E-3 required |</span>
-<span id="cb1-511"><a href="#cb1-511" aria-hidden="true" tabindex="-1"></a>| 5 | Noise | 10k | 100 | 49--60 | 42--90 | 100% | Inverse lr_W-noise relation |</span>
-<span id="cb1-512"><a href="#cb1-512" aria-hidden="true" tabindex="-1"></a>| 6 | Scale | 10k | 200 | 61--72 | ~41--44 | 67% | Trade-offs amplified; lr=3E-4 safe |</span>
-<span id="cb1-513"><a href="#cb1-513" aria-hidden="true" tabindex="-1"></a>| 7 | Sparse 50% | 10k | 100 | 73--84 | ~21 | **0%** | Hardest regime; n_epochs key lever |</span>
-<span id="cb1-514"><a href="#cb1-514" aria-hidden="true" tabindex="-1"></a>| 8 | Sparse+Noise | 10k | 100 | 85--96 | ~91 | **0%** | Structural data limit (0.489) |</span>
-<span id="cb1-515"><a href="#cb1-515" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 | 10k | 300 | 97--108 | ~44--47 | **0%** | n_epochs=2 breakthrough (0.890) |</span>
-<span id="cb1-516"><a href="#cb1-516" aria-hidden="true" tabindex="-1"></a>| 10 | n=300 2ep | 10k | 300 | 109--116 | ~44--47 | 25% | Near-convergence; conn=0.924 |</span>
-<span id="cb1-517"><a href="#cb1-517" aria-hidden="true" tabindex="-1"></a>| 11 | n=200 v2 | 10k | 200 | 117--128 | ~43 | 100% | Dense chaotic confirmed easy |</span>
-<span id="cb1-518"><a href="#cb1-518" aria-hidden="true" tabindex="-1"></a>| 12 | n=600 | 10k | 600 | 129--140 | ~50 | **0%** | R^2^=0.63; needs more epochs |</span>
-<span id="cb1-519"><a href="#cb1-519" aria-hidden="true" tabindex="-1"></a>| 13 | n=200 + 4 types | 10k | 200 | 141--156 | ~42--44 | **100%** conn | Full dual convergence; L1=1E-5 &gt; 1E-6 |</span>
-<span id="cb1-520"><a href="#cb1-520" aria-hidden="true" tabindex="-1"></a>| 14 | Recurrent | 10k | 200 | 157--168 | ~42--44 | 75% (3/4) | Conn-dynamics trade-off; 8/12 infra failures |</span>
-<span id="cb1-521"><a href="#cb1-521" aria-hidden="true" tabindex="-1"></a>| 15 | **n=300 (30k)** | **30k** | 300 | 169--180 | **79--80** | **100%** | **n_frames transformative; all params non-critical** |</span>
-<span id="cb1-522"><a href="#cb1-522" aria-hidden="true" tabindex="-1"></a>| 16 | **n=600 (30k)** | **30k** | 600 | 181--192 | **85--87** | **100%** (8/8) | **n_frames solves n=600; lr_W=5E-3 optimal** |</span>
-<span id="cb1-523"><a href="#cb1-523" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50% (30k)** | **30k** | 100 | 193--204 | **13** | **0%** | **n_frames does NOT rescue; eff_rank DROPS** |</span>
-<span id="cb1-524"><a href="#cb1-524" aria-hidden="true" tabindex="-1"></a>| 18 | **n=1000 (30k)** | **30k** | 1000 | 205--216 | **144** | **0%** | **30k insufficient; needs ~100k; lr=1E-4 Pareto** |</span>
-<span id="cb1-525"><a href="#cb1-525" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 (n=100)** | 10k | 100 | 217--228 | **26** | 42% | **Gain as new difficulty axis; n_epochs dominant** |</span>
-<span id="cb1-526"><a href="#cb1-526" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 (n=200)** | 10k | 200 | 229--240 | **31** | **0%** | **Gain × n compounds; universal degeneracy** |</span>
-<span id="cb1-527"><a href="#cb1-527" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3/n=200 (30k)** | **30k** | 200 | 241--252 | **53--57** | **100%** | **30k rescues gain; all params non-critical** |</span>
-<span id="cb1-528"><a href="#cb1-528" aria-hidden="true" tabindex="-1"></a>| 22 | **fill=80% (10k)** | 10k | 100 | 253--264 | **36** | **0%** | **Conn plateau at 0.802; param insensitivity** |</span>
-<span id="cb1-529"><a href="#cb1-529" aria-hidden="true" tabindex="-1"></a>| 23 | **fill=80% (30k)** | **30k** | 100 | 265--276 | **48--49** | **0%** (0/12) | **30k does NOT break plateau; conn ≈ fill%; structural invariant** |</span>
-<span id="cb1-530"><a href="#cb1-530" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-531"><a href="#cb1-531" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-532"><a href="#cb1-532" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-533"><a href="#cb1-533" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Pages</span></span>
-<span id="cb1-534"><a href="#cb1-534" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-535"><a href="#cb1-535" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Results</span><span class="co">](results.qmd)</span> --- Detailed experimental findings</span>
-<span id="cb1-536"><a href="#cb1-536" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Exploration</span><span class="co">](exploration-gallery.qmd)</span> --- Visual record</span>
+<span id="cb1-432"><a href="#cb1-432" aria-hidden="true" tabindex="-1"></a><span class="in">    K[sparse subcritical&lt;br/&gt;iter 73] --&gt;|triggers| L[n_epochs exploration&lt;br/&gt;iter 79]</span></span>
+<span id="cb1-433"><a href="#cb1-433" aria-hidden="true" tabindex="-1"></a><span class="in">    L --&gt;|leads_to| M[training capacity bottleneck&lt;br/&gt;iter 82]</span></span>
+<span id="cb1-434"><a href="#cb1-434" aria-hidden="true" tabindex="-1"></a><span class="in">    M --&gt;|triggers| N[n=300 epochs=2 breakthrough&lt;br/&gt;iter 106]</span></span>
+<span id="cb1-435"><a href="#cb1-435" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-436"><a href="#cb1-436" aria-hidden="true" tabindex="-1"></a><span class="in">    O[n=300 conn ceiling ~0.92&lt;br/&gt;block 10] --&gt;|triggers| P[n_frames hypothesis&lt;br/&gt;block 15]</span></span>
+<span id="cb1-437"><a href="#cb1-437" aria-hidden="true" tabindex="-1"></a><span class="in">    P --&gt;|leads_to| Q[n=300/30k 100% convergence&lt;br/&gt;iter 177]</span></span>
+<span id="cb1-438"><a href="#cb1-438" aria-hidden="true" tabindex="-1"></a><span class="in">    Q --&gt;|triggers| R[n=600/30k test&lt;br/&gt;block 16]</span></span>
+<span id="cb1-439"><a href="#cb1-439" aria-hidden="true" tabindex="-1"></a><span class="in">    R --&gt;|leads_to| S[n=600 SOLVED: conn=0.992&lt;br/&gt;iter 186]</span></span>
+<span id="cb1-440"><a href="#cb1-440" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-441"><a href="#cb1-441" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| T[sparse 50% at 30k test&lt;br/&gt;block 17]</span></span>
+<span id="cb1-442"><a href="#cb1-442" aria-hidden="true" tabindex="-1"></a><span class="in">    T --&gt;|leads_to| U[eff_rank DROPS 21→13&lt;br/&gt;iter 195]</span></span>
+<span id="cb1-443"><a href="#cb1-443" aria-hidden="true" tabindex="-1"></a><span class="in">    U --&gt;|refines| V[subcritical rho immune to n_frames&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-444"><a href="#cb1-444" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-445"><a href="#cb1-445" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| W[gain=3 identified as axis&lt;br/&gt;block 19]</span></span>
+<span id="cb1-446"><a href="#cb1-446" aria-hidden="true" tabindex="-1"></a><span class="in">    W --&gt;|leads_to| X[g=3/n=200 0% conv&lt;br/&gt;block 20]</span></span>
+<span id="cb1-447"><a href="#cb1-447" aria-hidden="true" tabindex="-1"></a><span class="in">    X --&gt;|triggers| Y[30k frames test for g=3&lt;br/&gt;block 21]</span></span>
+<span id="cb1-448"><a href="#cb1-448" aria-hidden="true" tabindex="-1"></a><span class="in">    Y --&gt;|leads_to| Z[g=3/n=200 SOLVED: conn=0.996&lt;br/&gt;iter 245]</span></span>
+<span id="cb1-449"><a href="#cb1-449" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-450"><a href="#cb1-450" aria-hidden="true" tabindex="-1"></a><span class="in">    AA[fill=80% conn=0.802&lt;br/&gt;block 22] --&gt;|triggers| AB[30k test for fill=80%&lt;br/&gt;block 23]</span></span>
+<span id="cb1-451"><a href="#cb1-451" aria-hidden="true" tabindex="-1"></a><span class="in">    AB --&gt;|leads_to| AC[conn=0.802 unchanged&lt;br/&gt;iter 265]</span></span>
+<span id="cb1-452"><a href="#cb1-452" aria-hidden="true" tabindex="-1"></a><span class="in">    AC --&gt;|refines| AD[conn_ceiling ≈ filling_factor&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-453"><a href="#cb1-453" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-454"><a href="#cb1-454" aria-hidden="true" tabindex="-1"></a><span class="in">    AD --&gt;|triggers| AE[fill=90% test&lt;br/&gt;block 24]</span></span>
+<span id="cb1-455"><a href="#cb1-455" aria-hidden="true" tabindex="-1"></a><span class="in">    AE --&gt;|leads_to| AF[conn=0.907 ≈ 91%&lt;br/&gt;iter 291]</span></span>
+<span id="cb1-456"><a href="#cb1-456" aria-hidden="true" tabindex="-1"></a><span class="in">    AF --&gt;|refines| AG[4th data point confirms&lt;br/&gt;linear filling_factor law]</span></span>
+<span id="cb1-457"><a href="#cb1-457" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-458"><a href="#cb1-458" aria-hidden="true" tabindex="-1"></a><span class="in">    W --&gt;|triggers| AH[g=1 test&lt;br/&gt;block 25]</span></span>
+<span id="cb1-459"><a href="#cb1-459" aria-hidden="true" tabindex="-1"></a><span class="in">    AH --&gt;|leads_to| AI[fixed-point collapse&lt;br/&gt;eff_rank=5]</span></span>
+<span id="cb1-460"><a href="#cb1-460" aria-hidden="true" tabindex="-1"></a><span class="in">    AI --&gt;|triggers| AJ[30k test for g=1&lt;br/&gt;block 26]</span></span>
+<span id="cb1-461"><a href="#cb1-461" aria-hidden="true" tabindex="-1"></a><span class="in">    AJ --&gt;|leads_to| AK[eff_rank DROPS 5→1&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-462"><a href="#cb1-462" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-463"><a href="#cb1-463" aria-hidden="true" tabindex="-1"></a><span class="in">    AI --&gt;|triggers| AL[g=2 test&lt;br/&gt;block 27]</span></span>
+<span id="cb1-464"><a href="#cb1-464" aria-hidden="true" tabindex="-1"></a><span class="in">    AL --&gt;|leads_to| AM[inverse lr_W=5E-4&lt;br/&gt;eff_rank=17]</span></span>
+<span id="cb1-465"><a href="#cb1-465" aria-hidden="true" tabindex="-1"></a><span class="in">    AM --&gt;|triggers| AN[30k test for g=2&lt;br/&gt;block 28]</span></span>
+<span id="cb1-466"><a href="#cb1-466" aria-hidden="true" tabindex="-1"></a><span class="in">    AN --&gt;|leads_to| AO[42% conv; lr_W persists&lt;br/&gt;PARTIALLY RESCUED]</span></span>
+<span id="cb1-467"><a href="#cb1-467" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-468"><a href="#cb1-468" aria-hidden="true" tabindex="-1"></a><span class="in">    style A fill:#e3f2fd</span></span>
+<span id="cb1-469"><a href="#cb1-469" aria-hidden="true" tabindex="-1"></a><span class="in">    style E fill:#c8e6c9</span></span>
+<span id="cb1-470"><a href="#cb1-470" aria-hidden="true" tabindex="-1"></a><span class="in">    style F fill:#e3f2fd</span></span>
+<span id="cb1-471"><a href="#cb1-471" aria-hidden="true" tabindex="-1"></a><span class="in">    style J fill:#c8e6c9</span></span>
+<span id="cb1-472"><a href="#cb1-472" aria-hidden="true" tabindex="-1"></a><span class="in">    style K fill:#e3f2fd</span></span>
+<span id="cb1-473"><a href="#cb1-473" aria-hidden="true" tabindex="-1"></a><span class="in">    style N fill:#c8e6c9</span></span>
+<span id="cb1-474"><a href="#cb1-474" aria-hidden="true" tabindex="-1"></a><span class="in">    style O fill:#e3f2fd</span></span>
+<span id="cb1-475"><a href="#cb1-475" aria-hidden="true" tabindex="-1"></a><span class="in">    style S fill:#c8e6c9</span></span>
+<span id="cb1-476"><a href="#cb1-476" aria-hidden="true" tabindex="-1"></a><span class="in">    style V fill:#ffcdd2</span></span>
+<span id="cb1-477"><a href="#cb1-477" aria-hidden="true" tabindex="-1"></a><span class="in">    style Z fill:#c8e6c9</span></span>
+<span id="cb1-478"><a href="#cb1-478" aria-hidden="true" tabindex="-1"></a><span class="in">    style AD fill:#ffcdd2</span></span>
+<span id="cb1-479"><a href="#cb1-479" aria-hidden="true" tabindex="-1"></a><span class="in">    style AG fill:#c8e6c9</span></span>
+<span id="cb1-480"><a href="#cb1-480" aria-hidden="true" tabindex="-1"></a><span class="in">    style AK fill:#ffcdd2</span></span>
+<span id="cb1-481"><a href="#cb1-481" aria-hidden="true" tabindex="-1"></a><span class="in">    style AO fill:#fff9c4</span></span>
+<span id="cb1-482"><a href="#cb1-482" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb1-483"><a href="#cb1-483" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-484"><a href="#cb1-484" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-485"><a href="#cb1-485" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-486"><a href="#cb1-486" aria-hidden="true" tabindex="-1"></a><span class="fu">## Validation Rates</span></span>
+<span id="cb1-487"><a href="#cb1-487" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-488"><a href="#cb1-488" aria-hidden="true" tabindex="-1"></a>| Mode | Count | Validated | Rate | Significance |</span>
+<span id="cb1-489"><a href="#cb1-489" aria-hidden="true" tabindex="-1"></a>|------|:-----:|:---------:|:----:|:-------------|</span>
+<span id="cb1-490"><a href="#cb1-490" aria-hidden="true" tabindex="-1"></a>| Deduction | 57 | 42 | **74%** | Well above chance (50%) |</span>
+<span id="cb1-491"><a href="#cb1-491" aria-hidden="true" tabindex="-1"></a>| Analogy | 40 | 28 | **70%** | Good transfer success |</span>
+<span id="cb1-492"><a href="#cb1-492" aria-hidden="true" tabindex="-1"></a>| Falsification | 52 | 52 | **100%** | All led to refinement |</span>
+<span id="cb1-493"><a href="#cb1-493" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-494"><a href="#cb1-494" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb1-495"><a href="#cb1-495" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
+<span id="cb1-496"><a href="#cb1-496" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-497"><a href="#cb1-497" aria-hidden="true" tabindex="-1"></a>The 74% deduction validation rate demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7--8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15--16 and 19--21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), blocks 22--24 demonstrate conn_ceiling at filling_factor, and blocks 25--26 discover a new structural limit (g=1 fixed-point collapse). The system can now distinguish four classes of difficulty: solvable by n_frames (large n, moderate gain), solvable by training (small n, high gain), partially solvable (g=2 with inverse lr_W), and structurally unsolvable (subcritical rho, partial connectivity ceiling, g=1 fixed-point collapse).</span>
+<span id="cb1-498"><a href="#cb1-498" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-499"><a href="#cb1-499" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-500"><a href="#cb1-500" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-501"><a href="#cb1-501" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-502"><a href="#cb1-502" aria-hidden="true" tabindex="-1"></a><span class="fu">## Principles Discovered</span></span>
+<span id="cb1-503"><a href="#cb1-503" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-504"><a href="#cb1-504" aria-hidden="true" tabindex="-1"></a>~80 key principles discovered through systematic reasoning across 28 regimes (showing first 75):</span>
+<span id="cb1-505"><a href="#cb1-505" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-506"><a href="#cb1-506" aria-hidden="true" tabindex="-1"></a>| # | Principle | Evidence | Confidence |</span>
+<span id="cb1-507"><a href="#cb1-507" aria-hidden="true" tabindex="-1"></a>|---|-----------|----------|:----------:|</span>
+<span id="cb1-508"><a href="#cb1-508" aria-hidden="true" tabindex="-1"></a>| 1 | **lr=1E-4 optimal (base)** | Blocks 1, 3; modified by eff_rank | 85% |</span>
+<span id="cb1-509"><a href="#cb1-509" aria-hidden="true" tabindex="-1"></a>| 2 | **Convergence boundary lr_W~2E-3** | Blocks 1--3 | 85% |</span>
+<span id="cb1-510"><a href="#cb1-510" aria-hidden="true" tabindex="-1"></a>| 3 | **L1=1E-6 critical for low_rank** | Block 2 breakthrough | 92% |</span>
+<span id="cb1-511"><a href="#cb1-511" aria-hidden="true" tabindex="-1"></a>| 4 | **factorization hurts** | Block 2 | 55% |</span>
+<span id="cb1-512"><a href="#cb1-512" aria-hidden="true" tabindex="-1"></a>| 5 | **lr_W depends on regime** | All blocks | 100% |</span>
+<span id="cb1-513"><a href="#cb1-513" aria-hidden="true" tabindex="-1"></a>| 6 | **Dale cliff at 5E-3** | Block 3 | 72% |</span>
+<span id="cb1-514"><a href="#cb1-514" aria-hidden="true" tabindex="-1"></a>| 7 | **Dale reduces eff_rank** | Block 3 | 45% |</span>
+<span id="cb1-515"><a href="#cb1-515" aria-hidden="true" tabindex="-1"></a>| 8 | **batch_size=16 hurts complex regimes** | Blocks 2--4 | 77% |</span>
+<span id="cb1-516"><a href="#cb1-516" aria-hidden="true" tabindex="-1"></a>| 9 | **lr_emb coupled to lr_W** | Block 4 | 60% |</span>
+<span id="cb1-517"><a href="#cb1-517" aria-hidden="true" tabindex="-1"></a>| 10 | **lr_W=5E-3 for dual-objective** | Block 4 | 55% |</span>
+<span id="cb1-518"><a href="#cb1-518" aria-hidden="true" tabindex="-1"></a>| 11 | **Heterogeneous increases eff_rank** | Block 4 | 45% |</span>
+<span id="cb1-519"><a href="#cb1-519" aria-hidden="true" tabindex="-1"></a>| 12 | **Noise inflates eff_rank** | Block 5 | 72% |</span>
+<span id="cb1-520"><a href="#cb1-520" aria-hidden="true" tabindex="-1"></a>| 13 | **Inverse lr_W-noise relation** | Block 5 | 72% |</span>
+<span id="cb1-521"><a href="#cb1-521" aria-hidden="true" tabindex="-1"></a>| 14 | **Rollout anti-correlates with noise** | Block 5 | 55% |</span>
+<span id="cb1-522"><a href="#cb1-522" aria-hidden="true" tabindex="-1"></a>| 15 | **eff_rank scales sub-linearly with n** | Blocks 6, 9 | 72% |</span>
+<span id="cb1-523"><a href="#cb1-523" aria-hidden="true" tabindex="-1"></a>| 16 | **Dynamics cliff scales non-linearly** | Blocks 1, 6, 9 | 85% |</span>
+<span id="cb1-524"><a href="#cb1-524" aria-hidden="true" tabindex="-1"></a>| 17 | **lr tolerance widens with n** | Blocks 6, 9 | 72% |</span>
+<span id="cb1-525"><a href="#cb1-525" aria-hidden="true" tabindex="-1"></a>| 18 | **Sparse reduces eff_rank, makes subcritical** | Block 7 | 55% |</span>
+<span id="cb1-526"><a href="#cb1-526" aria-hidden="true" tabindex="-1"></a>| 19 | **n_epochs dominant in sparse (without noise)** | Block 7 | 72% |</span>
+<span id="cb1-527"><a href="#cb1-527" aria-hidden="true" tabindex="-1"></a>| 20 | **Noise removes n_epochs dependency in sparse** | Block 8 | 55% |</span>
+<span id="cb1-528"><a href="#cb1-528" aria-hidden="true" tabindex="-1"></a>| 21 | **Recurrent training catastrophic in subcritical** | Block 8 | 55% |</span>
+<span id="cb1-529"><a href="#cb1-529" aria-hidden="true" tabindex="-1"></a>| 22 | **Sparse 50% conn~0.49 structural data limit** | Block 8 | 85% |</span>
+<span id="cb1-530"><a href="#cb1-530" aria-hidden="true" tabindex="-1"></a>| 23 | **n=300 requires n_epochs&gt;=2** | Block 9 | 72% |</span>
+<span id="cb1-531"><a href="#cb1-531" aria-hidden="true" tabindex="-1"></a>| 24 | **lr tolerance narrows at high lr_W** | Block 9 | 55% |</span>
+<span id="cb1-532"><a href="#cb1-532" aria-hidden="true" tabindex="-1"></a>| 25 | **n=300 conn ceiling ~0.89 at 10k frames** | Block 10 | 72% |</span>
+<span id="cb1-533"><a href="#cb1-533" aria-hidden="true" tabindex="-1"></a>| 26 | **n=200 dense chaotic 100% convergence** | Block 11 | 92% |</span>
+<span id="cb1-534"><a href="#cb1-534" aria-hidden="true" tabindex="-1"></a>| 27 | **n=600 requires &gt;10 epochs** | Block 12 | 55% |</span>
+<span id="cb1-535"><a href="#cb1-535" aria-hidden="true" tabindex="-1"></a>| 28 | **L1=1E-6 beneficial at n&gt;=300** | Blocks 10--11 | 72% |</span>
+<span id="cb1-536"><a href="#cb1-536" aria-hidden="true" tabindex="-1"></a>| 29 | **n_types=4 + n=200 converges at 100%** | Block 13 | 85% |</span>
+<span id="cb1-537"><a href="#cb1-537" aria-hidden="true" tabindex="-1"></a>| 30 | **n=200/4types recipe: lr_W=8E-3, L1=1E-5, 3ep** | Block 13 | 85% |</span>
+<span id="cb1-538"><a href="#cb1-538" aria-hidden="true" tabindex="-1"></a>| 31 | **lr_emb ceiling at n=200/4types is 1E-3** | Block 13 | 72% |</span>
+<span id="cb1-539"><a href="#cb1-539" aria-hidden="true" tabindex="-1"></a>| 32 | **Heterogeneous lr_W scales with n like homogeneous** | Blocks 4, 13 | 72% |</span>
+<span id="cb1-540"><a href="#cb1-540" aria-hidden="true" tabindex="-1"></a>| 33 | **Recurrent at supercritical: conn-dynamics trade-off** | Block 14 | 55% |</span>
+<span id="cb1-541"><a href="#cb1-541" aria-hidden="true" tabindex="-1"></a>| 34 | **Recurrent warmup shifts capacity from W to MLP** | Block 14 | 55% |</span>
+<span id="cb1-542"><a href="#cb1-542" aria-hidden="true" tabindex="-1"></a>| 35 | **noise_recurrent_level ceiling is 0.01** | Block 14 | 55% |</span>
+<span id="cb1-543"><a href="#cb1-543" aria-hidden="true" tabindex="-1"></a>| 36 | **Recurrent NOT catastrophic at supercritical rho** | Blocks 8, 14 | 72% |</span>
+<span id="cb1-544"><a href="#cb1-544" aria-hidden="true" tabindex="-1"></a>| 37 | **n_frames is DOMINANT lever for large n** | Blocks 15, 16 | 92% |</span>
+<span id="cb1-545"><a href="#cb1-545" aria-hidden="true" tabindex="-1"></a>| 38 | **At high n_frames, dynamics-optimal lr_W is LOWER** | Blocks 15, 16 | 85% |</span>
+<span id="cb1-546"><a href="#cb1-546" aria-hidden="true" tabindex="-1"></a>| 39 | **aug_loop=20 preserves conn but costs ~6% dynamics** | Blocks 15, 16 | 72% |</span>
+<span id="cb1-547"><a href="#cb1-547" aria-hidden="true" tabindex="-1"></a>| 40 | **At high n_frames, all training params non-critical** | Blocks 15, 16 | 85% |</span>
+<span id="cb1-548"><a href="#cb1-548" aria-hidden="true" tabindex="-1"></a>| 41 | **n_frames doubles eff_rank: n=300 47→80, n=600 50→87** | Blocks 15, 16 | 92% |</span>
+<span id="cb1-549"><a href="#cb1-549" aria-hidden="true" tabindex="-1"></a>| 42 | **n=600/30k recipe: lr_W=5E-3, lr=2E-4, L1=1E-5, batch=16, 5ep** | Block 16 | 85% |</span>
+<span id="cb1-550"><a href="#cb1-550" aria-hidden="true" tabindex="-1"></a>| 43 | **n_frames rescues ALL param catastrophes EXCEPT subcritical sparse** | Blocks 15--17 | 92% |</span>
+<span id="cb1-551"><a href="#cb1-551" aria-hidden="true" tabindex="-1"></a>| 44 | **dynamics-optimal lr_W inversely scales with n_frames** | Blocks 15, 16 | 85% |</span>
+<span id="cb1-552"><a href="#cb1-552" aria-hidden="true" tabindex="-1"></a>| 45 | **sparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21)** | Block 17 | 72% |</span>
+<span id="cb1-553"><a href="#cb1-553" aria-hidden="true" tabindex="-1"></a>| 46 | **sparse 50% has complete parameter insensitivity** | Blocks 7, 8, 17 | 92% |</span>
+<span id="cb1-554"><a href="#cb1-554" aria-hidden="true" tabindex="-1"></a>| 47 | **two-phase training only marginal signal in sparse (+15%)** | Block 17 | 55% |</span>
+<span id="cb1-555"><a href="#cb1-555" aria-hidden="true" tabindex="-1"></a>| 48 | **n=1000/30k insufficient — max conn=0.745; needs ~100k** | Block 18 | 72% |</span>
+<span id="cb1-556"><a href="#cb1-556" aria-hidden="true" tabindex="-1"></a>| 49 | **lr=1E-4 Pareto-better at n=1000/30k** | Block 18 | 72% |</span>
+<span id="cb1-557"><a href="#cb1-557" aria-hidden="true" tabindex="-1"></a>| 50 | **eff_rank scales superlinearly with n at 30k** | Blocks 15, 16, 18 | 72% |</span>
+<span id="cb1-558"><a href="#cb1-558" aria-hidden="true" tabindex="-1"></a>| 51 | **epoch scaling at large n is lr-dependent** | Block 18 | 55% |</span>
+<span id="cb1-559"><a href="#cb1-559" aria-hidden="true" tabindex="-1"></a>| 52 | **dynamics variance increases with n** | Block 18 | 55% |</span>
+<span id="cb1-560"><a href="#cb1-560" aria-hidden="true" tabindex="-1"></a>| 53 | **low gain (g=3) is independent difficulty axis** | Block 19 | 72% |</span>
+<span id="cb1-561"><a href="#cb1-561" aria-hidden="true" tabindex="-1"></a>| 54 | **gain modulates lr_W cliff position** | Blocks 1, 19, 20 | 72% |</span>
+<span id="cb1-562"><a href="#cb1-562" aria-hidden="true" tabindex="-1"></a>| 55 | **g=3/n=100 recipe: lr_W=8E-3, 3ep → conn=0.955** | Block 19 | 72% |</span>
+<span id="cb1-563"><a href="#cb1-563" aria-hidden="true" tabindex="-1"></a>| 56 | **gain × n compounds difficulty super-additively** | Blocks 19, 20 | 85% |</span>
+<span id="cb1-564"><a href="#cb1-564" aria-hidden="true" tabindex="-1"></a>| 57 | **g=3 eliminates lr_W cliff across n** | Blocks 19, 20 | 72% |</span>
+<span id="cb1-565"><a href="#cb1-565" aria-hidden="true" tabindex="-1"></a>| 58 | **batch=16 catastrophic at low gain AT 10k only** | Blocks 19--21 | 72% |</span>
+<span id="cb1-566"><a href="#cb1-566" aria-hidden="true" tabindex="-1"></a>| 59 | **30k frames rescues g=3/n=200 (0%→100%)** | Block 21 | 92% |</span>
+<span id="cb1-567"><a href="#cb1-567" aria-hidden="true" tabindex="-1"></a>| 60 | **g=3/30k lr tolerance wider than g=7/30k** | Blocks 15, 21 | 55% |</span>
+<span id="cb1-568"><a href="#cb1-568" aria-hidden="true" tabindex="-1"></a>| 61 | **g=3/n=200/30k recipe: lr_W=4E-3, 2ep → conn=0.996** | Block 21 | 85% |</span>
+<span id="cb1-569"><a href="#cb1-569" aria-hidden="true" tabindex="-1"></a>| 62 | **fill=80% creates conn plateau at ~0.802** | Block 22 | 85% |</span>
+<span id="cb1-570"><a href="#cb1-570" aria-hidden="true" tabindex="-1"></a>| 63 | **filling_factor transition 50%→80% is sharp** | Blocks 7, 17, 22 | 72% |</span>
+<span id="cb1-571"><a href="#cb1-571" aria-hidden="true" tabindex="-1"></a>| 64 | **conn_ceiling scales linearly with filling_factor** | Blocks 1, 7, 22, 23, 24 | 92% |</span>
+<span id="cb1-572"><a href="#cb1-572" aria-hidden="true" tabindex="-1"></a>| 65 | **fill=90% is transitional regime (above R^2^&gt;0.9 boundary)** | Block 24 | 72% |</span>
+<span id="cb1-573"><a href="#cb1-573" aria-hidden="true" tabindex="-1"></a>| 66 | **fill=90% has complete parameter insensitivity** | Block 24 | 85% |</span>
+<span id="cb1-574"><a href="#cb1-574" aria-hidden="true" tabindex="-1"></a>| 67 | **g=1 produces fixed-point collapse** | Block 25 | 92% |</span>
+<span id="cb1-575"><a href="#cb1-575" aria-hidden="true" tabindex="-1"></a>| 68 | **eff_rank threshold ~10 below which recovery impossible** | Blocks 25, 27 | 72% |</span>
+<span id="cb1-576"><a href="#cb1-576" aria-hidden="true" tabindex="-1"></a>| 69 | **g=1 unsolvable by n_frames (eff_rank DROPS 5→1)** | Block 26 | 92% |</span>
+<span id="cb1-577"><a href="#cb1-577" aria-hidden="true" tabindex="-1"></a>| 70 | **n_frames-amplified degeneracy at g=1** | Block 26 | 72% |</span>
+<span id="cb1-578"><a href="#cb1-578" aria-hidden="true" tabindex="-1"></a>| 71 | **g=2 requires inverse lr_W (5E-4, 100x lower than g=7)** | Blocks 27, 28 | 85% |</span>
+<span id="cb1-579"><a href="#cb1-579" aria-hidden="true" tabindex="-1"></a>| 72 | **gain--eff_rank transition: g=1→5, g=2→17, g=3→26, g=7→35** | Blocks 19, 25, 27 | 85% |</span>
+<span id="cb1-580"><a href="#cb1-580" aria-hidden="true" tabindex="-1"></a>| 73 | **epoch scaling not diminishing at g=2** | Block 27 | 72% |</span>
+<span id="cb1-581"><a href="#cb1-581" aria-hidden="true" tabindex="-1"></a>| 74 | **g=2 partially solvable at 30k (42% conv)** | Block 28 | 72% |</span>
+<span id="cb1-582"><a href="#cb1-582" aria-hidden="true" tabindex="-1"></a>| 75 | **eff_rank-n_frames correlation reverses at low gain** | Blocks 25--28 | 85% |</span>
+<span id="cb1-583"><a href="#cb1-583" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-584"><a href="#cb1-584" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-585"><a href="#cb1-585" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-586"><a href="#cb1-586" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block Summary</span></span>
+<span id="cb1-587"><a href="#cb1-587" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-588"><a href="#cb1-588" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | n_neurons | Iterations | eff_rank | Convergence | Key Finding |</span>
+<span id="cb1-589"><a href="#cb1-589" aria-hidden="true" tabindex="-1"></a>|-------|--------|:--------:|:---------:|:----------:|:--------:|:-----------:|:------------|</span>
+<span id="cb1-590"><a href="#cb1-590" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic | 10k | 100 | 1--12 | ~35 | 92% | Easy mode: lr_W=4E-3 sweet spot |</span>
+<span id="cb1-591"><a href="#cb1-591" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank | 10k | 100 | 13--24 | ~12--14 | 75% | L1=1E-6 breakthrough |</span>
+<span id="cb1-592"><a href="#cb1-592" aria-hidden="true" tabindex="-1"></a>| 3 | Dale | 10k | 100 | 25--36 | ~12 | 67% | Sharp lr_W cliff at 5E-3 |</span>
+<span id="cb1-593"><a href="#cb1-593" aria-hidden="true" tabindex="-1"></a>| 4 | Heterogeneous | 10k | 100 | 37--48 | ~38 | 75% | Dual-objective; lr_emb=1E-3 required |</span>
+<span id="cb1-594"><a href="#cb1-594" aria-hidden="true" tabindex="-1"></a>| 5 | Noise | 10k | 100 | 49--60 | 42--90 | 100% | Inverse lr_W-noise relation |</span>
+<span id="cb1-595"><a href="#cb1-595" aria-hidden="true" tabindex="-1"></a>| 6 | Scale | 10k | 200 | 61--72 | ~41--44 | 67% | Trade-offs amplified; lr=3E-4 safe |</span>
+<span id="cb1-596"><a href="#cb1-596" aria-hidden="true" tabindex="-1"></a>| 7 | Sparse 50% | 10k | 100 | 73--84 | ~21 | **0%** | Hardest regime; n_epochs key lever |</span>
+<span id="cb1-597"><a href="#cb1-597" aria-hidden="true" tabindex="-1"></a>| 8 | Sparse+Noise | 10k | 100 | 85--96 | ~91 | **0%** | Structural data limit (0.489) |</span>
+<span id="cb1-598"><a href="#cb1-598" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 | 10k | 300 | 97--108 | ~44--47 | **0%** | n_epochs=2 breakthrough (0.890) |</span>
+<span id="cb1-599"><a href="#cb1-599" aria-hidden="true" tabindex="-1"></a>| 10 | n=300 2ep | 10k | 300 | 109--116 | ~44--47 | 25% | Near-convergence; conn=0.924 |</span>
+<span id="cb1-600"><a href="#cb1-600" aria-hidden="true" tabindex="-1"></a>| 11 | n=200 v2 | 10k | 200 | 117--128 | ~43 | 100% | Dense chaotic confirmed easy |</span>
+<span id="cb1-601"><a href="#cb1-601" aria-hidden="true" tabindex="-1"></a>| 12 | n=600 | 10k | 600 | 129--140 | ~50 | **0%** | R^2^=0.63; needs more epochs |</span>
+<span id="cb1-602"><a href="#cb1-602" aria-hidden="true" tabindex="-1"></a>| 13 | n=200 + 4 types | 10k | 200 | 141--156 | ~42--44 | **100%** conn | Full dual convergence; L1=1E-5 &gt; 1E-6 |</span>
+<span id="cb1-603"><a href="#cb1-603" aria-hidden="true" tabindex="-1"></a>| 14 | Recurrent | 10k | 200 | 157--168 | ~42--44 | 75% (3/4) | Conn-dynamics trade-off; 8/12 infra failures |</span>
+<span id="cb1-604"><a href="#cb1-604" aria-hidden="true" tabindex="-1"></a>| 15 | **n=300 (30k)** | **30k** | 300 | 169--180 | **79--80** | **100%** | **n_frames transformative; all params non-critical** |</span>
+<span id="cb1-605"><a href="#cb1-605" aria-hidden="true" tabindex="-1"></a>| 16 | **n=600 (30k)** | **30k** | 600 | 181--192 | **85--87** | **100%** (8/8) | **n_frames solves n=600; lr_W=5E-3 optimal** |</span>
+<span id="cb1-606"><a href="#cb1-606" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50% (30k)** | **30k** | 100 | 193--204 | **13** | **0%** | **n_frames does NOT rescue; eff_rank DROPS** |</span>
+<span id="cb1-607"><a href="#cb1-607" aria-hidden="true" tabindex="-1"></a>| 18 | **n=1000 (30k)** | **30k** | 1000 | 205--216 | **144** | **0%** | **30k insufficient; needs ~100k; lr=1E-4 Pareto** |</span>
+<span id="cb1-608"><a href="#cb1-608" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 (n=100)** | 10k | 100 | 217--228 | **26** | 42% | **Gain as new difficulty axis; n_epochs dominant** |</span>
+<span id="cb1-609"><a href="#cb1-609" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 (n=200)** | 10k | 200 | 229--240 | **31** | **0%** | **Gain × n compounds; universal degeneracy** |</span>
+<span id="cb1-610"><a href="#cb1-610" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3/n=200 (30k)** | **30k** | 200 | 241--252 | **53--57** | **100%** | **30k rescues gain; all params non-critical** |</span>
+<span id="cb1-611"><a href="#cb1-611" aria-hidden="true" tabindex="-1"></a>| 22 | **fill=80% (10k)** | 10k | 100 | 253--264 | **36** | **0%** | **Conn plateau at 0.802; param insensitivity** |</span>
+<span id="cb1-612"><a href="#cb1-612" aria-hidden="true" tabindex="-1"></a>| 23 | **fill=80% (30k)** | **30k** | 100 | 265--276 | **48--49** | **0%** (0/12) | **30k does NOT break plateau; conn ≈ fill%; structural invariant** |</span>
+<span id="cb1-613"><a href="#cb1-613" aria-hidden="true" tabindex="-1"></a>| 24 | **fill=90%** | 10k | 100 | 289--300 | **35--36** | **83%** (10/12) | **conn ≈ fill%; transitional; 4th linear data point** |</span>
+<span id="cb1-614"><a href="#cb1-614" aria-hidden="true" tabindex="-1"></a>| 25 | **g=1 (10k)** | 10k | 100 | 301--312 | **5** | **0%** (0/12) | **Fixed-point collapse; eff_rank=5; hardest regime** |</span>
+<span id="cb1-615"><a href="#cb1-615" aria-hidden="true" tabindex="-1"></a>| 26 | **g=1 (30k)** | **30k** | 100 | 313--324 | **1** | **0%** (0/12) | **eff_rank DROPS 5→1; 30k makes g=1 WORSE** |</span>
+<span id="cb1-616"><a href="#cb1-616" aria-hidden="true" tabindex="-1"></a>| 27 | **g=2 (10k)** | 10k | 100 | 325--336 | **17** | **0%** (0/12) | **Inverse lr_W=5E-4; epoch scaling not diminishing** |</span>
+<span id="cb1-617"><a href="#cb1-617" aria-hidden="true" tabindex="-1"></a>| 28 | **g=2 (30k)** | **30k** | 100 | 337--348 | **16** | **42%** (5/12) | **Partially rescued; inverse lr_W persists; eff_rank flat** |</span>
+<span id="cb1-618"><a href="#cb1-618" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-619"><a href="#cb1-619" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-620"><a href="#cb1-620" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-621"><a href="#cb1-621" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Pages</span></span>
+<span id="cb1-622"><a href="#cb1-622" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-623"><a href="#cb1-623" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Results</span><span class="co">](results.qmd)</span> --- Detailed experimental findings</span>
+<span id="cb1-624"><a href="#cb1-624" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Exploration</span><span class="co">](exploration-gallery.qmd)</span> --- Visual record</span>
 </code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

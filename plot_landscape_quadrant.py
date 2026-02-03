@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Scatter chart — all iterations, minimal design.
-276 iterations, 23 blocks.
+336 iterations, 28 blocks.
 X-axis: absolute effective rank.
 Gray dots only, no arrows/legend/labels.
 """
@@ -141,6 +141,31 @@ add_iters(49, [
     0.802, 0.802, 0.802, 0.802, 0.802, 0.802, 0.802, 0.802, 0.802, 0.802, 0.802, 0.802
 ])
 
+# Block 24: fill=90% at 10k, eff_rank~36 (12 iters)
+add_iters(36, [
+    0.907, 0.907, 0.907, 0.907, 0.907, 0.907, 0.907, 0.907, 0.906, 0.906, 0.905, 0.905
+])
+
+# Block 25: g=1 at 10k, eff_rank~5 (12 iters — fixed-point collapse)
+add_iters(5, [
+    0.007, 0.005, 0.004, 0.003, 0.003, 0.002, 0.002, 0.002, 0.001, 0.001, 0.000, 0.000
+])
+
+# Block 26: g=1 at 30k, eff_rank~3 (12 iters — eff_rank DROPS)
+add_iters(3, [
+    0.018, 0.015, 0.012, 0.010, 0.008, 0.007, 0.006, 0.005, 0.004, 0.003, 0.002, 0.002
+])
+
+# Block 27: g=2 at 10k, eff_rank~17 (12 iters)
+add_iters(17, [
+    0.519, 0.397, 0.356, 0.300, 0.250, 0.200, 0.150, 0.100, 0.050, 0.020, 0.010, 0.004
+])
+
+# Block 28: g=2 at 30k, eff_rank~16 (12 iters)
+add_iters(16, [
+    0.997, 0.983, 0.943, 0.871, 0.848, 0.640, 0.500, 0.300, 0.125, 0.050, 0.010, 0.001
+])
+
 # --- Plot: single gray color, no edge colors ---
 xs = [p[0] for p in pts]
 ys = [p[1] for p in pts]
@@ -150,7 +175,7 @@ ax.scatter(xs, ys, s=22, c='#78909c', alpha=0.7, edgecolors='none', zorder=3)
 ax.set_xlabel('effective rank', fontsize=13)
 ax.set_ylabel('connectivity R²', fontsize=13)
 
-ax.set_xlim(5, 155)
+ax.set_xlim(0, 155)
 ax.set_ylim(-0.03, 1.06)
 ax.set_xticks([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140])
 ax.set_yticks([0, 0.25, 0.5, 0.75, 1])

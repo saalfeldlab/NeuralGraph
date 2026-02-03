@@ -30,6 +30,8 @@ website:
         menu:
           - href: case-low-rank.qmd
             text: Low-Rank Connectivity
+          - href: case-sparse.qmd
+            text: Sparse Connectivity
       - href: gnn-model.qmd
         text: GNN Model
     right:

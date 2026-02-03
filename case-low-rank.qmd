@@ -1,6 +1,6 @@
 ---
 title: "Case Study: Low-Rank Connectivity"
-subtitle: "Recovering W from rank-20 neural dynamics --- 64 iterations of dedicated LLM-guided exploration"
+subtitle: "Recovering W from rank-20 neural dynamics --- 60+ iterations of dedicated LLM-guided exploration"
 ---
 
 ## Problem Statement
@@ -134,35 +134,37 @@ python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster signal_low
 
 ---
 
-## Dedicated Low-Rank Exploration (64 iterations)
+## Dedicated Low-Rank Exploration (60+ iterations)
 
-The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. **64 iterations across 6 blocks** were completed, testing 4 different random seeds (137, 42, 99, 200).
+The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. **60+ iterations across 5 completed blocks** were completed, testing **7 different random seeds** (42, 137, 7, 99, 256, 314, 500).
 
 ::: {.callout-tip}
 ## Key Result
 
-**Zero degeneracy in 64/64 iterations.** Connectivity recovery is essentially solved (conn_R^2^ > 0.999 in 63/64 iterations). The remaining challenge is seed-dependent lr_W tuning: optimal lr_W varies from 1E-3 to 2E-3 depending on the W realization.
+**Connectivity recovery is essentially solved** (conn_R^2^ > 0.999 in nearly all iterations). The exploration refined the universal recipe template: lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W and L1 require per-seed tuning. The L1 landscape is a cliff, not a gradient: no useful intermediate values between 1E-6 and 1E-5.
 :::
 
 ### Per-Seed Best Configurations
 
-| Seed | lr_W | batch | lr_emb | n_ep | aug | init | test_R^2^ | conn_R^2^ | Node |
-|:----:|:----:|:-----:|:------:|:----:|:---:|:----:|:---------:|:---------:|:----:|
-| 137 | 2E-3 | 16 | 5E-4 | 2 | 200 | 2 | **0.9995** | 0.9999 | 56 |
-| 42 | 1.5E-3 | 16 | 5E-4 | 3 | 300 | 3 | **0.9996** | 1.0000 | 47 |
-| 99 | 1.5E-3 | 16 | 5E-4 | 3 | 300 | 3 | 0.9963 | 1.0000 | 43 |
-| 200 | 1E-3 | 16 | 5E-4 | 3 | 300 | 3 | 0.9967 | 0.9999 | 55 |
+| Seed | lr_W | L1 | batch | n_ep | init | test_R^2^ | conn_R^2^ | Notes |
+|:----:|:----:|:--:|:-----:|:----:|:----:|:---------:|:---------:|:------|
+| 42 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.998** | 1.000 | Best overall; fragile to perturbations |
+| 256 | 6E-3 | 1E-5 | 8 | 2 | 2 | **0.994** | 1.000 | Sharply peaked lr_W (±0.5E-3 width) |
+| 99 | 5E-3 | 1E-6 | 8 | 2 | 2 | **0.992** | 1.000 | Unique L1 requirement |
+| 500 | 4E-3 | 1E-6 | 8 | 2 | 2 | **0.990** | 1.000 | Dual optimization (lr_W + L1) |
+| 314 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.990** | 1.000 | Default recipe works |
+| 137 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.989** | 1.000 | Baseline; robust to perturbations |
+| 7 | 5E-3 | 1E-5 | 8 | 3 | 2 | **0.985** | 1.000 | n_epochs=3 helps |
 
 ### Block-by-Block Progression
 
 | Block | Iters | Focus | Best test_R^2^ | Key Finding |
 |:-----:|:-----:|-------|:---------------:|:------------|
-| 1 | 1--12 | lr_W, L1, lr sweep | 0.9994 | lr_W=2E-3 optimal for seed=137; lr_emb=5E-4 breaks 0.999 barrier |
-| 2 | 13--24 | Parameter perturbation | 0.9994 | Sharp peaks in parameter landscape --- all perturbations degrade |
-| 3 | 25--36 | Cross-seed (seed=42) | 0.9994 | 3ep+300aug is most seed-robust; seed=42 gap closed to 0.004 |
-| 4 | 37--48 | Seeds 42, 99; init=3 | **0.9996** | lr_W=1.5E-3+init=3 near-universal for seeds 42/99 |
-| 5 | 49--60 | Seed=200; lr_W tuning | 0.9997 | Optimal lr_W is seed-dependent: 200 needs 1E-3, not 1.5E-3 |
-| 6 | 61--64 | Variance reduction | 0.9995 | 2ep+200aug replicates within 0.001 at seed=137 |
+| 1 | 1--12 | lr_W, L1, lr sweep | 0.9994 | lr_W=5E-3 optimal; seed=42 identified as best performer |
+| 2 | 13--24 | Cross-seed validation | 0.9994 | n_epochs=3 catastrophically hurts easy seeds (seed=42: -0.105) |
+| 3 | 25--36 | L1 cross-seed testing | 0.9920 | L1=1E-6 transforms seed=99 but catastrophically breaks seed=137 |
+| 4 | 37--48 | seed=256, seed=314 | **0.9940** | seed=256 breakthrough via lr_W=6E-3 (sharply peaked) |
+| 5 | 49--60 | seed=500 optimization | **0.9900** | seed=500 rescued via lr_W=4E-3 + L1=1E-6 (0.880→0.990) |
 
 ### Connectivity and Activity (Dedicated Exploration)
 
@@ -229,36 +231,36 @@ The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k fr
 
 ## Established Principles (Dedicated Exploration)
 
-32 principles were established across the 6 blocks. Key findings:
+16 principles were established across 5 blocks. Key findings:
 
 ::: {.callout-important}
 ### Optimal lr_W is seed-dependent
-Harder W realizations need slower learning rates. Ordering: seed=200 (1E-3) < seed=42/99 (1.5E-3) < seed=137 (2E-3). The viable lr_W window is narrow for each seed (~0.3E-3 wide).
+Most seeds optimal at 5E-3, but seed=256 has exclusive peak at 6E-3 (±0.5E-3 width) and seed=500 requires 4E-3. Per-seed tuning closes the gap: all 7 seeds reach test_R^2^≥0.985 when optimally tuned.
+:::
+
+::: {.callout-important}
+### L1 landscape is a cliff, not a gradient
+L1=1E-5 is optimal for strong seeds (42, 137, 256, 314). Weak seeds (99, 500) require L1=1E-6. But L1=1E-6 at seed=137 causes catastrophic collapse (conn_R^2^=0.319). No useful intermediate values exist between 1E-6 and 1E-5.
 :::
 
 ::: {.callout-note}
-### L1=1E-6 is a precise sweet spot
-Both L1=1E-5 (dynamics degrade to ~0.92) and L1=5E-7 (test_R^2^=0.944) underperform. The optimal L1 is sharply at 1E-6.
+### Universal recipe template
+lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W (4E-3 to 6E-3) and L1 (1E-6 or 1E-5) require per-seed tuning.
 :::
 
 ::: {.callout-note}
-### batch_size=16 + lr_emb=5E-4 is optimal
-batch=8 works but batch=16 is better at optimal lr_emb. batch=32 is not viable (0.944). lr_emb has cliff-edge behavior: batch=16 optimal at 5E-4, batch=8 at 2.5E-4.
+### Easy seeds are more fragile to perturbations
+seed=42 (best test_R^2^=0.998) degrades catastrophically with edge_diff=20000 (-0.120), n_epochs=3 (-0.105), or lr_W=6E-3 (-0.222). seed=137 is robust to the same perturbations.
 :::
 
 ::: {.callout-note}
-### n_epochs_init=2--3 enables two-phase training
-Phase 1 (no L1) lets W start converging; phase 2 (L1=1E-6) refines dynamics. init=3 rescues suboptimal lr_W (seed=99: 0.909 to 0.996) but causes overtraining at 4 epochs.
+### batch_size=8 is essential
+batch=8 is universally optimal. batch=16 degrades performance, especially at weak settings. This reverses the earlier finding that batch=16 was optimal.
 :::
 
 ::: {.callout-note}
-### Shorter training reduces stochastic variance
-2ep+200aug replicates within 0.001 at seed=137 (nodes 13, 56). 3ep+300aug has ~0.015 variance at seed=200. When lr_W is correct, less training is better.
-:::
-
-::: {.callout-warning}
-### Overtraining harms correct lr_W
-More training (4ep+400aug) partially compensates for wrong lr_W (seed=200 at lr_W=1.5E-3: 0.854 to 0.991) but degrades correct lr_W (seed=200 at lr_W=1E-3: 0.997 to 0.951). Always tune lr_W first.
+### W recovery is trivial; dynamics recovery is hard
+Nearly all configs achieve conn_R^2^≥0.999. The challenge is dynamics: test_R^2^ varies from 0.333 (catastrophic) to 0.998 depending on lr_W and L1 combination.
 :::
 
 ---
@@ -267,10 +269,10 @@ More training (4ep+400aug) partially compensates for wrong lr_W (seed=200 at lr_
 
 All four questions from the landscape exploration are now answered:
 
-1. **Robustness across seeds**: Partially. lr_W=3E-3 + L1=1E-6 is not universal --- optimal lr_W is seed-dependent (1E-3 to 2E-3). But the recipe template (L1=1E-6, batch=16, lr_emb=5E-4, coeff_edge_diff=10000) is universal; only lr_W needs per-seed tuning.
+1. **Robustness across seeds**: Yes, with per-seed tuning. The recipe template (lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8) is universal across all 7 seeds. Only lr_W (4E-3 to 6E-3) and L1 (1E-6 or 1E-5) require per-seed optimization.
 
-2. **Two-phase training**: Yes. n_epochs_init=2--3 (phase 1 without L1) is beneficial. It rescues suboptimal lr_W and enables higher batch sizes.
+2. **Two-phase training**: Yes. n_epochs_init=2 (phase 1 without L1) is universally beneficial. It stabilizes W convergence before L1 refinement.
 
-3. **coeff_edge_diff scaling**: 10,000 is optimal. Both 5,000 and 20,000 do not improve. This parameter is not a significant axis of variation in the low-rank regime.
+3. **coeff_edge_diff scaling**: 10,000 is the universal sweet spot. Both 5,000 and 20,000 degrade performance (20,000 is catastrophic for seed=42: -0.120).
 
-4. **Training duration**: 2 epochs / 200 augmentation loops is sufficient at correct lr_W and gives the lowest stochastic variance. 3 epochs / 300 augmentation loops is more seed-robust but has higher variance.
+4. **Training duration**: 2 epochs is optimal for most seeds. 3 epochs helps seed=7 but hurts easy seeds (seed=42: -0.105). When lr_W is correct, less training is better.

@@ -201,6 +201,10 @@ window.Quarto = {
     <a class="dropdown-item" href="./case-low-rank.html">
  <span class="dropdown-text">Low-Rank Connectivity</span></a>
   </li>  
+        <li>
+    <a class="dropdown-item" href="./case-sparse.html">
+ <span class="dropdown-text">Sparse Connectivity</span></a>
+  </li>  
     </ul>
   </li>
   <li class="nav-item">
@@ -239,7 +243,7 @@ window.Quarto = {
   </ul></li>
   <li><a href="#key-discoveries" id="toc-key-discoveries" class="nav-link" data-scroll-target="#key-discoveries">Key Discoveries</a>
   <ul class="collapse">
-  <li><a href="#five-independent-difficulty-axes" id="toc-five-independent-difficulty-axes" class="nav-link" data-scroll-target="#five-independent-difficulty-axes">1. Five Independent Difficulty Axes</a></li>
+  <li><a href="#six-independent-difficulty-axes" id="toc-six-independent-difficulty-axes" class="nav-link" data-scroll-target="#six-independent-difficulty-axes">1. Six Independent Difficulty Axes</a></li>
   <li><a href="#effective-rank-is-necessary-but-not-sufficient" id="toc-effective-rank-is-necessary-but-not-sufficient" class="nav-link" data-scroll-target="#effective-rank-is-necessary-but-not-sufficient">2. Effective Rank Is Necessary but Not Sufficient</a></li>
   <li><a href="#easy-mode-chaotic-baseline-n100" id="toc-easy-mode-chaotic-baseline-n100" class="nav-link" data-scroll-target="#easy-mode-chaotic-baseline-n100">3. “Easy Mode” — Chaotic Baseline (n=100)</a></li>
   <li><a href="#low-rank-breakthrough-n100" id="toc-low-rank-breakthrough-n100" class="nav-link" data-scroll-target="#low-rank-breakthrough-n100">4. Low-Rank Breakthrough (n=100)</a></li>
@@ -247,10 +251,13 @@ window.Quarto = {
   <li><a href="#noise-is-data-augmentation-n100" id="toc-noise-is-data-augmentation-n100" class="nav-link" data-scroll-target="#noise-is-data-augmentation-n100">6. Noise Is Data Augmentation (n=100)</a></li>
   <li><a href="#low-gain-independent-difficulty-axis-blocks-1921" id="toc-low-gain-independent-difficulty-axis-blocks-1921" class="nav-link" data-scroll-target="#low-gain-independent-difficulty-axis-blocks-1921">7. Low Gain — Independent Difficulty Axis (Blocks 19–21)</a></li>
   <li><a href="#partial-connectivity-structural-ceiling-blocks-2223" id="toc-partial-connectivity-structural-ceiling-blocks-2223" class="nav-link" data-scroll-target="#partial-connectivity-structural-ceiling-blocks-2223">8. Partial Connectivity — Structural Ceiling (Blocks 22–23)</a></li>
-  <li><a href="#sparse-connectivity-confirmed-unsolvable-blocks-7-8-17" id="toc-sparse-connectivity-confirmed-unsolvable-blocks-7-8-17" class="nav-link" data-scroll-target="#sparse-connectivity-confirmed-unsolvable-blocks-7-8-17">9. Sparse Connectivity — Confirmed Unsolvable (Blocks 7, 8, 17)</a></li>
-  <li><a href="#n1000-at-30k-insufficient-data-block-18" id="toc-n1000-at-30k-insufficient-data-block-18" class="nav-link" data-scroll-target="#n1000-at-30k-insufficient-data-block-18">10. n=1000 at 30k — Insufficient Data (Block 18)</a></li>
-  <li><a href="#degeneracy-when-dynamics-quality-misleads" id="toc-degeneracy-when-dynamics-quality-misleads" class="nav-link" data-scroll-target="#degeneracy-when-dynamics-quality-misleads">11. Degeneracy — When Dynamics Quality Misleads</a></li>
-  <li><a href="#n_frames-is-the-dominant-lever-blocks-1516-21" id="toc-n_frames-is-the-dominant-lever-blocks-1516-21" class="nav-link" data-scroll-target="#n_frames-is-the-dominant-lever-blocks-1516-21">12. n_frames Is the Dominant Lever (Blocks 15–16, 21)</a></li>
+  <li><a href="#fixed-point-collapse-g1-unsolvable-blocks-2526" id="toc-fixed-point-collapse-g1-unsolvable-blocks-2526" class="nav-link" data-scroll-target="#fixed-point-collapse-g1-unsolvable-blocks-2526">9. Fixed-Point Collapse — g=1 Unsolvable (Blocks 25–26)</a></li>
+  <li><a href="#g2-inverse-lr_w-regime-blocks-2728" id="toc-g2-inverse-lr_w-regime-blocks-2728" class="nav-link" data-scroll-target="#g2-inverse-lr_w-regime-blocks-2728">10. g=2 — Inverse lr_W Regime (Blocks 27–28)</a></li>
+  <li><a href="#fill90-transitional-regime-block-24" id="toc-fill90-transitional-regime-block-24" class="nav-link" data-scroll-target="#fill90-transitional-regime-block-24">11. fill=90% — Transitional Regime (Block 24)</a></li>
+  <li><a href="#sparse-connectivity-confirmed-unsolvable-blocks-7-8-17" id="toc-sparse-connectivity-confirmed-unsolvable-blocks-7-8-17" class="nav-link" data-scroll-target="#sparse-connectivity-confirmed-unsolvable-blocks-7-8-17">12. Sparse Connectivity — Confirmed Unsolvable (Blocks 7, 8, 17)</a></li>
+  <li><a href="#n1000-at-30k-insufficient-data-block-18" id="toc-n1000-at-30k-insufficient-data-block-18" class="nav-link" data-scroll-target="#n1000-at-30k-insufficient-data-block-18">13. n=1000 at 30k — Insufficient Data (Block 18)</a></li>
+  <li><a href="#degeneracy-when-dynamics-quality-misleads" id="toc-degeneracy-when-dynamics-quality-misleads" class="nav-link" data-scroll-target="#degeneracy-when-dynamics-quality-misleads">14. Degeneracy — When Dynamics Quality Misleads</a></li>
+  <li><a href="#n_frames-is-the-dominant-lever-blocks-1516-21" id="toc-n_frames-is-the-dominant-lever-blocks-1516-21" class="nav-link" data-scroll-target="#n_frames-is-the-dominant-lever-blocks-1516-21">15. n_frames Is the Dominant Lever (Blocks 15–16, 21)</a></li>
   </ul></li>
   <li><a href="#summary-statistics" id="toc-summary-statistics" class="nav-link" data-scroll-target="#summary-statistics">Summary Statistics</a>
   <ul class="collapse">
@@ -294,21 +301,23 @@ Current status
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>276 iterations completed</strong> across 23 regimes. n_frames=30k is the dominant lever for dense networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is also rescued by 30k frames. Two regimes remain structurally unsolvable: sparse 50% (subcritical rho=0.746, conn~0.44) and fill=80% (conn plateau at 0.802, immune to n_frames). n=1000 at 30k reaches conn=0.745 (needs ~100k frames). 65 principles established.</p>
+<p><strong>336 iterations completed</strong> across 28 regimes. n_frames=30k is the dominant lever for dense supercritical networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is rescued by 30k frames; g=2 is partially rescued (42% convergence at 30k). Three structural limits confirmed: subcritical spectral radius (sparse 50%, conn~0.44), partial connectivity ceiling (fill=80%/90%, conn ≈ filling_factor), and fixed-point collapse (g=1, eff_rank drops to 1 at 30k). The gain–eff_rank transition is sharp: g=1→5, g=2→17, g=3→26, g=7→35. n=1000 at 30k reaches conn=0.745 (needs ~100k frames). ~80 principles established.</p>
 </div>
 </div>
 <section id="outcomes" class="level2">
 <h2 class="anchored" data-anchor-id="outcomes">Outcomes</h2>
 <ol type="1">
-<li><p><strong>n_frames is the dominant lever</strong>: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical.</p></li>
-<li><p><strong>Five difficulty axes identified</strong>: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g=3), and partial connectivity (fill&lt;100%). Three are solvable by n_frames; two are structural limits.</p></li>
-<li><p><strong>Two structural limits confirmed</strong>: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k) and fill=80% (conn=0.802 at both 10k and 30k). For fill=80%, conn_ceiling <span class="math inline">\(\approx\)</span> filling_factor — a linear relationship confirmed across fill=50%, 80%, and 100%.</p></li>
-<li><p><strong>eff_rank is necessary but not sufficient</strong>: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse.</p></li>
+<li><p><strong>n_frames is the dominant lever</strong>: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical — except when gain is too low (g≤2).</p></li>
+<li><p><strong>Six difficulty axes identified</strong>: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g≤3), partial connectivity (fill&lt;100%), and fixed-point collapse (g=1). Four are solvable by n_frames; two are structural limits; one is a new unsolvable axis.</p></li>
+<li><p><strong>Three structural limits confirmed</strong>: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k), fill&lt;100% (conn_ceiling <span class="math inline">\(\approx\)</span> filling_factor — confirmed across fill=50%, 80%, 90%, and 100%), and g=1 fixed-point collapse (eff_rank=5 at 10k, drops to 1 at 30k — n_frames makes it worse).</p></li>
+<li><p><strong>eff_rank is necessary but not sufficient</strong>: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse and negative effect at g=1.</p></li>
 <li><p><strong>L1 effect is n-dependent, non-monotonic, and vanishes at high n_frames</strong>: Critical at 1E-6 for low-rank/heterogeneous at n=100; harmful at n&lt;=200; beneficial at n=300/10k; harmful at n&gt;=600/10k. At 30k frames, L1 sensitivity disappears entirely.</p></li>
 <li><p><strong>Scale shifts boundaries</strong>: Convergence boundary, optimal lr_W, and lr tolerance all change non-linearly with n_neurons. At 30k frames, optimal lr_W shifts <strong>lower</strong> (5E-3 vs 1E-2 at 10k) because abundant data handles W while lower lr_W preserves MLP capacity.</p></li>
-<li><p><strong>Low gain compounds with scale but is solvable</strong>: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence).</p></li>
-<li><p><strong>Partial connectivity creates a structural ceiling</strong>: fill=80% gives conn_R<sup>2</sup>=0.802 with complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k frames. Unlike sparse 50%, there is no degeneracy — the GNN correctly learns 80% of connections.</p></li>
-<li><p><strong>Degeneracy is a critical diagnostic</strong>: 19/276 iterations (6.9%) show degeneracy. Two mechanisms: structural (subcritical spectral radius) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy.</p></li>
+<li><p><strong>Low gain compounds with scale but is solvable (g≥2)</strong>: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence). g=2 requires inverse lr_W (5E-4, 100x lower than g=7) and is partially rescued at 30k (42% convergence).</p></li>
+<li><p><strong>Gain modulates eff_rank non-linearly</strong>: The gain–eff_rank relationship shows a sharp transition: g=1→5, g=2→17 (+240%), g=3→26, g=7→35. A critical threshold exists at eff_rank~10 (between g=1 and g=2). Below this threshold, no amount of training or data helps.</p></li>
+<li><p><strong>Partial connectivity creates a structural ceiling</strong>: conn_ceiling <span class="math inline">\(\approx\)</span> filling_factor, confirmed at four points: fill=50%→0.49, fill=80%→0.80, fill=90%→0.91, fill=100%→1.00. Complete parameter insensitivity at fill&lt;100%, at both 10k and 30k frames.</p></li>
+<li><p><strong>g=1 is a new unsolvable axis (fixed-point collapse)</strong>: At g=1, tanh saturates weak-gain dynamics into stable fixed points. eff_rank=5 at 10k drops to 1 at 30k — the only regime where n_frames is anti-correlated with eff_rank. More severe than sparse 50%. Conn_R<sup>2</sup>&lt;0.02 regardless of training.</p></li>
+<li><p><strong>Degeneracy is a critical diagnostic</strong>: Two mechanisms: structural (subcritical spectral radius, g=1 fixed-point) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy but amplifies g=1 degeneracy.</p></li>
 <li><p><strong>n=1000 at 30k is insufficient</strong>: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs.</p></li>
 </ol>
 <hr>
@@ -576,14 +585,64 @@ Current status
 <td style="text-align: center;"><strong>~0.802</strong></td>
 <td style="text-align: left;"><strong>30k FAILS; structural ceiling; 12/12 at 0.802</strong></td>
 </tr>
+<tr class="even">
+<td style="text-align: center;">24</td>
+<td><strong>fill=90%</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">100</td>
+<td><strong>~35–36</strong></td>
+<td style="text-align: center;"><strong>83%</strong> (10/12)</td>
+<td style="text-align: center;"><strong>0.907</strong></td>
+<td style="text-align: left;"><strong>conn ≈ fill%; transitional regime; param insensitive</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">25</td>
+<td><strong>g=1 (10k)</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">100</td>
+<td><strong>~5</strong></td>
+<td style="text-align: center;"><strong>0%</strong> (0/12)</td>
+<td style="text-align: center;"><strong>0.007</strong></td>
+<td style="text-align: left;"><strong>Fixed-point collapse; hardest regime; eff_rank=5</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">26</td>
+<td><strong>g=1 (30k)</strong></td>
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;">100</td>
+<td><strong>~1</strong></td>
+<td style="text-align: center;"><strong>0%</strong> (0/12)</td>
+<td style="text-align: center;"><strong>0.018</strong></td>
+<td style="text-align: left;"><strong>eff_rank DROPS 5→1; 30k makes g=1 WORSE</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">27</td>
+<td><strong>g=2 (10k)</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">100</td>
+<td><strong>~17</strong></td>
+<td style="text-align: center;"><strong>0%</strong> (0/12)</td>
+<td style="text-align: center;"><strong>0.519</strong></td>
+<td style="text-align: left;"><strong>Inverse lr_W=5E-4; epoch scaling not diminishing</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">28</td>
+<td><strong>g=2 (30k)</strong></td>
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;">100</td>
+<td><strong>~16</strong></td>
+<td style="text-align: center;"><strong>42%</strong> (5/12)</td>
+<td style="text-align: center;"><strong>0.997</strong></td>
+<td style="text-align: left;"><strong>30k partially rescues; inverse lr_W persists</strong></td>
+</tr>
 </tbody>
 </table>
 </section>
 </section>
 <section id="key-discoveries" class="level2">
 <h2 class="anchored" data-anchor-id="key-discoveries">Key Discoveries</h2>
-<section id="five-independent-difficulty-axes" class="level3">
-<h3 class="anchored" data-anchor-id="five-independent-difficulty-axes">1. Five Independent Difficulty Axes</h3>
+<section id="six-independent-difficulty-axes" class="level3">
+<h3 class="anchored" data-anchor-id="six-independent-difficulty-axes">1. Six Independent Difficulty Axes</h3>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -594,7 +653,7 @@ Key Insight
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Five independent axes determine regime difficulty. Three are solvable by data (n_frames); two are structural limits:</p>
+<p>Six independent axes determine regime difficulty. Three are solvable by data (n_frames); three are structural limits:</p>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 16%">
@@ -619,23 +678,29 @@ Key Insight
 </tr>
 <tr class="even">
 <td>Partial connectivity ceiling</td>
-<td>fill=80% (rho=0.985)</td>
+<td>fill=80%/90% (rho~0.99)</td>
 <td style="text-align: center;"><strong>No</strong></td>
 <td>conn_ceiling <span class="math inline">\(\approx\)</span> filling_factor; 30k has no effect</td>
 </tr>
 <tr class="odd">
+<td>Fixed-point collapse</td>
+<td>g=1 (eff_rank=5→1)</td>
+<td style="text-align: center;"><strong>No</strong></td>
+<td>tanh saturates; eff_rank drops at 30k; hardest regime</td>
+</tr>
+<tr class="even">
 <td>Parameter count scaling</td>
 <td>n=300, n=600</td>
 <td style="text-align: center;"><strong>Yes</strong> (30k)</td>
 <td>More data reveals more signal dimensions</td>
 </tr>
-<tr class="even">
-<td>Low gain</td>
-<td>g=3 (eff_rank 35–&gt;26)</td>
-<td style="text-align: center;"><strong>Yes</strong> (30k)</td>
-<td>eff_rank recovers at 30k (+80%)</td>
-</tr>
 <tr class="odd">
+<td>Low gain</td>
+<td>g=2–3 (eff_rank 17–26)</td>
+<td style="text-align: center;"><strong>Yes</strong> (30k)</td>
+<td>g=3: 100% at 30k; g=2: 42% at 30k</td>
+</tr>
+<tr class="even">
 <td>Training capacity</td>
 <td>n_epochs, lr_W tuning</td>
 <td style="text-align: center;"><strong>Yes</strong> (30k)</td>
@@ -1083,8 +1148,142 @@ Structural Limit
 </div>
 </div>
 </section>
+<section id="fixed-point-collapse-g1-unsolvable-blocks-2526" class="level3">
+<h3 class="anchored" data-anchor-id="fixed-point-collapse-g1-unsolvable-blocks-2526">9. Fixed-Point Collapse — g=1 Unsolvable (Blocks 25–26)</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 22%">
+<col style="width: 25%">
+<col style="width: 10%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">n_frames</th>
+<th style="text-align: center;">eff_rank</th>
+<th style="text-align: center;">Best conn</th>
+<th style="text-align: center;">Degeneracy</th>
+<th style="text-align: left;">Key</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">5</td>
+<td style="text-align: center;">0.007</td>
+<td style="text-align: center;">12/12</td>
+<td style="text-align: left;">Flat-line dynamics; universal degeneracy</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;"><strong>1</strong></td>
+<td style="text-align: center;"><strong>0.018</strong></td>
+<td style="text-align: center;"><strong>12/12</strong></td>
+<td style="text-align: left;"><strong>eff_rank DROPS (5→1); 30k makes it WORSE</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Structural Limit
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>g=1 produces fixed-point collapse: tanh saturates weak-gain dynamics into stable fixed points (flat lines). eff_rank=5 at 10k (catastrophically low) drops to 1 at 30k — the only regime where n_frames is negatively correlated with eff_rank. Below the critical eff_rank threshold (~10), no amount of training or data helps. More severe than sparse 50%.</p>
+</div>
+</div>
+</section>
+<section id="g2-inverse-lr_w-regime-blocks-2728" class="level3">
+<h3 class="anchored" data-anchor-id="g2-inverse-lr_w-regime-blocks-2728">10. g=2 — Inverse lr_W Regime (Blocks 27–28)</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 22%">
+<col style="width: 26%">
+<col style="width: 10%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">n_frames</th>
+<th style="text-align: center;">eff_rank</th>
+<th style="text-align: center;">Best conn</th>
+<th style="text-align: center;">Convergence</th>
+<th style="text-align: left;">Key</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">17</td>
+<td style="text-align: center;">0.519</td>
+<td style="text-align: center;">0% (0/12)</td>
+<td style="text-align: left;">Inverse lr_W=5E-4 (100x lower than g=7)</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;"><strong>16</strong></td>
+<td style="text-align: center;"><strong>0.997</strong></td>
+<td style="text-align: center;"><strong>42%</strong> (5/12)</td>
+<td style="text-align: left;"><strong>Partially rescued; inverse lr_W persists; eff_rank flat</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Key Insight
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>g=2 sits above the critical eff_rank threshold (17 &gt; 10) and is partially rescued by 30k frames (0%→42% convergence). However, it requires <strong>inverse lr_W</strong> (~5E-4, 100x lower than g=7’s 4E-3) — a structural property that persists at 30k. Epoch scaling is not diminishing at g=2 (5ep→0.356, 8ep→0.397, 12ep→0.519 at 10k). At 30k/8ep, the Pareto-optimal config reaches conn=0.997.</p>
+</div>
+</div>
+</section>
+<section id="fill90-transitional-regime-block-24" class="level3">
+<h3 class="anchored" data-anchor-id="fill90-transitional-regime-block-24">11. fill=90% — Transitional Regime (Block 24)</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 18%">
+<col style="width: 18%">
+<col style="width: 9%">
+<col style="width: 20%">
+<col style="width: 24%">
+<col style="width: 9%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">n_frames</th>
+<th style="text-align: center;">eff_rank</th>
+<th style="text-align: center;">rho</th>
+<th style="text-align: center;">Best conn</th>
+<th style="text-align: center;">Convergence</th>
+<th style="text-align: left;">Key</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">35–36</td>
+<td style="text-align: center;">0.995</td>
+<td style="text-align: center;">0.907</td>
+<td style="text-align: center;">83% (10/12)</td>
+<td style="text-align: left;">conn ≈ fill%; above R<sup>2</sup>=0.9 convergence boundary</td>
+</tr>
+</tbody>
+</table>
+<p>The fill=90% regime extends the conn_ceiling <span class="math inline">\(\approx\)</span> filling_factor relationship to a fourth data point: fill=50%→0.49, fill=80%→0.80, fill=90%→0.91, fill=100%→1.00. Unlike fill=80%, the 90% regime crosses the R<sup>2</sup>&gt;0.9 convergence threshold, making it a transitional regime.</p>
+</section>
 <section id="sparse-connectivity-confirmed-unsolvable-blocks-7-8-17" class="level3">
-<h3 class="anchored" data-anchor-id="sparse-connectivity-confirmed-unsolvable-blocks-7-8-17">9. Sparse Connectivity — Confirmed Unsolvable (Blocks 7, 8, 17)</h3>
+<h3 class="anchored" data-anchor-id="sparse-connectivity-confirmed-unsolvable-blocks-7-8-17">12. Sparse Connectivity — Confirmed Unsolvable (Blocks 7, 8, 17)</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 20%">
@@ -1141,7 +1340,7 @@ Structural Limit
 </div>
 </section>
 <section id="n1000-at-30k-insufficient-data-block-18" class="level3">
-<h3 class="anchored" data-anchor-id="n1000-at-30k-insufficient-data-block-18">10. n=1000 at 30k — Insufficient Data (Block 18)</h3>
+<h3 class="anchored" data-anchor-id="n1000-at-30k-insufficient-data-block-18">13. n=1000 at 30k — Insufficient Data (Block 18)</h3>
 <table class="caption-top table">
 <thead>
 <tr class="header">
@@ -1198,7 +1397,7 @@ Note
 </div>
 </section>
 <section id="degeneracy-when-dynamics-quality-misleads" class="level3">
-<h3 class="anchored" data-anchor-id="degeneracy-when-dynamics-quality-misleads">11. Degeneracy — When Dynamics Quality Misleads</h3>
+<h3 class="anchored" data-anchor-id="degeneracy-when-dynamics-quality-misleads">14. Degeneracy — When Dynamics Quality Misleads</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 11%">
@@ -1300,6 +1499,46 @@ Note
 <td><strong>Not degenerate</strong> (conn stuck)</td>
 </tr>
 <tr class="odd">
+<td style="text-align: center;">24</td>
+<td>fill=90%</td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;">0/12</td>
+<td style="text-align: center;">0.09</td>
+<td><strong>Not degenerate</strong> (conn stuck at 0.907)</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">25</td>
+<td><strong>g=1 n=100</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;"><strong>12/12</strong></td>
+<td style="text-align: center;"><strong>~0.99</strong></td>
+<td><strong>Fixed-point collapse; flat-line dynamics</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">26</td>
+<td><strong>g=1 n=100 (30k)</strong></td>
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;"><strong>12/12</strong></td>
+<td style="text-align: center;"><strong>~0.99</strong></td>
+<td><strong>30k amplifies degeneracy; eff_rank→1</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">27</td>
+<td><strong>g=2 n=100</strong></td>
+<td style="text-align: center;">10k</td>
+<td style="text-align: center;"><strong>12/12</strong></td>
+<td style="text-align: center;"><strong>0.48–0.90</strong></td>
+<td><strong>Low gain; inverse lr_W needed</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">28</td>
+<td><strong>g=2 n=100 (30k)</strong></td>
+<td style="text-align: center;"><strong>30k</strong></td>
+<td style="text-align: center;"><strong>5/12</strong></td>
+<td style="text-align: center;"><strong>0.003–0.80</strong></td>
+<td><strong>Partially rescued; 42% convergence</strong></td>
+</tr>
+<tr class="even">
 <td style="text-align: center;">15–16</td>
 <td>n=300/600 (30k)</td>
 <td style="text-align: center;">30k</td>
@@ -1311,7 +1550,7 @@ Note
 </table>
 </section>
 <section id="n_frames-is-the-dominant-lever-blocks-1516-21" class="level3">
-<h3 class="anchored" data-anchor-id="n_frames-is-the-dominant-lever-blocks-1516-21">12. n_frames Is the Dominant Lever (Blocks 15–16, 21)</h3>
+<h3 class="anchored" data-anchor-id="n_frames-is-the-dominant-lever-blocks-1516-21">15. n_frames Is the Dominant Lever (Blocks 15–16, 21)</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 16%">
@@ -1407,7 +1646,7 @@ Key Discovery
 <li><strong>Training params become non-critical</strong>: lr_W safe range widens; batch_size=16 safe; 1–2 epochs suffice</li>
 <li><strong>Optimal lr_W shifts lower</strong>: 3–5E-3 at 30k vs 1E-2 at 10k</li>
 </ol>
-<p><strong>Exceptions</strong>: sparse 50% (rho&lt;1), fill=80%, and n=1000 (needs more data)</p>
+<p><strong>Exceptions</strong>: sparse 50% (rho&lt;1), fill=80%/90%, g=1 (fixed-point collapse), and n=1000 (needs more data). g=2 is partially rescued (42% convergence at 30k)</p>
 </div>
 </div>
 </section>
@@ -1419,11 +1658,11 @@ Key Discovery
 </section>
 <div class="feature-grid">
 <section id="iterations" class="level3 feature-card">
-<h3 class="anchored" data-anchor-id="iterations">276 Iterations</h3>
-<p>Across 23 simulation regimes</p>
+<h3 class="anchored" data-anchor-id="iterations">336 Iterations</h3>
+<p>Across 28 simulation regimes</p>
 </section>
 <section id="principles" class="level3 feature-card">
-<h3 class="anchored" data-anchor-id="principles">65 Principles</h3>
+<h3 class="anchored" data-anchor-id="principles">~80 Principles</h3>
 <p>Novel findings with 45–100% confidence</p>
 </section>
 <section id="solved-regimes" class="level3 feature-card">
@@ -1431,8 +1670,8 @@ Key Discovery
 <p>100% convergence (chaotic, noise, n=200, n=200+4types, n=300/30k, n=600/30k, g=3/n=200/30k)</p>
 </section>
 <section id="structural-limits" class="level3 feature-card">
-<h3 class="anchored" data-anchor-id="structural-limits">2 Structural Limits</h3>
-<p>Sparse (rho&lt;1, conn~0.44) and fill=80% (conn=0.80)</p>
+<h3 class="anchored" data-anchor-id="structural-limits">3 Structural Limits</h3>
+<p>Sparse (rho&lt;1), fill&lt;100% (conn≈fill%), g=1 (fixed-point collapse)</p>
 </section>
 </div>
 </section>
@@ -1442,6 +1681,7 @@ Key Discovery
 <li><a href="./epistemic-analysis.html">Epistemic Analysis</a> — How these findings were discovered</li>
 <li><a href="./exploration-gallery.html">Exploration</a> — Visual record per block</li>
 <li><a href="./case-low-rank.html">Case Study: Low-Rank</a> — Dedicated low-rank exploration</li>
+<li><a href="./case-sparse.html">Case Study: Sparse</a> — Dedicated sparse exploration with code modifications</li>
 </ul>
 
 
@@ -2072,284 +2312,334 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="fu">## Current status</span></span>
 <span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>**276 iterations completed** across 23 regimes. n_frames=30k is the dominant lever for dense networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is also rescued by 30k frames. Two regimes remain structurally unsolvable: sparse 50% (subcritical rho=0.746, conn~0.44) and fill=80% (conn plateau at 0.802, immune to n_frames). n=1000 at 30k reaches conn=0.745 (needs ~100k frames). 65 principles established.</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>**336 iterations completed** across 28 regimes. n_frames=30k is the dominant lever for dense supercritical networks: n=300 and n=600 both achieve 100% convergence at 30k frames. Low gain (g=3) is rescued by 30k frames; g=2 is partially rescued (42% convergence at 30k). Three structural limits confirmed: subcritical spectral radius (sparse 50%, conn~0.44), partial connectivity ceiling (fill=80%/90%, conn ≈ filling_factor), and fixed-point collapse (g=1, eff_rank drops to 1 at 30k). The gain--eff_rank transition is sharp: g=1→5, g=2→17, g=3→26, g=7→35. n=1000 at 30k reaches conn=0.745 (needs ~100k frames). ~80 principles established.</span>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="fu">## Outcomes</span></span>
 <span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**n_frames is the dominant lever**: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical.</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**n_frames is the dominant lever**: Tripling n_frames from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. At sufficient n_frames, all training parameters become non-critical --- except when gain is too low (g≤2).</span>
 <span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Five difficulty axes identified**: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g=3), and partial connectivity (fill&lt;100%). Three are solvable by n_frames; two are structural limits.</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Six difficulty axes identified**: Subcritical spectral radius (sparse), parameter count scaling (large n), data abundance (n_frames), low gain (g≤3), partial connectivity (fill&lt;100%), and fixed-point collapse (g=1). Four are solvable by n_frames; two are structural limits; one is a new unsolvable axis.</span>
 <span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Two structural limits confirmed**: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k) and fill=80% (conn=0.802 at both 10k and 30k). For fill=80%, conn_ceiling $\approx$ filling_factor --- a linear relationship confirmed across fill=50%, 80%, and 100%.</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Three structural limits confirmed**: Sparse 50% (rho=0.746, conn~0.44 at both 10k and 30k), fill&lt;100% (conn_ceiling $\approx$ filling_factor --- confirmed across fill=50%, 80%, 90%, and 100%), and g=1 fixed-point collapse (eff_rank=5 at 10k, drops to 1 at 30k --- n_frames makes it worse).</span>
 <span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**eff_rank is necessary but not sufficient**: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse.</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**eff_rank is necessary but not sufficient**: High eff_rank does not guarantee recovery if spectral radius is subcritical (sparse+noise: eff_rank=91 but 0% convergence). n_frames doubles eff_rank for dense networks but has minimal effect on sparse and negative effect at g=1.</span>
 <span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**L1 effect is n-dependent, non-monotonic, and vanishes at high n_frames**: Critical at 1E-6 for low-rank/heterogeneous at n=100; harmful at n&lt;=200; beneficial at n=300/10k; harmful at n&gt;=600/10k. At 30k frames, L1 sensitivity disappears entirely.</span>
 <span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Scale shifts boundaries**: Convergence boundary, optimal lr_W, and lr tolerance all change non-linearly with n_neurons. At 30k frames, optimal lr_W shifts **lower** (5E-3 vs 1E-2 at 10k) because abundant data handles W while lower lr_W preserves MLP capacity.</span>
 <span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Low gain compounds with scale but is solvable**: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence).</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Low gain compounds with scale but is solvable (g≥2)**: g=3 reduces eff_rank from 35 to 26 (n=100) and eliminates the lr_W cliff. g=3/n=200 at 10k is universally degenerate (0% convergence), but 30k frames fully rescues it (100% convergence). g=2 requires inverse lr_W (5E-4, 100x lower than g=7) and is partially rescued at 30k (42% convergence).</span>
 <span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Partial connectivity creates a structural ceiling**: fill=80% gives conn_R^2^=0.802 with complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k frames. Unlike sparse 50%, there is no degeneracy --- the GNN correctly learns 80% of connections.</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Gain modulates eff_rank non-linearly**: The gain--eff_rank relationship shows a sharp transition: g=1→5, g=2→17 (+240%), g=3→26, g=7→35. A critical threshold exists at eff_rank~10 (between g=1 and g=2). Below this threshold, no amount of training or data helps.</span>
 <span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="ss">9. </span>**Degeneracy is a critical diagnostic**: 19/276 iterations (6.9%) show degeneracy. Two mechanisms: structural (subcritical spectral radius) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy.</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a><span class="ss">9. </span>**Partial connectivity creates a structural ceiling**: conn_ceiling $\approx$ filling_factor, confirmed at four points: fill=50%→0.49, fill=80%→0.80, fill=90%→0.91, fill=100%→1.00. Complete parameter insensitivity at fill&lt;100%, at both 10k and 30k frames.</span>
 <span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="ss">10. </span>**n=1000 at 30k is insufficient**: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs.</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a><span class="ss">10. </span>**g=1 is a new unsolvable axis (fixed-point collapse)**: At g=1, tanh saturates weak-gain dynamics into stable fixed points. eff_rank=5 at 10k drops to 1 at 30k --- the only regime where n_frames is anti-correlated with eff_rank. More severe than sparse 50%. Conn_R^2^&lt;0.02 regardless of training.</span>
 <span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a><span class="ss">11. </span>**Degeneracy is a critical diagnostic**: Two mechanisms: structural (subcritical spectral radius, g=1 fixed-point) and training-limited (fixable with more data/epochs). Abundant data (30k) eliminates training-limited degeneracy but amplifies g=1 degeneracy.</span>
 <span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="fu">## Regime Landscape — Partitioned by Neuron Count</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="ss">12. </span>**n=1000 at 30k is insufficient**: Max conn=0.745 at n=1000/30k (eff_rank=144). Needs ~100k frames. lr=1E-4 is Pareto-optimal at n=1000/30k; lr=2E-4 leads to overtraining at 10+ epochs.</span>
 <span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>Three panels separate the landscape by network scale (n=100, n=200--600, n=1000). Each data point shows the key mutation (parameter change) on hover.</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="in">```{=html}</span></span>
-<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a><span class="in">&lt;iframe src="assets/landscape_partitioned_interactive.html" width="100%" height="1450" style="border:none; border-radius:8px;"&gt;&lt;/iframe&gt;</span></span>
-<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a><span class="fu">## Regime Landscape — Partitioned by Neuron Count</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>Three panels separate the landscape by network scale (n=100, n=200--600, n=1000). Each data point shows the key mutation (parameter change) on hover.</span>
 <span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="fu">## Regime Summary</span></span>
-<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="fu">### Performance by Regime</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="in">```{=html}</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="in">&lt;iframe src="assets/landscape_partitioned_interactive.html" width="100%" height="1450" style="border:none; border-radius:8px;"&gt;&lt;/iframe&gt;</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | n_neurons | eff_rank | Convergence | Best conn_R^2^ | Key Finding |</span>
-<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>|:-----:|--------|:--------:|:---------:|----------|:-----------:|:---------------:|:------------|</span>
-<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic | 10k | 100 | ~35 | **92%** (11/12) | 0.9999 | lr_W=4E-3 sweet spot; lr=1E-4 optimal |</span>
-<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank (r=20) | 10k | 100 | ~12--14 | 75% (9/12) | 0.9997 | L1=1E-6 critical; lr_W=3E-3 |</span>
-<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>| 3 | Dale (50/50 E/I) | 10k | 100 | ~12 | 67% (8/12) | 0.986 | Sharp lr_W cliff at 5E-3 |</span>
-<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>| 4 | Heterogeneous (4 types) | 10k | 100 | ~38 | 17% FULL | 0.992 | Dual-objective; lr_emb=1E-3 critical |</span>
-<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>| 5 | Noise (0.1--1.0) | 10k | 100 | 42--90 | **100%** (12/12) | 1.000 | Noise inflates eff_rank |</span>
-<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>| 6 | Scale | 10k | 200 | ~41--43 | 67% (8/12) | 0.956 | Boundary shifts up; lr=3E-4 safe |</span>
-<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>| 7 | Sparse 50% | 10k | 100 | ~21 | **0%** (0/12) | 0.466 | Subcritical rho=0.746 |</span>
-<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>| 8 | Sparse+Noise | 10k | 100 | ~91 | **0%** (0/12) | 0.490 | Structural data limit |</span>
-<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 (1--2ep) | 10k | 300 | ~44--47 | **0%** (0/12) | 0.890 | n_epochs=2 breakthrough |</span>
-<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>| 10 | n=300 (2ep base) | 10k | 300 | ~44--47 | 25% (2/8) | 0.924 | L1=1E-6+3ep best |</span>
-<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>| 11 | n=200 v2 | 10k | 200 | ~40--43 | **100%** (12/12) | 0.994 | lr_W=8E-3 optimal |</span>
-<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>| 12 | n=600 | 10k | 600 | ~50 | **0%** (0/12) | 0.626 | Training-capacity-limited |</span>
-<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>| 13 | n=200 + 4 types | 10k | 200 | ~42--44 | **100%** conn | 0.991 | Full dual convergence |</span>
-<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>| 14 | Recurrent test | 10k | 200 | ~42--44 | 75% (3/4) | 0.993 | Conn-dynamics trade-off |</span>
-<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>| 15 | **n=300 (30k)** | **30k** | 300 | **79--80** | **100%** (12/12) | **1.000** | **n_frames: 25%--&gt;100%** |</span>
-<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>| 16 | **n=600 (30k)** | **30k** | 600 | **85--87** | **100%** (8/8) | **0.992** | **n_frames: 0%--&gt;100%** |</span>
-<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50% (30k)** | **30k** | 100 | **~13** | **0%** (0/12) | **0.436** | **30k FAILS; eff_rank DROPS** |</span>
-<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>| 18 | **n=1000 (30k)** | **30k** | 1000 | **~144** | **0%** (0/12) | **0.745** | **Needs ~100k frames** |</span>
-<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 n=100** | 10k | 100 | **~26** | 42% (5/12) | **0.955** | **Low gain: new difficulty axis** |</span>
-<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 n=200** | 10k | 200 | **~31** | **0%** (0/12) | **0.489** | **Gain x n compounds; universal degeneracy** |</span>
-<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3 n=200 (30k)** | **30k** | 200 | **~53--57** | **100%** (12/12) | **0.996** | **30k rescues g=3; all params non-critical** |</span>
-<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>| 22 | **fill=80%** | 10k | 100 | **~36** | **0%** (0/12) | **0.802** | **Conn plateau = filling_factor** |</span>
-<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>| 23 | **fill=80% (30k)** | **30k** | 100 | **~48--49** | **0%** (0/12) | **~0.802** | **30k FAILS; structural ceiling; 12/12 at 0.802** |</span>
-<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Discoveries</span></span>
-<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1. Five Independent Difficulty Axes</span></span>
-<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
-<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>Five independent axes determine regime difficulty. Three are solvable by data (n_frames); two are structural limits:</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="fu">## Regime Summary</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a><span class="fu">### Performance by Regime</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | n_neurons | eff_rank | Convergence | Best conn_R^2^ | Key Finding |</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>|:-----:|--------|:--------:|:---------:|----------|:-----------:|:---------------:|:------------|</span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic | 10k | 100 | ~35 | **92%** (11/12) | 0.9999 | lr_W=4E-3 sweet spot; lr=1E-4 optimal |</span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank (r=20) | 10k | 100 | ~12--14 | 75% (9/12) | 0.9997 | L1=1E-6 critical; lr_W=3E-3 |</span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>| 3 | Dale (50/50 E/I) | 10k | 100 | ~12 | 67% (8/12) | 0.986 | Sharp lr_W cliff at 5E-3 |</span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>| 4 | Heterogeneous (4 types) | 10k | 100 | ~38 | 17% FULL | 0.992 | Dual-objective; lr_emb=1E-3 critical |</span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>| 5 | Noise (0.1--1.0) | 10k | 100 | 42--90 | **100%** (12/12) | 1.000 | Noise inflates eff_rank |</span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>| 6 | Scale | 10k | 200 | ~41--43 | 67% (8/12) | 0.956 | Boundary shifts up; lr=3E-4 safe |</span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>| 7 | Sparse 50% | 10k | 100 | ~21 | **0%** (0/12) | 0.466 | Subcritical rho=0.746 |</span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>| 8 | Sparse+Noise | 10k | 100 | ~91 | **0%** (0/12) | 0.490 | Structural data limit |</span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 (1--2ep) | 10k | 300 | ~44--47 | **0%** (0/12) | 0.890 | n_epochs=2 breakthrough |</span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>| 10 | n=300 (2ep base) | 10k | 300 | ~44--47 | 25% (2/8) | 0.924 | L1=1E-6+3ep best |</span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>| 11 | n=200 v2 | 10k | 200 | ~40--43 | **100%** (12/12) | 0.994 | lr_W=8E-3 optimal |</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>| 12 | n=600 | 10k | 600 | ~50 | **0%** (0/12) | 0.626 | Training-capacity-limited |</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>| 13 | n=200 + 4 types | 10k | 200 | ~42--44 | **100%** conn | 0.991 | Full dual convergence |</span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>| 14 | Recurrent test | 10k | 200 | ~42--44 | 75% (3/4) | 0.993 | Conn-dynamics trade-off |</span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>| 15 | **n=300 (30k)** | **30k** | 300 | **79--80** | **100%** (12/12) | **1.000** | **n_frames: 25%--&gt;100%** |</span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>| 16 | **n=600 (30k)** | **30k** | 600 | **85--87** | **100%** (8/8) | **0.992** | **n_frames: 0%--&gt;100%** |</span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50% (30k)** | **30k** | 100 | **~13** | **0%** (0/12) | **0.436** | **30k FAILS; eff_rank DROPS** |</span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a>| 18 | **n=1000 (30k)** | **30k** | 1000 | **~144** | **0%** (0/12) | **0.745** | **Needs ~100k frames** |</span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 n=100** | 10k | 100 | **~26** | 42% (5/12) | **0.955** | **Low gain: new difficulty axis** |</span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 n=200** | 10k | 200 | **~31** | **0%** (0/12) | **0.489** | **Gain x n compounds; universal degeneracy** |</span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3 n=200 (30k)** | **30k** | 200 | **~53--57** | **100%** (12/12) | **0.996** | **30k rescues g=3; all params non-critical** |</span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>| 22 | **fill=80%** | 10k | 100 | **~36** | **0%** (0/12) | **0.802** | **Conn plateau = filling_factor** |</span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>| 23 | **fill=80% (30k)** | **30k** | 100 | **~48--49** | **0%** (0/12) | **~0.802** | **30k FAILS; structural ceiling; 12/12 at 0.802** |</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>| 24 | **fill=90%** | 10k | 100 | **~35--36** | **83%** (10/12) | **0.907** | **conn ≈ fill%; transitional regime; param insensitive** |</span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>| 25 | **g=1 (10k)** | 10k | 100 | **~5** | **0%** (0/12) | **0.007** | **Fixed-point collapse; hardest regime; eff_rank=5** |</span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>| 26 | **g=1 (30k)** | **30k** | 100 | **~1** | **0%** (0/12) | **0.018** | **eff_rank DROPS 5→1; 30k makes g=1 WORSE** |</span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>| 27 | **g=2 (10k)** | 10k | 100 | **~17** | **0%** (0/12) | **0.519** | **Inverse lr_W=5E-4; epoch scaling not diminishing** |</span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>| 28 | **g=2 (30k)** | **30k** | 100 | **~16** | **42%** (5/12) | **0.997** | **30k partially rescues; inverse lr_W persists** |</span>
 <span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>| Axis | Example | Solvable? | Mechanism |</span>
-<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>|------|---------|:---------:|-----------|</span>
-<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>| Subcritical spectral radius | Sparse 50% (rho=0.746) | **No** | rho &lt; 1 limits information flow; eff_rank drops at 30k |</span>
-<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>| Partial connectivity ceiling | fill=80% (rho=0.985) | **No** | conn_ceiling $\approx$ filling_factor; 30k has no effect |</span>
-<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>| Parameter count scaling | n=300, n=600 | **Yes** (30k) | More data reveals more signal dimensions |</span>
-<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>| Low gain | g=3 (eff_rank 35--&gt;26) | **Yes** (30k) | eff_rank recovers at 30k (+80%) |</span>
-<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>| Training capacity | n_epochs, lr_W tuning | **Yes** (30k) | At 30k all training params become non-critical |</span>
-<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Discoveries</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1. Six Independent Difficulty Axes</span></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>Six independent axes determine regime difficulty. Three are solvable by data (n_frames); three are structural limits:</span>
 <span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2. Effective Rank Is Necessary but Not Sufficient</span></span>
-<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | Regime | eff_rank | Spectral radius | Convergence | Interpretation |</span>
-<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|--------|:--------:|:---------------:|:-----------:|:---------------|</span>
-<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Noise=1.0 | 90 | &gt;1.0 | **100%** | High eff_rank + supercritical = easy |</span>
-<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Sparse+Noise | 91 | &lt;1.0 | **0%** | High eff_rank + subcritical = hard |</span>
-<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Chaotic | 35 | &gt;1.0 | **92%** | Medium eff_rank + supercritical = easy |</span>
-<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | fill=80% | 36 | 0.985 | **0%** | Medium eff_rank + near-critical = plateau |</span>
-<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Low-rank | 12 | ~1.0 | 75% | Low eff_rank + critical = recoverable |</span>
-<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | g=3 | 26 | &gt;1.0 | 42% | Reduced eff_rank + supercritical = harder |</span>
-<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>| 200 | 10k | g=3 | 31 | &gt;1.0 | **0%** | Low eff_rank + scale = training-limited |</span>
-<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>| 200 | **30k** | g=3 | **55** | &gt;1.0 | **100%** | **n_frames restores eff_rank** |</span>
-<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>| 300 | **30k** | Chaotic | **80** | 1.03 | **100%** | **n_frames doubles eff_rank** |</span>
-<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>| 600 | **30k** | Chaotic | **87** | 1.03 | **100%** | **n_frames transforms n=600** |</span>
-<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>| 1000 | **30k** | Chaotic | **144** | ~1.0 | **0%** | **Highest eff_rank but still insufficient** |</span>
-<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | Sparse | **13** | 0.746 | **0%** | **eff_rank DROPS; rho controls eff_rank** |</span>
-<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | fill=80% | **49** | 0.985 | **0%** | **eff_rank rises but conn stuck** |</span>
-<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3. "Easy Mode" --- Chaotic Baseline (n=100)</span></span>
-<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**n_neurons**: 100</span>
-<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**eff_rank**: ~35</span>
-<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Tolerance**: lr_W range 1.5E-3 to 8E-3 all converge</span>
-<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Sweet spot**: lr_W=4E-3 (conn_R^2^=0.9999, test_R^2^=0.996)</span>
-<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**lr=1E-4 is optimal**: increasing to 2E-4 or 3E-4 degrades dynamics</span>
-<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4. Low-Rank Breakthrough (n=100)</span></span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>| Axis | Example | Solvable? | Mechanism |</span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>|------|---------|:---------:|-----------|</span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>| Subcritical spectral radius | Sparse 50% (rho=0.746) | **No** | rho &lt; 1 limits information flow; eff_rank drops at 30k |</span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>| Partial connectivity ceiling | fill=80%/90% (rho~0.99) | **No** | conn_ceiling $\approx$ filling_factor; 30k has no effect |</span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a>| Fixed-point collapse | g=1 (eff_rank=5→1) | **No** | tanh saturates; eff_rank drops at 30k; hardest regime |</span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>| Parameter count scaling | n=300, n=600 | **Yes** (30k) | More data reveals more signal dimensions |</span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>| Low gain | g=2--3 (eff_rank 17--26) | **Yes** (30k) | g=3: 100% at 30k; g=2: 42% at 30k |</span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>| Training capacity | n_epochs, lr_W tuning | **Yes** (30k) | At 30k all training params become non-critical |</span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2. Effective Rank Is Necessary but Not Sufficient</span></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | Regime | eff_rank | Spectral radius | Convergence | Interpretation |</span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|--------|:--------:|:---------------:|:-----------:|:---------------|</span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Noise=1.0 | 90 | &gt;1.0 | **100%** | High eff_rank + supercritical = easy |</span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Sparse+Noise | 91 | &lt;1.0 | **0%** | High eff_rank + subcritical = hard |</span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Chaotic | 35 | &gt;1.0 | **92%** | Medium eff_rank + supercritical = easy |</span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | fill=80% | 36 | 0.985 | **0%** | Medium eff_rank + near-critical = plateau |</span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | Low-rank | 12 | ~1.0 | 75% | Low eff_rank + critical = recoverable |</span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | g=3 | 26 | &gt;1.0 | 42% | Reduced eff_rank + supercritical = harder |</span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>| 200 | 10k | g=3 | 31 | &gt;1.0 | **0%** | Low eff_rank + scale = training-limited |</span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>| 200 | **30k** | g=3 | **55** | &gt;1.0 | **100%** | **n_frames restores eff_rank** |</span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>| 300 | **30k** | Chaotic | **80** | 1.03 | **100%** | **n_frames doubles eff_rank** |</span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>| 600 | **30k** | Chaotic | **87** | 1.03 | **100%** | **n_frames transforms n=600** |</span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a>| 1000 | **30k** | Chaotic | **144** | ~1.0 | **0%** | **Highest eff_rank but still insufficient** |</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | Sparse | **13** | 0.746 | **0%** | **eff_rank DROPS; rho controls eff_rank** |</span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | fill=80% | **49** | 0.985 | **0%** | **eff_rank rises but conn stuck** |</span>
 <span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>Low-rank connectivity (eff_rank ~12) initially appeared much harder than chaotic, but a specific intervention unlocked near-chaotic performance:</span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3. "Easy Mode" --- Chaotic Baseline (n=100)</span></span>
 <span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="in">Block 2 Progress (n=100):</span></span>
-<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (dynamics poor)</span></span>
-<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (improved!)</span></span>
-<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (better lr_W)</span></span>
-<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)</span></span>
-<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**n_neurons**: 100</span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**eff_rank**: ~35</span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Tolerance**: lr_W range 1.5E-3 to 8E-3 all converge</span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**Sweet spot**: lr_W=4E-3 (conn_R^2^=0.9999, test_R^2^=0.996)</span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**lr=1E-4 is optimal**: increasing to 2E-4 or 3E-4 degrades dynamics</span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4. Low-Rank Breakthrough (n=100)</span></span>
 <span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
-<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>For low-rank regimes (n=100), **reducing L1 from 1E-5 to 1E-6** is the critical enabler for dynamics recovery. Combined with lr_W=3E-3, this achieves chaotic-baseline-level performance (test_R^2^=0.996) despite eff_rank=12.</span>
-<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a><span class="fu">### 5. Dale's Law Creates Sharp Cliff (n=100)</span></span>
-<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a>Dale's law (excitatory/inhibitory constraint) reduces eff_rank from 35 to 12 and introduces a sharp lr_W failure boundary:</span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>Low-rank connectivity (eff_rank ~12) initially appeared much harder than chaotic, but a specific intervention unlocked near-chaotic performance:</span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a><span class="in">Block 2 Progress (n=100):</span></span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (dynamics poor)</span></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (improved!)</span></span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (better lr_W)</span></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a><span class="in">Iter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
 <span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | lr_W | conn_R^2^ | Status |</span>
-<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|------|-----------|--------|</span>
-<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 3.5E-3 | 0.958 | Converged |</span>
-<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 4E-3 | 0.974 | Converged |</span>
-<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 4.5E-3 | 0.986 | **Best** |</span>
-<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 5E-3 | 0.458 | **FAILED** |</span>
-<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 6E-3 | 0.555 | **FAILED** |</span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>For low-rank regimes (n=100), **reducing L1 from 1E-5 to 1E-6** is the critical enabler for dynamics recovery. Combined with lr_W=3E-3, this achieves chaotic-baseline-level performance (test_R^2^=0.996) despite eff_rank=12.</span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a><span class="fu">### 5. Dale's Law Creates Sharp Cliff (n=100)</span></span>
 <span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a><span class="fu">### 6. Noise Is Data Augmentation (n=100)</span></span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>Dale's law (excitatory/inhibitory constraint) reduces eff_rank from 35 to 12 and introduces a sharp lr_W failure boundary:</span>
 <span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | noise_level | eff_rank | conn_R^2^ | Convergence |</span>
-<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|-------------|:--------:|-----------|:-----------:|</span>
-<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 0 | 35 | 0.999 | 92% |</span>
-<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 0.1 | 42 | 1.000 | **100%** |</span>
-<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 0.5 | 84 | 1.000 | **100%** |</span>
-<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 1.0 | 90 | 1.000 | **100%** |</span>
-<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a><span class="fu">### 7. Low Gain --- Independent Difficulty Axis (Blocks 19--21)</span></span>
-<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | gain | eff_rank | Convergence | Best conn | Key |</span>
-<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|:----:|:--------:|:-----------:|:---------:|:----|</span>
-<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 3 | 26 | 42% (5/12) | 0.955 | New axis; no lr_W cliff; 3ep minimum |</span>
-<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>| 200 | 10k | 3 | 31 | **0%** (0/12) | 0.489 | Gain x n compounds; universal degeneracy |</span>
-<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>| 200 | **30k** | 3 | **55** | **100%** (12/12) | **0.996** | **30k rescues; all params non-critical** |</span>
-<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
-<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
-<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a>Low gain (g=3) eliminates the lr_W cliff seen at g=7, but compounds with n_neurons to create severe difficulty (g=3/n=200/10k: 0% convergence with universal degeneracy). Unlike sparse connectivity, **30k frames fully rescues low gain** (0%--&gt;100% convergence), with eff_rank doubling from 31 to 55.</span>
-<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a><span class="fu">### 8. Partial Connectivity --- Structural Ceiling (Blocks 22--23)</span></span>
-<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | fill | eff_rank | rho | Best conn | Key |</span>
-<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|:----:|:--------:|:---:|:---------:|:----|</span>
-<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 50% | 21 | 0.746 | 0.466 | Subcritical; degenerate |</span>
-<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 80% | 36 | 0.985 | 0.802 | Near-critical; no degeneracy |</span>
-<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 100% | 35 | 1.065 | 0.999 | Supercritical; easy |</span>
-<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | 50% | **13** | 0.746 | 0.436 | **eff_rank DROPS; not rescued** |</span>
-<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | 80% | **49** | 0.985 | **0.802** | **eff_rank rises; conn stuck** |</span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | lr_W | conn_R^2^ | Status |</span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|------|-----------|--------|</span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 3.5E-3 | 0.958 | Converged |</span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 4E-3 | 0.974 | Converged |</span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 4.5E-3 | 0.986 | **Best** |</span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 5E-3 | 0.458 | **FAILED** |</span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 6E-3 | 0.555 | **FAILED** |</span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a><span class="fu">### 6. Noise Is Data Augmentation (n=100)</span></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | noise_level | eff_rank | conn_R^2^ | Convergence |</span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|-------------|:--------:|-----------|:-----------:|</span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 0 | 35 | 0.999 | 92% |</span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 0.1 | 42 | 1.000 | **100%** |</span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 0.5 | 84 | 1.000 | **100%** |</span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 1.0 | 90 | 1.000 | **100%** |</span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a><span class="fu">### 7. Low Gain --- Independent Difficulty Axis (Blocks 19--21)</span></span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | gain | eff_rank | Convergence | Best conn | Key |</span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|:----:|:--------:|:-----------:|:---------:|:----|</span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 3 | 26 | 42% (5/12) | 0.955 | New axis; no lr_W cliff; 3ep minimum |</span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a>| 200 | 10k | 3 | 31 | **0%** (0/12) | 0.489 | Gain x n compounds; universal degeneracy |</span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>| 200 | **30k** | 3 | **55** | **100%** (12/12) | **0.996** | **30k rescues; all params non-critical** |</span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>Low gain (g=3) eliminates the lr_W cliff seen at g=7, but compounds with n_neurons to create severe difficulty (g=3/n=200/10k: 0% convergence with universal degeneracy). Unlike sparse connectivity, **30k frames fully rescues low gain** (0%--&gt;100% convergence), with eff_rank doubling from 31 to 55.</span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a><span class="fu">## Structural Limit</span></span>
-<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>conn_ceiling $\approx$ filling_factor: fill=50%--&gt;conn~0.49, fill=80%--&gt;conn~0.80, fill=100%--&gt;conn~1.00. At fill=80%, complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k. The missing 20% of connections cannot be inferred from dynamics data regardless of volume.</span>
-<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a><span class="fu">### 9. Sparse Connectivity --- Confirmed Unsolvable (Blocks 7, 8, 17)</span></span>
-<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>| n_frames | eff_rank | Best conn | Degeneracy | Key |</span>
-<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a>|:--------:|:--------:|:---------:|:----------:|:----|</span>
-<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>| 10k | 21 | 0.466 | 12/12 | Universal degeneracy; rho=0.746 |</span>
-<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a>| 10k (noise) | 91 | 0.490 | 0/12 | Noise inflates eff_rank; no rescue |</span>
-<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a>| **30k** | **13** | **0.436** | **12/12** | **eff_rank DROPS (21--&gt;13); 30k useless** |</span>
-<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a><span class="fu">## Structural Limit</span></span>
-<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a>Sparse 50% at 30k is the ONLY regime where eff_rank **decreases** with more data (21--&gt;13). Subcritical spectral radius (rho=0.746) determines eff_rank, not data volume. Two-phase training provides marginal +15% but is insufficient. This regime requires architectural intervention.</span>
-<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a><span class="fu">### 10. n=1000 at 30k --- Insufficient Data (Block 18)</span></span>
-<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a>| n_epochs | lr | conn | test_R^2^ | Key |</span>
-<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a>|:--------:|:--:|:----:|:---------:|:----|</span>
-<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a>| 3 | 1E-4 | 0.666 | 0.795 | Baseline |</span>
-<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a>| 5 | 1E-4 | 0.726 | 0.820 | Steady improvement |</span>
-<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a>| 8 | 1E-4 | 0.745 | 0.829 | **Best** |</span>
-<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a>| 10 | 2E-4 | 0.716 | 0.588 | **Overtraining** |</span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a><span class="fu">### 8. Partial Connectivity --- Structural Ceiling (Blocks 22--23)</span></span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a>| n_neurons | n_frames | fill | eff_rank | rho | Best conn | Key |</span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>|:---------:|:--------:|:----:|:--------:|:---:|:---------:|:----|</span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 50% | 21 | 0.746 | 0.466 | Subcritical; degenerate |</span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 80% | 36 | 0.985 | 0.802 | Near-critical; no degeneracy |</span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a>| 100 | 10k | 100% | 35 | 1.065 | 0.999 | Supercritical; easy |</span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | 50% | **13** | 0.746 | 0.436 | **eff_rank DROPS; not rescued** |</span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | 80% | **49** | 0.985 | **0.802** | **eff_rank rises; conn stuck** |</span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a><span class="fu">## Structural Limit</span></span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a>conn_ceiling $\approx$ filling_factor: fill=50%--&gt;conn~0.49, fill=80%--&gt;conn~0.80, fill=100%--&gt;conn~1.00. At fill=80%, complete parameter insensitivity (lr_W, lr, L1, n_epochs, batch_size all irrelevant) at both 10k and 30k. The missing 20% of connections cannot be inferred from dynamics data regardless of volume.</span>
+<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a><span class="fu">### 9. Fixed-Point Collapse --- g=1 Unsolvable (Blocks 25--26)</span></span>
+<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>| n_frames | eff_rank | Best conn | Degeneracy | Key |</span>
+<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a>|:--------:|:--------:|:---------:|:----------:|:----|</span>
+<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a>| 10k | 5 | 0.007 | 12/12 | Flat-line dynamics; universal degeneracy |</span>
+<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a>| **30k** | **1** | **0.018** | **12/12** | **eff_rank DROPS (5→1); 30k makes it WORSE** |</span>
+<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a><span class="fu">## Structural Limit</span></span>
+<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a>g=1 produces fixed-point collapse: tanh saturates weak-gain dynamics into stable fixed points (flat lines). eff_rank=5 at 10k (catastrophically low) drops to 1 at 30k --- the only regime where n_frames is negatively correlated with eff_rank. Below the critical eff_rank threshold (~10), no amount of training or data helps. More severe than sparse 50%.</span>
+<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a>n=1000 at 30k reaches max conn=0.745 (eff_rank=144). lr=1E-4 is Pareto-optimal; lr=2E-4 causes overtraining at 10+ epochs. Scaling from n=600/30k: eff_rank increases superlinearly (87--&gt;144) but data is insufficient. Needs ~100k frames based on the pattern.</span>
-<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a><span class="fu">### 11. Degeneracy --- When Dynamics Quality Misleads</span></span>
-<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | Degenerate iters | Max gap | Mechanism |</span>
-<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a>|:-----:|--------|:--------:|:----------------:|:-------:|-----------|</span>
-<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic n=100 | 10k | 0/12 | 0.15 | Healthy |</span>
-<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank n=100 | 10k | 1/12 | 0.45 | Stochastic at lr_W=5E-3 |</span>
-<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a>| 3 | Dale law n=100 | 10k | 4/12 | 0.53 | lr_W above Dale cliff |</span>
-<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a>| 7 | **Sparse 50%** | 10k | **12/12** | **0.82** | **Universal --- subcritical rho** |</span>
-<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 1ep | 10k | 2/12 | 0.38 | Training-limited |</span>
-<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50%** | **30k** | **12/12** | **~0.80** | **Still universal at 30k** |</span>
-<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 n=100** | 10k | **4/12** | **0.75** | **Low gain at 1ep** |</span>
-<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 n=200** | 10k | **12/12** | **~0.70** | **Gain x n = universal degeneracy** |</span>
-<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3 n=200 (30k)** | **30k** | **0/12** | **0.01** | **30k eliminates degeneracy** |</span>
-<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a>| 22 | fill=80% | 10k | 0/12 | 0.20 | **Not degenerate** (conn stuck) |</span>
-<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a>| 15--16 | n=300/600 (30k) | 30k | 0/20 | -0.01 | Abundant data eliminates |</span>
-<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a><span class="fu">### 12. n_frames Is the Dominant Lever (Blocks 15--16, 21)</span></span>
-<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a>| n_neurons | gain | n_frames | eff_rank | Convergence | Best conn | Key |</span>
-<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a>|:---------:|:----:|:--------:|:--------:|:-----------:|:---------:|:----|</span>
-<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a>| 300 | 7 | 10k | 47 | 25% (3--4ep) | 0.924 | Training-sensitive |</span>
-<span id="cb2-237"><a href="#cb2-237" aria-hidden="true" tabindex="-1"></a>| 300 | 7 | **30k** | **80** | **100%** (even 1ep) | **1.000** | All params non-critical |</span>
-<span id="cb2-238"><a href="#cb2-238" aria-hidden="true" tabindex="-1"></a>| 600 | 7 | 10k | 50 | 0% (10ep) | 0.626 | Data-limited |</span>
-<span id="cb2-239"><a href="#cb2-239" aria-hidden="true" tabindex="-1"></a>| 600 | 7 | **30k** | **87** | **100%** (2--4ep) | **0.992** | Solved |</span>
-<span id="cb2-240"><a href="#cb2-240" aria-hidden="true" tabindex="-1"></a>| 200 | 3 | 10k | 31 | 0% | 0.489 | Gain x n |</span>
-<span id="cb2-241"><a href="#cb2-241" aria-hidden="true" tabindex="-1"></a>| 200 | 3 | **30k** | **55** | **100%** (12/12) | **0.996** | **Gain rescued** |</span>
-<span id="cb2-242"><a href="#cb2-242" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-243"><a href="#cb2-243" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb2-244"><a href="#cb2-244" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Discovery</span></span>
-<span id="cb2-245"><a href="#cb2-245" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-246"><a href="#cb2-246" aria-hidden="true" tabindex="-1"></a>n_frames=30k transforms the training landscape for dense supercritical networks:</span>
-<span id="cb2-247"><a href="#cb2-247" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-248"><a href="#cb2-248" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**eff_rank doubles**: n=300: 47--&gt;80; n=600: 50--&gt;87; g=3/n=200: 31--&gt;55</span>
-<span id="cb2-249"><a href="#cb2-249" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Convergence universalizes**: n=300 (25%--&gt;100%), n=600 (0%--&gt;100%), g=3/n=200 (0%--&gt;100%)</span>
-<span id="cb2-250"><a href="#cb2-250" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Training params become non-critical**: lr_W safe range widens; batch_size=16 safe; 1--2 epochs suffice</span>
-<span id="cb2-251"><a href="#cb2-251" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Optimal lr_W shifts lower**: 3--5E-3 at 30k vs 1E-2 at 10k</span>
-<span id="cb2-252"><a href="#cb2-252" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-253"><a href="#cb2-253" aria-hidden="true" tabindex="-1"></a>**Exceptions**: sparse 50% (rho&lt;1), fill=80%, and n=1000 (needs more data)</span>
-<span id="cb2-254"><a href="#cb2-254" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a><span class="fu">### 10. g=2 --- Inverse lr_W Regime (Blocks 27--28)</span></span>
+<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a>| n_frames | eff_rank | Best conn | Convergence | Key |</span>
+<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a>|:--------:|:--------:|:---------:|:-----------:|:----|</span>
+<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a>| 10k | 17 | 0.519 | 0% (0/12) | Inverse lr_W=5E-4 (100x lower than g=7) |</span>
+<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a>| **30k** | **16** | **0.997** | **42%** (5/12) | **Partially rescued; inverse lr_W persists; eff_rank flat** |</span>
+<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
+<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
+<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a>g=2 sits above the critical eff_rank threshold (17 &gt; 10) and is partially rescued by 30k frames (0%→42% convergence). However, it requires **inverse lr_W** (~5E-4, 100x lower than g=7's 4E-3) --- a structural property that persists at 30k. Epoch scaling is not diminishing at g=2 (5ep→0.356, 8ep→0.397, 12ep→0.519 at 10k). At 30k/8ep, the Pareto-optimal config reaches conn=0.997.</span>
+<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a><span class="fu">### 11. fill=90% --- Transitional Regime (Block 24)</span></span>
+<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a>| n_frames | eff_rank | rho | Best conn | Convergence | Key |</span>
+<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a>|:--------:|:--------:|:---:|:---------:|:-----------:|:----|</span>
+<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a>| 10k | 35--36 | 0.995 | 0.907 | 83% (10/12) | conn ≈ fill%; above R^2^=0.9 convergence boundary |</span>
+<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a>The fill=90% regime extends the conn_ceiling $\approx$ filling_factor relationship to a fourth data point: fill=50%→0.49, fill=80%→0.80, fill=90%→0.91, fill=100%→1.00. Unlike fill=80%, the 90% regime crosses the R^2^&gt;0.9 convergence threshold, making it a transitional regime.</span>
+<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a><span class="fu">### 12. Sparse Connectivity --- Confirmed Unsolvable (Blocks 7, 8, 17)</span></span>
+<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a>| n_frames | eff_rank | Best conn | Degeneracy | Key |</span>
+<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a>|:--------:|:--------:|:---------:|:----------:|:----|</span>
+<span id="cb2-237"><a href="#cb2-237" aria-hidden="true" tabindex="-1"></a>| 10k | 21 | 0.466 | 12/12 | Universal degeneracy; rho=0.746 |</span>
+<span id="cb2-238"><a href="#cb2-238" aria-hidden="true" tabindex="-1"></a>| 10k (noise) | 91 | 0.490 | 0/12 | Noise inflates eff_rank; no rescue |</span>
+<span id="cb2-239"><a href="#cb2-239" aria-hidden="true" tabindex="-1"></a>| **30k** | **13** | **0.436** | **12/12** | **eff_rank DROPS (21--&gt;13); 30k useless** |</span>
+<span id="cb2-240"><a href="#cb2-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-241"><a href="#cb2-241" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb2-242"><a href="#cb2-242" aria-hidden="true" tabindex="-1"></a><span class="fu">## Structural Limit</span></span>
+<span id="cb2-243"><a href="#cb2-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-244"><a href="#cb2-244" aria-hidden="true" tabindex="-1"></a>Sparse 50% at 30k is the ONLY regime where eff_rank **decreases** with more data (21--&gt;13). Subcritical spectral radius (rho=0.746) determines eff_rank, not data volume. Two-phase training provides marginal +15% but is insufficient. This regime requires architectural intervention.</span>
+<span id="cb2-245"><a href="#cb2-245" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-246"><a href="#cb2-246" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-247"><a href="#cb2-247" aria-hidden="true" tabindex="-1"></a><span class="fu">### 13. n=1000 at 30k --- Insufficient Data (Block 18)</span></span>
+<span id="cb2-248"><a href="#cb2-248" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-249"><a href="#cb2-249" aria-hidden="true" tabindex="-1"></a>| n_epochs | lr | conn | test_R^2^ | Key |</span>
+<span id="cb2-250"><a href="#cb2-250" aria-hidden="true" tabindex="-1"></a>|:--------:|:--:|:----:|:---------:|:----|</span>
+<span id="cb2-251"><a href="#cb2-251" aria-hidden="true" tabindex="-1"></a>| 3 | 1E-4 | 0.666 | 0.795 | Baseline |</span>
+<span id="cb2-252"><a href="#cb2-252" aria-hidden="true" tabindex="-1"></a>| 5 | 1E-4 | 0.726 | 0.820 | Steady improvement |</span>
+<span id="cb2-253"><a href="#cb2-253" aria-hidden="true" tabindex="-1"></a>| 8 | 1E-4 | 0.745 | 0.829 | **Best** |</span>
+<span id="cb2-254"><a href="#cb2-254" aria-hidden="true" tabindex="-1"></a>| 10 | 2E-4 | 0.716 | 0.588 | **Overtraining** |</span>
 <span id="cb2-255"><a href="#cb2-255" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-256"><a href="#cb2-256" aria-hidden="true" tabindex="-1"></a><span class="fu">## Summary Statistics</span></span>
-<span id="cb2-257"><a href="#cb2-257" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-258"><a href="#cb2-258" aria-hidden="true" tabindex="-1"></a><span class="fu">### Overall Performance</span></span>
+<span id="cb2-256"><a href="#cb2-256" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb2-257"><a href="#cb2-257" aria-hidden="true" tabindex="-1"></a>n=1000 at 30k reaches max conn=0.745 (eff_rank=144). lr=1E-4 is Pareto-optimal; lr=2E-4 causes overtraining at 10+ epochs. Scaling from n=600/30k: eff_rank increases superlinearly (87--&gt;144) but data is insufficient. Needs ~100k frames based on the pattern.</span>
+<span id="cb2-258"><a href="#cb2-258" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb2-259"><a href="#cb2-259" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-260"><a href="#cb2-260" aria-hidden="true" tabindex="-1"></a>::: {.feature-grid}</span>
+<span id="cb2-260"><a href="#cb2-260" aria-hidden="true" tabindex="-1"></a><span class="fu">### 14. Degeneracy --- When Dynamics Quality Misleads</span></span>
 <span id="cb2-261"><a href="#cb2-261" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-262"><a href="#cb2-262" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
-<span id="cb2-263"><a href="#cb2-263" aria-hidden="true" tabindex="-1"></a><span class="fu">### 276 Iterations</span></span>
-<span id="cb2-264"><a href="#cb2-264" aria-hidden="true" tabindex="-1"></a>Across 23 simulation regimes</span>
-<span id="cb2-265"><a href="#cb2-265" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-266"><a href="#cb2-266" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-267"><a href="#cb2-267" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
-<span id="cb2-268"><a href="#cb2-268" aria-hidden="true" tabindex="-1"></a><span class="fu">### 65 Principles</span></span>
-<span id="cb2-269"><a href="#cb2-269" aria-hidden="true" tabindex="-1"></a>Novel findings with 45--100% confidence</span>
-<span id="cb2-270"><a href="#cb2-270" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-271"><a href="#cb2-271" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-272"><a href="#cb2-272" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
-<span id="cb2-273"><a href="#cb2-273" aria-hidden="true" tabindex="-1"></a><span class="fu">### 9 Solved Regimes</span></span>
-<span id="cb2-274"><a href="#cb2-274" aria-hidden="true" tabindex="-1"></a>100% convergence (chaotic, noise, n=200, n=200+4types, n=300/30k, n=600/30k, g=3/n=200/30k)</span>
-<span id="cb2-275"><a href="#cb2-275" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-276"><a href="#cb2-276" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-277"><a href="#cb2-277" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
-<span id="cb2-278"><a href="#cb2-278" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2 Structural Limits</span></span>
-<span id="cb2-279"><a href="#cb2-279" aria-hidden="true" tabindex="-1"></a>Sparse (rho&lt;1, conn~0.44) and fill=80% (conn=0.80)</span>
-<span id="cb2-280"><a href="#cb2-280" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-281"><a href="#cb2-281" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-282"><a href="#cb2-282" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-284"><a href="#cb2-284" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Steps</span></span>
-<span id="cb2-285"><a href="#cb2-285" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-286"><a href="#cb2-286" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Epistemic Analysis</span><span class="co">](epistemic-analysis.qmd)</span> --- How these findings were discovered</span>
-<span id="cb2-287"><a href="#cb2-287" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Exploration</span><span class="co">](exploration-gallery.qmd)</span> --- Visual record per block</span>
-<span id="cb2-288"><a href="#cb2-288" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Case Study: Low-Rank</span><span class="co">](case-low-rank.qmd)</span> --- Dedicated low-rank exploration</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb2-262"><a href="#cb2-262" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | Degenerate iters | Max gap | Mechanism |</span>
+<span id="cb2-263"><a href="#cb2-263" aria-hidden="true" tabindex="-1"></a>|:-----:|--------|:--------:|:----------------:|:-------:|-----------|</span>
+<span id="cb2-264"><a href="#cb2-264" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic n=100 | 10k | 0/12 | 0.15 | Healthy |</span>
+<span id="cb2-265"><a href="#cb2-265" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank n=100 | 10k | 1/12 | 0.45 | Stochastic at lr_W=5E-3 |</span>
+<span id="cb2-266"><a href="#cb2-266" aria-hidden="true" tabindex="-1"></a>| 3 | Dale law n=100 | 10k | 4/12 | 0.53 | lr_W above Dale cliff |</span>
+<span id="cb2-267"><a href="#cb2-267" aria-hidden="true" tabindex="-1"></a>| 7 | **Sparse 50%** | 10k | **12/12** | **0.82** | **Universal --- subcritical rho** |</span>
+<span id="cb2-268"><a href="#cb2-268" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 1ep | 10k | 2/12 | 0.38 | Training-limited |</span>
+<span id="cb2-269"><a href="#cb2-269" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50%** | **30k** | **12/12** | **~0.80** | **Still universal at 30k** |</span>
+<span id="cb2-270"><a href="#cb2-270" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 n=100** | 10k | **4/12** | **0.75** | **Low gain at 1ep** |</span>
+<span id="cb2-271"><a href="#cb2-271" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 n=200** | 10k | **12/12** | **~0.70** | **Gain x n = universal degeneracy** |</span>
+<span id="cb2-272"><a href="#cb2-272" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3 n=200 (30k)** | **30k** | **0/12** | **0.01** | **30k eliminates degeneracy** |</span>
+<span id="cb2-273"><a href="#cb2-273" aria-hidden="true" tabindex="-1"></a>| 22 | fill=80% | 10k | 0/12 | 0.20 | **Not degenerate** (conn stuck) |</span>
+<span id="cb2-274"><a href="#cb2-274" aria-hidden="true" tabindex="-1"></a>| 24 | fill=90% | 10k | 0/12 | 0.09 | **Not degenerate** (conn stuck at 0.907) |</span>
+<span id="cb2-275"><a href="#cb2-275" aria-hidden="true" tabindex="-1"></a>| 25 | **g=1 n=100** | 10k | **12/12** | **~0.99** | **Fixed-point collapse; flat-line dynamics** |</span>
+<span id="cb2-276"><a href="#cb2-276" aria-hidden="true" tabindex="-1"></a>| 26 | **g=1 n=100 (30k)** | **30k** | **12/12** | **~0.99** | **30k amplifies degeneracy; eff_rank→1** |</span>
+<span id="cb2-277"><a href="#cb2-277" aria-hidden="true" tabindex="-1"></a>| 27 | **g=2 n=100** | 10k | **12/12** | **0.48--0.90** | **Low gain; inverse lr_W needed** |</span>
+<span id="cb2-278"><a href="#cb2-278" aria-hidden="true" tabindex="-1"></a>| 28 | **g=2 n=100 (30k)** | **30k** | **5/12** | **0.003--0.80** | **Partially rescued; 42% convergence** |</span>
+<span id="cb2-279"><a href="#cb2-279" aria-hidden="true" tabindex="-1"></a>| 15--16 | n=300/600 (30k) | 30k | 0/20 | -0.01 | Abundant data eliminates |</span>
+<span id="cb2-280"><a href="#cb2-280" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-281"><a href="#cb2-281" aria-hidden="true" tabindex="-1"></a><span class="fu">### 15. n_frames Is the Dominant Lever (Blocks 15--16, 21)</span></span>
+<span id="cb2-282"><a href="#cb2-282" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a>| n_neurons | gain | n_frames | eff_rank | Convergence | Best conn | Key |</span>
+<span id="cb2-284"><a href="#cb2-284" aria-hidden="true" tabindex="-1"></a>|:---------:|:----:|:--------:|:--------:|:-----------:|:---------:|:----|</span>
+<span id="cb2-285"><a href="#cb2-285" aria-hidden="true" tabindex="-1"></a>| 300 | 7 | 10k | 47 | 25% (3--4ep) | 0.924 | Training-sensitive |</span>
+<span id="cb2-286"><a href="#cb2-286" aria-hidden="true" tabindex="-1"></a>| 300 | 7 | **30k** | **80** | **100%** (even 1ep) | **1.000** | All params non-critical |</span>
+<span id="cb2-287"><a href="#cb2-287" aria-hidden="true" tabindex="-1"></a>| 600 | 7 | 10k | 50 | 0% (10ep) | 0.626 | Data-limited |</span>
+<span id="cb2-288"><a href="#cb2-288" aria-hidden="true" tabindex="-1"></a>| 600 | 7 | **30k** | **87** | **100%** (2--4ep) | **0.992** | Solved |</span>
+<span id="cb2-289"><a href="#cb2-289" aria-hidden="true" tabindex="-1"></a>| 200 | 3 | 10k | 31 | 0% | 0.489 | Gain x n |</span>
+<span id="cb2-290"><a href="#cb2-290" aria-hidden="true" tabindex="-1"></a>| 200 | 3 | **30k** | **55** | **100%** (12/12) | **0.996** | **Gain rescued** |</span>
+<span id="cb2-291"><a href="#cb2-291" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-292"><a href="#cb2-292" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb2-293"><a href="#cb2-293" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Discovery</span></span>
+<span id="cb2-294"><a href="#cb2-294" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-295"><a href="#cb2-295" aria-hidden="true" tabindex="-1"></a>n_frames=30k transforms the training landscape for dense supercritical networks:</span>
+<span id="cb2-296"><a href="#cb2-296" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-297"><a href="#cb2-297" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**eff_rank doubles**: n=300: 47--&gt;80; n=600: 50--&gt;87; g=3/n=200: 31--&gt;55</span>
+<span id="cb2-298"><a href="#cb2-298" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Convergence universalizes**: n=300 (25%--&gt;100%), n=600 (0%--&gt;100%), g=3/n=200 (0%--&gt;100%)</span>
+<span id="cb2-299"><a href="#cb2-299" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Training params become non-critical**: lr_W safe range widens; batch_size=16 safe; 1--2 epochs suffice</span>
+<span id="cb2-300"><a href="#cb2-300" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Optimal lr_W shifts lower**: 3--5E-3 at 30k vs 1E-2 at 10k</span>
+<span id="cb2-301"><a href="#cb2-301" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-302"><a href="#cb2-302" aria-hidden="true" tabindex="-1"></a>**Exceptions**: sparse 50% (rho&lt;1), fill=80%/90%, g=1 (fixed-point collapse), and n=1000 (needs more data). g=2 is partially rescued (42% convergence at 30k)</span>
+<span id="cb2-303"><a href="#cb2-303" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-304"><a href="#cb2-304" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-305"><a href="#cb2-305" aria-hidden="true" tabindex="-1"></a><span class="fu">## Summary Statistics</span></span>
+<span id="cb2-306"><a href="#cb2-306" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-307"><a href="#cb2-307" aria-hidden="true" tabindex="-1"></a><span class="fu">### Overall Performance</span></span>
+<span id="cb2-308"><a href="#cb2-308" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-309"><a href="#cb2-309" aria-hidden="true" tabindex="-1"></a>::: {.feature-grid}</span>
+<span id="cb2-310"><a href="#cb2-310" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-311"><a href="#cb2-311" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
+<span id="cb2-312"><a href="#cb2-312" aria-hidden="true" tabindex="-1"></a><span class="fu">### 336 Iterations</span></span>
+<span id="cb2-313"><a href="#cb2-313" aria-hidden="true" tabindex="-1"></a>Across 28 simulation regimes</span>
+<span id="cb2-314"><a href="#cb2-314" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-315"><a href="#cb2-315" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-316"><a href="#cb2-316" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
+<span id="cb2-317"><a href="#cb2-317" aria-hidden="true" tabindex="-1"></a><span class="fu">### ~80 Principles</span></span>
+<span id="cb2-318"><a href="#cb2-318" aria-hidden="true" tabindex="-1"></a>Novel findings with 45--100% confidence</span>
+<span id="cb2-319"><a href="#cb2-319" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-320"><a href="#cb2-320" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-321"><a href="#cb2-321" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
+<span id="cb2-322"><a href="#cb2-322" aria-hidden="true" tabindex="-1"></a><span class="fu">### 9 Solved Regimes</span></span>
+<span id="cb2-323"><a href="#cb2-323" aria-hidden="true" tabindex="-1"></a>100% convergence (chaotic, noise, n=200, n=200+4types, n=300/30k, n=600/30k, g=3/n=200/30k)</span>
+<span id="cb2-324"><a href="#cb2-324" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-325"><a href="#cb2-325" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-326"><a href="#cb2-326" aria-hidden="true" tabindex="-1"></a>::: {.feature-card}</span>
+<span id="cb2-327"><a href="#cb2-327" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3 Structural Limits</span></span>
+<span id="cb2-328"><a href="#cb2-328" aria-hidden="true" tabindex="-1"></a>Sparse (rho&lt;1), fill&lt;100% (conn≈fill%), g=1 (fixed-point collapse)</span>
+<span id="cb2-329"><a href="#cb2-329" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-330"><a href="#cb2-330" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-331"><a href="#cb2-331" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb2-332"><a href="#cb2-332" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-333"><a href="#cb2-333" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Steps</span></span>
+<span id="cb2-334"><a href="#cb2-334" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-335"><a href="#cb2-335" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Epistemic Analysis</span><span class="co">](epistemic-analysis.qmd)</span> --- How these findings were discovered</span>
+<span id="cb2-336"><a href="#cb2-336" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Exploration</span><span class="co">](exploration-gallery.qmd)</span> --- Visual record per block</span>
+<span id="cb2-337"><a href="#cb2-337" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Case Study: Low-Rank</span><span class="co">](case-low-rank.qmd)</span> --- Dedicated low-rank exploration</span>
+<span id="cb2-338"><a href="#cb2-338" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Case Study: Sparse</span><span class="co">](case-sparse.qmd)</span> --- Dedicated sparse exploration with code modifications</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

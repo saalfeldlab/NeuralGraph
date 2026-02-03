@@ -172,6 +172,13 @@ Step B: Choose strategy
 | new recipe beats old at 2+ seeds | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality |
 | same config gives R2 range > 0.05 across runs | **variance-reduction** | Test recipe at new seed or with different aug/epochs to find lower-variance variant |
 | all primary params exhausted, variance > 0.01 | **batch-size-sweep** | Test batch_size=8 at best per-seed configs — different batch size changes optimization trajectory and may reduce variance |
+| best seed R2 > 0.995 and worst seed R2 < 0.99 | **seed-gap-close** | At the weaker seed, try coeff_edge_diff>10000, batch_size=16, or training_single_type=False to close the gap |
+| L1 changes tested at 3+ seeds with degradation | **L1-lock** | Stop testing L1 values between 1E-6 and 1E-5 for non-99 seeds — the L1 landscape is a cliff, not a gradient |
+| new weak seed found (R2 < 0.90) | **weak-seed-lr_W-sweep** | Sweep lr_W at [3E-3, 4E-3, 6E-3, 7E-3, 8E-3] + test L1=1E-6 at this seed — prior pattern: each weak seed has a unique lr_W or L1 optimum |
+| 6+ seeds tested with per-seed optima found | **recipe-catalogue** | Stop searching for universal recipe — catalogue per-seed optima and test robustness at new seeds to expand coverage |
+| lr_W peak localized to 1E-3 range at a seed | **peak-refine** | Test ±0.5E-3 around peak lr_W to see if finer tuning helps — only if test_R2 < 0.995 at peak |
+| all 7+ seeds ≥0.985 with per-seed tuning | **new-seed-stress** | Test at fresh seeds (e.g., 1000, 2000) using default recipe first, then per-seed tuning if needed — measure recipe transfer |
+| 6+ attempts at a seed all R2<0.9 | **radical-rescue** | Try extreme interventions: n_epochs=3+, lr_W≤2E-3, lr=5E-5, n_epochs_init=0, or declare seed unlearnable and move on |
 
 ### Step 5: Edit Config File
 

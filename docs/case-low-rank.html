@@ -175,6 +175,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <a class="dropdown-item" href="./case-low-rank.html">
  <span class="dropdown-text">Low-Rank Connectivity</span></a>
   </li>  
+        <li>
+    <a class="dropdown-item" href="./case-sparse.html">
+ <span class="dropdown-text">Sparse Connectivity</span></a>
+  </li>  
     </ul>
   </li>
   <li class="nav-item">
@@ -217,7 +221,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#connectivity-and-activity" id="toc-connectivity-and-activity" class="nav-link" data-scroll-target="#connectivity-and-activity">Connectivity and Activity</a></li>
   <li><a href="#degeneracy-analysis" id="toc-degeneracy-analysis" class="nav-link" data-scroll-target="#degeneracy-analysis">Degeneracy Analysis</a></li>
   <li><a href="#open-questions-dedicated-exploration" id="toc-open-questions-dedicated-exploration" class="nav-link" data-scroll-target="#open-questions-dedicated-exploration">Open Questions → Dedicated Exploration</a></li>
-  <li><a href="#dedicated-low-rank-exploration-64-iterations" id="toc-dedicated-low-rank-exploration-64-iterations" class="nav-link" data-scroll-target="#dedicated-low-rank-exploration-64-iterations">Dedicated Low-Rank Exploration (64 iterations)</a>
+  <li><a href="#dedicated-low-rank-exploration-60-iterations" id="toc-dedicated-low-rank-exploration-60-iterations" class="nav-link" data-scroll-target="#dedicated-low-rank-exploration-60-iterations">Dedicated Low-Rank Exploration (60+ iterations)</a>
   <ul class="collapse">
   <li><a href="#per-seed-best-configurations" id="toc-per-seed-best-configurations" class="nav-link" data-scroll-target="#per-seed-best-configurations">Per-Seed Best Configurations</a></li>
   <li><a href="#block-by-block-progression" id="toc-block-by-block-progression" class="nav-link" data-scroll-target="#block-by-block-progression">Block-by-Block Progression</a></li>
@@ -238,7 +242,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
 <div class="quarto-title-block"><div><h1 class="title">Case Study: Low-Rank Connectivity</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
-<p class="subtitle lead">Recovering W from rank-20 neural dynamics — 64 iterations of dedicated LLM-guided exploration</p>
+<p class="subtitle lead">Recovering W from rank-20 neural dynamics — 60+ iterations of dedicated LLM-guided exploration</p>
 </div>
 
 
@@ -617,9 +621,9 @@ Iter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)</c
 <div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> GNN_LLM_parallel.py <span class="at">-o</span> generate_train_test_plot_Claude_cluster signal_low_rank iterations=120</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <hr>
 </section>
-<section id="dedicated-low-rank-exploration-64-iterations" class="level2">
-<h2 class="anchored" data-anchor-id="dedicated-low-rank-exploration-64-iterations">Dedicated Low-Rank Exploration (64 iterations)</h2>
-<p>The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. <strong>64 iterations across 6 blocks</strong> were completed, testing 4 different random seeds (137, 42, 99, 200).</p>
+<section id="dedicated-low-rank-exploration-60-iterations" class="level2">
+<h2 class="anchored" data-anchor-id="dedicated-low-rank-exploration-60-iterations">Dedicated Low-Rank Exploration (60+ iterations)</h2>
+<p>The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. <strong>60+ iterations across 5 completed blocks</strong> were completed, testing <strong>7 different random seeds</strong> (42, 137, 7, 99, 256, 314, 500).</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -630,86 +634,113 @@ Key Result
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>Zero degeneracy in 64/64 iterations.</strong> Connectivity recovery is essentially solved (conn_R<sup>2</sup> &gt; 0.999 in 63/64 iterations). The remaining challenge is seed-dependent lr_W tuning: optimal lr_W varies from 1E-3 to 2E-3 depending on the W realization.</p>
+<p><strong>Connectivity recovery is essentially solved</strong> (conn_R<sup>2</sup> &gt; 0.999 in nearly all iterations). The exploration refined the universal recipe template: lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W and L1 require per-seed tuning. The L1 landscape is a cliff, not a gradient: no useful intermediate values between 1E-6 and 1E-5.</p>
 </div>
 </div>
 <section id="per-seed-best-configurations" class="level3">
 <h3 class="anchored" data-anchor-id="per-seed-best-configurations">Per-Seed Best Configurations</h3>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 8%">
-<col style="width: 8%">
 <col style="width: 9%">
-<col style="width: 11%">
-<col style="width: 8%">
+<col style="width: 9%">
 <col style="width: 6%">
-<col style="width: 8%">
-<col style="width: 15%">
-<col style="width: 15%">
-<col style="width: 8%">
+<col style="width: 10%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 17%">
+<col style="width: 17%">
+<col style="width: 10%">
 </colgroup>
 <thead>
 <tr class="header">
 <th style="text-align: center;">Seed</th>
 <th style="text-align: center;">lr_W</th>
+<th style="text-align: center;">L1</th>
 <th style="text-align: center;">batch</th>
-<th style="text-align: center;">lr_emb</th>
 <th style="text-align: center;">n_ep</th>
-<th style="text-align: center;">aug</th>
 <th style="text-align: center;">init</th>
 <th style="text-align: center;">test_R<sup>2</sup></th>
 <th style="text-align: center;">conn_R<sup>2</sup></th>
-<th style="text-align: center;">Node</th>
+<th style="text-align: left;">Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: center;">137</td>
-<td style="text-align: center;">2E-3</td>
-<td style="text-align: center;">16</td>
-<td style="text-align: center;">5E-4</td>
+<td style="text-align: center;">42</td>
+<td style="text-align: center;">5E-3</td>
+<td style="text-align: center;">1E-5</td>
+<td style="text-align: center;">8</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;">200</td>
 <td style="text-align: center;">2</td>
-<td style="text-align: center;"><strong>0.9995</strong></td>
-<td style="text-align: center;">0.9999</td>
-<td style="text-align: center;">56</td>
+<td style="text-align: center;"><strong>0.998</strong></td>
+<td style="text-align: center;">1.000</td>
+<td style="text-align: left;">Best overall; fragile to perturbations</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;">42</td>
-<td style="text-align: center;">1.5E-3</td>
-<td style="text-align: center;">16</td>
-<td style="text-align: center;">5E-4</td>
-<td style="text-align: center;">3</td>
-<td style="text-align: center;">300</td>
-<td style="text-align: center;">3</td>
-<td style="text-align: center;"><strong>0.9996</strong></td>
-<td style="text-align: center;">1.0000</td>
-<td style="text-align: center;">47</td>
+<td style="text-align: center;">256</td>
+<td style="text-align: center;">6E-3</td>
+<td style="text-align: center;">1E-5</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><strong>0.994</strong></td>
+<td style="text-align: center;">1.000</td>
+<td style="text-align: left;">Sharply peaked lr_W (±0.5E-3 width)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">99</td>
-<td style="text-align: center;">1.5E-3</td>
-<td style="text-align: center;">16</td>
-<td style="text-align: center;">5E-4</td>
-<td style="text-align: center;">3</td>
-<td style="text-align: center;">300</td>
-<td style="text-align: center;">3</td>
-<td style="text-align: center;">0.9963</td>
-<td style="text-align: center;">1.0000</td>
-<td style="text-align: center;">43</td>
+<td style="text-align: center;">5E-3</td>
+<td style="text-align: center;">1E-6</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><strong>0.992</strong></td>
+<td style="text-align: center;">1.000</td>
+<td style="text-align: left;">Unique L1 requirement</td>
 </tr>
 <tr class="even">
-<td style="text-align: center;">200</td>
-<td style="text-align: center;">1E-3</td>
-<td style="text-align: center;">16</td>
-<td style="text-align: center;">5E-4</td>
+<td style="text-align: center;">500</td>
+<td style="text-align: center;">4E-3</td>
+<td style="text-align: center;">1E-6</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><strong>0.990</strong></td>
+<td style="text-align: center;">1.000</td>
+<td style="text-align: left;">Dual optimization (lr_W + L1)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">314</td>
+<td style="text-align: center;">5E-3</td>
+<td style="text-align: center;">1E-5</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><strong>0.990</strong></td>
+<td style="text-align: center;">1.000</td>
+<td style="text-align: left;">Default recipe works</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">137</td>
+<td style="text-align: center;">5E-3</td>
+<td style="text-align: center;">1E-5</td>
+<td style="text-align: center;">8</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><strong>0.989</strong></td>
+<td style="text-align: center;">1.000</td>
+<td style="text-align: left;">Baseline; robust to perturbations</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">7</td>
+<td style="text-align: center;">5E-3</td>
+<td style="text-align: center;">1E-5</td>
+<td style="text-align: center;">8</td>
 <td style="text-align: center;">3</td>
-<td style="text-align: center;">300</td>
-<td style="text-align: center;">3</td>
-<td style="text-align: center;">0.9967</td>
-<td style="text-align: center;">0.9999</td>
-<td style="text-align: center;">55</td>
+<td style="text-align: center;">2</td>
+<td style="text-align: center;"><strong>0.985</strong></td>
+<td style="text-align: center;">1.000</td>
+<td style="text-align: left;">n_epochs=3 helps</td>
 </tr>
 </tbody>
 </table>
@@ -739,42 +770,35 @@ Key Result
 <td style="text-align: center;">1–12</td>
 <td>lr_W, L1, lr sweep</td>
 <td style="text-align: center;">0.9994</td>
-<td style="text-align: left;">lr_W=2E-3 optimal for seed=137; lr_emb=5E-4 breaks 0.999 barrier</td>
+<td style="text-align: left;">lr_W=5E-3 optimal; seed=42 identified as best performer</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">2</td>
 <td style="text-align: center;">13–24</td>
-<td>Parameter perturbation</td>
+<td>Cross-seed validation</td>
 <td style="text-align: center;">0.9994</td>
-<td style="text-align: left;">Sharp peaks in parameter landscape — all perturbations degrade</td>
+<td style="text-align: left;">n_epochs=3 catastrophically hurts easy seeds (seed=42: -0.105)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">3</td>
 <td style="text-align: center;">25–36</td>
-<td>Cross-seed (seed=42)</td>
-<td style="text-align: center;">0.9994</td>
-<td style="text-align: left;">3ep+300aug is most seed-robust; seed=42 gap closed to 0.004</td>
+<td>L1 cross-seed testing</td>
+<td style="text-align: center;">0.9920</td>
+<td style="text-align: left;">L1=1E-6 transforms seed=99 but catastrophically breaks seed=137</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">4</td>
 <td style="text-align: center;">37–48</td>
-<td>Seeds 42, 99; init=3</td>
-<td style="text-align: center;"><strong>0.9996</strong></td>
-<td style="text-align: left;">lr_W=1.5E-3+init=3 near-universal for seeds 42/99</td>
+<td>seed=256, seed=314</td>
+<td style="text-align: center;"><strong>0.9940</strong></td>
+<td style="text-align: left;">seed=256 breakthrough via lr_W=6E-3 (sharply peaked)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: center;">5</td>
 <td style="text-align: center;">49–60</td>
-<td>Seed=200; lr_W tuning</td>
-<td style="text-align: center;">0.9997</td>
-<td style="text-align: left;">Optimal lr_W is seed-dependent: 200 needs 1E-3, not 1.5E-3</td>
-</tr>
-<tr class="even">
-<td style="text-align: center;">6</td>
-<td style="text-align: center;">61–64</td>
-<td>Variance reduction</td>
-<td style="text-align: center;">0.9995</td>
-<td style="text-align: left;">2ep+200aug replicates within 0.001 at seed=137</td>
+<td>seed=500 optimization</td>
+<td style="text-align: center;"><strong>0.9900</strong></td>
+<td style="text-align: left;">seed=500 rescued via lr_W=4E-3 + L1=1E-6 (0.880→0.990)</td>
 </tr>
 </tbody>
 </table>
@@ -942,7 +966,7 @@ Key Result
 </section>
 <section id="established-principles-dedicated-exploration" class="level2">
 <h2 class="anchored" data-anchor-id="established-principles-dedicated-exploration">Established Principles (Dedicated Exploration)</h2>
-<p>32 principles were established across the 6 blocks. Key findings:</p>
+<p>16 principles were established across 5 blocks. Key findings:</p>
 <div class="callout callout-style-default callout-important callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
@@ -953,7 +977,20 @@ Optimal lr_W is seed-dependent
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Harder W realizations need slower learning rates. Ordering: seed=200 (1E-3) &lt; seed=42/99 (1.5E-3) &lt; seed=137 (2E-3). The viable lr_W window is narrow for each seed (~0.3E-3 wide).</p>
+<p>Most seeds optimal at 5E-3, but seed=256 has exclusive peak at 6E-3 (±0.5E-3 width) and seed=500 requires 4E-3. Per-seed tuning closes the gap: all 7 seeds reach test_R<sup>2</sup>≥0.985 when optimally tuned.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+L1 landscape is a cliff, not a gradient
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>L1=1E-5 is optimal for strong seeds (42, 137, 256, 314). Weak seeds (99, 500) require L1=1E-6. But L1=1E-6 at seed=137 causes catastrophic collapse (conn_R<sup>2</sup>=0.319). No useful intermediate values exist between 1E-6 and 1E-5.</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
@@ -962,11 +999,11 @@ Optimal lr_W is seed-dependent
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-L1=1E-6 is a precise sweet spot
+Universal recipe template
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Both L1=1E-5 (dynamics degrade to ~0.92) and L1=5E-7 (test_R<sup>2</sup>=0.944) underperform. The optimal L1 is sharply at 1E-6.</p>
+<p>lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W (4E-3 to 6E-3) and L1 (1E-6 or 1E-5) require per-seed tuning.</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
@@ -975,11 +1012,11 @@ L1=1E-6 is a precise sweet spot
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-batch_size=16 + lr_emb=5E-4 is optimal
+Easy seeds are more fragile to perturbations
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>batch=8 works but batch=16 is better at optimal lr_emb. batch=32 is not viable (0.944). lr_emb has cliff-edge behavior: batch=16 optimal at 5E-4, batch=8 at 2.5E-4.</p>
+<p>seed=42 (best test_R<sup>2</sup>=0.998) degrades catastrophically with edge_diff=20000 (-0.120), n_epochs=3 (-0.105), or lr_W=6E-3 (-0.222). seed=137 is robust to the same perturbations.</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
@@ -988,11 +1025,11 @@ batch_size=16 + lr_emb=5E-4 is optimal
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-n_epochs_init=2–3 enables two-phase training
+batch_size=8 is essential
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Phase 1 (no L1) lets W start converging; phase 2 (L1=1E-6) refines dynamics. init=3 rescues suboptimal lr_W (seed=99: 0.909 to 0.996) but causes overtraining at 4 epochs.</p>
+<p>batch=8 is universally optimal. batch=16 degrades performance, especially at weak settings. This reverses the earlier finding that batch=16 was optimal.</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
@@ -1001,24 +1038,11 @@ n_epochs_init=2–3 enables two-phase training
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-Shorter training reduces stochastic variance
+W recovery is trivial; dynamics recovery is hard
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>2ep+200aug replicates within 0.001 at seed=137 (nodes 13, 56). 3ep+300aug has ~0.015 variance at seed=200. When lr_W is correct, less training is better.</p>
-</div>
-</div>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Overtraining harms correct lr_W
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>More training (4ep+400aug) partially compensates for wrong lr_W (seed=200 at lr_W=1.5E-3: 0.854 to 0.991) but degrades correct lr_W (seed=200 at lr_W=1E-3: 0.997 to 0.951). Always tune lr_W first.</p>
+<p>Nearly all configs achieve conn_R<sup>2</sup>≥0.999. The challenge is dynamics: test_R<sup>2</sup> varies from 0.333 (catastrophic) to 0.998 depending on lr_W and L1 combination.</p>
 </div>
 </div>
 <hr>
@@ -1027,10 +1051,10 @@ Overtraining harms correct lr_W
 <h2 class="anchored" data-anchor-id="answers-to-open-questions">Answers to Open Questions</h2>
 <p>All four questions from the landscape exploration are now answered:</p>
 <ol type="1">
-<li><p><strong>Robustness across seeds</strong>: Partially. lr_W=3E-3 + L1=1E-6 is not universal — optimal lr_W is seed-dependent (1E-3 to 2E-3). But the recipe template (L1=1E-6, batch=16, lr_emb=5E-4, coeff_edge_diff=10000) is universal; only lr_W needs per-seed tuning.</p></li>
-<li><p><strong>Two-phase training</strong>: Yes. n_epochs_init=2–3 (phase 1 without L1) is beneficial. It rescues suboptimal lr_W and enables higher batch sizes.</p></li>
-<li><p><strong>coeff_edge_diff scaling</strong>: 10,000 is optimal. Both 5,000 and 20,000 do not improve. This parameter is not a significant axis of variation in the low-rank regime.</p></li>
-<li><p><strong>Training duration</strong>: 2 epochs / 200 augmentation loops is sufficient at correct lr_W and gives the lowest stochastic variance. 3 epochs / 300 augmentation loops is more seed-robust but has higher variance.</p></li>
+<li><p><strong>Robustness across seeds</strong>: Yes, with per-seed tuning. The recipe template (lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8) is universal across all 7 seeds. Only lr_W (4E-3 to 6E-3) and L1 (1E-6 or 1E-5) require per-seed optimization.</p></li>
+<li><p><strong>Two-phase training</strong>: Yes. n_epochs_init=2 (phase 1 without L1) is universally beneficial. It stabilizes W convergence before L1 refinement.</p></li>
+<li><p><strong>coeff_edge_diff scaling</strong>: 10,000 is the universal sweet spot. Both 5,000 and 20,000 degrade performance (20,000 is catastrophic for seed=42: -0.120).</p></li>
+<li><p><strong>Training duration</strong>: 2 epochs is optimal for most seeds. 3 epochs helps seed=7 but hurts easy seeds (seed=42: -0.105). When lr_W is correct, less training is better.</p></li>
 </ol>
 
 
@@ -1653,7 +1677,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
 <div class="sourceCode" id="cb3" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Case Study: Low-Rank Connectivity"</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Recovering W from rank-20 neural dynamics --- 64 iterations of dedicated LLM-guided exploration"</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Recovering W from rank-20 neural dynamics --- 60+ iterations of dedicated LLM-guided exploration"</span></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">## Problem Statement</span></span>
@@ -1787,146 +1811,148 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a><span class="fu">## Dedicated Low-Rank Exploration (64 iterations)</span></span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a><span class="fu">## Dedicated Low-Rank Exploration (60+ iterations)</span></span>
 <span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a>The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. **64 iterations across 6 blocks** were completed, testing 4 different random seeds (137, 42, 99, 200).</span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a>The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. **60+ iterations across 5 completed blocks** were completed, testing **7 different random seeds** (42, 137, 7, 99, 256, 314, 500).</span>
 <span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
 <span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Result</span></span>
 <span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>**Zero degeneracy in 64/64 iterations.** Connectivity recovery is essentially solved (conn_R^2^ &gt; 0.999 in 63/64 iterations). The remaining challenge is seed-dependent lr_W tuning: optimal lr_W varies from 1E-3 to 2E-3 depending on the W realization.</span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>**Connectivity recovery is essentially solved** (conn_R^2^ &gt; 0.999 in nearly all iterations). The exploration refined the universal recipe template: lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W and L1 require per-seed tuning. The L1 landscape is a cliff, not a gradient: no useful intermediate values between 1E-6 and 1E-5.</span>
 <span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a><span class="fu">### Per-Seed Best Configurations</span></span>
 <span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a>| Seed | lr_W | batch | lr_emb | n_ep | aug | init | test_R^2^ | conn_R^2^ | Node |</span>
-<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a>|:----:|:----:|:-----:|:------:|:----:|:---:|:----:|:---------:|:---------:|:----:|</span>
-<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a>| 137 | 2E-3 | 16 | 5E-4 | 2 | 200 | 2 | **0.9995** | 0.9999 | 56 |</span>
-<span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a>| 42 | 1.5E-3 | 16 | 5E-4 | 3 | 300 | 3 | **0.9996** | 1.0000 | 47 |</span>
-<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a>| 99 | 1.5E-3 | 16 | 5E-4 | 3 | 300 | 3 | 0.9963 | 1.0000 | 43 |</span>
-<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a>| 200 | 1E-3 | 16 | 5E-4 | 3 | 300 | 3 | 0.9967 | 0.9999 | 55 |</span>
-<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block-by-Block Progression</span></span>
-<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a>| Block | Iters | Focus | Best test_R^2^ | Key Finding |</span>
-<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a>|:-----:|:-----:|-------|:---------------:|:------------|</span>
-<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a>| 1 | 1--12 | lr_W, L1, lr sweep | 0.9994 | lr_W=2E-3 optimal for seed=137; lr_emb=5E-4 breaks 0.999 barrier |</span>
-<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a>| 2 | 13--24 | Parameter perturbation | 0.9994 | Sharp peaks in parameter landscape --- all perturbations degrade |</span>
-<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a>| 3 | 25--36 | Cross-seed (seed=42) | 0.9994 | 3ep+300aug is most seed-robust; seed=42 gap closed to 0.004 |</span>
-<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a>| 4 | 37--48 | Seeds 42, 99; init=3 | **0.9996** | lr_W=1.5E-3+init=3 near-universal for seeds 42/99 |</span>
-<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a>| 5 | 49--60 | Seed=200; lr_W tuning | 0.9997 | Optimal lr_W is seed-dependent: 200 needs 1E-3, not 1.5E-3 |</span>
-<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a>| 6 | 61--64 | Variance reduction | 0.9995 | 2ep+200aug replicates within 0.001 at seed=137 |</span>
-<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a><span class="fu">### Connectivity and Activity (Dedicated Exploration)</span></span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a>| Seed | lr_W | L1 | batch | n_ep | init | test_R^2^ | conn_R^2^ | Notes |</span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a>|:----:|:----:|:--:|:-----:|:----:|:----:|:---------:|:---------:|:------|</span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a>| 42 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.998** | 1.000 | Best overall; fragile to perturbations |</span>
+<span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a>| 256 | 6E-3 | 1E-5 | 8 | 2 | 2 | **0.994** | 1.000 | Sharply peaked lr_W (±0.5E-3 width) |</span>
+<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a>| 99 | 5E-3 | 1E-6 | 8 | 2 | 2 | **0.992** | 1.000 | Unique L1 requirement |</span>
+<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a>| 500 | 4E-3 | 1E-6 | 8 | 2 | 2 | **0.990** | 1.000 | Dual optimization (lr_W + L1) |</span>
+<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a>| 314 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.990** | 1.000 | Default recipe works |</span>
+<span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a>| 137 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.989** | 1.000 | Baseline; robust to perturbations |</span>
+<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a>| 7 | 5E-3 | 1E-5 | 8 | 3 | 2 | **0.985** | 1.000 | n_epochs=3 helps |</span>
+<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block-by-Block Progression</span></span>
+<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a>| Block | Iters | Focus | Best test_R^2^ | Key Finding |</span>
+<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a>|:-----:|:-----:|-------|:---------------:|:------------|</span>
+<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a>| 1 | 1--12 | lr_W, L1, lr sweep | 0.9994 | lr_W=5E-3 optimal; seed=42 identified as best performer |</span>
+<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a>| 2 | 13--24 | Cross-seed validation | 0.9994 | n_epochs=3 catastrophically hurts easy seeds (seed=42: -0.105) |</span>
+<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a>| 3 | 25--36 | L1 cross-seed testing | 0.9920 | L1=1E-6 transforms seed=99 but catastrophically breaks seed=137 |</span>
+<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a>| 4 | 37--48 | seed=256, seed=314 | **0.9940** | seed=256 breakthrough via lr_W=6E-3 (sharply peaked) |</span>
+<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a>| 5 | 49--60 | seed=500 optimization | **0.9900** | seed=500 rescued via lr_W=4E-3 + L1=1E-6 (0.880→0.990) |</span>
 <span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
-<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a><span class="al">![Connectivity matrix (block 5, best iteration)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_matrix/block_005.png)</span>{.lightbox group="dedicated"}</span>
-<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a><span class="al">![Neural activity (block 5)](log/Claude_exploration/instruction_signal_low_rank_parallel/activity/block_005.png)</span>{.lightbox group="dedicated"}</span>
-<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a><span class="fu">### UCB Exploration Trees</span></span>
+<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a><span class="fu">### Connectivity and Activity (Dedicated Exploration)</span></span>
+<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a><span class="al">![Connectivity matrix (block 5, best iteration)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_matrix/block_005.png)</span>{.lightbox group="dedicated"}</span>
+<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a><span class="al">![Neural activity (block 5)](log/Claude_exploration/instruction_signal_low_rank_parallel/activity/block_005.png)</span>{.lightbox group="dedicated"}</span>
+<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a><span class="fu">### UCB Exploration Trees</span></span>
 <span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 1 (iter 12)</span></span>
-<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_012.png)</span>{.lightbox group="ucb-lr"}</span>
-<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 2 (iter 24)</span></span>
-<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_024.png)</span>{.lightbox group="ucb-lr"}</span>
-<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 3 (iter 36)</span></span>
-<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_036.png)</span>{.lightbox group="ucb-lr"}</span>
-<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 4 (iter 48)</span></span>
-<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_048.png)</span>{.lightbox group="ucb-lr"}</span>
-<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 5 (iter 60)</span></span>
-<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_060.png)</span>{.lightbox group="ucb-lr"}</span>
-<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb3-180"><a href="#cb3-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-181"><a href="#cb3-181" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 1 (iter 12)</span></span>
+<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_012.png)</span>{.lightbox group="ucb-lr"}</span>
+<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 2 (iter 24)</span></span>
+<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_024.png)</span>{.lightbox group="ucb-lr"}</span>
+<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 3 (iter 36)</span></span>
+<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_036.png)</span>{.lightbox group="ucb-lr"}</span>
+<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 4 (iter 48)</span></span>
+<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_048.png)</span>{.lightbox group="ucb-lr"}</span>
+<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Block 5 (iter 60)</span></span>
+<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_060.png)</span>{.lightbox group="ucb-lr"}</span>
 <span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a><span class="fu">### Connectivity Scatter (Selected Iterations)</span></span>
+<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
-<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_001.png)</span>{.lightbox group="scatter-lr"}</span>
-<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 13 (node 13)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_013.png)</span>{.lightbox group="scatter-lr"}</span>
+<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a><span class="fu">### Connectivity Scatter (Selected Iterations)</span></span>
+<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_001.png)</span>{.lightbox group="scatter-lr"}</span>
 <span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 47 (best)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_047.png)</span>{.lightbox group="scatter-lr"}</span>
+<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 13 (node 13)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_013.png)</span>{.lightbox group="scatter-lr"}</span>
 <span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 55 (seed=200)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_055.png)</span>{.lightbox group="scatter-lr"}</span>
-<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-208"><a href="#cb3-208" aria-hidden="true" tabindex="-1"></a><span class="fu">### MLP Functions (Selected Iterations)</span></span>
+<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 47 (best)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_047.png)</span>{.lightbox group="scatter-lr"}</span>
+<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 55 (seed=200)](log/Claude_exploration/instruction_signal_low_rank_parallel/connectivity_scatter/iter_055.png)</span>{.lightbox group="scatter-lr"}</span>
+<span id="cb3-208"><a href="#cb3-208" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb3-209"><a href="#cb3-209" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-210"><a href="#cb3-210" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
-<span id="cb3-211"><a href="#cb3-211" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_001_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
-<span id="cb3-212"><a href="#cb3-212" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-213"><a href="#cb3-213" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 13](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_013_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
+<span id="cb3-210"><a href="#cb3-210" aria-hidden="true" tabindex="-1"></a><span class="fu">### MLP Functions (Selected Iterations)</span></span>
+<span id="cb3-211"><a href="#cb3-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-212"><a href="#cb3-212" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb3-213"><a href="#cb3-213" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_001_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
 <span id="cb3-214"><a href="#cb3-214" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-215"><a href="#cb3-215" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 47](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_047_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
+<span id="cb3-215"><a href="#cb3-215" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 13](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_013_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
 <span id="cb3-216"><a href="#cb3-216" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-217"><a href="#cb3-217" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 55](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_055_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
-<span id="cb3-218"><a href="#cb3-218" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-219"><a href="#cb3-219" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-220"><a href="#cb3-220" aria-hidden="true" tabindex="-1"></a><span class="fu">### Kinograph (Selected Iterations)</span></span>
+<span id="cb3-217"><a href="#cb3-217" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 47](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_047_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
+<span id="cb3-218"><a href="#cb3-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-219"><a href="#cb3-219" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 55](log/Claude_exploration/instruction_signal_low_rank_parallel/mlp/iter_055_MLP.png)</span>{.lightbox group="mlp-lr"}</span>
+<span id="cb3-220"><a href="#cb3-220" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb3-221"><a href="#cb3-221" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-222"><a href="#cb3-222" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
-<span id="cb3-223"><a href="#cb3-223" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/kinograph/iter_001.png)</span>{.lightbox group="kino-lr"}</span>
-<span id="cb3-224"><a href="#cb3-224" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-225"><a href="#cb3-225" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 47 (best overall)](log/Claude_exploration/instruction_signal_low_rank_parallel/kinograph/iter_047.png)</span>{.lightbox group="kino-lr"}</span>
-<span id="cb3-226"><a href="#cb3-226" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-227"><a href="#cb3-227" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-228"><a href="#cb3-228" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-222"><a href="#cb3-222" aria-hidden="true" tabindex="-1"></a><span class="fu">### Kinograph (Selected Iterations)</span></span>
+<span id="cb3-223"><a href="#cb3-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-224"><a href="#cb3-224" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb3-225"><a href="#cb3-225" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 1](log/Claude_exploration/instruction_signal_low_rank_parallel/kinograph/iter_001.png)</span>{.lightbox group="kino-lr"}</span>
+<span id="cb3-226"><a href="#cb3-226" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-227"><a href="#cb3-227" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 47 (best overall)](log/Claude_exploration/instruction_signal_low_rank_parallel/kinograph/iter_047.png)</span>{.lightbox group="kino-lr"}</span>
+<span id="cb3-228"><a href="#cb3-228" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb3-229"><a href="#cb3-229" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-230"><a href="#cb3-230" aria-hidden="true" tabindex="-1"></a><span class="fu">## Established Principles (Dedicated Exploration)</span></span>
+<span id="cb3-230"><a href="#cb3-230" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb3-231"><a href="#cb3-231" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-232"><a href="#cb3-232" aria-hidden="true" tabindex="-1"></a>32 principles were established across the 6 blocks. Key findings:</span>
+<span id="cb3-232"><a href="#cb3-232" aria-hidden="true" tabindex="-1"></a><span class="fu">## Established Principles (Dedicated Exploration)</span></span>
 <span id="cb3-233"><a href="#cb3-233" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-234"><a href="#cb3-234" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb3-235"><a href="#cb3-235" aria-hidden="true" tabindex="-1"></a><span class="fu">### Optimal lr_W is seed-dependent</span></span>
-<span id="cb3-236"><a href="#cb3-236" aria-hidden="true" tabindex="-1"></a>Harder W realizations need slower learning rates. Ordering: seed=200 (1E-3) &lt; seed=42/99 (1.5E-3) &lt; seed=137 (2E-3). The viable lr_W window is narrow for each seed (~0.3E-3 wide).</span>
-<span id="cb3-237"><a href="#cb3-237" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-238"><a href="#cb3-238" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-239"><a href="#cb3-239" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb3-240"><a href="#cb3-240" aria-hidden="true" tabindex="-1"></a><span class="fu">### L1=1E-6 is a precise sweet spot</span></span>
-<span id="cb3-241"><a href="#cb3-241" aria-hidden="true" tabindex="-1"></a>Both L1=1E-5 (dynamics degrade to ~0.92) and L1=5E-7 (test_R^2^=0.944) underperform. The optimal L1 is sharply at 1E-6.</span>
-<span id="cb3-242"><a href="#cb3-242" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-243"><a href="#cb3-243" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-244"><a href="#cb3-244" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb3-245"><a href="#cb3-245" aria-hidden="true" tabindex="-1"></a><span class="fu">### batch_size=16 + lr_emb=5E-4 is optimal</span></span>
-<span id="cb3-246"><a href="#cb3-246" aria-hidden="true" tabindex="-1"></a>batch=8 works but batch=16 is better at optimal lr_emb. batch=32 is not viable (0.944). lr_emb has cliff-edge behavior: batch=16 optimal at 5E-4, batch=8 at 2.5E-4.</span>
-<span id="cb3-247"><a href="#cb3-247" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-248"><a href="#cb3-248" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-249"><a href="#cb3-249" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb3-250"><a href="#cb3-250" aria-hidden="true" tabindex="-1"></a><span class="fu">### n_epochs_init=2--3 enables two-phase training</span></span>
-<span id="cb3-251"><a href="#cb3-251" aria-hidden="true" tabindex="-1"></a>Phase 1 (no L1) lets W start converging; phase 2 (L1=1E-6) refines dynamics. init=3 rescues suboptimal lr_W (seed=99: 0.909 to 0.996) but causes overtraining at 4 epochs.</span>
-<span id="cb3-252"><a href="#cb3-252" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-253"><a href="#cb3-253" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-254"><a href="#cb3-254" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb3-255"><a href="#cb3-255" aria-hidden="true" tabindex="-1"></a><span class="fu">### Shorter training reduces stochastic variance</span></span>
-<span id="cb3-256"><a href="#cb3-256" aria-hidden="true" tabindex="-1"></a>2ep+200aug replicates within 0.001 at seed=137 (nodes 13, 56). 3ep+300aug has ~0.015 variance at seed=200. When lr_W is correct, less training is better.</span>
-<span id="cb3-257"><a href="#cb3-257" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-258"><a href="#cb3-258" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-259"><a href="#cb3-259" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb3-260"><a href="#cb3-260" aria-hidden="true" tabindex="-1"></a><span class="fu">### Overtraining harms correct lr_W</span></span>
-<span id="cb3-261"><a href="#cb3-261" aria-hidden="true" tabindex="-1"></a>More training (4ep+400aug) partially compensates for wrong lr_W (seed=200 at lr_W=1.5E-3: 0.854 to 0.991) but degrades correct lr_W (seed=200 at lr_W=1E-3: 0.997 to 0.951). Always tune lr_W first.</span>
-<span id="cb3-262"><a href="#cb3-262" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb3-263"><a href="#cb3-263" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-264"><a href="#cb3-264" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-234"><a href="#cb3-234" aria-hidden="true" tabindex="-1"></a>16 principles were established across 5 blocks. Key findings:</span>
+<span id="cb3-235"><a href="#cb3-235" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-236"><a href="#cb3-236" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb3-237"><a href="#cb3-237" aria-hidden="true" tabindex="-1"></a><span class="fu">### Optimal lr_W is seed-dependent</span></span>
+<span id="cb3-238"><a href="#cb3-238" aria-hidden="true" tabindex="-1"></a>Most seeds optimal at 5E-3, but seed=256 has exclusive peak at 6E-3 (±0.5E-3 width) and seed=500 requires 4E-3. Per-seed tuning closes the gap: all 7 seeds reach test_R^2^≥0.985 when optimally tuned.</span>
+<span id="cb3-239"><a href="#cb3-239" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-240"><a href="#cb3-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-241"><a href="#cb3-241" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb3-242"><a href="#cb3-242" aria-hidden="true" tabindex="-1"></a><span class="fu">### L1 landscape is a cliff, not a gradient</span></span>
+<span id="cb3-243"><a href="#cb3-243" aria-hidden="true" tabindex="-1"></a>L1=1E-5 is optimal for strong seeds (42, 137, 256, 314). Weak seeds (99, 500) require L1=1E-6. But L1=1E-6 at seed=137 causes catastrophic collapse (conn_R^2^=0.319). No useful intermediate values exist between 1E-6 and 1E-5.</span>
+<span id="cb3-244"><a href="#cb3-244" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-245"><a href="#cb3-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-246"><a href="#cb3-246" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-247"><a href="#cb3-247" aria-hidden="true" tabindex="-1"></a><span class="fu">### Universal recipe template</span></span>
+<span id="cb3-248"><a href="#cb3-248" aria-hidden="true" tabindex="-1"></a>lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W (4E-3 to 6E-3) and L1 (1E-6 or 1E-5) require per-seed tuning.</span>
+<span id="cb3-249"><a href="#cb3-249" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-250"><a href="#cb3-250" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-251"><a href="#cb3-251" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-252"><a href="#cb3-252" aria-hidden="true" tabindex="-1"></a><span class="fu">### Easy seeds are more fragile to perturbations</span></span>
+<span id="cb3-253"><a href="#cb3-253" aria-hidden="true" tabindex="-1"></a>seed=42 (best test_R^2^=0.998) degrades catastrophically with edge_diff=20000 (-0.120), n_epochs=3 (-0.105), or lr_W=6E-3 (-0.222). seed=137 is robust to the same perturbations.</span>
+<span id="cb3-254"><a href="#cb3-254" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-255"><a href="#cb3-255" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-256"><a href="#cb3-256" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-257"><a href="#cb3-257" aria-hidden="true" tabindex="-1"></a><span class="fu">### batch_size=8 is essential</span></span>
+<span id="cb3-258"><a href="#cb3-258" aria-hidden="true" tabindex="-1"></a>batch=8 is universally optimal. batch=16 degrades performance, especially at weak settings. This reverses the earlier finding that batch=16 was optimal.</span>
+<span id="cb3-259"><a href="#cb3-259" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-260"><a href="#cb3-260" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-261"><a href="#cb3-261" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-262"><a href="#cb3-262" aria-hidden="true" tabindex="-1"></a><span class="fu">### W recovery is trivial; dynamics recovery is hard</span></span>
+<span id="cb3-263"><a href="#cb3-263" aria-hidden="true" tabindex="-1"></a>Nearly all configs achieve conn_R^2^≥0.999. The challenge is dynamics: test_R^2^ varies from 0.333 (catastrophic) to 0.998 depending on lr_W and L1 combination.</span>
+<span id="cb3-264"><a href="#cb3-264" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb3-265"><a href="#cb3-265" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-266"><a href="#cb3-266" aria-hidden="true" tabindex="-1"></a><span class="fu">## Answers to Open Questions</span></span>
+<span id="cb3-266"><a href="#cb3-266" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb3-267"><a href="#cb3-267" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-268"><a href="#cb3-268" aria-hidden="true" tabindex="-1"></a>All four questions from the landscape exploration are now answered:</span>
+<span id="cb3-268"><a href="#cb3-268" aria-hidden="true" tabindex="-1"></a><span class="fu">## Answers to Open Questions</span></span>
 <span id="cb3-269"><a href="#cb3-269" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-270"><a href="#cb3-270" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Robustness across seeds**: Partially. lr_W=3E-3 + L1=1E-6 is not universal --- optimal lr_W is seed-dependent (1E-3 to 2E-3). But the recipe template (L1=1E-6, batch=16, lr_emb=5E-4, coeff_edge_diff=10000) is universal; only lr_W needs per-seed tuning.</span>
+<span id="cb3-270"><a href="#cb3-270" aria-hidden="true" tabindex="-1"></a>All four questions from the landscape exploration are now answered:</span>
 <span id="cb3-271"><a href="#cb3-271" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-272"><a href="#cb3-272" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Two-phase training**: Yes. n_epochs_init=2--3 (phase 1 without L1) is beneficial. It rescues suboptimal lr_W and enables higher batch sizes.</span>
+<span id="cb3-272"><a href="#cb3-272" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Robustness across seeds**: Yes, with per-seed tuning. The recipe template (lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8) is universal across all 7 seeds. Only lr_W (4E-3 to 6E-3) and L1 (1E-6 or 1E-5) require per-seed optimization.</span>
 <span id="cb3-273"><a href="#cb3-273" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-274"><a href="#cb3-274" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**coeff_edge_diff scaling**: 10,000 is optimal. Both 5,000 and 20,000 do not improve. This parameter is not a significant axis of variation in the low-rank regime.</span>
+<span id="cb3-274"><a href="#cb3-274" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Two-phase training**: Yes. n_epochs_init=2 (phase 1 without L1) is universally beneficial. It stabilizes W convergence before L1 refinement.</span>
 <span id="cb3-275"><a href="#cb3-275" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-276"><a href="#cb3-276" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Training duration**: 2 epochs / 200 augmentation loops is sufficient at correct lr_W and gives the lowest stochastic variance. 3 epochs / 300 augmentation loops is more seed-robust but has higher variance.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb3-276"><a href="#cb3-276" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**coeff_edge_diff scaling**: 10,000 is the universal sweet spot. Both 5,000 and 20,000 degrade performance (20,000 is catastrophic for seed=42: -0.120).</span>
+<span id="cb3-277"><a href="#cb3-277" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-278"><a href="#cb3-278" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Training duration**: 2 epochs is optimal for most seeds. 3 epochs helps seed=7 but hurts easy seeds (seed=42: -0.105). When lr_W is correct, less training is better.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class SimulationConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     dimension: int = 2
     n_frames: int = 1000  # number of simulation time steps; 0 = use each source frame exactly once (no reuse)
@@ -304,7 +304,7 @@ class PlottingConfig(BaseModel):
 
 
 class TrainingConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
     device: Annotated[str, Field(pattern=r"^(auto|cpu|cuda:\d+)$")] = "auto"
 
     n_epochs: int = 20

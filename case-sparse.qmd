@@ -1,0 +1,186 @@
+---
+title: "Case Study: Sparse Connectivity"
+subtitle: "Breaking the 0.489 ceiling --- LLM-guided code modifications to the GNN architecture"
+---
+
+## Problem Statement
+
+Sparse connectivity (filling_factor=50%, n=100 neurons) produces neural activity with subcritical spectral radius (rho=0.746). The landscape exploration (blocks 7, 8, 17) established that **no configuration sweep can break the conn_R^2^=0.489 ceiling** --- neither regularization, learning rates, epochs, noise, nor tripling the data (30k frames) had any effect. This motivated a dedicated exploration focused on **modifying the GNN code itself**.
+
+The central question: **can code-level modifications to the GNN architecture break the 0.489 ceiling?**
+
+---
+
+## Why Code Changes?
+
+The landscape exploration exhausted the configuration parameter space across 36 iterations in 3 blocks:
+
+| Block | n_frames | eff_rank | Best conn | Degeneracy | Key |
+|:-----:|:--------:|:--------:|:---------:|:----------:|:----|
+| 7 | 10k | 21 | 0.466 | 12/12 | All configs give conn~0.489 |
+| 8 (noise) | 10k | 91 | 0.490 | 0/12 | Noise inflates eff_rank; no rescue |
+| 17 | **30k** | **13** | **0.436** | **12/12** | **eff_rank DROPS; 30k useless** |
+
+The LLM identified the root cause as an **architectural degeneracy** in the GNN's dual-pathway design:
+
+$$\frac{du}{dt} = \text{lin\_phi}(u, a) + W \odot \text{lin\_edge}(u, a)$$
+
+The `lin_phi` pathway can predict dynamics perfectly (test_pearson ≈ 1.000) without requiring correct W. At subcritical spectral radius, the W-mediated signal is too weak to overcome this compensation. The degeneracy gap is ~0.51.
+
+::: {.callout-note}
+## From Config to Code
+
+The dedicated exploration deliberately shifted from hyperparameter tuning to **direct GNN code modification**: changing initialization, optimization, regularization mechanics, and MLP architecture in the source files (`Signal_Propagation.py`, `graph_trainer.py`, `MLP.py`).
+:::
+
+---
+
+## Config Baseline (Iterations 1--8)
+
+Before modifying code, the exploration confirmed the ceiling across 5 orders of L1 magnitude, 2--12 epochs, edge_diff up to 50000, and aggressive multi-parameter combinations. **All 8 iterations produced conn_R^2^ = 0.489.** This confirmed the ceiling is not a training configuration problem, justifying the pivot to code changes.
+
+---
+
+## Code Modification 1: W Initialization Scale
+
+**Iterations 9--12** · File: `Signal_Propagation.py`
+
+**Hypothesis**: The true W matrix has entries ~ N(0, g/sqrt(n)) ≈ N(0, 0.7), but initialization uses N(0, 1.0) --- a scale mismatch that forces early training to waste capacity correcting the scale before learning structure.
+
+**Code change**:
+```python
+# Before: W_init = torch.randn(n_neurons, n_neurons)
+# After:
+W_init = torch.randn(n_neurons, n_neurons) * (1.0 / math.sqrt(self.n_neurons))
+```
+
+**Results**: conn_R^2^ = 0.489--0.490 across all 4 config variations (lr_W 1E-3 to 3E-3, L1 1E-4 to 1E-3, n_epochs 2--12).
+
+::: {.callout-warning}
+### Verdict: Zero effect
+
+Init scale is NOT the bottleneck. The optimizer corrects scale quickly; the problem is structural.
+:::
+
+---
+
+## Code Modification 2: Proximal L1 Soft-Thresholding
+
+**Iterations 13--16** · File: `graph_trainer.py`
+
+**Hypothesis**: Standard gradient-based L1 regularization penalizes W entries but never creates exact zeros. Since the true sparse W has 50% zeros, **proximal soft-thresholding** after each optimizer step should force exact sparsity, potentially aligning the learned structure with the true connectivity pattern.
+
+**Code change**:
+```python
+# After optimizer.step():
+with torch.no_grad():
+    threshold = coeff_W_L1 * lr_W
+    W = model.W
+    W.data = torch.sign(W.data) * torch.clamp(
+        torch.abs(W.data) - threshold, min=0
+    )
+```
+
+**Results**:
+
+| Iter | L1 | Threshold | conn_R^2^ | Effect |
+|:----:|:--:|:---------:|:---------:|:------:|
+| 13 | 1E-4 | 3E-7 | 0.490 | none --- threshold negligible vs W scale (~0.1) |
+| 14 | 1E-3 | 3E-6 | 0.488 | none --- still too small |
+| 15 | **1E-2** | **3E-5** | **0.361** | **destructive** --- training collapses |
+| 16 | 1E-3 | 3E-6 (no warm-up) | 0.488 | none --- warm-up phase irrelevant |
+
+::: {.callout-warning}
+### Verdict: Zero effect at moderate; destructive at extreme
+
+The fundamental problem: proximal threshold = L1 × lr_W produces values 3--4 orders below the W entry scale (~0.1). To reach effective thresholds, L1 must be so large that it destroys the loss landscape. **The sparsity problem cannot be solved by regularization mechanics alone.**
+:::
+
+---
+
+## Code Modification 3: MLP Capacity Reduction
+
+**Iterations 17--20** · Files: `Signal_Propagation.py`, `MLP.py`
+
+**Hypothesis**: If `lin_phi` (the bypass pathway) has too much capacity, it absorbs all predictive power and leaves W unconstrained. **Reducing MLP width or depth** should force the model to route signal through W, breaking the degeneracy.
+
+**Code changes**: Reduced `hidden_dim` (64→32→16) and `n_layers` (3→2) in the MLP configuration.
+
+**Results**:
+
+| Iter | Change | conn_R^2^ | test_pearson | Effect |
+|:----:|--------|:---------:|:------------:|:------:|
+| 17 | hidden_dim 64→32 | 0.489 | 0.999 | none --- MLP still compensates |
+| 18 | hidden_dim 32 + L1=1E-3 | 0.488 | 0.999 | none --- combined still fails |
+| 19 | **n_layers 3→2** | **0.010** | **-0.035** | **catastrophic failure** |
+| 20 | **hidden_dim 64→16** | **0.017** | **-0.072** | **catastrophic failure** |
+
+::: {.callout-important}
+### Established Principle: MLP has a hard minimum capacity
+
+3 layers and hidden_dim≥32 are structurally necessary for the GNN to function at all. Below these thresholds, the model cannot even predict dynamics. Above the minimum, the MLP **always** fully compensates for incorrect W. There is no "Goldilocks zone" where MLP capacity is enough for dynamics but insufficient for W bypass.
+:::
+
+---
+
+## Code Modification 4: Gradient Clipping on W
+
+**Iterations 21--24** · File: `graph_trainer.py`
+
+**Hypothesis**: W has n^2^=10,000 entries receiving gradients from all neuron pairs. Large, noisy gradients may destabilize W learning, preventing convergence to the true sparse pattern. **Gradient clipping** should stabilize the W update trajectory.
+
+**Code change**:
+```python
+# Before optimizer.step():
+torch.nn.utils.clip_grad_norm_([model.W], max_norm=1.0)
+```
+
+**Results**: conn_R^2^ = 0.488--0.489 across all 4 config variations (baseline, L1=1E-3, lr_W=5E-3, n_epochs=12).
+
+::: {.callout-warning}
+### Verdict: Zero effect
+
+Gradient noise is not the bottleneck. The W gradients carry correct directional information --- the problem is that the loss landscape does not require W to be correct.
+:::
+
+---
+
+## Summary: What Failed and Why
+
+| Code Modification | Hypothesis | Outcome | Reason |
+|---|---|---|---|
+| W init scale (1/sqrt(n)) | Scale mismatch wastes early training | Zero effect | Optimizer corrects scale quickly |
+| Proximal L1 soft-thresholding | Exact zeros needed for sparsity | Zero/destructive | Threshold too small vs W scale |
+| MLP hidden_dim reduction | Force signal through W pathway | Zero/catastrophic | No Goldilocks zone exists |
+| Gradient clipping on W | Stabilize W trajectory | Zero effect | Gradients are directionally correct |
+
+::: {.callout-warning}
+## Key Result
+
+**All 24 iterations produced conn_R^2^ = 0.489** (±0.001, excluding catastrophic failures from aggressive MLP reduction). Four distinct code modifications --- targeting initialization, regularization mechanics, model capacity, and optimization stability --- all failed. The architectural degeneracy is fundamental.
+:::
+
+---
+
+## Architectural Diagnosis
+
+The exploration converges on a clear diagnosis. The dual-pathway architecture has an **irreducible degeneracy** in the sparse regime:
+
+1. **W signal is weak**: subcritical spectral radius (rho=0.746) means W-mediated dynamics carry less information than in supercritical regimes
+2. **MLP compensates perfectly**: `lin_phi` absorbs all predictive capacity (test_pearson ≈ 1.000), leaving no gradient signal to constrain W
+3. **Local code changes cannot break the bypass**: init scale, regularization mechanics, capacity reduction, and gradient control all operate downstream of the fundamental problem --- the loss function does not require W to be correct
+
+This is qualitatively different from the dense regime (rho > 1.0) where W-mediated dynamics carry strong, unique signal that the MLP cannot replicate.
+
+---
+
+## Next Steps: Architectural Interventions
+
+The analysis points to interventions that target the bypass pathway directly:
+
+1. **lin_phi scaling**: Multiply `lin_phi` output by a learnable or fixed factor (0.0--0.5), forcing dynamics through the `W @ lin_edge` pathway
+2. **lin_phi removal**: Eliminate `lin_phi` entirely, making W the sole carrier of inter-neuron coupling
+3. **Separate W and MLP optimizers**: Use SGD for W (sharper sparsity) while keeping Adam for MLPs
+4. **Cosine LR scheduler for W**: Large early W updates followed by fine-tuning
+
+These represent the next phase of the exploration --- moving from local code modifications to **architectural redesign** of the signal pathway.

@@ -14,7 +14,7 @@ This addendum applies when running in **parallel mode** (GNN_LLM_parallel.py). F
 - Edit all 4 config files listed in the prompt: `{name}_00.yaml` through `{name}_03.yaml`
 - Each config's `dataset` field is pre-set to route data to separate directories — **DO NOT change the `dataset` field**
 - **DO NOT change `simulation:` parameters** — this is a fixed-regime exploration
-- Only modify `training:` parameters and `claude:` where allowed
+- Modify `training:` parameters, `claude:` where allowed, **and GNN code** (see Step 5.2 in base instructions)
 
 ## Parallel UCB Strategy
 
@@ -28,6 +28,8 @@ When selecting parents for 4 simultaneous mutations, **diversify** your choices:
 | 3 | **principle-test** | Test or challenge one Established Principle from memory.md |
 
 You may deviate from this split based on context (e.g., all exploit if early in block, all explore if everything fails).
+
+**When conn_R2 plateaus across config sweeps**: apply a **code-modification** (see Step 5.2 in base instructions). Code changes apply to ALL 4 slots simultaneously (shared codebase). Use the 4 slots to test different config parameters around the same code change — one code change, four different parameter variations per batch.
 
 ### Slot 3: Principle Testing
 

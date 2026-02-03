@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Interactive scatter chart — regime landscape.
-276 iterations, 23 blocks.
+336 iterations, 28 blocks.
 Plotly: zoom/pan, hover tooltips with iter/regime/training info.
 """
 
@@ -192,6 +192,41 @@ add_block(23, 'fill=80% (30k) — FAILED', '30k', 49, [
 ], start_iter=265, n_neurons=100, fill=80,
     extra='30k NOT rescue; conn locked at fill%; 12/12 at 0.802')
 
+# Block 24: fill=90% at 10k
+add_block(24, 'fill=90% (10k)', '10k', 36, [
+    0.907, 0.907, 0.907, 0.907, 0.907, 0.907,
+    0.907, 0.907, 0.906, 0.906, 0.905, 0.905
+], start_iter=289, n_neurons=100, fill=90,
+    extra='conn plateau ≈ fill%; transitional; param insensitive')
+
+# Block 25: g=1 at 10k (fixed-point collapse)
+add_block(25, 'g=1 (10k) — FAILED', '10k', 5, [
+    0.007, 0.005, 0.004, 0.003, 0.003, 0.002,
+    0.002, 0.002, 0.001, 0.001, 0.000, 0.000
+], start_iter=301, n_neurons=100, gain=1,
+    extra='fixed-point collapse; eff_rank=5; hardest regime')
+
+# Block 26: g=1 at 30k (confirmed unsolvable)
+add_block(26, 'g=1 (30k) — FAILED', '30k', 3, [
+    0.018, 0.015, 0.012, 0.010, 0.008, 0.007,
+    0.006, 0.005, 0.004, 0.003, 0.002, 0.002
+], start_iter=313, n_neurons=100, gain=1,
+    extra='eff_rank DROPS 5→1; 30k makes g=1 WORSE')
+
+# Block 27: g=2 at 10k
+add_block(27, 'g=2 (10k)', '10k', 17, [
+    0.519, 0.397, 0.356, 0.300, 0.250, 0.200,
+    0.150, 0.100, 0.050, 0.020, 0.010, 0.004
+], start_iter=325, n_neurons=100, gain=2,
+    extra='inverse lr_W=5E-4; epoch scaling not diminishing')
+
+# Block 28: g=2 (30k)
+add_block(28, 'g=2 (30k)', '30k', 16, [
+    0.997, 0.983, 0.943, 0.871, 0.848, 0.640,
+    0.500, 0.300, 0.125, 0.050, 0.010, 0.001
+], start_iter=337, n_neurons=100, gain=2,
+    extra='42% conv; inverse lr_W persists; eff_rank flat at 16')
+
 
 # --- Build Plotly figure ---
 pts_10k = [p for p in points if p['n_frames'] == '10k']
@@ -255,6 +290,10 @@ fig.add_annotation(x=53, y=0.985, ax=33, ay=0.49, **arrow_style_green)
 fig.add_annotation(x=14, y=0.37, ax=20, ay=0.41, **arrow_style_red)
 # fill=80%: (~36, ~0.80) → (~49, ~0.80)
 fig.add_annotation(x=47, y=0.802, ax=38, ay=0.802, **arrow_style_red)
+# g=1/10k: (~5, ~0.007) → g=1/30k: (~3, ~0.018) — NOT rescued
+fig.add_annotation(x=3, y=0.018, ax=5, ay=0.007, **arrow_style_red)
+# g=2/10k: (~17, ~0.52) → g=2/30k: (~16, ~0.997) — partially rescued
+fig.add_annotation(x=16, y=0.99, ax=17, ay=0.52, **arrow_style_green)
 
 
 # --- Dummy traces for arrow legend entries ---
@@ -274,7 +313,7 @@ fig.update_layout(
     title=dict(text='Regime Landscape', font=dict(size=18)),
     xaxis=dict(
         title='effective rank',
-        range=[5, 155],
+        range=[0, 155],
         dtick=10,
         gridcolor='rgba(0,0,0,0.08)',
         gridwidth=1,

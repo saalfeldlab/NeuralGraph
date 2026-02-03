@@ -4,9 +4,9 @@
 
 ## Goal
 
-Find GNN training hyperparameters that recover the connectivity matrix W from **sparse neural dynamics** (connectivity_type=chaotic, connectivity_filling_factor=0.5, n_neurons=100).
+Find GNN training hyperparameters **and GNN code-level parameters** that recover the connectivity matrix W from **sparse neural dynamics** (connectivity_type=chaotic, connectivity_filling_factor=0.5, n_neurons=100).
 
-**This is a fixed-regime exploration**: simulation parameters are FROZEN. Only GNN training parameters may be changed. There are NO block boundary simulation changes.
+**This is a fixed-regime exploration**: simulation parameters are FROZEN. GNN training parameters AND GNN code may be changed. There are NO block boundary simulation changes. **Code changes to GNN architecture/training are encouraged** — config-only sweeps plateau at conn_R2≈0.49.
 
 ## Sparse Regime Characteristics
 
@@ -200,6 +200,11 @@ Step B: Choose strategy
 | new recipe beats old at 2+ seeds | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality |
 | same config gives R2 range > 0.05 across runs | **variance-reduction** | Test recipe at new seed or with different aug/epochs to find lower-variance variant |
 | connectivity_R2 0.3-0.7 with low degeneracy gap | **L1-calibration** | Sweep coeff_W_L1 to find optimal sparsity pressure for this regime |
+| conn_R2 plateau (±0.02) across 4+ configs with different params | **code-modification** | Config sweeps exhausted — modify GNN code (see Step 5.2). Priority: W init scale, gradient clipping, proximal L1, MLP capacity reduction |
+| code change improved conn_R2 | **code-refine** | Keep code change, tune config params around the new code baseline |
+| code change degraded conn_R2 | **code-revert** | Revert code change (git checkout), try next priority from Step 5.2 list |
+| code change had zero effect (conn_R2 unchanged) | **code-next-priority** | Current code change is neutral — keep it (no harm) and try next priority from Step 5.2 list as additional modification |
+| conn_R2 plateau persists after 2+ code changes | **multi-code-modification** | Apply two code changes simultaneously if individual changes had zero effect — isolation already demonstrated no single-change effect |
 
 ### Step 5: Edit Config File
 
@@ -252,6 +257,95 @@ training:
 claude:
   ucb_c: 1.414    # UCB exploration constant (0.5-3.0)
 ```
+
+### Step 5.2: Modify GNN Code (PREFERRED when config sweeps plateau)
+
+**SIMPLE RULE: NEVER MODIFY CODE IF 'code' NOT IN TASK**
+
+Config-only sweeps have shown conn_R2≈0.489 regardless of L1 (1E-6 to 1E-3). The ceiling is architectural, not parametric. **Code changes to GNN parameters are the primary lever for breaking through.**
+
+**When to modify code:**
+
+- When config-level parameters produce identical results across sweeps (R² plateau)
+- When degeneracy gap > 0.3 persists despite regularization tuning
+- When you have a specific architectural hypothesis to test
+- NEVER modify code in first 4 iterations of a block (establish baseline first)
+
+**Files you can modify:**
+
+| File                                           | Permission                                   |
+| ---------------------------------------------- | -------------------------------------------- |
+| `src/NeuralGraph/models/graph_trainer.py`      | **ONLY modify `data_train_signal` function** |
+| `src/NeuralGraph/models/Signal_Propagation.py` | Can modify if necessary                      |
+| `src/NeuralGraph/models/MLP.py`                | Can modify if necessary                      |
+| `src/NeuralGraph/utils.py`                     | Can modify if necessary                      |
+
+**Key model attributes (read-only reference):**
+
+- `model.W` - Connectivity matrix `(n_neurons, n_neurons)`, init: `torch.randn` (std=1.0)
+- `model.a` - Node embeddings `(n_neurons, embedding_dim)`, init: `torch.ones`
+- `model.lin_edge` - Edge message MLP (hidden layers init: std=0.1)
+- `model.lin_phi` - Node update MLP (hidden layers init: std=0.1)
+
+**Priority code changes for sparse regime (ordered by expected impact):**
+
+1. **W initialization scale** — True W has entries ~ N(0, 1/√n). Current init is `torch.randn` (std=1.0), 10× too large for n=100. Try `torch.randn(...) * (1.0 / math.sqrt(n_neurons))` in `Signal_Propagation.py`
+2. **Gradient clipping on W** — Large gradients on 10,000 W entries can destabilize training. Add `torch.nn.utils.clip_grad_norm_(model.W, max_norm=1.0)` after `loss.backward()` in `graph_trainer.py`
+3. **LR scheduler** — Cosine annealing or step decay for `lr_W` to allow large early updates then fine-tuning. Add scheduler in `data_train_signal`
+4. **Proximal L1** — Replace gradient-based L1 with proximal soft-thresholding on W after each step: `model.W.data = torch.sign(W) * torch.clamp(W.abs() - threshold, min=0)`. More effective at producing exact zeros
+5. **MLP capacity reduction** — Smaller lin_edge/lin_phi (hidden_dim: 64→32, n_layers: 3→2) forces W to carry more signal, reducing MLP compensation
+6. **W diagonal constraint** — Enforce `model.W.data.fill_diagonal_(0)` after each optimizer step (prevent self-loops from absorbing signal)
+7. **Loss function** — Add explicit sparsity metrics: penalize entries below a threshold that aren't exactly zero, or add group-lasso-style regularization
+8. **Different optimizer for W** — Try SGD with momentum for W (while keeping Adam for MLPs) for sharper L1-induced zeros
+
+**How code reloading works:**
+
+- Training runs in a subprocess for each iteration after code is modified, reloading all modules
+- Code changes are immediately effective in the next iteration
+- Syntax errors cause iteration failure with error message
+- Modified files are automatically committed to git with descriptive messages
+
+**Safety rules (CRITICAL):**
+
+1. **Make minimal changes** — edit only what's necessary
+2. **Test in isolation first** — don't combine code + config changes in the same iteration
+3. **Document thoroughly** — explain WHY in mutation log
+4. **One change at a time** — never modify multiple functions simultaneously
+5. **Preserve interfaces** — don't change function signatures
+
+**Logging Code Modifications:**
+
+```
+## Iter N: [converged/partial/failed]
+Node: id=N, parent=P
+Mode/Strategy: code-modification
+Config: [unchanged from parent, or specify if also changed]
+CODE MODIFICATION:
+  File: src/NeuralGraph/models/graph_trainer.py
+  Function: data_train_signal
+  Change: [what was changed]
+  Hypothesis: [why this should help sparse recovery]
+Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, cluster_accuracy=D, final_loss=E, kino_R2=F, kino_SSIM=G, kino_WD=H
+Mutation: [code] data_train_signal: [short description]
+Parent rule: [one line]
+Observation: [compare to parent — did code change help?]
+Next: parent=P
+```
+
+**NEVER:**
+
+- Modify GNN_LLM.py or GNN_LLM_parallel.py (breaks the experiment loop)
+- Change function signatures (breaks compatibility)
+- Add dependencies requiring new pip packages
+- Make multiple simultaneous code changes (can't isolate causality)
+- Modify code just to "try something" without a specific hypothesis
+
+**ALWAYS:**
+
+- Explain the hypothesis motivating the code change
+- Compare directly to parent iteration (same config, code-only diff)
+- Document exactly what changed (file, function, what was added/removed)
+- Consider reverting a code change if it doesn't help (git checkout the file)
 
 ---
 
