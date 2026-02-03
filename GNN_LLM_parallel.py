@@ -183,7 +183,7 @@ def wait_for_cluster_jobs(job_ids, log_dir=None, poll_interval=60):
                                         print(f"\033[91m  --- slot {slot} error log ---\033[0m")
                                         for eline in err_content.splitlines()[-30:]:
                                             print(f"\033[91m    {eline}\033[0m")
-                                        print(f"\033[91m  --- end error log ---\033[0m")
+                                        print("\033[91m  --- end error log ---\033[0m")
                                 except Exception:
                                     pass
                     # else: PEND or RUN — still waiting
@@ -326,19 +326,19 @@ if __name__ == "__main__":
         if start_iteration > 1:
             print(f"\033[93mAuto-resume: resuming from batch starting at {start_iteration}\033[0m")
         else:
-            print(f"\033[93mFresh start (no previous iterations found)\033[0m")
+            print("\033[93mFresh start (no previous iterations found)\033[0m")
     else:
         start_iteration = 1
         _analysis_check = f"{root_dir}/{llm_task_name}_analysis.md"
         if os.path.exists(_analysis_check):
-            print(f"\033[91mWARNING: Fresh start will erase existing results in:\033[0m")
+            print("\033[91mWARNING: Fresh start will erase existing results in:\033[0m")
             print(f"\033[91m  {_analysis_check}\033[0m")
             print(f"\033[91m  {root_dir}/{llm_task_name}_memory.md\033[0m")
             answer = input("\033[91mContinue? (y/n): \033[0m").strip().lower()
             if answer != 'y':
                 print("Aborted.")
                 sys.exit(0)
-        print(f"\033[93mFresh start\033[0m")
+        print("\033[93mFresh start\033[0m")
 
     # --- Initialize 4 slot configs from source ---
     for cfg in config_list:
@@ -414,7 +414,7 @@ if __name__ == "__main__":
         sys.exit(1)
     if not os.path.exists(parallel_instruction_path):
         print(f"\033[93mwarning: parallel instruction file not found: {parallel_instruction_path}\033[0m")
-        print(f"\033[93m  Claude will use base instructions only\033[0m")
+        print("\033[93m  Claude will use base instructions only\033[0m")
         parallel_instruction_path = None
 
     # Initialize shared files on fresh start
@@ -485,16 +485,16 @@ Write the planned mutations to the working memory file."""
 
         # Check for OAuth expiration
         if 'OAuth token has expired' in output_text or 'authentication_error' in output_text:
-            print(f"\n\033[91mOAuth token expired during start call\033[0m")
+            print("\n\033[91mOAuth token expired during start call\033[0m")
             print("\033[93m  1. Run: claude /login\033[0m")
-            print(f"\033[93m  2. Then re-run this script\033[0m")
+            print("\033[93m  2. Then re-run this script\033[0m")
             sys.exit(1)
 
         # Save reasoning
         if output_text.strip():
             with open(reasoning_log_path, 'a') as f:
                 f.write(f"\n{'='*60}\n")
-                f.write(f"=== BATCH 0 (start call) ===\n")
+                f.write("=== BATCH 0 (start call) ===\n")
                 f.write(f"{'='*60}\n")
                 f.write(output_text.strip())
                 f.write("\n\n")
@@ -731,7 +731,7 @@ Fix the bug. Do NOT make other changes."""
         # -------------------------------------------------------------------
         # PHASE 4: Test + plot for successful slots
         # -------------------------------------------------------------------
-        print(f"\n\033[93mPHASE 4: Test + plot for successful slots\033[0m")
+        print("\n\033[93mPHASE 4: Test + plot for successful slots\033[0m")
 
         activity_paths = {}
         for slot_idx, iteration in enumerate(iterations):
@@ -798,7 +798,7 @@ Fix the bug. Do NOT make other changes."""
         # -------------------------------------------------------------------
         # PHASE 5: Batch UCB update
         # -------------------------------------------------------------------
-        print(f"\n\033[93mPHASE 5: Computing UCB scores\033[0m")
+        print("\n\033[93mPHASE 5: Computing UCB scores\033[0m")
 
         # Read ucb_c from first slot config (all should share same claude section)
         with open(config_paths[0], 'r') as f:
@@ -855,7 +855,7 @@ Fix the bug. Do NOT make other changes."""
         # -------------------------------------------------------------------
         # PHASE 6: Claude analyzes results + proposes next 4 mutations
         # -------------------------------------------------------------------
-        print(f"\n\033[93mPHASE 6: Claude analysis + next mutations\033[0m")
+        print("\n\033[93mPHASE 6: Claude analysis + next mutations\033[0m")
 
         # Build per-slot info
         slot_info_lines = []

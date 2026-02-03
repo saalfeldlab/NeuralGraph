@@ -426,7 +426,7 @@ def create_sankey_html():
             },
         },
     )
-    print(f"Saved: signal_landscape_Claude_epistemic_sankey.html")
+    print("Saved: signal_landscape_Claude_epistemic_sankey.html")
     print(f"  {n_events} events, {n_edges} edges, {n_blocks} blocks")
 
 
