@@ -255,6 +255,7 @@ def run_validation_diagnostics(
         time_units=time_units,
         evolve_multiple_steps=evolve_multiple_steps,
         rollout_type="latent",
+        column_to_model=cfg.training.column_to_model,
     )
     figures["time_aligned_mse_latent"] = fig_zoomed
 
@@ -366,6 +367,7 @@ def run_validation_diagnostics_interp(
         time_units=time_units,
         evolve_multiple_steps=evolve_multiple_steps,
         rollout_type="latent",
+        column_to_model=cfg.training.column_to_model,
     )
     figures["time_aligned_mse_latent"] = fig_zoomed
 
