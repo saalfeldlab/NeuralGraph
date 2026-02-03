@@ -2314,7 +2314,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.figure()
                     plt.scatter(pred_weight_corrected, GT_UV, s=1, c=mc, alpha=1)
                     plt.tight_layout()
-                    plt.savefig(f"./UV_comparison.png", dpi=87)
+                    plt.savefig("./UV_comparison.png", dpi=87)
                     plt.close()
 
                     # Recover U and V from slope-corrected learned W via truncated SVD
@@ -2398,7 +2398,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.savefig(f"./{log_dir}/results/low_rank_UV_comparison.pdf", dpi=170)
                     plt.close()
                 else:
-                    print(f'low-rank ground truth files not found, skipping U/V comparison')
+                    print('low-rank ground truth files not found, skipping U/V comparison')
 
 
             if has_external_input:

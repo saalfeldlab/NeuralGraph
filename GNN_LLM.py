@@ -101,19 +101,19 @@ if __name__ == "__main__":
         if start_iteration > 1:
             print(f"\033[93mResuming from iteration {start_iteration}\033[0m")
         else:
-            print(f"\033[93mNo previous iterations found, starting fresh\033[0m")
+            print("\033[93mNo previous iterations found, starting fresh\033[0m")
     else:
         start_iteration = 1
         _analysis_check = f"{_root}/{llm_task_name}_analysis.md"
         if os.path.exists(_analysis_check):
-            print(f"\033[91mWARNING: Fresh start will erase existing results in:\033[0m")
+            print("\033[91mWARNING: Fresh start will erase existing results in:\033[0m")
             print(f"\033[91m  {_analysis_check}\033[0m")
             print(f"\033[91m  {_root}/{llm_task_name}_memory.md\033[0m")
             answer = input("\033[91mContinue? (y/n): \033[0m").strip().lower()
             if answer != 'y':
                 print("Aborted.")
                 sys.exit(0)
-        print(f"\033[93mFresh start\033[0m")
+        print("\033[93mFresh start\033[0m")
 
     if 'Claude' in task:
         iteration_range = range(start_iteration, n_iterations + 1)
