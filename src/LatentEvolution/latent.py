@@ -443,7 +443,7 @@ def train_step_nocompile(
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)
-    losses[LossType.RECON] = loss_fn(recon_t, x_t)
+    losses[LossType.RECON] = cfg.training.recon_loss_wt * loss_fn(recon_t, x_t)
 
     # Evolve by 1 time step. This is a special case since we may opt to apply
     # a connectome constraint via data augmentation.
