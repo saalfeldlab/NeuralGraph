@@ -151,9 +151,9 @@ class TrainingConfig(BaseModel):
         False, description="enable stimulus autoencoder pretraining. pretrains stimulus encoder/decoder for reconstruction, then freezes encoder during main training.", json_schema_extra={"short_name": "psa"}
     )
     stimulus_ae: StimulusAETrainingConfig = Field(
-        default_factory=lambda: StimulusAETrainingConfig(), description="stimulus autoencoder training hyperparameters. used when pretrain_stimulus_ae is True."
+        default_factory=StimulusAETrainingConfig, description="stimulus autoencoder training hyperparameters. used when pretrain_stimulus_ae is True."
     )
-    unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=lambda: UnconnectedToZeroConfig())
+    unconnected_to_zero: UnconnectedToZeroConfig = Field(default_factory=UnconnectedToZeroConfig)
     early_stop_intervening_mse: bool = Field(
         False, description="enable early stopping based on max intervening mse metric (0 to tu-1)", json_schema_extra={"short_name": "es_int"}
     )
