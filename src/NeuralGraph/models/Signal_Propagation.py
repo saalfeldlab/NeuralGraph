@@ -1,3 +1,4 @@
+import math
 import torch
 import torch.nn as nn
 import torch_geometric as pyg
@@ -207,7 +208,7 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
             else:
 
-                W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32)
+                W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32) * (1.0 / math.sqrt(self.n_neurons))
                 W_init.fill_diagonal_(0)
                 self.W = nn.Parameter(W_init, requires_grad=True)
 
