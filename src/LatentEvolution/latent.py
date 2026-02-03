@@ -560,7 +560,7 @@ def train(cfg: ModelParams, run_dir: Path):
         # Save full config
         config_path = run_dir / "config.yaml"
         with open(config_path, "w") as f:
-            yaml.dump(cfg.model_dump(), f, sort_keys=False, indent=2)
+            yaml.dump(cfg.model_dump(mode='json'), f, sort_keys=False, indent=2)
         print(f"Saved config to {config_path}")
 
         # --- Device setup ---
