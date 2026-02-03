@@ -656,6 +656,13 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                 optimizer.step()
                 regularizer.finalize_iteration()
 
+                # proximal L1: soft-thresholding on W for exact zeros
+                if train_config.coeff_W_L1 > 0:
+                    with torch.no_grad():
+                        prox_threshold = train_config.coeff_W_L1 * lr_W
+                        model.W.data = torch.sign(model.W.data) * torch.clamp(model.W.data.abs() - prox_threshold, min=0)
+                        model.W.data.fill_diagonal_(0)
+
                 if has_missing_activity:
                     optimizer_missing_activity.step()
                 if model_f is not None:
