@@ -57,11 +57,11 @@ So let's establish a baseline by running the existing method for 100 epochs.
 
 ```bash
 
-bsub -J tu20_ca_aln -n 8 -gpu "num=1" -q gpu_a100 -o tu20_ca_aln.log \
+bsub -J tu20_ca_aln -n 8 -W 8:00 -gpu "num=1" -q gpu_a100 -o tu20_ca_aln.log \
   python src/LatentEvolution/latent.py tu20_ca_baseline \
   calcium_align_20step.yaml --training.epochs 100
 
-bsub -J tu20_ca_stag -n 8 -gpu "num=1" -q gpu_a100 -o tu20_ca_stag.log \
+bsub -J tu20_ca_stag -n 8 -W 8:00 -gpu "num=1" -q gpu_a100 -o tu20_ca_stag.log \
   python src/LatentEvolution/latent_stag_interp.py tu20_ca_baseline \
   calcium_stag_20step.yaml --training.epochs 100
 ```
