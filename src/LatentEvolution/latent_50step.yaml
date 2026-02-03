@@ -46,7 +46,7 @@ training:
   evolve_multiple_steps: 5
   simulation_config: "fly_N9_62_1_youtube-vos_calcium" # 987736 time steps
   data_passes_per_epoch: 1
-  epochs: 100 # Total number of epochs
+  epochs: 30 # Total number of epochs
   save_best_checkpoint: True # Save model with lowest validation loss
   save_checkpoint_every_n_epochs: 0
   diagnostics_freq_epochs: 1 # run validation diagnostics every epoch

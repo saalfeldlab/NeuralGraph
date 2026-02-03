@@ -508,3 +508,36 @@ bsub -J tu50 -n 8 -W 8:00 -gpu "num=1" -q gpu_a100 -o tu50.log \
     python src/LatentEvolution/latent.py tu50_checkpoint \
     latent_50step.yaml
 ```
+
+## Investigate MSE decay within training window
+
+The tu50 experiment shows an interesting pattern in the MSE over time that is
+unexpected. When plotting the MSE over validation data, we observe that the MSE
+starts off high at ~ 0.5 and then decays to a baseline of ~ 1e-2. The tu20
+experiment doesn't show as big of a pattern. The overall MSE from this plot is
+lower ~ 8e-3 but roughly the same order of magnitude.
+
+This raises a puzzle how is it that an erroneous t->t+1 prediction by the
+evolver, nevertheless, settles down to the right asymptotic value? It's possible
+the true solution is luckily for us an attractor and that with regular supply
+of the correct stimulus we get to the right latent trajectory.
+
+Let's first run an experiment where we train without noise, since it could be
+that the noise results in a high variance prediction at t -> t+1, but that
+over time the effect of the noise is averaged out and we recover the right
+dynamics.
+
+```bash
+bsub -J tu50 -n 8 -W 8:00 -gpu "num=1" -q gpu_a100 -o tu50.log \
+    python src/LatentEvolution/latent.py no_noise latent_50step.yaml \
+    --training.simulation-config fly_N9_62_0_youtube-vos_calcium
+```
+
+Note: we have the same experiment for staggered inputs as well.
+
+- Training without noise works, which is nice, since the noise in real
+  activity data is going to be structured and not AWGN.
+- the MSE actually gets worse when you train without noise, in the [0, 50] window
+  which is quite unexpected. The MSE is comparable beyond.
+
+So it's still a puzzle why the MSE is higher at early time points.

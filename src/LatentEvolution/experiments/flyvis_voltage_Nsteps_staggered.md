@@ -117,3 +117,46 @@ bsub -J stag -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o stag.log \
     python src/LatentEvolution/latent_stag.py \
     stag_enc_z0_consistency latent_stag_20step.yaml
 ```
+
+None of these solutions work - we end up with an explosion in the roll out.
+
+## Align data with linear interpolation
+
+Here we take the staggered observations and linearly interpolate them to create
+a new interpolated training dataset. The code only uses this dataset.
+
+The encoder projects the interpolated activity at time point t - which includes
+a mix of interpolated and real data - down to the latent space. Because we have
+interpolated activities we don't train the encoder-decoder for reconstruction at
+all. Instead we evolve the latent by n ( = tu \* ems) time steps requiring that
+the decoding minimizes the MSE but _only_ measured on the real acquired.
+
+This is not a traditional auto-encoder since the symmetry is broken.
+
+```bash
+
+bsub -J stag_interp -n 8 -gpu "num=1" -q gpu_a100 -o stag_interp.log \
+    python src/LatentEvolution/latent_stag_interp.py stag_interp  \
+    latent_stag_20step.yaml
+```
+
+This works! We have a stable roll out. The MSE over time starts off high, at around
+the same level as the constant/interpolation baselines, and then decays to about
+the same level as the time-aligned tu=20 roll out.
+
+## Training with no noise
+
+Let's see if the addition of noise to the training data is critical for this
+result to hold.
+
+```bash
+
+bsub -J stag_interp -n 8 -gpu "num=1" -q gpu_a100 -o stag_interp.log    \
+    python src/LatentEvolution/latent_stag_interp.py no_noise  \
+    latent_stag_20step.yaml --training.simulation-config fly_N9_62_0_youtube-vos_calcium
+```
+
+Note: we have a parallel experiment in this series for time-aligned data as well.
+
+- the training works even without noise, which is a nice result.
+- The MSE plot is identical and roll outs are stable
