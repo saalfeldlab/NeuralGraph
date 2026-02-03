@@ -653,6 +653,11 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                         loss = loss + train_config.coeff_omega_f_L2 * omega_L2_loss
 
                 loss.backward()
+
+                # gradient clipping on W to stabilize training
+                if hasattr(model, 'W') and model.W.grad is not None:
+                    torch.nn.utils.clip_grad_norm_([model.W], max_norm=1.0)
+
                 optimizer.step()
                 regularizer.finalize_iteration()
 
