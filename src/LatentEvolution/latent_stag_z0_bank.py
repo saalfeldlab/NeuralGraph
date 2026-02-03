@@ -429,7 +429,7 @@ def train(cfg: StagModelParams, run_dir: Path):
         # save config
         config_path = run_dir / "config.yaml"
         with open(config_path, "w") as f:
-            yaml.dump(cfg.model_dump(), f, sort_keys=False, indent=2)
+            yaml.dump(cfg.model_dump(mode='json'), f, sort_keys=False, indent=2)
         print(f"saved config to {config_path}")
 
         # device setup

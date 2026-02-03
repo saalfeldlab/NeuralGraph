@@ -443,7 +443,7 @@ def train_step_nocompile(
 
     # reconstruction loss
     recon_t = model.decoder(proj_t)
-    losses[LossType.RECON] = loss_fn(recon_t, x_t)
+    losses[LossType.RECON] = cfg.training.recon_loss_wt * loss_fn(recon_t, x_t)
 
     # Evolve by 1 time step. This is a special case since we may opt to apply
     # a connectome constraint via data augmentation.
@@ -560,7 +560,7 @@ def train(cfg: ModelParams, run_dir: Path):
         # Save full config
         config_path = run_dir / "config.yaml"
         with open(config_path, "w") as f:
-            yaml.dump(cfg.model_dump(), f, sort_keys=False, indent=2)
+            yaml.dump(cfg.model_dump(mode='json'), f, sort_keys=False, indent=2)
         print(f"Saved config to {config_path}")
 
         # --- Device setup ---

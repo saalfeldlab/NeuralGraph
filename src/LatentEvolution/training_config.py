@@ -169,6 +169,9 @@ class TrainingConfig(BaseModel):
     encoder_consistency_loss: float = Field(
         1.0, description="weight for encoder consistency loss. enforces z ≈ encoder(decoder(z)) at tu boundaries.", json_schema_extra={"short_name": "enc_c"}
     )
+    recon_loss_wt: float = Field(
+        1.0, description="weight for reconstruction loss.", json_schema_extra={"short_name": "recon_w"}
+    )
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     @field_validator("optimizer")
