@@ -558,15 +558,15 @@ Next, let's downweight the reconstruction loss term and see what happens.
 
 ```bash
 
-bsub -J tu50_0p2 -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o tu50_0p2.log  \
+bsub -J tu50_0p2 -n 8 -W 6:00 -gpu "num=1" -q gpu_a100 -o tu50_0p2.log  \
    python src/LatentEvolution/latent.py tu50_no_recon_wu latent_50step.yaml  \
    --training.recon-loss-wt 0.2
 
-bsub -J tu50_0p04 -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o tu50_0p04.log  \
+bsub -J tu50_0p04 -n 8 -W 6:00 -gpu "num=1" -q gpu_a100 -o tu50_0p04.log  \
    python src/LatentEvolution/latent.py tu50_no_recon_wu latent_50step.yaml  \
    --training.recon-loss-wt 0.04
 
-bsub -J tu50_0p0 -n 8 -W 4:00 -gpu "num=1" -q gpu_a100 -o tu50_0p0.log  \
+bsub -J tu50_0p0 -n 8 -W 6:00 -gpu "num=1" -q gpu_a100 -o tu50_0p0.log  \
    python src/LatentEvolution/latent.py tu50_no_recon_wu latent_50step.yaml  \
    --training.recon-loss-wt 0.0
 ```
