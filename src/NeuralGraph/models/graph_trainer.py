@@ -2378,8 +2378,8 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
     ax.set_xlabel(r'true $S_{ij}$', fontsize=18)
     ax.set_ylabel(r'learned $S_{ij}$', fontsize=18)
 
-    n_points = int(np.count_nonzero(x_data) + np.count_nonzero(y_data))
     n_total = len(x_data)
+    n_nonzero_gt = int(np.count_nonzero(x_data))
     r_squared = 0.0
     try:
         lin_fit, _ = curve_fit(linear_model, x_data, y_data)
@@ -2391,7 +2391,7 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
                 fontsize=12, verticalalignment='top')
         ax.text(0.05, 0.92, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
-        ax.text(0.05, 0.88, f'n={n_total} ({n_points} non-zero)', transform=ax.transAxes,
+        ax.text(0.05, 0.88, f'n={n_total} ({n_nonzero_gt} non-zero in GT)', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
     except Exception:
         pass
