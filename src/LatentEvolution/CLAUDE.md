@@ -124,3 +124,5 @@ experiments documented in `experiments/*.md`. bsub commands there specify run di
 - use `unittest`, not pytest.
 - conda env: `neural-graph-linux`.
 - prefer vectorized/batched tensor ops over python loops.
+- **no lazy imports.** all imports must be top-level. never use `import` inside a function or method. use `from __future__ import annotations` and `TYPE_CHECKING` blocks to break circular import issues when needed for type hints only.
+- **circular import check on refactors.** when refactoring modules, verify there are no circular import issues by importing every `.py` module in this directory (e.g. `from LatentEvolution.<module> import ...` for each module) and confirming no `ImportError`.
