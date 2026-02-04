@@ -1668,7 +1668,7 @@ def data_train_metabolism(config, erase, best_model, device, log_file=None):
     SIREN-based external input learning of data_train_signal.
 
     The training model (Metabolism_Propagation) mirrors PDE_M2 but has learnable
-    stoichiometric coefficients (sto_sub, sto_all) instead of fixed buffers.
+    stoichiometric coefficients (sto_all) instead of fixed buffers.
     """
     simulation_config = config.simulation
     train_config = config.training

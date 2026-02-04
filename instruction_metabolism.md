@@ -30,13 +30,13 @@ dc_i/dt = sum_j S_ij * v_j(c)
 | Property | Signal (W recovery) | Metabolism (S recovery) |
 | --- | --- | --- |
 | Graph structure | Fixed edge_index, learnable W weights | Fixed bipartite graph (met <-> rxn), learnable S coefficients |
-| Learnable weights | W (n_neurons x n_neurons), dense | sto_sub (n_sub_edges,) + sto_all (n_all_edges,), sparse |
+| Learnable weights | W (n_neurons x n_neurons), dense | sto_all (n_all_edges,), sparse; substrate |stoich| derived as |sto_all[sub_to_all]| |
 | Weight semantics | Synaptic connectivity (arbitrary real) | Stoichiometric coefficients (small integers: -2,-1,+1,+2) |
 | Dynamics | du/dt = phi(u, a) + W @ f(u, a) | dc/dt = S @ v(c) where v = k * softplus(rate_mlp(msg)) |
 | Rate function | Edge MLP modulates W message | msg_mlp + rate_mlp compute reaction rates from substrate concentrations |
 | Ground truth sparsity | Depends on regime (dense, sparse, low-rank) | Always sparse: ~3-6 non-zero entries per column (reaction) |
 | Value distribution | Gaussian N(0, 1/sqrt(n)) | Discrete integers {-2, -1, +1, +2} |
-| Number of parameters | n^2 = 10,000 (W) | ~600 substrate edges + ~1100 all edges |
+| Number of parameters | n^2 = 10,000 (W) | ~1100 edges (sto_all) + ~1440 MLPs + 256 log_k |
 
 ### Stoichiometric Matrix Structure
 
@@ -277,8 +277,7 @@ claude:
 
 **Key model attributes (read-only reference):**
 
-- `model.sto_sub` - Substrate stoichiometric coefficients `(n_sub_edges,)`, init: `randn * 0.1`
-- `model.sto_all` - All stoichiometric coefficients `(n_all_edges,)`, init: `randn * 0.1`
+- `model.sto_all` - All stoichiometric coefficients `(n_all_edges,)`, init: `randn * 0.1`. This is the ONLY stoichiometry parameter. Substrate |stoich| for messages is derived as `|sto_all[sub_to_all]|` in the forward pass.
 - `model.msg_mlp` - Message MLP: `[concentration, |stoich|] -> message_vector (dim=16)`
 - `model.rate_mlp` - Rate MLP: `aggregated_message -> scalar_rate (softplus)`
 - `model.log_k` - Log10 rate constants `(n_rxn,)`, init: `uniform(-2, 1)`
@@ -288,8 +287,7 @@ claude:
 1. **Stoichiometry initialization scale** — True S has entries in {-2,-1,+1,+2}. Current init is `randn * 0.1`, which may be too small. Try `randn * 1.0` to start closer to the true scale
 2. **L1 regularization on sto_all** — Promote sparsity in the learned stoichiometric matrix. Add soft-thresholding: `model.sto_all.data = sign(S) * clamp(|S| - threshold, min=0)`
 3. **Integer rounding loss** — Add a penalty that pushes sto_all values toward the nearest integer: `round_loss = ((sto_all - round(sto_all))**2).mean()`
-4. **Sign constraint** — sto_sub should always be positive (absolute values). Add `sto_sub = |sto_sub|` in forward pass (already done via `.abs()`)
-5. **MLP capacity reduction** — Smaller msg_mlp/rate_mlp (hidden_dim: 32->16) forces S to carry more signal
+4. **MLP capacity reduction** — Smaller msg_mlp/rate_mlp (hidden_dim: 32->16) forces S to carry more signal
 6. **Gradient clipping on sto_all** — Prevent large gradient updates that destabilize stoichiometry learning
 7. **Separate learning rates** — Use different lr for sto_sub/sto_all vs msg_mlp/rate_mlp vs log_k
 8. **Loss weighting** — Weight the MSE loss per metabolite by inverse participation count (metabolites in more reactions have more signal)
@@ -431,11 +429,11 @@ dc_i/dt = sum_j  sto_all[e] * v[rxn_all[e]]     for all edges e where met_all[e]
 ```
 
 Where:
-- `sto_all` (nn.Parameter): signed stoichiometric coefficients for all edges
-- `sto_sub` (nn.Parameter): absolute stoichiometric coefficients for substrate edges
+- `sto_all` (nn.Parameter): signed stoichiometric coefficients for all edges (~1100)
 - `v[j] = k_j * softplus(rate_mlp(h_j))`: non-negative reaction rate
-- `h_j = sum over substrate edges of reaction j: msg_mlp([concentration, |sto_sub|])`
+- `h_j = sum over substrate edges of reaction j: msg_mlp([concentration, |sto_all[sub_to_all]|])`
 - `k_j = 10^(log_k[j])`: per-reaction rate constant (learnable)
+- `sub_to_all` (buffer): maps substrate edge index to its position in sto_all
 
 ### Bipartite Graph Structure (fixed buffers)
 
@@ -469,7 +467,7 @@ L = L_pred + coeff_S_L1 * ||sto_all||_1 + coeff_S_L2 * ||sto_all||_2 + coeff_mas
 
 ### Metabolism-Specific Considerations
 
-- **No connectivity matrix W**: Unlike signal recovery, there is no W matrix. The learnable "weights" are the stoichiometric coefficients sto_sub and sto_all
+- **No connectivity matrix W**: Unlike signal recovery, there is no W matrix. The single learnable stoichiometry vector is sto_all (~1100 edges); substrate |stoich| is derived from it
 - **Concentration dynamics, not neural activity**: The state variable is metabolite concentration c (always non-negative), not membrane potential u
 - **Integer target**: Ground truth S has discrete integer entries, unlike W which is continuous Gaussian
 - **Very sparse target**: S has ~4% fill factor, much sparser than typical W matrices

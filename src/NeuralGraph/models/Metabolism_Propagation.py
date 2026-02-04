@@ -27,10 +27,9 @@ class Metabolism_Propagation(nn.Module):
 
     Learnable parameters
     --------------------
-    sto_sub : nn.Parameter (n_sub_edges,)
-        Absolute stoichiometric coefficients for substrate edges.
     sto_all : nn.Parameter (n_all_edges,)
         Signed stoichiometric coefficients for all edges.
+        Substrate |stoich| for messages is derived as |sto_all[sub_to_all]|.
     msg_mlp : nn.Sequential
         Message MLP: [concentration, |stoich|] -> message vector.
     rate_mlp : nn.Sequential
@@ -44,6 +43,9 @@ class Metabolism_Propagation(nn.Module):
         Metabolite and reaction indices for substrate edges.
     met_all, rxn_all : LongTensor
         Metabolite and reaction indices for all edges.
+    sub_to_all : LongTensor (n_sub_edges,)
+        Maps each substrate edge to its index in the all-edges array,
+        so that |sto_all[sub_to_all]| gives substrate absolute coefficients.
 
     Optional: SIREN for visual field reconstruction (external input).
     """
@@ -115,10 +117,21 @@ class Metabolism_Propagation(nn.Module):
         self.register_buffer('met_all', met_all)
         self.register_buffer('rxn_all', rxn_all)
 
-        # learnable stoichiometric coefficients (small random init)
-        n_sub_edges = met_sub.shape[0]
+        # map substrate edges -> their index in the all-edges array
+        # so |sto_all[sub_to_all]| gives substrate absolute coefficients
+        all_edge_dict = {}
+        for idx in range(met_all.shape[0]):
+            key = (met_all[idx].item(), rxn_all[idx].item())
+            all_edge_dict[key] = idx
+        sub_to_all = torch.tensor(
+            [all_edge_dict[(met_sub[i].item(), rxn_sub[i].item())]
+             for i in range(met_sub.shape[0])],
+            dtype=torch.long,
+        )
+        self.register_buffer('sub_to_all', sub_to_all)
+
+        # single learnable stoichiometric coefficient vector (all edges)
         n_all_edges = met_all.shape[0]
-        self.sto_sub = nn.Parameter(torch.randn(n_sub_edges) * 0.1)
         self.sto_all = nn.Parameter(torch.randn(n_all_edges) * 0.1)
 
         # pre-compute number of substrates per reaction for averaging
@@ -177,7 +190,8 @@ class Metabolism_Propagation(nn.Module):
         """Compute dx/dt for all metabolites.
 
         Same computation as PDE_M2.forward() but using learnable
-        stoichiometric coefficients (sto_sub, sto_all).
+        stoichiometric coefficients (sto_all). Substrate |stoich| for
+        messages is derived as |sto_all[sub_to_all]|.
 
         Returns
         -------
@@ -187,9 +201,9 @@ class Metabolism_Propagation(nn.Module):
         concentrations = x[:, 3]
         external_input = x[:, 4]
 
-        # 1. gather substrate concentrations and learnable stoichiometric coefficients
+        # 1. gather substrate concentrations; derive |stoich| from sto_all
         x_src = concentrations[self.met_sub].unsqueeze(-1)
-        s_abs = self.sto_sub.abs().unsqueeze(-1)
+        s_abs = self.sto_all[self.sub_to_all].abs().unsqueeze(-1)
         msg_in = torch.cat([x_src, s_abs], dim=-1)
 
         # 2. compute messages
