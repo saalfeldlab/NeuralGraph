@@ -41,6 +41,13 @@ Run the baseline model without any optimizations. We have 18M parameters in the 
 comparable to the EED model (~19M).
 
 ```bash
-bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null.log python \
-  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml
+bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null1.log python \
+  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
+  --training.time-units 1
+bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null2.log python \
+  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
+  --training.time-units 2
+bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null20.log python \
+  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
+  --training.time-units 20
 ```
