@@ -420,6 +420,8 @@ class TrainingConfig(BaseModel):
     lin_edge_mode: str = 'mlp'  # 'mlp' (default learned MLP), 'tanh' (fixed tanh(u_j)), 'identity' (fixed u_j)
     w_optimizer_type: str = 'adam'  # 'adam' (default) or 'sgd' (SGD with momentum for sharper L1-induced zeros)
     w_lr_scheduler: str = 'none'  # 'none' (default) or 'cosine' (cosine annealing for W learning rate)
+    coeff_spectral_radius: float = 0.0  # penalty on |spectral_radius(W) - target|^2, 0 = disabled
+    spectral_radius_target: float = 0.7  # target spectral radius for W (sparse chaotic regime ~ 0.7)
 
     # Simple training parameters (matching ParticleGraph conceptually)
     first_coeff_L1: float = 0.0  # Phase 1 weak L1 regularization

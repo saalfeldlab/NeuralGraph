@@ -704,6 +704,17 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                     anti_sparsity_loss = -anti_sparsity_coeff * torch.log(model.W ** 2 + 1e-8).sum()
                     loss = loss + anti_sparsity_loss
 
+                # spectral radius regularization: penalize |spectral_radius(W) - target|^2
+                # uses power iteration (1 step) to approximate top singular value as spectral radius proxy
+                coeff_spectral_radius = getattr(train_config, 'coeff_spectral_radius', 0.0)
+                if coeff_spectral_radius > 0:
+                    W_masked = model.W * model.mask
+                    svs = torch.linalg.svdvals(W_masked)
+                    spectral_radius = svs[0]
+                    target = getattr(train_config, 'spectral_radius_target', 0.7)
+                    spectral_loss = coeff_spectral_radius * (spectral_radius - target) ** 2
+                    loss = loss + spectral_loss
+
                 loss.backward()
 
                 # gradient clipping on W to stabilize training
