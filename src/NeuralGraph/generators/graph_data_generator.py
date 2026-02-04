@@ -30,6 +30,7 @@ from NeuralGraph.generators.utils import (
     plot_stoichiometric_matrix,
     plot_stoichiometric_eigenvalues,
     plot_rate_distribution,
+    plot_metabolism_kymograph,
 )
 from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
@@ -1655,6 +1656,7 @@ def data_generate_metabolism(
         # --- activity plot + SVD analysis (first run, unconditional) ---
         if run == 0:
             plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t)
+            plot_metabolism_kymograph(x_list, n_metabolites, n_frames, dataset_name, delta_t)
 
             print('svd analysis ...')
             from NeuralGraph.models.utils import analyze_data_svd

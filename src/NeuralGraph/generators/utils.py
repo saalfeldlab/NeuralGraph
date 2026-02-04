@@ -1390,3 +1390,30 @@ def plot_rate_distribution(model, dataset_name):
     plt.close()
     print(f'  k range: [{k.min():.4f}, {k.max():.4f}], median: {np.median(k):.4f}')
 
+
+def plot_metabolism_kymograph(x_list, n_metabolites, n_frames, dataset_name, delta_t):
+    """Kymograph (imshow heatmap) of metabolite concentrations over time.
+
+    Rows = metabolites, columns = time frames.  Same style as kinograph in
+    data_test_signal.
+    Saves to graphs_data/{dataset_name}/kymograph.png
+    """
+    print('plot kymograph ...')
+    conc = x_list[:, :, 3].T  # (n_met, T)
+
+    vmax = np.abs(conc).max()
+    n_frames_plot = conc.shape[1]
+
+    plt.figure(figsize=(15, 10))
+    plt.imshow(conc, aspect='auto', cmap='viridis', vmin=0, vmax=vmax, origin='lower')
+    cbar = plt.colorbar(fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=32)
+    cbar.set_label('concentration', fontsize=32)
+    plt.ylabel('metabolite', fontsize=64)
+    plt.xlabel('time (min)', fontsize=64)
+    plt.xticks([0, n_frames_plot - 1], [0, int(n_frames_plot * delta_t)], fontsize=48)
+    plt.yticks([0, n_metabolites - 1], [1, n_metabolites], fontsize=48)
+    plt.tight_layout()
+    plt.savefig(f'graphs_data/{dataset_name}/kymograph.png', dpi=300)
+    plt.close()
+
