@@ -415,6 +415,7 @@ class TrainingConfig(BaseModel):
     coeff_edge_diff: float = 0
     phi_scale: float = 1.0
     anti_sparsity_coeff: float = 0.0  # anti-sparsity penalty: -coeff * sum(log(W_ij^2 + eps)), active during phase 1 only
+    freeze_lin_edge: bool = False  # freeze lin_edge parameters after n_epochs_init to prevent MLP compensation
 
     # Simple training parameters (matching ParticleGraph conceptually)
     first_coeff_L1: float = 0.0  # Phase 1 weak L1 regularization

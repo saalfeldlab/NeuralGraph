@@ -417,6 +417,17 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
             optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
             model.train()
 
+        # freeze lin_edge (and lin_phi) after n_epochs_init to prevent MLP compensation for wrong W
+        freeze_lin_edge = getattr(train_config, 'freeze_lin_edge', False)
+        if freeze_lin_edge and epoch == train_config.n_epochs_init:
+            for param in model.lin_edge.parameters():
+                param.requires_grad = False
+            for param in model.lin_phi.parameters():
+                param.requires_grad = False
+            # rebuild optimizer without frozen parameters
+            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+            model.train()
+            print(f'froze lin_edge and lin_phi at epoch {epoch} — only W and embeddings trainable ({n_total_params:,} params)')
 
         batch_size = get_batch_size(epoch)
         logger.info(f'batch_size: {batch_size}')
@@ -1097,6 +1108,11 @@ def data_train_flyvis(config, erase, best_model, device):
     anti_sparsity_coeff = getattr(train_config, 'anti_sparsity_coeff', 0.0)
     if anti_sparsity_coeff > 0:
         print(f'anti-sparsity penalty: coeff={anti_sparsity_coeff}, active for first {train_config.n_epochs_init} epochs')
+
+    # freeze lin_edge info
+    freeze_lin_edge = getattr(train_config, 'freeze_lin_edge', False)
+    if freeze_lin_edge:
+        print(f'freeze_lin_edge: will freeze lin_edge and lin_phi at epoch {train_config.n_epochs_init}')
 
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
