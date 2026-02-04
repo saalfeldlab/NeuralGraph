@@ -44,7 +44,7 @@ from LatentEvolution.stimulus_ae_model import (
 from LatentEvolution.mlp import MLP, MLPWithSkips, MLPParams
 from LatentEvolution.gpu_stats import GPUMonitor
 from LatentEvolution.diagnostics import (
-    compute_multi_start_rollout_mse,
+    MultiStartRolloutResults,
     compute_linear_interpolation_baseline,
     plot_multi_start_rollout_figures,
     plot_time_aligned_mse,
@@ -242,7 +242,7 @@ def make_evolve_fn(
     model: StimulusOnlyModel,
     time_units: int,
 ) -> Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor]:
-    """create evolve_fn compatible with compute_multi_start_rollout_mse.
+    """create evolve_fn for stimulus-only rollouts.
 
     the evolve_fn predicts x_hat(t) from stimulus context at each step,
     ignoring initial_state (since the model is stimulus-only).
@@ -259,28 +259,115 @@ def make_evolve_fn(
 
         args:
             initial_state: (neurons,) - ignored by this model
-            stimulus_segment: (T, stim_dim) where T >= n_steps
+            stimulus_segment: (tu - 1 + n_steps, stim_dim) - includes prior context
             n_steps: number of steps to predict
 
         returns:
             predicted: (n_steps, neurons)
         """
         tu = time_units
-        stim_dim = stimulus_segment.shape[1]
         device = stimulus_segment.device
 
-        # zero-pad stimulus at the front so indexing is uniform
-        padded_stim = torch.zeros(tu - 1 + n_steps, stim_dim, device=device)
-        padded_stim[tu - 1:] = stimulus_segment[:n_steps]
-
-        # build all context windows at once: (n_steps, tu, stim_dim)
-        # for step t, context = padded_stim[t : t + tu]
+        # stimulus_segment has tu-1 context frames prepended, so total length
+        # is tu - 1 + n_steps. build sliding windows of size tu.
+        # for step t (0-indexed), context = stimulus_segment[t : t + tu]
         indices = torch.arange(n_steps, device=device).unsqueeze(1) + torch.arange(tu, device=device).unsqueeze(0)
-        stim_context = padded_stim[indices]  # (n_steps, tu, stim_dim)
+        stim_context = stimulus_segment[indices]  # (n_steps, tu, stim_dim)
 
         return model(stim_context)
 
     return evolve_fn
+
+
+def compute_stimulus_only_rollout_mse(
+    evolve_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
+    val_data: torch.Tensor,
+    val_stim: torch.Tensor,
+    time_units: int,
+    n_steps: int = 2000,
+    n_starts: int = 10,
+) -> MultiStartRolloutResults:
+    """compute multi-start rollout mse for the stimulus-only model.
+
+    constrains start indices to >= time_units so the evolve_fn always
+    receives real stimulus context (no zero-padding needed).
+
+    args:
+        evolve_fn: callable(initial_state, stimulus_segment, n_steps) -> (n_steps, neurons).
+            stimulus_segment has shape (time_units - 1 + n_steps, stim_dim).
+        val_data: validation data (T, N)
+        val_stim: validation stimulus (T, S)
+        time_units: number of prior stimulus frames needed for context
+        n_steps: number of rollout steps
+        n_starts: number of random starting points
+    """
+    tu = time_units
+    min_start = tu
+    max_start = val_data.shape[0] - n_steps - 1
+    if max_start - min_start < n_starts:
+        raise ValueError(
+            f"not enough data for {n_starts} starts with {n_steps} steps "
+            f"and min_start={min_start}. available range: {max_start - min_start}, "
+            f"have {val_data.shape[0]} time points"
+        )
+
+    rng = np.random.default_rng(seed=0)
+    start_indices = rng.choice(np.arange(min_start, max_start), size=n_starts, replace=False)
+
+    n_neurons = val_data.shape[1]
+    mse_array = np.zeros((n_starts, n_steps, n_neurons))
+    null_model_mse_by_time = np.zeros(n_steps)
+
+    best_mse = float("inf")
+    worst_mse = -float("inf")
+    best_segment_data = None
+    worst_segment_data = None
+
+    for i, start_idx in enumerate(start_indices):
+        initial_state = val_data[start_idx]
+        # include tu-1 prior frames of stimulus for context
+        stimulus_segment = val_stim[start_idx - (tu - 1):start_idx + n_steps]
+        real_segment = val_data[start_idx + 1:start_idx + n_steps + 1]
+
+        # null model mse
+        null_squared_error = torch.pow(real_segment - initial_state, 2)
+        null_model_mse_by_time += null_squared_error.mean(dim=1).detach().cpu().numpy()
+
+        predicted_segment = evolve_fn(initial_state, stimulus_segment, n_steps)
+
+        squared_error = torch.pow(predicted_segment - real_segment, 2).detach().cpu().numpy()
+        mse_array[i] = squared_error
+        mean_mse = np.nanmean(squared_error)
+
+        real_np = real_segment.detach().cpu().numpy()
+        pred_np = predicted_segment.detach().cpu().numpy()
+
+        if best_segment_data is None:
+            best_segment_data = (start_idx, real_np, pred_np)
+            worst_segment_data = (start_idx, real_np, pred_np)
+            best_mse = mean_mse
+            worst_mse = mean_mse
+        else:
+            if mean_mse > worst_mse:
+                worst_segment_data = (start_idx, real_np, pred_np)
+                worst_mse = mean_mse
+            if mean_mse < best_mse:
+                best_segment_data = (start_idx, real_np, pred_np)
+                best_mse = mean_mse
+
+        del predicted_segment, real_segment, squared_error
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    null_model_mse_by_time /= n_starts
+
+    return MultiStartRolloutResults(
+        mse_array=mse_array,
+        start_indices=start_indices.tolist(),
+        best_segment=best_segment_data,
+        worst_segment=worst_segment_data,
+        null_model_mse_by_time=null_model_mse_by_time,
+    )
 
 
 def run_diagnostics(
@@ -305,8 +392,8 @@ def run_diagnostics(
     evolve_fn = make_evolve_fn(model, tu)
 
     with torch.no_grad():
-        results = compute_multi_start_rollout_mse(
-            evolve_fn, val_data, val_stim, n_steps=2000, n_starts=20,
+        results = compute_stimulus_only_rollout_mse(
+            evolve_fn, val_data, val_stim, time_units=tu, n_steps=2000, n_starts=20,
         )
 
     new_figs, new_metrics = plot_multi_start_rollout_figures(
