@@ -41,8 +41,8 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = task = 'plot'
-        config_list = ['signal_low_rank_2']
+        task = 'generate'
+        config_list = ['metabolism_1']
 
     for config_file_ in config_list:
         print(" ")
