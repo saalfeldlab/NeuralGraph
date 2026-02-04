@@ -127,7 +127,9 @@ def data_train(config=None, erase=False, best_model=None, style=None, device=Non
     print(f"\033[94mdataset_name: {dataset_name}\033[0m")
     print(f"\033[92m{config.description}\033[0m")
 
-    if 'fly' in config.dataset:
+    if 'metabolism' in config.dataset:
+        data_train_metabolism(config, erase, best_model, device)
+    elif 'fly' in config.dataset:
         if 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
             data_train_flyvis_RNN(config, erase, best_model, device)
         else:
@@ -1657,6 +1659,406 @@ def data_train_flyvis(config, erase, best_model, device):
         plt.savefig(f"./{log_dir}/tmp_training/epoch_{epoch}.png")
         plt.close()
 
+
+
+def data_train_metabolism(config, erase, best_model, device):
+    """Train a model to recover stoichiometric weights and external modulation.
+
+    Combines the edge-weight recovery approach of data_train_flyvis with the
+    SIREN-based external input learning of data_train_signal.
+
+    The training model (Metabolism_Propagation) mirrors PDE_M2 but has learnable
+    stoichiometric coefficients (sto_sub, sto_all) instead of fixed buffers.
+    """
+    simulation_config = config.simulation
+    train_config = config.training
+    model_config = config.graph_model
+
+    dataset_name = config.dataset
+    n_epochs = train_config.n_epochs
+    n_runs = train_config.n_runs
+    n_frames = simulation_config.n_frames
+    n_metabolites = simulation_config.n_metabolites
+    n_input_metabolites = simulation_config.n_input_neurons
+    delta_t = simulation_config.delta_t
+    data_augmentation_loop = train_config.data_augmentation_loop
+    batch_size = train_config.batch_size
+    time_step = train_config.time_step
+
+    external_input_type = simulation_config.external_input_type
+    learn_external_input = train_config.learn_external_input
+    field_type = model_config.field_type
+
+    has_visual_field = 'visual' in field_type
+
+    log_dir, logger = create_log_dir(config, erase)
+
+    # --- load data ---
+    x_list = []
+    y_list = []
+    for run in trange(0, n_runs, ncols=50):
+        x = load_simulation_data(f'graphs_data/{dataset_name}/x_list_{run}')
+        y = load_simulation_data(f'graphs_data/{dataset_name}/y_list_{run}')
+        x_list.append(x)
+        y_list.append(y)
+
+    print(f'dataset: {len(x_list)} run, {len(x_list[0])} frames')
+
+    # --- normalization ---
+    activity = torch.tensor(x_list[0][:, :, 3:4], device=device).squeeze()
+    distrib = activity.flatten()
+    valid_distrib = distrib[~torch.isnan(distrib)]
+    if len(valid_distrib) > 0:
+        xnorm = 1.5 * torch.std(valid_distrib)
+    else:
+        xnorm = torch.tensor(1.0, device=device)
+    torch.save(xnorm, os.path.join(log_dir, 'xnorm.pt'))
+    ynorm = torch.tensor(1.0, device=device)
+    torch.save(ynorm, os.path.join(log_dir, 'ynorm.pt'))
+    print(f'xnorm: {to_numpy(xnorm)}')
+    logger.info(f'xnorm: {to_numpy(xnorm)}')
+
+    # --- load stoichiometric graph ---
+    stoich_graph = torch.load(
+        f'graphs_data/{dataset_name}/stoich_graph.pt', map_location=device
+    )
+    gt_S = torch.load(
+        f'graphs_data/{dataset_name}/stoichiometry.pt', map_location=device
+    )
+    print(f'stoichiometric matrix: {gt_S.shape}')
+    logger.info(f'stoichiometric matrix: {gt_S.shape}')
+
+    # --- create training model ---
+    from NeuralGraph.models.Metabolism_Propagation import Metabolism_Propagation
+    model = Metabolism_Propagation(config=config, device=device)
+    model.load_stoich_graph(stoich_graph)
+    model = model.to(device)
+
+    n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'total parameters: {n_total_params:,}')
+    logger.info(f'total parameters: {n_total_params:,}')
+
+    # --- SIREN for external input (optional) ---
+    model_f = choose_inr_model(
+        config=config, n_neurons=n_metabolites, n_frames=n_frames,
+        x_list=x_list, device=device,
+    )
+    optimizer_f = None
+    if model_f is not None:
+        omega_params = [
+            (name, p) for name, p in model_f.named_parameters() if 'omega' in name
+        ]
+        other_params = [
+            p for name, p in model_f.named_parameters() if 'omega' not in name
+        ]
+        if omega_params:
+            print(f"model_f omega parameters: {[n for n, _ in omega_params]}")
+            optimizer_f = torch.optim.Adam([
+                {'params': other_params, 'lr': train_config.learning_rate_NNR_f},
+                {'params': [p for _, p in omega_params],
+                 'lr': getattr(train_config, 'learning_rate_omega_f', 0.0001)},
+            ])
+        else:
+            optimizer_f = torch.optim.Adam(
+                model_f.parameters(), lr=train_config.learning_rate_NNR_f
+            )
+        model_f.train()
+        print(f'model_f ({type(model_f).__name__}): '
+              f'{sum(p.numel() for p in model_f.parameters()):,} params')
+
+    # --- load best model if resuming ---
+    start_epoch = 0
+    if best_model and best_model not in ('', 'None'):
+        net = f"{log_dir}/models/best_model_with_{n_runs - 1}_graphs_{best_model}.pt"
+        print(f'loading state_dict from {net} ...')
+        state_dict = torch.load(net, map_location=device)
+        model.load_state_dict(state_dict['model_state_dict'])
+        start_epoch = int(best_model.split('_')[0])
+        print(f'state_dict loaded, start_epoch={start_epoch}')
+
+    # --- optimizer ---
+    lr = train_config.learning_rate_start
+    lr_update = train_config.learning_rate_update_start or lr
+    lr_embedding = train_config.learning_rate_embedding_start
+    lr_W = train_config.learning_rate_W_start
+    learning_rate_NNR = train_config.learning_rate_NNR
+    learning_rate_NNR_f = train_config.learning_rate_NNR_f
+
+    optimizer, n_total_params = set_trainable_parameters(
+        model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update,
+        lr_W=lr_W, learning_rate_NNR=learning_rate_NNR,
+        learning_rate_NNR_f=learning_rate_NNR_f,
+    )
+    model.train()
+    print(f'learning rates: lr {lr}, lr_W {lr_W}, lr_NNR_f {learning_rate_NNR_f}')
+
+    # --- regularizer ---
+    regularizer = LossRegularizer(
+        train_config=train_config,
+        model_config=model_config,
+        activity_column=3,
+        plot_frequency=1,
+        n_neurons=n_metabolites,
+        trainer_type='signal',
+    )
+
+    ids = np.arange(n_metabolites)
+    list_loss = []
+    list_loss_regul = []
+    loss_components = {'loss': []}
+
+    print("start training ...")
+    check_and_clear_memory(
+        device=device, iteration_number=0, every_n_iterations=1,
+        memory_percentage_threshold=0.6,
+    )
+
+    for epoch in range(start_epoch, n_epochs + 1):
+
+        Niter = int(n_frames * data_augmentation_loop // batch_size * 0.2)
+        plot_frequency = max(1, Niter // 20)
+        print(f'{Niter} iterations per epoch, plot every {plot_frequency}')
+
+        total_loss = 0
+        total_loss_regul = 0
+
+        regularizer.set_epoch(epoch, plot_frequency)
+
+        for N in trange(Niter, ncols=150):
+
+            optimizer.zero_grad()
+            if optimizer_f is not None:
+                optimizer_f.zero_grad()
+
+            loss = torch.zeros(1, device=device)
+            regularizer.reset_iteration()
+            run = np.random.randint(n_runs)
+
+            for batch in range(batch_size):
+
+                k = np.random.randint(n_frames - 4 - time_step)
+                x = torch.tensor(
+                    x_list[run][k], dtype=torch.float32, device=device
+                )
+
+                # inject external input from SIREN (when learning)
+                if has_visual_field and hasattr(model, 'NNR_f'):
+                    # SIREN embedded in model (position + time -> field)
+                    visual_input = model.forward_visual(x, k)
+                    x[:n_input_metabolites, 4:5] = visual_input
+                    x[n_input_metabolites:, 4:5] = 0
+                elif model_f is not None:
+                    if external_input_type == 'visual':
+                        # Siren_Network: time -> 2D spatial field
+                        x[:n_input_metabolites, 4:5] = model_f(
+                            time=k / n_frames
+                        ) ** 2
+                        x[n_input_metabolites:, 4:5] = 1
+                    else:
+                        # signal-type INR models
+                        inr_type = model_config.inr_type
+                        nnr_f_T_period = model_config.nnr_f_T_period
+                        if inr_type == 'siren_t':
+                            t_norm = torch.tensor(
+                                [[k / nnr_f_T_period]],
+                                dtype=torch.float32, device=device,
+                            )
+                            x[:, 4] = model_f(t_norm).squeeze()
+                        elif inr_type == 'lowrank':
+                            t_idx = torch.tensor(
+                                [k], dtype=torch.long, device=device
+                            )
+                            x[:, 4] = model_f(t_idx).squeeze()
+                        elif inr_type in ('ngp', 'siren_id', 'siren_x'):
+                            t_norm = torch.tensor(
+                                [[k / nnr_f_T_period]],
+                                dtype=torch.float32, device=device,
+                            )
+                            x[:, 4] = model_f(t_norm).squeeze()
+
+                if torch.isnan(x).any():
+                    continue
+
+                # target: dx/dt
+                y = torch.tensor(
+                    y_list[run][k], device=device, dtype=torch.float32,
+                ) / ynorm
+
+                # forward pass (bipartite graph is internal to model)
+                dataset = pyg_Data(x=x, pos=x[:, 1:3])
+                pred = model(dataset)
+
+                # prediction loss
+                loss = loss + (pred.squeeze() - y.squeeze()).norm(2)
+
+            # regularization (no edges argument — bipartite graph is internal)
+            regul_loss = regularizer.compute(
+                model=model, x=x, in_features=None, ids=ids,
+                ids_batch=None, edges=None, device=device, xnorm=xnorm,
+            )
+            loss = loss + regul_loss
+
+            # SIREN omega regularization
+            coeff_omega_f_L2 = getattr(train_config, 'coeff_omega_f_L2', 0.0)
+            if model_f is not None and coeff_omega_f_L2 > 0:
+                if hasattr(model_f, 'get_omega_L2_loss'):
+                    loss = loss + coeff_omega_f_L2 * model_f.get_omega_L2_loss()
+
+            loss.backward()
+            optimizer.step()
+            if optimizer_f is not None:
+                optimizer_f.step()
+
+            total_loss += loss.item()
+            total_loss_regul += regularizer.get_iteration_total()
+            regularizer.finalize_iteration()
+
+            # periodic plotting
+            if regularizer.should_record():
+                current_loss = loss.item()
+                regul_this_iter = regularizer.get_iteration_total()
+                loss_components['loss'].append(
+                    (current_loss - regul_this_iter) / n_metabolites
+                )
+                plot_dict = {
+                    **regularizer.get_history(), 'loss': loss_components['loss']
+                }
+                plot_signal_loss(
+                    plot_dict, log_dir, epoch=epoch, Niter=N, debug=False,
+                    current_loss=current_loss / n_metabolites,
+                    current_regul=regul_this_iter / n_metabolites,
+                    total_loss=total_loss, total_loss_regul=total_loss_regul,
+                )
+
+                # plot learned stoichiometry vs ground truth
+                with torch.no_grad():
+                    _plot_stoichiometry_comparison(
+                        model, gt_S, stoich_graph, n_metabolites, log_dir,
+                        epoch, N,
+                    )
+
+                # save checkpoint
+                torch.save(
+                    {'model_state_dict': model.state_dict(),
+                     'optimizer_state_dict': optimizer.state_dict()},
+                    os.path.join(
+                        log_dir, 'models',
+                        f'best_model_with_{n_runs - 1}_graphs_{epoch}_{N}.pt',
+                    ),
+                )
+
+        # epoch summary
+        epoch_total = total_loss / n_metabolites
+        epoch_regul = total_loss_regul / n_metabolites
+        epoch_pred = (total_loss - total_loss_regul) / n_metabolites
+
+        print(f"epoch {epoch}. loss: {epoch_total:.6f} "
+              f"(pred: {epoch_pred:.6f}, regul: {epoch_regul:.6f})")
+        logger.info(f"Epoch {epoch}. Loss: {epoch_total:.6f} "
+                     f"(pred: {epoch_pred:.6f}, regul: {epoch_regul:.6f})")
+
+        list_loss.append(epoch_pred)
+        list_loss_regul.append(epoch_regul)
+        torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
+
+        # save epoch checkpoint
+        torch.save(
+            {'model_state_dict': model.state_dict(),
+             'optimizer_state_dict': optimizer.state_dict()},
+            os.path.join(
+                log_dir, 'models',
+                f'best_model_with_{n_runs - 1}_graphs_{epoch}.pt',
+            ),
+        )
+
+        # epoch-end plot: loss + stoichiometry comparison
+        plt.style.use('dark_background')
+        fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+        axes[0].plot(list_loss, color='cyan', linewidth=1)
+        axes[0].set_xlim([0, n_epochs])
+        axes[0].set_ylabel('prediction loss', fontsize=12)
+        axes[0].set_xlabel('epochs', fontsize=12)
+        axes[0].set_title('Loss', fontsize=14)
+
+        # reconstruct learned S matrix from sto_all
+        learned_S = torch.zeros_like(gt_S, device='cpu')
+        met_all_cpu = stoich_graph['all'][0].cpu()
+        rxn_all_cpu = stoich_graph['all'][1].cpu()
+        with torch.no_grad():
+            learned_S[met_all_cpu, rxn_all_cpu] = model.sto_all.detach().cpu()
+
+        im1 = axes[1].imshow(
+            to_numpy(gt_S.cpu()), aspect='auto', cmap='bwr',
+            vmin=-3, vmax=3,
+        )
+        axes[1].set_title('Ground Truth S', fontsize=14)
+        axes[1].set_xlabel('reactions')
+        axes[1].set_ylabel('metabolites')
+        plt.colorbar(im1, ax=axes[1], fraction=0.046)
+
+        im2 = axes[2].imshow(
+            to_numpy(learned_S), aspect='auto', cmap='bwr',
+            vmin=-3, vmax=3,
+        )
+        axes[2].set_title(f'Learned S (epoch {epoch})', fontsize=14)
+        axes[2].set_xlabel('reactions')
+        axes[2].set_ylabel('metabolites')
+        plt.colorbar(im2, ax=axes[2], fraction=0.046)
+
+        plt.tight_layout()
+        plt.savefig(
+            f"./{log_dir}/tmp_training/epoch_{epoch}.png", dpi=150,
+            bbox_inches='tight',
+        )
+        plt.close()
+
+
+def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
+                                   log_dir, epoch, N):
+    """Plot learned vs ground-truth stoichiometric matrix during training."""
+    out_dir = f"./{log_dir}/tmp_training/stoichiometry"
+    os.makedirs(out_dir, exist_ok=True)
+
+    learned_S = torch.zeros_like(gt_S, device='cpu')
+    met_all = stoich_graph['all'][0].cpu()
+    rxn_all = stoich_graph['all'][1].cpu()
+    learned_S[met_all, rxn_all] = model.sto_all.detach().cpu()
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    plt.style.use('dark_background')
+
+    im0 = axes[0].imshow(
+        to_numpy(gt_S), aspect='auto', cmap='bwr', vmin=-3, vmax=3,
+    )
+    axes[0].set_title('Ground Truth', fontsize=12)
+    plt.colorbar(im0, ax=axes[0], fraction=0.046)
+
+    im1 = axes[1].imshow(
+        to_numpy(learned_S), aspect='auto', cmap='bwr', vmin=-3, vmax=3,
+    )
+    axes[1].set_title(f'Learned (epoch {epoch}, iter {N})', fontsize=12)
+    plt.colorbar(im1, ax=axes[1], fraction=0.046)
+
+    gt_S = gt_S.cpu()
+    diff = learned_S - gt_S
+    im2 = axes[2].imshow(
+        to_numpy(diff), aspect='auto', cmap='bwr', vmin=-3, vmax=3,
+    )
+    axes[2].set_title(f'Difference (MAE={to_numpy(diff.abs().mean()):.4f})',
+                       fontsize=12)
+    plt.colorbar(im2, ax=axes[2], fraction=0.046)
+
+    for ax in axes:
+        ax.set_xlabel('reactions')
+        ax.set_ylabel('metabolites')
+
+    plt.tight_layout()
+    plt.savefig(
+        f"{out_dir}/comparison_{epoch}_{N}.png", dpi=150,
+        bbox_inches='tight',
+    )
+    plt.close()
 
 
 def data_train_flyvis_RNN(config, erase, best_model, device):

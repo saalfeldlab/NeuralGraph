@@ -5,7 +5,6 @@ simulation:
   n_metabolites: 100
   n_reactions: 256
   max_metabolites_per_reaction: 4
-  concentration_reset_interval: 360
 
   n_neurons: 100 # set equal to n_metabolites for framework compatibility
   n_neuron_types: 1
@@ -60,7 +59,7 @@ training:
 
   seed: 42
 
-  data_augmentation_loop: 100
+  data_augmentation_loop: 1000
 
   sparsity: "none"
 

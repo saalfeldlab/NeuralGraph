@@ -1417,3 +1417,28 @@ def plot_metabolism_kymograph(x_list, n_metabolites, n_frames, dataset_name, del
     plt.savefig(f'graphs_data/{dataset_name}/kymograph.png', dpi=300)
     plt.close()
 
+
+def plot_metabolism_external_input_kymograph(x_list, n_metabolites, n_frames, dataset_name, delta_t):
+    """Kymograph of external input (x[:, 4]) over time.
+
+    Rows = metabolites, columns = time frames.
+    Saves to graphs_data/{dataset_name}/kymograph_external_input.png
+    """
+    print('plot external input kymograph ...')
+    ext_input = x_list[:, :, 4].T  # (n_met, T)
+
+    n_frames_plot = ext_input.shape[1]
+
+    plt.figure(figsize=(15, 10))
+    plt.imshow(ext_input, aspect='auto', cmap='viridis', vmin=ext_input.min(), vmax=ext_input.max(), origin='lower')
+    cbar = plt.colorbar(fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=32)
+    cbar.set_label('external input', fontsize=32)
+    plt.ylabel('metabolite', fontsize=64)
+    plt.xlabel('time (min)', fontsize=64)
+    plt.xticks([0, n_frames_plot - 1], [0, int(n_frames_plot * delta_t)], fontsize=48)
+    plt.yticks([0, n_metabolites - 1], [1, n_metabolites], fontsize=48)
+    plt.tight_layout()
+    plt.savefig(f'graphs_data/{dataset_name}/kymograph_external_input.png', dpi=300)
+    plt.close()
+

@@ -31,6 +31,7 @@ from NeuralGraph.generators.utils import (
     plot_stoichiometric_eigenvalues,
     plot_rate_distribution,
     plot_metabolism_kymograph,
+    plot_metabolism_external_input_kymograph,
 )
 from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
@@ -1597,7 +1598,11 @@ def data_generate_metabolism(
     external_input_type = getattr(simulation_config, 'external_input_type', 'none')
     has_visual_input = "visual" in external_input_type
     if has_visual_input:
-        im = imread(f"graphs_data/{simulation_config.node_value_map}")
+        im = imread(f"graphs_data/{simulation_config.node_value_map}").astype(np.float32)
+        # normalize to [0, 1] if not already
+        im_min, im_max = im.min(), im.max()
+        if im_max > 1.0:
+            im = (im - im_min) / (im_max - im_min + 1e-8)
         n_input_metabolites = min(simulation_config.n_input_neurons, n_metabolites)
         # pre-compute 2D grid indices to spatially downsample image -> metabolites
         im_h, im_w = im[0].squeeze().shape[:2]
@@ -1625,13 +1630,6 @@ def data_generate_metabolism(
     x[:, 3] = concentrations.clone().detach()
     x[:, 6] = 0  # metabolite type (single type for now)
 
-    # --- concentration reset interval (in frames) ---
-    concentration_reset_interval = simulation_config.concentration_reset_interval
-    if concentration_reset_interval > 0:
-        reset_every_n_frames = int(concentration_reset_interval / delta_t)
-    else:
-        reset_every_n_frames = 0  # disabled
-
     # --- Euler integration ---
     for run in range(training_config.n_runs):
         x_list = []
@@ -1642,13 +1640,10 @@ def data_generate_metabolism(
 
         for it in trange(simulation_config.start_frame, n_frames + 1, ncols=150):
 
-            # re-initialise concentrations every reset_every_n_frames
-            if reset_every_n_frames > 0 and it > 0 and it % reset_every_n_frames == 0:
-                x[:, 3] = init_concentration(n_metabolites, device, mode='random', seed=simulation_config.seed + it)
-
             # update external input from movie (2D grid subsample)
             if has_visual_input:
-                im_idx = int(it / n_frames * (im.shape[0] - 1))
+                # im_idx = int(it / n_frames * (im.shape[0] - 1))
+                im_idx = int(it % im.shape[0] -1)
                 im_ = im[im_idx].squeeze()
                 im_ = np.rot90(im_, 3)
                 im_down = im_[np.ix_(im_rows, im_cols)].flatten()[:n_input_metabolites]
@@ -1698,6 +1693,8 @@ def data_generate_metabolism(
         if run == 0:
             plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t)
             plot_metabolism_kymograph(x_list, n_metabolites, n_frames, dataset_name, delta_t)
+            if has_visual_input:
+                plot_metabolism_external_input_kymograph(x_list, n_metabolites, n_frames, dataset_name, delta_t)
 
             print('svd analysis ...')
             from NeuralGraph.models.utils import analyze_data_svd

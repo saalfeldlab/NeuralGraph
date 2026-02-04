@@ -44,7 +44,7 @@ class SimulationConfig(BaseModel):
 
     # external input configuration
     external_input_type: Literal["none", "signal", "visual", "modulation"] = "none"
-    external_input_mode: Literal["additive", "multiplicative", "none"] = "none"
+    external_input_mode: Literal["additive", "multiplicative", "multiplicative_substrate", "multiplicative_product", "none"] = "none"
     permutation: bool = False  # whether to apply random permutation to external input
 
     # signal input parameters (external_input_type == "signal")
@@ -109,7 +109,6 @@ class SimulationConfig(BaseModel):
     n_metabolites: int = 100
     n_reactions: int = 64
     max_metabolites_per_reaction: int = 5
-    concentration_reset_interval: float = 6.0  # re-initialise concentrations every N time-units (e.g. 6 h)
 
     pos_init: str = "uniform"
     dpos_init: float = 0

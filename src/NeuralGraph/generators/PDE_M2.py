@@ -27,7 +27,10 @@ class PDE_M2(nn.Module):
     message by the external input at the post-synaptic neuron.
 
     Modulation modes (set via ``config.simulation.external_input_mode``):
-      - ``"multiplicative"``:  v_j = k_j * ext_mean_j * softplus(rate_mlp(h_j))
+      - ``"multiplicative_substrate"``:  modulate rate via mean external input
+            at substrate (reactant) metabolites of each reaction
+      - ``"multiplicative_product"``:    modulate rate via mean external input
+            at product metabolites of each reaction
       - ``"additive"``:        dx_i/dt += external_input_i   (direct flux)
       - ``"none"``:            identical to PDE_M1
 
@@ -55,6 +58,10 @@ class PDE_M2(nn.Module):
         self.external_input_mode = getattr(
             config.simulation, 'external_input_mode', 'none'
         )
+        self._debug_counter = 0
+
+        print(f'[PDE_M2 __init__] external_input_mode = "{self.external_input_mode}"')
+        print(f'[PDE_M2 __init__] n_met={n_met}, n_rxn={n_rxn}, hidden={hidden}, msg_dim={msg_dim}')
 
         # learnable MLPs
         self.msg_mlp = mlp([2, hidden, msg_dim], activation=nn.Tanh)
@@ -83,6 +90,19 @@ class PDE_M2(nn.Module):
         n_sub_per_rxn.clamp_(min=1.0)
         self.register_buffer('n_sub_per_rxn', n_sub_per_rxn)
 
+        # extract product edges from the 'all' graph (positive stoichiometry)
+        prod_mask = sto_all > 0
+        met_prod = met_all[prod_mask]
+        rxn_prod = rxn_all[prod_mask]
+        self.register_buffer('met_prod', met_prod)
+        self.register_buffer('rxn_prod', rxn_prod)
+
+        # pre-compute number of products per reaction for averaging
+        n_prod_per_rxn = torch.zeros(n_rxn, dtype=torch.float32)
+        n_prod_per_rxn.index_add_(0, rxn_prod, torch.ones_like(rxn_prod, dtype=torch.float32))
+        n_prod_per_rxn.clamp_(min=1.0)
+        self.register_buffer('n_prod_per_rxn', n_prod_per_rxn)
+
         self.p = torch.zeros(1)
 
     def forward(self, data=None, has_field=False, frame=None):
@@ -95,6 +115,14 @@ class PDE_M2(nn.Module):
         x = data.x
         concentrations = x[:, 3]
         external_input = x[:, 4]
+
+        do_print = (self._debug_counter % 500 == 0)
+
+        if do_print:
+            print(f'\n[PDE_M2 forward] step {self._debug_counter}')
+            print(f'  external_input_mode = "{self.external_input_mode}"')
+            print(f'  concentrations: min={concentrations.min():.4f}  max={concentrations.max():.4f}  mean={concentrations.mean():.4f}')
+            print(f'  external_input: min={external_input.min():.4f}  max={external_input.max():.4f}  mean={external_input.mean():.4f}  nonzero={(external_input != 0).sum().item()}/{external_input.shape[0]}')
 
         # 1. gather substrate concentrations and stoichiometric coefficients
         x_src = concentrations[self.met_sub].unsqueeze(-1)
@@ -112,27 +140,65 @@ class PDE_M2(nn.Module):
         k = torch.pow(10.0, self.log_k)
         base_v = self.softplus(self.rate_mlp(h_rxn).squeeze(-1))
 
+        if do_print:
+            print(f'  k (rate constants): min={k.min():.4f}  max={k.max():.4f}  mean={k.mean():.4f}')
+            print(f'  base_v (softplus): min={base_v.min():.4f}  max={base_v.max():.4f}  mean={base_v.mean():.4f}')
+            print(f'  k*base_v (unmodulated): min={(k*base_v).min():.4f}  max={(k*base_v).max():.4f}  mean={(k*base_v).mean():.4f}')
+
         # 5. apply external modulation
-        if self.external_input_mode == "multiplicative":
-            # mean external input at substrate metabolites of each reaction
+        if self.external_input_mode == "multiplicative_substrate":
+            # mean external input at substrate (reactant) metabolites
             ext_src = external_input[self.met_sub]
             ext_agg = torch.zeros(self.n_rxn, dtype=ext_src.dtype, device=ext_src.device)
             ext_agg.index_add_(0, self.rxn_sub, ext_src)
             ext_mean = ext_agg / self.n_sub_per_rxn
             v = k * ext_mean * base_v
+            if do_print:
+                print(f'  [multiplicative_substrate] ACTIVE')
+                print(f'    ext_src (per substrate edge): min={ext_src.min():.4f}  max={ext_src.max():.4f}  mean={ext_src.mean():.4f}  nonzero={( ext_src != 0).sum().item()}/{ext_src.shape[0]}')
+                print(f'    ext_agg (sum per rxn): min={ext_agg.min():.4f}  max={ext_agg.max():.4f}  mean={ext_agg.mean():.4f}')
+                print(f'    n_sub_per_rxn: min={self.n_sub_per_rxn.min():.1f}  max={self.n_sub_per_rxn.max():.1f}')
+                print(f'    ext_mean (avg per rxn): min={ext_mean.min():.4f}  max={ext_mean.max():.4f}  mean={ext_mean.mean():.4f}  std={ext_mean.std():.4f}')
+                print(f'    v = k*ext_mean*base_v: min={v.min():.6f}  max={v.max():.6f}  mean={v.mean():.6f}')
+                # ratio: how much modulation changes rates vs unmodulated
+                v_unmod = k * base_v
+                ratio = v / (v_unmod + 1e-12)
+                print(f'    modulation ratio v/v_unmod: min={ratio.min():.4f}  max={ratio.max():.4f}  mean={ratio.mean():.4f}  std={ratio.std():.4f}')
+        elif self.external_input_mode == "multiplicative_product":
+            # mean external input at product metabolites
+            ext_src = external_input[self.met_prod]
+            ext_agg = torch.zeros(self.n_rxn, dtype=ext_src.dtype, device=ext_src.device)
+            ext_agg.index_add_(0, self.rxn_prod, ext_src)
+            ext_mean = ext_agg / self.n_prod_per_rxn
+            v = k * ext_mean * base_v
+            if do_print:
+                print(f'  [multiplicative_product] ACTIVE')
+                print(f'    ext_mean: min={ext_mean.min():.4f}  max={ext_mean.max():.4f}  mean={ext_mean.mean():.4f}')
+                print(f'    v: min={v.min():.6f}  max={v.max():.6f}')
         else:
             v = k * base_v
+            if do_print:
+                print(f'  [NO modulation] mode="{self.external_input_mode}" -> falling through to else')
+                print(f'    v = k*base_v: min={v.min():.6f}  max={v.max():.6f}')
 
         # 6. compute dx/dt via stoichiometric matrix
         contrib = self.sto_all * v[self.rxn_all]
         dxdt = torch.zeros(self.n_met, dtype=contrib.dtype, device=contrib.device)
         dxdt.index_add_(0, self.met_all, contrib)
 
+        if do_print:
+            print(f'  dxdt (before additive): min={dxdt.min():.6f}  max={dxdt.max():.6f}  mean={dxdt.mean():.6f}  absmax={dxdt.abs().max():.6f}')
+
         # 7. additive external input (direct flux injection)
         if self.external_input_mode == "additive":
             dxdt = dxdt + external_input
 
-        return 0.005 * dxdt.unsqueeze(-1)
+        if do_print:
+            print(f'  dxdt (final): min={dxdt.min():.6f}  max={dxdt.max():.6f}  mean={dxdt.mean():.6f}')
+
+        self._debug_counter += 1
+
+        return dxdt.unsqueeze(-1)
 
     def get_rates(self, data):
         """Return reaction rates for diagnostics."""
@@ -151,11 +217,26 @@ class PDE_M2(nn.Module):
         k = torch.pow(10.0, self.log_k)
         base_v = self.softplus(self.rate_mlp(h_rxn).squeeze(-1))
 
-        if self.external_input_mode == "multiplicative":
+        if self.external_input_mode == "multiplicative_substrate":
+            # Gather the external input value at each substrate metabolite
+            # ext_src[e] = external_input of the metabolite on substrate edge e
             ext_src = external_input[self.met_sub]
+            # Sum external inputs per reaction (scatter-add over substrate edges)
             ext_agg = torch.zeros(self.n_rxn, dtype=ext_src.dtype, device=ext_src.device)
             ext_agg.index_add_(0, self.rxn_sub, ext_src)
-            ext_mean = ext_agg / self.n_sub_per_rxn
+            # Average over the number of substrates of each reaction
+            # ext_mean[j] = mean external input across substrates of reaction j
+            ext_mean = ext_agg # / self.n_sub_per_rxn
+            # Modulate rate: the movie signal scales enzyme activity
+            v = k * ext_mean * base_v
+        elif self.external_input_mode == "multiplicative_product":
+            # Gather the external input value at each product metabolite
+            ext_src = external_input[self.met_prod]
+            # Sum external inputs per reaction (scatter-add over product edges)
+            ext_agg = torch.zeros(self.n_rxn, dtype=ext_src.dtype, device=ext_src.device)
+            ext_agg.index_add_(0, self.rxn_prod, ext_src)
+            # Average over the number of products of each reaction
+            ext_mean = ext_agg # / self.n_prod_per_rxn
             v = k * ext_mean * base_v
         else:
             v = k * base_v
