@@ -121,7 +121,7 @@ experiments documented in `experiments/*.md`. bsub commands there specify run di
 - conventional commits (`feat:`, `fix:`, `refactor:`). keep messages high-level: state motivation, note breaking changes. don't enumerate files.
 - PRs: brief, high-level description only. e.g. "refactor to share the training loop between latent.py and latent_stag_interp.py" — not a detailed explanation of how.
 - bug fixes: write a minimal reproducing test first (unittest), confirm it fails, then fix. not always feasible (some bugs need full training).
-- use `unittest`, not pytest.
+- **IMPORTANT: use `unittest`, not pytest.** run tests with `python -m unittest discover -s src/LatentEvolution -p '*_test.py'`. never use pytest. test file for `module.py` should be `module_test.py` in the same directory.
 - conda env: `neural-graph-linux`.
 - prefer vectorized/batched tensor ops over python loops.
 - **no lazy imports.** all imports must be top-level. never use `import` inside a function or method. use `from __future__ import annotations` and `TYPE_CHECKING` blocks to break circular import issues when needed for type hints only.

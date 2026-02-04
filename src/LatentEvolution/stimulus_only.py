@@ -47,7 +47,7 @@ from LatentEvolution.diagnostics import (
     MultiStartRolloutResults,
     compute_linear_interpolation_baseline,
     plot_multi_start_rollout_figures,
-    plot_time_aligned_mse,
+    plot_short_rollout_mse,
     PlotMode,
 )
 from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
@@ -402,32 +402,34 @@ def run_diagnostics(
     metrics.update(new_metrics)
     figures.update(new_figs)
 
-    # time-aligned mse analysis (only if tu > 1)
-    # always show tu*5 steps regardless of evolve_multiple_steps
-    time_aligned_ems = 5
-    if tu > 1:
-        print("computing time-aligned mse analysis...")
+    # short rollout mse plot (fixed 250-step window, comparable across runs)
+    short_rollout_steps = 250
+    print("computing short rollout mse...")
 
+    constant_baseline_accumulator = np.zeros(short_rollout_steps)
+    for start_idx in results.start_indices:
+        x_0 = val_data[start_idx]
+        ground_truth = val_data[start_idx + 1:start_idx + 1 + short_rollout_steps]
+        constant_pred = x_0.unsqueeze(0).expand(ground_truth.shape[0], -1)
+        constant_se = torch.pow(constant_pred - ground_truth, 2).mean(dim=1)
+        constant_baseline_accumulator += constant_se.detach().cpu().numpy()
+    constant_baseline = constant_baseline_accumulator / len(results.start_indices)
+
+    linear_interp_baseline = None
+    if tu > 1:
+        baseline_ems = -(-short_rollout_steps // tu)  # ceil division
         linear_interp_baseline = compute_linear_interpolation_baseline(
             val_data, results.start_indices, results.mse_array.shape[1],
-            tu, time_aligned_ems,
+            tu, baseline_ems,
         )
 
-        total_steps = tu * time_aligned_ems
-        constant_baseline_accumulator = np.zeros(total_steps)
-        for start_idx in results.start_indices:
-            x_0 = val_data[start_idx]
-            ground_truth = val_data[start_idx + 1:start_idx + 1 + total_steps]
-            constant_pred = x_0.unsqueeze(0).expand(ground_truth.shape[0], -1)
-            constant_se = torch.pow(constant_pred - ground_truth, 2).mean(dim=1)
-            constant_baseline_accumulator += constant_se.detach().cpu().numpy()
-        constant_baseline = constant_baseline_accumulator / len(results.start_indices)
-
-        fig = plot_time_aligned_mse(
-            results.mse_array, constant_baseline, linear_interp_baseline,
-            tu, time_aligned_ems, "stimulus_only",
-        )
-        figures["time_aligned_mse_stimulus_only"] = fig
+    fig = plot_short_rollout_mse(
+        results.mse_array, constant_baseline,
+        tu, ems, "stimulus_only",
+        n_steps=short_rollout_steps,
+        linear_interp_baseline=linear_interp_baseline,
+    )
+    figures["short_rollout_mse_stimulus_only"] = fig
 
     if plot_mode.save_figures:
         for key, fig in figures.items():
