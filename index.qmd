@@ -12,6 +12,10 @@ We previously showed that graph neural networks can recover circuit structure an
 To address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.
 
 We show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the **closed-loop scientific reasoning results from the interactions between the three components** rather than residing solely within the large language model.
+the closed-loop system embodies a Lakatosian mode of inquiry, in which understanding emerges from structured interaction between a stable modeling core and systematically revised experimental assumptions.
+
+Using this framework, we systematically explored a broad space of neural assembly regimes, including chaotic, low-rank, sparse, and constrained (e.g. Dale-law) dynamics, while varying data richness, network size, and training conditions. Rather than optimizing for a single best-performing model, the closed-loop system evaluates entire families of experimental outcomes, tracking both successes and systematic failures across conditions. This allows the framework to distinguish failures arising from insufficient optimization from those reflecting fundamental identifiability limits of the inverse problem.
+
 
 ---
 
@@ -46,7 +50,9 @@ The framework implements a **closed-loop exploration engine** composed of three 
 
 ## [Results](results.qmd)
 
-Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% convergence at 30k frames), low-gain networks (g=3, n=200) rescued by 30k frames, and g=2 partially rescued (42% convergence at 30k with inverse lr_W). The dominant lever is n_frames: tripling from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. Three structural limits identified: subcritical spectral radius (sparse 50%, conn~0.49), partial connectivity ceiling (fill<100%, conn ≈ filling_factor confirmed at 50/80/90/100%), and g=1 fixed-point collapse (eff_rank drops to 1 at 30k --- hardest regime). n=1000 mapped at 30k (conn=0.745, needs ~100k frames). ~80 principles established across 28 regimes over 336 iterations.
+Across regimes, we observe qualitatively different modes of recoverability. In some cases, such as chaotic high-rank activity with sufficient data, connectivity recovery is robust and largely insensitive to hyperparameter choices. In others, notably low-rank regimes, recovery is strongly instance-dependent: some connectivities are reliably recovered, while others remain inaccessible despite extensive exploration, indicating basin-dependent identifiability. In contrast, for sparse or subcritical regimes, connectivity recovery exhibits sharp, regime-wide ceilings that persist across architectures, hyperparameters, and code-level modifications, pointing to intrinsic limits imposed by the information content of the observed activity.
+
+Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% convergence at 30k frames), low-gain networks (g=3, n=200) rescued by 30k frames, and g=2 partially rescued (42% at n=100/30k, 92% at n=200/30k with inverse lr_W). The dominant lever is n_frames: tripling from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. Three structural limits identified: subcritical spectral radius (sparse 50%, conn~0.49), partial connectivity ceiling (fill<100%, conn ≈ filling_factor confirmed at 50/80/90/100%), and g=1 fixed-point collapse (eff_rank drops to 1 at 30k --- hardest regime). n=1000 mapped at 30k (conn=0.745, needs ~100k frames). ~90 principles established across 29 regimes over 348 iterations.
 
 [![](assets/landscape_quadrant.png){.lightbox}](results.qmd)
 
@@ -54,7 +60,7 @@ Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% conv
 
 ## [Epistemics](epistemic-analysis.qmd)
 
-400+ reasoning events classified across 336 iterations and 28 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~80 principles established with confidence 45--100%.
+400+ reasoning events classified across 348 iterations and 29 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~90 principles established with confidence 45--100%.
 
 Six distinct reasoning phases emerge: (1) boundary probing and induction dominate early as the system maps each new regime, (2) deduction and analogy grow as accumulated principles enable cross-regime predictions, (3) falsification and constraint recognition widen when structurally hard regimes are encountered, (4) analogy drives scaling explorations as n_frames dominance overturns multiple principles (blocks 15--16), (5) constraint recognition peaks as the system maps structural limits --- subcritical spectral radius (block 17), conn_ceiling at filling_factor (blocks 22--24) --- while confirming that gain is a solvable difficulty axis (blocks 19--21), and (6) regime recognition identifies the gain--eff_rank critical transition (blocks 25--28), identifying fixed-point collapse (g=1) as a new unsolvable axis and inverse lr_W at g=2.
 
@@ -64,7 +70,7 @@ Six distinct reasoning phases emerge: (1) boundary probing and induction dominat
 
 ## [Exploration](exploration-gallery.qmd)
 
-UCB tree search guides the exploration across 336 iterations and 28 blocks, processing 4 parallel slots per batch. At each step, the LLM selects parent configurations to mutate using an Upper Confidence Bound strategy that balances exploitation of high-performing branches with exploration of under-visited regions. The tree grows through 28 regime blocks --- from chaotic baselines (n=100) through sparse connectivity, scale challenges (n=200, 300, 600, 1000), heterogeneous networks, recurrent training, n_frames scaling experiments, gain reduction (g=1--3), and partial connectivity (fill=80--90%).
+UCB tree search guides the exploration across 348 iterations and 29 blocks, processing 4 parallel slots per batch. At each step, the LLM selects parent configurations to mutate using an Upper Confidence Bound strategy that balances exploitation of high-performing branches with exploration of under-visited regions. The tree grows through 29 regime blocks --- from chaotic baselines (n=100) through sparse connectivity, scale challenges (n=200, 300, 600, 1000), heterogeneous networks, recurrent training, n_frames scaling experiments, gain reduction (g=1--3), and partial connectivity (fill=80--90%).
 
 Each iteration produces a connectivity scatter plot, kinograph (dynamics visualization), and MLP embedding analysis. The UCB tree snapshots show how the search progressively narrows: early blocks fan out widely as the system maps parameter boundaries, middle blocks concentrate on promising subtrees while pruning failed branches, and late blocks show rapid convergence as n_frames dominance reduces the effective search dimension. Blocks 17--23 show flat UCB landscapes when structural limits dominate (sparse, fill<100%) versus rapid convergence when n_frames rescues a regime (g=3/n=200). Blocks 24--28 reveal the gain--eff_rank critical transition: g=1 produces flat landscapes (no parameter matters), while g=2 shows a narrow ridge requiring inverse lr_W.
 
@@ -76,11 +82,11 @@ Each iteration produces a connectivity scatter plot, kinograph (dynamics visuali
 
 ### [Low-Rank Connectivity](case-low-rank.qmd)
 
-Can GNN recover connectivity from rank-20 dynamics (eff_rank ~12)? The landscape exploration found a breakthrough recipe (lr_W=3E-3, L1=1E-6 → conn_R^2^=0.993, test_R^2^=0.996) in 12 iterations. A dedicated exploration loop tested 7 random seeds and established a universal recipe template (lr=1E-4, edge_diff=10000, batch=8, n_epochs_init=2) with only lr_W and L1 requiring per-seed tuning. All 7 seeds reach test_R^2^≥0.985 when optimally configured.
+Can GNN recover connectivity from rank-20 dynamics (eff_rank ~12)? The landscape exploration found a breakthrough recipe (lr_W=3E-3, L1=1E-6 → conn_R^2^=0.993, test_R^2^=0.996) in 12 iterations. A dedicated 128-iteration exploration loop tested 14 random seeds and established a universal recipe template (lr=1E-4, edge_diff=10000, batch=8, n_epochs_init=2) with only lr_W, L1, and occasionally edge_diff requiring per-seed tuning. 11 of 14 seeds reach test_R^2^≥0.953 when optimally configured; coeff_edge_diff=20000 emerges as a lever for mid-tier seeds.
 
 ### [Sparse Connectivity](case-sparse.qmd)
 
-Can code-level GNN modifications break the conn_R^2^=0.489 ceiling in the sparse regime? The dedicated exploration tested 4 code modifications (W init scale, proximal L1 soft-thresholding, MLP capacity reduction, gradient clipping) across 24 iterations. All failed: the architectural degeneracy is fundamental --- the `lin_phi` bypass pathway compensates perfectly, leaving W unconstrained regardless of training configuration or local code changes.
+Can code-level GNN modifications break the conn_R^2^=0.489 ceiling in the sparse regime? The dedicated 52-iteration exploration tested 10 code modifications across 3 random seeds. All failed: the ceiling is a **fundamental identifiability limit**, not an architectural degeneracy. The paradigm shift came from replacing lin_edge with fixed tanh --- identical conn_R^2^=0.489 but dynamics quality drops --- proving the MLP was improving predictions, not causing the W ceiling.
 
 ---
 

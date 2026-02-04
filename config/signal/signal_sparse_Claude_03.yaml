@@ -43,7 +43,7 @@ graph_model:
   embedding_dim: 2
   update_type: none
 claude:
-  n_epochs: 6
+  n_epochs: 12
   data_augmentation_loop: 200
   n_iter_block: 12
   ucb_c: 1.414
@@ -57,7 +57,7 @@ plotting:
   - -2
   - 2
 training:
-  n_epochs: 6
+  n_epochs: 12
   n_runs: 1
   device: auto
   batch_size: 8
@@ -81,8 +81,11 @@ training:
   anti_sparsity_coeff: 0.0
   freeze_lin_edge: false
   lin_edge_dropout: 0.0
-  lin_edge_mode: tanh
-  w_optimizer_type: sgd
+  lin_edge_mode: mlp
+  w_optimizer_type: adam
+  w_lr_scheduler: none
+  coeff_spectral_radius: 1.0
+  spectral_radius_target: 0.7
   recurrent_training: false
   time_step: 1
   noise_recurrent_level: 0.0

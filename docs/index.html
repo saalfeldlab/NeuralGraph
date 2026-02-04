@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.6.42">
+<meta name="generator" content="quarto-1.5.54">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -71,12 +71,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-de84f8d6bb715db06a919283c2d1e787.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-9a023c9ade86a60361e96e3e3f11bc54.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-f1f8c88446cdc37d3187128a6bd52d25.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-16dc960a316359c75a6303268f7f2be9.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark.min.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -265,7 +265,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
 <p>We previously showed that graph neural networks can recover circuit structure and signaling functions of neural assemblies from activity data alone. However, this inverse problem is known to be ill-posed under certain conditions. For instance, when neural activity is low-rank, many different circuits can generate the same neuron traces. It remains an open question whether graph neural networks can recover connectivity in general, or only for specific classes of neural assemblies.</p>
 <p>To address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.</p>
-<p>We show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the <strong>closed-loop scientific reasoning results from the interactions between the three components</strong> rather than residing solely within the large language model.</p>
+<p>We show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the <strong>closed-loop scientific reasoning results from the interactions between the three components</strong> rather than residing solely within the large language model. the closed-loop system embodies a Lakatosian mode of inquiry, in which understanding emerges from structured interaction between a stable modeling core and systematically revised experimental assumptions.</p>
+<p>Using this framework, we systematically explored a broad space of neural assembly regimes, including chaotic, low-rank, sparse, and constrained (e.g.&nbsp;Dale-law) dynamics, while varying data richness, network size, and training conditions. Rather than optimizing for a single best-performing model, the closed-loop system evaluates entire families of experimental outcomes, tracking both successes and systematic failures across conditions. This allows the framework to distinguish failures arising from insufficient optimization from those reflecting fundamental identifiability limits of the inverse problem.</p>
 <hr>
 </section>
 <section id="the-exploration-loop" class="level2">
@@ -301,20 +302,21 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="results" class="level2">
 <h2 class="anchored" data-anchor-id="results"><a href="./results.html">Results</a></h2>
-<p>Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% convergence at 30k frames), low-gain networks (g=3, n=200) rescued by 30k frames, and g=2 partially rescued (42% convergence at 30k with inverse lr_W). The dominant lever is n_frames: tripling from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. Three structural limits identified: subcritical spectral radius (sparse 50%, conn~0.49), partial connectivity ceiling (fill&lt;100%, conn ≈ filling_factor confirmed at 50/80/90/100%), and g=1 fixed-point collapse (eff_rank drops to 1 at 30k — hardest regime). n=1000 mapped at 30k (conn=0.745, needs ~100k frames). ~80 principles established across 28 regimes over 336 iterations.</p>
+<p>Across regimes, we observe qualitatively different modes of recoverability. In some cases, such as chaotic high-rank activity with sufficient data, connectivity recovery is robust and largely insensitive to hyperparameter choices. In others, notably low-rank regimes, recovery is strongly instance-dependent: some connectivities are reliably recovered, while others remain inaccessible despite extensive exploration, indicating basin-dependent identifiability. In contrast, for sparse or subcritical regimes, connectivity recovery exhibits sharp, regime-wide ceilings that persist across architectures, hyperparameters, and code-level modifications, pointing to intrinsic limits imposed by the information content of the observed activity.</p>
+<p>Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% convergence at 30k frames), low-gain networks (g=3, n=200) rescued by 30k frames, and g=2 partially rescued (42% at n=100/30k, 92% at n=200/30k with inverse lr_W). The dominant lever is n_frames: tripling from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. Three structural limits identified: subcritical spectral radius (sparse 50%, conn~0.49), partial connectivity ceiling (fill&lt;100%, conn ≈ filling_factor confirmed at 50/80/90/100%), and g=1 fixed-point collapse (eff_rank drops to 1 at 30k — hardest regime). n=1000 mapped at 30k (conn=0.745, needs ~100k frames). ~90 principles established across 29 regimes over 348 iterations.</p>
 <p><a href="./results.html"><img src="assets/landscape_quadrant.png" class="lightbox img-fluid"></a></p>
 <hr>
 </section>
 <section id="epistemics" class="level2">
 <h2 class="anchored" data-anchor-id="epistemics"><a href="./epistemic-analysis.html">Epistemics</a></h2>
-<p>400+ reasoning events classified across 336 iterations and 28 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~80 principles established with confidence 45–100%.</p>
+<p>400+ reasoning events classified across 348 iterations and 29 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~90 principles established with confidence 45–100%.</p>
 <p>Six distinct reasoning phases emerge: (1) boundary probing and induction dominate early as the system maps each new regime, (2) deduction and analogy grow as accumulated principles enable cross-regime predictions, (3) falsification and constraint recognition widen when structurally hard regimes are encountered, (4) analogy drives scaling explorations as n_frames dominance overturns multiple principles (blocks 15–16), (5) constraint recognition peaks as the system maps structural limits — subcritical spectral radius (block 17), conn_ceiling at filling_factor (blocks 22–24) — while confirming that gain is a solvable difficulty axis (blocks 19–21), and (6) regime recognition identifies the gain–eff_rank critical transition (blocks 25–28), identifying fixed-point collapse (g=1) as a new unsolvable axis and inverse lr_W at g=2.</p>
 <p><a href="./epistemic-analysis.html"><img src="assets/Sankey.png" class="lightbox img-fluid"></a></p>
 <hr>
 </section>
 <section id="exploration" class="level2">
 <h2 class="anchored" data-anchor-id="exploration"><a href="./exploration-gallery.html">Exploration</a></h2>
-<p>UCB tree search guides the exploration across 336 iterations and 28 blocks, processing 4 parallel slots per batch. At each step, the LLM selects parent configurations to mutate using an Upper Confidence Bound strategy that balances exploitation of high-performing branches with exploration of under-visited regions. The tree grows through 28 regime blocks — from chaotic baselines (n=100) through sparse connectivity, scale challenges (n=200, 300, 600, 1000), heterogeneous networks, recurrent training, n_frames scaling experiments, gain reduction (g=1–3), and partial connectivity (fill=80–90%).</p>
+<p>UCB tree search guides the exploration across 348 iterations and 29 blocks, processing 4 parallel slots per batch. At each step, the LLM selects parent configurations to mutate using an Upper Confidence Bound strategy that balances exploitation of high-performing branches with exploration of under-visited regions. The tree grows through 29 regime blocks — from chaotic baselines (n=100) through sparse connectivity, scale challenges (n=200, 300, 600, 1000), heterogeneous networks, recurrent training, n_frames scaling experiments, gain reduction (g=1–3), and partial connectivity (fill=80–90%).</p>
 <p>Each iteration produces a connectivity scatter plot, kinograph (dynamics visualization), and MLP embedding analysis. The UCB tree snapshots show how the search progressively narrows: early blocks fan out widely as the system maps parameter boundaries, middle blocks concentrate on promising subtrees while pruning failed branches, and late blocks show rapid convergence as n_frames dominance reduces the effective search dimension. Blocks 17–23 show flat UCB landscapes when structural limits dominate (sparse, fill&lt;100%) versus rapid convergence when n_frames rescues a regime (g=3/n=200). Blocks 24–28 reveal the gain–eff_rank critical transition: g=1 produces flat landscapes (no parameter matters), while g=2 shows a narrow ridge requiring inverse lr_W.</p>
 <p><a href="./exploration-gallery.html"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_264.png" class="lightbox img-fluid"></a></p>
 <hr>
@@ -323,11 +325,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="case-studies">Case Studies</h2>
 <section id="low-rank-connectivity" class="level3">
 <h3 class="anchored" data-anchor-id="low-rank-connectivity"><a href="./case-low-rank.html">Low-Rank Connectivity</a></h3>
-<p>Can GNN recover connectivity from rank-20 dynamics (eff_rank ~12)? The landscape exploration found a breakthrough recipe (lr_W=3E-3, L1=1E-6 → conn_R<sup>2</sup>=0.993, test_R<sup>2</sup>=0.996) in 12 iterations. A dedicated exploration loop tested 7 random seeds and established a universal recipe template (lr=1E-4, edge_diff=10000, batch=8, n_epochs_init=2) with only lr_W and L1 requiring per-seed tuning. All 7 seeds reach test_R<sup>2</sup>≥0.985 when optimally configured.</p>
+<p>Can GNN recover connectivity from rank-20 dynamics (eff_rank ~12)? The landscape exploration found a breakthrough recipe (lr_W=3E-3, L1=1E-6 → conn_R<sup>2</sup>=0.993, test_R<sup>2</sup>=0.996) in 12 iterations. A dedicated 128-iteration exploration loop tested 14 random seeds and established a universal recipe template (lr=1E-4, edge_diff=10000, batch=8, n_epochs_init=2) with only lr_W, L1, and occasionally edge_diff requiring per-seed tuning. 11 of 14 seeds reach test_R<sup>2</sup>≥0.953 when optimally configured; coeff_edge_diff=20000 emerges as a lever for mid-tier seeds.</p>
 </section>
 <section id="sparse-connectivity" class="level3">
 <h3 class="anchored" data-anchor-id="sparse-connectivity"><a href="./case-sparse.html">Sparse Connectivity</a></h3>
-<p>Can code-level GNN modifications break the conn_R<sup>2</sup>=0.489 ceiling in the sparse regime? The dedicated exploration tested 4 code modifications (W init scale, proximal L1 soft-thresholding, MLP capacity reduction, gradient clipping) across 24 iterations. All failed: the architectural degeneracy is fundamental — the <code>lin_phi</code> bypass pathway compensates perfectly, leaving W unconstrained regardless of training configuration or local code changes.</p>
+<p>Can code-level GNN modifications break the conn_R<sup>2</sup>=0.489 ceiling in the sparse regime? The dedicated 52-iteration exploration tested 10 code modifications across 3 random seeds. All failed: the ceiling is a <strong>fundamental identifiability limit</strong>, not an architectural degeneracy. The paradigm shift came from replacing lin_edge with fixed tanh — identical conn_R<sup>2</sup>=0.489 but dynamics quality drops — proving the MLP was improving predictions, not causing the W ceiling.</p>
 <hr>
 </section>
 </section>
@@ -571,6 +573,8 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   });
   clipboard.on('success', onCopySuccess);
   if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
     const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
       text: getTextToCopy,
       container: window.document.getElementById('quarto-embedded-source-code-modal')
@@ -732,6 +736,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       if (window.Quarto?.typesetMath) {
         window.Quarto.typesetMath(note);
       }
+      // TODO in 1.5, we should make sure this works without a callout special case
       if (note.classList.contains("callout")) {
         return note.outerHTML;
       } else {
@@ -971,85 +976,91 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>To address this question, we extend our graph neural network framework with a large language model. In this new setup, the role of the graph neural network framework is to perform experiments and deliver quantified results. The role of the large language model is to interpret, compare and finally compress the experiment results into structured memory. On the basis thereof, the large language model is next prompted to mutate selectively the neural dynamics configuration and/or the graph neural network training scheme.</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>We show that these sequential interactions between experimentation, large language model and long-term memory, lead progressively to a scientific tool. Testable hypotheses are drawn, repeatable experiments are conducted to validate or falsify them, and ultimately causal understanding emerges. Importantly, the **closed-loop scientific reasoning results from the interactions between the three components** rather than residing solely within the large language model.</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Exploration Loop</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>the closed-loop system embodies a Lakatosian mode of inquiry, in which understanding emerges from structured interaction between a stable modeling core and systematically revised experimental assumptions.</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>Using this framework, we systematically explored a broad space of neural assembly regimes, including chaotic, low-rank, sparse, and constrained (e.g. Dale-law) dynamics, while varying data richness, network size, and training conditions. Rather than optimizing for a single best-performing model, the closed-loop system evaluates entire families of experimental outcomes, tracking both successes and systematic failures across conditions. This allows the framework to distinguish failures arising from insufficient optimization from those reflecting fundamental identifiability limits of the inverse problem.</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="in">%%| fig-width: 6</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="in">flowchart LR</span></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="in">    A[Experiment] --&gt; B[LLM]</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt; A</span></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt; C[(Memory)]</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="in">    C --&gt; B</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="in">    style A fill:#e1f5fe</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="in">    style B fill:#fff3e0</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="in">    style C fill:#f3e5f5</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>The framework implements a **closed-loop exploration engine** composed of three interacting components:</span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Experiment**</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>   A physics-based simulator generates neural activity. A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W. **4 parallel slots** run simultaneously per batch via UCB tree search.</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**LLM**</span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>   The LLM interprets results in context of accumulated memory, performs scientific operations (identify regimes, detect convergence, generate hypotheses), and selects the next intervention via UCB tree search.</span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Memory**</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>   Observations, failed attempts, and validated principles are written into explicit long-term memory. This memory persists across experimental blocks, enabling cumulative understanding rather than episodic trial-and-error.</span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a><span class="fu">## [Results](results.qmd)</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Exploration Loop</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a><span class="in">%%| fig-width: 6</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="in">flowchart LR</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="in">    A[Experiment] --&gt; B[LLM]</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt; A</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt; C[(Memory)]</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a><span class="in">    C --&gt; B</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="in">    style A fill:#e1f5fe</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="in">    style B fill:#fff3e0</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="in">    style C fill:#f3e5f5</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>The framework implements a **closed-loop exploration engine** composed of three interacting components:</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Experiment**</span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>   A physics-based simulator generates neural activity. A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W. **4 parallel slots** run simultaneously per batch via UCB tree search.</span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**LLM**</span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>   The LLM interprets results in context of accumulated memory, performs scientific operations (identify regimes, detect convergence, generate hypotheses), and selects the next intervention via UCB tree search.</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Memory**</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>   Observations, failed attempts, and validated principles are written into explicit long-term memory. This memory persists across experimental blocks, enabling cumulative understanding rather than episodic trial-and-error.</span>
 <span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% convergence at 30k frames), low-gain networks (g=3, n=200) rescued by 30k frames, and g=2 partially rescued (42% convergence at 30k with inverse lr_W). The dominant lever is n_frames: tripling from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. Three structural limits identified: subcritical spectral radius (sparse 50%, conn~0.49), partial connectivity ceiling (fill&lt;100%, conn ≈ filling_factor confirmed at 50/80/90/100%), and g=1 fixed-point collapse (eff_rank drops to 1 at 30k --- hardest regime). n=1000 mapped at 30k (conn=0.745, needs ~100k frames). ~80 principles established across 28 regimes over 336 iterations.</span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="al">![](assets/landscape_quadrant.png)</span><span class="ot">{.lightbox}</span><span class="co">](results.qmd)</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a><span class="fu">## [Results](results.qmd)</span></span>
 <span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a>Across regimes, we observe qualitatively different modes of recoverability. In some cases, such as chaotic high-rank activity with sufficient data, connectivity recovery is robust and largely insensitive to hyperparameter choices. In others, notably low-rank regimes, recovery is strongly instance-dependent: some connectivities are reliably recovered, while others remain inaccessible despite extensive exploration, indicating basin-dependent identifiability. In contrast, for sparse or subcritical regimes, connectivity recovery exhibits sharp, regime-wide ceilings that persist across architectures, hyperparameters, and code-level modifications, pointing to intrinsic limits imposed by the information content of the observed activity.</span>
 <span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="fu">## [Epistemics](epistemic-analysis.qmd)</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% convergence at 30k frames), low-gain networks (g=3, n=200) rescued by 30k frames, and g=2 partially rescued (42% at n=100/30k, 92% at n=200/30k with inverse lr_W). The dominant lever is n_frames: tripling from 10k to 30k transforms n=300 from 25% to 100% convergence, n=600 from 0% to 100%, and g=3/n=200 from 0% to 100%. Three structural limits identified: subcritical spectral radius (sparse 50%, conn~0.49), partial connectivity ceiling (fill&lt;100%, conn ≈ filling_factor confirmed at 50/80/90/100%), and g=1 fixed-point collapse (eff_rank drops to 1 at 30k --- hardest regime). n=1000 mapped at 30k (conn=0.745, needs ~100k frames). ~90 principles established across 29 regimes over 348 iterations.</span>
 <span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>400+ reasoning events classified across 336 iterations and 28 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~80 principles established with confidence 45--100%.</span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="al">![](assets/landscape_quadrant.png)</span><span class="ot">{.lightbox}</span><span class="co">](results.qmd)</span></span>
 <span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>Six distinct reasoning phases emerge: (1) boundary probing and induction dominate early as the system maps each new regime, (2) deduction and analogy grow as accumulated principles enable cross-regime predictions, (3) falsification and constraint recognition widen when structurally hard regimes are encountered, (4) analogy drives scaling explorations as n_frames dominance overturns multiple principles (blocks 15--16), (5) constraint recognition peaks as the system maps structural limits --- subcritical spectral radius (block 17), conn_ceiling at filling_factor (blocks 22--24) --- while confirming that gain is a solvable difficulty axis (blocks 19--21), and (6) regime recognition identifies the gain--eff_rank critical transition (blocks 25--28), identifying fixed-point collapse (g=1) as a new unsolvable axis and inverse lr_W at g=2.</span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="al">![](assets/Sankey.png)</span><span class="ot">{.lightbox}</span><span class="co">](epistemic-analysis.qmd)</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="fu">## [Epistemics](epistemic-analysis.qmd)</span></span>
 <span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>400+ reasoning events classified across 348 iterations and 29 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~90 principles established with confidence 45--100%.</span>
 <span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a><span class="fu">## [Exploration](exploration-gallery.qmd)</span></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>Six distinct reasoning phases emerge: (1) boundary probing and induction dominate early as the system maps each new regime, (2) deduction and analogy grow as accumulated principles enable cross-regime predictions, (3) falsification and constraint recognition widen when structurally hard regimes are encountered, (4) analogy drives scaling explorations as n_frames dominance overturns multiple principles (blocks 15--16), (5) constraint recognition peaks as the system maps structural limits --- subcritical spectral radius (block 17), conn_ceiling at filling_factor (blocks 22--24) --- while confirming that gain is a solvable difficulty axis (blocks 19--21), and (6) regime recognition identifies the gain--eff_rank critical transition (blocks 25--28), identifying fixed-point collapse (g=1) as a new unsolvable axis and inverse lr_W at g=2.</span>
 <span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a>UCB tree search guides the exploration across 336 iterations and 28 blocks, processing 4 parallel slots per batch. At each step, the LLM selects parent configurations to mutate using an Upper Confidence Bound strategy that balances exploitation of high-performing branches with exploration of under-visited regions. The tree grows through 28 regime blocks --- from chaotic baselines (n=100) through sparse connectivity, scale challenges (n=200, 300, 600, 1000), heterogeneous networks, recurrent training, n_frames scaling experiments, gain reduction (g=1--3), and partial connectivity (fill=80--90%).</span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="al">![](assets/Sankey.png)</span><span class="ot">{.lightbox}</span><span class="co">](epistemic-analysis.qmd)</span></span>
 <span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>Each iteration produces a connectivity scatter plot, kinograph (dynamics visualization), and MLP embedding analysis. The UCB tree snapshots show how the search progressively narrows: early blocks fan out widely as the system maps parameter boundaries, middle blocks concentrate on promising subtrees while pruning failed branches, and late blocks show rapid convergence as n_frames dominance reduces the effective search dimension. Blocks 17--23 show flat UCB landscapes when structural limits dominate (sparse, fill&lt;100%) versus rapid convergence when n_frames rescues a regime (g=3/n=200). Blocks 24--28 reveal the gain--eff_rank critical transition: g=1 produces flat landscapes (no parameter matters), while g=2 shows a narrow ridge requiring inverse lr_W.</span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_264.png)</span><span class="ot">{.lightbox}</span><span class="co">](exploration-gallery.qmd)</span></span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a><span class="fu">## [Exploration](exploration-gallery.qmd)</span></span>
 <span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>UCB tree search guides the exploration across 348 iterations and 29 blocks, processing 4 parallel slots per batch. At each step, the LLM selects parent configurations to mutate using an Upper Confidence Bound strategy that balances exploitation of high-performing branches with exploration of under-visited regions. The tree grows through 29 regime blocks --- from chaotic baselines (n=100) through sparse connectivity, scale challenges (n=200, 300, 600, 1000), heterogeneous networks, recurrent training, n_frames scaling experiments, gain reduction (g=1--3), and partial connectivity (fill=80--90%).</span>
 <span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a><span class="fu">## Case Studies</span></span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a>Each iteration produces a connectivity scatter plot, kinograph (dynamics visualization), and MLP embedding analysis. The UCB tree snapshots show how the search progressively narrows: early blocks fan out widely as the system maps parameter boundaries, middle blocks concentrate on promising subtrees while pruning failed branches, and late blocks show rapid convergence as n_frames dominance reduces the effective search dimension. Blocks 17--23 show flat UCB landscapes when structural limits dominate (sparse, fill&lt;100%) versus rapid convergence when n_frames rescues a regime (g=3/n=200). Blocks 24--28 reveal the gain--eff_rank critical transition: g=1 produces flat landscapes (no parameter matters), while g=2 shows a narrow ridge requiring inverse lr_W.</span>
 <span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a><span class="fu">### [Low-Rank Connectivity](case-low-rank.qmd)</span></span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a><span class="co">[</span><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_264.png)</span><span class="ot">{.lightbox}</span><span class="co">](exploration-gallery.qmd)</span></span>
 <span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a>Can GNN recover connectivity from rank-20 dynamics (eff_rank ~12)? The landscape exploration found a breakthrough recipe (lr_W=3E-3, L1=1E-6 → conn_R^2^=0.993, test_R^2^=0.996) in 12 iterations. A dedicated exploration loop tested 7 random seeds and established a universal recipe template (lr=1E-4, edge_diff=10000, batch=8, n_epochs_init=2) with only lr_W and L1 requiring per-seed tuning. All 7 seeds reach test_R^2^≥0.985 when optimally configured.</span>
+<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a><span class="fu">### [Sparse Connectivity](case-sparse.qmd)</span></span>
+<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a><span class="fu">## Case Studies</span></span>
 <span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a>Can code-level GNN modifications break the conn_R^2^=0.489 ceiling in the sparse regime? The dedicated exploration tested 4 code modifications (W init scale, proximal L1 soft-thresholding, MLP capacity reduction, gradient clipping) across 24 iterations. All failed: the architectural degeneracy is fundamental --- the <span class="in">`lin_phi`</span> bypass pathway compensates perfectly, leaving W unconstrained regardless of training configuration or local code changes.</span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a><span class="fu">### [Low-Rank Connectivity](case-low-rank.qmd)</span></span>
 <span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a>Can GNN recover connectivity from rank-20 dynamics (eff_rank ~12)? The landscape exploration found a breakthrough recipe (lr_W=3E-3, L1=1E-6 → conn_R^2^=0.993, test_R^2^=0.996) in 12 iterations. A dedicated 128-iteration exploration loop tested 14 random seeds and established a universal recipe template (lr=1E-4, edge_diff=10000, batch=8, n_epochs_init=2) with only lr_W, L1, and occasionally edge_diff requiring per-seed tuning. 11 of 14 seeds reach test_R^2^≥0.953 when optimally configured; coeff_edge_diff=20000 emerges as a lever for mid-tier seeds.</span>
 <span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a><span class="fu">### [Sparse Connectivity](case-sparse.qmd)</span></span>
 <span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Stern, M., et al. (2023). Graph neural networks uncover structure and function underlying the activity of neural assemblies.</span>
+<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a>Can code-level GNN modifications break the conn_R^2^=0.489 ceiling in the sparse regime? The dedicated 52-iteration exploration tested 10 code modifications across 3 random seeds. All failed: the ceiling is a **fundamental identifiability limit**, not an architectural degeneracy. The paradigm shift came from replacing lin_edge with fixed tanh --- identical conn_R^2^=0.489 but dynamics quality drops --- proving the MLP was improving predictions, not causing the W ceiling.</span>
 <span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Romera-Paredes, B., et al. (2024). Mathematical discoveries from program search with large language models. *Nature*.</span>
+<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Novikov, A., et al. (2025). AlphaEvolve: A coding agent for scientific and algorithmic exploration.</span>
+<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a><span class="fu">## References</span></span>
+<span id="cb1-96"><a href="#cb1-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-97"><a href="#cb1-97" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>Stern, M., et al. (2023). Graph neural networks uncover structure and function underlying the activity of neural assemblies.</span>
+<span id="cb1-98"><a href="#cb1-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-99"><a href="#cb1-99" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>Romera-Paredes, B., et al. (2024). Mathematical discoveries from program search with large language models. *Nature*.</span>
+<span id="cb1-100"><a href="#cb1-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-101"><a href="#cb1-101" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>Novikov, A., et al. (2025). AlphaEvolve: A coding agent for scientific and algorithmic exploration.</span>
 </code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

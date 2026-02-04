@@ -63,7 +63,7 @@ training:
   batch_size: 8
   small_init_batch_size: false
   training_single_type: true
-  seed: 8000
+  seed: 10000
   data_augmentation_loop: 200
   sparsity: replace_embedding_function
   sparsity_freq: 4
@@ -74,7 +74,7 @@ training:
   learning_rate_embedding_start: 2.5e-04
   n_epochs_init: 2
   first_coeff_L1: 0
-  coeff_W_L1: 1.0e-05
+  coeff_W_L1: 1.0e-06
   coeff_edge_norm: 0.0
   coeff_edge_diff: 10000
   recurrent_training: false

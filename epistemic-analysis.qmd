@@ -8,21 +8,21 @@ How does an LLM reason when embedded in a closed-loop scientific exploration? Th
 ::: {.callout-tip}
 ## Current status
 
-**336 iterations completed** across 28 regimes. The reasoning trace contains ~400 annotated events connected by ~150 causal edges, ~80 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24--28 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis --- fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25--26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27--28).
+**348 iterations completed** across 29 regimes. The reasoning trace contains ~420 annotated events connected by ~160 causal edges, ~90 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24--29 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis --- fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25--26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27--28), and g=2/n=200/30k confirmed that n_neurons compensates for gain reduction (block 29, 92% convergence, eff_rank=35--38).
 :::
 
 ---
 
 ## Outcomes
 
-1. **~400 reasoning events** across 336 iterations and 28 blocks, connected by ~150 causal edges
+1. **~420 reasoning events** across 348 iterations and 29 blocks, connected by ~160 causal edges
 2. **Predictive power**: 74% deduction accuracy (well above chance)
 3. **Knowledge transfer**: 70% analogy success rate across cross-regime transfers
-4. **Principle identification**: ~80 validated findings with confidence 45--100%
+4. **Principle identification**: ~90 validated findings with confidence 45--100%
 5. **Self-correction**: 100% of falsifications led to principle refinement
 6. **Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22--24 (conn ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse --- eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits
-7. **Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25--28 (g=1, g=2)
-8. **Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse) represent four paradigm-level findings. Each overturned or extended previously established principles
+7. **Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25--29 (g=1, g=2, g=2/n=200)
+8. **Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), blocks 25--26 (g=1 fixed-point collapse), and block 29 (n compensates gain: g=2/n=200 eff_rank matches g=7/n=100) represent five paradigm-level findings. Each overturned or extended previously established principles
 
 ---
 
@@ -408,6 +408,17 @@ The Sankey diagram traces how reasoning modes connect to each other across the f
 | 347 | Causal | eff_rank-n_frames correlation depends on gain | g=1: negative (5→1); g=2: flat (17→16); g≥3: positive |
 
 **Principle extracted**: g=2 IS partially solvable at 30k (42% conv); eff_rank does NOT increase with n_frames at g=2; inverse lr_W is structural (persists at 30k); 30k helps via variance reduction, not more dynamic modes.
+
+### Block 29 --- g=2/n=200/30k: n Compensates Gain
+
+| Iter | Mode | Event | Outcome |
+|------|------|-------|---------:|
+| 349 | **Analogy** | g=2/n=200 should have higher eff_rank (like g=3/n=200) | **Confirmed**: eff_rank=35--38 (vs 16 at n=100); 2.2x increase |
+| 351 | Induction | inverse lr_W persists but ceiling scales with n | lr_W=3E-4 optimal; 1E-3 safe but epoch-insensitive |
+| 345 | Induction | epoch scaling diminishing at 12ep | 10ep→0.976, 12ep→0.979 (+0.3%) |
+| 348 | **Causal** | gain × n interaction is compensatory for eff_rank | g=2/n=200 eff_rank=35--38 matches g=7/n=100 |
+
+**Principle extracted**: n_neurons compensates for gain reduction; g=2/n=200/30k achieves 92% convergence (vs 42% at n=100); eff_rank scales with n even at low gain; epoch scaling diminishes at 12ep; lr_W=1E-3 causes negative epoch scaling (cluster degrades).
 
 ---
 

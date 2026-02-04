@@ -41,7 +41,7 @@ papers/
 *.html
 !assets/landscape_quadrant_interactive.html
 !assets/landscape_partitioned_interactive.html
-!docs/**
+docs/
 
 # Experiment documentation in config folders
 config/fly/**/*.md

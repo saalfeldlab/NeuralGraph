@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.6.42">
+<meta name="generator" content="quarto-1.5.54">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -69,12 +69,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-de84f8d6bb715db06a919283c2d1e787.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-9a023c9ade86a60361e96e3e3f11bc54.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-f1f8c88446cdc37d3187128a6bd52d25.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-16dc960a316359c75a6303268f7f2be9.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark.min.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -248,6 +248,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#block-26-g1-at-30k-confirmed-unsolvable" id="toc-block-26-g1-at-30k-confirmed-unsolvable" class="nav-link" data-scroll-target="#block-26-g1-at-30k-confirmed-unsolvable">Block 26 — g=1 at 30k: Confirmed Unsolvable</a></li>
   <li><a href="#block-27-g2-inverse-lr_w-regime-10k" id="toc-block-27-g2-inverse-lr_w-regime-10k" class="nav-link" data-scroll-target="#block-27-g2-inverse-lr_w-regime-10k">Block 27 — g=2: Inverse lr_W Regime (10k)</a></li>
   <li><a href="#block-28-g2-at-30k-partially-rescued" id="toc-block-28-g2-at-30k-partially-rescued" class="nav-link" data-scroll-target="#block-28-g2-at-30k-partially-rescued">Block 28 — g=2 at 30k: Partially Rescued</a></li>
+  <li><a href="#block-29-g2n20030k-n-compensates-gain" id="toc-block-29-g2n20030k-n-compensates-gain" class="nav-link" data-scroll-target="#block-29-g2n20030k-n-compensates-gain">Block 29 — g=2/n=200/30k: n Compensates Gain</a></li>
   </ul></li>
   <li><a href="#causal-chains" id="toc-causal-chains" class="nav-link" data-scroll-target="#causal-chains">Causal Chains</a></li>
   <li><a href="#validation-rates" id="toc-validation-rates" class="nav-link" data-scroll-target="#validation-rates">Validation Rates</a></li>
@@ -291,21 +292,21 @@ Current status
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>336 iterations completed</strong> across 28 regimes. The reasoning trace contains ~400 annotated events connected by ~150 causal edges, ~80 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24–28 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis — fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25–26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27–28).</p>
+<p><strong>348 iterations completed</strong> across 29 regimes. The reasoning trace contains ~420 annotated events connected by ~160 causal edges, ~90 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24–29 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis — fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25–26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27–28), and g=2/n=200/30k confirmed that n_neurons compensates for gain reduction (block 29, 92% convergence, eff_rank=35–38).</p>
 </div>
 </div>
 <hr>
 <section id="outcomes" class="level2">
 <h2 class="anchored" data-anchor-id="outcomes">Outcomes</h2>
 <ol type="1">
-<li><strong>~400 reasoning events</strong> across 336 iterations and 28 blocks, connected by ~150 causal edges</li>
+<li><strong>~420 reasoning events</strong> across 348 iterations and 29 blocks, connected by ~160 causal edges</li>
 <li><strong>Predictive power</strong>: 74% deduction accuracy (well above chance)</li>
 <li><strong>Knowledge transfer</strong>: 70% analogy success rate across cross-regime transfers</li>
-<li><strong>Principle identification</strong>: ~80 validated findings with confidence 45–100%</li>
+<li><strong>Principle identification</strong>: ~90 validated findings with confidence 45–100%</li>
 <li><strong>Self-correction</strong>: 100% of falsifications led to principle refinement</li>
 <li><strong>Structural limit recognition</strong>: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22–24 (conn ceiling at filling_factor), and blocks 25–26 (g=1 fixed-point collapse — eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits</li>
-<li><strong>Cross-block transfer</strong>: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16–18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25–28 (g=1, g=2)</li>
-<li><strong>Paradigm shifts</strong>: Blocks 15–16 (n_frames dominance), blocks 19–21 (gain as solvable difficulty axis), blocks 22–24 (conn_ceiling at filling_factor), and blocks 25–26 (g=1 fixed-point collapse) represent four paradigm-level findings. Each overturned or extended previously established principles</li>
+<li><strong>Cross-block transfer</strong>: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16–18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25–29 (g=1, g=2, g=2/n=200)</li>
+<li><strong>Paradigm shifts</strong>: Blocks 15–16 (n_frames dominance), blocks 19–21 (gain as solvable difficulty axis), blocks 22–24 (conn_ceiling at filling_factor), blocks 25–26 (g=1 fixed-point collapse), and block 29 (n compensates gain: g=2/n=200 eff_rank matches g=7/n=100) represent five paradigm-level findings. Each overturned or extended previously established principles</li>
 </ol>
 <hr>
 </section>
@@ -1866,6 +1867,52 @@ Current status
 </tbody>
 </table>
 <p><strong>Principle extracted</strong>: g=2 IS partially solvable at 30k (42% conv); eff_rank does NOT increase with n_frames at g=2; inverse lr_W is structural (persists at 30k); 30k helps via variance reduction, not more dynamic modes.</p>
+</section>
+<section id="block-29-g2n20030k-n-compensates-gain" class="level3">
+<h3 class="anchored" data-anchor-id="block-29-g2n20030k-n-compensates-gain">Block 29 — g=2/n=200/30k: n Compensates Gain</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 24%">
+<col style="width: 34%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Iter</th>
+<th>Mode</th>
+<th>Event</th>
+<th style="text-align: right;">Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>349</td>
+<td><strong>Analogy</strong></td>
+<td>g=2/n=200 should have higher eff_rank (like g=3/n=200)</td>
+<td style="text-align: right;"><strong>Confirmed</strong>: eff_rank=35–38 (vs 16 at n=100); 2.2x increase</td>
+</tr>
+<tr class="even">
+<td>351</td>
+<td>Induction</td>
+<td>inverse lr_W persists but ceiling scales with n</td>
+<td style="text-align: right;">lr_W=3E-4 optimal; 1E-3 safe but epoch-insensitive</td>
+</tr>
+<tr class="odd">
+<td>345</td>
+<td>Induction</td>
+<td>epoch scaling diminishing at 12ep</td>
+<td style="text-align: right;">10ep→0.976, 12ep→0.979 (+0.3%)</td>
+</tr>
+<tr class="even">
+<td>348</td>
+<td><strong>Causal</strong></td>
+<td>gain × n interaction is compensatory for eff_rank</td>
+<td style="text-align: right;">g=2/n=200 eff_rank=35–38 matches g=7/n=100</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Principle extracted</strong>: n_neurons compensates for gain reduction; g=2/n=200/30k achieves 92% convergence (vs 42% at n=100); eff_rank scales with n even at low gain; epoch scaling diminishes at 12ep; lr_W=1E-3 causes negative epoch scaling (cluster degrades).</p>
 <hr>
 </section>
 </section>
@@ -3019,6 +3066,8 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   });
   clipboard.on('success', onCopySuccess);
   if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
     const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
       text: getTextToCopy,
       container: window.document.getElementById('quarto-embedded-source-code-modal')
@@ -3180,6 +3229,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       if (window.Quarto?.typesetMath) {
         window.Quarto.typesetMath(note);
       }
+      // TODO in 1.5, we should make sure this works without a callout special case
       if (note.classList.contains("callout")) {
         return note.outerHTML;
       } else {
@@ -3415,21 +3465,21 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">## Current status</span></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>**336 iterations completed** across 28 regimes. The reasoning trace contains ~400 annotated events connected by ~150 causal edges, ~80 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24--28 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis --- fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25--26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27--28).</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>**348 iterations completed** across 29 regimes. The reasoning trace contains ~420 annotated events connected by ~160 causal edges, ~90 established principles, 74% deduction accuracy, and 70% cross-regime analogy transfer success. 100% of falsified hypotheses led to principle refinement. Blocks 24--29 extended the frontier: fill=90% confirmed conn_ceiling ≈ filling_factor at a 4th data point (block 24), g=1 discovered as a new unsolvable axis --- fixed-point collapse with eff_rank dropping to 1 at 30k (blocks 25--26), g=2 identified as a transitional regime requiring inverse lr_W and partially rescued by 30k frames (blocks 27--28), and g=2/n=200/30k confirmed that n_neurons compensates for gain reduction (block 29, 92% convergence, eff_rank=35--38).</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="fu">## Outcomes</span></span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**~400 reasoning events** across 336 iterations and 28 blocks, connected by ~150 causal edges</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**~420 reasoning events** across 348 iterations and 29 blocks, connected by ~160 causal edges</span>
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Predictive power**: 74% deduction accuracy (well above chance)</span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Knowledge transfer**: 70% analogy success rate across cross-regime transfers</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Principle identification**: ~80 validated findings with confidence 45--100%</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Principle identification**: ~90 validated findings with confidence 45--100%</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Self-correction**: 100% of falsifications led to principle refinement</span>
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22--24 (conn ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse --- eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits</span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25--28 (g=1, g=2)</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse) represent four paradigm-level findings. Each overturned or extended previously established principles</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25--29 (g=1, g=2, g=2/n=200)</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), blocks 25--26 (g=1 fixed-point collapse), and block 29 (n compensates gain: g=2/n=200 eff_rank matches g=7/n=100) represent five paradigm-level findings. Each overturned or extended previously established principles</span>
 <span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
@@ -3816,217 +3866,228 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-409"><a href="#cb1-409" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-410"><a href="#cb1-410" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: g=2 IS partially solvable at 30k (42% conv); eff_rank does NOT increase with n_frames at g=2; inverse lr_W is structural (persists at 30k); 30k helps via variance reduction, not more dynamic modes.</span>
 <span id="cb1-411"><a href="#cb1-411" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-412"><a href="#cb1-412" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-412"><a href="#cb1-412" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 29 --- g=2/n=200/30k: n Compensates Gain</span></span>
 <span id="cb1-413"><a href="#cb1-413" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-414"><a href="#cb1-414" aria-hidden="true" tabindex="-1"></a><span class="fu">## Causal Chains</span></span>
-<span id="cb1-415"><a href="#cb1-415" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-416"><a href="#cb1-416" aria-hidden="true" tabindex="-1"></a>Key multi-step causal chains discovered:</span>
-<span id="cb1-417"><a href="#cb1-417" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-420"><a href="#cb1-420" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
-<span id="cb1-421"><a href="#cb1-421" aria-hidden="true" tabindex="-1"></a><span class="in">graph TD</span></span>
-<span id="cb1-422"><a href="#cb1-422" aria-hidden="true" tabindex="-1"></a><span class="in">    A[low eff_rank observed&lt;br/&gt;iter 13] --&gt;|leads_to| B[dynamics failure at L1=1E-5&lt;br/&gt;iter 18]</span></span>
-<span id="cb1-423"><a href="#cb1-423" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt;|triggers| C[L1 reduction hypothesis&lt;br/&gt;iter 18]</span></span>
-<span id="cb1-424"><a href="#cb1-424" aria-hidden="true" tabindex="-1"></a><span class="in">    C --&gt;|leads_to| D[L1=1E-6 + lr_W=3E-3 test&lt;br/&gt;iter 21]</span></span>
-<span id="cb1-425"><a href="#cb1-425" aria-hidden="true" tabindex="-1"></a><span class="in">    D --&gt;|refines| E[low-rank principle established&lt;br/&gt;BREAKTHROUGH]</span></span>
+<span id="cb1-414"><a href="#cb1-414" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
+<span id="cb1-415"><a href="#cb1-415" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
+<span id="cb1-416"><a href="#cb1-416" aria-hidden="true" tabindex="-1"></a>| 349 | **Analogy** | g=2/n=200 should have higher eff_rank (like g=3/n=200) | **Confirmed**: eff_rank=35--38 (vs 16 at n=100); 2.2x increase |</span>
+<span id="cb1-417"><a href="#cb1-417" aria-hidden="true" tabindex="-1"></a>| 351 | Induction | inverse lr_W persists but ceiling scales with n | lr_W=3E-4 optimal; 1E-3 safe but epoch-insensitive |</span>
+<span id="cb1-418"><a href="#cb1-418" aria-hidden="true" tabindex="-1"></a>| 345 | Induction | epoch scaling diminishing at 12ep | 10ep→0.976, 12ep→0.979 (+0.3%) |</span>
+<span id="cb1-419"><a href="#cb1-419" aria-hidden="true" tabindex="-1"></a>| 348 | **Causal** | gain × n interaction is compensatory for eff_rank | g=2/n=200 eff_rank=35--38 matches g=7/n=100 |</span>
+<span id="cb1-420"><a href="#cb1-420" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-421"><a href="#cb1-421" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: n_neurons compensates for gain reduction; g=2/n=200/30k achieves 92% convergence (vs 42% at n=100); eff_rank scales with n even at low gain; epoch scaling diminishes at 12ep; lr_W=1E-3 causes negative epoch scaling (cluster degrades).</span>
+<span id="cb1-422"><a href="#cb1-422" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-423"><a href="#cb1-423" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-424"><a href="#cb1-424" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-425"><a href="#cb1-425" aria-hidden="true" tabindex="-1"></a><span class="fu">## Causal Chains</span></span>
 <span id="cb1-426"><a href="#cb1-426" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-427"><a href="#cb1-427" aria-hidden="true" tabindex="-1"></a><span class="in">    F[Dale eff_rank=12&lt;br/&gt;iter 25] --&gt;|leads_to| G[lr_W=5E-3 cliff&lt;br/&gt;iters 29-30]</span></span>
-<span id="cb1-428"><a href="#cb1-428" aria-hidden="true" tabindex="-1"></a><span class="in">    G --&gt;|triggers| H[narrow range hypothesis]</span></span>
-<span id="cb1-429"><a href="#cb1-429" aria-hidden="true" tabindex="-1"></a><span class="in">    H --&gt;|leads_to| I[safe range mapped: 3.5-4.5E-3&lt;br/&gt;iter 33]</span></span>
-<span id="cb1-430"><a href="#cb1-430" aria-hidden="true" tabindex="-1"></a><span class="in">    I --&gt;|refines| J[Dale cliff principle]</span></span>
-<span id="cb1-431"><a href="#cb1-431" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-432"><a href="#cb1-432" aria-hidden="true" tabindex="-1"></a><span class="in">    K[sparse subcritical&lt;br/&gt;iter 73] --&gt;|triggers| L[n_epochs exploration&lt;br/&gt;iter 79]</span></span>
-<span id="cb1-433"><a href="#cb1-433" aria-hidden="true" tabindex="-1"></a><span class="in">    L --&gt;|leads_to| M[training capacity bottleneck&lt;br/&gt;iter 82]</span></span>
-<span id="cb1-434"><a href="#cb1-434" aria-hidden="true" tabindex="-1"></a><span class="in">    M --&gt;|triggers| N[n=300 epochs=2 breakthrough&lt;br/&gt;iter 106]</span></span>
-<span id="cb1-435"><a href="#cb1-435" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-436"><a href="#cb1-436" aria-hidden="true" tabindex="-1"></a><span class="in">    O[n=300 conn ceiling ~0.92&lt;br/&gt;block 10] --&gt;|triggers| P[n_frames hypothesis&lt;br/&gt;block 15]</span></span>
-<span id="cb1-437"><a href="#cb1-437" aria-hidden="true" tabindex="-1"></a><span class="in">    P --&gt;|leads_to| Q[n=300/30k 100% convergence&lt;br/&gt;iter 177]</span></span>
-<span id="cb1-438"><a href="#cb1-438" aria-hidden="true" tabindex="-1"></a><span class="in">    Q --&gt;|triggers| R[n=600/30k test&lt;br/&gt;block 16]</span></span>
-<span id="cb1-439"><a href="#cb1-439" aria-hidden="true" tabindex="-1"></a><span class="in">    R --&gt;|leads_to| S[n=600 SOLVED: conn=0.992&lt;br/&gt;iter 186]</span></span>
-<span id="cb1-440"><a href="#cb1-440" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-441"><a href="#cb1-441" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| T[sparse 50% at 30k test&lt;br/&gt;block 17]</span></span>
-<span id="cb1-442"><a href="#cb1-442" aria-hidden="true" tabindex="-1"></a><span class="in">    T --&gt;|leads_to| U[eff_rank DROPS 21→13&lt;br/&gt;iter 195]</span></span>
-<span id="cb1-443"><a href="#cb1-443" aria-hidden="true" tabindex="-1"></a><span class="in">    U --&gt;|refines| V[subcritical rho immune to n_frames&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
-<span id="cb1-444"><a href="#cb1-444" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-445"><a href="#cb1-445" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| W[gain=3 identified as axis&lt;br/&gt;block 19]</span></span>
-<span id="cb1-446"><a href="#cb1-446" aria-hidden="true" tabindex="-1"></a><span class="in">    W --&gt;|leads_to| X[g=3/n=200 0% conv&lt;br/&gt;block 20]</span></span>
-<span id="cb1-447"><a href="#cb1-447" aria-hidden="true" tabindex="-1"></a><span class="in">    X --&gt;|triggers| Y[30k frames test for g=3&lt;br/&gt;block 21]</span></span>
-<span id="cb1-448"><a href="#cb1-448" aria-hidden="true" tabindex="-1"></a><span class="in">    Y --&gt;|leads_to| Z[g=3/n=200 SOLVED: conn=0.996&lt;br/&gt;iter 245]</span></span>
-<span id="cb1-449"><a href="#cb1-449" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-450"><a href="#cb1-450" aria-hidden="true" tabindex="-1"></a><span class="in">    AA[fill=80% conn=0.802&lt;br/&gt;block 22] --&gt;|triggers| AB[30k test for fill=80%&lt;br/&gt;block 23]</span></span>
-<span id="cb1-451"><a href="#cb1-451" aria-hidden="true" tabindex="-1"></a><span class="in">    AB --&gt;|leads_to| AC[conn=0.802 unchanged&lt;br/&gt;iter 265]</span></span>
-<span id="cb1-452"><a href="#cb1-452" aria-hidden="true" tabindex="-1"></a><span class="in">    AC --&gt;|refines| AD[conn_ceiling ≈ filling_factor&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
-<span id="cb1-453"><a href="#cb1-453" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-454"><a href="#cb1-454" aria-hidden="true" tabindex="-1"></a><span class="in">    AD --&gt;|triggers| AE[fill=90% test&lt;br/&gt;block 24]</span></span>
-<span id="cb1-455"><a href="#cb1-455" aria-hidden="true" tabindex="-1"></a><span class="in">    AE --&gt;|leads_to| AF[conn=0.907 ≈ 91%&lt;br/&gt;iter 291]</span></span>
-<span id="cb1-456"><a href="#cb1-456" aria-hidden="true" tabindex="-1"></a><span class="in">    AF --&gt;|refines| AG[4th data point confirms&lt;br/&gt;linear filling_factor law]</span></span>
-<span id="cb1-457"><a href="#cb1-457" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-458"><a href="#cb1-458" aria-hidden="true" tabindex="-1"></a><span class="in">    W --&gt;|triggers| AH[g=1 test&lt;br/&gt;block 25]</span></span>
-<span id="cb1-459"><a href="#cb1-459" aria-hidden="true" tabindex="-1"></a><span class="in">    AH --&gt;|leads_to| AI[fixed-point collapse&lt;br/&gt;eff_rank=5]</span></span>
-<span id="cb1-460"><a href="#cb1-460" aria-hidden="true" tabindex="-1"></a><span class="in">    AI --&gt;|triggers| AJ[30k test for g=1&lt;br/&gt;block 26]</span></span>
-<span id="cb1-461"><a href="#cb1-461" aria-hidden="true" tabindex="-1"></a><span class="in">    AJ --&gt;|leads_to| AK[eff_rank DROPS 5→1&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
-<span id="cb1-462"><a href="#cb1-462" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-463"><a href="#cb1-463" aria-hidden="true" tabindex="-1"></a><span class="in">    AI --&gt;|triggers| AL[g=2 test&lt;br/&gt;block 27]</span></span>
-<span id="cb1-464"><a href="#cb1-464" aria-hidden="true" tabindex="-1"></a><span class="in">    AL --&gt;|leads_to| AM[inverse lr_W=5E-4&lt;br/&gt;eff_rank=17]</span></span>
-<span id="cb1-465"><a href="#cb1-465" aria-hidden="true" tabindex="-1"></a><span class="in">    AM --&gt;|triggers| AN[30k test for g=2&lt;br/&gt;block 28]</span></span>
-<span id="cb1-466"><a href="#cb1-466" aria-hidden="true" tabindex="-1"></a><span class="in">    AN --&gt;|leads_to| AO[42% conv; lr_W persists&lt;br/&gt;PARTIALLY RESCUED]</span></span>
-<span id="cb1-467"><a href="#cb1-467" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-468"><a href="#cb1-468" aria-hidden="true" tabindex="-1"></a><span class="in">    style A fill:#e3f2fd</span></span>
-<span id="cb1-469"><a href="#cb1-469" aria-hidden="true" tabindex="-1"></a><span class="in">    style E fill:#c8e6c9</span></span>
-<span id="cb1-470"><a href="#cb1-470" aria-hidden="true" tabindex="-1"></a><span class="in">    style F fill:#e3f2fd</span></span>
-<span id="cb1-471"><a href="#cb1-471" aria-hidden="true" tabindex="-1"></a><span class="in">    style J fill:#c8e6c9</span></span>
-<span id="cb1-472"><a href="#cb1-472" aria-hidden="true" tabindex="-1"></a><span class="in">    style K fill:#e3f2fd</span></span>
-<span id="cb1-473"><a href="#cb1-473" aria-hidden="true" tabindex="-1"></a><span class="in">    style N fill:#c8e6c9</span></span>
-<span id="cb1-474"><a href="#cb1-474" aria-hidden="true" tabindex="-1"></a><span class="in">    style O fill:#e3f2fd</span></span>
-<span id="cb1-475"><a href="#cb1-475" aria-hidden="true" tabindex="-1"></a><span class="in">    style S fill:#c8e6c9</span></span>
-<span id="cb1-476"><a href="#cb1-476" aria-hidden="true" tabindex="-1"></a><span class="in">    style V fill:#ffcdd2</span></span>
-<span id="cb1-477"><a href="#cb1-477" aria-hidden="true" tabindex="-1"></a><span class="in">    style Z fill:#c8e6c9</span></span>
-<span id="cb1-478"><a href="#cb1-478" aria-hidden="true" tabindex="-1"></a><span class="in">    style AD fill:#ffcdd2</span></span>
-<span id="cb1-479"><a href="#cb1-479" aria-hidden="true" tabindex="-1"></a><span class="in">    style AG fill:#c8e6c9</span></span>
-<span id="cb1-480"><a href="#cb1-480" aria-hidden="true" tabindex="-1"></a><span class="in">    style AK fill:#ffcdd2</span></span>
-<span id="cb1-481"><a href="#cb1-481" aria-hidden="true" tabindex="-1"></a><span class="in">    style AO fill:#fff9c4</span></span>
-<span id="cb1-482"><a href="#cb1-482" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb1-483"><a href="#cb1-483" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-484"><a href="#cb1-484" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-485"><a href="#cb1-485" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-486"><a href="#cb1-486" aria-hidden="true" tabindex="-1"></a><span class="fu">## Validation Rates</span></span>
-<span id="cb1-487"><a href="#cb1-487" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-488"><a href="#cb1-488" aria-hidden="true" tabindex="-1"></a>| Mode | Count | Validated | Rate | Significance |</span>
-<span id="cb1-489"><a href="#cb1-489" aria-hidden="true" tabindex="-1"></a>|------|:-----:|:---------:|:----:|:-------------|</span>
-<span id="cb1-490"><a href="#cb1-490" aria-hidden="true" tabindex="-1"></a>| Deduction | 57 | 42 | **74%** | Well above chance (50%) |</span>
-<span id="cb1-491"><a href="#cb1-491" aria-hidden="true" tabindex="-1"></a>| Analogy | 40 | 28 | **70%** | Good transfer success |</span>
-<span id="cb1-492"><a href="#cb1-492" aria-hidden="true" tabindex="-1"></a>| Falsification | 52 | 52 | **100%** | All led to refinement |</span>
-<span id="cb1-493"><a href="#cb1-493" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-494"><a href="#cb1-494" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb1-495"><a href="#cb1-495" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
+<span id="cb1-427"><a href="#cb1-427" aria-hidden="true" tabindex="-1"></a>Key multi-step causal chains discovered:</span>
+<span id="cb1-428"><a href="#cb1-428" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-431"><a href="#cb1-431" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb1-432"><a href="#cb1-432" aria-hidden="true" tabindex="-1"></a><span class="in">graph TD</span></span>
+<span id="cb1-433"><a href="#cb1-433" aria-hidden="true" tabindex="-1"></a><span class="in">    A[low eff_rank observed&lt;br/&gt;iter 13] --&gt;|leads_to| B[dynamics failure at L1=1E-5&lt;br/&gt;iter 18]</span></span>
+<span id="cb1-434"><a href="#cb1-434" aria-hidden="true" tabindex="-1"></a><span class="in">    B --&gt;|triggers| C[L1 reduction hypothesis&lt;br/&gt;iter 18]</span></span>
+<span id="cb1-435"><a href="#cb1-435" aria-hidden="true" tabindex="-1"></a><span class="in">    C --&gt;|leads_to| D[L1=1E-6 + lr_W=3E-3 test&lt;br/&gt;iter 21]</span></span>
+<span id="cb1-436"><a href="#cb1-436" aria-hidden="true" tabindex="-1"></a><span class="in">    D --&gt;|refines| E[low-rank principle established&lt;br/&gt;BREAKTHROUGH]</span></span>
+<span id="cb1-437"><a href="#cb1-437" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-438"><a href="#cb1-438" aria-hidden="true" tabindex="-1"></a><span class="in">    F[Dale eff_rank=12&lt;br/&gt;iter 25] --&gt;|leads_to| G[lr_W=5E-3 cliff&lt;br/&gt;iters 29-30]</span></span>
+<span id="cb1-439"><a href="#cb1-439" aria-hidden="true" tabindex="-1"></a><span class="in">    G --&gt;|triggers| H[narrow range hypothesis]</span></span>
+<span id="cb1-440"><a href="#cb1-440" aria-hidden="true" tabindex="-1"></a><span class="in">    H --&gt;|leads_to| I[safe range mapped: 3.5-4.5E-3&lt;br/&gt;iter 33]</span></span>
+<span id="cb1-441"><a href="#cb1-441" aria-hidden="true" tabindex="-1"></a><span class="in">    I --&gt;|refines| J[Dale cliff principle]</span></span>
+<span id="cb1-442"><a href="#cb1-442" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-443"><a href="#cb1-443" aria-hidden="true" tabindex="-1"></a><span class="in">    K[sparse subcritical&lt;br/&gt;iter 73] --&gt;|triggers| L[n_epochs exploration&lt;br/&gt;iter 79]</span></span>
+<span id="cb1-444"><a href="#cb1-444" aria-hidden="true" tabindex="-1"></a><span class="in">    L --&gt;|leads_to| M[training capacity bottleneck&lt;br/&gt;iter 82]</span></span>
+<span id="cb1-445"><a href="#cb1-445" aria-hidden="true" tabindex="-1"></a><span class="in">    M --&gt;|triggers| N[n=300 epochs=2 breakthrough&lt;br/&gt;iter 106]</span></span>
+<span id="cb1-446"><a href="#cb1-446" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-447"><a href="#cb1-447" aria-hidden="true" tabindex="-1"></a><span class="in">    O[n=300 conn ceiling ~0.92&lt;br/&gt;block 10] --&gt;|triggers| P[n_frames hypothesis&lt;br/&gt;block 15]</span></span>
+<span id="cb1-448"><a href="#cb1-448" aria-hidden="true" tabindex="-1"></a><span class="in">    P --&gt;|leads_to| Q[n=300/30k 100% convergence&lt;br/&gt;iter 177]</span></span>
+<span id="cb1-449"><a href="#cb1-449" aria-hidden="true" tabindex="-1"></a><span class="in">    Q --&gt;|triggers| R[n=600/30k test&lt;br/&gt;block 16]</span></span>
+<span id="cb1-450"><a href="#cb1-450" aria-hidden="true" tabindex="-1"></a><span class="in">    R --&gt;|leads_to| S[n=600 SOLVED: conn=0.992&lt;br/&gt;iter 186]</span></span>
+<span id="cb1-451"><a href="#cb1-451" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-452"><a href="#cb1-452" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| T[sparse 50% at 30k test&lt;br/&gt;block 17]</span></span>
+<span id="cb1-453"><a href="#cb1-453" aria-hidden="true" tabindex="-1"></a><span class="in">    T --&gt;|leads_to| U[eff_rank DROPS 21→13&lt;br/&gt;iter 195]</span></span>
+<span id="cb1-454"><a href="#cb1-454" aria-hidden="true" tabindex="-1"></a><span class="in">    U --&gt;|refines| V[subcritical rho immune to n_frames&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-455"><a href="#cb1-455" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-456"><a href="#cb1-456" aria-hidden="true" tabindex="-1"></a><span class="in">    S --&gt;|triggers| W[gain=3 identified as axis&lt;br/&gt;block 19]</span></span>
+<span id="cb1-457"><a href="#cb1-457" aria-hidden="true" tabindex="-1"></a><span class="in">    W --&gt;|leads_to| X[g=3/n=200 0% conv&lt;br/&gt;block 20]</span></span>
+<span id="cb1-458"><a href="#cb1-458" aria-hidden="true" tabindex="-1"></a><span class="in">    X --&gt;|triggers| Y[30k frames test for g=3&lt;br/&gt;block 21]</span></span>
+<span id="cb1-459"><a href="#cb1-459" aria-hidden="true" tabindex="-1"></a><span class="in">    Y --&gt;|leads_to| Z[g=3/n=200 SOLVED: conn=0.996&lt;br/&gt;iter 245]</span></span>
+<span id="cb1-460"><a href="#cb1-460" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-461"><a href="#cb1-461" aria-hidden="true" tabindex="-1"></a><span class="in">    AA[fill=80% conn=0.802&lt;br/&gt;block 22] --&gt;|triggers| AB[30k test for fill=80%&lt;br/&gt;block 23]</span></span>
+<span id="cb1-462"><a href="#cb1-462" aria-hidden="true" tabindex="-1"></a><span class="in">    AB --&gt;|leads_to| AC[conn=0.802 unchanged&lt;br/&gt;iter 265]</span></span>
+<span id="cb1-463"><a href="#cb1-463" aria-hidden="true" tabindex="-1"></a><span class="in">    AC --&gt;|refines| AD[conn_ceiling ≈ filling_factor&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-464"><a href="#cb1-464" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-465"><a href="#cb1-465" aria-hidden="true" tabindex="-1"></a><span class="in">    AD --&gt;|triggers| AE[fill=90% test&lt;br/&gt;block 24]</span></span>
+<span id="cb1-466"><a href="#cb1-466" aria-hidden="true" tabindex="-1"></a><span class="in">    AE --&gt;|leads_to| AF[conn=0.907 ≈ 91%&lt;br/&gt;iter 291]</span></span>
+<span id="cb1-467"><a href="#cb1-467" aria-hidden="true" tabindex="-1"></a><span class="in">    AF --&gt;|refines| AG[4th data point confirms&lt;br/&gt;linear filling_factor law]</span></span>
+<span id="cb1-468"><a href="#cb1-468" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-469"><a href="#cb1-469" aria-hidden="true" tabindex="-1"></a><span class="in">    W --&gt;|triggers| AH[g=1 test&lt;br/&gt;block 25]</span></span>
+<span id="cb1-470"><a href="#cb1-470" aria-hidden="true" tabindex="-1"></a><span class="in">    AH --&gt;|leads_to| AI[fixed-point collapse&lt;br/&gt;eff_rank=5]</span></span>
+<span id="cb1-471"><a href="#cb1-471" aria-hidden="true" tabindex="-1"></a><span class="in">    AI --&gt;|triggers| AJ[30k test for g=1&lt;br/&gt;block 26]</span></span>
+<span id="cb1-472"><a href="#cb1-472" aria-hidden="true" tabindex="-1"></a><span class="in">    AJ --&gt;|leads_to| AK[eff_rank DROPS 5→1&lt;br/&gt;STRUCTURAL LIMIT]</span></span>
+<span id="cb1-473"><a href="#cb1-473" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-474"><a href="#cb1-474" aria-hidden="true" tabindex="-1"></a><span class="in">    AI --&gt;|triggers| AL[g=2 test&lt;br/&gt;block 27]</span></span>
+<span id="cb1-475"><a href="#cb1-475" aria-hidden="true" tabindex="-1"></a><span class="in">    AL --&gt;|leads_to| AM[inverse lr_W=5E-4&lt;br/&gt;eff_rank=17]</span></span>
+<span id="cb1-476"><a href="#cb1-476" aria-hidden="true" tabindex="-1"></a><span class="in">    AM --&gt;|triggers| AN[30k test for g=2&lt;br/&gt;block 28]</span></span>
+<span id="cb1-477"><a href="#cb1-477" aria-hidden="true" tabindex="-1"></a><span class="in">    AN --&gt;|leads_to| AO[42% conv; lr_W persists&lt;br/&gt;PARTIALLY RESCUED]</span></span>
+<span id="cb1-478"><a href="#cb1-478" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-479"><a href="#cb1-479" aria-hidden="true" tabindex="-1"></a><span class="in">    style A fill:#e3f2fd</span></span>
+<span id="cb1-480"><a href="#cb1-480" aria-hidden="true" tabindex="-1"></a><span class="in">    style E fill:#c8e6c9</span></span>
+<span id="cb1-481"><a href="#cb1-481" aria-hidden="true" tabindex="-1"></a><span class="in">    style F fill:#e3f2fd</span></span>
+<span id="cb1-482"><a href="#cb1-482" aria-hidden="true" tabindex="-1"></a><span class="in">    style J fill:#c8e6c9</span></span>
+<span id="cb1-483"><a href="#cb1-483" aria-hidden="true" tabindex="-1"></a><span class="in">    style K fill:#e3f2fd</span></span>
+<span id="cb1-484"><a href="#cb1-484" aria-hidden="true" tabindex="-1"></a><span class="in">    style N fill:#c8e6c9</span></span>
+<span id="cb1-485"><a href="#cb1-485" aria-hidden="true" tabindex="-1"></a><span class="in">    style O fill:#e3f2fd</span></span>
+<span id="cb1-486"><a href="#cb1-486" aria-hidden="true" tabindex="-1"></a><span class="in">    style S fill:#c8e6c9</span></span>
+<span id="cb1-487"><a href="#cb1-487" aria-hidden="true" tabindex="-1"></a><span class="in">    style V fill:#ffcdd2</span></span>
+<span id="cb1-488"><a href="#cb1-488" aria-hidden="true" tabindex="-1"></a><span class="in">    style Z fill:#c8e6c9</span></span>
+<span id="cb1-489"><a href="#cb1-489" aria-hidden="true" tabindex="-1"></a><span class="in">    style AD fill:#ffcdd2</span></span>
+<span id="cb1-490"><a href="#cb1-490" aria-hidden="true" tabindex="-1"></a><span class="in">    style AG fill:#c8e6c9</span></span>
+<span id="cb1-491"><a href="#cb1-491" aria-hidden="true" tabindex="-1"></a><span class="in">    style AK fill:#ffcdd2</span></span>
+<span id="cb1-492"><a href="#cb1-492" aria-hidden="true" tabindex="-1"></a><span class="in">    style AO fill:#fff9c4</span></span>
+<span id="cb1-493"><a href="#cb1-493" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb1-494"><a href="#cb1-494" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-495"><a href="#cb1-495" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-496"><a href="#cb1-496" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-497"><a href="#cb1-497" aria-hidden="true" tabindex="-1"></a>The 74% deduction validation rate demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7--8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15--16 and 19--21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), blocks 22--24 demonstrate conn_ceiling at filling_factor, and blocks 25--26 discover a new structural limit (g=1 fixed-point collapse). The system can now distinguish four classes of difficulty: solvable by n_frames (large n, moderate gain), solvable by training (small n, high gain), partially solvable (g=2 with inverse lr_W), and structurally unsolvable (subcritical rho, partial connectivity ceiling, g=1 fixed-point collapse).</span>
-<span id="cb1-498"><a href="#cb1-498" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb1-499"><a href="#cb1-499" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-500"><a href="#cb1-500" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-501"><a href="#cb1-501" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-502"><a href="#cb1-502" aria-hidden="true" tabindex="-1"></a><span class="fu">## Principles Discovered</span></span>
-<span id="cb1-503"><a href="#cb1-503" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-504"><a href="#cb1-504" aria-hidden="true" tabindex="-1"></a>~80 key principles discovered through systematic reasoning across 28 regimes (showing first 75):</span>
-<span id="cb1-505"><a href="#cb1-505" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-506"><a href="#cb1-506" aria-hidden="true" tabindex="-1"></a>| # | Principle | Evidence | Confidence |</span>
-<span id="cb1-507"><a href="#cb1-507" aria-hidden="true" tabindex="-1"></a>|---|-----------|----------|:----------:|</span>
-<span id="cb1-508"><a href="#cb1-508" aria-hidden="true" tabindex="-1"></a>| 1 | **lr=1E-4 optimal (base)** | Blocks 1, 3; modified by eff_rank | 85% |</span>
-<span id="cb1-509"><a href="#cb1-509" aria-hidden="true" tabindex="-1"></a>| 2 | **Convergence boundary lr_W~2E-3** | Blocks 1--3 | 85% |</span>
-<span id="cb1-510"><a href="#cb1-510" aria-hidden="true" tabindex="-1"></a>| 3 | **L1=1E-6 critical for low_rank** | Block 2 breakthrough | 92% |</span>
-<span id="cb1-511"><a href="#cb1-511" aria-hidden="true" tabindex="-1"></a>| 4 | **factorization hurts** | Block 2 | 55% |</span>
-<span id="cb1-512"><a href="#cb1-512" aria-hidden="true" tabindex="-1"></a>| 5 | **lr_W depends on regime** | All blocks | 100% |</span>
-<span id="cb1-513"><a href="#cb1-513" aria-hidden="true" tabindex="-1"></a>| 6 | **Dale cliff at 5E-3** | Block 3 | 72% |</span>
-<span id="cb1-514"><a href="#cb1-514" aria-hidden="true" tabindex="-1"></a>| 7 | **Dale reduces eff_rank** | Block 3 | 45% |</span>
-<span id="cb1-515"><a href="#cb1-515" aria-hidden="true" tabindex="-1"></a>| 8 | **batch_size=16 hurts complex regimes** | Blocks 2--4 | 77% |</span>
-<span id="cb1-516"><a href="#cb1-516" aria-hidden="true" tabindex="-1"></a>| 9 | **lr_emb coupled to lr_W** | Block 4 | 60% |</span>
-<span id="cb1-517"><a href="#cb1-517" aria-hidden="true" tabindex="-1"></a>| 10 | **lr_W=5E-3 for dual-objective** | Block 4 | 55% |</span>
-<span id="cb1-518"><a href="#cb1-518" aria-hidden="true" tabindex="-1"></a>| 11 | **Heterogeneous increases eff_rank** | Block 4 | 45% |</span>
-<span id="cb1-519"><a href="#cb1-519" aria-hidden="true" tabindex="-1"></a>| 12 | **Noise inflates eff_rank** | Block 5 | 72% |</span>
-<span id="cb1-520"><a href="#cb1-520" aria-hidden="true" tabindex="-1"></a>| 13 | **Inverse lr_W-noise relation** | Block 5 | 72% |</span>
-<span id="cb1-521"><a href="#cb1-521" aria-hidden="true" tabindex="-1"></a>| 14 | **Rollout anti-correlates with noise** | Block 5 | 55% |</span>
-<span id="cb1-522"><a href="#cb1-522" aria-hidden="true" tabindex="-1"></a>| 15 | **eff_rank scales sub-linearly with n** | Blocks 6, 9 | 72% |</span>
-<span id="cb1-523"><a href="#cb1-523" aria-hidden="true" tabindex="-1"></a>| 16 | **Dynamics cliff scales non-linearly** | Blocks 1, 6, 9 | 85% |</span>
-<span id="cb1-524"><a href="#cb1-524" aria-hidden="true" tabindex="-1"></a>| 17 | **lr tolerance widens with n** | Blocks 6, 9 | 72% |</span>
-<span id="cb1-525"><a href="#cb1-525" aria-hidden="true" tabindex="-1"></a>| 18 | **Sparse reduces eff_rank, makes subcritical** | Block 7 | 55% |</span>
-<span id="cb1-526"><a href="#cb1-526" aria-hidden="true" tabindex="-1"></a>| 19 | **n_epochs dominant in sparse (without noise)** | Block 7 | 72% |</span>
-<span id="cb1-527"><a href="#cb1-527" aria-hidden="true" tabindex="-1"></a>| 20 | **Noise removes n_epochs dependency in sparse** | Block 8 | 55% |</span>
-<span id="cb1-528"><a href="#cb1-528" aria-hidden="true" tabindex="-1"></a>| 21 | **Recurrent training catastrophic in subcritical** | Block 8 | 55% |</span>
-<span id="cb1-529"><a href="#cb1-529" aria-hidden="true" tabindex="-1"></a>| 22 | **Sparse 50% conn~0.49 structural data limit** | Block 8 | 85% |</span>
-<span id="cb1-530"><a href="#cb1-530" aria-hidden="true" tabindex="-1"></a>| 23 | **n=300 requires n_epochs&gt;=2** | Block 9 | 72% |</span>
-<span id="cb1-531"><a href="#cb1-531" aria-hidden="true" tabindex="-1"></a>| 24 | **lr tolerance narrows at high lr_W** | Block 9 | 55% |</span>
-<span id="cb1-532"><a href="#cb1-532" aria-hidden="true" tabindex="-1"></a>| 25 | **n=300 conn ceiling ~0.89 at 10k frames** | Block 10 | 72% |</span>
-<span id="cb1-533"><a href="#cb1-533" aria-hidden="true" tabindex="-1"></a>| 26 | **n=200 dense chaotic 100% convergence** | Block 11 | 92% |</span>
-<span id="cb1-534"><a href="#cb1-534" aria-hidden="true" tabindex="-1"></a>| 27 | **n=600 requires &gt;10 epochs** | Block 12 | 55% |</span>
-<span id="cb1-535"><a href="#cb1-535" aria-hidden="true" tabindex="-1"></a>| 28 | **L1=1E-6 beneficial at n&gt;=300** | Blocks 10--11 | 72% |</span>
-<span id="cb1-536"><a href="#cb1-536" aria-hidden="true" tabindex="-1"></a>| 29 | **n_types=4 + n=200 converges at 100%** | Block 13 | 85% |</span>
-<span id="cb1-537"><a href="#cb1-537" aria-hidden="true" tabindex="-1"></a>| 30 | **n=200/4types recipe: lr_W=8E-3, L1=1E-5, 3ep** | Block 13 | 85% |</span>
-<span id="cb1-538"><a href="#cb1-538" aria-hidden="true" tabindex="-1"></a>| 31 | **lr_emb ceiling at n=200/4types is 1E-3** | Block 13 | 72% |</span>
-<span id="cb1-539"><a href="#cb1-539" aria-hidden="true" tabindex="-1"></a>| 32 | **Heterogeneous lr_W scales with n like homogeneous** | Blocks 4, 13 | 72% |</span>
-<span id="cb1-540"><a href="#cb1-540" aria-hidden="true" tabindex="-1"></a>| 33 | **Recurrent at supercritical: conn-dynamics trade-off** | Block 14 | 55% |</span>
-<span id="cb1-541"><a href="#cb1-541" aria-hidden="true" tabindex="-1"></a>| 34 | **Recurrent warmup shifts capacity from W to MLP** | Block 14 | 55% |</span>
-<span id="cb1-542"><a href="#cb1-542" aria-hidden="true" tabindex="-1"></a>| 35 | **noise_recurrent_level ceiling is 0.01** | Block 14 | 55% |</span>
-<span id="cb1-543"><a href="#cb1-543" aria-hidden="true" tabindex="-1"></a>| 36 | **Recurrent NOT catastrophic at supercritical rho** | Blocks 8, 14 | 72% |</span>
-<span id="cb1-544"><a href="#cb1-544" aria-hidden="true" tabindex="-1"></a>| 37 | **n_frames is DOMINANT lever for large n** | Blocks 15, 16 | 92% |</span>
-<span id="cb1-545"><a href="#cb1-545" aria-hidden="true" tabindex="-1"></a>| 38 | **At high n_frames, dynamics-optimal lr_W is LOWER** | Blocks 15, 16 | 85% |</span>
-<span id="cb1-546"><a href="#cb1-546" aria-hidden="true" tabindex="-1"></a>| 39 | **aug_loop=20 preserves conn but costs ~6% dynamics** | Blocks 15, 16 | 72% |</span>
-<span id="cb1-547"><a href="#cb1-547" aria-hidden="true" tabindex="-1"></a>| 40 | **At high n_frames, all training params non-critical** | Blocks 15, 16 | 85% |</span>
-<span id="cb1-548"><a href="#cb1-548" aria-hidden="true" tabindex="-1"></a>| 41 | **n_frames doubles eff_rank: n=300 47→80, n=600 50→87** | Blocks 15, 16 | 92% |</span>
-<span id="cb1-549"><a href="#cb1-549" aria-hidden="true" tabindex="-1"></a>| 42 | **n=600/30k recipe: lr_W=5E-3, lr=2E-4, L1=1E-5, batch=16, 5ep** | Block 16 | 85% |</span>
-<span id="cb1-550"><a href="#cb1-550" aria-hidden="true" tabindex="-1"></a>| 43 | **n_frames rescues ALL param catastrophes EXCEPT subcritical sparse** | Blocks 15--17 | 92% |</span>
-<span id="cb1-551"><a href="#cb1-551" aria-hidden="true" tabindex="-1"></a>| 44 | **dynamics-optimal lr_W inversely scales with n_frames** | Blocks 15, 16 | 85% |</span>
-<span id="cb1-552"><a href="#cb1-552" aria-hidden="true" tabindex="-1"></a>| 45 | **sparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21)** | Block 17 | 72% |</span>
-<span id="cb1-553"><a href="#cb1-553" aria-hidden="true" tabindex="-1"></a>| 46 | **sparse 50% has complete parameter insensitivity** | Blocks 7, 8, 17 | 92% |</span>
-<span id="cb1-554"><a href="#cb1-554" aria-hidden="true" tabindex="-1"></a>| 47 | **two-phase training only marginal signal in sparse (+15%)** | Block 17 | 55% |</span>
-<span id="cb1-555"><a href="#cb1-555" aria-hidden="true" tabindex="-1"></a>| 48 | **n=1000/30k insufficient — max conn=0.745; needs ~100k** | Block 18 | 72% |</span>
-<span id="cb1-556"><a href="#cb1-556" aria-hidden="true" tabindex="-1"></a>| 49 | **lr=1E-4 Pareto-better at n=1000/30k** | Block 18 | 72% |</span>
-<span id="cb1-557"><a href="#cb1-557" aria-hidden="true" tabindex="-1"></a>| 50 | **eff_rank scales superlinearly with n at 30k** | Blocks 15, 16, 18 | 72% |</span>
-<span id="cb1-558"><a href="#cb1-558" aria-hidden="true" tabindex="-1"></a>| 51 | **epoch scaling at large n is lr-dependent** | Block 18 | 55% |</span>
-<span id="cb1-559"><a href="#cb1-559" aria-hidden="true" tabindex="-1"></a>| 52 | **dynamics variance increases with n** | Block 18 | 55% |</span>
-<span id="cb1-560"><a href="#cb1-560" aria-hidden="true" tabindex="-1"></a>| 53 | **low gain (g=3) is independent difficulty axis** | Block 19 | 72% |</span>
-<span id="cb1-561"><a href="#cb1-561" aria-hidden="true" tabindex="-1"></a>| 54 | **gain modulates lr_W cliff position** | Blocks 1, 19, 20 | 72% |</span>
-<span id="cb1-562"><a href="#cb1-562" aria-hidden="true" tabindex="-1"></a>| 55 | **g=3/n=100 recipe: lr_W=8E-3, 3ep → conn=0.955** | Block 19 | 72% |</span>
-<span id="cb1-563"><a href="#cb1-563" aria-hidden="true" tabindex="-1"></a>| 56 | **gain × n compounds difficulty super-additively** | Blocks 19, 20 | 85% |</span>
-<span id="cb1-564"><a href="#cb1-564" aria-hidden="true" tabindex="-1"></a>| 57 | **g=3 eliminates lr_W cliff across n** | Blocks 19, 20 | 72% |</span>
-<span id="cb1-565"><a href="#cb1-565" aria-hidden="true" tabindex="-1"></a>| 58 | **batch=16 catastrophic at low gain AT 10k only** | Blocks 19--21 | 72% |</span>
-<span id="cb1-566"><a href="#cb1-566" aria-hidden="true" tabindex="-1"></a>| 59 | **30k frames rescues g=3/n=200 (0%→100%)** | Block 21 | 92% |</span>
-<span id="cb1-567"><a href="#cb1-567" aria-hidden="true" tabindex="-1"></a>| 60 | **g=3/30k lr tolerance wider than g=7/30k** | Blocks 15, 21 | 55% |</span>
-<span id="cb1-568"><a href="#cb1-568" aria-hidden="true" tabindex="-1"></a>| 61 | **g=3/n=200/30k recipe: lr_W=4E-3, 2ep → conn=0.996** | Block 21 | 85% |</span>
-<span id="cb1-569"><a href="#cb1-569" aria-hidden="true" tabindex="-1"></a>| 62 | **fill=80% creates conn plateau at ~0.802** | Block 22 | 85% |</span>
-<span id="cb1-570"><a href="#cb1-570" aria-hidden="true" tabindex="-1"></a>| 63 | **filling_factor transition 50%→80% is sharp** | Blocks 7, 17, 22 | 72% |</span>
-<span id="cb1-571"><a href="#cb1-571" aria-hidden="true" tabindex="-1"></a>| 64 | **conn_ceiling scales linearly with filling_factor** | Blocks 1, 7, 22, 23, 24 | 92% |</span>
-<span id="cb1-572"><a href="#cb1-572" aria-hidden="true" tabindex="-1"></a>| 65 | **fill=90% is transitional regime (above R^2^&gt;0.9 boundary)** | Block 24 | 72% |</span>
-<span id="cb1-573"><a href="#cb1-573" aria-hidden="true" tabindex="-1"></a>| 66 | **fill=90% has complete parameter insensitivity** | Block 24 | 85% |</span>
-<span id="cb1-574"><a href="#cb1-574" aria-hidden="true" tabindex="-1"></a>| 67 | **g=1 produces fixed-point collapse** | Block 25 | 92% |</span>
-<span id="cb1-575"><a href="#cb1-575" aria-hidden="true" tabindex="-1"></a>| 68 | **eff_rank threshold ~10 below which recovery impossible** | Blocks 25, 27 | 72% |</span>
-<span id="cb1-576"><a href="#cb1-576" aria-hidden="true" tabindex="-1"></a>| 69 | **g=1 unsolvable by n_frames (eff_rank DROPS 5→1)** | Block 26 | 92% |</span>
-<span id="cb1-577"><a href="#cb1-577" aria-hidden="true" tabindex="-1"></a>| 70 | **n_frames-amplified degeneracy at g=1** | Block 26 | 72% |</span>
-<span id="cb1-578"><a href="#cb1-578" aria-hidden="true" tabindex="-1"></a>| 71 | **g=2 requires inverse lr_W (5E-4, 100x lower than g=7)** | Blocks 27, 28 | 85% |</span>
-<span id="cb1-579"><a href="#cb1-579" aria-hidden="true" tabindex="-1"></a>| 72 | **gain--eff_rank transition: g=1→5, g=2→17, g=3→26, g=7→35** | Blocks 19, 25, 27 | 85% |</span>
-<span id="cb1-580"><a href="#cb1-580" aria-hidden="true" tabindex="-1"></a>| 73 | **epoch scaling not diminishing at g=2** | Block 27 | 72% |</span>
-<span id="cb1-581"><a href="#cb1-581" aria-hidden="true" tabindex="-1"></a>| 74 | **g=2 partially solvable at 30k (42% conv)** | Block 28 | 72% |</span>
-<span id="cb1-582"><a href="#cb1-582" aria-hidden="true" tabindex="-1"></a>| 75 | **eff_rank-n_frames correlation reverses at low gain** | Blocks 25--28 | 85% |</span>
-<span id="cb1-583"><a href="#cb1-583" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-584"><a href="#cb1-584" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-585"><a href="#cb1-585" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-586"><a href="#cb1-586" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block Summary</span></span>
-<span id="cb1-587"><a href="#cb1-587" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-588"><a href="#cb1-588" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | n_neurons | Iterations | eff_rank | Convergence | Key Finding |</span>
-<span id="cb1-589"><a href="#cb1-589" aria-hidden="true" tabindex="-1"></a>|-------|--------|:--------:|:---------:|:----------:|:--------:|:-----------:|:------------|</span>
-<span id="cb1-590"><a href="#cb1-590" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic | 10k | 100 | 1--12 | ~35 | 92% | Easy mode: lr_W=4E-3 sweet spot |</span>
-<span id="cb1-591"><a href="#cb1-591" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank | 10k | 100 | 13--24 | ~12--14 | 75% | L1=1E-6 breakthrough |</span>
-<span id="cb1-592"><a href="#cb1-592" aria-hidden="true" tabindex="-1"></a>| 3 | Dale | 10k | 100 | 25--36 | ~12 | 67% | Sharp lr_W cliff at 5E-3 |</span>
-<span id="cb1-593"><a href="#cb1-593" aria-hidden="true" tabindex="-1"></a>| 4 | Heterogeneous | 10k | 100 | 37--48 | ~38 | 75% | Dual-objective; lr_emb=1E-3 required |</span>
-<span id="cb1-594"><a href="#cb1-594" aria-hidden="true" tabindex="-1"></a>| 5 | Noise | 10k | 100 | 49--60 | 42--90 | 100% | Inverse lr_W-noise relation |</span>
-<span id="cb1-595"><a href="#cb1-595" aria-hidden="true" tabindex="-1"></a>| 6 | Scale | 10k | 200 | 61--72 | ~41--44 | 67% | Trade-offs amplified; lr=3E-4 safe |</span>
-<span id="cb1-596"><a href="#cb1-596" aria-hidden="true" tabindex="-1"></a>| 7 | Sparse 50% | 10k | 100 | 73--84 | ~21 | **0%** | Hardest regime; n_epochs key lever |</span>
-<span id="cb1-597"><a href="#cb1-597" aria-hidden="true" tabindex="-1"></a>| 8 | Sparse+Noise | 10k | 100 | 85--96 | ~91 | **0%** | Structural data limit (0.489) |</span>
-<span id="cb1-598"><a href="#cb1-598" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 | 10k | 300 | 97--108 | ~44--47 | **0%** | n_epochs=2 breakthrough (0.890) |</span>
-<span id="cb1-599"><a href="#cb1-599" aria-hidden="true" tabindex="-1"></a>| 10 | n=300 2ep | 10k | 300 | 109--116 | ~44--47 | 25% | Near-convergence; conn=0.924 |</span>
-<span id="cb1-600"><a href="#cb1-600" aria-hidden="true" tabindex="-1"></a>| 11 | n=200 v2 | 10k | 200 | 117--128 | ~43 | 100% | Dense chaotic confirmed easy |</span>
-<span id="cb1-601"><a href="#cb1-601" aria-hidden="true" tabindex="-1"></a>| 12 | n=600 | 10k | 600 | 129--140 | ~50 | **0%** | R^2^=0.63; needs more epochs |</span>
-<span id="cb1-602"><a href="#cb1-602" aria-hidden="true" tabindex="-1"></a>| 13 | n=200 + 4 types | 10k | 200 | 141--156 | ~42--44 | **100%** conn | Full dual convergence; L1=1E-5 &gt; 1E-6 |</span>
-<span id="cb1-603"><a href="#cb1-603" aria-hidden="true" tabindex="-1"></a>| 14 | Recurrent | 10k | 200 | 157--168 | ~42--44 | 75% (3/4) | Conn-dynamics trade-off; 8/12 infra failures |</span>
-<span id="cb1-604"><a href="#cb1-604" aria-hidden="true" tabindex="-1"></a>| 15 | **n=300 (30k)** | **30k** | 300 | 169--180 | **79--80** | **100%** | **n_frames transformative; all params non-critical** |</span>
-<span id="cb1-605"><a href="#cb1-605" aria-hidden="true" tabindex="-1"></a>| 16 | **n=600 (30k)** | **30k** | 600 | 181--192 | **85--87** | **100%** (8/8) | **n_frames solves n=600; lr_W=5E-3 optimal** |</span>
-<span id="cb1-606"><a href="#cb1-606" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50% (30k)** | **30k** | 100 | 193--204 | **13** | **0%** | **n_frames does NOT rescue; eff_rank DROPS** |</span>
-<span id="cb1-607"><a href="#cb1-607" aria-hidden="true" tabindex="-1"></a>| 18 | **n=1000 (30k)** | **30k** | 1000 | 205--216 | **144** | **0%** | **30k insufficient; needs ~100k; lr=1E-4 Pareto** |</span>
-<span id="cb1-608"><a href="#cb1-608" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 (n=100)** | 10k | 100 | 217--228 | **26** | 42% | **Gain as new difficulty axis; n_epochs dominant** |</span>
-<span id="cb1-609"><a href="#cb1-609" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 (n=200)** | 10k | 200 | 229--240 | **31** | **0%** | **Gain × n compounds; universal degeneracy** |</span>
-<span id="cb1-610"><a href="#cb1-610" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3/n=200 (30k)** | **30k** | 200 | 241--252 | **53--57** | **100%** | **30k rescues gain; all params non-critical** |</span>
-<span id="cb1-611"><a href="#cb1-611" aria-hidden="true" tabindex="-1"></a>| 22 | **fill=80% (10k)** | 10k | 100 | 253--264 | **36** | **0%** | **Conn plateau at 0.802; param insensitivity** |</span>
-<span id="cb1-612"><a href="#cb1-612" aria-hidden="true" tabindex="-1"></a>| 23 | **fill=80% (30k)** | **30k** | 100 | 265--276 | **48--49** | **0%** (0/12) | **30k does NOT break plateau; conn ≈ fill%; structural invariant** |</span>
-<span id="cb1-613"><a href="#cb1-613" aria-hidden="true" tabindex="-1"></a>| 24 | **fill=90%** | 10k | 100 | 289--300 | **35--36** | **83%** (10/12) | **conn ≈ fill%; transitional; 4th linear data point** |</span>
-<span id="cb1-614"><a href="#cb1-614" aria-hidden="true" tabindex="-1"></a>| 25 | **g=1 (10k)** | 10k | 100 | 301--312 | **5** | **0%** (0/12) | **Fixed-point collapse; eff_rank=5; hardest regime** |</span>
-<span id="cb1-615"><a href="#cb1-615" aria-hidden="true" tabindex="-1"></a>| 26 | **g=1 (30k)** | **30k** | 100 | 313--324 | **1** | **0%** (0/12) | **eff_rank DROPS 5→1; 30k makes g=1 WORSE** |</span>
-<span id="cb1-616"><a href="#cb1-616" aria-hidden="true" tabindex="-1"></a>| 27 | **g=2 (10k)** | 10k | 100 | 325--336 | **17** | **0%** (0/12) | **Inverse lr_W=5E-4; epoch scaling not diminishing** |</span>
-<span id="cb1-617"><a href="#cb1-617" aria-hidden="true" tabindex="-1"></a>| 28 | **g=2 (30k)** | **30k** | 100 | 337--348 | **16** | **42%** (5/12) | **Partially rescued; inverse lr_W persists; eff_rank flat** |</span>
-<span id="cb1-618"><a href="#cb1-618" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-619"><a href="#cb1-619" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-620"><a href="#cb1-620" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-621"><a href="#cb1-621" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Pages</span></span>
-<span id="cb1-622"><a href="#cb1-622" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-623"><a href="#cb1-623" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Results</span><span class="co">](results.qmd)</span> --- Detailed experimental findings</span>
-<span id="cb1-624"><a href="#cb1-624" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Exploration</span><span class="co">](exploration-gallery.qmd)</span> --- Visual record</span>
+<span id="cb1-497"><a href="#cb1-497" aria-hidden="true" tabindex="-1"></a><span class="fu">## Validation Rates</span></span>
+<span id="cb1-498"><a href="#cb1-498" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-499"><a href="#cb1-499" aria-hidden="true" tabindex="-1"></a>| Mode | Count | Validated | Rate | Significance |</span>
+<span id="cb1-500"><a href="#cb1-500" aria-hidden="true" tabindex="-1"></a>|------|:-----:|:---------:|:----:|:-------------|</span>
+<span id="cb1-501"><a href="#cb1-501" aria-hidden="true" tabindex="-1"></a>| Deduction | 57 | 42 | **74%** | Well above chance (50%) |</span>
+<span id="cb1-502"><a href="#cb1-502" aria-hidden="true" tabindex="-1"></a>| Analogy | 40 | 28 | **70%** | Good transfer success |</span>
+<span id="cb1-503"><a href="#cb1-503" aria-hidden="true" tabindex="-1"></a>| Falsification | 52 | 52 | **100%** | All led to refinement |</span>
+<span id="cb1-504"><a href="#cb1-504" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-505"><a href="#cb1-505" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb1-506"><a href="#cb1-506" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Insight</span></span>
+<span id="cb1-507"><a href="#cb1-507" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-508"><a href="#cb1-508" aria-hidden="true" tabindex="-1"></a>The 74% deduction validation rate demonstrates that the LLM is forming *genuine* predictions based on accumulated knowledge, not randomly sampling the parameter space. The 70% analogy transfer success across cross-regime transfers shows effective knowledge reuse. The 100% falsification-to-refinement rate shows that every rejected hypothesis led to concrete principle updates. Blocks 7--8 and 17 demonstrate structural limit recognition (sparse subcritical), blocks 15--16 and 19--21 demonstrate paradigm-shift recognition (n_frames dominance, gain as solvable axis), blocks 22--24 demonstrate conn_ceiling at filling_factor, and blocks 25--26 discover a new structural limit (g=1 fixed-point collapse). The system can now distinguish four classes of difficulty: solvable by n_frames (large n, moderate gain), solvable by training (small n, high gain), partially solvable (g=2 with inverse lr_W), and structurally unsolvable (subcritical rho, partial connectivity ceiling, g=1 fixed-point collapse).</span>
+<span id="cb1-509"><a href="#cb1-509" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-510"><a href="#cb1-510" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-511"><a href="#cb1-511" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-512"><a href="#cb1-512" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-513"><a href="#cb1-513" aria-hidden="true" tabindex="-1"></a><span class="fu">## Principles Discovered</span></span>
+<span id="cb1-514"><a href="#cb1-514" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-515"><a href="#cb1-515" aria-hidden="true" tabindex="-1"></a>~80 key principles discovered through systematic reasoning across 28 regimes (showing first 75):</span>
+<span id="cb1-516"><a href="#cb1-516" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-517"><a href="#cb1-517" aria-hidden="true" tabindex="-1"></a>| # | Principle | Evidence | Confidence |</span>
+<span id="cb1-518"><a href="#cb1-518" aria-hidden="true" tabindex="-1"></a>|---|-----------|----------|:----------:|</span>
+<span id="cb1-519"><a href="#cb1-519" aria-hidden="true" tabindex="-1"></a>| 1 | **lr=1E-4 optimal (base)** | Blocks 1, 3; modified by eff_rank | 85% |</span>
+<span id="cb1-520"><a href="#cb1-520" aria-hidden="true" tabindex="-1"></a>| 2 | **Convergence boundary lr_W~2E-3** | Blocks 1--3 | 85% |</span>
+<span id="cb1-521"><a href="#cb1-521" aria-hidden="true" tabindex="-1"></a>| 3 | **L1=1E-6 critical for low_rank** | Block 2 breakthrough | 92% |</span>
+<span id="cb1-522"><a href="#cb1-522" aria-hidden="true" tabindex="-1"></a>| 4 | **factorization hurts** | Block 2 | 55% |</span>
+<span id="cb1-523"><a href="#cb1-523" aria-hidden="true" tabindex="-1"></a>| 5 | **lr_W depends on regime** | All blocks | 100% |</span>
+<span id="cb1-524"><a href="#cb1-524" aria-hidden="true" tabindex="-1"></a>| 6 | **Dale cliff at 5E-3** | Block 3 | 72% |</span>
+<span id="cb1-525"><a href="#cb1-525" aria-hidden="true" tabindex="-1"></a>| 7 | **Dale reduces eff_rank** | Block 3 | 45% |</span>
+<span id="cb1-526"><a href="#cb1-526" aria-hidden="true" tabindex="-1"></a>| 8 | **batch_size=16 hurts complex regimes** | Blocks 2--4 | 77% |</span>
+<span id="cb1-527"><a href="#cb1-527" aria-hidden="true" tabindex="-1"></a>| 9 | **lr_emb coupled to lr_W** | Block 4 | 60% |</span>
+<span id="cb1-528"><a href="#cb1-528" aria-hidden="true" tabindex="-1"></a>| 10 | **lr_W=5E-3 for dual-objective** | Block 4 | 55% |</span>
+<span id="cb1-529"><a href="#cb1-529" aria-hidden="true" tabindex="-1"></a>| 11 | **Heterogeneous increases eff_rank** | Block 4 | 45% |</span>
+<span id="cb1-530"><a href="#cb1-530" aria-hidden="true" tabindex="-1"></a>| 12 | **Noise inflates eff_rank** | Block 5 | 72% |</span>
+<span id="cb1-531"><a href="#cb1-531" aria-hidden="true" tabindex="-1"></a>| 13 | **Inverse lr_W-noise relation** | Block 5 | 72% |</span>
+<span id="cb1-532"><a href="#cb1-532" aria-hidden="true" tabindex="-1"></a>| 14 | **Rollout anti-correlates with noise** | Block 5 | 55% |</span>
+<span id="cb1-533"><a href="#cb1-533" aria-hidden="true" tabindex="-1"></a>| 15 | **eff_rank scales sub-linearly with n** | Blocks 6, 9 | 72% |</span>
+<span id="cb1-534"><a href="#cb1-534" aria-hidden="true" tabindex="-1"></a>| 16 | **Dynamics cliff scales non-linearly** | Blocks 1, 6, 9 | 85% |</span>
+<span id="cb1-535"><a href="#cb1-535" aria-hidden="true" tabindex="-1"></a>| 17 | **lr tolerance widens with n** | Blocks 6, 9 | 72% |</span>
+<span id="cb1-536"><a href="#cb1-536" aria-hidden="true" tabindex="-1"></a>| 18 | **Sparse reduces eff_rank, makes subcritical** | Block 7 | 55% |</span>
+<span id="cb1-537"><a href="#cb1-537" aria-hidden="true" tabindex="-1"></a>| 19 | **n_epochs dominant in sparse (without noise)** | Block 7 | 72% |</span>
+<span id="cb1-538"><a href="#cb1-538" aria-hidden="true" tabindex="-1"></a>| 20 | **Noise removes n_epochs dependency in sparse** | Block 8 | 55% |</span>
+<span id="cb1-539"><a href="#cb1-539" aria-hidden="true" tabindex="-1"></a>| 21 | **Recurrent training catastrophic in subcritical** | Block 8 | 55% |</span>
+<span id="cb1-540"><a href="#cb1-540" aria-hidden="true" tabindex="-1"></a>| 22 | **Sparse 50% conn~0.49 structural data limit** | Block 8 | 85% |</span>
+<span id="cb1-541"><a href="#cb1-541" aria-hidden="true" tabindex="-1"></a>| 23 | **n=300 requires n_epochs&gt;=2** | Block 9 | 72% |</span>
+<span id="cb1-542"><a href="#cb1-542" aria-hidden="true" tabindex="-1"></a>| 24 | **lr tolerance narrows at high lr_W** | Block 9 | 55% |</span>
+<span id="cb1-543"><a href="#cb1-543" aria-hidden="true" tabindex="-1"></a>| 25 | **n=300 conn ceiling ~0.89 at 10k frames** | Block 10 | 72% |</span>
+<span id="cb1-544"><a href="#cb1-544" aria-hidden="true" tabindex="-1"></a>| 26 | **n=200 dense chaotic 100% convergence** | Block 11 | 92% |</span>
+<span id="cb1-545"><a href="#cb1-545" aria-hidden="true" tabindex="-1"></a>| 27 | **n=600 requires &gt;10 epochs** | Block 12 | 55% |</span>
+<span id="cb1-546"><a href="#cb1-546" aria-hidden="true" tabindex="-1"></a>| 28 | **L1=1E-6 beneficial at n&gt;=300** | Blocks 10--11 | 72% |</span>
+<span id="cb1-547"><a href="#cb1-547" aria-hidden="true" tabindex="-1"></a>| 29 | **n_types=4 + n=200 converges at 100%** | Block 13 | 85% |</span>
+<span id="cb1-548"><a href="#cb1-548" aria-hidden="true" tabindex="-1"></a>| 30 | **n=200/4types recipe: lr_W=8E-3, L1=1E-5, 3ep** | Block 13 | 85% |</span>
+<span id="cb1-549"><a href="#cb1-549" aria-hidden="true" tabindex="-1"></a>| 31 | **lr_emb ceiling at n=200/4types is 1E-3** | Block 13 | 72% |</span>
+<span id="cb1-550"><a href="#cb1-550" aria-hidden="true" tabindex="-1"></a>| 32 | **Heterogeneous lr_W scales with n like homogeneous** | Blocks 4, 13 | 72% |</span>
+<span id="cb1-551"><a href="#cb1-551" aria-hidden="true" tabindex="-1"></a>| 33 | **Recurrent at supercritical: conn-dynamics trade-off** | Block 14 | 55% |</span>
+<span id="cb1-552"><a href="#cb1-552" aria-hidden="true" tabindex="-1"></a>| 34 | **Recurrent warmup shifts capacity from W to MLP** | Block 14 | 55% |</span>
+<span id="cb1-553"><a href="#cb1-553" aria-hidden="true" tabindex="-1"></a>| 35 | **noise_recurrent_level ceiling is 0.01** | Block 14 | 55% |</span>
+<span id="cb1-554"><a href="#cb1-554" aria-hidden="true" tabindex="-1"></a>| 36 | **Recurrent NOT catastrophic at supercritical rho** | Blocks 8, 14 | 72% |</span>
+<span id="cb1-555"><a href="#cb1-555" aria-hidden="true" tabindex="-1"></a>| 37 | **n_frames is DOMINANT lever for large n** | Blocks 15, 16 | 92% |</span>
+<span id="cb1-556"><a href="#cb1-556" aria-hidden="true" tabindex="-1"></a>| 38 | **At high n_frames, dynamics-optimal lr_W is LOWER** | Blocks 15, 16 | 85% |</span>
+<span id="cb1-557"><a href="#cb1-557" aria-hidden="true" tabindex="-1"></a>| 39 | **aug_loop=20 preserves conn but costs ~6% dynamics** | Blocks 15, 16 | 72% |</span>
+<span id="cb1-558"><a href="#cb1-558" aria-hidden="true" tabindex="-1"></a>| 40 | **At high n_frames, all training params non-critical** | Blocks 15, 16 | 85% |</span>
+<span id="cb1-559"><a href="#cb1-559" aria-hidden="true" tabindex="-1"></a>| 41 | **n_frames doubles eff_rank: n=300 47→80, n=600 50→87** | Blocks 15, 16 | 92% |</span>
+<span id="cb1-560"><a href="#cb1-560" aria-hidden="true" tabindex="-1"></a>| 42 | **n=600/30k recipe: lr_W=5E-3, lr=2E-4, L1=1E-5, batch=16, 5ep** | Block 16 | 85% |</span>
+<span id="cb1-561"><a href="#cb1-561" aria-hidden="true" tabindex="-1"></a>| 43 | **n_frames rescues ALL param catastrophes EXCEPT subcritical sparse** | Blocks 15--17 | 92% |</span>
+<span id="cb1-562"><a href="#cb1-562" aria-hidden="true" tabindex="-1"></a>| 44 | **dynamics-optimal lr_W inversely scales with n_frames** | Blocks 15, 16 | 85% |</span>
+<span id="cb1-563"><a href="#cb1-563" aria-hidden="true" tabindex="-1"></a>| 45 | **sparse 50% eff_rank is LOWER at 30k than 10k (13 vs 21)** | Block 17 | 72% |</span>
+<span id="cb1-564"><a href="#cb1-564" aria-hidden="true" tabindex="-1"></a>| 46 | **sparse 50% has complete parameter insensitivity** | Blocks 7, 8, 17 | 92% |</span>
+<span id="cb1-565"><a href="#cb1-565" aria-hidden="true" tabindex="-1"></a>| 47 | **two-phase training only marginal signal in sparse (+15%)** | Block 17 | 55% |</span>
+<span id="cb1-566"><a href="#cb1-566" aria-hidden="true" tabindex="-1"></a>| 48 | **n=1000/30k insufficient — max conn=0.745; needs ~100k** | Block 18 | 72% |</span>
+<span id="cb1-567"><a href="#cb1-567" aria-hidden="true" tabindex="-1"></a>| 49 | **lr=1E-4 Pareto-better at n=1000/30k** | Block 18 | 72% |</span>
+<span id="cb1-568"><a href="#cb1-568" aria-hidden="true" tabindex="-1"></a>| 50 | **eff_rank scales superlinearly with n at 30k** | Blocks 15, 16, 18 | 72% |</span>
+<span id="cb1-569"><a href="#cb1-569" aria-hidden="true" tabindex="-1"></a>| 51 | **epoch scaling at large n is lr-dependent** | Block 18 | 55% |</span>
+<span id="cb1-570"><a href="#cb1-570" aria-hidden="true" tabindex="-1"></a>| 52 | **dynamics variance increases with n** | Block 18 | 55% |</span>
+<span id="cb1-571"><a href="#cb1-571" aria-hidden="true" tabindex="-1"></a>| 53 | **low gain (g=3) is independent difficulty axis** | Block 19 | 72% |</span>
+<span id="cb1-572"><a href="#cb1-572" aria-hidden="true" tabindex="-1"></a>| 54 | **gain modulates lr_W cliff position** | Blocks 1, 19, 20 | 72% |</span>
+<span id="cb1-573"><a href="#cb1-573" aria-hidden="true" tabindex="-1"></a>| 55 | **g=3/n=100 recipe: lr_W=8E-3, 3ep → conn=0.955** | Block 19 | 72% |</span>
+<span id="cb1-574"><a href="#cb1-574" aria-hidden="true" tabindex="-1"></a>| 56 | **gain × n compounds difficulty super-additively** | Blocks 19, 20 | 85% |</span>
+<span id="cb1-575"><a href="#cb1-575" aria-hidden="true" tabindex="-1"></a>| 57 | **g=3 eliminates lr_W cliff across n** | Blocks 19, 20 | 72% |</span>
+<span id="cb1-576"><a href="#cb1-576" aria-hidden="true" tabindex="-1"></a>| 58 | **batch=16 catastrophic at low gain AT 10k only** | Blocks 19--21 | 72% |</span>
+<span id="cb1-577"><a href="#cb1-577" aria-hidden="true" tabindex="-1"></a>| 59 | **30k frames rescues g=3/n=200 (0%→100%)** | Block 21 | 92% |</span>
+<span id="cb1-578"><a href="#cb1-578" aria-hidden="true" tabindex="-1"></a>| 60 | **g=3/30k lr tolerance wider than g=7/30k** | Blocks 15, 21 | 55% |</span>
+<span id="cb1-579"><a href="#cb1-579" aria-hidden="true" tabindex="-1"></a>| 61 | **g=3/n=200/30k recipe: lr_W=4E-3, 2ep → conn=0.996** | Block 21 | 85% |</span>
+<span id="cb1-580"><a href="#cb1-580" aria-hidden="true" tabindex="-1"></a>| 62 | **fill=80% creates conn plateau at ~0.802** | Block 22 | 85% |</span>
+<span id="cb1-581"><a href="#cb1-581" aria-hidden="true" tabindex="-1"></a>| 63 | **filling_factor transition 50%→80% is sharp** | Blocks 7, 17, 22 | 72% |</span>
+<span id="cb1-582"><a href="#cb1-582" aria-hidden="true" tabindex="-1"></a>| 64 | **conn_ceiling scales linearly with filling_factor** | Blocks 1, 7, 22, 23, 24 | 92% |</span>
+<span id="cb1-583"><a href="#cb1-583" aria-hidden="true" tabindex="-1"></a>| 65 | **fill=90% is transitional regime (above R^2^&gt;0.9 boundary)** | Block 24 | 72% |</span>
+<span id="cb1-584"><a href="#cb1-584" aria-hidden="true" tabindex="-1"></a>| 66 | **fill=90% has complete parameter insensitivity** | Block 24 | 85% |</span>
+<span id="cb1-585"><a href="#cb1-585" aria-hidden="true" tabindex="-1"></a>| 67 | **g=1 produces fixed-point collapse** | Block 25 | 92% |</span>
+<span id="cb1-586"><a href="#cb1-586" aria-hidden="true" tabindex="-1"></a>| 68 | **eff_rank threshold ~10 below which recovery impossible** | Blocks 25, 27 | 72% |</span>
+<span id="cb1-587"><a href="#cb1-587" aria-hidden="true" tabindex="-1"></a>| 69 | **g=1 unsolvable by n_frames (eff_rank DROPS 5→1)** | Block 26 | 92% |</span>
+<span id="cb1-588"><a href="#cb1-588" aria-hidden="true" tabindex="-1"></a>| 70 | **n_frames-amplified degeneracy at g=1** | Block 26 | 72% |</span>
+<span id="cb1-589"><a href="#cb1-589" aria-hidden="true" tabindex="-1"></a>| 71 | **g=2 requires inverse lr_W (5E-4, 100x lower than g=7)** | Blocks 27, 28 | 85% |</span>
+<span id="cb1-590"><a href="#cb1-590" aria-hidden="true" tabindex="-1"></a>| 72 | **gain--eff_rank transition: g=1→5, g=2→17, g=3→26, g=7→35** | Blocks 19, 25, 27 | 85% |</span>
+<span id="cb1-591"><a href="#cb1-591" aria-hidden="true" tabindex="-1"></a>| 73 | **epoch scaling not diminishing at g=2** | Block 27 | 72% |</span>
+<span id="cb1-592"><a href="#cb1-592" aria-hidden="true" tabindex="-1"></a>| 74 | **g=2 partially solvable at 30k (42% conv)** | Block 28 | 72% |</span>
+<span id="cb1-593"><a href="#cb1-593" aria-hidden="true" tabindex="-1"></a>| 75 | **eff_rank-n_frames correlation reverses at low gain** | Blocks 25--28 | 85% |</span>
+<span id="cb1-594"><a href="#cb1-594" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-595"><a href="#cb1-595" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-596"><a href="#cb1-596" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-597"><a href="#cb1-597" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block Summary</span></span>
+<span id="cb1-598"><a href="#cb1-598" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-599"><a href="#cb1-599" aria-hidden="true" tabindex="-1"></a>| Block | Regime | n_frames | n_neurons | Iterations | eff_rank | Convergence | Key Finding |</span>
+<span id="cb1-600"><a href="#cb1-600" aria-hidden="true" tabindex="-1"></a>|-------|--------|:--------:|:---------:|:----------:|:--------:|:-----------:|:------------|</span>
+<span id="cb1-601"><a href="#cb1-601" aria-hidden="true" tabindex="-1"></a>| 1 | Chaotic | 10k | 100 | 1--12 | ~35 | 92% | Easy mode: lr_W=4E-3 sweet spot |</span>
+<span id="cb1-602"><a href="#cb1-602" aria-hidden="true" tabindex="-1"></a>| 2 | Low-rank | 10k | 100 | 13--24 | ~12--14 | 75% | L1=1E-6 breakthrough |</span>
+<span id="cb1-603"><a href="#cb1-603" aria-hidden="true" tabindex="-1"></a>| 3 | Dale | 10k | 100 | 25--36 | ~12 | 67% | Sharp lr_W cliff at 5E-3 |</span>
+<span id="cb1-604"><a href="#cb1-604" aria-hidden="true" tabindex="-1"></a>| 4 | Heterogeneous | 10k | 100 | 37--48 | ~38 | 75% | Dual-objective; lr_emb=1E-3 required |</span>
+<span id="cb1-605"><a href="#cb1-605" aria-hidden="true" tabindex="-1"></a>| 5 | Noise | 10k | 100 | 49--60 | 42--90 | 100% | Inverse lr_W-noise relation |</span>
+<span id="cb1-606"><a href="#cb1-606" aria-hidden="true" tabindex="-1"></a>| 6 | Scale | 10k | 200 | 61--72 | ~41--44 | 67% | Trade-offs amplified; lr=3E-4 safe |</span>
+<span id="cb1-607"><a href="#cb1-607" aria-hidden="true" tabindex="-1"></a>| 7 | Sparse 50% | 10k | 100 | 73--84 | ~21 | **0%** | Hardest regime; n_epochs key lever |</span>
+<span id="cb1-608"><a href="#cb1-608" aria-hidden="true" tabindex="-1"></a>| 8 | Sparse+Noise | 10k | 100 | 85--96 | ~91 | **0%** | Structural data limit (0.489) |</span>
+<span id="cb1-609"><a href="#cb1-609" aria-hidden="true" tabindex="-1"></a>| 9 | n=300 | 10k | 300 | 97--108 | ~44--47 | **0%** | n_epochs=2 breakthrough (0.890) |</span>
+<span id="cb1-610"><a href="#cb1-610" aria-hidden="true" tabindex="-1"></a>| 10 | n=300 2ep | 10k | 300 | 109--116 | ~44--47 | 25% | Near-convergence; conn=0.924 |</span>
+<span id="cb1-611"><a href="#cb1-611" aria-hidden="true" tabindex="-1"></a>| 11 | n=200 v2 | 10k | 200 | 117--128 | ~43 | 100% | Dense chaotic confirmed easy |</span>
+<span id="cb1-612"><a href="#cb1-612" aria-hidden="true" tabindex="-1"></a>| 12 | n=600 | 10k | 600 | 129--140 | ~50 | **0%** | R^2^=0.63; needs more epochs |</span>
+<span id="cb1-613"><a href="#cb1-613" aria-hidden="true" tabindex="-1"></a>| 13 | n=200 + 4 types | 10k | 200 | 141--156 | ~42--44 | **100%** conn | Full dual convergence; L1=1E-5 &gt; 1E-6 |</span>
+<span id="cb1-614"><a href="#cb1-614" aria-hidden="true" tabindex="-1"></a>| 14 | Recurrent | 10k | 200 | 157--168 | ~42--44 | 75% (3/4) | Conn-dynamics trade-off; 8/12 infra failures |</span>
+<span id="cb1-615"><a href="#cb1-615" aria-hidden="true" tabindex="-1"></a>| 15 | **n=300 (30k)** | **30k** | 300 | 169--180 | **79--80** | **100%** | **n_frames transformative; all params non-critical** |</span>
+<span id="cb1-616"><a href="#cb1-616" aria-hidden="true" tabindex="-1"></a>| 16 | **n=600 (30k)** | **30k** | 600 | 181--192 | **85--87** | **100%** (8/8) | **n_frames solves n=600; lr_W=5E-3 optimal** |</span>
+<span id="cb1-617"><a href="#cb1-617" aria-hidden="true" tabindex="-1"></a>| 17 | **Sparse 50% (30k)** | **30k** | 100 | 193--204 | **13** | **0%** | **n_frames does NOT rescue; eff_rank DROPS** |</span>
+<span id="cb1-618"><a href="#cb1-618" aria-hidden="true" tabindex="-1"></a>| 18 | **n=1000 (30k)** | **30k** | 1000 | 205--216 | **144** | **0%** | **30k insufficient; needs ~100k; lr=1E-4 Pareto** |</span>
+<span id="cb1-619"><a href="#cb1-619" aria-hidden="true" tabindex="-1"></a>| 19 | **g=3 (n=100)** | 10k | 100 | 217--228 | **26** | 42% | **Gain as new difficulty axis; n_epochs dominant** |</span>
+<span id="cb1-620"><a href="#cb1-620" aria-hidden="true" tabindex="-1"></a>| 20 | **g=3 (n=200)** | 10k | 200 | 229--240 | **31** | **0%** | **Gain × n compounds; universal degeneracy** |</span>
+<span id="cb1-621"><a href="#cb1-621" aria-hidden="true" tabindex="-1"></a>| 21 | **g=3/n=200 (30k)** | **30k** | 200 | 241--252 | **53--57** | **100%** | **30k rescues gain; all params non-critical** |</span>
+<span id="cb1-622"><a href="#cb1-622" aria-hidden="true" tabindex="-1"></a>| 22 | **fill=80% (10k)** | 10k | 100 | 253--264 | **36** | **0%** | **Conn plateau at 0.802; param insensitivity** |</span>
+<span id="cb1-623"><a href="#cb1-623" aria-hidden="true" tabindex="-1"></a>| 23 | **fill=80% (30k)** | **30k** | 100 | 265--276 | **48--49** | **0%** (0/12) | **30k does NOT break plateau; conn ≈ fill%; structural invariant** |</span>
+<span id="cb1-624"><a href="#cb1-624" aria-hidden="true" tabindex="-1"></a>| 24 | **fill=90%** | 10k | 100 | 289--300 | **35--36** | **83%** (10/12) | **conn ≈ fill%; transitional; 4th linear data point** |</span>
+<span id="cb1-625"><a href="#cb1-625" aria-hidden="true" tabindex="-1"></a>| 25 | **g=1 (10k)** | 10k | 100 | 301--312 | **5** | **0%** (0/12) | **Fixed-point collapse; eff_rank=5; hardest regime** |</span>
+<span id="cb1-626"><a href="#cb1-626" aria-hidden="true" tabindex="-1"></a>| 26 | **g=1 (30k)** | **30k** | 100 | 313--324 | **1** | **0%** (0/12) | **eff_rank DROPS 5→1; 30k makes g=1 WORSE** |</span>
+<span id="cb1-627"><a href="#cb1-627" aria-hidden="true" tabindex="-1"></a>| 27 | **g=2 (10k)** | 10k | 100 | 325--336 | **17** | **0%** (0/12) | **Inverse lr_W=5E-4; epoch scaling not diminishing** |</span>
+<span id="cb1-628"><a href="#cb1-628" aria-hidden="true" tabindex="-1"></a>| 28 | **g=2 (30k)** | **30k** | 100 | 337--348 | **16** | **42%** (5/12) | **Partially rescued; inverse lr_W persists; eff_rank flat** |</span>
+<span id="cb1-629"><a href="#cb1-629" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-630"><a href="#cb1-630" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-631"><a href="#cb1-631" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-632"><a href="#cb1-632" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Pages</span></span>
+<span id="cb1-633"><a href="#cb1-633" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-634"><a href="#cb1-634" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Results</span><span class="co">](results.qmd)</span> --- Detailed experimental findings</span>
+<span id="cb1-635"><a href="#cb1-635" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span><span class="co">[</span><span class="ot">Exploration</span><span class="co">](exploration-gallery.qmd)</span> --- Visual record</span>
 </code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->

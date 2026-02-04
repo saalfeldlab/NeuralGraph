@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Generate interactive Plotly HTML visualizations for epistemic analysis.
-336 iterations across 28 blocks (parallel run).
+348 iterations across 29 blocks (parallel run).
 
 Generates:
   - assets/epistemic_timeline_interactive.html   (scatter timeline)
@@ -85,6 +85,7 @@ blocks = [
     (313, 324, 'B26: g=1 (30k)', 'g=1 (30k)', '1'),
     (325, 336, 'B27: g=2 (10k)', 'g=2 (10k)', '17'),
     (337, 348, 'B28: g=2 (30k)', 'g=2 (30k)', '16'),
+    (349, 360, 'B29: g=2/200 (30k)', 'g=2 n=200 (30k)', '35-38'),
 ]
 
 # ── Events: (iteration, mode, significance) ──────────────────
@@ -311,6 +312,13 @@ events = [
     (341, 'Induction', 'High'),
     (343, 'Deduction', 'High'),
     (347, 'Causal Chain', 'High'),
+
+    # Block 29: g=2 n=200 (30k) (iters 349-360)
+    (349, 'Analogy', 'High'),
+    (351, 'Induction', 'High'),
+    (354, 'Deduction', 'High'),
+    (357, 'Falsification', 'High'),
+    (358, 'Causal Chain', 'High'),
 ]
 
 # ── Causal edges ──────────────────────────────────────────────
@@ -480,6 +488,12 @@ edges = [
     (341, 'Induction', 343, 'Deduction', 'leads_to'),
     (343, 'Deduction', 347, 'Causal Chain', 'leads_to'),
 
+    # Block 29
+    (349, 'Analogy', 351, 'Induction', 'leads_to'),
+    (351, 'Induction', 354, 'Deduction', 'leads_to'),
+    (354, 'Deduction', 358, 'Causal Chain', 'leads_to'),
+    (354, 'Deduction', 357, 'Falsification', 'triggers'),
+
     # ── Cross-block edges ─────────────────────────────────────
     (11, 'Induction', 18, 'Deduction', 'triggers'),
     (5, 'Induction', 25, 'Analogy', 'triggers'),
@@ -516,6 +530,7 @@ edges = [
     (303, 'Constraint', 313, 'Falsification', 'triggers'),
     (322, 'Meta-reasoning', 325, 'Regime', 'triggers'),
     (335, 'Deduction', 337, 'Analogy', 'triggers'),
+    (347, 'Causal Chain', 349, 'Analogy', 'triggers'),
 ]
 
 
@@ -587,7 +602,7 @@ def create_timeline_html(outpath='assets/epistemic_timeline_interactive.html'):
         ))
 
     fig.update_layout(
-        xaxis=dict(title='Iteration', range=[0, 355], dtick=24,
+        xaxis=dict(title='Iteration', range=[0, 365], dtick=24,
                     gridcolor='rgba(0,0,0,0.08)'),
         yaxis=dict(
             tickvals=list(range(len(MODES))),
@@ -669,7 +684,7 @@ def create_streamgraph_html(outpath='assets/epistemic_streamgraph_interactive.ht
                       line_color='rgba(0,0,0,0.15)')
 
     fig.update_layout(
-        xaxis=dict(title='Iteration', range=[0, 355], gridcolor='rgba(0,0,0,0.08)'),
+        xaxis=dict(title='Iteration', range=[0, 365], gridcolor='rgba(0,0,0,0.08)'),
         yaxis=dict(title='Reasoning Activity', gridcolor='rgba(0,0,0,0.05)'),
         plot_bgcolor='#fafafa',
         paper_bgcolor='white',
@@ -747,7 +762,7 @@ def create_sankey_html(outpath='assets/epistemic_sankey_interactive.html'):
     fig.update_layout(
         title=dict(
             text='Epistemic Flow: Reasoning Mode Transitions<br>'
-                 f'<sub>336 iterations · 28 blocks · {len(events)} events · '
+                 f'<sub>348 iterations · 29 blocks · {len(events)} events · '
                  f'{len(edges)} edges</sub>',
             font=dict(size=20),
         ),

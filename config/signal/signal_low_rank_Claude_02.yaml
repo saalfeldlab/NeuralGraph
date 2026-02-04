@@ -43,7 +43,7 @@ graph_model:
   embedding_dim: 2
   update_type: none
 claude:
-  n_epochs: 3
+  n_epochs: 2
   data_augmentation_loop: 200
   n_iter_block: 12
   ucb_c: 1.414
@@ -57,13 +57,13 @@ plotting:
   - -2
   - 2
 training:
-  n_epochs: 3
+  n_epochs: 2
   n_runs: 1
   device: auto
   batch_size: 8
   small_init_batch_size: false
   training_single_type: true
-  seed: 4000
+  seed: 11000
   data_augmentation_loop: 200
   sparsity: replace_embedding_function
   sparsity_freq: 4
@@ -74,6 +74,6 @@ training:
   learning_rate_embedding_start: 2.5e-04
   n_epochs_init: 2
   first_coeff_L1: 0
-  coeff_W_L1: 1.0e-06
+  coeff_W_L1: 1.0e-05
   coeff_edge_norm: 0.0
-  coeff_edge_diff: 25000
+  coeff_edge_diff: 10000

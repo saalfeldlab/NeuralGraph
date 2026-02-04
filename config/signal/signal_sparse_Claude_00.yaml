@@ -82,7 +82,10 @@ training:
   freeze_lin_edge: false
   lin_edge_dropout: 0.0
   lin_edge_mode: mlp
-  w_optimizer_type: sgd
+  w_optimizer_type: adam
+  w_lr_scheduler: none
+  coeff_spectral_radius: 1.0
+  spectral_radius_target: 0.7
   recurrent_training: false
   time_step: 1
   noise_recurrent_level: 0.0

@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.6.42">
+<meta name="generator" content="quarto-1.5.54">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
@@ -69,12 +69,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="site_libs/quarto-html/anchor.min.js"></script>
 <link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-de84f8d6bb715db06a919283c2d1e787.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-9a023c9ade86a60361e96e3e3f11bc54.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-f1f8c88446cdc37d3187128a6bd52d25.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-16dc960a316359c75a6303268f7f2be9.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark.min.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -641,8 +641,8 @@ Current status
 <td style="text-align: center;"><strong>30k</strong></td>
 <td style="text-align: center;">200</td>
 <td><strong>~35–38</strong></td>
-<td style="text-align: center;"><strong>88%</strong> (7/8)</td>
-<td style="text-align: center;"><strong>0.976</strong></td>
+<td style="text-align: center;"><strong>92%</strong> (11/12)</td>
+<td style="text-align: center;"><strong>0.979</strong></td>
 <td style="text-align: left;"><strong>n compensates gain: eff_rank matches g=7/n=100</strong></td>
 </tr>
 </tbody>
@@ -868,7 +868,7 @@ Key Insight
 <td>g=2</td>
 <td style="text-align: center;"><strong>35–38</strong></td>
 <td style="text-align: center;">&gt;1.0</td>
-<td style="text-align: center;"><strong>88%</strong></td>
+<td style="text-align: center;"><strong>92%</strong></td>
 <td style="text-align: left;"><strong>n compensates: eff_rank matches g=7/n=100</strong></td>
 </tr>
 </tbody>
@@ -1264,7 +1264,7 @@ Key Insight
 </div>
 <div class="callout-body-container callout-body">
 <p>g=2 sits above the critical eff_rank threshold (17 &gt; 10) and is partially rescued by 30k frames (0%→42% convergence at n=100). However, it requires <strong>inverse lr_W</strong> (~5E-4, 100x lower than g=7’s 4E-3) — a structural property that persists at 30k. Epoch scaling is not diminishing at g=2 (5ep→0.356, 8ep→0.397, 12ep→0.519 at 10k). At 30k/8ep, the Pareto-optimal config reaches conn=0.997.</p>
-<p><strong>Block 29 update (g=2/n=200/30k)</strong>: Scaling to n=200 dramatically changes the picture. eff_rank jumps from 16–17 (n=100) to 35–38 (n=200), matching g=7/n=100. Convergence rate rises to 88% (7/8), with best conn=0.976 at lr_W=3E-4/10ep. The inverse lr_W pattern persists but the ceiling is higher (1E-3 safe at n=200 vs catastrophic at n=100). Epoch scaling remains strong and non-diminishing (5ep→0.877, 8ep→0.962, 10ep→0.976). This confirms that n_neurons compensates for gain reduction: g=2/n=200/30k is comparable in difficulty to g=7/n=200/10k.</p>
+<p><strong>Block 29 update (g=2/n=200/30k)</strong>: Scaling to n=200 dramatically changes the picture. eff_rank jumps from 16–17 (n=100) to 35–38 (n=200), matching g=7/n=100. Convergence rate rises to 92% (11/12), with best conn=0.979 at lr_W=3E-4/12ep. The inverse lr_W pattern persists but the ceiling is higher (1E-3 safe at n=200 vs catastrophic at n=100). Epoch scaling remains strong but diminishes at 12ep (+0.3%). This confirms that n_neurons compensates for gain reduction: g=2/n=200/30k is comparable in difficulty to g=7/n=200/10k.</p>
 </div>
 </div>
 </section>
@@ -1562,7 +1562,7 @@ Note
 <td style="text-align: center;">29</td>
 <td><strong>g=2 n=200 (30k)</strong></td>
 <td style="text-align: center;"><strong>30k</strong></td>
-<td style="text-align: center;"><strong>0/8</strong></td>
+<td style="text-align: center;"><strong>0/12</strong></td>
 <td style="text-align: center;"><strong>0.12</strong></td>
 <td><strong>Healthy — n compensates; eff_rank=35–38</strong></td>
 </tr>
@@ -1678,8 +1678,8 @@ Note
 <td style="text-align: center;">2</td>
 <td style="text-align: center;"><strong>30k</strong></td>
 <td style="text-align: center;"><strong>35–38</strong></td>
-<td style="text-align: center;"><strong>88%</strong> (7/8)</td>
-<td style="text-align: center;"><strong>0.976</strong></td>
+<td style="text-align: center;"><strong>92%</strong> (11/12)</td>
+<td style="text-align: center;"><strong>0.979</strong></td>
 <td style="text-align: left;"><strong>n compensates gain</strong></td>
 </tr>
 </tbody>
@@ -1971,6 +1971,8 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   });
   clipboard.on('success', onCopySuccess);
   if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+    // For code content inside modals, clipBoardJS needs to be initialized with a container option
+    // TODO: Check when it could be a function (https://github.com/zenorocha/clipboard.js/issues/860)
     const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
       text: getTextToCopy,
       container: window.document.getElementById('quarto-embedded-source-code-modal')
@@ -2132,6 +2134,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
       if (window.Quarto?.typesetMath) {
         window.Quarto.typesetMath(note);
       }
+      // TODO in 1.5, we should make sure this works without a callout special case
       if (note.classList.contains("callout")) {
         return note.outerHTML;
       } else {
@@ -2440,7 +2443,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>| 26 | **g=1 (30k)** | **30k** | 100 | **~1** | **0%** (0/12) | **0.018** | **eff_rank DROPS 5→1; 30k makes g=1 WORSE** |</span>
 <span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>| 27 | **g=2 (10k)** | 10k | 100 | **~17** | **0%** (0/12) | **0.519** | **Inverse lr_W=5E-4; epoch scaling not diminishing** |</span>
 <span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>| 28 | **g=2 (30k)** | **30k** | 100 | **~16** | **42%** (5/12) | **0.997** | **30k partially rescues; inverse lr_W persists** |</span>
-<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>| 29 | **g=2 n=200 (30k)** | **30k** | 200 | **~35--38** | **88%** (7/8) | **0.976** | **n compensates gain: eff_rank matches g=7/n=100** |</span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>| 29 | **g=2 n=200 (30k)** | **30k** | 200 | **~35--38** | **92%** (11/12) | **0.979** | **n compensates gain: eff_rank matches g=7/n=100** |</span>
 <span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Findings</span></span>
 <span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a></span>
@@ -2478,7 +2481,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>| 1000 | **30k** | Chaotic | **144** | ~1.0 | **0%** | **Highest eff_rank but still insufficient** |</span>
 <span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | Sparse | **13** | 0.746 | **0%** | **eff_rank DROPS; rho controls eff_rank** |</span>
 <span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a>| 100 | **30k** | fill=80% | **49** | 0.985 | **0%** | **eff_rank rises but conn stuck** |</span>
-<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>| 200 | **30k** | g=2 | **35--38** | &gt;1.0 | **88%** | **n compensates: eff_rank matches g=7/n=100** |</span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>| 200 | **30k** | g=2 | **35--38** | &gt;1.0 | **92%** | **n compensates: eff_rank matches g=7/n=100** |</span>
 <span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3. "Easy Mode" --- Chaotic Baseline (n=100)</span></span>
 <span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a></span>
@@ -2582,7 +2585,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a>g=2 sits above the critical eff_rank threshold (17 &gt; 10) and is partially rescued by 30k frames (0%→42% convergence at n=100). However, it requires **inverse lr_W** (~5E-4, 100x lower than g=7's 4E-3) --- a structural property that persists at 30k. Epoch scaling is not diminishing at g=2 (5ep→0.356, 8ep→0.397, 12ep→0.519 at 10k). At 30k/8ep, the Pareto-optimal config reaches conn=0.997.</span>
 <span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a>**Block 29 update (g=2/n=200/30k)**: Scaling to n=200 dramatically changes the picture. eff_rank jumps from 16--17 (n=100) to 35--38 (n=200), matching g=7/n=100. Convergence rate rises to 88% (7/8), with best conn=0.976 at lr_W=3E-4/10ep. The inverse lr_W pattern persists but the ceiling is higher (1E-3 safe at n=200 vs catastrophic at n=100). Epoch scaling remains strong and non-diminishing (5ep→0.877, 8ep→0.962, 10ep→0.976). This confirms that n_neurons compensates for gain reduction: g=2/n=200/30k is comparable in difficulty to g=7/n=200/10k.</span>
+<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a>**Block 29 update (g=2/n=200/30k)**: Scaling to n=200 dramatically changes the picture. eff_rank jumps from 16--17 (n=100) to 35--38 (n=200), matching g=7/n=100. Convergence rate rises to 92% (11/12), with best conn=0.979 at lr_W=3E-4/12ep. The inverse lr_W pattern persists but the ceiling is higher (1E-3 safe at n=200 vs catastrophic at n=100). Epoch scaling remains strong but diminishes at 12ep (+0.3%). This confirms that n_neurons compensates for gain reduction: g=2/n=200/30k is comparable in difficulty to g=7/n=200/10k.</span>
 <span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a><span class="fu">### 11. fill=90% --- Transitional Regime (Block 24)</span></span>
@@ -2639,7 +2642,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb2-280"><a href="#cb2-280" aria-hidden="true" tabindex="-1"></a>| 26 | **g=1 n=100 (30k)** | **30k** | **12/12** | **~0.99** | **30k amplifies degeneracy; eff_rank→1** |</span>
 <span id="cb2-281"><a href="#cb2-281" aria-hidden="true" tabindex="-1"></a>| 27 | **g=2 n=100** | 10k | **12/12** | **0.48--0.90** | **Low gain; inverse lr_W needed** |</span>
 <span id="cb2-282"><a href="#cb2-282" aria-hidden="true" tabindex="-1"></a>| 28 | **g=2 n=100 (30k)** | **30k** | **5/12** | **0.003--0.80** | **Partially rescued; 42% convergence** |</span>
-<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a>| 29 | **g=2 n=200 (30k)** | **30k** | **0/8** | **0.12** | **Healthy --- n compensates; eff_rank=35--38** |</span>
+<span id="cb2-283"><a href="#cb2-283" aria-hidden="true" tabindex="-1"></a>| 29 | **g=2 n=200 (30k)** | **30k** | **0/12** | **0.12** | **Healthy --- n compensates; eff_rank=35--38** |</span>
 <span id="cb2-284"><a href="#cb2-284" aria-hidden="true" tabindex="-1"></a>| 15--16 | n=300/600 (30k) | 30k | 0/20 | -0.01 | Abundant data eliminates |</span>
 <span id="cb2-285"><a href="#cb2-285" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-286"><a href="#cb2-286" aria-hidden="true" tabindex="-1"></a><span class="fu">### 15. n_frames Is the Dominant Lever (Blocks 15--16, 21)</span></span>
@@ -2654,7 +2657,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb2-295"><a href="#cb2-295" aria-hidden="true" tabindex="-1"></a>| 200 | 3 | **30k** | **55** | **100%** (12/12) | **0.996** | **Gain rescued** |</span>
 <span id="cb2-296"><a href="#cb2-296" aria-hidden="true" tabindex="-1"></a>| 100 | 2 | 10k | 17 | 0% (10k) | 0.519 | Inverse lr_W |</span>
 <span id="cb2-297"><a href="#cb2-297" aria-hidden="true" tabindex="-1"></a>| 100 | 2 | **30k** | **16** | **42%** (5/12) | **0.997** | **Partially rescued** |</span>
-<span id="cb2-298"><a href="#cb2-298" aria-hidden="true" tabindex="-1"></a>| 200 | 2 | **30k** | **35--38** | **88%** (7/8) | **0.976** | **n compensates gain** |</span>
+<span id="cb2-298"><a href="#cb2-298" aria-hidden="true" tabindex="-1"></a>| 200 | 2 | **30k** | **35--38** | **92%** (11/12) | **0.979** | **n compensates gain** |</span>
 <span id="cb2-299"><a href="#cb2-299" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb2-300"><a href="#cb2-300" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
 <span id="cb2-301"><a href="#cb2-301" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Finding</span></span>

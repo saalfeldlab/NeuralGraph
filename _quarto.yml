@@ -52,6 +52,7 @@ format:
     css: styles.css
     mermaid:
       theme: neutral
+    mermaid-format: js
     toc: true
     toc-depth: 3
     toc-expand: 2

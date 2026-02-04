@@ -68,8 +68,8 @@ training:
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
-  seed: 9000
-  learning_rate_W_start: 5.0e-03
+  seed: 10000
+  learning_rate_W_start: 6.0e-03
   learning_rate_start: 1.0e-04
   learning_rate_embedding_start: 2.5e-04
   n_epochs_init: 2

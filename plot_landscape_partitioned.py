@@ -219,6 +219,55 @@ add_block(23, 'fill=80% (30k) FAILED', '30k', 49, [
     mutation='n_frames: 10k to 30k (fill=80%)')
 
 
+# Block 24: fill=90% at 10k
+add_block(24, 'fill=90% (10k)', '10k', 36, [
+    0.907, 0.907, 0.906, 0.905, 0.904, 0.903,
+    0.902, 0.900, 0.898, 0.895, 0.890, 0.880
+], start_iter=277, n_neurons=100, fill=90,
+    extra='83% conv; conn plateau ≈ fill%; rho=0.995; param insensitive',
+    mutation='fill: 80% to 90%')
+
+# Block 25: g=1 (10k)
+add_block(25, 'g=1 (10k) FAILED', '10k', 5, [
+    0.007, 0.005, 0.004, 0.003, 0.002, 0.002,
+    0.001, 0.001, 0.001, 0.000, 0.000, 0.000
+], start_iter=289, n_neurons=100, gain=1,
+    extra='FIXED-POINT COLLAPSE; eff_rank=5; conn~0; hardest regime',
+    mutation='gain: 7 to 1')
+
+# Block 26: g=1 (30k)
+add_block(26, 'g=1 (30k) FAILED', '30k', 1, [
+    0.018, 0.015, 0.012, 0.010, 0.009, 0.009,
+    0.008, 0.007, 0.005, 0.004, 0.003, 0.002
+], start_iter=301, n_neurons=100, gain=1,
+    extra='eff_rank DROPS 5 to 1; WORSE than 10k; g=1 UNSOLVABLE',
+    mutation='n_frames: 10k to 30k (g=1)')
+
+# Block 27: g=2 (10k)
+add_block(27, 'g=2 (10k)', '10k', 17, [
+    0.519, 0.500, 0.480, 0.450, 0.420, 0.400,
+    0.380, 0.356, 0.330, 0.300, 0.280, 0.250
+], start_iter=313, n_neurons=100, gain=2,
+    extra='0% conv; INVERSE lr_W (5E-4 optimal); needs 30k',
+    mutation='gain: 7 to 2')
+
+# Block 28: g=2 (30k)
+add_block(28, 'g=2 n=100 (30k)', '30k', 16, [
+    0.997, 0.995, 0.990, 0.980, 0.970, 0.950,
+    0.930, 0.900, 0.870, 0.820, 0.750, 0.680
+], start_iter=325, n_neurons=100, gain=2,
+    extra='42% conv; inverse lr_W PERSISTS (5E-4); eff_rank=16 unchanged',
+    mutation='n_frames: 10k to 30k (g=2)')
+
+# Block 29: g=2 n=200 (30k)
+add_block(29, 'g=2 n=200 (30k)', '30k', 37, [
+    0.979, 0.976, 0.972, 0.963, 0.962, 0.955,
+    0.953, 0.944, 0.943, 0.942, 0.913, 0.877
+], start_iter=337, n_neurons=200, gain=2,
+    extra='92% conv; eff_rank=35-38 (contradicts n=100); inverse lr_W=3E-4',
+    mutation='n_neurons: 100 to 200 (at g=2/30k)')
+
+
 # --- Partition by neuron count ---
 panels = {
     'n=100': {'filter': lambda p: p['n_neurons'] == 100, 'title': 'n = 100 neurons'},

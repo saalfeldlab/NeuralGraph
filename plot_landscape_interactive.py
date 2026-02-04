@@ -227,6 +227,13 @@ add_block(28, 'g=2 (30k)', '30k', 16, [
 ], start_iter=337, n_neurons=100, gain=2,
     extra='42% conv; inverse lr_W persists; eff_rank flat at 16')
 
+# Block 29: g=2 n=200 (30k)
+add_block(29, 'g=2 n=200 (30k)', '30k', 37, [
+    0.979, 0.976, 0.972, 0.963, 0.962, 0.955,
+    0.953, 0.944, 0.943, 0.942, 0.913, 0.877
+], start_iter=349, n_neurons=200, gain=2,
+    extra='92% conv; eff_rank=35-38; inverse lr_W=3E-4; contradicts n=100')
+
 
 # --- Build Plotly figure ---
 pts_10k = [p for p in points if p['n_frames'] == '10k']
