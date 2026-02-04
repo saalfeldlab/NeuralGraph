@@ -109,6 +109,7 @@ class SimulationConfig(BaseModel):
     n_metabolites: int = 100
     n_reactions: int = 64
     max_metabolites_per_reaction: int = 5
+    concentration_reset_interval: float = 6.0  # re-initialise concentrations every N time-units (e.g. 6 h)
 
     pos_init: str = "uniform"
     dpos_init: float = 0

@@ -1,32 +1,37 @@
-description: "metabolic network - 100 metabolites, 64 reactions, max 5 per reaction"
-dataset: "metabolism_1"
+description: "metabolic network with external rate modulation (movie-driven enzyme regulation)"
+dataset: "metabolism_2"
 
 simulation:
   n_metabolites: 100
   n_reactions: 256
   max_metabolites_per_reaction: 4
-  concentration_reset_interval: 360
+  concentration_reset_interval: 6.0 # re-initialise concentrations every 6 h
 
   n_neurons: 100 # set equal to n_metabolites for framework compatibility
+  n_input_neurons: 100 # all metabolites receive external input
   n_neuron_types: 1
   n_frames: 2880 # 2 days in minutes (2 * 24 * 60)
   delta_t: 1 # 1 minute per step
   start_frame: 0
   seed: 42
 
+  external_input_type: "visual"
+  external_input_mode: "multiplicative"
+  node_value_map: "video_bisons_32.tif"
+
   connectivity_type: "none"
   connectivity_filling_factor: 1
   boundary: "no"
   dpos_init: 0
 
-  # params not used by PDE_M1 but required by config schema
+  # params not used by PDE_M2 but required by config schema
   params:
     - [1.0, 0.0, 1.0, 0.0, 1.0, 0.0]
 
   phi: "tanh"
 
 graph_model:
-  signal_model_name: "PDE_M1"
+  signal_model_name: "PDE_M2"
   particle_model_name: ""
   mesh_model_name: ""
   prediction: "first_derivative"
@@ -59,6 +64,8 @@ training:
   small_init_batch_size: False
 
   seed: 42
+
+  learn_external_input: True
 
   data_augmentation_loop: 100
 

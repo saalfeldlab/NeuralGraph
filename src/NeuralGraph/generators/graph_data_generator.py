@@ -1585,9 +1585,28 @@ def data_generate_metabolism(
     pos = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
 
     # --- build model ---
-    from NeuralGraph.generators.PDE_M1 import PDE_M1
-    model = PDE_M1(config=config, stoich_graph=stoich_graph, device=device)
+    if "PDE_M2" in model_config.signal_model_name:
+        from NeuralGraph.generators.PDE_M2 import PDE_M2
+        model = PDE_M2(config=config, stoich_graph=stoich_graph, device=device)
+    else:
+        from NeuralGraph.generators.PDE_M1 import PDE_M1
+        model = PDE_M1(config=config, stoich_graph=stoich_graph, device=device)
     model.to(device)
+
+    # --- external input (movie-driven enzyme modulation) ---
+    external_input_type = getattr(simulation_config, 'external_input_type', 'none')
+    has_visual_input = "visual" in external_input_type
+    if has_visual_input:
+        im = imread(f"graphs_data/{simulation_config.node_value_map}")
+        n_input_metabolites = min(simulation_config.n_input_neurons, n_metabolites)
+        # pre-compute 2D grid indices to spatially downsample image -> metabolites
+        im_h, im_w = im[0].squeeze().shape[:2]
+        n_side = int(np.sqrt(n_input_metabolites))
+        im_rows = np.linspace(0, im_h - 1, n_side, dtype=int)
+        im_cols = np.linspace(0, im_w - 1, n_side, dtype=int)
+        print(f'external input: {simulation_config.node_value_map}  '
+              f'shape={im.shape}  mode={simulation_config.external_input_mode}  '
+              f'{im_h}x{im_w} -> {n_side}x{n_side} = {n_side*n_side} metabolites')
 
     # --- save stoichiometric data ---
     if bSave:
@@ -1606,6 +1625,13 @@ def data_generate_metabolism(
     x[:, 3] = concentrations.clone().detach()
     x[:, 6] = 0  # metabolite type (single type for now)
 
+    # --- concentration reset interval (in frames) ---
+    concentration_reset_interval = simulation_config.concentration_reset_interval
+    if concentration_reset_interval > 0:
+        reset_every_n_frames = int(concentration_reset_interval / delta_t)
+    else:
+        reset_every_n_frames = 0  # disabled
+
     # --- Euler integration ---
     for run in range(training_config.n_runs):
         x_list = []
@@ -1615,6 +1641,21 @@ def data_generate_metabolism(
         x[:, 3] = concentrations.clone().detach()
 
         for it in trange(simulation_config.start_frame, n_frames + 1, ncols=150):
+
+            # re-initialise concentrations every reset_every_n_frames
+            if reset_every_n_frames > 0 and it > 0 and it % reset_every_n_frames == 0:
+                x[:, 3] = init_concentration(n_metabolites, device, mode='random', seed=simulation_config.seed + it)
+
+            # update external input from movie (2D grid subsample)
+            if has_visual_input:
+                im_idx = int(it / n_frames * (im.shape[0] - 1))
+                im_ = im[im_idx].squeeze()
+                im_ = np.rot90(im_, 3)
+                im_down = im_[np.ix_(im_rows, im_cols)].flatten()[:n_input_metabolites]
+                x[:n_input_metabolites, 4] = torch.tensor(
+                    im_down, dtype=torch.float32, device=device
+                )
+
             with torch.no_grad():
                 dataset = data.Data(x=x, pos=x[:, 1:3])
                 y = model(dataset)
