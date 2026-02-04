@@ -28,6 +28,7 @@ from NeuralGraph.generators.utils import (
     plot_connectivity_matrix,
     plot_metabolism_concentrations,
     plot_stoichiometric_matrix,
+    plot_stoichiometric_eigenvalues,
 )
 from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
@@ -1591,6 +1592,10 @@ def data_generate_metabolism(
         torch.save(S, f'{folder}/stoichiometry.pt')
         torch.save(stoich_graph, f'{folder}/stoich_graph.pt')
 
+    # --- plots: stoichiometric matrix + SVD (unconditional, like signal) ---
+    plot_stoichiometric_matrix(S, dataset_name)
+    plot_stoichiometric_eigenvalues(S, dataset_name)
+
     # --- x tensor: same 8-column layout as neural models ---
     x = torch.zeros((n_metabolites, 8), dtype=torch.float32, device=device)
     x[:, 0] = torch.arange(n_metabolites, dtype=torch.float32, device=device)
@@ -1643,14 +1648,15 @@ def data_generate_metabolism(
             np.save(f'{folder}/x_list_{run}.npy', x_list)
             np.save(f'{folder}/y_list_{run}.npy', y_list)
 
-        print(f'run {run}: generated {len(x_list)} frames')
+        print(f'run {run}: generated {x_list.shape[0]} frames')
 
-        # --- plots (first run only) ---
-        if run == 0 and visualize:
-            plot_metabolism_concentrations(
-                x_list, n_metabolites, n_frames, dataset_name, delta_t,
-            )
-            plot_stoichiometric_matrix(S, dataset_name)
+        # --- activity plot + SVD analysis (first run, unconditional) ---
+        if run == 0:
+            plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t)
+
+            print('svd analysis ...')
+            from NeuralGraph.models.utils import analyze_data_svd
+            analyze_data_svd(x_list, folder, config=config, save_in_subfolder=False)
 
     torch.save(model.p, f'{folder}/model_p_0.pt')
     print('data saved ...')

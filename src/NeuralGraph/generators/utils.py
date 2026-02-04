@@ -1218,107 +1218,137 @@ def init_concentration(n_metabolites, device, mode='uniform', seed=42):
     return concentrations
 
 
-def plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t,
-                                   n_traces=20, met_names=None):
-    """Plot metabolite concentration traces and save to graphs_data folder.
+def plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t):
+    """Plot metabolite concentration traces — same style as activity.png in signal.
 
-    Creates two panels:
-      left  - offset traces (like neural activity raster)
-      right - overlaid traces with legend
-
-    Parameters
-    ----------
-    x_list : ndarray (n_frames, n_metabolites, 8)
-    n_metabolites : int
-    n_frames : int
-    dataset_name : str
-    delta_t : float
-    n_traces : int   max number of traces to show
-    met_names : list[str] or None
+    Offset waterfall plot with metabolite indices on the left margin.
+    Saves to graphs_data/{dataset_name}/activity.png
     """
-    concentrations = x_list[:, :, 3]  # (T, n_met)
-    t = np.arange(concentrations.shape[0]) * delta_t
+    print('plot activity ...')
+    activity = x_list[:, :, 3:4].squeeze().T  # (n_met, T)
 
-    n_show = min(n_traces, n_metabolites)
-    indices = np.linspace(0, n_metabolites - 1, n_show, dtype=int)
-    C = concentrations[:, indices]
-
-    if met_names is None:
-        met_names = [f'M{i}' for i in indices]
+    # sample 100 traces if needed
+    if n_metabolites > 100:
+        sampled_indices = np.sort(np.random.choice(n_metabolites, 100, replace=False))
+        activity_plot = activity[sampled_indices]
+        n_plot = 100
     else:
-        met_names = [met_names[i] for i in indices]
+        activity_plot = activity
+        sampled_indices = np.arange(n_metabolites)
+        n_plot = n_metabolites
 
-    cmap = plt.cm.get_cmap('tab20', n_show)
+    # offset traces vertically (same spacing logic as signal)
+    spacing = np.std(activity_plot) * 3 if np.std(activity_plot) > 0 else 1.0
+    activity_plot = activity_plot - spacing * np.arange(n_plot)[:, None] + spacing * n_plot / 2
 
-    # --- panel 1: offset traces ---
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 10))
+    plt.figure(figsize=(18, 12))
+    plt.plot(activity_plot.T, linewidth=2, alpha=0.7)
 
-    spacing = 1.2 * np.max(np.abs(C)) if np.max(np.abs(C)) > 0 else 1.0
-    for k in range(n_show):
-        offset = k * spacing
-        ax1.plot(t, C[:, k] + offset, color=cmap(k), linewidth=1.5, alpha=0.8)
-        ax1.text(-0.02 * t[-1], offset + C[0, k], met_names[k],
-                 fontsize=10, va='center', ha='right', color=cmap(k))
+    for i in range(0, n_plot, 5):
+        plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]),
+                 fontsize=24, va='center', ha='right')
 
-    ax1.set_xlabel('time', fontsize=18)
-    ax1.set_ylabel('metabolite (offset)', fontsize=18)
-    ax1.set_title('concentration traces', fontsize=20)
-    ax1.tick_params(labelsize=14)
-    ax1.set_yticks([])
-    ax1.spines['left'].set_visible(False)
-    ax1.spines['top'].set_visible(False)
-
-    # --- panel 2: overlaid ---
-    for k in range(n_show):
-        ax2.plot(t, C[:, k], color=cmap(k), linewidth=1.5, alpha=0.8, label=met_names[k])
-
-    ax2.set_xlabel('time', fontsize=18)
-    ax2.set_ylabel('concentration', fontsize=18)
-    ax2.set_title('concentrations overlaid', fontsize=20)
-    ax2.tick_params(labelsize=14)
-    ax2.legend(fontsize=8, ncol=2, loc='best')
-    ax2.grid(True, alpha=0.3)
-
+    ax = plt.gca()
+    ax.text(-n_frames * 0.12, activity_plot.mean(), 'metabolite index',
+            fontsize=32, va='center', ha='center', rotation=90)
+    plt.xlabel('time (min)', fontsize=32)
+    plt.xticks(fontsize=24)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.yaxis.set_ticks_position('right')
+    ax.set_yticks([])
+    plt.xlim([0, min(n_frames, activity_plot.shape[1])])
     plt.tight_layout()
-    plt.savefig(f'graphs_data/{dataset_name}/concentrations.png', dpi=200)
+    plt.savefig(f'graphs_data/{dataset_name}/activity.png', dpi=300)
     plt.close()
 
 
-def plot_stoichiometric_matrix(S, dataset_name, met_names=None, rxn_names=None):
-    """Heatmap of the stoichiometric matrix S (n_met x n_rxn).
+def plot_stoichiometric_matrix(S, dataset_name):
+    """Heatmap of stoichiometric matrix S — same style as connectivity_matrix.png.
 
-    Parameters
-    ----------
-    S : Tensor or ndarray (n_met, n_rxn)
-    dataset_name : str
-    met_names, rxn_names : list[str] or None
+    Saves to graphs_data/{dataset_name}/connectivity_matrix.png
     """
-    import seaborn as sns
-
+    print('plot stoichiometric matrix ...')
     S_np = to_numpy(S) if torch.is_tensor(S) else np.asarray(S)
     n_met, n_rxn = S_np.shape
 
     vmax = max(np.max(np.abs(S_np)), 1)
-    fig, ax = plt.subplots(figsize=(max(6, n_rxn * 0.25), max(4, n_met * 0.15)))
-    im = sns.heatmap(S_np, center=0, cmap='bwr', vmin=-vmax, vmax=vmax,
-                     square=False, linewidths=0.3 if n_met <= 30 else 0,
-                     cbar_kws={'fraction': 0.046, 'label': 'stoichiometric coefficient'},
-                     ax=ax)
 
-    if met_names and n_met <= 50:
-        ax.set_yticks(np.arange(n_met) + 0.5)
-        ax.set_yticklabels(met_names, fontsize=7)
-    else:
-        ax.set_ylabel('metabolite', fontsize=14)
+    # main heatmap
+    plt.figure(figsize=(10, 10))
+    ax = sns.heatmap(S_np, center=0, square=False, cmap='bwr',
+                     cbar_kws={'fraction': 0.046}, vmin=-vmax, vmax=vmax)
+    cbar = ax.collections[0].colorbar
+    cbar.ax.tick_params(labelsize=32)
 
-    if rxn_names and n_rxn <= 50:
-        ax.set_xticks(np.arange(n_rxn) + 0.5)
-        ax.set_xticklabels(rxn_names, fontsize=7, rotation=90)
-    else:
-        ax.set_xlabel('reaction', fontsize=14)
+    plt.xticks([0, n_rxn - 1], [1, n_rxn], fontsize=48)
+    plt.yticks([0, n_met - 1], [1, n_met], fontsize=48)
+    plt.xticks(rotation=0)
+    plt.xlabel('reaction', fontsize=48)
+    plt.ylabel('metabolite', fontsize=48)
+    plt.title('stoichiometric matrix', fontsize=28)
 
-    ax.set_title('stoichiometric matrix S', fontsize=16)
+    # zoom inset (top-left corner)
+    zoom = min(20, n_met, n_rxn)
+    if zoom > 0:
+        plt.subplot(2, 2, 1)
+        sns.heatmap(S_np[0:zoom, 0:zoom], cbar=False,
+                    center=0, square=False, cmap='bwr', vmin=-vmax, vmax=vmax)
+        plt.xticks([])
+        plt.yticks([])
+
     plt.tight_layout()
-    plt.savefig(f'graphs_data/{dataset_name}/stoichiometric_matrix.png', dpi=200)
+    plt.savefig(f'graphs_data/{dataset_name}/connectivity_matrix.png', dpi=100)
     plt.close()
+
+
+def plot_stoichiometric_eigenvalues(S, dataset_name):
+    """SVD singular-value spectrum of stoichiometric matrix S.
+
+    S is not square (n_met x n_rxn) so we use SVD instead of eigendecomposition.
+    Saves to graphs_data/{dataset_name}/eigenvalues.png
+    """
+    print('plot SVD spectrum of stoichiometric matrix ...')
+    S_np = to_numpy(S) if torch.is_tensor(S) else np.asarray(S)
+
+    U, sigma, Vt = np.linalg.svd(S_np, full_matrices=False)
+
+    fig, axes = plt.subplots(1, 3, figsize=(30, 10))
+
+    # (0) singular values
+    axes[0].scatter(range(len(sigma)), sigma, s=50, c='k', alpha=0.7, edgecolors='none')
+    axes[0].set_xlabel('index', fontsize=32)
+    axes[0].set_ylabel('singular value', fontsize=32)
+    axes[0].tick_params(labelsize=20)
+    axes[0].set_title('singular values', fontsize=28)
+    axes[0].text(0.05, 0.95, f'rank: {np.sum(sigma > 1e-6)}',
+                 transform=axes[0].transAxes, fontsize=20, verticalalignment='top')
+
+    # (1) singular values (log scale)
+    axes[1].plot(sigma, c='k', linewidth=2)
+    axes[1].set_xlabel('index', fontsize=32)
+    axes[1].set_ylabel('singular value', fontsize=32)
+    axes[1].set_yscale('log')
+    axes[1].tick_params(labelsize=20)
+    axes[1].set_title('singular values (log scale)', fontsize=28)
+
+    # (2) cumulative variance explained
+    cumvar = np.cumsum(sigma ** 2) / np.sum(sigma ** 2)
+    rank_90 = np.searchsorted(cumvar, 0.90) + 1
+    rank_99 = np.searchsorted(cumvar, 0.99) + 1
+    axes[2].plot(cumvar, c='k', linewidth=2)
+    axes[2].axhline(y=0.9, color='gray', linestyle='--', linewidth=1)
+    axes[2].axhline(y=0.99, color='gray', linestyle=':', linewidth=1)
+    axes[2].set_xlabel('index', fontsize=32)
+    axes[2].set_ylabel('cumulative variance', fontsize=32)
+    axes[2].tick_params(labelsize=20)
+    axes[2].set_title('cumulative variance explained', fontsize=28)
+    axes[2].text(0.5, 0.5, f'rank(90%): {rank_90}\nrank(99%): {rank_99}',
+                 transform=axes[2].transAxes, fontsize=20, verticalalignment='center')
+
+    plt.tight_layout()
+    plt.savefig(f'graphs_data/{dataset_name}/eigenvalues.png', dpi=150)
+    plt.close()
+
+    print(f'  SVD rank: {np.sum(sigma > 1e-6)}, rank(90%): {rank_90}, rank(99%): {rank_99}')
 
