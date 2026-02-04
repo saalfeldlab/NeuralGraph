@@ -38,7 +38,8 @@ compare the 2000-step rollout MSE curves (tensorboard `CrossVal/.*/multi_start_2
 ## baseline model
 
 Run the baseline model without any optimizations. We have 18M parameters in the model, which is
-comparable to the EED model (~19M).
+comparable to the EED model (~19M). That's for 20 time units. Note that the
+number of features scales with `tu`
 
 ```bash
 bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null1.log python \
@@ -50,4 +51,11 @@ bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null2.log python \
 bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null20.log python \
   src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
   --training.time-units 20
+# bump up to 3 hidden layers to boost capacity
+bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null1_3.log python \
+  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
+  --training.time-units 1 --predictor-params.num-hidden-layers 3
+bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null2_3.log python \
+  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
+  --training.time-units 2 --predictor-params.num-hidden-layers 3
 ```
