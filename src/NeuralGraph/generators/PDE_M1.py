@@ -61,10 +61,17 @@ class PDE_M1(nn.Module):
         self.n_rxn = n_rxn
         self.device = device
 
-        # learnable MLPs
+        # learnable MLPs (larger init for diverse outputs)
         self.msg_mlp = mlp([2, hidden, msg_dim], activation=nn.Tanh)
         self.rate_mlp = mlp([msg_dim, hidden, 1], activation=nn.Tanh)
         self.softplus = nn.Softplus(beta=1.0)
+
+        # per-reaction rate constants: log-uniform in [0.01, 10]
+        # this gives ~3 orders of magnitude variation across reactions,
+        # biologically realistic (different enzymes have very different kcat)
+        log_k = torch.empty(n_rxn)
+        log_k.uniform_(-2.0, 1.0)  # log10 in [-2, 1]  =>  k in [0.01, 10]
+        self.log_k = nn.Parameter(log_k)
 
         # store stoichiometric graph (fixed, not learned)
         (met_sub, rxn_sub, sto_sub) = stoich_graph['sub']
@@ -107,8 +114,9 @@ class PDE_M1(nn.Module):
         h_rxn = torch.zeros(self.n_rxn, msg.shape[1], dtype=msg.dtype, device=msg.device)
         h_rxn.index_add_(0, self.rxn_sub, msg)
 
-        # 4. compute non-negative reaction rates
-        v = self.softplus(self.rate_mlp(h_rxn).squeeze(-1))  # (n_rxn,)
+        # 4. compute non-negative reaction rates, scaled by per-reaction k_j
+        k = torch.pow(10.0, self.log_k)  # [0.01 .. 10]
+        v = k * self.softplus(self.rate_mlp(h_rxn).squeeze(-1))  # (n_rxn,)
 
         # 5. compute dx/dt via stoichiometric matrix: dx_i/dt = sum_j S_ij * v_j
         contrib = self.sto_all * v[self.rxn_all]  # (n_all_edges,)
@@ -130,5 +138,6 @@ class PDE_M1(nn.Module):
         h_rxn = torch.zeros(self.n_rxn, msg.shape[1], dtype=msg.dtype, device=msg.device)
         h_rxn.index_add_(0, self.rxn_sub, msg)
 
-        v = self.softplus(self.rate_mlp(h_rxn).squeeze(-1))
+        k = torch.pow(10.0, self.log_k)
+        v = k * self.softplus(self.rate_mlp(h_rxn).squeeze(-1))
         return v

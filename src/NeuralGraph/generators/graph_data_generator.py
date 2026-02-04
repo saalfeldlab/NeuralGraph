@@ -29,6 +29,7 @@ from NeuralGraph.generators.utils import (
     plot_metabolism_concentrations,
     plot_stoichiometric_matrix,
     plot_stoichiometric_eigenvalues,
+    plot_rate_distribution,
 )
 from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
@@ -1592,9 +1593,10 @@ def data_generate_metabolism(
         torch.save(S, f'{folder}/stoichiometry.pt')
         torch.save(stoich_graph, f'{folder}/stoich_graph.pt')
 
-    # --- plots: stoichiometric matrix + SVD (unconditional, like signal) ---
+    # --- plots: stoichiometric matrix + SVD + rates (unconditional, like signal) ---
     plot_stoichiometric_matrix(S, dataset_name)
     plot_stoichiometric_eigenvalues(S, dataset_name)
+    plot_rate_distribution(model, dataset_name)
 
     # --- x tensor: same 8-column layout as neural models ---
     x = torch.zeros((n_metabolites, 8), dtype=torch.float32, device=device)

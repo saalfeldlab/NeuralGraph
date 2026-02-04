@@ -1219,37 +1219,37 @@ def init_concentration(n_metabolites, device, mode='uniform', seed=42):
 
 
 def plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t):
-    """Plot metabolite concentration traces — same style as activity.png in signal.
+    """Plot metabolite concentration traces — same layout as activity.png in signal.
 
     Offset waterfall plot with metabolite indices on the left margin.
-    Saves to graphs_data/{dataset_name}/activity.png
+    Saves to graphs_data/{dataset_name}/concentration.png
     """
-    print('plot activity ...')
-    activity = x_list[:, :, 3:4].squeeze().T  # (n_met, T)
+    print('plot concentration ...')
+    conc = x_list[:, :, 3:4].squeeze().T  # (n_met, T)
 
     # sample 100 traces if needed
     if n_metabolites > 100:
         sampled_indices = np.sort(np.random.choice(n_metabolites, 100, replace=False))
-        activity_plot = activity[sampled_indices]
+        conc_plot = conc[sampled_indices]
         n_plot = 100
     else:
-        activity_plot = activity
+        conc_plot = conc
         sampled_indices = np.arange(n_metabolites)
         n_plot = n_metabolites
 
     # offset traces vertically (same spacing logic as signal)
-    spacing = np.std(activity_plot) * 3 if np.std(activity_plot) > 0 else 1.0
-    activity_plot = activity_plot - spacing * np.arange(n_plot)[:, None] + spacing * n_plot / 2
+    spacing = np.std(conc_plot) * 3 if np.std(conc_plot) > 0 else 1.0
+    conc_plot = conc_plot - spacing * np.arange(n_plot)[:, None] + spacing * n_plot / 2
 
     plt.figure(figsize=(18, 12))
-    plt.plot(activity_plot.T, linewidth=2, alpha=0.7)
+    plt.plot(conc_plot.T, linewidth=2, alpha=0.7)
 
     for i in range(0, n_plot, 5):
-        plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]),
+        plt.text(-100, conc_plot[i, 0], str(sampled_indices[i]),
                  fontsize=24, va='center', ha='right')
 
     ax = plt.gca()
-    ax.text(-n_frames * 0.12, activity_plot.mean(), 'metabolite index',
+    ax.text(-n_frames * 0.12, conc_plot.mean(), 'metabolite index',
             fontsize=32, va='center', ha='center', rotation=90)
     plt.xlabel('time (min)', fontsize=32)
     plt.xticks(fontsize=24)
@@ -1257,9 +1257,9 @@ def plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name
     ax.spines['top'].set_visible(False)
     ax.yaxis.set_ticks_position('right')
     ax.set_yticks([])
-    plt.xlim([0, min(n_frames, activity_plot.shape[1])])
+    plt.xlim([0, min(n_frames, conc_plot.shape[1])])
     plt.tight_layout()
-    plt.savefig(f'graphs_data/{dataset_name}/activity.png', dpi=300)
+    plt.savefig(f'graphs_data/{dataset_name}/concentration.png', dpi=300)
     plt.close()
 
 
@@ -1351,4 +1351,42 @@ def plot_stoichiometric_eigenvalues(S, dataset_name):
     plt.close()
 
     print(f'  SVD rank: {np.sum(sigma > 1e-6)}, rank(90%): {rank_90}, rank(99%): {rank_99}')
+
+
+def plot_rate_distribution(model, dataset_name):
+    """Histogram of per-reaction rate constants k_j.
+
+    Plots both log10(k_j) distribution and the raw k_j distribution.
+    Saves to graphs_data/{dataset_name}/rate_distribution.png
+    """
+    print('plot rate distribution ...')
+    log_k = to_numpy(model.log_k.detach())
+    k = 10.0 ** log_k
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+
+    # log10(k_j) histogram
+    ax1.hist(log_k, bins=20, color='steelblue', edgecolor='black', alpha=0.8)
+    ax1.set_xlabel('log$_{10}$(k$_j$)', fontsize=24)
+    ax1.set_ylabel('count', fontsize=24)
+    ax1.set_title('rate constants (log scale)', fontsize=24)
+    ax1.tick_params(labelsize=18)
+    ax1.axvline(x=np.median(log_k), color='red', linestyle='--', linewidth=2,
+                label=f'median = {np.median(k):.3f}')
+    ax1.legend(fontsize=16)
+
+    # raw k_j histogram (log x-axis)
+    ax2.hist(k, bins=np.logspace(np.log10(k.min()), np.log10(k.max()), 20),
+             color='coral', edgecolor='black', alpha=0.8)
+    ax2.set_xscale('log')
+    ax2.set_xlabel('k$_j$', fontsize=24)
+    ax2.set_ylabel('count', fontsize=24)
+    ax2.set_title('rate constants', fontsize=24)
+    ax2.tick_params(labelsize=18)
+    ax2.axvline(x=np.median(k), color='red', linestyle='--', linewidth=2)
+
+    plt.tight_layout()
+    plt.savefig(f'graphs_data/{dataset_name}/rate_distribution.png', dpi=200)
+    plt.close()
+    print(f'  k range: [{k.min():.4f}, {k.max():.4f}], median: {np.median(k):.4f}')
 
