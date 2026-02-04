@@ -132,7 +132,7 @@ class PDE_M2(nn.Module):
         if self.external_input_mode == "additive":
             dxdt = dxdt + external_input
 
-        return 0.05 * dxdt.unsqueeze(-1)
+        return 0.005 * dxdt.unsqueeze(-1)
 
     def get_rates(self, data):
         """Return reaction rates for diagnostics."""
