@@ -2168,39 +2168,41 @@ def data_test_metabolism(config, best_model=20, n_rollout_frames=600, device=Non
         rxn_all_cpu = stoich_graph['all'][1].cpu()
         learned_S[met_all_cpu, rxn_all_cpu] = model.sto_all.detach().cpu()
 
-    gt_S_cpu = gt_S.cpu()
-    x_data = to_numpy(gt_S_cpu).flatten()
-    y_data = to_numpy(learned_S).flatten()
+    # compare only edge coefficients (not full 100x256 matrix with trivial zeros)
+    gt_edges = to_numpy(gt_S.cpu()[met_all_cpu, rxn_all_cpu])
+    learned_edges = to_numpy(model.sto_all.detach().cpu())
+    n_edges = len(gt_edges)
 
     stoich_r2 = 0.0
+    lin_fit = None
     try:
-        lin_fit, _ = curve_fit(linear_model, x_data, y_data)
-        residuals = y_data - linear_model(x_data, *lin_fit)
+        lin_fit, _ = curve_fit(linear_model, gt_edges, learned_edges)
+        residuals = learned_edges - linear_model(gt_edges, *lin_fit)
         ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+        ss_tot = np.sum((learned_edges - np.mean(learned_edges)) ** 2)
         stoich_r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
     except Exception:
         pass
 
-    print(f'stoichiometry R2: {stoich_r2:.4f}')
+    print(f'stoichiometry R2: {stoich_r2:.4f} (n={n_edges} edges)')
 
-    # --- scatter plot: true vs learned S ---
+    # --- scatter plot: true vs learned S (edges only) ---
     out_dir = os.path.join(log_dir, 'tmp_training', 'stoichiometry')
     os.makedirs(out_dir, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    ax.scatter(x_data, y_data, s=0.5, c='k', alpha=0.3)
+    ax.scatter(gt_edges, learned_edges, s=2, c='k', alpha=0.5)
     ax.set_xlabel(r'true $S_{ij}$', fontsize=18)
     ax.set_ylabel(r'learned $S_{ij}$', fontsize=18)
     ax.text(0.05, 0.96, f'$R^2$: {stoich_r2:.3f}', transform=ax.transAxes,
             fontsize=12, verticalalignment='top')
-    try:
+    if lin_fit is not None:
         ax.text(0.05, 0.92, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
-    except Exception:
-        pass
-    lims = [min(x_data.min(), y_data.min()) - 0.2,
-            max(x_data.max(), y_data.max()) + 0.2]
+    ax.text(0.05, 0.88, f'n={n_edges} edges', transform=ax.transAxes,
+            fontsize=12, verticalalignment='top')
+    lims = [min(gt_edges.min(), learned_edges.min()) - 0.2,
+            max(gt_edges.max(), learned_edges.max()) + 0.2]
     ax.plot(lims, lims, 'r--', alpha=0.5, linewidth=1)
     ax.set_xlim(lims)
     ax.set_ylim(lims)
@@ -2369,35 +2371,34 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
     )
     plt.close()
 
-    # --- scatter plot: true vs learned S with R² ---
-    x_data = to_numpy(gt_S_cpu).flatten()
-    y_data = to_numpy(learned_S).flatten()
+    # --- scatter plot: true vs learned S (edges only, no trivial zeros) ---
+    gt_edges = to_numpy(gt_S_cpu[met_all, rxn_all])
+    learned_edges = to_numpy(model.sto_all.detach().cpu())
+    n_edges = len(gt_edges)
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    ax.scatter(x_data, y_data, s=0.5, c='k', alpha=0.3)
+    ax.scatter(gt_edges, learned_edges, s=2, c='k', alpha=0.5)
     ax.set_xlabel(r'true $S_{ij}$', fontsize=18)
     ax.set_ylabel(r'learned $S_{ij}$', fontsize=18)
 
-    n_total = len(x_data)
-    n_nonzero_gt = int(np.count_nonzero(x_data))
     r_squared = 0.0
     try:
-        lin_fit, _ = curve_fit(linear_model, x_data, y_data)
-        residuals = y_data - linear_model(x_data, *lin_fit)
+        lin_fit, _ = curve_fit(linear_model, gt_edges, learned_edges)
+        residuals = learned_edges - linear_model(gt_edges, *lin_fit)
         ss_res = np.sum(residuals ** 2)
-        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+        ss_tot = np.sum((learned_edges - np.mean(learned_edges)) ** 2)
         r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
         ax.text(0.05, 0.96, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
         ax.text(0.05, 0.92, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
-        ax.text(0.05, 0.88, f'n={n_total} ({n_nonzero_gt} non-zero in GT)', transform=ax.transAxes,
+        ax.text(0.05, 0.88, f'n={n_edges} edges', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
     except Exception:
         pass
 
-    lims = [min(x_data.min(), y_data.min()) - 0.2,
-            max(x_data.max(), y_data.max()) + 0.2]
+    lims = [min(gt_edges.min(), learned_edges.min()) - 0.2,
+            max(gt_edges.max(), learned_edges.max()) + 0.2]
     ax.plot(lims, lims, 'r--', alpha=0.5, linewidth=1)
     ax.set_xlim(lims)
     ax.set_ylim(lims)
