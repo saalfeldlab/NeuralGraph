@@ -15,6 +15,8 @@ from NeuralGraph.generators.utils import (
     init_mesh,
     generate_compressed_video_mp4,
     init_connectivity,
+    init_reaction,
+    init_concentration,
     get_equidistant_points,
     plot_synaptic_frame_visual,
     plot_synaptic_frame_modulation,
@@ -24,6 +26,8 @@ from NeuralGraph.generators.utils import (
     plot_synaptic_mlp_functions,
     plot_eigenvalue_spectrum,
     plot_connectivity_matrix,
+    plot_metabolism_concentrations,
+    plot_stoichiometric_matrix,
 )
 from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
@@ -55,6 +59,7 @@ def data_generate(
 ):
 
     has_signal = "PDE_N" in config.graph_model.signal_model_name
+    has_metabolism = "PDE_M" in config.graph_model.signal_model_name
     has_fly = "fly" in config.dataset
 
     dataset_name = config.dataset
@@ -69,6 +74,13 @@ def data_generate(
 
     if config.data_folder_name != "none":
         generate_from_data(config=config, device=device, visualize=visualize, style=style, step=step)
+    elif has_metabolism:
+        data_generate_metabolism(
+            config,
+            visualize=visualize,
+            device=device,
+            bSave=bSave,
+        )
     elif has_fly:
         data_generate_fly_voltage(
             config,
@@ -1519,3 +1531,126 @@ def data_generate_synaptic(
     # close logfile only if we created it locally
     if local_log_file:
         log_file.close()
+
+
+def data_generate_metabolism(
+    config,
+    visualize=True,
+    device=None,
+    bSave=True,
+):
+    """Generate synthetic metabolic dynamics data.
+
+    Builds a random stoichiometric matrix S, initialises metabolite
+    concentrations, and integrates the PDE_M1 ODE forward in time using
+    Euler steps.  Saves x_list, y_list, and stoichiometric data.
+    """
+
+    simulation_config = config.simulation
+    training_config = config.training
+    model_config = config.graph_model
+
+    torch.random.fork_rng(devices=device)
+    torch.random.manual_seed(simulation_config.seed)
+    np.random.seed(simulation_config.seed)
+
+    dataset_name = config.dataset
+    n_metabolites = simulation_config.n_metabolites
+    n_reactions = simulation_config.n_reactions
+    max_met_per_rxn = simulation_config.max_metabolites_per_reaction
+    n_frames = simulation_config.n_frames
+    delta_t = simulation_config.delta_t
+    noise_model_level = simulation_config.noise_model_level
+    measurement_noise_level = training_config.measurement_noise_level
+
+    print(f'generating metabolism data ...  {n_metabolites} metabolites  {n_reactions} reactions')
+
+    folder = f'./graphs_data/{dataset_name}/'
+    os.makedirs(folder, exist_ok=True)
+    os.makedirs(f'{folder}/Fig/', exist_ok=True)
+
+    # --- build stoichiometric graph ---
+    stoich_graph, S = init_reaction(
+        n_metabolites, n_reactions, max_met_per_rxn, device, seed=simulation_config.seed,
+    )
+
+    # --- initial concentrations ---
+    concentrations = init_concentration(n_metabolites, device, mode='random', seed=simulation_config.seed)
+
+    # --- positions for visualisation ---
+    xc, yc = get_equidistant_points(n_points=n_metabolites)
+    pos = torch.tensor(np.stack((xc, yc), axis=1), dtype=torch.float32, device=device) / 2
+
+    # --- build model ---
+    from NeuralGraph.generators.PDE_M1 import PDE_M1
+    model = PDE_M1(config=config, stoich_graph=stoich_graph, device=device)
+    model.to(device)
+
+    # --- save stoichiometric data ---
+    if bSave:
+        torch.save(S, f'{folder}/stoichiometry.pt')
+        torch.save(stoich_graph, f'{folder}/stoich_graph.pt')
+
+    # --- x tensor: same 8-column layout as neural models ---
+    x = torch.zeros((n_metabolites, 8), dtype=torch.float32, device=device)
+    x[:, 0] = torch.arange(n_metabolites, dtype=torch.float32, device=device)
+    x[:, 1:3] = pos.clone().detach()
+    x[:, 3] = concentrations.clone().detach()
+    x[:, 6] = 0  # metabolite type (single type for now)
+
+    # --- Euler integration ---
+    for run in range(training_config.n_runs):
+        x_list = []
+        y_list = []
+
+        # reset concentrations per run
+        x[:, 3] = concentrations.clone().detach()
+
+        for it in trange(simulation_config.start_frame, n_frames + 1, ncols=150):
+            with torch.no_grad():
+                dataset = data.Data(x=x, pos=x[:, 1:3])
+                y = model(dataset)
+
+            if (it >= 0) and bSave:
+                x_list.append(to_numpy(x))
+                y_list.append(to_numpy(y))
+
+            # Euler step with non-negativity clamp
+            du = y.squeeze()
+            x[:, 3] = torch.clamp(x[:, 3] + du * delta_t, min=0.0)
+
+            if noise_model_level > 0:
+                x[:, 3] = torch.clamp(
+                    x[:, 3] + torch.randn(n_metabolites, device=device) * noise_model_level,
+                    min=0.0,
+                )
+
+        if bSave:
+            x_list = np.array(x_list)
+            y_list = np.array(y_list)
+
+            if measurement_noise_level > 0:
+                np.save(f'{folder}/raw_x_list_{run}.npy', x_list)
+                np.save(f'{folder}/raw_y_list_{run}.npy', y_list)
+                for k in range(x_list.shape[0]):
+                    x_list[k, :, 3] = np.maximum(
+                        x_list[k, :, 3] + np.random.normal(0, measurement_noise_level, x_list.shape[1]),
+                        0.0,
+                    )
+                for k in range(1, x_list.shape[0] - 1):
+                    y_list[k] = (x_list[k + 1, :, 3:4] - x_list[k, :, 3:4]) / delta_t
+
+            np.save(f'{folder}/x_list_{run}.npy', x_list)
+            np.save(f'{folder}/y_list_{run}.npy', y_list)
+
+        print(f'run {run}: generated {len(x_list)} frames')
+
+        # --- plots (first run only) ---
+        if run == 0 and visualize:
+            plot_metabolism_concentrations(
+                x_list, n_metabolites, n_frames, dataset_name, delta_t,
+            )
+            plot_stoichiometric_matrix(S, dataset_name)
+
+    torch.save(model.p, f'{folder}/model_p_0.pt')
+    print('data saved ...')

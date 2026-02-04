@@ -529,6 +529,9 @@ def add_pre_folder(config_file_):
     elif 'rat' in config_file_:
         config_file = os.path.join('rat_city', config_file_)
         pre_folder = 'rat_city/'
+    elif 'metabolism' in config_file_:
+        config_file = os.path.join('metabolism', config_file_)
+        pre_folder = 'metabolism/'
 
     return config_file, pre_folder
 

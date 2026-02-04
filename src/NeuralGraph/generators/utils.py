@@ -7,6 +7,7 @@ import subprocess
 import torch
 import xarray as xr
 from NeuralGraph.generators import PDE_N2, PDE_N3, PDE_N4, PDE_N5, PDE_N6, PDE_N7, PDE_N11
+from NeuralGraph.generators.PDE_M1 import PDE_M1
 from NeuralGraph.utils import choose_boundary_values, get_equidistant_points, to_numpy, large_tensor_nonzero
 from scipy import stats
 from scipy.spatial import Delaunay
@@ -64,6 +65,9 @@ def choose_model(config=[], W=[], device=[]):
         case 'PDE_N11':
             func_p = config.simulation.func_params
             model = PDE_N11(config=config, aggr_type=aggr_type, p=p, W=W, phi=phi, func_p=func_p, device=device)
+        case 'PDE_M1':
+            # W is overloaded: for metabolism it carries the stoich_graph dict
+            model = PDE_M1(config=config, stoich_graph=W, device=device)
 
 
 
@@ -1120,5 +1124,201 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
 
     plt.tight_layout()
     plt.savefig(f'{log_dir}/tmp_training/loss.tif', dpi=150)
+    plt.close()
+
+
+# ---------------------------------------------------------------------------
+#  Metabolism helpers
+# ---------------------------------------------------------------------------
+
+def init_reaction(n_metabolites, n_reactions, max_metabolites_per_reaction, device, seed=42):
+    """Build a random sparse stoichiometric matrix as bipartite edge lists.
+
+    For each reaction j:
+      - sample 1..max_metabolites_per_reaction substrates  (stoich < 0)
+      - sample 1..max_metabolites_per_reaction products    (stoich > 0)
+      - substrates and products are disjoint
+      - stoichiometric coefficients are integers in {1, 2}
+
+    Returns
+    -------
+    stoich_graph : dict with keys
+        'sub'  : (met_sub, rxn_sub, sto_sub)   substrate edges (|coeff|)
+        'all'  : (met_all, rxn_all, sto_all)   all edges (signed coeff)
+    stoich_matrix : Tensor (n_metabolites, n_reactions)  dense S for saving
+    """
+    rng = np.random.RandomState(seed)
+
+    sub_edges = []   # (metabolite, reaction, |coeff|)
+    all_edges = []   # (metabolite, reaction, signed coeff)
+
+    for j in range(n_reactions):
+        n_participants = min(max_metabolites_per_reaction, n_metabolites // 2)
+        # at least 1 substrate and 1 product
+        n_sub = rng.randint(1, max(2, n_participants))
+        n_prod = rng.randint(1, max(2, n_participants))
+
+        participants = rng.choice(n_metabolites, size=n_sub + n_prod, replace=False)
+        substrates = participants[:n_sub]
+        products = participants[n_sub:]
+
+        for m in substrates:
+            coeff = rng.randint(1, 3)  # 1 or 2
+            sub_edges.append((int(m), j, float(coeff)))
+            all_edges.append((int(m), j, -float(coeff)))
+
+        for m in products:
+            coeff = rng.randint(1, 3)
+            all_edges.append((int(m), j, float(coeff)))
+
+    # build tensors
+    met_sub = torch.tensor([e[0] for e in sub_edges], dtype=torch.long, device=device)
+    rxn_sub = torch.tensor([e[1] for e in sub_edges], dtype=torch.long, device=device)
+    sto_sub = torch.tensor([e[2] for e in sub_edges], dtype=torch.float32, device=device)
+
+    met_all = torch.tensor([e[0] for e in all_edges], dtype=torch.long, device=device)
+    rxn_all = torch.tensor([e[1] for e in all_edges], dtype=torch.long, device=device)
+    sto_all = torch.tensor([e[2] for e in all_edges], dtype=torch.float32, device=device)
+
+    # dense stoichiometric matrix for saving / visualisation
+    S = torch.zeros(n_metabolites, n_reactions, dtype=torch.float32, device=device)
+    for (m, r, s) in all_edges:
+        S[m, r] = s
+
+    stoich_graph = {
+        'sub': (met_sub, rxn_sub, sto_sub),
+        'all': (met_all, rxn_all, sto_all),
+    }
+
+    return stoich_graph, S
+
+
+def init_concentration(n_metabolites, device, mode='uniform', seed=42):
+    """Initialise metabolite concentrations.
+
+    Parameters
+    ----------
+    n_metabolites : int
+    device : torch.device
+    mode : str   'uniform' | 'random'
+    seed : int
+
+    Returns
+    -------
+    concentrations : Tensor of shape (n_metabolites,)
+    """
+    rng = torch.Generator(device=device)
+    rng.manual_seed(seed)
+
+    if mode == 'random':
+        concentrations = torch.rand(n_metabolites, generator=rng, device=device) * 2.0
+    else:  # uniform
+        concentrations = torch.ones(n_metabolites, device=device) * 0.5
+
+    return concentrations
+
+
+def plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t,
+                                   n_traces=20, met_names=None):
+    """Plot metabolite concentration traces and save to graphs_data folder.
+
+    Creates two panels:
+      left  - offset traces (like neural activity raster)
+      right - overlaid traces with legend
+
+    Parameters
+    ----------
+    x_list : ndarray (n_frames, n_metabolites, 8)
+    n_metabolites : int
+    n_frames : int
+    dataset_name : str
+    delta_t : float
+    n_traces : int   max number of traces to show
+    met_names : list[str] or None
+    """
+    concentrations = x_list[:, :, 3]  # (T, n_met)
+    t = np.arange(concentrations.shape[0]) * delta_t
+
+    n_show = min(n_traces, n_metabolites)
+    indices = np.linspace(0, n_metabolites - 1, n_show, dtype=int)
+    C = concentrations[:, indices]
+
+    if met_names is None:
+        met_names = [f'M{i}' for i in indices]
+    else:
+        met_names = [met_names[i] for i in indices]
+
+    cmap = plt.cm.get_cmap('tab20', n_show)
+
+    # --- panel 1: offset traces ---
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 10))
+
+    spacing = 1.2 * np.max(np.abs(C)) if np.max(np.abs(C)) > 0 else 1.0
+    for k in range(n_show):
+        offset = k * spacing
+        ax1.plot(t, C[:, k] + offset, color=cmap(k), linewidth=1.5, alpha=0.8)
+        ax1.text(-0.02 * t[-1], offset + C[0, k], met_names[k],
+                 fontsize=10, va='center', ha='right', color=cmap(k))
+
+    ax1.set_xlabel('time', fontsize=18)
+    ax1.set_ylabel('metabolite (offset)', fontsize=18)
+    ax1.set_title('concentration traces', fontsize=20)
+    ax1.tick_params(labelsize=14)
+    ax1.set_yticks([])
+    ax1.spines['left'].set_visible(False)
+    ax1.spines['top'].set_visible(False)
+
+    # --- panel 2: overlaid ---
+    for k in range(n_show):
+        ax2.plot(t, C[:, k], color=cmap(k), linewidth=1.5, alpha=0.8, label=met_names[k])
+
+    ax2.set_xlabel('time', fontsize=18)
+    ax2.set_ylabel('concentration', fontsize=18)
+    ax2.set_title('concentrations overlaid', fontsize=20)
+    ax2.tick_params(labelsize=14)
+    ax2.legend(fontsize=8, ncol=2, loc='best')
+    ax2.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(f'graphs_data/{dataset_name}/concentrations.png', dpi=200)
+    plt.close()
+
+
+def plot_stoichiometric_matrix(S, dataset_name, met_names=None, rxn_names=None):
+    """Heatmap of the stoichiometric matrix S (n_met x n_rxn).
+
+    Parameters
+    ----------
+    S : Tensor or ndarray (n_met, n_rxn)
+    dataset_name : str
+    met_names, rxn_names : list[str] or None
+    """
+    import seaborn as sns
+
+    S_np = to_numpy(S) if torch.is_tensor(S) else np.asarray(S)
+    n_met, n_rxn = S_np.shape
+
+    vmax = max(np.max(np.abs(S_np)), 1)
+    fig, ax = plt.subplots(figsize=(max(6, n_rxn * 0.25), max(4, n_met * 0.15)))
+    im = sns.heatmap(S_np, center=0, cmap='bwr', vmin=-vmax, vmax=vmax,
+                     square=False, linewidths=0.3 if n_met <= 30 else 0,
+                     cbar_kws={'fraction': 0.046, 'label': 'stoichiometric coefficient'},
+                     ax=ax)
+
+    if met_names and n_met <= 50:
+        ax.set_yticks(np.arange(n_met) + 0.5)
+        ax.set_yticklabels(met_names, fontsize=7)
+    else:
+        ax.set_ylabel('metabolite', fontsize=14)
+
+    if rxn_names and n_rxn <= 50:
+        ax.set_xticks(np.arange(n_rxn) + 0.5)
+        ax.set_xticklabels(rxn_names, fontsize=7, rotation=90)
+    else:
+        ax.set_xlabel('reaction', fontsize=14)
+
+    ax.set_title('stoichiometric matrix S', fontsize=16)
+    plt.tight_layout()
+    plt.savefig(f'graphs_data/{dataset_name}/stoichiometric_matrix.png', dpi=200)
     plt.close()
 

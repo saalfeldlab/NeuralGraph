@@ -105,6 +105,11 @@ class SimulationConfig(BaseModel):
     calcium_num_compartments: int = 1
     calcium_down_sample: int = 1  # down-sample [Ca] time series by this factor
 
+    # metabolism parameters
+    n_metabolites: int = 100
+    n_reactions: int = 64
+    max_metabolites_per_reaction: int = 5
+
     pos_init: str = "uniform"
     dpos_init: float = 0
 
