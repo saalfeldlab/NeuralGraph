@@ -434,6 +434,12 @@ class TrainingConfig(BaseModel):
 
     coeff_permutation: float = 100
 
+    # metabolism: stoichiometry learning rate and regularization
+    learning_rate_S_start: float = 0.0  # lr for sto_sub, sto_all (0 = use learning_rate_start)
+    coeff_S_L1: float = 0.0            # L1 on sto_all (sparsity)
+    coeff_S_L2: float = 0.0            # L2 on sto_all
+    coeff_mass_conservation: float = 0.0  # penalize non-zero column sums of S (mass balance)
+
     coeff_TV_norm: float = 0
     coeff_missing_activity: float = 0
     coeff_edge_norm: float = 0

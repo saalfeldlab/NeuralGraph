@@ -475,8 +475,7 @@ Config files to edit (all {N_PARALLEL}):
 
 Read the instructions and the base config, then create {N_PARALLEL} diverse initial training
 parameter variations. Each config already has a unique dataset name — do NOT change the
-dataset field. Vary training parameters (e.g. lr_W, lr, coeff_W_L1, batch_size) across
-the {N_PARALLEL} slots to explore different starting points.
+dataset field. Vary training parameters across the {N_PARALLEL} slots to explore different starting points.
 
 Write the planned mutations to the working memory file."""
 
@@ -812,6 +811,10 @@ Fix the bug. Do NOT make other changes."""
             with open(analysis_path, 'r') as f:
                 existing_content = f.read()
 
+        # Determine primary metric based on config type
+        is_metabolism = 'metabolism' in base_config_name
+        primary_metric = 'stoichiometry_R2' if is_metabolism else 'connectivity_R2'
+
         stub_entries = ""
         for slot_idx, iteration in enumerate(iterations):
             if not job_results.get(slot_idx, False):
@@ -821,7 +824,7 @@ Fix the bug. Do NOT make other changes."""
                 continue
             with open(log_path, 'r') as f:
                 log_content = f.read()
-            r2_m = re.search(r'connectivity_R2[=:]\s*([\d.eE+-]+|nan)', log_content)
+            r2_m = re.search(rf'{primary_metric}[=:]\s*([\d.eE+-]+|nan)', log_content)
             pearson_m = re.search(r'test_pearson[=:]\s*([\d.eE+-]+|nan)', log_content)
             cluster_m = re.search(r'cluster_accuracy[=:]\s*([\d.eE+-]+|nan)', log_content)
             time_m = re.search(r'training_time_min[=:]\s*([\d.]+)', log_content)
@@ -836,7 +839,7 @@ Fix the bug. Do NOT make other changes."""
                         f"\n## Iter {iteration}: pending\n"
                         f"Node: id={iteration}, parent=root\n"
                         f"Metrics: test_R2=0, test_pearson={pearson_val}, "
-                        f"connectivity_R2={r2_val}, cluster_accuracy={cluster_val}\n"
+                        f"{primary_metric}={r2_val}, cluster_accuracy={cluster_val}\n"
                     )
 
         tmp_analysis = analysis_path + '.tmp_ucb'
@@ -847,7 +850,8 @@ Fix the bug. Do NOT make other changes."""
             tmp_analysis, ucb_path, c=ucb_c,
             current_log_path=None,
             current_iteration=batch_last,
-            block_size=n_iter_block
+            block_size=n_iter_block,
+            config_file=config_file
         )
         os.remove(tmp_analysis)
         print(f"\033[92mUCB scores computed (c={ucb_c}): {ucb_path}\033[0m")
@@ -919,7 +923,8 @@ IMPORTANT: Do NOT change the 'dataset' field in any config — it must stay as-i
         compute_ucb_scores(analysis_path, ucb_path, c=ucb_c,
                            current_log_path=None,
                            current_iteration=batch_last,
-                           block_size=n_iter_block)
+                           block_size=n_iter_block,
+                           config_file=config_file)
 
         # UCB tree visualization
         should_save_tree = (block_number == 1) or is_block_end
@@ -930,18 +935,24 @@ IMPORTANT: Do NOT change the 'dataset' field in any config — it must stay as-i
             nodes = parse_ucb_scores(ucb_path)
             if nodes:
                 config = configs[0]
-                sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
-                sim_info += f", connectivity_type={config.simulation.connectivity_type}"
-                if hasattr(config.simulation, 'connectivity_filling_factor'):
-                    sim_info += f", filling_factor={config.simulation.connectivity_filling_factor}"
-                if hasattr(config.simulation, 'n_neuron_types'):
-                    sim_info += f", n_neuron_types={config.simulation.n_neuron_types}"
-                if hasattr(config.simulation, 'params') and len(config.simulation.params) > 0:
-                    g_value = config.simulation.params[0][2]
-                    sim_info += f", g={g_value}"
+                if is_metabolism:
+                    sim_info = f"n_metabolites={config.simulation.n_metabolites}, n_reactions={config.simulation.n_reactions}"
+                    sim_info += f", n_frames={config.simulation.n_frames}"
+                    sim_info += f", max_per_rxn={config.simulation.max_metabolites_per_reaction}"
+                else:
+                    sim_info = f"n_neurons={config.simulation.n_neurons}, n_frames={config.simulation.n_frames}"
+                    sim_info += f", connectivity_type={config.simulation.connectivity_type}"
+                    if hasattr(config.simulation, 'connectivity_filling_factor'):
+                        sim_info += f", filling_factor={config.simulation.connectivity_filling_factor}"
+                    if hasattr(config.simulation, 'n_neuron_types'):
+                        sim_info += f", n_neuron_types={config.simulation.n_neuron_types}"
+                    if hasattr(config.simulation, 'params') and len(config.simulation.params) > 0:
+                        g_value = config.simulation.params[0][2]
+                        sim_info += f", g={g_value}"
                 plot_ucb_tree(nodes, ucb_tree_path,
                               title=f"UCB Tree - Batch {batch_first}-{batch_last}",
-                              simulation_info=sim_info)
+                              simulation_info=sim_info,
+                              config_file=config_file)
 
         # Save instruction file at first iteration of each block
         protocol_save_dir = f"{exploration_dir}/protocol"

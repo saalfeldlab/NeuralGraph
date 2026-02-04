@@ -157,12 +157,12 @@ def compute_tree_layout(nodes: list[ExperimentNode]) -> dict[int, tuple[float, f
     # Group nodes by "branches" - sequences of exploration
     # Track which parameter was changed to identify branch points
 
-    # Simple layout: x = iteration, y based on status and connectivity_R2
+    # Simple layout: x = iteration, y based on status and primary R2
     for node in nodes:
         x = node.iteration
 
-        # y based on connectivity_R2 if available
-        conn_r2 = node.metrics.get('connectivity_R2', 0.5)
+        # y based on primary R2 if available
+        conn_r2 = node.metrics.get('stoichiometry_R2', node.metrics.get('connectivity_R2', 0.5))
         y = conn_r2
 
         positions[node.iteration] = (x, y)
@@ -174,12 +174,19 @@ def plot_exploration_tree(nodes: list[ExperimentNode],
                           output_path: Optional[str] = None,
                           title: str = "Parameter Exploration Tree",
                           param_x: str = 'lr_W',
-                          param_y: str = 'lr'):
+                          param_y: str = 'lr',
+                          config_file: str = None):
     """Create visualization of the exploration tree with all panels in one figure."""
 
     if not nodes:
         print("No nodes to plot")
         return
+
+    is_metabolism = config_file is not None and 'metabolism' in str(config_file)
+    primary_metric_label = 'stoichiometry_R2' if is_metabolism else 'connectivity_R2'
+    primary_metric_key = 'stoichiometry_R2' if is_metabolism else 'connectivity_R2'
+    if is_metabolism:
+        param_x = param_x if param_x != 'lr_W' else 'lr_S'
 
     node_map = {n.iteration: n for n in nodes}
 
@@ -250,7 +257,7 @@ def plot_exploration_tree(nodes: list[ExperimentNode],
     ax1.axhline(y=0.1, color='red', linestyle=':', alpha=0.5, label='Failed (0.1)')
 
     ax1.set_xlabel('Iteration', fontsize=11)
-    ax1.set_ylabel('connectivity_R2', fontsize=11)
+    ax1.set_ylabel(primary_metric_label, fontsize=11)
     ax1.set_title('Convergence Trajectory', fontsize=12)
     ax1.set_ylim(-0.05, 1.05)
     ax1.grid(True, alpha=0.3)
@@ -276,8 +283,8 @@ def plot_exploration_tree(nodes: list[ExperimentNode],
                 y_vals.append(y)
                 colors.append(status_colors.get(node.status, '#95a5a6'))
 
-                # Size based on connectivity_R2
-                conn_r2 = node.metrics.get('connectivity_R2', 0.5)
+                # Size based on primary R2
+                conn_r2 = node.metrics.get(primary_metric_key, 0.5)
                 sizes.append(50 + conn_r2 * 150)
                 labels.append(node.iteration)
             except (ValueError, TypeError):
@@ -316,7 +323,10 @@ def plot_exploration_tree(nodes: list[ExperimentNode],
         param_names.update(node.config.keys())
 
     # Focus on key parameters
-    key_params = ['lr_W', 'lr', 'coeff_W_L1', 'batch_size', 'factor', 'gain', 'n_types', 'Dale_law']
+    if is_metabolism:
+        key_params = ['lr_S', 'lr', 'coeff_S_L1', 'coeff_S_L2', 'coeff_mass', 'batch_size']
+    else:
+        key_params = ['lr_W', 'lr', 'coeff_W_L1', 'batch_size', 'factor', 'gain', 'n_types', 'Dale_law']
     key_params = [p for p in key_params if p in param_names]
 
     if key_params:
@@ -620,8 +630,8 @@ def plot_parameter_space(nodes: list[ExperimentNode],
                 y_vals.append(y)
                 colors.append(status_colors.get(node.status, '#95a5a6'))
 
-                # Size based on connectivity_R2
-                conn_r2 = node.metrics.get('connectivity_R2', 0.5)
+                # Size based on R2 (try both metric names)
+                conn_r2 = node.metrics.get('stoichiometry_R2', node.metrics.get('connectivity_R2', 0.5))
                 sizes.append(50 + conn_r2 * 150)
                 labels.append(node.iteration)
             except (ValueError, TypeError):
@@ -706,7 +716,7 @@ def generate_summary_stats(nodes: list[ExperimentNode]) -> dict:
     return stats
 
 
-def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, current_iteration=None, block_size=12):
+def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, current_iteration=None, block_size=12, config_file=None):
     """
     Parse analysis file, build exploration tree, compute UCB scores.
 
@@ -717,6 +727,8 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         current_log_path: Path to current iteration's analysis.log (optional)
         current_iteration: Current iteration number (optional)
         block_size: Size of each simulation block (default 12)
+        config_file: Config file name (optional). When it contains 'metabolism',
+            uses stoichiometry_R2 instead of connectivity_R2 as primary metric.
 
     Returns:
         True if UCB scores were computed, False if no nodes found
@@ -726,6 +738,9 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         from the current block are included in UCB scores. Block N covers
         iterations (N*block_size)+1 to (N+1)*block_size.
     """
+    # Detect primary metric based on config
+    is_metabolism = config_file is not None and 'metabolism' in str(config_file)
+    primary_metric = 'stoichiometry_R2' if is_metabolism else 'connectivity_R2'
     nodes = {}
     next_parent_map = {}  # maps iteration N -> parent for iteration N+1 (from "Next: parent=P")
 
@@ -735,8 +750,8 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             content = f.read()
 
         # Parse nodes from analysis file
-        # Format: Node: id=N, parent=P, V=1, N_total=N
-        # Metrics: ..., connectivity_R2=V, ...
+        # Format: Node: id=N, parent=P
+        # Metrics: ..., {primary_metric}=V, ...
         # Next: parent=P (specifies parent for next iteration)
         current_node = None
 
@@ -747,7 +762,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             iter_match = re.match(r'##+ Iter (\d+):', line)
             if iter_match:
                 # Save previous node if it has required fields
-                if current_node is not None and 'id' in current_node and 'connectivity_R2' in current_node:
+                if current_node is not None and 'id' in current_node and 'primary_r2' in current_node:
                     nodes[current_node['id']] = current_node
                 current_iter = int(iter_match.group(1))
                 current_node = {'iter': current_iter}
@@ -781,11 +796,11 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                 current_node['mutation'] = mutation_match.group(1).strip()
                 continue
 
-            # Match Metrics line for connectivity_R2, test_pearson, and cluster_accuracy
-            metrics_match = re.search(r'connectivity_R2=([\d.]+|nan)', line)
+            # Match Metrics line for primary R2 metric, test_pearson, and cluster_accuracy
+            metrics_match = re.search(rf'{primary_metric}=([\d.]+|nan)', line)
             if metrics_match and current_node is not None:
                 r2_str = metrics_match.group(1).rstrip('.')  # Strip trailing period
-                current_node['connectivity_R2'] = float(r2_str) if r2_str != 'nan' else 0.0
+                current_node['primary_r2'] = float(r2_str) if r2_str != 'nan' else 0.0
                 # Also extract test_pearson from same line
                 pearson_match = re.search(r'test_pearson=([\d.]+|nan)', line)
                 if pearson_match:
@@ -804,7 +819,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                 continue
 
         # Save the last node if complete
-        if current_node is not None and 'id' in current_node and 'connectivity_R2' in current_node:
+        if current_node is not None and 'id' in current_node and 'primary_r2' in current_node:
             nodes[current_node['id']] = current_node
 
     # Apply next_parent_map: if iteration N-1 specified "Next: parent=P", use P as parent for node N
@@ -823,8 +838,8 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
         with open(current_log_path, 'r') as f:
             log_content = f.read()
 
-        # parse connectivity_R2 from analysis.log (handles both = and : formats)
-        r2_match = re.search(r'connectivity_R2[=:]\s*([\d.]+|nan)', log_content)
+        # parse primary R2 metric from analysis.log (handles both = and : formats)
+        r2_match = re.search(rf'{primary_metric}[=:]\s*([\d.]+|nan)', log_content)
         if r2_match:
             r2_str = r2_match.group(1)
             r2_value = float(r2_str) if r2_str != 'nan' else 0.0
@@ -851,7 +866,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
 
             if current_iteration in nodes:
                 # Update existing node's metrics
-                nodes[current_iteration]['connectivity_R2'] = r2_value
+                nodes[current_iteration]['primary_r2'] = r2_value
                 nodes[current_iteration]['test_pearson'] = pearson_value
                 nodes[current_iteration]['cluster_accuracy'] = cluster_value
                 nodes[current_iteration]['training_time_min'] = training_time_value
@@ -863,7 +878,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
                     'iter': current_iteration,
                     'id': current_iteration,
                     'parent': parent,
-                    'connectivity_R2': r2_value,
+                    'primary_r2': r2_value,
                     'test_pearson': pearson_value,
                     'cluster_accuracy': cluster_value,
                     'training_time_min': training_time_value
@@ -925,7 +940,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
     ucb_scores = []
     for node_id, node in nodes.items():
         v = visits[node_id]
-        reward = node.get('connectivity_R2', 0.0)
+        reward = node.get('primary_r2', 0.0)
 
         # PUCT exploration term: c * sqrt(N_total) / (1 + V)
         exploration_term = c * math.sqrt(n_total) / (1 + v)
@@ -938,7 +953,8 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             'visits': v,
             'mean_R2': reward,
             'ucb': ucb,
-            'connectivity_R2': reward,
+            'primary_r2': reward,
+            'primary_metric': primary_metric,
             'test_pearson': node.get('test_pearson', 0.0),
             'cluster_accuracy': node.get('cluster_accuracy', -1.0),
             'training_time_min': node.get('training_time_min', -1.0),
@@ -966,7 +982,7 @@ def compute_ucb_scores(analysis_path, ucb_path, c=1.0, current_log_path=None, cu
             training_time = score.get('training_time_min', -1.0)
             line = (f"Node {score['id']}: UCB={score['ucb']:.3f}, "
                     f"parent={parent_str}, visits={score['visits']}, "
-                    f"R2={score['connectivity_R2']:.3f}, "
+                    f"R2={score['primary_r2']:.3f}, "
                     f"Pearson={score['test_pearson']:.3f}")
             # Add cluster accuracy if available (>= 0)
             if cluster_acc >= 0:

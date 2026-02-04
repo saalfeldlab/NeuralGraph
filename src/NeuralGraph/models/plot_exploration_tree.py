@@ -228,6 +228,9 @@ def plot_ucb_tree(nodes: list[UCBNode],
         if node.id > 1 and node.mutation:
             # Remove parenthesis part from mutation text (e.g., "(2x increase exploring lr_W)")
             mutation_text = re.sub(r'\s*\([^)]*\)\s*$', '', node.mutation).strip()
+            # Limit length to avoid cluttering the plot
+            if len(mutation_text) > 20:
+                mutation_text = mutation_text[:17] + '...'
             # Skip simulation change messages (they clutter the plot)
             if not mutation_text.startswith('simulation changed'):
                 ax.annotate(mutation_text, (x, y), ha='left', va='bottom',

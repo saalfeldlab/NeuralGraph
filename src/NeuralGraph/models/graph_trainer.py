@@ -128,7 +128,7 @@ def data_train(config=None, erase=False, best_model=None, style=None, device=Non
     print(f"\033[92m{config.description}\033[0m")
 
     if 'metabolism' in config.dataset:
-        data_train_metabolism(config, erase, best_model, device)
+        data_train_metabolism(config, erase, best_model, device, log_file)
     elif 'fly' in config.dataset:
         if 'RNN' in config.graph_model.signal_model_name or 'LSTM' in config.graph_model.signal_model_name:
             data_train_flyvis_RNN(config, erase, best_model, device)
@@ -1661,7 +1661,7 @@ def data_train_flyvis(config, erase, best_model, device):
 
 
 
-def data_train_metabolism(config, erase, best_model, device):
+def data_train_metabolism(config, erase, best_model, device, log_file=None):
     """Train a model to recover stoichiometric weights and external modulation.
 
     Combines the edge-weight recovery approach of data_train_flyvis with the
@@ -1776,33 +1776,47 @@ def data_train_metabolism(config, erase, best_model, device):
         start_epoch = int(best_model.split('_')[0])
         print(f'state_dict loaded, start_epoch={start_epoch}')
 
-    # --- optimizer ---
+    # --- optimizer (custom param groups for metabolism) ---
     lr = train_config.learning_rate_start
-    lr_update = train_config.learning_rate_update_start or lr
-    lr_embedding = train_config.learning_rate_embedding_start
-    lr_W = train_config.learning_rate_W_start
-    learning_rate_NNR = train_config.learning_rate_NNR
-    learning_rate_NNR_f = train_config.learning_rate_NNR_f
+    lr_S = train_config.learning_rate_S_start
 
-    optimizer, n_total_params = set_trainable_parameters(
-        model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update,
-        lr_W=lr_W, learning_rate_NNR=learning_rate_NNR,
-        learning_rate_NNR_f=learning_rate_NNR_f,
-    )
+    # separate stoichiometric params from MLP/rate params
+    stoich_params = []
+    other_params = []
+    for name, p in model.named_parameters():
+        if 'sto_' in name:
+            stoich_params.append(p)
+        elif 'NNR_f' in name:
+            continue  # handled by optimizer_f
+        else:
+            other_params.append(p)
+
+    param_groups = [{'params': other_params, 'lr': lr}]
+    if stoich_params and lr_S > 0:
+        param_groups.append({'params': stoich_params, 'lr': lr_S})
+    elif stoich_params:
+        # lr_S=0 means stoichiometry learns at same rate as MLPs
+        param_groups[0]['params'].extend(stoich_params)
+
+    optimizer = torch.optim.Adam(param_groups)
+    n_total_params = sum(p.numel() for g in param_groups for p in g['params'])
     model.train()
-    print(f'learning rates: lr {lr}, lr_W {lr_W}, lr_NNR_f {learning_rate_NNR_f}')
 
-    # --- regularizer ---
-    regularizer = LossRegularizer(
-        train_config=train_config,
-        model_config=model_config,
-        activity_column=3,
-        plot_frequency=1,
-        n_neurons=n_metabolites,
-        trainer_type='signal',
-    )
+    # --- S regularization coefficients ---
+    coeff_S_L1 = train_config.coeff_S_L1
+    coeff_S_L2 = train_config.coeff_S_L2
+    coeff_S_mass = train_config.coeff_mass_conservation
+    n_epochs_init = getattr(train_config, 'n_epochs_init', 0)
+    first_coeff_L1 = getattr(train_config, 'first_coeff_L1', coeff_S_L1)
 
-    ids = np.arange(n_metabolites)
+    # pre-compute per-reaction scatter indices for mass conservation penalty
+    rxn_all = model.rxn_all
+
+    print(f'learning rates: lr={lr}, lr_S={lr_S}')
+    print(f'S regularization: coeff_S_L1={coeff_S_L1}, coeff_S_L2={coeff_S_L2}, coeff_mass={coeff_S_mass}')
+    if n_epochs_init > 0:
+        print(f'two-phase: first {n_epochs_init} epochs with L1={first_coeff_L1}, then L1={coeff_S_L1}')
+
     list_loss = []
     list_loss_regul = []
     loss_components = {'loss': []}
@@ -1822,16 +1836,22 @@ def data_train_metabolism(config, erase, best_model, device):
         total_loss = 0
         total_loss_regul = 0
 
-        regularizer.set_epoch(epoch, plot_frequency)
+        # two-phase L1: use first_coeff_L1 during n_epochs_init, then coeff_S_L1
+        if n_epochs_init > 0 and epoch < n_epochs_init:
+            current_L1 = first_coeff_L1
+        else:
+            current_L1 = coeff_S_L1
 
-        for N in trange(Niter, ncols=150):
+        last_S_r2 = None
+        pbar = trange(Niter, ncols=100)
+        for N in pbar:
 
             optimizer.zero_grad()
             if optimizer_f is not None:
                 optimizer_f.zero_grad()
 
             loss = torch.zeros(1, device=device)
-            regularizer.reset_iteration()
+            regul_loss_val = 0.0
             run = np.random.randint(n_runs)
 
             for batch in range(batch_size):
@@ -1891,12 +1911,27 @@ def data_train_metabolism(config, erase, best_model, device):
                 # prediction loss
                 loss = loss + (pred.squeeze() - y.squeeze()).norm(2)
 
-            # regularization (no edges argument — bipartite graph is internal)
-            regul_loss = regularizer.compute(
-                model=model, x=x, in_features=None, ids=ids,
-                ids_batch=None, edges=None, device=device, xnorm=xnorm,
-            )
-            loss = loss + regul_loss
+            # S regularization: L1 + L2 on learnable stoichiometric coefficients
+            if current_L1 > 0:
+                regul_S_L1 = model.sto_all.norm(1) * current_L1
+                loss = loss + regul_S_L1
+                regul_loss_val += regul_S_L1.item()
+            if coeff_S_L2 > 0:
+                regul_S_L2 = model.sto_all.norm(2) * coeff_S_L2
+                loss = loss + regul_S_L2
+                regul_loss_val += regul_S_L2.item()
+
+            # mass conservation: penalize non-zero column sums of S
+            # sum_i S[i,j] = 0 means substrates consumed = products produced
+            if coeff_S_mass > 0:
+                col_sums = torch.zeros(
+                    model.n_rxn, dtype=model.sto_all.dtype,
+                    device=model.sto_all.device,
+                )
+                col_sums.index_add_(0, rxn_all, model.sto_all)
+                regul_mass = col_sums.pow(2).mean() * coeff_S_mass
+                loss = loss + regul_mass
+                regul_loss_val += regul_mass.item()
 
             # SIREN omega regularization
             coeff_omega_f_L2 = getattr(train_config, 'coeff_omega_f_L2', 0.0)
@@ -1910,31 +1945,41 @@ def data_train_metabolism(config, erase, best_model, device):
                 optimizer_f.step()
 
             total_loss += loss.item()
-            total_loss_regul += regularizer.get_iteration_total()
-            regularizer.finalize_iteration()
+            total_loss_regul += regul_loss_val
 
             # periodic plotting
-            if regularizer.should_record():
+            if N % plot_frequency == 0 or N == 0:
                 current_loss = loss.item()
-                regul_this_iter = regularizer.get_iteration_total()
                 loss_components['loss'].append(
-                    (current_loss - regul_this_iter) / n_metabolites
+                    (current_loss - regul_loss_val) / n_metabolites
                 )
-                plot_dict = {
-                    **regularizer.get_history(), 'loss': loss_components['loss']
-                }
+                plot_dict = {'loss': loss_components['loss']}
                 plot_signal_loss(
                     plot_dict, log_dir, epoch=epoch, Niter=N, debug=False,
                     current_loss=current_loss / n_metabolites,
-                    current_regul=regul_this_iter / n_metabolites,
+                    current_regul=regul_loss_val / n_metabolites,
                     total_loss=total_loss, total_loss_regul=total_loss_regul,
                 )
 
-                # plot learned stoichiometry vs ground truth
+                # plot learned stoichiometry vs ground truth (scatter + heatmaps)
                 with torch.no_grad():
-                    _plot_stoichiometry_comparison(
+                    last_S_r2 = _plot_stoichiometry_comparison(
                         model, gt_S, stoich_graph, n_metabolites, log_dir,
                         epoch, N,
+                    )
+
+                # update progress bar with color-coded R²
+                if last_S_r2 is not None:
+                    if last_S_r2 > 0.9:
+                        r2_color = '\033[92m'   # green
+                    elif last_S_r2 > 0.7:
+                        r2_color = '\033[93m'   # yellow
+                    elif last_S_r2 > 0.3:
+                        r2_color = '\033[38;5;208m'  # orange
+                    else:
+                        r2_color = '\033[91m'   # red
+                    pbar.set_postfix_str(
+                        f'{r2_color}R\u00b2={last_S_r2:.3f}\033[0m'
                     )
 
                 # save checkpoint
@@ -2013,10 +2058,265 @@ def data_train_metabolism(config, erase, best_model, device):
         )
         plt.close()
 
+    # --- final analysis: compute R² and write to log ---
+    with torch.no_grad():
+        final_r2 = _plot_stoichiometry_comparison(
+            model, gt_S, stoich_graph, n_metabolites, log_dir,
+            epoch='final', N=0,
+        )
+    final_loss = list_loss[-1] if list_loss else 0.0
+
+    print(f"\n=== Training complete ===")
+    print(f"  final prediction loss: {final_loss:.6f}")
+    print(f"  stoichiometry R²: {final_r2:.4f}")
+    logger.info(f"Final prediction loss: {final_loss:.6f}")
+    logger.info(f"Stoichiometry R²: {final_r2:.4f}")
+
+    if log_file is not None:
+        log_file.write(f"final_loss: {final_loss:.6f}\n")
+        log_file.write(f"stoichiometry_R2: {final_r2:.4f}\n")
+
+
+def data_test_metabolism(config, best_model=20, n_rollout_frames=600, device=None, log_file=None):
+    """Test a trained metabolism model: rollout + stoichiometry comparison.
+
+    Loads the trained Metabolism_Propagation model, runs a rollout over
+    n_rollout_frames, and computes metrics comparing predicted vs true
+    concentration trajectories and learned vs true stoichiometric matrix.
+
+    Writes metrics to log_file (analysis.log) if provided.
+    """
+    simulation_config = config.simulation
+    train_config = config.training
+    model_config = config.graph_model
+
+    dataset_name = config.dataset
+    n_runs = train_config.n_runs
+    n_frames = simulation_config.n_frames
+    n_metabolites = simulation_config.n_metabolites
+    delta_t = simulation_config.delta_t
+
+    # --- determine log_dir ---
+    log_dir = os.path.join('./log', 'try_{}'.format(dataset_name))
+    print(f'log_dir: {log_dir}')
+
+    # --- load data ---
+    x_list = []
+    y_list = []
+    for run in range(n_runs):
+        x = load_simulation_data(f'graphs_data/{dataset_name}/x_list_{run}')
+        x_list.append(x)
+        y = load_simulation_data(f'graphs_data/{dataset_name}/y_list_{run}')
+        y_list.append(y)
+
+    # --- load stoichiometric graph and ground truth ---
+    stoich_graph = torch.load(
+        f'graphs_data/{dataset_name}/stoich_graph.pt', map_location=device
+    )
+    gt_S = torch.load(
+        f'graphs_data/{dataset_name}/stoichiometry.pt', map_location=device
+    )
+
+    # --- load normalization ---
+    ynorm = torch.load(os.path.join(log_dir, 'ynorm.pt'), map_location=device)
+
+    # --- load trained model ---
+    from NeuralGraph.models.Metabolism_Propagation import Metabolism_Propagation
+    model = Metabolism_Propagation(config=config, device=device)
+    model.load_stoich_graph(stoich_graph)
+    model = model.to(device)
+
+    net = os.path.join(
+        log_dir, 'models',
+        f'best_model_with_{n_runs - 1}_graphs_{best_model}.pt',
+    )
+    print(f'loading model from {net}')
+    state_dict = torch.load(net, map_location=device)
+    model.load_state_dict(state_dict['model_state_dict'])
+    model.eval()
+
+    # --- load SIREN model_f if it exists ---
+    model_f = None
+    model_f_path = os.path.join(
+        log_dir, 'models',
+        f'best_model_f_with_{n_runs - 1}_graphs_{best_model}.pt',
+    )
+    if os.path.exists(model_f_path):
+        model_f = choose_inr_model(
+            config=config, n_neurons=n_metabolites, n_frames=n_frames,
+            x_list=x_list, device=device,
+        )
+        if model_f is not None:
+            state_dict_f = torch.load(model_f_path, map_location=device)
+            model_f.load_state_dict(state_dict_f['model_state_dict'])
+            model_f.eval()
+            print(f'loaded model_f from {model_f_path}')
+
+    # --- stoichiometry R2 (learned vs true S) ---
+    with torch.no_grad():
+        learned_S = torch.zeros_like(gt_S, device='cpu')
+        met_all_cpu = stoich_graph['all'][0].cpu()
+        rxn_all_cpu = stoich_graph['all'][1].cpu()
+        learned_S[met_all_cpu, rxn_all_cpu] = model.sto_all.detach().cpu()
+
+    gt_S_cpu = gt_S.cpu()
+    x_data = to_numpy(gt_S_cpu).flatten()
+    y_data = to_numpy(learned_S).flatten()
+
+    stoich_r2 = 0.0
+    try:
+        lin_fit, _ = curve_fit(linear_model, x_data, y_data)
+        residuals = y_data - linear_model(x_data, *lin_fit)
+        ss_res = np.sum(residuals ** 2)
+        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+        stoich_r2 = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+    except Exception:
+        pass
+
+    print(f'stoichiometry R2: {stoich_r2:.4f}')
+
+    # --- scatter plot: true vs learned S ---
+    out_dir = os.path.join(log_dir, 'tmp_training', 'stoichiometry')
+    os.makedirs(out_dir, exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.scatter(x_data, y_data, s=0.5, c='k', alpha=0.3)
+    ax.set_xlabel(r'true $S_{ij}$', fontsize=18)
+    ax.set_ylabel(r'learned $S_{ij}$', fontsize=18)
+    ax.text(0.05, 0.96, f'$R^2$: {stoich_r2:.3f}', transform=ax.transAxes,
+            fontsize=12, verticalalignment='top')
+    try:
+        ax.text(0.05, 0.92, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+                fontsize=12, verticalalignment='top')
+    except Exception:
+        pass
+    lims = [min(x_data.min(), y_data.min()) - 0.2,
+            max(x_data.max(), y_data.max()) + 0.2]
+    ax.plot(lims, lims, 'r--', alpha=0.5, linewidth=1)
+    ax.set_xlim(lims)
+    ax.set_ylim(lims)
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir, 'scatter_test.png'), dpi=150)
+    plt.close()
+
+    # --- rollout: predict concentration trajectories ---
+    run = 0
+    n_test_frames = min(n_rollout_frames, n_frames - 2)
+    start_frame = 0
+
+    # ground truth and predicted concentration trajectories
+    activity_true = np.zeros((n_metabolites, n_test_frames))
+    activity_pred = np.zeros((n_metabolites, n_test_frames))
+
+    with torch.no_grad():
+        # initialize from ground truth at start_frame
+        x = torch.tensor(
+            x_list[run][start_frame], dtype=torch.float32, device=device
+        )
+
+        for t in trange(n_test_frames, desc='rollout', ncols=100):
+            frame_idx = start_frame + t
+
+            # record ground truth concentrations
+            x_gt = torch.tensor(
+                x_list[run][frame_idx], dtype=torch.float32, device=device
+            )
+            activity_true[:, t] = to_numpy(x_gt[:, 3])
+            activity_pred[:, t] = to_numpy(x[:, 3])
+
+            # inject external input from SIREN if available
+            if model_f is not None:
+                external_input_type = simulation_config.external_input_type
+                n_input_met = simulation_config.n_input_neurons
+                inr_type = model_config.inr_type
+                nnr_f_T_period = model_config.nnr_f_T_period
+
+                if external_input_type == 'visual':
+                    if hasattr(model, 'NNR_f'):
+                        x[:n_input_met, 4:5] = model.forward_visual(x, frame_idx)
+                    else:
+                        x[:n_input_met, 4:5] = model_f(
+                            time=frame_idx / n_frames
+                        ) ** 2
+                        x[n_input_met:, 4:5] = 1
+                elif inr_type == 'siren_t':
+                    t_norm = torch.tensor(
+                        [[frame_idx / nnr_f_T_period]],
+                        dtype=torch.float32, device=device,
+                    )
+                    x[:, 4] = model_f(t_norm).squeeze()
+
+            # forward pass: predict dx/dt
+            dataset = pyg_Data(x=x, pos=x[:, 1:3])
+            dxdt = model(dataset)
+
+            # Euler integration: c(t+1) = c(t) + dc/dt * delta_t
+            x[:, 3:4] = x[:, 3:4] + dxdt * delta_t
+
+    # --- compute test metrics ---
+    # per-metabolite R2
+    r2_list = []
+    for i in range(n_metabolites):
+        gt_i = activity_true[i, :]
+        pred_i = activity_pred[i, :]
+        ss_res = np.sum((gt_i - pred_i) ** 2)
+        ss_tot = np.sum((gt_i - np.mean(gt_i)) ** 2)
+        if ss_tot > 0:
+            r2_list.append(1 - ss_res / ss_tot)
+    test_r2 = np.mean(r2_list) if r2_list else 0.0
+
+    # per-metabolite Pearson correlation
+    pearson_list = []
+    for i in range(n_metabolites):
+        gt_i = activity_true[i, :]
+        pred_i = activity_pred[i, :]
+        if np.std(gt_i) > 1e-12 and np.std(pred_i) > 1e-12:
+            r = np.corrcoef(gt_i, pred_i)[0, 1]
+            if not np.isnan(r):
+                pearson_list.append(r)
+    test_pearson = np.mean(pearson_list) if pearson_list else 0.0
+
+    print(f'\n=== Test results ===')
+    print(f'  stoichiometry R2: {stoich_r2:.4f}')
+    print(f'  test R2 (rollout): {test_r2:.4f}')
+    print(f'  test Pearson: {test_pearson:.4f}')
+
+    # --- plot rollout: a few example metabolites ---
+    out_dir_rollout = os.path.join(log_dir, 'tmp_training', 'rollout')
+    os.makedirs(out_dir_rollout, exist_ok=True)
+
+    n_plot = min(10, n_metabolites)
+    fig, axes = plt.subplots(n_plot, 1, figsize=(12, 2 * n_plot), sharex=True)
+    if n_plot == 1:
+        axes = [axes]
+    for i in range(n_plot):
+        axes[i].plot(activity_true[i, :], 'k-', linewidth=1, label='true')
+        axes[i].plot(activity_pred[i, :], 'r--', linewidth=1, label='predicted')
+        axes[i].set_ylabel(f'met {i}', fontsize=8)
+        if i == 0:
+            axes[i].legend(fontsize=8)
+    axes[-1].set_xlabel('frame')
+    plt.suptitle(f'Rollout (R2={test_r2:.3f}, Pearson={test_pearson:.3f})')
+    plt.tight_layout()
+    plt.savefig(os.path.join(out_dir_rollout, 'rollout_test.png'), dpi=150)
+    plt.close()
+
+    # --- write to analysis log ---
+    if log_file is not None:
+        log_file.write(f"stoichiometry_R2: {stoich_r2:.4f}\n")
+        log_file.write(f"test_R2: {test_r2:.4f}\n")
+        log_file.write(f"test_pearson: {test_pearson:.4f}\n")
+
 
 def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
                                    log_dir, epoch, N):
-    """Plot learned vs ground-truth stoichiometric matrix during training."""
+    """Plot learned vs ground-truth stoichiometric matrix + scatter with R².
+
+    Returns
+    -------
+    r_squared : float
+        R² between true and learned stoichiometric coefficients.
+    """
     out_dir = f"./{log_dir}/tmp_training/stoichiometry"
     os.makedirs(out_dir, exist_ok=True)
 
@@ -2024,12 +2324,14 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
     met_all = stoich_graph['all'][0].cpu()
     rxn_all = stoich_graph['all'][1].cpu()
     learned_S[met_all, rxn_all] = model.sto_all.detach().cpu()
+    gt_S_cpu = gt_S.cpu()
 
+    # --- heatmap comparison (3 panels) ---
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     plt.style.use('dark_background')
 
     im0 = axes[0].imshow(
-        to_numpy(gt_S), aspect='auto', cmap='bwr', vmin=-3, vmax=3,
+        to_numpy(gt_S_cpu), aspect='auto', cmap='bwr', vmin=-3, vmax=3,
     )
     axes[0].set_title('Ground Truth', fontsize=12)
     plt.colorbar(im0, ax=axes[0], fraction=0.046)
@@ -2040,8 +2342,7 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
     axes[1].set_title(f'Learned (epoch {epoch}, iter {N})', fontsize=12)
     plt.colorbar(im1, ax=axes[1], fraction=0.046)
 
-    gt_S = gt_S.cpu()
-    diff = learned_S - gt_S
+    diff = learned_S - gt_S_cpu
     im2 = axes[2].imshow(
         to_numpy(diff), aspect='auto', cmap='bwr', vmin=-3, vmax=3,
     )
@@ -2059,6 +2360,43 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
         bbox_inches='tight',
     )
     plt.close()
+
+    # --- scatter plot: true vs learned S with R² ---
+    x_data = to_numpy(gt_S_cpu).flatten()
+    y_data = to_numpy(learned_S).flatten()
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.scatter(x_data, y_data, s=0.5, c='k', alpha=0.3)
+    ax.set_xlabel(r'true $S_{ij}$', fontsize=18)
+    ax.set_ylabel(r'learned $S_{ij}$', fontsize=18)
+
+    r_squared = 0.0
+    try:
+        lin_fit, _ = curve_fit(linear_model, x_data, y_data)
+        residuals = y_data - linear_model(x_data, *lin_fit)
+        ss_res = np.sum(residuals ** 2)
+        ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
+        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0.0
+        ax.text(0.05, 0.96, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
+                fontsize=12, verticalalignment='top')
+        ax.text(0.05, 0.92, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+                fontsize=12, verticalalignment='top')
+    except Exception:
+        pass
+
+    lims = [min(x_data.min(), y_data.min()) - 0.2,
+            max(x_data.max(), y_data.max()) + 0.2]
+    ax.plot(lims, lims, 'r--', alpha=0.5, linewidth=1)
+    ax.set_xlim(lims)
+    ax.set_ylim(lims)
+    plt.tight_layout()
+    plt.savefig(
+        f"{out_dir}/scatter_{epoch}_{N}.png", dpi=87,
+        bbox_inches='tight',
+    )
+    plt.close()
+
+    return r_squared
 
 
 def data_train_flyvis_RNN(config, erase, best_model, device):
@@ -3135,7 +3473,10 @@ def data_test(config=None, config_file=None, visualize=False, style='color frame
     if test_mode == "":
         test_mode = "test_ablation_0"
 
-    if 'fly' in config.dataset:
+    if 'metabolism' in config.dataset:
+        data_test_metabolism(config, best_model, n_rollout_frames, device, log_file)
+
+    elif 'fly' in config.dataset:
         data_test_flyvis(
             config,
             visualize,
@@ -4217,7 +4558,6 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
         print(f"Pearson r: \033[92m{np.nanmean(pearson_array):.4f}\033[0m +/- {np.nanstd(pearson_array):.4f} [{np.nanmin(pearson_array):.4f}, {np.nanmax(pearson_array):.4f}]")
         if log_file:
             log_file.write(f"test_pearson: {np.nanmean(pearson_array):.4f}\n")
-
 
 
 def data_test_flyvis(

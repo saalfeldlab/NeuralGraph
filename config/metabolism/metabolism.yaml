@@ -1,5 +1,5 @@
-description: "metabolic network - 100 metabolites, 64 reactions, max 5 per reaction"
-dataset: "metabolism_1"
+description: "metabolic network - 100 metabolites, 256 reactions, max 4 per reaction (Claude exploration)"
+dataset: "metabolism"
 
 simulation:
   n_metabolites: 100
@@ -42,6 +42,13 @@ graph_model:
 
   aggr_type: "add"
   update_type: "none"
+
+claude:
+  n_epochs: 1
+  data_augmentation_loop: 1000
+  n_iter_block: 24
+  ucb_c: 1.414
+  node_name: "a100"
 
 plotting:
   colormap: "tab20"
