@@ -18,7 +18,7 @@ from LatentEvolution.diagnostics import (
     compute_linear_interpolation_baseline,
     compute_rollout_stability_metrics,
     plot_long_rollout_mse,
-    plot_time_aligned_mse,
+    plot_short_rollout_mse,
 )
 
 
@@ -208,9 +208,6 @@ def run_validation_diagnostics(
 
     # baselines
     constant_baseline = compute_constant_baseline(val_data, start_indices, n_rollout_steps)
-    linear_interp_baseline = compute_linear_interpolation_baseline(
-        val_data, start_indices, n_rollout_steps, time_units, evolve_multiple_steps
-    )
 
     # metrics (average over neurons first, then over starts)
     mse_avg_neurons = mse_array.mean(axis=2)  # (n_starts, n_steps)
@@ -247,17 +244,23 @@ def run_validation_diagnostics(
     )
     figures[f"multi_start_{n_rollout_steps}step_latent_rollout_mses_by_time"] = fig_long
 
-    # zoomed time-aligned plot
-    fig_zoomed = plot_time_aligned_mse(
+    # short rollout plot (fixed 250-step window)
+    short_rollout_steps = 250
+    baseline_ems = -(-short_rollout_steps // time_units)
+    short_linear_interp = compute_linear_interpolation_baseline(
+        val_data, start_indices, n_rollout_steps, time_units, baseline_ems,
+    )
+    fig_short = plot_short_rollout_mse(
         mse_array=mse_array,
         constant_baseline=constant_baseline,
-        linear_interp_baseline=linear_interp_baseline,
         time_units=time_units,
         evolve_multiple_steps=evolve_multiple_steps,
         rollout_type="latent",
+        n_steps=short_rollout_steps,
+        linear_interp_baseline=short_linear_interp,
         column_to_model=cfg.training.column_to_model,
     )
-    figures["time_aligned_mse_latent"] = fig_zoomed
+    figures["short_rollout_mse_latent"] = fig_short
 
     return metrics, figures
 
@@ -320,9 +323,6 @@ def run_validation_diagnostics_interp(
 
     # baselines
     constant_baseline = compute_constant_baseline(val_data, start_indices, n_rollout_steps)
-    linear_interp_baseline = compute_linear_interpolation_baseline(
-        val_data, start_indices, n_rollout_steps, time_units, evolve_multiple_steps
-    )
 
     # metrics (average over neurons first, then over starts)
     mse_avg_neurons = mse_array.mean(axis=2)  # (n_starts, n_steps)
@@ -359,16 +359,22 @@ def run_validation_diagnostics_interp(
     )
     figures[f"multi_start_{n_rollout_steps}step_latent_rollout_mses_by_time"] = fig_long
 
-    # zoomed time-aligned plot
-    fig_zoomed = plot_time_aligned_mse(
+    # short rollout plot (fixed 250-step window)
+    short_rollout_steps = 250
+    baseline_ems = -(-short_rollout_steps // time_units)
+    short_linear_interp = compute_linear_interpolation_baseline(
+        val_data, start_indices, n_rollout_steps, time_units, baseline_ems,
+    )
+    fig_short = plot_short_rollout_mse(
         mse_array=mse_array,
         constant_baseline=constant_baseline,
-        linear_interp_baseline=linear_interp_baseline,
         time_units=time_units,
         evolve_multiple_steps=evolve_multiple_steps,
         rollout_type="latent",
+        n_steps=short_rollout_steps,
+        linear_interp_baseline=short_linear_interp,
         column_to_model=cfg.training.column_to_model,
     )
-    figures["time_aligned_mse_latent"] = fig_zoomed
+    figures["short_rollout_mse_latent"] = fig_short
 
     return metrics, figures

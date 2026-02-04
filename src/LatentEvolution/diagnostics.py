@@ -9,7 +9,8 @@ from __future__ import annotations
 
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -40,6 +41,16 @@ class PlotMode(StrEnum):
 # rollout types to evaluate - set to ("latent",) to skip activity rollouts
 ROLLOUT_TYPES: tuple[str, ...] = ("latent",)
 # ROLLOUT_TYPES: tuple[str, ...] = ("activity", "latent")  # uncomment to include activity rollouts
+
+
+@dataclass
+class MultiStartRolloutResults:
+    """results from multi-start rollout evaluation."""
+    mse_array: np.ndarray  # (n_starts, n_steps, n_neurons)
+    start_indices: list[int]
+    best_segment: tuple[int, np.ndarray, np.ndarray]  # (start_idx, real, predicted)
+    worst_segment: tuple[int, np.ndarray, np.ndarray]  # (start_idx, real, predicted)
+    null_model_mse_by_time: np.ndarray  # (n_steps,) constant baseline averaged over starts
 
 
 def plot_recon_error_labeled(true_trace, recon_trace, neuron_data: NeuronData):
@@ -259,48 +270,36 @@ def compute_rollout_stability_metrics(
     return metrics
 
 def compute_multi_start_rollout_mse(
-    model: LatentModel,
+    evolve_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
     val_data: torch.Tensor,
     val_stim: torch.Tensor,
-    neuron_data: NeuronData,
     n_steps: int = 2000,
     n_starts: int = 10,
-    rollout_type: str = "latent",
-    plot_mode: PlotMode = PlotMode.TRAINING,
-    time_units: int = 1,
-    evolve_multiple_steps: int = 1,
-    stimulus_frequency: StimulusFrequency = StimulusFrequency.ALL,
-) -> tuple[np.ndarray, dict[str, plt.Figure], dict[str, float], list[int]]:
+) -> MultiStartRolloutResults:
     """
-    Compute MSE over time from multiple random starting points.
+    compute mse over time from multiple random starting points.
 
-    For each starting point, runs a rollout and computes MSE at each time step
-    for each neuron. Aggregates across starting points to show MSE variability
-    across neurons as a function of rollout time.
+    for each starting point, runs a rollout via evolve_fn and computes mse at
+    each time step for each neuron.
 
-    Args:
-        model: The trained LatentModel
-        val_data: Validation data of shape (T, N) where N is number of neurons
-        val_stim: Validation stimulus of shape (T, S)
-        n_steps: Number of rollout steps (default: 2000)
-        n_starts: Number of random starting points (default: 10)
-        rollout_type: "latent" for latent space rollout, "activity" for activity space
-        time_units: Number of evolver steps per observation interval (from config)
-        evolve_multiple_steps: Number of observation multiples in training (from config)
+    args:
+        evolve_fn: callable(initial_state, stimulus_segment, n_steps) -> predicted_trace
+            initial_state: (neurons,), stimulus_segment: (T, stim_dim),
+            returns (n_steps, neurons)
+        val_data: validation data (T, N)
+        val_stim: validation stimulus (T, S)
+        n_steps: number of rollout steps
+        n_starts: number of random starting points
 
-    Returns:
-        mse_array: Array of shape (n_starts, n_steps, n_neurons) with MSE at each time/neuron
-        figures: figures
-        metrics: Dictionary with stability metrics
-        start_indices: List of start indices used (for recomputing baselines)
+    returns:
+        MultiStartRolloutResults
     """
     assert n_starts > 0
-    # Pick random starting points ensuring we have enough data
     max_start = val_data.shape[0] - n_steps - 1
     if max_start < n_starts:
         raise ValueError(
-            f"Not enough data for {n_starts} starting points with {n_steps} steps. "
-            f"Need at least {n_steps + n_starts + 1} time points, have {val_data.shape[0]}"
+            f"not enough data for {n_starts} starting points with {n_steps} steps. "
+            f"need at least {n_steps + n_starts + 1} time points, have {val_data.shape[0]}"
         )
 
     rng = np.random.default_rng(seed=0)
@@ -310,7 +309,6 @@ def compute_multi_start_rollout_mse(
     mse_array = np.zeros((n_starts, n_steps, n_neurons))
 
     # null model: constant prediction x(t) = x(0)
-    # accumulate mse per time step (averaged over neurons and starts)
     null_model_mse_by_time = np.zeros(n_steps)
 
     best_mse = float("inf")
@@ -320,86 +318,114 @@ def compute_multi_start_rollout_mse(
     worst_segment_data = None
 
     for i, start_idx in enumerate(start_indices):
-
-        # Get initial state and segments
         initial_state = val_data[start_idx]
         stimulus_segment = val_stim[start_idx:start_idx + n_steps]
         real_segment = val_data[start_idx + 1:start_idx + n_steps + 1]
 
-        # compute null model mse: predict x(t) = x(0) for all t
-        # error = real_segment - initial_state (broadcast automatically)
+        # null model mse
         null_squared_error = torch.pow(real_segment - initial_state, 2)
-        # average over neurons for each time step, accumulate over starts
         null_model_mse_by_time += null_squared_error.mean(dim=1).detach().cpu().numpy()
 
-        # Perform rollout
-        if rollout_type == "latent":
-            predicted_segment = evolve_n_steps_latent(
-                model, initial_state, stimulus_segment, n_steps, stimulus_frequency, time_units
-            )
-        else:  # activity
-            predicted_segment = evolve_n_steps_activity(
-                model, initial_state, stimulus_segment, n_steps, stimulus_frequency, time_units
-            )
+        # rollout
+        predicted_segment = evolve_fn(initial_state, stimulus_segment, n_steps)
 
-        # Compute MSE per time step per neuron (squared error, not averaged)
+        # mse per time step per neuron
         squared_error = torch.pow(predicted_segment - real_segment, 2).detach().cpu().numpy()
         mse_array[i] = squared_error
         mean_mse = np.nanmean(squared_error)
+
+        real_np = real_segment.detach().cpu().numpy()
+        pred_np = predicted_segment.detach().cpu().numpy()
+
         if best_segment_data is None:
-            worst_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
-            best_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
+            best_segment_data = (start_idx, real_np, pred_np)
+            worst_segment_data = (start_idx, real_np, pred_np)
             best_mse = mean_mse
             worst_mse = mean_mse
         else:
             if mean_mse > worst_mse:
-                worst_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
+                worst_segment_data = (start_idx, real_np, pred_np)
                 worst_mse = mean_mse
             if mean_mse < best_mse:
-                best_segment_data = (start_idx, real_segment.detach().cpu().numpy(), predicted_segment.detach().cpu().numpy())
+                best_segment_data = (start_idx, real_np, pred_np)
                 best_mse = mean_mse
-        # Clear GPU memory after each rollout
+
         del predicted_segment, real_segment, squared_error
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
 
-    # finalize null model mse (average over starts)
     null_model_mse_by_time /= n_starts
+
+    return MultiStartRolloutResults(
+        mse_array=mse_array,
+        start_indices=start_indices.tolist(),
+        best_segment=best_segment_data,
+        worst_segment=worst_segment_data,
+        null_model_mse_by_time=null_model_mse_by_time,
+    )
+
+
+def plot_multi_start_rollout_figures(
+    results: MultiStartRolloutResults,
+    neuron_data: NeuronData,
+    rollout_type: str,
+    plot_mode: PlotMode,
+    time_units: int,
+    evolve_multiple_steps: int,
+) -> tuple[dict[str, plt.Figure], dict[str, float]]:
+    """
+    create figures and metrics from multi-start rollout results.
+
+    args:
+        results: output from compute_multi_start_rollout_mse
+        neuron_data: neuron type information
+        rollout_type: "latent" or "activity"
+        plot_mode: controls which plots to generate
+        time_units: observation interval
+        evolve_multiple_steps: number of tu-multiples in training
+
+    returns:
+        (figures, metrics)
+    """
+    n_steps = results.mse_array.shape[1]
+    n_starts = results.mse_array.shape[0]
 
     figures = {}
 
-    # plot worst segment
-    start_idx, real_segment, predicted_segment = worst_segment_data
+    # worst segment plots
+    start_idx, real_segment, predicted_segment = results.worst_segment
     if plot_mode.neuron_traces:
         figures[f"worst_{n_steps}step_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
-                real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
-            )
+            real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
+        )
         plt.close()
-    # plot mse vs variance cell type labelled
-    figures[f"worst_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
+    figures[f"worst_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(
+        real_segment, predicted_segment, neuron_data
+    )
 
-    # plot best segment
-    start_idx, real_segment, predicted_segment = best_segment_data
+    # best segment plots
+    start_idx, real_segment, predicted_segment = results.best_segment
     if plot_mode.neuron_traces:
         figures[f"best_{n_steps}step_rollout_{rollout_type}_traces"] = plot_rollout_traces_from_results(
-                real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
-            )
+            real_segment, predicted_segment, neuron_data, rollout_type, start_idx=start_idx
+        )
         plt.close()
-    # plot mse vs variance cell type labelled
-    figures[f"best_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(real_segment, predicted_segment, neuron_data)
+    figures[f"best_{n_steps}step_rollout_{rollout_type}_mse_var_scatter"] = plot_recon_error_labeled(
+        real_segment, predicted_segment, neuron_data
+    )
 
-    # plot mse over time
-    null_models = {"constant prediction": null_model_mse_by_time}
-    fig = plot_long_rollout_mse(mse_array, rollout_type, n_steps, n_starts, null_models)
+    # mse over time plot
+    null_models = {"constant prediction": results.null_model_mse_by_time}
+    fig = plot_long_rollout_mse(results.mse_array, rollout_type, n_steps, n_starts, null_models)
     figures[f"multi_start_{n_steps}step_{rollout_type}_rollout_mses_by_time"] = fig
     plt.close()
 
-    # compute stability metrics
+    # stability metrics
     metrics = compute_rollout_stability_metrics(
-        mse_array, time_units, evolve_multiple_steps, rollout_type, n_steps
+        results.mse_array, time_units, evolve_multiple_steps, rollout_type, n_steps
     )
 
-    return mse_array, figures, metrics, start_indices.tolist()
+    return figures, metrics
 
 
 def compute_linear_interpolation_baseline(
@@ -445,61 +471,67 @@ def compute_linear_interpolation_baseline(
     return mse
 
 
-def plot_time_aligned_mse(
+def plot_short_rollout_mse(
     mse_array: np.ndarray,
     constant_baseline: np.ndarray,
-    linear_interp_baseline: np.ndarray,
     time_units: int,
     evolve_multiple_steps: int,
     rollout_type: str,
+    n_steps: int = 250,
+    linear_interp_baseline: np.ndarray | None = None,
     column_to_model: str = "CALCIUM",
 ) -> plt.Figure:
     """
-    plot mse at each time step for time_aligned training.
+    plot mse at each time step for the first n_steps of a rollout.
 
-    uses existing rollout mse_array and baselines to show model performance
-    at intermediate steps and training points.
+    fixed window (default 250 steps) so plots are comparable across runs
+    with different tu/ems. shows constant baseline always, linear
+    interpolation baseline only when provided (tu > 1).
 
     args:
-        mse_array: model mse array (n_starts, n_steps, n_neurons)
-        constant_baseline: constant model baseline (n_steps,)
-        linear_interp_baseline: linear interpolation baseline (tu*ems,)
+        mse_array: model mse array (n_starts, n_steps_total, n_neurons)
+        constant_baseline: constant model baseline (>= n_steps,)
         time_units: observation interval (tu)
         evolve_multiple_steps: number of multiples (ems)
-        rollout_type: "latent" or "activity"
+        rollout_type: "latent", "activity", or "stimulus_only"
+        n_steps: number of steps to plot (default 250)
+        linear_interp_baseline: linear interpolation baseline (>= n_steps,),
+            or None to omit
 
     returns:
         matplotlib figure
     """
-    total_steps = time_units * evolve_multiple_steps
-
     # average mse over neurons and starts for model
-    model_mse = mse_array[:, :total_steps, :].mean(axis=(0, 2))  # (total_steps,)
+    model_mse = mse_array[:, :n_steps, :].mean(axis=(0, 2))  # (n_steps,)
 
-    time_steps = np.arange(total_steps)
+    time_steps = np.arange(n_steps)
 
-    fig, ax = plt.subplots(figsize=(14, 8))
+    fig, ax = plt.subplots(figsize=(14, 6))
 
     # plot baselines first (background)
-    ax.plot(time_steps, constant_baseline[:total_steps], linewidth=2,
+    ax.plot(time_steps, constant_baseline[:n_steps], linewidth=2,
             label='constant baseline', linestyle='--', alpha=0.7, color="red")
-    ax.plot(time_steps, linear_interp_baseline, linewidth=2,
-            label='linear interpolation baseline', linestyle='--', alpha=0.7, color="green")
+
+    if linear_interp_baseline is not None:
+        ax.plot(time_steps, linear_interp_baseline[:n_steps], linewidth=2,
+                label='linear interpolation baseline', linestyle='--', alpha=0.7, color="green")
 
     # plot model mse line
     ax.plot(time_steps, model_mse, linewidth=2, label='model', color='C0')
 
-    # mark all data points with small markers (no legend entry)
-    ax.scatter(time_steps, model_mse, color='C0', s=30, zorder=4, marker='o', alpha=0.8)
-    ax.scatter(time_steps, linear_interp_baseline, color='green', s=30, zorder=4, marker='o', alpha=0.8)
-
     # mark training points (where loss is applied) with larger markers
     # loss is applied at steps tu-1, 2*tu-1, ..., ems*tu-1 (0-indexed)
+    training_horizon = time_units * evolve_multiple_steps
     training_points = [i * time_units - 1 for i in range(1, evolve_multiple_steps + 1)]
-    training_points = [p for p in training_points if p < total_steps]
+    training_points = [p for p in training_points if p < n_steps]
     if training_points:
         ax.scatter(training_points, model_mse[training_points],
-                   color='C0', s=100, zorder=5, marker='o', label='training points (loss applied)')
+                   color='C0', s=80, zorder=5, marker='o', label='training points (loss applied)')
+
+    # vertical line at training horizon
+    if training_horizon < n_steps:
+        ax.axvline(x=training_horizon - 1, color='gray', linestyle=':', alpha=0.5,
+                   label=f'training horizon (tu*ems={training_horizon})')
 
     ax.set_xlabel('time steps', fontsize=14)
     ax.set_ylabel('mse (averaged over neurons)', fontsize=14)
@@ -507,7 +539,7 @@ def plot_time_aligned_mse(
     ylim_min = 1e-4 if column_to_model == "CALCIUM" else 1e-3
     ax.set_ylim(ylim_min, 1.0)
     ax.set_title(
-        f'time-aligned mse analysis - {rollout_type} rollout (tu={time_units}, ems={evolve_multiple_steps})',
+        f'short rollout mse - {rollout_type} (tu={time_units}, ems={evolve_multiple_steps})',
         fontsize=16,
         fontweight='bold'
     )
@@ -556,65 +588,86 @@ def run_validation_diagnostics(
     time_units = config.training.time_units
     evolve_multiple_steps = config.training.evolve_multiple_steps
 
+    stimulus_frequency = config.training.stimulus_frequency
+
     # Multi-start rollout evaluation
     for rollout_type in ROLLOUT_TYPES:
+        # create evolve_fn for this rollout type
+        if rollout_type == "latent":
+            def evolve_fn(initial_state, stimulus_segment, n_steps):
+                return evolve_n_steps_latent(
+                    model, initial_state, stimulus_segment, n_steps,
+                    stimulus_frequency, time_units,
+                )
+        else:
+            def evolve_fn(initial_state, stimulus_segment, n_steps):
+                return evolve_n_steps_activity(
+                    model, initial_state, stimulus_segment, n_steps,
+                    stimulus_frequency, time_units,
+                )
+
         with torch.no_grad():
-            mse_array, new_figs, new_metrics, start_indices = compute_multi_start_rollout_mse(
-                model, val_data, val_stim, neuron_data, n_steps=2000, n_starts=20, rollout_type=rollout_type,
-                plot_mode=plot_mode, time_units=time_units, evolve_multiple_steps=evolve_multiple_steps,
-                stimulus_frequency=config.training.stimulus_frequency
+            results = compute_multi_start_rollout_mse(
+                evolve_fn, val_data, val_stim, n_steps=2000, n_starts=20,
             )
+
+        new_figs, new_metrics = plot_multi_start_rollout_figures(
+            results, neuron_data, rollout_type, plot_mode,
+            time_units, evolve_multiple_steps,
+        )
         metrics.update(new_metrics)
         figures.update(new_figs)
 
-        # time-aligned mse analysis (only if tu > 1)
+        # short rollout mse plot (fixed 250-step window, comparable across runs)
+        short_rollout_steps = 250
+        print(f"computing short rollout mse for {rollout_type} rollout...")
+
+        # constant baseline
+        constant_baseline_accumulator = np.zeros(short_rollout_steps)
+        for start_idx in results.start_indices:
+            x_0 = val_data[start_idx]
+            ground_truth = val_data[start_idx + 1:start_idx + 1 + short_rollout_steps]
+            constant_pred = x_0.unsqueeze(0).expand(ground_truth.shape[0], -1)
+            constant_se = torch.pow(constant_pred - ground_truth, 2).mean(dim=1)
+            constant_baseline_accumulator += constant_se.detach().cpu().numpy()
+        constant_baseline = constant_baseline_accumulator / len(results.start_indices)
+
+        # linear interpolation baseline (only meaningful when tu > 1)
+        linear_interp_baseline = None
         if time_units > 1:
-            print(f"computing time-aligned mse analysis for {rollout_type} rollout...")
-
-            # compute linear interpolation baseline (only new computation needed)
+            baseline_ems = -(-short_rollout_steps // time_units)  # ceil division
             linear_interp_baseline = compute_linear_interpolation_baseline(
-                val_data, start_indices, mse_array.shape[1], time_units, evolve_multiple_steps
+                val_data, results.start_indices, results.mse_array.shape[1],
+                time_units, baseline_ems,
             )
 
-            # compute constant baseline from existing data
-            total_steps = time_units * evolve_multiple_steps
-            constant_baseline_accumulator = np.zeros(total_steps)
-            for start_idx in start_indices:
-                x_0 = val_data[start_idx]
-                ground_truth = val_data[start_idx + 1:start_idx + 1 + total_steps]
-                constant_pred = x_0.unsqueeze(0).expand(ground_truth.shape[0], -1)
-                constant_se = torch.pow(constant_pred - ground_truth, 2).mean(dim=1)
-                constant_baseline_accumulator += constant_se.detach().cpu().numpy()
-            constant_baseline = constant_baseline_accumulator / len(start_indices)
+        fig = plot_short_rollout_mse(
+            results.mse_array, constant_baseline,
+            time_units, evolve_multiple_steps, rollout_type,
+            n_steps=short_rollout_steps,
+            linear_interp_baseline=linear_interp_baseline,
+            column_to_model=config.training.column_to_model,
+        )
+        figures[f"short_rollout_mse_{rollout_type}"] = fig
 
-            # create plot
-            fig = plot_time_aligned_mse(
-                mse_array, constant_baseline, linear_interp_baseline,
-                time_units, evolve_multiple_steps, rollout_type,
-                column_to_model=config.training.column_to_model,
-            )
-            figures[f"time_aligned_mse_{rollout_type}"] = fig
+        # metrics at training points
+        total_steps = time_units * evolve_multiple_steps
+        model_mse_avg = results.mse_array[:, :total_steps, :].mean(axis=(0, 2))
+        for m in range(1, evolve_multiple_steps + 1):
+            step_idx = m * time_units - 1
+            if step_idx < len(model_mse_avg):
+                metrics[f"short_rollout_mse_{rollout_type}_at_{m}tu"] = float(model_mse_avg[step_idx])
 
-            # add scalar metrics
-            model_mse_avg = mse_array[:, :total_steps, :].mean(axis=(0, 2))
-            for m in range(1, evolve_multiple_steps + 1):
-                step_idx = m * time_units - 1
-                if step_idx < len(model_mse_avg):
-                    metrics[f"time_aligned_mse_{rollout_type}_at_{m}tu"] = float(model_mse_avg[step_idx])
+        training_point_indices = set([i * time_units - 1 for i in range(1, evolve_multiple_steps + 1)])
+        intermediate_indices = [i for i in range(len(model_mse_avg)) if i not in training_point_indices]
+        if intermediate_indices:
+            metrics[f"short_rollout_mse_{rollout_type}_intermediate_avg"] = float(model_mse_avg[intermediate_indices].mean())
 
-            # intermediate steps average (excluding training points)
-            training_point_indices = set([i * time_units - 1 for i in range(1, evolve_multiple_steps + 1)])
-            intermediate_indices = [i for i in range(len(model_mse_avg)) if i not in training_point_indices]
-            if intermediate_indices:
-                metrics[f"time_aligned_mse_{rollout_type}_intermediate_avg"] = float(model_mse_avg[intermediate_indices].mean())
-
-            # max intervening mse between 0 and tu-1 (for early stopping)
-            # use max over starts (worst case) instead of mean
-            model_mse_max_over_starts = mse_array[:, :total_steps, :].mean(axis=2).max(axis=0)  # max over starts, avg over neurons
-            if time_units > 1:
-                intervening_first_window = list(range(time_units - 1))  # 0 to tu-2 (excluding tu-1 which is the loss point)
-                if intervening_first_window:
-                    metrics[f"time_aligned_mse_{rollout_type}_max_intervening_0_to_tu"] = float(model_mse_max_over_starts[intervening_first_window].max())
+        if time_units > 1:
+            model_mse_max_over_starts = results.mse_array[:, :total_steps, :].mean(axis=2).max(axis=0)
+            intervening_first_window = list(range(time_units - 1))
+            if intervening_first_window:
+                metrics[f"short_rollout_mse_{rollout_type}_max_intervening_0_to_tu"] = float(model_mse_max_over_starts[intervening_first_window].max())
 
     if plot_mode.save_figures:
         for key, fig in figures.items():

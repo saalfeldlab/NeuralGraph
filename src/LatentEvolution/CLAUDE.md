@@ -31,6 +31,23 @@ stim(t) --> stim_encoder --> z_s(t) [64]
 - **evolver**: MLPWithSkips with Tanh. residual update, zero-initialized (starts as identity).
 - **stimulus encoder**: 3-layer MLP (1736 -> 64 dims), optionally pretrained as autoencoder.
 
+## stimulus-only null model
+
+baseline model that predicts neural activity from stimulus context alone, without encoder/decoder/latent space. tests whether stimulus is sufficient to explain activity. implemented in `stimulus_only.py`.
+
+```
+stim[t-tu:t] --> stim_encoder (per frame) --> flatten --> predictor MLP --> x_hat(t) [N]
+```
+
+- **stimulus encoder**: same architecture as EED stimulus encoder, optionally pretrained as autoencoder.
+- **predictor**: MLP that maps flattened encoded stimulus context (tu frames) to neural activity.
+- non-autoregressive: each prediction is independent given stimulus context.
+- rollout start points constrained to >= tu so all predictions use real (not zero-padded) stimulus context.
+
+```bash
+python stimulus_only.py <experiment_name> stimulus_only_20step.yaml [--overrides]
+```
+
 ## training files
 
 | file | role |
@@ -38,6 +55,7 @@ stim(t) --> stim_encoder --> z_s(t) [64]
 | `latent.py` | time-aligned training |
 | `latent_stag_interp.py` | staggered training (working approach): interpolate staggered activities, encode to latent, evolve+decode, loss on real measurements only |
 | `latent_stag_z0_bank.py` | staggered with learned z0 bank. **deprecated, does not work** |
+| `stimulus_only.py` | stimulus-only null model baseline (no latent space) |
 
 ## other files
 
@@ -59,7 +77,7 @@ stim(t) --> stim_encoder --> z_s(t) [64]
 
 ## configs
 
-yaml files: `latent_1step.yaml`, `latent_20step.yaml`, `latent_50step.yaml`, `latent_stag_20step.yaml`. these set tu, evolve_multiple_steps, acquisition_mode, and model architecture.
+yaml files: `latent_1step.yaml`, `latent_20step.yaml`, `latent_50step.yaml`, `latent_stag_20step.yaml`, `stimulus_only_20step.yaml`. these set tu, evolve_multiple_steps, acquisition_mode, and model architecture.
 
 ## key parameters
 
@@ -104,7 +122,7 @@ experiments documented in `experiments/*.md`. bsub commands there specify run di
 ## tensorboard plots for evaluating a run
 
 - `CrossVal/.*/multi_start_2000step_latent_rollout_mses_by_time`: long-term rollout MSE on held-out data (davis_2016_2017, optical_flow). averaged over starts and neurons. should not diverge within 2000 steps.
-- `CrossVal/.*/time_aligned_mse_latent`: rollout MSE zoomed to training window (tu * ems). includes constant/linear interpolation baselines.
+- `CrossVal/.*/short_rollout_mse_latent`: rollout MSE for first 250 steps (fixed window, comparable across tu/ems). includes constant baseline; linear interpolation baseline when tu > 1.
 - `CrossVal/.*/[best|worst].*rollout_latent_mse_var_scatter`: total variance vs unexplained variance per neuron, colored by cell type.
 - `CrossVal/.*/[best|worst]_2000step_rollout_latent_traces`: predicted vs ground truth traces for best/worst rollouts.
 
@@ -114,6 +132,7 @@ experiments documented in `experiments/*.md`. bsub commands there specify run di
 - `experiments/flyvis_voltage_Nsteps_aligned.md` - time-aligned multi-step
 - `experiments/flyvis_voltage_Nsteps_staggered.md` - staggered acquisition
 - `experiments/flyvis_calcium.md` - calcium signal
+- `experiments/flyvis_stimulus_only_null.md` - stimulus-only null model
 
 ## development practices
 
@@ -121,6 +140,8 @@ experiments documented in `experiments/*.md`. bsub commands there specify run di
 - conventional commits (`feat:`, `fix:`, `refactor:`). keep messages high-level: state motivation, note breaking changes. don't enumerate files.
 - PRs: brief, high-level description only. e.g. "refactor to share the training loop between latent.py and latent_stag_interp.py" — not a detailed explanation of how.
 - bug fixes: write a minimal reproducing test first (unittest), confirm it fails, then fix. not always feasible (some bugs need full training).
-- use `unittest`, not pytest.
+- **IMPORTANT: use `unittest`, not pytest.** run tests with `python -m unittest discover -s src/LatentEvolution -p '*_test.py'`. never use pytest. test file for `module.py` should be `module_test.py` in the same directory.
 - conda env: `neural-graph-linux`.
 - prefer vectorized/batched tensor ops over python loops.
+- **no lazy imports.** all imports must be top-level. never use `import` inside a function or method. use `from __future__ import annotations` and `TYPE_CHECKING` blocks to break circular import issues when needed for type hints only.
+- **circular import check on refactors.** when refactoring modules, verify there are no circular import issues by importing every `.py` module in this directory (e.g. `from LatentEvolution.<module> import ...` for each module) and confirming no `ImportError`.
