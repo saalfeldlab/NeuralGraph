@@ -38,7 +38,7 @@ compare the 2000-step rollout MSE curves (tensorboard `CrossVal/.*/multi_start_2
 ## baseline model
 
 Run the baseline model without any optimizations. We have 18M parameters in the model, which is
-comparable to the EED model, or maybe
+comparable to the EED model (~19M).
 
 ```bash
 bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null.log python \
