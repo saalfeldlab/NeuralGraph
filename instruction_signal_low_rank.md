@@ -8,9 +8,15 @@ Find GNN training hyperparameters that recover the connectivity matrix W from **
 
 **This is a fixed-regime exploration**: simulation parameters are FROZEN. Only GNN training parameters may be changed. There are NO block boundary simulation changes.
 
+## User instructions to follow
+
+- TRY ONLY CODE modifications to get rid of the seed-dependent gradient descent
+
+
 ## Known Challenges (from prior exploration)
 
 Low-rank connectivity (rank=20, n=100) produces data with effective rank ~12, which is the hardest regime for W recovery:
+
 - Low eff_rank means fewer distinguishable activity modes → more equivalent W solutions
 - Degeneracy is the primary failure mode: the GNN learns correct dynamics (high test_pearson) from wrong W (low connectivity_R2)
 - MLP compensation: lin_edge and lin_phi reshape their nonlinear mappings to compensate for incorrect W
@@ -100,16 +106,17 @@ spectral radius: 1.029
 
 Compute the **degeneracy gap** = `test_pearson - connectivity_R2`:
 
-| test_pearson | connectivity_R2 | Degeneracy gap | Diagnosis |
-|:---:|:---:|:---:|---|
-| > 0.95 | > 0.9 | < 0.1 | **Healthy** — correct W |
-| > 0.95 | 0.3–0.9 | 0.1–0.7 | **Degenerate** — MLP compensation |
-| > 0.95 | < 0.3 | > 0.7 | **Severely degenerate** |
-| < 0.5 | < 0.5 | ~0 | **Failed** — not degeneracy |
+| test_pearson | connectivity_R2 | Degeneracy gap | Diagnosis                         |
+| :----------: | :-------------: | :------------: | --------------------------------- |
+|    > 0.95    |      > 0.9      |     < 0.1      | **Healthy** — correct W           |
+|    > 0.95    |     0.3–0.9     |    0.1–0.7     | **Degenerate** — MLP compensation |
+|    > 0.95    |      < 0.3      |     > 0.7      | **Severely degenerate**           |
+|    < 0.5     |      < 0.5      |       ~0       | **Failed** — not degeneracy       |
 
 **When degeneracy gap > 0.3, DO NOT trust dynamics metrics as evidence of learning quality.**
 
 **Log degeneracy in the iteration entry when detected:**
+
 ```
 Degeneracy: gap=0.53 (test_pearson=0.999, conn_R2=0.466) — MLP compensation suspected
 ```
@@ -132,7 +139,7 @@ Append to Full Log (`{config}_analysis.md`) and **Current Block** sections of `{
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode/Strategy: [exploit/explore/boundary/principle-test/degeneracy-break]
-Config: seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B
+Config: seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B, recurrent=[T/F], time_step=T
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, cluster_accuracy=D, final_loss=E, kino_R2=F, kino_SSIM=G, kino_WD=H
 Activity: eff_rank=R, spectral_radius=S, [brief description]
 Mutation: [param]: [old] -> [new]
@@ -155,30 +162,39 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition | Strategy | Action |
-|---|---|---|
-| Default | **exploit** | Highest UCB node, conservative mutation |
-| 3+ consecutive R² ≥ 0.9 | **failure-probe** | Extreme parameter to find boundary |
-| n_iter_block/4 consecutive successes | **explore** | Select outside recent chain |
-| degeneracy gap > 0.3 for 3+ iters | **degeneracy-break** | Increase coeff_edge_diff, L1, or reduce training duration |
-| Same R² plateau (±0.05) for 3+ iters | **forced-branch** | Select 2nd-highest UCB, switch param dimension |
-| 4+ consecutive same-param mutations | **switch-dimension** | Change a different parameter |
-| 2+ distant nodes with R² > 0.9 | **recombine** | Merge best params from both nodes |
-| test_R2 > 0.998 plateau for 3+ iters | **dimension-sweep** | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff) |
-| improvement rate < 30% in block | **exploit-tighten** | Keep best config, mutate secondary params conservatively |
-| best test_R2 unchanged for 2+ batches | **regime-shift** | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension |
-| all perturbations from best degrade | **seed-robustness** | Replay best config at new seed to test generalization |
-| best test_R2 unchanged for 2+ blocks | **cross-seed-optimize** | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed |
-| new recipe beats old at 2+ seeds | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality |
-| same config gives R2 range > 0.05 across runs | **variance-reduction** | Test recipe at new seed or with different aug/epochs to find lower-variance variant |
-| all primary params exhausted, variance > 0.01 | **batch-size-sweep** | Test batch_size=8 at best per-seed configs — different batch size changes optimization trajectory and may reduce variance |
-| best seed R2 > 0.995 and worst seed R2 < 0.99 | **seed-gap-close** | At the weaker seed, try coeff_edge_diff>10000, batch_size=16, or training_single_type=False to close the gap |
-| L1 changes tested at 3+ seeds with degradation | **L1-lock** | Stop testing L1 values between 1E-6 and 1E-5 for non-99 seeds — the L1 landscape is a cliff, not a gradient |
-| new weak seed found (R2 < 0.90) | **weak-seed-lr_W-sweep** | Sweep lr_W at [3E-3, 4E-3, 6E-3, 7E-3, 8E-3] + test L1=1E-6 at this seed — prior pattern: each weak seed has a unique lr_W or L1 optimum |
-| 6+ seeds tested with per-seed optima found | **recipe-catalogue** | Stop searching for universal recipe — catalogue per-seed optima and test robustness at new seeds to expand coverage |
-| lr_W peak localized to 1E-3 range at a seed | **peak-refine** | Test ±0.5E-3 around peak lr_W to see if finer tuning helps — only if test_R2 < 0.995 at peak |
-| all 7+ seeds ≥0.985 with per-seed tuning | **new-seed-stress** | Test at fresh seeds (e.g., 1000, 2000) using default recipe first, then per-seed tuning if needed — measure recipe transfer |
-| 6+ attempts at a seed all R2<0.9 | **radical-rescue** | Try extreme interventions: n_epochs=3+, lr_W≤2E-3, lr=5E-5, n_epochs_init=0, or declare seed unlearnable and move on |
+| Condition                                      | Strategy                      | Action                                                                                                                                   |
+| ---------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Default                                        | **exploit**                   | Highest UCB node, conservative mutation                                                                                                  |
+| 3+ consecutive R² ≥ 0.9                        | **failure-probe**             | Extreme parameter to find boundary                                                                                                       |
+| n_iter_block/4 consecutive successes           | **explore**                   | Select outside recent chain                                                                                                              |
+| degeneracy gap > 0.3 for 3+ iters              | **degeneracy-break**          | Increase coeff_edge_diff, L1, or reduce training duration                                                                                |
+| Same R² plateau (±0.05) for 3+ iters           | **forced-branch**             | Select 2nd-highest UCB, switch param dimension                                                                                           |
+| 4+ consecutive same-param mutations            | **switch-dimension**          | Change a different parameter                                                                                                             |
+| 2+ distant nodes with R² > 0.9                 | **recombine**                 | Merge best params from both nodes                                                                                                        |
+| test_R2 > 0.998 plateau for 3+ iters           | **dimension-sweep**           | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff)                                                     |
+| improvement rate < 30% in block                | **exploit-tighten**           | Keep best config, mutate secondary params conservatively                                                                                 |
+| best test_R2 unchanged for 2+ batches          | **regime-shift**              | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension                                                           |
+| all perturbations from best degrade            | **seed-robustness**           | Replay best config at new seed to test generalization                                                                                    |
+| best test_R2 unchanged for 2+ blocks           | **cross-seed-optimize**       | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed                             |
+| new recipe beats old at 2+ seeds               | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality                                                                       |
+| same config gives R2 range > 0.05 across runs  | **variance-reduction**        | Test recipe at new seed or with different aug/epochs to find lower-variance variant                                                      |
+| all primary params exhausted, variance > 0.01  | **batch-size-sweep**          | Test batch_size=8 at best per-seed configs — different batch size changes optimization trajectory and may reduce variance                |
+| best seed R2 > 0.995 and worst seed R2 < 0.99  | **seed-gap-close**            | At the weaker seed, try coeff_edge_diff>10000, batch_size=16, or training_single_type=False to close the gap                             |
+| L1 changes tested at 3+ seeds with degradation | **L1-lock**                   | Stop testing L1 values between 1E-6 and 1E-5 for non-99 seeds — the L1 landscape is a cliff, not a gradient                              |
+| new weak seed found (R2 < 0.90)                | **weak-seed-lr_W-sweep**      | Sweep lr_W at [3E-3, 4E-3, 6E-3, 7E-3, 8E-3] + test L1=1E-6 at this seed — prior pattern: each weak seed has a unique lr_W or L1 optimum |
+| 6+ seeds tested with per-seed optima found     | **recipe-catalogue**          | Stop searching for universal recipe — catalogue per-seed optima and test robustness at new seeds to expand coverage                      |
+| lr_W peak localized to 1E-3 range at a seed    | **peak-refine**               | Test ±0.5E-3 around peak lr_W to see if finer tuning helps — only if test_R2 < 0.995 at peak                                             |
+| all 7+ seeds ≥0.985 with per-seed tuning       | **new-seed-stress**           | Test at fresh seeds (e.g., 1000, 2000) using default recipe first, then per-seed tuning if needed — measure recipe transfer              |
+| 6+ attempts at a seed all R2<0.9               | **radical-rescue**            | Try extreme interventions: n_epochs=3+, lr_W≤2E-3, lr=5E-5, n_epochs_init=0, or declare seed unlearnable and move on                     |
+| 14+ attempts at a seed all catastrophic        | **seed-abandon**              | Declare seed unlearnable. Stop allocating slots to it. Focus budget on improvable seeds and new seed discovery                           |
+| improvement rate < 25% in block                | **combo-exploit**             | Combine two independently-successful mutations at same seed (e.g., n_epochs=3 + lr_W=6E-3) — exploit synergy rather than single-param    |
+| n_epochs=3 helps at 2+ seeds                   | **epoch-sweep-new-seeds**     | Test n_epochs=3 at other mid-tier seeds (0.918-0.990) — may be a broader pattern, not seed-specific                                      |
+| 0% improvement in block, all per-seed optima found | **novel-dimension-sweep**  | Test a completely untested parameter dimension (recurrent_training, time_step=4) at best seed — if it helps, propagate to other seeds     |
+| 4+ configs at a hard seed all catastrophic       | **hard-seed-final**          | 2 final rescue attempts (n_epochs_init=0, lr_W=3E-3) then declare abandoned if still failing                                             |
+| edge_diff=15000 helps 2+ mid-tier seeds          | **edge-diff-propagate**      | Test edge_diff=15000 at other mid-tier or fragile seeds — combine with per-seed L1/epoch optima to maximize effect                        |
+| final block with <8 iters remaining              | **final-push**               | Focus all slots on pushing remaining mid-tier seeds higher — no new seed discovery, no risky explorations. exploit best combos only        |
+| 3+ seeds abandoned, 9+ seeds ≥0.985              | **new-seed-expand**          | Test 2 new seeds with standard recipe + 2 with enhanced recipe (edge_diff=20000+L1=1E-6) to measure recipe transfer at scale              |
+| edge_diff peak found at a seed (overshoot confirmed) | **edge-diff-lock**        | Stop increasing edge_diff at that seed — the peak has been found. focus on other parameter dimensions or new seeds                         |
 
 ### Step 5: Edit Config File
 
@@ -187,6 +203,7 @@ Edit config file for next iteration.
 **CRITICAL: Config Parameter Constraints**
 
 **DO NOT add new parameters to the `claude:` section.** Only these fields are allowed:
+
 - `n_epochs`: int
 - `data_augmentation_loop`: int
 - `n_iter_block`: int
@@ -198,8 +215,9 @@ Edit config file for next iteration.
 
 ```yaml
 training:
-  seed: 137                        # changing seed generates a DIFFERENT connectivity matrix W
-                                   # use different seeds to test robustness across W samples
+  seed:
+    137 # changing seed generates a DIFFERENT connectivity matrix W
+    # use different seeds to test robustness across W samples
 ```
 
 Changing `seed` produces a new random low-rank connectivity matrix. This lets you track whether a training configuration works for one specific W realization or generalizes across multiple W samples. Log the seed in Config line and note when a mutation is a seed change.
@@ -210,26 +228,32 @@ Mutate ONE parameter at a time for causal understanding.
 
 ```yaml
 training:
-  learning_rate_W_start: 3.0E-3   # range: 1E-4 to 1E-2
-  learning_rate_start: 1.0E-4     # range: 1E-5 to 1E-3
+  learning_rate_W_start: 3.0E-3 # range: 1E-4 to 1E-2
+  learning_rate_start: 1.0E-4 # range: 1E-5 to 1E-3
   learning_rate_embedding_start: 2.5E-4
-  coeff_W_L1: 1.0E-5              # range: 1E-6 to 1E-3
-  coeff_edge_diff: 10000          # range: 100 to 50000 — KEY for low-rank
-  batch_size: 8                   # values: 8, 16, 32
+  coeff_W_L1: 1.0E-5 # range: 1E-6 to 1E-3
+  coeff_edge_diff: 10000 # range: 100 to 50000 — KEY for low-rank
+  batch_size: 8 # values: 8, 16, 32
 
   # Two-phase training
-  n_epochs_init: 2                # epochs in phase 1 (no L1)
-  first_coeff_L1: 0               # L1 during phase 1 (typically 0)
+  n_epochs_init: 2 # epochs in phase 1 (no L1)
+  first_coeff_L1: 0 # L1 during phase 1 (typically 0)
   # Note: coeff_W_L1 applies in phase 2 (after n_epochs_init)
 
-  training_single_type: True      # can try False
+  training_single_type: True # can try False
+
+  # Recurrent training parameters (can tune within block)
+  recurrent_training: False # enable multi-step rollout training (True/False)
+  time_step: 1 # rollout depth: 1 = single-step (default), 4, 16, 32, 64
+  noise_recurrent_level: 0.0 # noise injected per rollout step (range: 0 to 0.1)
+  recurrent_training_start_epoch: 0 # epoch to begin recurrent training (0 = from start)
 ```
 
 **Claude Exploration Parameters:**
 
 ```yaml
 claude:
-  ucb_c: 1.414    # UCB exploration constant (0.5-3.0)
+  ucb_c: 1.414 # UCB exploration constant (0.5-3.0)
 ```
 
 ---
@@ -243,6 +267,7 @@ Triggered when `iter_in_block == n_iter_block`
 You **MUST** use the Edit tool to add/modify parent selection rules.
 
 **Evaluate:**
+
 - Branching rate < 20% → ADD exploration rule
 - Improvement rate < 30% → INCREASE exploitation
 - Same R² plateau for 3+ iters → ADD forced branching
@@ -251,6 +276,7 @@ You **MUST** use the Edit tool to add/modify parent selection rules.
 ### STEP 2: Choose Next Block Focus
 
 Since simulation is fixed, blocks explore different **training parameter subspaces**:
+
 - Block 1: lr_W sweep (central parameter)
 - Block 2: L1 / coeff_edge_diff interaction
 - Block 3: Two-phase training parameters (n_epochs_init, first_coeff_L1)
@@ -275,9 +301,9 @@ Update `{config}_memory.md`:
 
 ### Best Configurations Found
 
-| Blk | lr_W | lr | L1 | edge_diff | n_ep_init | first_L1 | batch | conn_R2 | test_R2 | Finding |
-| --- | ---- | -- | -- | --------- | --------- | -------- | ----- | ------- | ------- | ------- |
-| 1   | 3E-3 | 1E-4 | 1E-5 | 10000 | 2 | 0 | 8 | ? | ? | baseline |
+| Blk | lr_W | lr   | L1   | edge_diff | n_ep_init | first_L1 | batch | conn_R2 | test_R2 | Finding  |
+| --- | ---- | ---- | ---- | --------- | --------- | -------- | ----- | ------- | ------- | -------- |
+| 1   | 3E-3 | 1E-4 | 1E-5 | 10000     | 2         | 0        | 8     | ?       | ?       | baseline |
 
 ### Established Principles
 
@@ -332,10 +358,12 @@ du/dt = lin_phi(u, a) + W @ lin_edge(u, a)
 ### Two-Phase Training
 
 Phase 1 (first `n_epochs_init` epochs):
+
 - Uses `first_coeff_L1` (typically 0) instead of `coeff_W_L1`
 - Lets W converge without L1 pressure — find the right structure first
 
 Phase 2 (remaining epochs):
+
 - Uses `coeff_W_L1` for L1 regularization
 - Refines W sparsity pattern while maintaining structure from phase 1
 
@@ -356,3 +384,30 @@ L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff
 - Effective rank of activity data ~12 (99% variance)
 - Spectral radius typically ~1.0 (edge of chaos)
 - The GNN learns a full-rank W — it must discover the low-rank structure from the data alone
+
+### Recurrent Training
+
+When `recurrent_training=True` and `time_step=T`, the model is trained to predict T steps ahead using its own predictions (autoregressive rollout):
+
+1. Sample frame k (aligned to `time_step` boundaries)
+2. Target = actual state at frame `k + time_step` (not derivative)
+3. First step: `pred_x = x + delta_t * model(x) + noise`
+4. Steps 2..T: feed `pred_x` back into model, accumulate Euler steps
+5. Loss = `||pred_x - y|| / (delta_t * time_step)` (backprop through all T steps)
+
+**Key parameters:**
+
+| Parameter                        | Description                                    | Range            |
+| -------------------------------- | ---------------------------------------------- | ---------------- |
+| `recurrent_training`             | Enable multi-step rollout                      | True/False       |
+| `time_step`                      | Rollout depth (1 = single-step, no recurrence) | 1, 4, 16, 32, 64 |
+| `noise_recurrent_level`          | Noise per rollout step (regularization)        | 0 to 0.1         |
+| `recurrent_training_start_epoch` | Epoch to begin recurrent training              | 0+               |
+
+**Guidance:**
+
+- Start with `recurrent_training=False` (default) to establish baseline
+- Enable at block boundaries: set `recurrent_training=True` + `time_step=4` as first test
+- `noise_recurrent_level=0.01-0.05` helps prevent rollout instability
+- Higher `time_step` costs proportionally more compute — reduce `data_augmentation_loop` to compensate
+- `recurrent_training_start_epoch > 0` allows warmup with single-step before switching to recurrent

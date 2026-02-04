@@ -1,6 +1,6 @@
 ---
 title: "Case Study: Sparse Connectivity"
-subtitle: "Breaking the 0.489 ceiling --- LLM-guided code modifications to the GNN architecture"
+subtitle: "Breaking the 0.489 ceiling --- LLM-guided code modifications to the GNN architecture (32+ iterations)"
 ---
 
 ## Problem Statement
@@ -8,6 +8,11 @@ subtitle: "Breaking the 0.489 ceiling --- LLM-guided code modifications to the G
 Sparse connectivity (filling_factor=50%, n=100 neurons) produces neural activity with subcritical spectral radius (rho=0.746). The landscape exploration (blocks 7, 8, 17) established that **no configuration sweep can break the conn_R^2^=0.489 ceiling** --- neither regularization, learning rates, epochs, noise, nor tripling the data (30k frames) had any effect. This motivated a dedicated exploration focused on **modifying the GNN code itself**.
 
 The central question: **can code-level modifications to the GNN architecture break the 0.489 ceiling?**
+
+::: {.callout-note}
+## From Landscape to Dedicated Exploration
+This case study builds upon the **188-iteration landscape exploration** ([Landscape Results](results.qmd)), which systematically mapped GNN training configurations across 29 regimes. Blocks 7, 8, and 17 of that exploration devoted 36 iterations to the sparse regime, exhausting the configuration parameter space and establishing the conn_R^2^=0.489 ceiling that motivated the pivot to direct code modifications documented here.
+:::
 
 ---
 
@@ -145,6 +150,36 @@ Gradient noise is not the bottleneck. The W gradients carry correct directional 
 
 ---
 
+## Code Modification 5: lin_phi Scaling / Removal
+
+**Iterations 25--28** · File: `Signal_Propagation.py`, `graph_trainer.py`
+
+**Hypothesis**: The dual-pathway architecture `du/dt = lin_phi(u,a) + W @ lin_edge(u,a)` allows `lin_phi` to bypass W entirely. By multiplying `lin_phi` output by a scaling factor (0.0--0.5), or removing it completely, the model should be forced to route signal through the `W @ lin_edge` pathway, making correct W recovery essential.
+
+**Code change**:
+```python
+# Signal_Propagation.py: multiply lin_phi output by phi_scale
+phi_output = self.phi_scale * self.lin_phi(x, a)
+du_dt = phi_output + W @ self.lin_edge(x, a)
+```
+
+**Results**:
+
+| Iter | phi_scale | L1 | conn_R^2^ | test_pearson | Gap | Effect |
+|:----:|:---------:|:--:|:---------:|:------------:|:---:|:------:|
+| 25 | 0.1 | 1E-4 | 0.489 | 0.9997 | 0.511 | none |
+| 26 | 0.5 | 1E-4 | 0.490 | 0.9996 | 0.511 | none |
+| 27 | **0.0** | 1E-4 | 0.489 | 0.9994 | 0.510 | **none --- complete removal** |
+| 28 | 0.1 | 1E-3 | 0.488 | 0.9986 | 0.511 | none --- L1 still irrelevant |
+
+::: {.callout-important}
+### Established Principle: lin_phi is NOT the degeneracy source
+
+Even **complete removal** of lin_phi (phi_scale=0.0, so `du/dt = W @ lin_edge(u,a)` only) produces conn_R^2^=0.489. The degeneracy is entirely within **lin_edge**: the flexible MLP can absorb any W, so `W_wrong @ f(u,a) ≈ W_true @ g(u,a)` regardless of whether lin_phi exists. This falsifies the initial architectural hypothesis and redirects the diagnosis from the bypass pathway to the message-passing MLP itself.
+:::
+
+---
+
 ## Summary: What Failed and Why
 
 | Code Modification | Hypothesis | Outcome | Reason |
@@ -153,34 +188,39 @@ Gradient noise is not the bottleneck. The W gradients carry correct directional 
 | Proximal L1 soft-thresholding | Exact zeros needed for sparsity | Zero/destructive | Threshold too small vs W scale |
 | MLP hidden_dim reduction | Force signal through W pathway | Zero/catastrophic | No Goldilocks zone exists |
 | Gradient clipping on W | Stabilize W trajectory | Zero effect | Gradients are directionally correct |
+| **lin_phi scaling/removal** | **Bypass pathway absorbs signal** | **Zero effect** | **Degeneracy is in lin_edge, not lin_phi** |
 
 ::: {.callout-warning}
 ## Key Result
 
-**All 24 iterations produced conn_R^2^ = 0.489** (±0.001, excluding catastrophic failures from aggressive MLP reduction). Four distinct code modifications --- targeting initialization, regularization mechanics, model capacity, and optimization stability --- all failed. The architectural degeneracy is fundamental.
+**All 28 iterations produced conn_R^2^ = 0.489** (±0.001, excluding catastrophic failures from aggressive MLP reduction). Five distinct code modifications --- targeting initialization, regularization mechanics, model capacity, optimization stability, and the lin_phi bypass pathway --- all failed. The architectural degeneracy is fundamental and resides in the lin_edge MLP's ability to compensate for any W.
 :::
 
 ---
 
 ## Architectural Diagnosis
 
-The exploration converges on a clear diagnosis. The dual-pathway architecture has an **irreducible degeneracy** in the sparse regime:
+The exploration converges on a refined diagnosis. The degeneracy is **not** in the dual-pathway bypass (lin_phi), but in the **lin_edge MLP's expressiveness**:
 
 1. **W signal is weak**: subcritical spectral radius (rho=0.746) means W-mediated dynamics carry less information than in supercritical regimes
-2. **MLP compensates perfectly**: `lin_phi` absorbs all predictive capacity (test_pearson ≈ 1.000), leaving no gradient signal to constrain W
-3. **Local code changes cannot break the bypass**: init scale, regularization mechanics, capacity reduction, and gradient control all operate downstream of the fundamental problem --- the loss function does not require W to be correct
+2. **lin_edge compensates for any W**: even with lin_phi completely removed (phi_scale=0.0), the flexible lin_edge MLP satisfies `W_wrong @ f(u,a) ≈ W_true @ g(u,a)` --- different W matrices paired with different lin_edge functions produce identical predictions
+3. **The loss function cannot distinguish correct W**: at subcritical spectral radius, the W-mediated signal is weak enough that many (W, lin_edge) pairs achieve equivalent loss values
+4. **Local code changes cannot break this degeneracy**: init scale, regularization mechanics, capacity reduction, gradient control, and lin_phi removal all operate downstream of the fundamental problem --- the product `W @ lin_edge(u,a)` is under-determined
 
-This is qualitatively different from the dense regime (rho > 1.0) where W-mediated dynamics carry strong, unique signal that the MLP cannot replicate.
+This is qualitatively different from the dense regime (rho > 1.0) where W-mediated dynamics carry strong, unique signal that constrains the (W, lin_edge) pair to the correct solution.
 
 ---
 
-## Next Steps: Architectural Interventions
+## Next Steps: Recurrent Training and lin_edge Constraints
 
-The analysis points to interventions that target the bypass pathway directly:
+Since lin_phi removal had zero effect, the next interventions target the **lin_edge degeneracy** directly:
 
-1. **lin_phi scaling**: Multiply `lin_phi` output by a learnable or fixed factor (0.0--0.5), forcing dynamics through the `W @ lin_edge` pathway
-2. **lin_phi removal**: Eliminate `lin_phi` entirely, making W the sole carrier of inter-neuron coupling
-3. **Separate W and MLP optimizers**: Use SGD for W (sharper sparsity) while keeping Adam for MLPs
-4. **Cosine LR scheduler for W**: Large early W updates followed by fine-tuning
+1. **Recurrent training (in progress)**: Multi-step rollout (time_step=4, 16, 32) should compound errors from wrong W over multiple prediction steps. Single-step training allows `W_wrong @ f(u,a) ≈ W_true @ g(u,a)` at each step independently; recurrent training penalizes wrong W because errors accumulate across steps. Planned with phi_scale=0.0 (simplifies model since lin_phi is confirmed irrelevant).
 
-These represent the next phase of the exploration --- moving from local code modifications to **architectural redesign** of the signal pathway.
+2. **lin_edge constraint**: Restrict lin_edge to a simpler function class (linear, or identity) so that it cannot compensate for wrong W. If `lin_edge(u,a) = u` (identity), then the product `W @ u` directly exposes W.
+
+3. **Separate W optimizer**: Use SGD with momentum for W (sharper sparsity) while keeping Adam for MLPs.
+
+4. **Cosine LR scheduler for W**: Large early W updates followed by fine-tuning.
+
+These represent the next phase of the exploration --- moving from local code modifications to **constraining the lin_edge MLP** that is the true source of degeneracy.

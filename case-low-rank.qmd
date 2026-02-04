@@ -1,6 +1,6 @@
 ---
 title: "Case Study: Low-Rank Connectivity"
-subtitle: "Recovering W from rank-20 neural dynamics --- 60+ iterations of dedicated LLM-guided exploration"
+subtitle: "Recovering W from rank-20 neural dynamics --- 88 iterations of dedicated LLM-guided exploration"
 ---
 
 ## Problem Statement
@@ -9,24 +9,39 @@ Low-rank connectivity (rank 20, n=100 neurons) produces neural activity with eff
 
 The central question: **can we find GNN training parameters that reliably recover W from low-rank dynamics?**
 
+::: {.callout-note}
+## From Landscape to Dedicated Exploration
+This case study builds upon the **188-iteration landscape exploration** ([Landscape Results](results.qmd)), which systematically mapped GNN training configurations across 29 regimes. Block 2 of that exploration devoted 12 iterations to the low-rank regime, identifying the critical lr_W/L1 levers and achieving the breakthrough configuration (test_R^2^=0.996) that became the starting point for the 88-iteration dedicated exploration documented here.
+:::
+
 ---
 
 ## What the Landscape Exploration Found (Block 2)
 
 The general landscape exploration (Block 2, iterations 13--24) devoted 12 iterations to the low-rank regime and achieved **75% convergence** (9/12), with a breakthrough at iteration 21.
 
-### Progression
+### Progression toward the optimal configuration
+
+The landscape search converged on the optimal configuration through systematic elimination:
 
 ```
-Iter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (dynamics poor)
-Iter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (improved!)
-Iter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (better lr_W)
-Iter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH)
+Iter 13: lr_W=4E-3, L1=1E-5      → conn=0.999, test_R2=0.902 (connectivity OK, dynamics poor)
+Iter 18: lr_W=4E-3, L1=1E-6      → conn=1.000, test_R2=0.925 (L1 reduction unlocks dynamics)
+Iter 19: lr_W=3E-3, L1=1E-5      → conn=0.999, test_R2=0.943 (lr_W reduction helps more)
+Iter 21: lr_W=3E-3, L1=1E-6      → conn=0.993, test_R2=0.996 (BREAKTHROUGH — both levers combined)
 ```
 
-### Key discovery
+The two critical levers were identified: **L1 reduction** (1E-5 → 1E-6) and **lr_W reduction** (4E-3 → 3E-3). Both independently improve dynamics, and combining them achieves chaotic-baseline-level performance (test_R^2^=0.996) despite eff_rank=12.
 
-Reducing L1 from 1E-5 to 1E-6 was the critical enabler for dynamics recovery. Combined with lr_W=3E-3, this achieved chaotic-baseline-level performance (test_R^2^=0.996) despite eff_rank=12.
+### The optimal configuration and its limits
+
+The best configuration from block 2 --- lr_W=3E-3, L1=1E-6, batch=8, no factorization --- achieves test_R^2^=0.996 and conn_R^2^=0.993. This is remarkable: low-rank connectivity with eff_rank=12 (3x lower than chaotic) matches the chaotic baseline. **Connectivity recovery is not the bottleneck** --- nearly all 12 iterations achieve conn_R^2^>0.99 regardless of configuration. The challenge is purely in dynamics recovery (test_R^2^), which is highly sensitive to the lr_W/L1 combination.
+
+However, block 2 tested only **one random seed** (the default simulation seed). The dedicated exploration later revealed that the optimal lr_W and L1 are **seed-dependent**, and some W realizations are fundamentally harder. The configuration found here serves as a recipe template, not a universal solution.
+
+### The seed problem: foreshadowing
+
+Even within block 2, signs of seed sensitivity were visible: the single failed iteration (iter 17: lr_W=5E-3, conn_R^2^=0.385) showed that stepping slightly outside the optimal lr_W window can cause catastrophic W recovery failure. The dedicated exploration (88 iterations, 10 seeds) later confirmed this as a fundamental feature: ~20% of random W realizations are "hard seeds" where no configuration achieves good recovery.
 
 ### All 12 iterations
 
@@ -117,16 +132,9 @@ The key anti-degeneracy levers identified:
 
 ---
 
-## Open Questions → Dedicated Exploration
+## From Landscape to Dedicated Exploration
 
-The landscape exploration allocated only 12 iterations to low-rank. Several questions remain:
-
-1. **Robustness across seeds**: Does lr_W=3E-3 + L1=1E-6 work for all random W realizations, or only for seed=137?
-2. **Two-phase training**: Can `n_epochs_init` (no L1 in early epochs) + stronger L1 in phase 2 improve further?
-3. **coeff_edge_diff scaling**: Values of 10,000+ constrain MLP compensation --- how does this interact with L1?
-4. **Training duration**: The landscape used 1 epoch / 20 augmentation loops. Does 2 epochs / 200 augmentation loops change the optimal parameters?
-
-These questions motivate a **dedicated low-rank LLM exploration loop** using `GNN_LLM_parallel.py` with fixed simulation and training-parameter-only search space.
+The landscape exploration identified the optimal lr_W/L1 combination for a single seed but left critical questions unanswered: does this generalize across W realizations? How do two-phase training, edge_diff, and epoch count interact? These questions motivated a **dedicated low-rank LLM exploration loop** --- 88 iterations across 10 random seeds, using UCB tree search with 4 parallel slots per batch.
 
 ```bash
 python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster signal_low_rank iterations=120
@@ -134,27 +142,30 @@ python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster signal_low
 
 ---
 
-## Dedicated Low-Rank Exploration (60+ iterations)
+## Dedicated Low-Rank Exploration (88 iterations)
 
-The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. **60+ iterations across 5 completed blocks** were completed, testing **7 different random seeds** (42, 137, 7, 99, 256, 314, 500).
+The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k frames) and searched only training hyper-parameters using UCB tree search with 4 parallel slots per batch. **88 iterations across 8 completed blocks** were completed, testing **10 different random seeds** (42, 137, 7, 99, 256, 314, 500, 1000, 2000, 3000).
 
 ::: {.callout-tip}
 ## Key Result
 
-**Connectivity recovery is essentially solved** (conn_R^2^ > 0.999 in nearly all iterations). The exploration refined the universal recipe template: lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W and L1 require per-seed tuning. The L1 landscape is a cliff, not a gradient: no useful intermediate values between 1E-6 and 1E-5.
+**Connectivity recovery is essentially solved for 8 of 10 seeds** (conn_R^2^ > 0.999 in nearly all iterations). The exploration refined the universal recipe template: lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2. Only lr_W and L1 require per-seed tuning, with n_epochs=3 as an additional lever for mid-tier seeds. The L1 landscape is a cliff, not a gradient: no useful intermediate values between 1E-6 and 1E-5. Two seeds (1000, 3000) are catastrophically irredeemable (~20% hard-seed rate), with V-factor recovery stuck at ~0.41 regardless of configuration.
 :::
 
 ### Per-Seed Best Configurations
 
-| Seed | lr_W | L1 | batch | n_ep | init | test_R^2^ | conn_R^2^ | Notes |
-|:----:|:----:|:--:|:-----:|:----:|:----:|:---------:|:---------:|:------|
-| 42 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.998** | 1.000 | Best overall; fragile to perturbations |
-| 256 | 6E-3 | 1E-5 | 8 | 2 | 2 | **0.994** | 1.000 | Sharply peaked lr_W (±0.5E-3 width) |
-| 99 | 5E-3 | 1E-6 | 8 | 2 | 2 | **0.992** | 1.000 | Unique L1 requirement |
-| 500 | 4E-3 | 1E-6 | 8 | 2 | 2 | **0.990** | 1.000 | Dual optimization (lr_W + L1) |
-| 314 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.990** | 1.000 | Default recipe works |
-| 137 | 5E-3 | 1E-5 | 8 | 2 | 2 | **0.989** | 1.000 | Baseline; robust to perturbations |
-| 7 | 5E-3 | 1E-5 | 8 | 3 | 2 | **0.985** | 1.000 | n_epochs=3 helps |
+| Seed | lr_W | L1 | edge_diff | batch | n_ep | init | test_R^2^ | conn_R^2^ | Notes |
+|:----:|:----:|:--:|:---------:|:-----:|:----:|:----:|:---------:|:---------:|:------|
+| 42 | 5E-3 | 1E-5 | 10000 | 8 | 2 | 2 | **0.998** | 1.000 | Best overall; fragile to perturbations |
+| 500 | 4E-3 | 1E-6 | 15000 | 8 | 2 | 2 | **0.994** | 1.000 | Rescued via lr_W + L1 + edge_diff tuning |
+| 256 | 6E-3 | 1E-5 | 10000 | 8 | 2 | 2 | **0.994** | 1.000 | Sharply peaked lr_W (±0.5E-3 width) |
+| 99 | 5E-3 | 1E-6 | 10000 | 8 | 2 | 2 | **0.992** | 1.000 | Unique L1 requirement |
+| 314 | 5E-3 | 1E-5 | 10000 | 8 | 2 | 2 | **0.990** | 1.000 | Default recipe works |
+| 137 | 5E-3 | 1E-5 | 10000 | 8 | 2 | 2 | **0.989** | 1.000 | Baseline; robust to perturbations |
+| 7 | 5E-3 | 1E-5 | 10000 | 8 | 3 | 2 | **0.985** | 1.000 | n_epochs=3 helps |
+| 2000 | 5E-3 | 1E-5 | 10000 | 8 | **3** | 2 | **0.991** | 1.000 | n_epochs=3 transforms recovery (+0.073); L1=1E-6 hurts |
+| 1000 | 4E-3 | 1E-6 | 10000 | 8 | 2 | 2 | **0.516** | 0.330 | **Irredeemable** --- 15 attempts, all failed |
+| 3000 | 5E-3 | 1E-5 | 10000 | 8 | 2 | 2 | **0.406** | 0.348 | **Irredeemable** --- V_R^2^=0.424, same pattern as seed=1000 |
 
 ### Block-by-Block Progression
 
@@ -165,6 +176,9 @@ The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k fr
 | 3 | 25--36 | L1 cross-seed testing | 0.9920 | L1=1E-6 transforms seed=99 but catastrophically breaks seed=137 |
 | 4 | 37--48 | seed=256, seed=314 | **0.9940** | seed=256 breakthrough via lr_W=6E-3 (sharply peaked) |
 | 5 | 49--60 | seed=500 optimization | **0.9900** | seed=500 rescued via lr_W=4E-3 + L1=1E-6 (0.880→0.990) |
+| 6 | 61--72 | seed=500 refinement, seed=1000 | **0.9940** | seed=500 peak 0.994 (edge_diff=15000); seed=1000 catastrophic (6 attempts) |
+| 7 | 73--80 | seed=1000 rescue, seed=2000 | **0.9180** | seed=1000 irredeemable after 12 total attempts; seed=2000 mid-tier (0.918) |
+| 8 | 81--88 | seed=2000 optimization, new seeds | **0.9910** | seed=2000 transformed via n_epochs=3 (+0.073); seed=3000 catastrophic (0.406); combo mutations cause negative synergy |
 
 ### Connectivity and Activity (Dedicated Exploration)
 
@@ -192,6 +206,15 @@ The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k fr
 
 #### Block 5 (iter 60)
 ![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_060.png){.lightbox group="ucb-lr"}
+
+#### Block 6 (iter 72)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_072.png){.lightbox group="ucb-lr"}
+
+#### Block 7 (iter 80)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_080.png){.lightbox group="ucb-lr"}
+
+#### Block 8 (iter 88)
+![](log/Claude_exploration/instruction_signal_low_rank_parallel/exploration_tree/ucb_tree_iter_088.png){.lightbox group="ucb-lr"}
 
 :::
 
@@ -231,11 +254,11 @@ The dedicated exploration fixed the simulation (low_rank, rank=20, n=100, 10k fr
 
 ## Established Principles (Dedicated Exploration)
 
-16 principles were established across 5 blocks. Key findings:
+18 principles were established across 8 blocks. Key findings:
 
 ::: {.callout-important}
 ### Optimal lr_W is seed-dependent
-Most seeds optimal at 5E-3, but seed=256 has exclusive peak at 6E-3 (±0.5E-3 width) and seed=500 requires 4E-3. Per-seed tuning closes the gap: all 7 seeds reach test_R^2^≥0.985 when optimally tuned.
+Most seeds optimal at 5E-3, but seed=256 has exclusive peak at 6E-3 (±0.5E-3 width), seed=500 requires 4E-3, and seed=2000 has a monotonically increasing landscape (4E-3→0.962, 5E-3→0.918, 6E-3→0.976, 7E-3→0.983 at n_epochs=2). Per-seed tuning closes the gap: 8 of 10 seeds reach test_R^2^≥0.985 when optimally tuned.
 :::
 
 ::: {.callout-important}
@@ -263,16 +286,70 @@ batch=8 is universally optimal. batch=16 degrades performance, especially at wea
 Nearly all configs achieve conn_R^2^≥0.999. The challenge is dynamics: test_R^2^ varies from 0.333 (catastrophic) to 0.998 depending on lr_W and L1 combination.
 :::
 
+::: {.callout-important}
+### coeff_edge_diff landscape is non-monotonic and seed-dependent
+The standard value of 10,000 is the safe default. seed=500 benefits from edge_diff=15,000 (test_R^2^=0.994 vs 0.990), but edge_diff=12,500 creates a trough (0.907) and edge_diff=20,000 degrades (0.946). For other seeds, edge_diff=15,000 hurts (seed=99: -0.022, seed=7: -0.021).
+:::
+
+::: {.callout-warning}
+### ~20% of seeds are irredeemable
+Two seeds (1000, 3000) catastrophically fail across all tested configurations. seed=1000: best test_R^2^=0.516, conn_R^2^=0.330 after 15 configs (lr_W sweep 1E-3 to 7E-3, L1=1E-6, edge_diff=15,000, n_epochs=3, n_epochs_init=0, lr=5E-5/2E-4, recurrent training). seed=3000: test_R^2^=0.406, conn_R^2^=0.348 at standard recipe --- same V-factor bottleneck pattern (V_R^2^≈0.42). Both share a common signature: the V subspace remains stuck at ~0.41--0.43 regardless of configuration, suggesting certain W realizations produce low-rank activity patterns that are fundamentally harder to invert.
+:::
+
+::: {.callout-note}
+### L1 sensitivity is not simply "weak seeds benefit from 1E-6"
+seed=99 and seed=500 benefit from L1=1E-6, but seed=2000 is hurt by L1=1E-6 (-0.090). seed=2000 behaves like strong seeds for L1 preference despite being mid-tier at baseline. The discriminator for L1 sensitivity is unknown --- it is not simply test_R^2^ magnitude.
+:::
+
+::: {.callout-important}
+### n_epochs=3 transforms mid-tier seeds
+seed=2000 jumps from 0.918 to 0.991 (+0.073) with n_epochs=3 at lr_W=5E-3. seed=7 similarly improves (0.975→0.985). However, easy seeds are hurt: seed=42 drops from 0.998 to 0.893. The pattern: mid-tier seeds at L1=1E-5 benefit most from the extra epoch.
+:::
+
+::: {.callout-warning}
+### Combo mutations cause negative synergy
+Combining two individually beneficial changes can produce worse results than either alone. seed=2000: n_epochs=3 alone gives 0.991, lr_W=6E-3 alone gives 0.976, but n_epochs=3 + lr_W=6E-3 gives only 0.956. The mechanism: higher lr_W with more epochs causes overtraining.
+:::
+
+---
+
+## The Influence of the Training Seed
+
+The training seed determines the random connectivity matrix W that the GNN must recover. Different W realizations produce dramatically different recovery difficulty, even though all share the same rank-20, n=100 structure. This is the single most important factor for dynamics recovery quality.
+
+### Seed Difficulty Spectrum
+
+The 10 tested seeds span a wide range:
+
+| Tier | Seeds | test_R^2^ range | Characteristics |
+|------|-------|:---------------:|:----------------|
+| Strong | 42, 256, 500 | 0.994--0.998 | Require per-seed lr_W/L1 tuning but achieve near-perfect recovery |
+| Good | 99, 2000, 314, 137 | 0.989--0.992 | Standard recipe works (137), needs L1=1E-6 (99), or n_epochs=3 (2000) |
+| Moderate | 7 | 0.985 | Needs 3 epochs |
+| Catastrophic | 1000, 3000 | 0.406--0.516 | Irredeemable --- V-factor bottleneck (V_R^2^≈0.42) |
+
+### What Makes a Seed Hard?
+
+The seed initializes the true connectivity matrix W. For the low-rank regime, W is constructed as a rank-20 matrix (W = U @ V where U, V are random Gaussian). Different random realizations produce W matrices with different spectral properties, condition numbers, and singular value distributions --- even though all are nominally rank 20.
+
+The key diagnostic is the V subspace recovery: for hard seeds (1000 and 3000), V_R^2^ is stuck at ~0.41--0.43 regardless of training configuration, suggesting the GNN cannot learn the correct postsynaptic subspace. For all other seeds, V_R^2^ reaches 0.97+. Both hard seeds share this V-factor bottleneck signature, pointing to W realizations whose low-rank structure is particularly ill-conditioned for recovery from the observed dynamics. seed=1000 was tested across 15 configurations (lr_W sweep, L1 variants, epoch counts, recurrent training) --- all failed. seed=3000 immediately fails at the standard recipe with the same pattern.
+
+### Practical Implication
+
+Per-seed tuning closes the gap for 8/10 seeds (all reaching test_R^2^≥0.985), but ~20% of random W realizations (2/10 in this sample) are fundamentally hard. The universal recipe (lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8, n_epochs=2) with lr_W=5E-3 and L1=1E-5 works for most seeds, but optimization levers include: L1=1E-6 (seeds 99, 500), different lr_W (seed=256: 6E-3, seed=500: 4E-3), n_epochs=3 (seeds 7, 2000), or higher edge_diff (seed=500: 15000). Importantly, combining multiple levers can cause negative synergy (n_epochs=3 + lr_W=6E-3 at seed=2000 is worse than either alone).
+
 ---
 
 ## Answers to Open Questions
 
-All four questions from the landscape exploration are now answered:
+All four questions from the landscape exploration are now answered, plus new findings from the extended exploration:
 
-1. **Robustness across seeds**: Yes, with per-seed tuning. The recipe template (lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8) is universal across all 7 seeds. Only lr_W (4E-3 to 6E-3) and L1 (1E-6 or 1E-5) require per-seed optimization.
+1. **Robustness across seeds**: Mostly yes, with per-seed tuning. The recipe template (lr=1E-4, coeff_edge_diff=10000, n_epochs_init=2, batch=8) is universal across 8/10 seeds. Only lr_W (4E-3 to 6E-3), L1 (1E-6 or 1E-5), n_epochs (2 or 3), and occasionally edge_diff (15000 for seed=500) require per-seed optimization. Two seeds (1000, 3000) are irredeemable (~20% hard-seed rate).
 
-2. **Two-phase training**: Yes. n_epochs_init=2 (phase 1 without L1) is universally beneficial. It stabilizes W convergence before L1 refinement.
+2. **Two-phase training**: Yes. n_epochs_init=2 (phase 1 without L1) is universally beneficial. It stabilizes W convergence before L1 refinement. Eliminating phase 1 (n_epochs_init=3 with n_epochs=3) hurts.
 
-3. **coeff_edge_diff scaling**: 10,000 is the universal sweet spot. Both 5,000 and 20,000 degrade performance (20,000 is catastrophic for seed=42: -0.120).
+3. **coeff_edge_diff scaling**: 10,000 is the safe default. The landscape is non-monotonic: seed=500 benefits from 15,000 (+0.004) but 12,500 creates a trough and 20,000 degrades. For other seeds, 15,000 generally hurts.
 
-4. **Training duration**: 2 epochs is optimal for most seeds. 3 epochs helps seed=7 but hurts easy seeds (seed=42: -0.105). When lr_W is correct, less training is better.
+4. **Training duration**: 2 epochs is optimal for most seeds. However, n_epochs=3 is a powerful lever for mid-tier seeds: seed=2000 jumps from 0.918 to 0.991 (+0.073), seed=7 from 0.975 to 0.985. Easy seeds are hurt: seed=42 drops from 0.998 to 0.893. Combining n_epochs=3 with higher lr_W causes negative synergy.
+
+5. **Seed irredeemability**: ~20% of W realizations (seeds 1000 and 3000) are catastrophically hard. Both share a V-factor bottleneck (V_R^2^≈0.42) regardless of training configuration --- the GNN cannot learn the correct postsynaptic subspace. seed=1000 was tested across 15 configurations, seed=3000 fails immediately at standard recipe with the same pattern.

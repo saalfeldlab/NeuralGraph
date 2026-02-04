@@ -8,9 +8,14 @@ Find GNN training hyperparameters **and GNN code-level parameters** that recover
 
 **This is a fixed-regime exploration**: simulation parameters are FROZEN. GNN training parameters AND GNN code may be changed. There are NO block boundary simulation changes. **Code changes to GNN architecture/training are encouraged** — config-only sweeps plateau at conn_R2≈0.49.
 
+## User instructions to follow
+
+- TRY ONLY CODE CHANGES 
+
 ## Sparse Regime Characteristics
 
 The true connectivity matrix W is a random Gaussian matrix (W_ij ~ N(0, 1/n)) with 50% of entries zeroed out:
+
 - 100 neurons → 10,000 possible connections → ~5,000 non-zero entries
 - W is full-rank (not low-rank) but sparse: half of all entries are exactly zero
 - Diagonal is zero (no self-connections)
@@ -19,14 +24,14 @@ The true connectivity matrix W is a random Gaussian matrix (W_ij ~ N(0, 1/n)) wi
 
 ### Key Differences from Low-Rank Regime
 
-| Property | Low-Rank (rank=20) | Sparse (filling=50%) |
-| --- | --- | --- |
-| Non-zero entries | ~all (dense, but constrained to rank-20 subspace) | ~50% (random sparsity pattern) |
-| True structure | Low-rank: W = U @ V | Sparse: random with binary mask |
-| Effective rank | ~12 (low) | ~30-50 (higher) |
-| L1 role | Indirect (L1 doesn't match true structure) | Direct match (L1 promotes sparsity = true structure) |
-| Degeneracy risk | High (few modes → many equivalent W) | Lower (more modes → fewer equivalent W) |
-| Primary challenge | Recovering rank-20 structure from limited modes | Recovering correct sparsity pattern (which entries are zero) |
+| Property          | Low-Rank (rank=20)                                | Sparse (filling=50%)                                         |
+| ----------------- | ------------------------------------------------- | ------------------------------------------------------------ |
+| Non-zero entries  | ~all (dense, but constrained to rank-20 subspace) | ~50% (random sparsity pattern)                               |
+| True structure    | Low-rank: W = U @ V                               | Sparse: random with binary mask                              |
+| Effective rank    | ~12 (low)                                         | ~30-50 (higher)                                              |
+| L1 role           | Indirect (L1 doesn't match true structure)        | Direct match (L1 promotes sparsity = true structure)         |
+| Degeneracy risk   | High (few modes → many equivalent W)              | Lower (more modes → fewer equivalent W)                      |
+| Primary challenge | Recovering rank-20 structure from limited modes   | Recovering correct sparsity pattern (which entries are zero) |
 
 ### Expected Challenges
 
@@ -39,6 +44,7 @@ The true connectivity matrix W is a random Gaussian matrix (W_ij ~ N(0, 1/n)) wi
 ## Prior Knowledge (starting points)
 
 These are hypotheses to validate, not fixed truths:
+
 - `lr_W=3E-3` is a reasonable starting point (from landscape exploration)
 - `coeff_W_L1=1E-5` was optimal for low-rank — sparse regime may need different L1 (potentially higher, since L1 directly matches the true structure)
 - `coeff_edge_diff=10000` constrains lin_edge monotonicity
@@ -119,16 +125,17 @@ spectral radius: 1.029
 
 Compute the **degeneracy gap** = `test_pearson - connectivity_R2`:
 
-| test_pearson | connectivity_R2 | Degeneracy gap | Diagnosis |
-|:---:|:---:|:---:|---|
-| > 0.95 | > 0.9 | < 0.1 | **Healthy** — correct W |
-| > 0.95 | 0.3–0.9 | 0.1–0.7 | **Degenerate** — MLP compensation |
-| > 0.95 | < 0.3 | > 0.7 | **Severely degenerate** |
-| < 0.5 | < 0.5 | ~0 | **Failed** — not degeneracy |
+| test_pearson | connectivity_R2 | Degeneracy gap | Diagnosis                         |
+| :----------: | :-------------: | :------------: | --------------------------------- |
+|    > 0.95    |      > 0.9      |     < 0.1      | **Healthy** — correct W           |
+|    > 0.95    |     0.3–0.9     |    0.1–0.7     | **Degenerate** — MLP compensation |
+|    > 0.95    |      < 0.3      |     > 0.7      | **Severely degenerate**           |
+|    < 0.5     |      < 0.5      |       ~0       | **Failed** — not degeneracy       |
 
 **When degeneracy gap > 0.3, DO NOT trust dynamics metrics as evidence of learning quality.**
 
 **Log degeneracy in the iteration entry when detected:**
+
 ```
 Degeneracy: gap=0.53 (test_pearson=0.999, conn_R2=0.466) — MLP compensation suspected
 ```
@@ -136,6 +143,7 @@ Degeneracy: gap=0.53 (test_pearson=0.999, conn_R2=0.466) — MLP compensation su
 **Sparsity Quality (SPECIFIC TO SPARSE REGIME — check every iteration):**
 
 When connectivity_R2 is partial (0.3-0.9), examine whether the issue is:
+
 - Wrong sparsity pattern (non-zero entries in wrong locations)
 - Right sparsity pattern but wrong magnitudes
 - Both
@@ -160,7 +168,7 @@ Append to Full Log (`{config}_analysis.md`) and **Current Block** sections of `{
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode/Strategy: [exploit/explore/boundary/principle-test/degeneracy-break]
-Config: seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B
+Config: seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B, recurrent=[T/F], time_step=T
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, cluster_accuracy=D, final_loss=E, kino_R2=F, kino_SSIM=G, kino_WD=H
 Activity: eff_rank=R, spectral_radius=S, [brief description]
 Mutation: [param]: [old] -> [new]
@@ -183,28 +191,30 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition | Strategy | Action |
-|---|---|---|
-| Default | **exploit** | Highest UCB node, conservative mutation |
-| 3+ consecutive R² ≥ 0.9 | **failure-probe** | Extreme parameter to find boundary |
-| n_iter_block/4 consecutive successes | **explore** | Select outside recent chain |
-| degeneracy gap > 0.3 for 3+ iters | **degeneracy-break** | Increase coeff_edge_diff, L1, or reduce training duration |
-| Same R² plateau (±0.05) for 3+ iters | **forced-branch** | Select 2nd-highest UCB, switch param dimension |
-| 4+ consecutive same-param mutations | **switch-dimension** | Change a different parameter |
-| 2+ distant nodes with R² > 0.9 | **recombine** | Merge best params from both nodes |
-| test_R2 > 0.998 plateau for 3+ iters | **dimension-sweep** | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff) |
-| improvement rate < 30% in block | **exploit-tighten** | Keep best config, mutate secondary params conservatively |
-| best test_R2 unchanged for 2+ batches | **regime-shift** | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension |
-| all perturbations from best degrade | **seed-robustness** | Replay best config at new seed to test generalization |
-| best test_R2 unchanged for 2+ blocks | **cross-seed-optimize** | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed |
-| new recipe beats old at 2+ seeds | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality |
-| same config gives R2 range > 0.05 across runs | **variance-reduction** | Test recipe at new seed or with different aug/epochs to find lower-variance variant |
-| connectivity_R2 0.3-0.7 with low degeneracy gap | **L1-calibration** | Sweep coeff_W_L1 to find optimal sparsity pressure for this regime |
-| conn_R2 plateau (±0.02) across 4+ configs with different params | **code-modification** | Config sweeps exhausted — modify GNN code (see Step 5.2). Priority: W init scale, gradient clipping, proximal L1, MLP capacity reduction |
-| code change improved conn_R2 | **code-refine** | Keep code change, tune config params around the new code baseline |
-| code change degraded conn_R2 | **code-revert** | Revert code change (git checkout), try next priority from Step 5.2 list |
-| code change had zero effect (conn_R2 unchanged) | **code-next-priority** | Current code change is neutral — keep it (no harm) and try next priority from Step 5.2 list as additional modification |
-| conn_R2 plateau persists after 2+ code changes | **multi-code-modification** | Apply two code changes simultaneously if individual changes had zero effect — isolation already demonstrated no single-change effect |
+| Condition                                                       | Strategy                      | Action                                                                                                                                   |
+| --------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Default                                                         | **exploit**                   | Highest UCB node, conservative mutation                                                                                                  |
+| 3+ consecutive R² ≥ 0.9                                         | **failure-probe**             | Extreme parameter to find boundary                                                                                                       |
+| n_iter_block/4 consecutive successes                            | **explore**                   | Select outside recent chain                                                                                                              |
+| degeneracy gap > 0.3 for 3+ iters                               | **degeneracy-break**          | Increase coeff_edge_diff, L1, or reduce training duration                                                                                |
+| Same R² plateau (±0.05) for 3+ iters                            | **forced-branch**             | Select 2nd-highest UCB, switch param dimension                                                                                           |
+| 4+ consecutive same-param mutations                             | **switch-dimension**          | Change a different parameter                                                                                                             |
+| 2+ distant nodes with R² > 0.9                                  | **recombine**                 | Merge best params from both nodes                                                                                                        |
+| test_R2 > 0.998 plateau for 3+ iters                            | **dimension-sweep**           | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff)                                                     |
+| improvement rate < 30% in block                                 | **exploit-tighten**           | Keep best config, mutate secondary params conservatively                                                                                 |
+| best test_R2 unchanged for 2+ batches                           | **regime-shift**              | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension                                                           |
+| all perturbations from best degrade                             | **seed-robustness**           | Replay best config at new seed to test generalization                                                                                    |
+| best test_R2 unchanged for 2+ blocks                            | **cross-seed-optimize**       | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed                             |
+| new recipe beats old at 2+ seeds                                | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality                                                                       |
+| same config gives R2 range > 0.05 across runs                   | **variance-reduction**        | Test recipe at new seed or with different aug/epochs to find lower-variance variant                                                      |
+| connectivity_R2 0.3-0.7 with low degeneracy gap                 | **L1-calibration**            | Sweep coeff_W_L1 to find optimal sparsity pressure for this regime                                                                       |
+| conn_R2 plateau (±0.02) across 4+ configs with different params | **code-modification**         | Config sweeps exhausted — modify GNN code (see Step 5.2). Priority: W init scale, gradient clipping, proximal L1, MLP capacity reduction |
+| code change improved conn_R2                                    | **code-refine**               | Keep code change, tune config params around the new code baseline                                                                        |
+| code change degraded conn_R2                                    | **code-revert**               | Revert code change (git checkout), try next priority from Step 5.2 list                                                                  |
+| code change had zero effect (conn_R2 unchanged)                 | **code-next-priority**        | Current code change is neutral — keep it (no harm) and try next priority from Step 5.2 list as additional modification                   |
+| conn_R2 plateau persists after 2+ code changes                  | **multi-code-modification**   | Apply two code changes simultaneously if individual changes had zero effect — isolation already demonstrated no single-change effect     |
+| conn_R2 plateau persists after ALL code changes (config + code exhausted) | **identifiability-test**      | Confirmed identifiability limit — vary seed to test if ceiling is W-specific, try longer training (12+ epochs), try different optimizer for W (SGD) |
+| lin_edge_mode=tanh gives same conn_R2 as mlp                    | **fixed-model-sweep**         | Keep lin_edge_mode=tanh (correct model form), sweep seed/epochs/lr_W to find ceiling-breaking configuration |
 
 ### Step 5: Edit Config File
 
@@ -213,6 +223,7 @@ Edit config file for next iteration.
 **CRITICAL: Config Parameter Constraints**
 
 **DO NOT add new parameters to the `claude:` section.** Only these fields are allowed:
+
 - `n_epochs`: int
 - `data_augmentation_loop`: int
 - `n_iter_block`: int
@@ -224,8 +235,9 @@ Edit config file for next iteration.
 
 ```yaml
 training:
-  seed: 137                        # changing seed generates a DIFFERENT connectivity matrix W
-                                   # use different seeds to test robustness across W samples
+  seed:
+    137 # changing seed generates a DIFFERENT connectivity matrix W
+    # use different seeds to test robustness across W samples
 ```
 
 Changing `seed` produces a new random sparse connectivity matrix. This lets you track whether a training configuration works for one specific W realization or generalizes across multiple W samples. Log the seed in Config line and note when a mutation is a seed change.
@@ -236,26 +248,32 @@ Mutate ONE parameter at a time for causal understanding.
 
 ```yaml
 training:
-  learning_rate_W_start: 3.0E-3   # range: 1E-4 to 1E-2
-  learning_rate_start: 1.0E-4     # range: 1E-5 to 1E-3
+  learning_rate_W_start: 3.0E-3 # range: 1E-4 to 1E-2
+  learning_rate_start: 1.0E-4 # range: 1E-5 to 1E-3
   learning_rate_embedding_start: 2.5E-4
-  coeff_W_L1: 1.0E-5              # range: 1E-7 to 1E-3 — KEY for sparse regime
-  coeff_edge_diff: 10000          # range: 100 to 50000
-  batch_size: 8                   # values: 8, 16, 32
+  coeff_W_L1: 1.0E-5 # range: 1E-7 to 1E-3 — KEY for sparse regime
+  coeff_edge_diff: 10000 # range: 100 to 50000
+  batch_size: 8 # values: 8, 16, 32
 
   # Two-phase training
-  n_epochs_init: 2                # epochs in phase 1 (no L1)
-  first_coeff_L1: 0               # L1 during phase 1 (typically 0)
+  n_epochs_init: 2 # epochs in phase 1 (no L1)
+  first_coeff_L1: 0 # L1 during phase 1 (typically 0)
   # Note: coeff_W_L1 applies in phase 2 (after n_epochs_init)
 
-  training_single_type: True      # can try False
+  training_single_type: True # can try False
+
+  # Recurrent training parameters (can tune within block)
+  recurrent_training: False # enable multi-step rollout training (True/False)
+  time_step: 1 # rollout depth: 1 = single-step (default), 4, 16, 32, 64
+  noise_recurrent_level: 0.0 # noise injected per rollout step (range: 0 to 0.1)
+  recurrent_training_start_epoch: 0 # epoch to begin recurrent training (0 = from start)
 ```
 
 **Claude Exploration Parameters:**
 
 ```yaml
 claude:
-  ucb_c: 1.414    # UCB exploration constant (0.5-3.0)
+  ucb_c: 1.414 # UCB exploration constant (0.5-3.0)
 ```
 
 ### Step 5.2: Modify GNN Code (PREFERRED when config sweeps plateau)
@@ -358,6 +376,7 @@ Triggered when `iter_in_block == n_iter_block`
 You **MUST** use the Edit tool to add/modify parent selection rules.
 
 **Evaluate:**
+
 - Branching rate < 20% → ADD exploration rule
 - Improvement rate < 30% → INCREASE exploitation
 - Same R² plateau for 3+ iters → ADD forced branching
@@ -366,6 +385,7 @@ You **MUST** use the Edit tool to add/modify parent selection rules.
 ### STEP 2: Choose Next Block Focus
 
 Since simulation is fixed, blocks explore different **training parameter subspaces**:
+
 - Block 1: lr_W and coeff_W_L1 sweep (central parameters for sparse recovery)
 - Block 2: L1 calibration — find optimal sparsity pressure
 - Block 3: coeff_edge_diff / two-phase training interaction
@@ -390,9 +410,9 @@ Update `{config}_memory.md`:
 
 ### Best Configurations Found
 
-| Blk | lr_W | lr | L1 | edge_diff | n_ep_init | first_L1 | batch | conn_R2 | test_R2 | Finding |
-| --- | ---- | -- | -- | --------- | --------- | -------- | ----- | ------- | ------- | ------- |
-| 1   | 3E-3 | 1E-4 | 1E-5 | 10000 | 2 | 0 | 8 | ? | ? | baseline |
+| Blk | lr_W | lr   | L1   | edge_diff | n_ep_init | first_L1 | batch | conn_R2 | test_R2 | Finding  |
+| --- | ---- | ---- | ---- | --------- | --------- | -------- | ----- | ------- | ------- | -------- |
+| 1   | 3E-3 | 1E-4 | 1E-5 | 10000     | 2         | 0        | 8     | ?       | ?       | baseline |
 
 ### Established Principles
 
@@ -447,10 +467,12 @@ du/dt = lin_phi(u, a) + W @ lin_edge(u, a)
 ### Two-Phase Training
 
 Phase 1 (first `n_epochs_init` epochs):
+
 - Uses `first_coeff_L1` (typically 0) instead of `coeff_W_L1`
 - Lets W converge without L1 pressure — find the right structure first
 
 Phase 2 (remaining epochs):
+
 - Uses `coeff_W_L1` for L1 regularization
 - Refines W sparsity pattern while maintaining structure from phase 1
 
@@ -472,3 +494,30 @@ L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff
 - Effective rank of activity data expected ~30-50 (much higher than low-rank regime)
 - The GNN learns a dense W — L1 regularization must discover which 50% of entries should be zero
 - Unlike low-rank, the non-zero entries have no special structure (random Gaussian)
+
+### Recurrent Training
+
+When `recurrent_training=True` and `time_step=T`, the model is trained to predict T steps ahead using its own predictions (autoregressive rollout):
+
+1. Sample frame k (aligned to `time_step` boundaries)
+2. Target = actual state at frame `k + time_step` (not derivative)
+3. First step: `pred_x = x + delta_t * model(x) + noise`
+4. Steps 2..T: feed `pred_x` back into model, accumulate Euler steps
+5. Loss = `||pred_x - y|| / (delta_t * time_step)` (backprop through all T steps)
+
+**Key parameters:**
+
+| Parameter                        | Description                                    | Range            |
+| -------------------------------- | ---------------------------------------------- | ---------------- |
+| `recurrent_training`             | Enable multi-step rollout                      | True/False       |
+| `time_step`                      | Rollout depth (1 = single-step, no recurrence) | 1, 4, 16, 32, 64 |
+| `noise_recurrent_level`          | Noise per rollout step (regularization)        | 0 to 0.1         |
+| `recurrent_training_start_epoch` | Epoch to begin recurrent training              | 0+               |
+
+**Guidance:**
+
+- Start with `recurrent_training=False` (default) to establish baseline
+- Enable at block boundaries: set `recurrent_training=True` + `time_step=4` as first test
+- `noise_recurrent_level=0.01-0.05` helps prevent rollout instability
+- Higher `time_step` costs proportionally more compute — reduce `data_augmentation_loop` to compensate
+- `recurrent_training_start_epoch > 0` allows warmup with single-step before switching to recurrent

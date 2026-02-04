@@ -219,6 +219,9 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         # scaling factor for lin_phi output (1.0 = default, <1.0 reduces lin_phi bypass)
         self.phi_scale = 1.0
 
+        # lin_edge mode: 'mlp' (default), 'tanh' (fixed tanh(u_j)), 'identity' (fixed u_j)
+        self.lin_edge_mode = getattr(train_config, 'lin_edge_mode', 'mlp')
+
     def get_interp_a(self, k, particle_id):
 
         id = particle_id * 100 + k // self.embedding_step
@@ -298,9 +301,14 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         else:
             in_features = u_j
 
-        lin_edge = self.lin_edge(in_features)
-        if self.lin_edge_positive:
-            lin_edge = lin_edge**2
+        if self.lin_edge_mode == 'tanh':
+            lin_edge = torch.tanh(u_j)
+        elif self.lin_edge_mode == 'identity':
+            lin_edge = u_j
+        else:
+            lin_edge = self.lin_edge(in_features)
+            if self.lin_edge_positive:
+                lin_edge = lin_edge**2
 
         if self.multi_connectivity:
             if self.batch_size == 1:

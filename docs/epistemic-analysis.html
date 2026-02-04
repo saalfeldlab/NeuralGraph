@@ -73,11 +73,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-9a023c9ade86a60361e96e3e3f11bc54.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-2f1cd67aee57a235049628202cc4b683.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-cef7867c9408d629ec2476cab5756174.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<script src="site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
-<link href="site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
-<link href="site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
+<link href="site_libs/bootstrap/bootstrap-f1f8c88446cdc37d3187128a6bd52d25.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-16dc960a316359c75a6303268f7f2be9.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -225,7 +222,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul class="collapse">
   <li><a href="#block-1-chaotic-baseline" id="toc-block-1-chaotic-baseline" class="nav-link" data-scroll-target="#block-1-chaotic-baseline">Block 1 — Chaotic Baseline</a></li>
   <li><a href="#block-2-low-rank-breakthrough" id="toc-block-2-low-rank-breakthrough" class="nav-link" data-scroll-target="#block-2-low-rank-breakthrough">Block 2 — Low-rank Breakthrough</a></li>
-  <li><a href="#block-3-dales-law-discovery" id="toc-block-3-dales-law-discovery" class="nav-link" data-scroll-target="#block-3-dales-law-discovery">Block 3 — Dale’s Law Discovery</a></li>
+  <li><a href="#block-3-dales-law-exploration" id="toc-block-3-dales-law-exploration" class="nav-link" data-scroll-target="#block-3-dales-law-exploration">Block 3 — Dale’s Law Exploration</a></li>
   <li><a href="#block-4-dual-objective-conflict" id="toc-block-4-dual-objective-conflict" class="nav-link" data-scroll-target="#block-4-dual-objective-conflict">Block 4 — Dual-Objective Conflict</a></li>
   <li><a href="#block-5-noise-effects" id="toc-block-5-noise-effects" class="nav-link" data-scroll-target="#block-5-noise-effects">Block 5 — Noise Effects</a></li>
   <li><a href="#block-6-scale-sensitivity-n200" id="toc-block-6-scale-sensitivity-n200" class="nav-link" data-scroll-target="#block-6-scale-sensitivity-n200">Block 6 — Scale Sensitivity (n=200)</a></li>
@@ -304,30 +301,33 @@ Current status
 <li><strong>~400 reasoning events</strong> across 336 iterations and 28 blocks, connected by ~150 causal edges</li>
 <li><strong>Predictive power</strong>: 74% deduction accuracy (well above chance)</li>
 <li><strong>Knowledge transfer</strong>: 70% analogy success rate across cross-regime transfers</li>
-<li><strong>Principle discovery</strong>: ~80 validated findings with confidence 45–100%</li>
+<li><strong>Principle identification</strong>: ~80 validated findings with confidence 45–100%</li>
 <li><strong>Self-correction</strong>: 100% of falsifications led to principle refinement</li>
 <li><strong>Structural limit recognition</strong>: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22–24 (conn ceiling at filling_factor), and blocks 25–26 (g=1 fixed-point collapse — eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits</li>
 <li><strong>Cross-block transfer</strong>: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16–18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25–28 (g=1, g=2)</li>
-<li><strong>Paradigm shifts</strong>: Blocks 15–16 (n_frames dominance), blocks 19–21 (gain as solvable difficulty axis), blocks 22–24 (conn_ceiling at filling_factor), and blocks 25–26 (g=1 fixed-point collapse) represent four paradigm-level discoveries. Each overturned or extended previously established principles</li>
+<li><strong>Paradigm shifts</strong>: Blocks 15–16 (n_frames dominance), blocks 19–21 (gain as solvable difficulty axis), blocks 22–24 (conn_ceiling at filling_factor), and blocks 25–26 (g=1 fixed-point collapse) represent four paradigm-level findings. Each overturned or extended previously established principles</li>
 </ol>
 <hr>
 </section>
 <section id="epistemic-timeline" class="level2">
 <h2 class="anchored" data-anchor-id="epistemic-timeline">Epistemic Timeline</h2>
-<p><a href="assets/epistemic_timeline.png" class="lightbox" data-gallery="quarto-lightbox-gallery-1"><img src="assets/epistemic_timeline.png" class="img-fluid"></a></p>
+<iframe src="assets/epistemic_timeline_interactive.html" width="100%" height="650" style="border:none;">
+</iframe>
 <p>The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM’s written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7–8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19–21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22–24 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship across three data points. Blocks 25–28 show a distinctive regime recognition → constraint identification pattern as the system discovers g=1 fixed-point collapse (blocks 25–26) and the g=2 inverse lr_W regime (blocks 27–28).</p>
 <hr>
 </section>
 <section id="reasoning-activity-stream" class="level2">
 <h2 class="anchored" data-anchor-id="reasoning-activity-stream">Reasoning Activity Stream</h2>
-<p><a href="assets/epistemic_streamgraph.png" class="lightbox" data-gallery="quarto-lightbox-gallery-2"><img src="assets/epistemic_streamgraph.png" class="img-fluid"></a></p>
-<p>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream’s width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows six distinct phases. In the first phase (blocks 1–3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4–6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7–10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11–16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15–16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17–23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23). In the sixth phase (blocks 24–28), the system maps the gain–eff_rank critical transition: regime recognition dominates as g=1 and g=2 are explored, constraint identification peaks as fixed-point collapse is discovered (blocks 25–26), and causal reasoning intensifies as the system builds a quantitative model of how gain modulates eff_rank non-linearly.</p>
+<iframe src="assets/epistemic_streamgraph_interactive.html" width="100%" height="500" style="border:none;">
+</iframe>
+<p>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream’s width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows six distinct phases. In the first phase (blocks 1–3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4–6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7–10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11–16), analogy becomes the dominant entry mode as cross-block transfer drives scaling explorations; falsification surges in blocks 15–16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17–23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23). In the sixth phase (blocks 24–28), the system maps the gain–eff_rank critical transition: regime recognition dominates as g=1 and g=2 are explored, constraint identification peaks as fixed-point collapse is discovered (blocks 25–26), and causal reasoning intensifies as the system builds a quantitative model of how gain modulates eff_rank non-linearly.</p>
 <hr>
 </section>
 <section id="epistemic-flow" class="level2">
 <h2 class="anchored" data-anchor-id="epistemic-flow">Epistemic Flow</h2>
-<p><a href="assets/Sankey.png" class="lightbox" data-gallery="quarto-lightbox-gallery-3"><img src="assets/Sankey.png" class="img-fluid"></a></p>
-<p>The Sankey diagram traces how reasoning modes connect to each other across the full exploration (400+ events, 150+ causal edges, 28 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain — for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM’s analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next — this pathway intensifies in blocks 11–21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7–8, 17, 22–23) or paradigm-level shifts (blocks 15–16, 19–21). Blocks 17–23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</p>
+<iframe src="assets/epistemic_sankey_interactive.html" width="100%" height="850" style="border:none;">
+</iframe>
+<p>The Sankey diagram traces how reasoning modes connect to each other across the full exploration (400+ events, 150+ causal edges, 28 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain — for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM’s analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next — this pathway intensifies in blocks 11–21 as cross-block transfer becomes the primary mechanism for scaling explorations. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7–8, 17, 22–23) or paradigm-level shifts (blocks 15–16, 19–21). Blocks 17–23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</p>
 <hr>
 </section>
 <section id="reasoning-mode-taxonomy" class="level2">
@@ -599,8 +599,8 @@ Current status
 </table>
 <p><strong>Principle extracted</strong>: L1=1E-6 is critical enabler for low-rank dynamics; lr_W optimal shifts downward at low eff_rank.</p>
 </section>
-<section id="block-3-dales-law-discovery" class="level3">
-<h3 class="anchored" data-anchor-id="block-3-dales-law-discovery">Block 3 — Dale’s Law Discovery</h3>
+<section id="block-3-dales-law-exploration" class="level3">
+<h3 class="anchored" data-anchor-id="block-3-dales-law-exploration">Block 3 — Dale’s Law Exploration</h3>
 <table class="caption-top table">
 <colgroup>
 <col style="width: 20%">
@@ -3425,17 +3425,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**~400 reasoning events** across 336 iterations and 28 blocks, connected by ~150 causal edges</span>
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**Predictive power**: 74% deduction accuracy (well above chance)</span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Knowledge transfer**: 70% analogy success rate across cross-regime transfers</span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Principle discovery**: ~80 validated findings with confidence 45--100%</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Principle identification**: ~80 validated findings with confidence 45--100%</span>
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="ss">5. </span>**Self-correction**: 100% of falsifications led to principle refinement</span>
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ss">6. </span>**Structural limit recognition**: Block 8 (sparse data limit), block 17 (sparse immune to n_frames), blocks 22--24 (conn ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse --- eff_rank drops at 30k) demonstrate the system can distinguish solvable from structural limits</span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="ss">7. </span>**Cross-block transfer**: Key insights from block 7 (n_epochs) transferred to block 9 (n=300); block 15 (n_frames) transferred to blocks 16--18 and 21; block 22 (fill=80%) extended through block 24 (fill=90%); block 19 (g=3) transferred to blocks 25--28 (g=1, g=2)</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse) represent four paradigm-level discoveries. Each overturned or extended previously established principles</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ss">8. </span>**Paradigm shifts**: Blocks 15--16 (n_frames dominance), blocks 19--21 (gain as solvable difficulty axis), blocks 22--24 (conn_ceiling at filling_factor), and blocks 25--26 (g=1 fixed-point collapse) represent four paradigm-level findings. Each overturned or extended previously established principles</span>
 <span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="fu">## Epistemic Timeline</span></span>
 <span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="al">![](assets/epistemic_timeline.png)</span>{.lightbox}</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>&lt;iframe src="assets/epistemic_timeline_interactive.html" width="100%" height="650" style="border:none;"&gt;&lt;/iframe&gt;</span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>The epistemic timeline is constructed by classifying each LLM reasoning event into one of ten formal modes (induction, deduction, abduction, falsification, boundary probing, analogy, meta-reasoning, regime recognition, causal reasoning, and constraint identification). For every iteration, the LLM's written analysis log is parsed and each reasoning step is tagged with its mode; the result is a scatter plot where each dot marks a reasoning event at a given iteration, colored by mode. The figure reveals how the reasoning composition evolves over the course of the exploration. Boundary probing dominates the early iterations of each block as the system maps a new regime, then gives way to deduction and falsification once enough observations have accumulated to form testable predictions. Cross-block analogy events cluster at block transitions, where the LLM attempts to transfer principles from previously explored regimes. The sparse-connectivity blocks (7--8, 17) show a distinctive shift toward constraint recognition and meta-reasoning as the system identifies structural limits that no amount of hyperparameter tuning can overcome. Blocks 19--21 introduce a new reasoning pattern: regime recognition identifies gain as an independent difficulty axis, followed by rapid falsification when 30k frames rescues the regime. Blocks 22--24 show a constraint-heavy pattern as the system maps the conn_ceiling at filling_factor relationship across three data points. Blocks 25--28 show a distinctive regime recognition → constraint identification pattern as the system discovers g=1 fixed-point collapse (blocks 25--26) and the g=2 inverse lr_W regime (blocks 27--28).</span>
 <span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
@@ -3443,17 +3443,17 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a><span class="fu">## Reasoning Activity Stream</span></span>
 <span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a><span class="al">![](assets/epistemic_streamgraph.png)</span>{.lightbox}</span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>&lt;iframe src="assets/epistemic_streamgraph_interactive.html" width="100%" height="500" style="border:none;"&gt;&lt;/iframe&gt;</span>
 <span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream's width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows six distinct phases. In the first phase (blocks 1--3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4--6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7--10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11--16), analogy becomes the dominant entry mode as cross-block transfer drives scaling discoveries; falsification surges in blocks 15--16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17--23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23). In the sixth phase (blocks 24--28), the system maps the gain--eff_rank critical transition: regime recognition dominates as g=1 and g=2 are explored, constraint identification peaks as fixed-point collapse is discovered (blocks 25--26), and causal reasoning intensifies as the system builds a quantitative model of how gain modulates eff_rank non-linearly.</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a>The streamgraph aggregates reasoning mode counts into a smoothed, stacked area chart where each stream's width encodes the relative frequency of that mode over a sliding window of iterations. It is generated from the same per-iteration mode annotations as the timeline, but traded temporal resolution for a view of compositional trends. The visualization shows six distinct phases. In the first phase (blocks 1--3), boundary probing and induction dominate as the system maps base-case parameters. In the second phase (blocks 4--6), deduction and analogy grow as the LLM begins predicting outcomes from accumulated principles and transferring knowledge across regimes. In the third phase (blocks 7--10), falsification and constraint modes widen as the system encounters structurally hard regimes (sparse, large-scale) where many hypotheses fail and the LLM must reason about fundamental limits rather than parameter optimization. In the fourth phase (blocks 11--16), analogy becomes the dominant entry mode as cross-block transfer drives scaling explorations; falsification surges in blocks 15--16 as the n_frames paradigm shift overturns multiple established principles, while induction resurges as new patterns emerge at 30k frames. In the fifth phase (blocks 17--23), the system enters a consolidation and boundary-mapping mode: constraint recognition peaks as structural limits are probed (sparse at 30k, fill=80%), regime recognition resurges as gain is identified as a new difficulty axis, and analogy drives rapid resolution when 30k frames rescues g=3/n=200 (block 21) while failing to rescue fill=80% (block 23). In the sixth phase (blocks 24--28), the system maps the gain--eff_rank critical transition: regime recognition dominates as g=1 and g=2 are explored, constraint identification peaks as fixed-point collapse is discovered (blocks 25--26), and causal reasoning intensifies as the system builds a quantitative model of how gain modulates eff_rank non-linearly.</span>
 <span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a><span class="fu">## Epistemic Flow</span></span>
 <span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="al">![](assets/Sankey.png)</span>{.lightbox}</span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>&lt;iframe src="assets/epistemic_sankey_interactive.html" width="100%" height="850" style="border:none;"&gt;&lt;/iframe&gt;</span>
 <span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>The Sankey diagram traces how reasoning modes connect to each other across the full exploration (400+ events, 150+ causal edges, 28 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain --- for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM's analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next --- this pathway intensifies in blocks 11--21 as cross-block transfer becomes the primary mechanism for scaling discoveries. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7--8, 17, 22--23) or paradigm-level shifts (blocks 15--16, 19--21). Blocks 17--23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>The Sankey diagram traces how reasoning modes connect to each other across the full exploration (400+ events, 150+ causal edges, 28 blocks). Each link represents a transition where one epistemic operation led to another within the same causal chain --- for example, a boundary probe that triggered a falsification, or an induction that enabled a deduction in a later iteration. Link width is proportional to the number of such transitions observed. The diagram is constructed by extracting causal edges from the LLM's analysis log: when the LLM explicitly references a prior finding to justify a new hypothesis or action, a directed edge is created between the two reasoning modes. The resulting flow reveals that induction and boundary probing are the dominant entry points, feeding into both deduction (when observations yield testable predictions) and falsification (when probes or predictions fail). Analogy acts as a cross-regime bridge, receiving from induction in one block and feeding both induction and falsification in the next --- this pathway intensifies in blocks 11--21 as cross-block transfer becomes the primary mechanism for scaling explorations. Meta-reasoning and constraint recognition appear as terminal modes, activated when the system must acknowledge structural limits (blocks 7--8, 17, 22--23) or paradigm-level shifts (blocks 15--16, 19--21). Blocks 17--23 strengthen the constraint→induction pathway as structural limits identified in one regime (sparse, fill=80%) generate new hypotheses tested in the next.</span>
 <span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>---</span>
 <span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a></span>
@@ -3518,7 +3518,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-111"><a href="#cb1-111" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-112"><a href="#cb1-112" aria-hidden="true" tabindex="-1"></a>**Principle extracted**: L1=1E-6 is critical enabler for low-rank dynamics; lr_W optimal shifts downward at low eff_rank.</span>
 <span id="cb1-113"><a href="#cb1-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-114"><a href="#cb1-114" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 3 --- Dale's Law Discovery</span></span>
+<span id="cb1-114"><a href="#cb1-114" aria-hidden="true" tabindex="-1"></a><span class="fu">### Block 3 --- Dale's Law Exploration</span></span>
 <span id="cb1-115"><a href="#cb1-115" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-116"><a href="#cb1-116" aria-hidden="true" tabindex="-1"></a>| Iter | Mode | Event | Outcome |</span>
 <span id="cb1-117"><a href="#cb1-117" aria-hidden="true" tabindex="-1"></a>|------|------|-------|---------:|</span>
@@ -4043,38 +4043,6 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
     </div>
   </div>
 </footer>
-<script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
-(function() {
-  let previousOnload = window.onload;
-  window.onload = () => {
-    if (previousOnload) {
-      previousOnload();
-    }
-    lightboxQuarto.on('slide_before_load', (data) => {
-      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
-      const href = trigger.getAttribute('href');
-      if (href !== null) {
-        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
-        if (imgEl !== null) {
-          const srcAttr = imgEl.getAttribute("src");
-          if (srcAttr && srcAttr.startsWith("data:")) {
-            slideConfig.href = srcAttr;
-          }
-        }
-      } 
-    });
-  
-    lightboxQuarto.on('slide_after_load', (data) => {
-      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
-      if (window.Quarto?.typesetMath) {
-        window.Quarto.typesetMath(slideNode);
-      }
-    });
-  
-  };
-  
-})();
-          </script>
 
 
 

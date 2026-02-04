@@ -12,14 +12,14 @@ simulation:
   params:
   - - 1.0
     - 0.0
-    - 2.0
+    - 7.0
     - 0.0
     - 1.0
     - 0.0
   phi: tanh
-  n_neurons: 200
+  n_neurons: 1000
   n_neuron_types: 1
-  n_frames: 30000
+  n_frames: 100000
   delta_t: 0.01
   dpos_init: 0
   boundary: 'no'
@@ -68,7 +68,7 @@ training:
   cluster_method: distance_plot
   cluster_distance_threshold: 0.1
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.001
+  learning_rate_W_start: 0.005
   learning_rate_start: 0.0001
   learning_rate_embedding_start: 0.001
   coeff_W_L1: 1.0e-05

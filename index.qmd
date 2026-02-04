@@ -34,7 +34,7 @@ flowchart LR
 The framework implements a **closed-loop exploration engine** composed of three interacting components:
 
 1. **Experiment**
-   A physics-based simulator generates neural activity following the Stern et al. (2023) model. A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W. **4 parallel slots** run simultaneously per batch via UCB tree search.
+   A physics-based simulator generates neural activity. A message-passing GNN learns to predict activity derivatives while jointly recovering the connectivity matrix W. **4 parallel slots** run simultaneously per batch via UCB tree search.
 
 2. **LLM**
    The LLM interprets results in context of accumulated memory, performs scientific operations (identify regimes, detect convergence, generate hypotheses), and selects the next intervention via UCB tree search.
@@ -54,9 +54,9 @@ Connectivity recovery succeeds for dense chaotic networks up to n=600 (100% conv
 
 ## [Epistemics](epistemic-analysis.qmd)
 
-400+ reasoning events classified across 336 iterations and 28 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~80 principles discovered with confidence 45--100%.
+400+ reasoning events classified across 336 iterations and 28 blocks into ten formal epistemic modes (induction, deduction, falsification, analogy, boundary probing, etc.), connected by 150+ causal edges. The system achieves 74% deduction accuracy (well above chance), 70% cross-regime analogy transfer success, and 100% falsification-to-refinement rate. ~80 principles established with confidence 45--100%.
 
-Six distinct reasoning phases emerge: (1) boundary probing and induction dominate early as the system maps each new regime, (2) deduction and analogy grow as accumulated principles enable cross-regime predictions, (3) falsification and constraint recognition widen when structurally hard regimes are encountered, (4) analogy drives scaling discoveries as n_frames dominance overturns multiple principles (blocks 15--16), (5) constraint recognition peaks as the system maps structural limits --- subcritical spectral radius (block 17), conn_ceiling at filling_factor (blocks 22--24) --- while confirming that gain is a solvable difficulty axis (blocks 19--21), and (6) regime recognition identifies the gain--eff_rank critical transition (blocks 25--28), discovering fixed-point collapse (g=1) as a new unsolvable axis and inverse lr_W at g=2.
+Six distinct reasoning phases emerge: (1) boundary probing and induction dominate early as the system maps each new regime, (2) deduction and analogy grow as accumulated principles enable cross-regime predictions, (3) falsification and constraint recognition widen when structurally hard regimes are encountered, (4) analogy drives scaling explorations as n_frames dominance overturns multiple principles (blocks 15--16), (5) constraint recognition peaks as the system maps structural limits --- subcritical spectral radius (block 17), conn_ceiling at filling_factor (blocks 22--24) --- while confirming that gain is a solvable difficulty axis (blocks 19--21), and (6) regime recognition identifies the gain--eff_rank critical transition (blocks 25--28), identifying fixed-point collapse (g=1) as a new unsolvable axis and inverse lr_W at g=2.
 
 [![](assets/Sankey.png){.lightbox}](epistemic-analysis.qmd)
 

@@ -329,7 +329,19 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
-    optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    # separate SGD optimizer for W if configured (sharper L1-induced zeros)
+    w_optimizer_type = getattr(train_config, 'w_optimizer_type', 'adam')
+    w_optimizer = None
+    if w_optimizer_type == 'sgd' and hasattr(model, 'W') and model.W.requires_grad:
+        w_optimizer = torch.optim.SGD([model.W], lr=lr_W, momentum=0.9)
+        # exclude W from main Adam optimizer by temporarily disabling its gradient
+        model.W.requires_grad_(False)
+        optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+        model.W.requires_grad_(True)
+        n_total_params += model.W.numel()
+        print(f'using separate SGD optimizer for W (momentum=0.9, lr={lr_W})')
+    else:
+        optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
@@ -414,7 +426,13 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
             print(f'reset W model.a at epoch : {epoch}')
         if (epoch == 1) & (train_config.init_training_single_type):
             lr_embedding = train_config.learning_rate_embedding_start
-            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+            if w_optimizer is not None:
+                model.W.requires_grad_(False)
+                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+                model.W.requires_grad_(True)
+                n_total_params += model.W.numel()
+            else:
+                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
             model.train()
 
         # freeze lin_edge (and lin_phi) after n_epochs_init to prevent MLP compensation for wrong W
@@ -425,7 +443,13 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
             for param in model.lin_phi.parameters():
                 param.requires_grad = False
             # rebuild optimizer without frozen parameters
-            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+            if w_optimizer is not None:
+                model.W.requires_grad_(False)
+                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+                model.W.requires_grad_(True)
+                n_total_params += model.W.numel()
+            else:
+                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
             model.train()
             print(f'froze lin_edge and lin_phi at epoch {epoch} — only W and embeddings trainable ({n_total_params:,} params)')
 
@@ -464,6 +488,8 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
             if model_f is not None:
                 optimizer_f.zero_grad()
             optimizer.zero_grad()
+            if w_optimizer is not None:
+                w_optimizer.zero_grad()
 
             dataset_batch = []
             ids_batch = []
@@ -677,6 +703,8 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                     torch.nn.utils.clip_grad_norm_([model.W], max_norm=1.0)
 
                 optimizer.step()
+                if w_optimizer is not None:
+                    w_optimizer.step()
                 regularizer.finalize_iteration()
 
                 # proximal L1: soft-thresholding on W for exact zeros (skip during anti-sparsity phase)
@@ -1119,6 +1147,11 @@ def data_train_flyvis(config, erase, best_model, device):
     if lin_edge_dropout > 0:
         model.lin_edge.dropout_rate = lin_edge_dropout
         print(f'lin_edge dropout: p={lin_edge_dropout}')
+
+    # lin_edge mode bypass
+    lin_edge_mode = getattr(train_config, 'lin_edge_mode', 'mlp')
+    if lin_edge_mode != 'mlp':
+        print(f'lin_edge mode: {lin_edge_mode} (MLP bypassed)')
 
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')

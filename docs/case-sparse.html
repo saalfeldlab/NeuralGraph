@@ -73,8 +73,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-9a023c9ade86a60361e96e3e3f11bc54.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-2f1cd67aee57a235049628202cc4b683.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-cef7867c9408d629ec2476cab5756174.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-f1f8c88446cdc37d3187128a6bd52d25.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-16dc960a316359c75a6303268f7f2be9.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -242,9 +242,10 @@ window.Quarto = {
   <li><a href="#code-modification-2-proximal-l1-soft-thresholding" id="toc-code-modification-2-proximal-l1-soft-thresholding" class="nav-link" data-scroll-target="#code-modification-2-proximal-l1-soft-thresholding">Code Modification 2: Proximal L1 Soft-Thresholding</a></li>
   <li><a href="#code-modification-3-mlp-capacity-reduction" id="toc-code-modification-3-mlp-capacity-reduction" class="nav-link" data-scroll-target="#code-modification-3-mlp-capacity-reduction">Code Modification 3: MLP Capacity Reduction</a></li>
   <li><a href="#code-modification-4-gradient-clipping-on-w" id="toc-code-modification-4-gradient-clipping-on-w" class="nav-link" data-scroll-target="#code-modification-4-gradient-clipping-on-w">Code Modification 4: Gradient Clipping on W</a></li>
+  <li><a href="#code-modification-5-lin_phi-scaling-removal" id="toc-code-modification-5-lin_phi-scaling-removal" class="nav-link" data-scroll-target="#code-modification-5-lin_phi-scaling-removal">Code Modification 5: lin_phi Scaling / Removal</a></li>
   <li><a href="#summary-what-failed-and-why" id="toc-summary-what-failed-and-why" class="nav-link" data-scroll-target="#summary-what-failed-and-why">Summary: What Failed and Why</a></li>
   <li><a href="#architectural-diagnosis" id="toc-architectural-diagnosis" class="nav-link" data-scroll-target="#architectural-diagnosis">Architectural Diagnosis</a></li>
-  <li><a href="#next-steps-architectural-interventions" id="toc-next-steps-architectural-interventions" class="nav-link" data-scroll-target="#next-steps-architectural-interventions">Next Steps: Architectural Interventions</a></li>
+  <li><a href="#next-steps-recurrent-training-and-lin_edge-constraints" id="toc-next-steps-recurrent-training-and-lin_edge-constraints" class="nav-link" data-scroll-target="#next-steps-recurrent-training-and-lin_edge-constraints">Next Steps: Recurrent Training and lin_edge Constraints</a></li>
   </ul>
 </nav>
     </div>
@@ -254,7 +255,7 @@ window.Quarto = {
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
 <div class="quarto-title-block"><div><h1 class="title">Case Study: Sparse Connectivity</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
-<p class="subtitle lead">Breaking the 0.489 ceiling — LLM-guided code modifications to the GNN architecture</p>
+<p class="subtitle lead">Breaking the 0.489 ceiling — LLM-guided code modifications to the GNN architecture (32+ iterations)</p>
 </div>
 
 
@@ -275,6 +276,19 @@ window.Quarto = {
 <h2 class="anchored" data-anchor-id="problem-statement">Problem Statement</h2>
 <p>Sparse connectivity (filling_factor=50%, n=100 neurons) produces neural activity with subcritical spectral radius (rho=0.746). The landscape exploration (blocks 7, 8, 17) established that <strong>no configuration sweep can break the conn_R<sup>2</sup>=0.489 ceiling</strong> — neither regularization, learning rates, epochs, noise, nor tripling the data (30k frames) had any effect. This motivated a dedicated exploration focused on <strong>modifying the GNN code itself</strong>.</p>
 <p>The central question: <strong>can code-level modifications to the GNN architecture break the 0.489 ceiling?</strong></p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+From Landscape to Dedicated Exploration
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This case study builds upon the <strong>188-iteration landscape exploration</strong> (<a href="./results.html">Landscape Results</a>), which systematically mapped GNN training configurations across 29 regimes. Blocks 7, 8, and 17 of that exploration devoted 36 iterations to the sparse regime, exhausting the configuration parameter space and establishing the conn_R<sup>2</sup>=0.489 ceiling that motivated the pivot to direct code modifications documented here.</p>
+</div>
+</div>
 <hr>
 </section>
 <section id="why-code-changes" class="level2">
@@ -541,6 +555,90 @@ Verdict: Zero effect
 </div>
 <hr>
 </section>
+<section id="code-modification-5-lin_phi-scaling-removal" class="level2">
+<h2 class="anchored" data-anchor-id="code-modification-5-lin_phi-scaling-removal">Code Modification 5: lin_phi Scaling / Removal</h2>
+<p><strong>Iterations 25–28</strong> · File: <code>Signal_Propagation.py</code>, <code>graph_trainer.py</code></p>
+<p><strong>Hypothesis</strong>: The dual-pathway architecture <code>du/dt = lin_phi(u,a) + W @ lin_edge(u,a)</code> allows <code>lin_phi</code> to bypass W entirely. By multiplying <code>lin_phi</code> output by a scaling factor (0.0–0.5), or removing it completely, the model should be forced to route signal through the <code>W @ lin_edge</code> pathway, making correct W recovery essential.</p>
+<p><strong>Code change</strong>:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Signal_Propagation.py: multiply lin_phi output by phi_scale</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>phi_output <span class="op">=</span> <span class="va">self</span>.phi_scale <span class="op">*</span> <span class="va">self</span>.lin_phi(x, a)</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>du_dt <span class="op">=</span> phi_output <span class="op">+</span> W <span class="op">@</span> <span class="va">self</span>.lin_edge(x, a)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><strong>Results</strong>:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 18%">
+<col style="width: 6%">
+<col style="width: 18%">
+<col style="width: 23%">
+<col style="width: 8%">
+<col style="width: 13%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Iter</th>
+<th style="text-align: center;">phi_scale</th>
+<th style="text-align: center;">L1</th>
+<th style="text-align: center;">conn_R<sup>2</sup></th>
+<th style="text-align: center;">test_pearson</th>
+<th style="text-align: center;">Gap</th>
+<th style="text-align: center;">Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">25</td>
+<td style="text-align: center;">0.1</td>
+<td style="text-align: center;">1E-4</td>
+<td style="text-align: center;">0.489</td>
+<td style="text-align: center;">0.9997</td>
+<td style="text-align: center;">0.511</td>
+<td style="text-align: center;">none</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">26</td>
+<td style="text-align: center;">0.5</td>
+<td style="text-align: center;">1E-4</td>
+<td style="text-align: center;">0.490</td>
+<td style="text-align: center;">0.9996</td>
+<td style="text-align: center;">0.511</td>
+<td style="text-align: center;">none</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">27</td>
+<td style="text-align: center;"><strong>0.0</strong></td>
+<td style="text-align: center;">1E-4</td>
+<td style="text-align: center;">0.489</td>
+<td style="text-align: center;">0.9994</td>
+<td style="text-align: center;">0.510</td>
+<td style="text-align: center;"><strong>none — complete removal</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">28</td>
+<td style="text-align: center;">0.1</td>
+<td style="text-align: center;">1E-3</td>
+<td style="text-align: center;">0.488</td>
+<td style="text-align: center;">0.9986</td>
+<td style="text-align: center;">0.511</td>
+<td style="text-align: center;">none — L1 still irrelevant</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Established Principle: lin_phi is NOT the degeneracy source
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Even <strong>complete removal</strong> of lin_phi (phi_scale=0.0, so <code>du/dt = W @ lin_edge(u,a)</code> only) produces conn_R<sup>2</sup>=0.489. The degeneracy is entirely within <strong>lin_edge</strong>: the flexible MLP can absorb any W, so <code>W_wrong @ f(u,a) ≈ W_true @ g(u,a)</code> regardless of whether lin_phi exists. This falsifies the initial architectural hypothesis and redirects the diagnosis from the bypass pathway to the message-passing MLP itself.</p>
+</div>
+</div>
+<hr>
+</section>
 <section id="summary-what-failed-and-why" class="level2">
 <h2 class="anchored" data-anchor-id="summary-what-failed-and-why">Summary: What Failed and Why</h2>
 <table class="caption-top table">
@@ -583,6 +681,12 @@ Verdict: Zero effect
 <td>Zero effect</td>
 <td>Gradients are directionally correct</td>
 </tr>
+<tr class="odd">
+<td><strong>lin_phi scaling/removal</strong></td>
+<td><strong>Bypass pathway absorbs signal</strong></td>
+<td><strong>Zero effect</strong></td>
+<td><strong>Degeneracy is in lin_edge, not lin_phi</strong></td>
+</tr>
 </tbody>
 </table>
 <div class="callout callout-style-default callout-warning callout-titled">
@@ -595,32 +699,33 @@ Key Result
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>All 24 iterations produced conn_R<sup>2</sup> = 0.489</strong> (±0.001, excluding catastrophic failures from aggressive MLP reduction). Four distinct code modifications — targeting initialization, regularization mechanics, model capacity, and optimization stability — all failed. The architectural degeneracy is fundamental.</p>
+<p><strong>All 28 iterations produced conn_R<sup>2</sup> = 0.489</strong> (±0.001, excluding catastrophic failures from aggressive MLP reduction). Five distinct code modifications — targeting initialization, regularization mechanics, model capacity, optimization stability, and the lin_phi bypass pathway — all failed. The architectural degeneracy is fundamental and resides in the lin_edge MLP’s ability to compensate for any W.</p>
 </div>
 </div>
 <hr>
 </section>
 <section id="architectural-diagnosis" class="level2">
 <h2 class="anchored" data-anchor-id="architectural-diagnosis">Architectural Diagnosis</h2>
-<p>The exploration converges on a clear diagnosis. The dual-pathway architecture has an <strong>irreducible degeneracy</strong> in the sparse regime:</p>
+<p>The exploration converges on a refined diagnosis. The degeneracy is <strong>not</strong> in the dual-pathway bypass (lin_phi), but in the <strong>lin_edge MLP’s expressiveness</strong>:</p>
 <ol type="1">
 <li><strong>W signal is weak</strong>: subcritical spectral radius (rho=0.746) means W-mediated dynamics carry less information than in supercritical regimes</li>
-<li><strong>MLP compensates perfectly</strong>: <code>lin_phi</code> absorbs all predictive capacity (test_pearson ≈ 1.000), leaving no gradient signal to constrain W</li>
-<li><strong>Local code changes cannot break the bypass</strong>: init scale, regularization mechanics, capacity reduction, and gradient control all operate downstream of the fundamental problem — the loss function does not require W to be correct</li>
+<li><strong>lin_edge compensates for any W</strong>: even with lin_phi completely removed (phi_scale=0.0), the flexible lin_edge MLP satisfies <code>W_wrong @ f(u,a) ≈ W_true @ g(u,a)</code> — different W matrices paired with different lin_edge functions produce identical predictions</li>
+<li><strong>The loss function cannot distinguish correct W</strong>: at subcritical spectral radius, the W-mediated signal is weak enough that many (W, lin_edge) pairs achieve equivalent loss values</li>
+<li><strong>Local code changes cannot break this degeneracy</strong>: init scale, regularization mechanics, capacity reduction, gradient control, and lin_phi removal all operate downstream of the fundamental problem — the product <code>W @ lin_edge(u,a)</code> is under-determined</li>
 </ol>
-<p>This is qualitatively different from the dense regime (rho &gt; 1.0) where W-mediated dynamics carry strong, unique signal that the MLP cannot replicate.</p>
+<p>This is qualitatively different from the dense regime (rho &gt; 1.0) where W-mediated dynamics carry strong, unique signal that constrains the (W, lin_edge) pair to the correct solution.</p>
 <hr>
 </section>
-<section id="next-steps-architectural-interventions" class="level2">
-<h2 class="anchored" data-anchor-id="next-steps-architectural-interventions">Next Steps: Architectural Interventions</h2>
-<p>The analysis points to interventions that target the bypass pathway directly:</p>
+<section id="next-steps-recurrent-training-and-lin_edge-constraints" class="level2">
+<h2 class="anchored" data-anchor-id="next-steps-recurrent-training-and-lin_edge-constraints">Next Steps: Recurrent Training and lin_edge Constraints</h2>
+<p>Since lin_phi removal had zero effect, the next interventions target the <strong>lin_edge degeneracy</strong> directly:</p>
 <ol type="1">
-<li><strong>lin_phi scaling</strong>: Multiply <code>lin_phi</code> output by a learnable or fixed factor (0.0–0.5), forcing dynamics through the <code>W @ lin_edge</code> pathway</li>
-<li><strong>lin_phi removal</strong>: Eliminate <code>lin_phi</code> entirely, making W the sole carrier of inter-neuron coupling</li>
-<li><strong>Separate W and MLP optimizers</strong>: Use SGD for W (sharper sparsity) while keeping Adam for MLPs</li>
-<li><strong>Cosine LR scheduler for W</strong>: Large early W updates followed by fine-tuning</li>
+<li><p><strong>Recurrent training (in progress)</strong>: Multi-step rollout (time_step=4, 16, 32) should compound errors from wrong W over multiple prediction steps. Single-step training allows <code>W_wrong @ f(u,a) ≈ W_true @ g(u,a)</code> at each step independently; recurrent training penalizes wrong W because errors accumulate across steps. Planned with phi_scale=0.0 (simplifies model since lin_phi is confirmed irrelevant).</p></li>
+<li><p><strong>lin_edge constraint</strong>: Restrict lin_edge to a simpler function class (linear, or identity) so that it cannot compensate for wrong W. If <code>lin_edge(u,a) = u</code> (identity), then the product <code>W @ u</code> directly exposes W.</p></li>
+<li><p><strong>Separate W optimizer</strong>: Use SGD with momentum for W (sharper sparsity) while keeping Adam for MLPs.</p></li>
+<li><p><strong>Cosine LR scheduler for W</strong>: Large early W updates followed by fine-tuning.</p></li>
 </ol>
-<p>These represent the next phase of the exploration — moving from local code modifications to <strong>architectural redesign</strong> of the signal pathway.</p>
+<p>These represent the next phase of the exploration — moving from local code modifications to <strong>constraining the lin_edge MLP</strong> that is the true source of degeneracy.</p>
 
 
 <!-- -->
@@ -1240,192 +1345,232 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   }
 });
 </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="sourceCode" id="cb4" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Case Study: Sparse Connectivity"</span></span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Breaking the 0.489 ceiling --- LLM-guided code modifications to the GNN architecture"</span></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="fu">## Problem Statement</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>Sparse connectivity (filling_factor=50%, n=100 neurons) produces neural activity with subcritical spectral radius (rho=0.746). The landscape exploration (blocks 7, 8, 17) established that **no configuration sweep can break the conn_R^2^=0.489 ceiling** --- neither regularization, learning rates, epochs, noise, nor tripling the data (30k frames) had any effect. This motivated a dedicated exploration focused on **modifying the GNN code itself**.</span>
-<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>The central question: **can code-level modifications to the GNN architecture break the 0.489 ceiling?**</span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why Code Changes?</span></span>
-<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>The landscape exploration exhausted the configuration parameter space across 36 iterations in 3 blocks:</span>
-<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>| Block | n_frames | eff_rank | Best conn | Degeneracy | Key |</span>
-<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>|:-----:|:--------:|:--------:|:---------:|:----------:|:----|</span>
-<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>| 7 | 10k | 21 | 0.466 | 12/12 | All configs give conn~0.489 |</span>
-<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>| 8 (noise) | 10k | 91 | 0.490 | 0/12 | Noise inflates eff_rank; no rescue |</span>
-<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>| 17 | **30k** | **13** | **0.436** | **12/12** | **eff_rank DROPS; 30k useless** |</span>
-<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>The LLM identified the root cause as an **architectural degeneracy** in the GNN's dual-pathway design:</span>
-<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>$$\frac{du}{dt} = \text{lin<span class="sc">\_</span>phi}(u, a) + W \odot \text{lin<span class="sc">\_</span>edge}(u, a)$$</span>
-<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>The <span class="in">`lin_phi`</span> pathway can predict dynamics perfectly (test_pearson ≈ 1.000) without requiring correct W. At subcritical spectral radius, the W-mediated signal is too weak to overcome this compensation. The degeneracy gap is ~0.51.</span>
-<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="fu">## From Config to Code</span></span>
-<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>The dedicated exploration deliberately shifted from hyperparameter tuning to **direct GNN code modification**: changing initialization, optimization, regularization mechanics, and MLP architecture in the source files (<span class="in">`Signal_Propagation.py`</span>, <span class="in">`graph_trainer.py`</span>, <span class="in">`MLP.py`</span>).</span>
-<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a><span class="fu">## Config Baseline (Iterations 1--8)</span></span>
-<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>Before modifying code, the exploration confirmed the ceiling across 5 orders of L1 magnitude, 2--12 epochs, edge_diff up to 50000, and aggressive multi-parameter combinations. **All 8 iterations produced conn_R^2^ = 0.489.** This confirmed the ceiling is not a training configuration problem, justifying the pivot to code changes.</span>
-<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 1: W Initialization Scale</span></span>
-<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>**Iterations 9--12** · File: <span class="in">`Signal_Propagation.py`</span></span>
-<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: The true W matrix has entries ~ N(0, g/sqrt(n)) ≈ N(0, 0.7), but initialization uses N(0, 1.0) --- a scale mismatch that forces early training to waste capacity correcting the scale before learning structure.</span>
-<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>**Code change**:</span>
-<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a><span class="co"># Before: W_init = torch.randn(n_neurons, n_neurons)</span></span>
-<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a><span class="co"># After:</span></span>
-<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>W_init <span class="op">=</span> torch.randn(n_neurons, n_neurons) <span class="op">*</span> (<span class="fl">1.0</span> <span class="op">/</span> math.sqrt(<span class="va">self</span>.n_neurons))</span>
-<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>**Results**: conn_R^2^ = 0.489--0.490 across all 4 config variations (lr_W 1E-3 to 3E-3, L1 1E-4 to 1E-3, n_epochs 2--12).</span>
-<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a><span class="fu">### Verdict: Zero effect</span></span>
-<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>Init scale is NOT the bottleneck. The optimizer corrects scale quickly; the problem is structural.</span>
-<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 2: Proximal L1 Soft-Thresholding</span></span>
-<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>**Iterations 13--16** · File: <span class="in">`graph_trainer.py`</span></span>
-<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: Standard gradient-based L1 regularization penalizes W entries but never creates exact zeros. Since the true sparse W has 50% zeros, **proximal soft-thresholding** after each optimizer step should force exact sparsity, potentially aligning the learned structure with the true connectivity pattern.</span>
-<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-73"><a href="#cb4-73" aria-hidden="true" tabindex="-1"></a>**Code change**:</span>
-<span id="cb4-74"><a href="#cb4-74" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb4-75"><a href="#cb4-75" aria-hidden="true" tabindex="-1"></a><span class="co"># After optimizer.step():</span></span>
-<span id="cb4-76"><a href="#cb4-76" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> torch.no_grad():</span>
-<span id="cb4-77"><a href="#cb4-77" aria-hidden="true" tabindex="-1"></a>    threshold <span class="op">=</span> coeff_W_L1 <span class="op">*</span> lr_W</span>
-<span id="cb4-78"><a href="#cb4-78" aria-hidden="true" tabindex="-1"></a>    W <span class="op">=</span> model.W</span>
-<span id="cb4-79"><a href="#cb4-79" aria-hidden="true" tabindex="-1"></a>    W.data <span class="op">=</span> torch.sign(W.data) <span class="op">*</span> torch.clamp(</span>
-<span id="cb4-80"><a href="#cb4-80" aria-hidden="true" tabindex="-1"></a>        torch.<span class="bu">abs</span>(W.data) <span class="op">-</span> threshold, <span class="bu">min</span><span class="op">=</span><span class="dv">0</span></span>
-<span id="cb4-81"><a href="#cb4-81" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb4-82"><a href="#cb4-82" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb4-83"><a href="#cb4-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-84"><a href="#cb4-84" aria-hidden="true" tabindex="-1"></a>**Results**:</span>
-<span id="cb4-85"><a href="#cb4-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-86"><a href="#cb4-86" aria-hidden="true" tabindex="-1"></a>| Iter | L1 | Threshold | conn_R^2^ | Effect |</span>
-<span id="cb4-87"><a href="#cb4-87" aria-hidden="true" tabindex="-1"></a>|:----:|:--:|:---------:|:---------:|:------:|</span>
-<span id="cb4-88"><a href="#cb4-88" aria-hidden="true" tabindex="-1"></a>| 13 | 1E-4 | 3E-7 | 0.490 | none --- threshold negligible vs W scale (~0.1) |</span>
-<span id="cb4-89"><a href="#cb4-89" aria-hidden="true" tabindex="-1"></a>| 14 | 1E-3 | 3E-6 | 0.488 | none --- still too small |</span>
-<span id="cb4-90"><a href="#cb4-90" aria-hidden="true" tabindex="-1"></a>| 15 | **1E-2** | **3E-5** | **0.361** | **destructive** --- training collapses |</span>
-<span id="cb4-91"><a href="#cb4-91" aria-hidden="true" tabindex="-1"></a>| 16 | 1E-3 | 3E-6 (no warm-up) | 0.488 | none --- warm-up phase irrelevant |</span>
-<span id="cb4-92"><a href="#cb4-92" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-93"><a href="#cb4-93" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb4-94"><a href="#cb4-94" aria-hidden="true" tabindex="-1"></a><span class="fu">### Verdict: Zero effect at moderate; destructive at extreme</span></span>
-<span id="cb4-95"><a href="#cb4-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-96"><a href="#cb4-96" aria-hidden="true" tabindex="-1"></a>The fundamental problem: proximal threshold = L1 × lr_W produces values 3--4 orders below the W entry scale (~0.1). To reach effective thresholds, L1 must be so large that it destroys the loss landscape. **The sparsity problem cannot be solved by regularization mechanics alone.**</span>
-<span id="cb4-97"><a href="#cb4-97" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb4-98"><a href="#cb4-98" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-99"><a href="#cb4-99" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-100"><a href="#cb4-100" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-101"><a href="#cb4-101" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 3: MLP Capacity Reduction</span></span>
-<span id="cb4-102"><a href="#cb4-102" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-103"><a href="#cb4-103" aria-hidden="true" tabindex="-1"></a>**Iterations 17--20** · Files: <span class="in">`Signal_Propagation.py`</span>, <span class="in">`MLP.py`</span></span>
-<span id="cb4-104"><a href="#cb4-104" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-105"><a href="#cb4-105" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: If `lin_phi` (the bypass pathway) has too much capacity, it absorbs all predictive power and leaves W unconstrained. **Reducing MLP width or depth** should force the model to route signal through W, breaking the degeneracy.</span>
-<span id="cb4-106"><a href="#cb4-106" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-107"><a href="#cb4-107" aria-hidden="true" tabindex="-1"></a>**Code changes**: Reduced <span class="in">`hidden_dim`</span> (64→32→16) and <span class="in">`n_layers`</span> (3→2) in the MLP configuration.</span>
-<span id="cb4-108"><a href="#cb4-108" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-109"><a href="#cb4-109" aria-hidden="true" tabindex="-1"></a>**Results**:</span>
-<span id="cb4-110"><a href="#cb4-110" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-111"><a href="#cb4-111" aria-hidden="true" tabindex="-1"></a>| Iter | Change | conn_R^2^ | test_pearson | Effect |</span>
-<span id="cb4-112"><a href="#cb4-112" aria-hidden="true" tabindex="-1"></a>|:----:|--------|:---------:|:------------:|:------:|</span>
-<span id="cb4-113"><a href="#cb4-113" aria-hidden="true" tabindex="-1"></a>| 17 | hidden_dim 64→32 | 0.489 | 0.999 | none --- MLP still compensates |</span>
-<span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a>| 18 | hidden_dim 32 + L1=1E-3 | 0.488 | 0.999 | none --- combined still fails |</span>
-<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a>| 19 | **n_layers 3→2** | **0.010** | **-0.035** | **catastrophic failure** |</span>
-<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a>| 20 | **hidden_dim 64→16** | **0.017** | **-0.072** | **catastrophic failure** |</span>
-<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
-<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a><span class="fu">### Established Principle: MLP has a hard minimum capacity</span></span>
-<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>3 layers and hidden_dim≥32 are structurally necessary for the GNN to function at all. Below these thresholds, the model cannot even predict dynamics. Above the minimum, the MLP **always** fully compensates for incorrect W. There is no "Goldilocks zone" where MLP capacity is enough for dynamics but insufficient for W bypass.</span>
-<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 4: Gradient Clipping on W</span></span>
-<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a>**Iterations 21--24** · File: <span class="in">`graph_trainer.py`</span></span>
-<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: W has n^2^=10,000 entries receiving gradients from all neuron pairs. Large, noisy gradients may destabilize W learning, preventing convergence to the true sparse pattern. **Gradient clipping** should stabilize the W update trajectory.</span>
-<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a>**Code change**:</span>
-<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
-<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a><span class="co"># Before optimizer.step():</span></span>
-<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a>torch.nn.utils.clip_grad_norm_([model.W], max_norm<span class="op">=</span><span class="fl">1.0</span>)</span>
-<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a>**Results**: conn_R^2^ = 0.488--0.489 across all 4 config variations (baseline, L1=1E-3, lr_W=5E-3, n_epochs=12).</span>
-<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a><span class="fu">### Verdict: Zero effect</span></span>
-<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a>Gradient noise is not the bottleneck. The W gradients carry correct directional information --- the problem is that the loss landscape does not require W to be correct.</span>
-<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a><span class="fu">## Summary: What Failed and Why</span></span>
-<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a>| Code Modification | Hypothesis | Outcome | Reason |</span>
-<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a>|---|---|---|---|</span>
-<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a>| W init scale (1/sqrt(n)) | Scale mismatch wastes early training | Zero effect | Optimizer corrects scale quickly |</span>
-<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a>| Proximal L1 soft-thresholding | Exact zeros needed for sparsity | Zero/destructive | Threshold too small vs W scale |</span>
-<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a>| MLP hidden_dim reduction | Force signal through W pathway | Zero/catastrophic | No Goldilocks zone exists |</span>
-<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a>| Gradient clipping on W | Stabilize W trajectory | Zero effect | Gradients are directionally correct |</span>
-<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Result</span></span>
-<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a>**All 24 iterations produced conn_R^2^ = 0.489** (±0.001, excluding catastrophic failures from aggressive MLP reduction). Four distinct code modifications --- targeting initialization, regularization mechanics, model capacity, and optimization stability --- all failed. The architectural degeneracy is fundamental.</span>
-<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a><span class="fu">## Architectural Diagnosis</span></span>
-<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a>The exploration converges on a clear diagnosis. The dual-pathway architecture has an **irreducible degeneracy** in the sparse regime:</span>
-<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**W signal is weak**: subcritical spectral radius (rho=0.746) means W-mediated dynamics carry less information than in supercritical regimes</span>
-<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**MLP compensates perfectly**: <span class="in">`lin_phi`</span> absorbs all predictive capacity (test_pearson ≈ 1.000), leaving no gradient signal to constrain W</span>
-<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Local code changes cannot break the bypass**: init scale, regularization mechanics, capacity reduction, and gradient control all operate downstream of the fundamental problem --- the loss function does not require W to be correct</span>
-<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a>This is qualitatively different from the dense regime (rho &gt; 1.0) where W-mediated dynamics carry strong, unique signal that the MLP cannot replicate.</span>
-<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Steps: Architectural Interventions</span></span>
-<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>The analysis points to interventions that target the bypass pathway directly:</span>
-<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**lin_phi scaling**: Multiply <span class="in">`lin_phi`</span> output by a learnable or fixed factor (0.0--0.5), forcing dynamics through the <span class="in">`W @ lin_edge`</span> pathway</span>
-<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**lin_phi removal**: Eliminate <span class="in">`lin_phi`</span> entirely, making W the sole carrier of inter-neuron coupling</span>
-<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Separate W and MLP optimizers**: Use SGD for W (sharper sparsity) while keeping Adam for MLPs</span>
-<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Cosine LR scheduler for W**: Large early W updates followed by fine-tuning</span>
-<span id="cb4-185"><a href="#cb4-185" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-186"><a href="#cb4-186" aria-hidden="true" tabindex="-1"></a>These represent the next phase of the exploration --- moving from local code modifications to **architectural redesign** of the signal pathway.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb5" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Case Study: Sparse Connectivity"</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Breaking the 0.489 ceiling --- LLM-guided code modifications to the GNN architecture (32+ iterations)"</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">## Problem Statement</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>Sparse connectivity (filling_factor=50%, n=100 neurons) produces neural activity with subcritical spectral radius (rho=0.746). The landscape exploration (blocks 7, 8, 17) established that **no configuration sweep can break the conn_R^2^=0.489 ceiling** --- neither regularization, learning rates, epochs, noise, nor tripling the data (30k frames) had any effect. This motivated a dedicated exploration focused on **modifying the GNN code itself**.</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>The central question: **can code-level modifications to the GNN architecture break the 0.489 ceiling?**</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="fu">## From Landscape to Dedicated Exploration</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>This case study builds upon the **188-iteration landscape exploration** (<span class="co">[</span><span class="ot">Landscape Results</span><span class="co">](results.qmd)</span>), which systematically mapped GNN training configurations across 29 regimes. Blocks 7, 8, and 17 of that exploration devoted 36 iterations to the sparse regime, exhausting the configuration parameter space and establishing the conn_R^2^=0.489 ceiling that motivated the pivot to direct code modifications documented here.</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="fu">## Why Code Changes?</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>The landscape exploration exhausted the configuration parameter space across 36 iterations in 3 blocks:</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>| Block | n_frames | eff_rank | Best conn | Degeneracy | Key |</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>|:-----:|:--------:|:--------:|:---------:|:----------:|:----|</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>| 7 | 10k | 21 | 0.466 | 12/12 | All configs give conn~0.489 |</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>| 8 (noise) | 10k | 91 | 0.490 | 0/12 | Noise inflates eff_rank; no rescue |</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>| 17 | **30k** | **13** | **0.436** | **12/12** | **eff_rank DROPS; 30k useless** |</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>The LLM identified the root cause as an **architectural degeneracy** in the GNN's dual-pathway design:</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>$$\frac{du}{dt} = \text{lin<span class="sc">\_</span>phi}(u, a) + W \odot \text{lin<span class="sc">\_</span>edge}(u, a)$$</span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>The <span class="in">`lin_phi`</span> pathway can predict dynamics perfectly (test_pearson ≈ 1.000) without requiring correct W. At subcritical spectral radius, the W-mediated signal is too weak to overcome this compensation. The degeneracy gap is ~0.51.</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a><span class="fu">## From Config to Code</span></span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>The dedicated exploration deliberately shifted from hyperparameter tuning to **direct GNN code modification**: changing initialization, optimization, regularization mechanics, and MLP architecture in the source files (<span class="in">`Signal_Propagation.py`</span>, <span class="in">`graph_trainer.py`</span>, <span class="in">`MLP.py`</span>).</span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a><span class="fu">## Config Baseline (Iterations 1--8)</span></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>Before modifying code, the exploration confirmed the ceiling across 5 orders of L1 magnitude, 2--12 epochs, edge_diff up to 50000, and aggressive multi-parameter combinations. **All 8 iterations produced conn_R^2^ = 0.489.** This confirmed the ceiling is not a training configuration problem, justifying the pivot to code changes.</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 1: W Initialization Scale</span></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>**Iterations 9--12** · File: <span class="in">`Signal_Propagation.py`</span></span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: The true W matrix has entries ~ N(0, g/sqrt(n)) ≈ N(0, 0.7), but initialization uses N(0, 1.0) --- a scale mismatch that forces early training to waste capacity correcting the scale before learning structure.</span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>**Code change**:</span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a><span class="co"># Before: W_init = torch.randn(n_neurons, n_neurons)</span></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a><span class="co"># After:</span></span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>W_init <span class="op">=</span> torch.randn(n_neurons, n_neurons) <span class="op">*</span> (<span class="fl">1.0</span> <span class="op">/</span> math.sqrt(<span class="va">self</span>.n_neurons))</span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>**Results**: conn_R^2^ = 0.489--0.490 across all 4 config variations (lr_W 1E-3 to 3E-3, L1 1E-4 to 1E-3, n_epochs 2--12).</span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a><span class="fu">### Verdict: Zero effect</span></span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>Init scale is NOT the bottleneck. The optimizer corrects scale quickly; the problem is structural.</span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 2: Proximal L1 Soft-Thresholding</span></span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>**Iterations 13--16** · File: <span class="in">`graph_trainer.py`</span></span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: Standard gradient-based L1 regularization penalizes W entries but never creates exact zeros. Since the true sparse W has 50% zeros, **proximal soft-thresholding** after each optimizer step should force exact sparsity, potentially aligning the learned structure with the true connectivity pattern.</span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>**Code change**:</span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a><span class="co"># After optimizer.step():</span></span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> torch.no_grad():</span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a>    threshold <span class="op">=</span> coeff_W_L1 <span class="op">*</span> lr_W</span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>    W <span class="op">=</span> model.W</span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>    W.data <span class="op">=</span> torch.sign(W.data) <span class="op">*</span> torch.clamp(</span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>        torch.<span class="bu">abs</span>(W.data) <span class="op">-</span> threshold, <span class="bu">min</span><span class="op">=</span><span class="dv">0</span></span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>**Results**:</span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>| Iter | L1 | Threshold | conn_R^2^ | Effect |</span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>|:----:|:--:|:---------:|:---------:|:------:|</span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>| 13 | 1E-4 | 3E-7 | 0.490 | none --- threshold negligible vs W scale (~0.1) |</span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>| 14 | 1E-3 | 3E-6 | 0.488 | none --- still too small |</span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>| 15 | **1E-2** | **3E-5** | **0.361** | **destructive** --- training collapses |</span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>| 16 | 1E-3 | 3E-6 (no warm-up) | 0.488 | none --- warm-up phase irrelevant |</span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a><span class="fu">### Verdict: Zero effect at moderate; destructive at extreme</span></span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a>The fundamental problem: proximal threshold = L1 × lr_W produces values 3--4 orders below the W entry scale (~0.1). To reach effective thresholds, L1 must be so large that it destroys the loss landscape. **The sparsity problem cannot be solved by regularization mechanics alone.**</span>
+<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 3: MLP Capacity Reduction</span></span>
+<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a>**Iterations 17--20** · Files: <span class="in">`Signal_Propagation.py`</span>, <span class="in">`MLP.py`</span></span>
+<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: If `lin_phi` (the bypass pathway) has too much capacity, it absorbs all predictive power and leaves W unconstrained. **Reducing MLP width or depth** should force the model to route signal through W, breaking the degeneracy.</span>
+<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a>**Code changes**: Reduced <span class="in">`hidden_dim`</span> (64→32→16) and <span class="in">`n_layers`</span> (3→2) in the MLP configuration.</span>
+<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a>**Results**:</span>
+<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a>| Iter | Change | conn_R^2^ | test_pearson | Effect |</span>
+<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a>|:----:|--------|:---------:|:------------:|:------:|</span>
+<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a>| 17 | hidden_dim 64→32 | 0.489 | 0.999 | none --- MLP still compensates |</span>
+<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a>| 18 | hidden_dim 32 + L1=1E-3 | 0.488 | 0.999 | none --- combined still fails |</span>
+<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a>| 19 | **n_layers 3→2** | **0.010** | **-0.035** | **catastrophic failure** |</span>
+<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a>| 20 | **hidden_dim 64→16** | **0.017** | **-0.072** | **catastrophic failure** |</span>
+<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a><span class="fu">### Established Principle: MLP has a hard minimum capacity</span></span>
+<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>3 layers and hidden_dim≥32 are structurally necessary for the GNN to function at all. Below these thresholds, the model cannot even predict dynamics. Above the minimum, the MLP **always** fully compensates for incorrect W. There is no "Goldilocks zone" where MLP capacity is enough for dynamics but insufficient for W bypass.</span>
+<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-128"><a href="#cb5-128" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-129"><a href="#cb5-129" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-130"><a href="#cb5-130" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-131"><a href="#cb5-131" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 4: Gradient Clipping on W</span></span>
+<span id="cb5-132"><a href="#cb5-132" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-133"><a href="#cb5-133" aria-hidden="true" tabindex="-1"></a>**Iterations 21--24** · File: <span class="in">`graph_trainer.py`</span></span>
+<span id="cb5-134"><a href="#cb5-134" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-135"><a href="#cb5-135" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: W has n^2^=10,000 entries receiving gradients from all neuron pairs. Large, noisy gradients may destabilize W learning, preventing convergence to the true sparse pattern. **Gradient clipping** should stabilize the W update trajectory.</span>
+<span id="cb5-136"><a href="#cb5-136" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-137"><a href="#cb5-137" aria-hidden="true" tabindex="-1"></a>**Code change**:</span>
+<span id="cb5-138"><a href="#cb5-138" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb5-139"><a href="#cb5-139" aria-hidden="true" tabindex="-1"></a><span class="co"># Before optimizer.step():</span></span>
+<span id="cb5-140"><a href="#cb5-140" aria-hidden="true" tabindex="-1"></a>torch.nn.utils.clip_grad_norm_([model.W], max_norm<span class="op">=</span><span class="fl">1.0</span>)</span>
+<span id="cb5-141"><a href="#cb5-141" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb5-142"><a href="#cb5-142" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-143"><a href="#cb5-143" aria-hidden="true" tabindex="-1"></a>**Results**: conn_R^2^ = 0.488--0.489 across all 4 config variations (baseline, L1=1E-3, lr_W=5E-3, n_epochs=12).</span>
+<span id="cb5-144"><a href="#cb5-144" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-145"><a href="#cb5-145" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb5-146"><a href="#cb5-146" aria-hidden="true" tabindex="-1"></a><span class="fu">### Verdict: Zero effect</span></span>
+<span id="cb5-147"><a href="#cb5-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-148"><a href="#cb5-148" aria-hidden="true" tabindex="-1"></a>Gradient noise is not the bottleneck. The W gradients carry correct directional information --- the problem is that the loss landscape does not require W to be correct.</span>
+<span id="cb5-149"><a href="#cb5-149" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-150"><a href="#cb5-150" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-151"><a href="#cb5-151" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-152"><a href="#cb5-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-153"><a href="#cb5-153" aria-hidden="true" tabindex="-1"></a><span class="fu">## Code Modification 5: lin_phi Scaling / Removal</span></span>
+<span id="cb5-154"><a href="#cb5-154" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-155"><a href="#cb5-155" aria-hidden="true" tabindex="-1"></a>**Iterations 25--28** · File: <span class="in">`Signal_Propagation.py`</span>, <span class="in">`graph_trainer.py`</span></span>
+<span id="cb5-156"><a href="#cb5-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-157"><a href="#cb5-157" aria-hidden="true" tabindex="-1"></a>**Hypothesis**: The dual-pathway architecture <span class="in">`du/dt = lin_phi(u,a) + W @ lin_edge(u,a)`</span> allows <span class="in">`lin_phi`</span> to bypass W entirely. By multiplying <span class="in">`lin_phi`</span> output by a scaling factor (0.0--0.5), or removing it completely, the model should be forced to route signal through the <span class="in">`W @ lin_edge`</span> pathway, making correct W recovery essential.</span>
+<span id="cb5-158"><a href="#cb5-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-159"><a href="#cb5-159" aria-hidden="true" tabindex="-1"></a>**Code change**:</span>
+<span id="cb5-160"><a href="#cb5-160" aria-hidden="true" tabindex="-1"></a><span class="in">```python</span></span>
+<span id="cb5-161"><a href="#cb5-161" aria-hidden="true" tabindex="-1"></a><span class="co"># Signal_Propagation.py: multiply lin_phi output by phi_scale</span></span>
+<span id="cb5-162"><a href="#cb5-162" aria-hidden="true" tabindex="-1"></a>phi_output <span class="op">=</span> <span class="va">self</span>.phi_scale <span class="op">*</span> <span class="va">self</span>.lin_phi(x, a)</span>
+<span id="cb5-163"><a href="#cb5-163" aria-hidden="true" tabindex="-1"></a>du_dt <span class="op">=</span> phi_output <span class="op">+</span> W <span class="op">@</span> <span class="va">self</span>.lin_edge(x, a)</span>
+<span id="cb5-164"><a href="#cb5-164" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb5-165"><a href="#cb5-165" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-166"><a href="#cb5-166" aria-hidden="true" tabindex="-1"></a>**Results**:</span>
+<span id="cb5-167"><a href="#cb5-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-168"><a href="#cb5-168" aria-hidden="true" tabindex="-1"></a>| Iter | phi_scale | L1 | conn_R^2^ | test_pearson | Gap | Effect |</span>
+<span id="cb5-169"><a href="#cb5-169" aria-hidden="true" tabindex="-1"></a>|:----:|:---------:|:--:|:---------:|:------------:|:---:|:------:|</span>
+<span id="cb5-170"><a href="#cb5-170" aria-hidden="true" tabindex="-1"></a>| 25 | 0.1 | 1E-4 | 0.489 | 0.9997 | 0.511 | none |</span>
+<span id="cb5-171"><a href="#cb5-171" aria-hidden="true" tabindex="-1"></a>| 26 | 0.5 | 1E-4 | 0.490 | 0.9996 | 0.511 | none |</span>
+<span id="cb5-172"><a href="#cb5-172" aria-hidden="true" tabindex="-1"></a>| 27 | **0.0** | 1E-4 | 0.489 | 0.9994 | 0.510 | **none --- complete removal** |</span>
+<span id="cb5-173"><a href="#cb5-173" aria-hidden="true" tabindex="-1"></a>| 28 | 0.1 | 1E-3 | 0.488 | 0.9986 | 0.511 | none --- L1 still irrelevant |</span>
+<span id="cb5-174"><a href="#cb5-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-175"><a href="#cb5-175" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb5-176"><a href="#cb5-176" aria-hidden="true" tabindex="-1"></a><span class="fu">### Established Principle: lin_phi is NOT the degeneracy source</span></span>
+<span id="cb5-177"><a href="#cb5-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-178"><a href="#cb5-178" aria-hidden="true" tabindex="-1"></a>Even **complete removal** of lin_phi (phi_scale=0.0, so `du/dt = W @ lin_edge(u,a)` only) produces conn_R^2^=0.489. The degeneracy is entirely within **lin_edge**: the flexible MLP can absorb any W, so <span class="in">`W_wrong @ f(u,a) ≈ W_true @ g(u,a)`</span> regardless of whether lin_phi exists. This falsifies the initial architectural hypothesis and redirects the diagnosis from the bypass pathway to the message-passing MLP itself.</span>
+<span id="cb5-179"><a href="#cb5-179" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-180"><a href="#cb5-180" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-181"><a href="#cb5-181" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-182"><a href="#cb5-182" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-183"><a href="#cb5-183" aria-hidden="true" tabindex="-1"></a><span class="fu">## Summary: What Failed and Why</span></span>
+<span id="cb5-184"><a href="#cb5-184" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-185"><a href="#cb5-185" aria-hidden="true" tabindex="-1"></a>| Code Modification | Hypothesis | Outcome | Reason |</span>
+<span id="cb5-186"><a href="#cb5-186" aria-hidden="true" tabindex="-1"></a>|---|---|---|---|</span>
+<span id="cb5-187"><a href="#cb5-187" aria-hidden="true" tabindex="-1"></a>| W init scale (1/sqrt(n)) | Scale mismatch wastes early training | Zero effect | Optimizer corrects scale quickly |</span>
+<span id="cb5-188"><a href="#cb5-188" aria-hidden="true" tabindex="-1"></a>| Proximal L1 soft-thresholding | Exact zeros needed for sparsity | Zero/destructive | Threshold too small vs W scale |</span>
+<span id="cb5-189"><a href="#cb5-189" aria-hidden="true" tabindex="-1"></a>| MLP hidden_dim reduction | Force signal through W pathway | Zero/catastrophic | No Goldilocks zone exists |</span>
+<span id="cb5-190"><a href="#cb5-190" aria-hidden="true" tabindex="-1"></a>| Gradient clipping on W | Stabilize W trajectory | Zero effect | Gradients are directionally correct |</span>
+<span id="cb5-191"><a href="#cb5-191" aria-hidden="true" tabindex="-1"></a>| **lin_phi scaling/removal** | **Bypass pathway absorbs signal** | **Zero effect** | **Degeneracy is in lin_edge, not lin_phi** |</span>
+<span id="cb5-192"><a href="#cb5-192" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-193"><a href="#cb5-193" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
+<span id="cb5-194"><a href="#cb5-194" aria-hidden="true" tabindex="-1"></a><span class="fu">## Key Result</span></span>
+<span id="cb5-195"><a href="#cb5-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-196"><a href="#cb5-196" aria-hidden="true" tabindex="-1"></a>**All 28 iterations produced conn_R^2^ = 0.489** (±0.001, excluding catastrophic failures from aggressive MLP reduction). Five distinct code modifications --- targeting initialization, regularization mechanics, model capacity, optimization stability, and the lin_phi bypass pathway --- all failed. The architectural degeneracy is fundamental and resides in the lin_edge MLP's ability to compensate for any W.</span>
+<span id="cb5-197"><a href="#cb5-197" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb5-198"><a href="#cb5-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-199"><a href="#cb5-199" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-200"><a href="#cb5-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-201"><a href="#cb5-201" aria-hidden="true" tabindex="-1"></a><span class="fu">## Architectural Diagnosis</span></span>
+<span id="cb5-202"><a href="#cb5-202" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-203"><a href="#cb5-203" aria-hidden="true" tabindex="-1"></a>The exploration converges on a refined diagnosis. The degeneracy is **not** in the dual-pathway bypass (lin_phi), but in the **lin_edge MLP's expressiveness**:</span>
+<span id="cb5-204"><a href="#cb5-204" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-205"><a href="#cb5-205" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**W signal is weak**: subcritical spectral radius (rho=0.746) means W-mediated dynamics carry less information than in supercritical regimes</span>
+<span id="cb5-206"><a href="#cb5-206" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**lin_edge compensates for any W**: even with lin_phi completely removed (phi_scale=0.0), the flexible lin_edge MLP satisfies <span class="in">`W_wrong @ f(u,a) ≈ W_true @ g(u,a)`</span> --- different W matrices paired with different lin_edge functions produce identical predictions</span>
+<span id="cb5-207"><a href="#cb5-207" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**The loss function cannot distinguish correct W**: at subcritical spectral radius, the W-mediated signal is weak enough that many (W, lin_edge) pairs achieve equivalent loss values</span>
+<span id="cb5-208"><a href="#cb5-208" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Local code changes cannot break this degeneracy**: init scale, regularization mechanics, capacity reduction, gradient control, and lin_phi removal all operate downstream of the fundamental problem --- the product <span class="in">`W @ lin_edge(u,a)`</span> is under-determined</span>
+<span id="cb5-209"><a href="#cb5-209" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-210"><a href="#cb5-210" aria-hidden="true" tabindex="-1"></a>This is qualitatively different from the dense regime (rho &gt; 1.0) where W-mediated dynamics carry strong, unique signal that constrains the (W, lin_edge) pair to the correct solution.</span>
+<span id="cb5-211"><a href="#cb5-211" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-212"><a href="#cb5-212" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb5-213"><a href="#cb5-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-214"><a href="#cb5-214" aria-hidden="true" tabindex="-1"></a><span class="fu">## Next Steps: Recurrent Training and lin_edge Constraints</span></span>
+<span id="cb5-215"><a href="#cb5-215" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-216"><a href="#cb5-216" aria-hidden="true" tabindex="-1"></a>Since lin_phi removal had zero effect, the next interventions target the **lin_edge degeneracy** directly:</span>
+<span id="cb5-217"><a href="#cb5-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-218"><a href="#cb5-218" aria-hidden="true" tabindex="-1"></a><span class="ss">1. </span>**Recurrent training (in progress)**: Multi-step rollout (time_step=4, 16, 32) should compound errors from wrong W over multiple prediction steps. Single-step training allows <span class="in">`W_wrong @ f(u,a) ≈ W_true @ g(u,a)`</span> at each step independently; recurrent training penalizes wrong W because errors accumulate across steps. Planned with phi_scale=0.0 (simplifies model since lin_phi is confirmed irrelevant).</span>
+<span id="cb5-219"><a href="#cb5-219" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-220"><a href="#cb5-220" aria-hidden="true" tabindex="-1"></a><span class="ss">2. </span>**lin_edge constraint**: Restrict lin_edge to a simpler function class (linear, or identity) so that it cannot compensate for wrong W. If <span class="in">`lin_edge(u,a) = u`</span> (identity), then the product <span class="in">`W @ u`</span> directly exposes W.</span>
+<span id="cb5-221"><a href="#cb5-221" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-222"><a href="#cb5-222" aria-hidden="true" tabindex="-1"></a><span class="ss">3. </span>**Separate W optimizer**: Use SGD with momentum for W (sharper sparsity) while keeping Adam for MLPs.</span>
+<span id="cb5-223"><a href="#cb5-223" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-224"><a href="#cb5-224" aria-hidden="true" tabindex="-1"></a><span class="ss">4. </span>**Cosine LR scheduler for W**: Large early W updates followed by fine-tuning.</span>
+<span id="cb5-225"><a href="#cb5-225" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-226"><a href="#cb5-226" aria-hidden="true" tabindex="-1"></a>These represent the next phase of the exploration --- moving from local code modifications to **constraining the lin_edge MLP** that is the true source of degeneracy.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

@@ -44,6 +44,8 @@ website:
 
 format:
   html:
+    grid:
+      body-width: 1200px
     theme:
       light: flatly
       dark: darkly
