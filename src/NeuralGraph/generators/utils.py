@@ -1045,10 +1045,8 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
         current_pred_loss = current_loss - current_regul
 
         # Get current iteration component values (last element in each list)
-        comp_sum = (loss_dict['W_L1'][-1] + loss_dict['W_L2'][-1] +
-                   loss_dict['edge_diff'][-1] + loss_dict['edge_norm'][-1] +
-                   loss_dict['edge_weight'][-1] + loss_dict['phi_weight'][-1] +
-                   loss_dict['W_sign'][-1])
+        debug_keys = ['W_L1', 'W_L2', 'edge_diff', 'edge_norm', 'edge_weight', 'phi_weight', 'W_sign']
+        comp_sum = sum(loss_dict[k][-1] for k in debug_keys if k in loss_dict)
 
         print(f"\n=== DEBUG Loss Components (Epoch {epoch}, Iter {Niter}) ===")
         print("Current iteration:")
@@ -1056,13 +1054,9 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
         print(f"  regul_this_iter: {current_regul:.6f}")
         print(f"  prediction_loss (loss - regul): {current_pred_loss:.6f}")
         print("\nRegularization breakdown:")
-        print(f"  W_L1: {loss_dict['W_L1'][-1]:.6f}")
-        print(f"  W_L2: {loss_dict['W_L2'][-1]:.6f}")
-        print(f"  W_sign: {loss_dict['W_sign'][-1]:.6f}")
-        print(f"  edge_diff: {loss_dict['edge_diff'][-1]:.6f}")
-        print(f"  edge_norm: {loss_dict['edge_norm'][-1]:.6f}")
-        print(f"  edge_weight: {loss_dict['edge_weight'][-1]:.6f}")
-        print(f"  phi_weight: {loss_dict['phi_weight'][-1]:.6f}")
+        for k in debug_keys:
+            if k in loss_dict:
+                print(f"  {k}: {loss_dict[k][-1]:.6f}")
         print(f"  Sum of components: {comp_sum:.6f}")
         if total_loss is not None and total_loss_regul is not None:
             print("\nAccumulated (for reference):")
@@ -1071,7 +1065,7 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
         if current_loss > 0:
             print(f"\nRatio: regul / loss (current iter) = {current_regul / current_loss:.4f}")
         if current_pred_loss < 0:
-            print("\n⚠️  WARNING: Negative prediction loss! regul > total loss")
+            print("\n  WARNING: Negative prediction loss! regul > total loss")
         print("="*60)
 
     fig_loss, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
@@ -1087,16 +1081,26 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
     if info_text:
         fig_loss.suptitle(info_text, fontsize=20, y=0.995)
 
+    # Optional regularization components to plot (key, color, linewidth, label)
+    optional_components = [
+        ('regul_total', 'b', 2, 'total regularization'),
+        ('W_L1', 'r', 1.5, 'W L1 sparsity'),
+        ('W_L2', 'darkred', 1.5, 'W L2 regul'),
+        ('W_sign', 'navy', 1.5, 'W sign (Dale)'),
+        ('phi_weight', 'lime', 1.5, 'MLP0 Weight Regul'),
+        ('edge_diff', 'orange', 1.5, 'MLP1 monotonicity'),
+        ('edge_norm', 'brown', 1.5, 'MLP1 norm'),
+        ('edge_weight', 'pink', 1.5, 'MLP1 weight regul'),
+        ('S_L1', 'r', 1.5, 'S L1 sparsity'),
+        ('S_L2', 'darkred', 1.5, 'S L2 regul'),
+        ('mass_conservation', 'navy', 1.5, 'mass conservation'),
+    ]
+
     # Linear scale
     ax1.plot(loss_dict['loss'], color='b', linewidth=4, label='loss (no regul)', alpha=0.8)
-    ax1.plot(loss_dict['regul_total'], color='b', linewidth=2, label='total regularization', alpha=0.8)
-    ax1.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 sparsity', alpha=0.7)
-    ax1.plot(loss_dict['W_L2'], color='darkred', linewidth=1.5, label='W L2 regul', alpha=0.7)
-    ax1.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W sign (Dale)', alpha=0.7)
-    ax1.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='MLP0 Weight Regul', alpha=0.7)
-    ax1.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='MLP1 monotonicity', alpha=0.7)
-    ax1.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='MLP1 norm', alpha=0.7)
-    ax1.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='MLP1 weight regul', alpha=0.7)
+    for key, color, lw, label in optional_components:
+        if key in loss_dict:
+            ax1.plot(loss_dict[key], color=color, linewidth=lw, label=label, alpha=0.7)
     ax1.set_xlabel('iteration', fontsize=16)
     ax1.set_ylabel('loss', fontsize=16)
     ax1.set_title('loss vs iteration', fontsize=18)
@@ -1106,14 +1110,9 @@ def plot_signal_loss(loss_dict, log_dir, epoch=None, Niter=None, debug=False,
 
     # Log scale
     ax2.plot(loss_dict['loss'], color='b', linewidth=4, label='loss (no regul)', alpha=0.8)
-    ax2.plot(loss_dict['regul_total'], color='b', linewidth=2, label='total regularization', alpha=0.8)
-    ax2.plot(loss_dict['W_L1'], color='r', linewidth=1.5, label='W L1 sparsity', alpha=0.7)
-    ax2.plot(loss_dict['W_L2'], color='darkred', linewidth=1.5, label='W L2 regul', alpha=0.7)
-    ax2.plot(loss_dict['W_sign'], color='navy', linewidth=1.5, label='W sign (Dale)', alpha=0.7)
-    ax2.plot(loss_dict['phi_weight'], color='lime', linewidth=1.5, label='MLP0 Weight Regul', alpha=0.7)
-    ax2.plot(loss_dict['edge_diff'], color='orange', linewidth=1.5, label='MLP1 monotonicity', alpha=0.7)
-    ax2.plot(loss_dict['edge_norm'], color='brown', linewidth=1.5, label='MLP1 norm', alpha=0.7)
-    ax2.plot(loss_dict['edge_weight'], color='pink', linewidth=1.5, label='MLP1 weight regul', alpha=0.7)
+    for key, color, lw, label in optional_components:
+        if key in loss_dict:
+            ax2.plot(loss_dict[key], color=color, linewidth=lw, label=label, alpha=0.7)
     ax2.set_xlabel('iteration', fontsize=16)
     ax2.set_ylabel('loss', fontsize=16)
     ax2.set_yscale('log')

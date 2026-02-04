@@ -1819,7 +1819,7 @@ def data_train_metabolism(config, erase, best_model, device, log_file=None):
 
     list_loss = []
     list_loss_regul = []
-    loss_components = {'loss': []}
+    loss_components = {'loss': [], 'S_L1': [], 'S_L2': [], 'mass_conservation': []}
 
     print("start training ...")
     check_and_clear_memory(
@@ -1953,7 +1953,16 @@ def data_train_metabolism(config, erase, best_model, device, log_file=None):
                 loss_components['loss'].append(
                     (current_loss - regul_loss_val) / n_metabolites
                 )
-                plot_dict = {'loss': loss_components['loss']}
+                loss_components['S_L1'].append(
+                    regul_S_L1.item() / n_metabolites if current_L1 > 0 else 0.0
+                )
+                loss_components['S_L2'].append(
+                    regul_S_L2.item() / n_metabolites if coeff_S_L2 > 0 else 0.0
+                )
+                loss_components['mass_conservation'].append(
+                    regul_mass.item() / n_metabolites if coeff_S_mass > 0 else 0.0
+                )
+                plot_dict = {k: v for k, v in loss_components.items() if any(x != 0 for x in v) or k == 'loss'}
                 plot_signal_loss(
                     plot_dict, log_dir, epoch=epoch, Niter=N, debug=False,
                     current_loss=current_loss / n_metabolites,
