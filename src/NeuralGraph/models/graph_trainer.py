@@ -2337,7 +2337,6 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
 
     # --- heatmap comparison (3 panels) ---
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-    plt.style.use('dark_background')
 
     im0 = axes[0].imshow(
         to_numpy(gt_S_cpu), aspect='auto', cmap='bwr', vmin=-3, vmax=3,
@@ -2379,6 +2378,8 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
     ax.set_xlabel(r'true $S_{ij}$', fontsize=18)
     ax.set_ylabel(r'learned $S_{ij}$', fontsize=18)
 
+    n_points = int(np.count_nonzero(x_data) + np.count_nonzero(y_data))
+    n_total = len(x_data)
     r_squared = 0.0
     try:
         lin_fit, _ = curve_fit(linear_model, x_data, y_data)
@@ -2389,6 +2390,8 @@ def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
         ax.text(0.05, 0.96, f'$R^2$: {r_squared:.3f}', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
         ax.text(0.05, 0.92, f'slope: {lin_fit[0]:.3f}', transform=ax.transAxes,
+                fontsize=12, verticalalignment='top')
+        ax.text(0.05, 0.88, f'n={n_total} ({n_points} non-zero)', transform=ax.transAxes,
                 fontsize=12, verticalalignment='top')
     except Exception:
         pass
