@@ -452,6 +452,7 @@ def plot_time_aligned_mse(
     time_units: int,
     evolve_multiple_steps: int,
     rollout_type: str,
+    column_to_model: str = "CALCIUM",
 ) -> plt.Figure:
     """
     plot mse at each time step for time_aligned training.
@@ -503,7 +504,8 @@ def plot_time_aligned_mse(
     ax.set_xlabel('time steps', fontsize=14)
     ax.set_ylabel('mse (averaged over neurons)', fontsize=14)
     ax.set_yscale('log')
-    ax.set_ylim(1e-4, 1.0)
+    ylim_min = 1e-4 if column_to_model == "CALCIUM" else 1e-3
+    ax.set_ylim(ylim_min, 1.0)
     ax.set_title(
         f'time-aligned mse analysis - {rollout_type} rollout (tu={time_units}, ems={evolve_multiple_steps})',
         fontsize=16,
@@ -588,7 +590,8 @@ def run_validation_diagnostics(
             # create plot
             fig = plot_time_aligned_mse(
                 mse_array, constant_baseline, linear_interp_baseline,
-                time_units, evolve_multiple_steps, rollout_type
+                time_units, evolve_multiple_steps, rollout_type,
+                column_to_model=config.training.column_to_model,
             )
             figures[f"time_aligned_mse_{rollout_type}"] = fig
 

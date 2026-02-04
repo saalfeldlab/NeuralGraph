@@ -46,3 +46,22 @@ Results:
 
 - jobs failed with OOM. We should increase slots to 2.
 - even at 1024d the latent roll out fails.
+
+## generate tu20 baselines for aligned and staggered
+
+An initial test for 30 epochs that just substituted voltage -> calcium with the
+existing architecture "just worked" - roll out below the constant baseline, and
+reasonable MSE that's competitive with the linear interpolation MSE.
+
+So let's establish a baseline by running the existing method for 100 epochs.
+
+```bash
+
+bsub -J tu20_ca_aln -n 8 -W 8:00 -gpu "num=1" -q gpu_a100 -o tu20_ca_aln.log \
+  python src/LatentEvolution/latent.py tu20_ca_baseline \
+  calcium_align_20step.yaml --training.epochs 100
+
+bsub -J tu20_ca_stag -n 8 -W 8:00 -gpu "num=1" -q gpu_a100 -o tu20_ca_stag.log \
+  python src/LatentEvolution/latent_stag_interp.py tu20_ca_baseline \
+  calcium_stag_20step.yaml --training.epochs 100
+```

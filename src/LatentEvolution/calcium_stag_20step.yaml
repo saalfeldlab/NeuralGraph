@@ -42,7 +42,7 @@ training:
   evolve_multiple_steps: 5
   simulation_config: "fly_N9_62_1_youtube-vos_calcium"
   data_passes_per_epoch: 1
-  epochs: 30
+  epochs: 60
   save_best_checkpoint: true
   save_checkpoint_every_n_epochs: 0
   diagnostics_freq_epochs: 1
@@ -50,7 +50,7 @@ training:
   learning_rate: 0.00001
   optimizer: Adam
   train_step: train_step
-  column_to_model: "VOLTAGE"
+  column_to_model: "CALCIUM"
   use_tf32_matmul: true
   seed: 234
   loss_function: mse_loss

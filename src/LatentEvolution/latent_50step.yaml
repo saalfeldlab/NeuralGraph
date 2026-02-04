@@ -60,7 +60,6 @@ training:
   # Loss function from torch.nn.functional (e.g., mse_loss, huber_loss, l1_loss)
   loss_function: mse_loss
   grad_clip_max_norm: 0.0
-  reconstruction_warmup_epochs: 10
   # stimulus autoencoder pretraining: pretrains stimulus encoder/decoder for
   # reconstruction, copies encoder weights into main model, then freezes encoder
   pretrain_stimulus_ae: true
