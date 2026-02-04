@@ -344,6 +344,14 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
+    # cosine annealing LR scheduler for W optimizer (decays lr_W over training)
+    w_lr_scheduler = getattr(train_config, 'w_lr_scheduler', 'none')
+    w_scheduler = None
+    if w_lr_scheduler == 'cosine':
+        target_optimizer = w_optimizer if w_optimizer is not None else optimizer
+        w_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(target_optimizer, T_max=n_epochs, eta_min=1e-5)
+        print(f'using cosine annealing LR scheduler for W (T_max={n_epochs}, eta_min=1e-5)')
+
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
     logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
 
@@ -850,6 +858,10 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
         list_loss.append(epoch_pred_loss)
         list_loss_regul.append(epoch_regul_loss)
+
+        # step cosine annealing LR scheduler at end of epoch
+        if w_scheduler is not None:
+            w_scheduler.step()
 
         torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
 

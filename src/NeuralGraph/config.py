@@ -419,6 +419,7 @@ class TrainingConfig(BaseModel):
     lin_edge_dropout: float = 0.0  # dropout rate on lin_edge hidden layers to prevent MLP compensation
     lin_edge_mode: str = 'mlp'  # 'mlp' (default learned MLP), 'tanh' (fixed tanh(u_j)), 'identity' (fixed u_j)
     w_optimizer_type: str = 'adam'  # 'adam' (default) or 'sgd' (SGD with momentum for sharper L1-induced zeros)
+    w_lr_scheduler: str = 'none'  # 'none' (default) or 'cosine' (cosine annealing for W learning rate)
 
     # Simple training parameters (matching ParticleGraph conceptually)
     first_coeff_L1: float = 0.0  # Phase 1 weak L1 regularization
