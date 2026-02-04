@@ -87,13 +87,17 @@ class PDE_M1(nn.Module):
         # store model parameters for saving (like model.p in PDE_N4)
         self.p = torch.zeros(1)
 
-    def forward(self, data=None, has_field=False, frame=None):
+    def forward(self, data=None, has_field=False, frame=None, dt=None):
         """Compute dx/dt for all metabolites.
 
         Parameters
         ----------
         data : torch_geometric.data.Data
             Must contain x tensor with concentration at x[:, 3]
+        dt : float, optional
+            Integration time step. When provided, reaction rates are flux-
+            limited so that no substrate concentration goes negative in one
+            Euler step.
 
         Returns
         -------
@@ -118,12 +122,48 @@ class PDE_M1(nn.Module):
         k = torch.pow(10.0, self.log_k)  # [0.01 .. 10]
         v = k * self.softplus(self.rate_mlp(h_rxn).squeeze(-1))  # (n_rxn,)
 
-        # 5. compute dx/dt via stoichiometric matrix: dx_i/dt = sum_j S_ij * v_j
+        # 5. flux limiting: scale rates so no substrate goes negative
+        if dt is not None and dt > 0:
+            v = self._flux_limit(v, concentrations, dt)
+
+        # 6. compute dx/dt via stoichiometric matrix: dx_i/dt = sum_j S_ij * v_j
         contrib = self.sto_all * v[self.rxn_all]  # (n_all_edges,)
         dxdt = torch.zeros(self.n_met, dtype=contrib.dtype, device=contrib.device)
         dxdt.index_add_(0, self.met_all, contrib)
 
         return dxdt.unsqueeze(-1)  # (n_met, 1)
+
+    def _flux_limit(self, v, concentrations, dt):
+        """Scale reaction rates so no substrate is over-consumed in one step.
+
+        For each metabolite, compute total planned consumption across all
+        reactions.  If it exceeds the available concentration, scale all
+        reaction rates by the tightest per-substrate constraint.
+        """
+        # planned consumption per substrate edge in one dt
+        consumption = self.sto_sub * v[self.rxn_sub] * dt  # (n_sub_edges,)
+
+        # total planned consumption per metabolite
+        total_consumption = torch.zeros(
+            self.n_met, dtype=v.dtype, device=v.device
+        )
+        total_consumption.index_add_(0, self.met_sub, consumption)
+
+        # per-metabolite availability fraction (1.0 = no limiting needed)
+        met_scale = torch.ones(self.n_met, dtype=v.dtype, device=v.device)
+        active = total_consumption > 1e-12
+        met_scale[active] = torch.clamp(
+            concentrations[active] / total_consumption[active], max=1.0
+        )
+
+        # per-reaction: take the minimum scale across its substrates
+        edge_scale = met_scale[self.met_sub]
+        rxn_scale = torch.ones(self.n_rxn, dtype=v.dtype, device=v.device)
+        rxn_scale.scatter_reduce_(
+            0, self.rxn_sub, edge_scale, reduce='amin', include_self=True
+        )
+
+        return v * rxn_scale
 
     def get_rates(self, data):
         """Return reaction rates for diagnostics."""

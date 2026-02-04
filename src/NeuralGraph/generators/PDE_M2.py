@@ -105,8 +105,15 @@ class PDE_M2(nn.Module):
 
         self.p = torch.zeros(1)
 
-    def forward(self, data=None, has_field=False, frame=None):
+    def forward(self, data=None, has_field=False, frame=None, dt=None):
         """Compute dx/dt for all metabolites.
+
+        Parameters
+        ----------
+        dt : float, optional
+            Integration time step. When provided, reaction rates are flux-
+            limited so that no substrate concentration goes negative in one
+            Euler step.
 
         Returns
         -------
@@ -147,7 +154,6 @@ class PDE_M2(nn.Module):
 
         # 5. apply external modulation
         if self.external_input_mode == "multiplicative_substrate":
-            # mean external input at substrate (reactant) metabolites
             ext_src = external_input[self.met_sub]
             ext_agg = torch.zeros(self.n_rxn, dtype=ext_src.dtype, device=ext_src.device)
             ext_agg.index_add_(0, self.rxn_sub, ext_src)
@@ -160,12 +166,10 @@ class PDE_M2(nn.Module):
                 print(f'    n_sub_per_rxn: min={self.n_sub_per_rxn.min():.1f}  max={self.n_sub_per_rxn.max():.1f}')
                 print(f'    ext_mean (avg per rxn): min={ext_mean.min():.4f}  max={ext_mean.max():.4f}  mean={ext_mean.mean():.4f}  std={ext_mean.std():.4f}')
                 print(f'    v = k*ext_mean*base_v: min={v.min():.6f}  max={v.max():.6f}  mean={v.mean():.6f}')
-                # ratio: how much modulation changes rates vs unmodulated
                 v_unmod = k * base_v
                 ratio = v / (v_unmod + 1e-12)
                 print(f'    modulation ratio v/v_unmod: min={ratio.min():.4f}  max={ratio.max():.4f}  mean={ratio.mean():.4f}  std={ratio.std():.4f}')
         elif self.external_input_mode == "multiplicative_product":
-            # mean external input at product metabolites
             ext_src = external_input[self.met_prod]
             ext_agg = torch.zeros(self.n_rxn, dtype=ext_src.dtype, device=ext_src.device)
             ext_agg.index_add_(0, self.rxn_prod, ext_src)
@@ -181,7 +185,11 @@ class PDE_M2(nn.Module):
                 print(f'  [NO modulation] mode="{self.external_input_mode}" -> falling through to else')
                 print(f'    v = k*base_v: min={v.min():.6f}  max={v.max():.6f}')
 
-        # 6. compute dx/dt via stoichiometric matrix
+        # 6. flux limiting: scale rates so no substrate goes negative
+        if dt is not None and dt > 0:
+            v = self._flux_limit(v, concentrations, dt)
+
+        # 7. compute dx/dt via stoichiometric matrix
         contrib = self.sto_all * v[self.rxn_all]
         dxdt = torch.zeros(self.n_met, dtype=contrib.dtype, device=contrib.device)
         dxdt.index_add_(0, self.met_all, contrib)
@@ -189,7 +197,7 @@ class PDE_M2(nn.Module):
         if do_print:
             print(f'  dxdt (before additive): min={dxdt.min():.6f}  max={dxdt.max():.6f}  mean={dxdt.mean():.6f}  absmax={dxdt.abs().max():.6f}')
 
-        # 7. additive external input (direct flux injection)
+        # 8. additive external input (direct flux injection)
         if self.external_input_mode == "additive":
             dxdt = dxdt + external_input
 
@@ -199,6 +207,34 @@ class PDE_M2(nn.Module):
         self._debug_counter += 1
 
         return dxdt.unsqueeze(-1)
+
+    def _flux_limit(self, v, concentrations, dt):
+        """Scale reaction rates so no substrate is over-consumed in one step.
+
+        For each metabolite, compute total planned consumption across all
+        reactions.  If it exceeds the available concentration, scale all
+        reaction rates by the tightest per-substrate constraint.
+        """
+        consumption = self.sto_sub * v[self.rxn_sub] * dt
+
+        total_consumption = torch.zeros(
+            self.n_met, dtype=v.dtype, device=v.device
+        )
+        total_consumption.index_add_(0, self.met_sub, consumption)
+
+        met_scale = torch.ones(self.n_met, dtype=v.dtype, device=v.device)
+        active = total_consumption > 1e-12
+        met_scale[active] = torch.clamp(
+            concentrations[active] / total_consumption[active], max=1.0
+        )
+
+        edge_scale = met_scale[self.met_sub]
+        rxn_scale = torch.ones(self.n_rxn, dtype=v.dtype, device=v.device)
+        rxn_scale.scatter_reduce_(
+            0, self.rxn_sub, edge_scale, reduce='amin', include_self=True
+        )
+
+        return v * rxn_scale
 
     def get_rates(self, data):
         """Return reaction rates for diagnostics."""

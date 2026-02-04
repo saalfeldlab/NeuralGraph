@@ -1161,14 +1161,25 @@ def init_reaction(n_metabolites, n_reactions, max_metabolites_per_reaction, devi
         substrates = participants[:n_sub]
         products = participants[n_sub:]
 
-        for m in substrates:
-            coeff = rng.randint(1, 3)  # 1 or 2
+        # assign substrate coefficients (random 1 or 2)
+        sub_coeffs = [rng.randint(1, 3) for _ in substrates]
+        total_consumed = sum(sub_coeffs)
+
+        for m, coeff in zip(substrates, sub_coeffs):
             sub_edges.append((int(m), j, float(coeff)))
             all_edges.append((int(m), j, -float(coeff)))
 
-        for m in products:
-            coeff = rng.randint(1, 3)
-            all_edges.append((int(m), j, float(coeff)))
+        # distribute consumed mass among products (mass conservation: column sum = 0)
+        # split total_consumed as evenly as possible using integer coefficients
+        base_prod = total_consumed // n_prod
+        remainder = total_consumed % n_prod
+        prod_coeffs = [base_prod + (1 if i < remainder else 0) for i in range(n_prod)]
+        # shuffle so the extra +1 isn't always on the first product
+        rng.shuffle(prod_coeffs)
+
+        for m, coeff in zip(products, prod_coeffs):
+            if coeff > 0:
+                all_edges.append((int(m), j, float(coeff)))
 
     # build tensors
     met_sub = torch.tensor([e[0] for e in sub_edges], dtype=torch.long, device=device)
@@ -1388,6 +1399,118 @@ def plot_rate_distribution(model, dataset_name):
     plt.savefig(f'graphs_data/{dataset_name}/rate_distribution.png', dpi=200)
     plt.close()
     print(f'  k range: [{k.min():.4f}, {k.max():.4f}], median: {np.median(k):.4f}')
+
+
+def plot_metabolism_mlp_functions(model, x_list, dataset_name, device):
+    """Plot ground-truth msg_mlp and rate_mlp functions for the metabolism generator.
+
+    Analogous to plot_synaptic_mlp_functions for signal models (MLP0/MLP1).
+
+    Saves:
+      graphs_data/{dataset_name}/msg_mlp_function.png
+      graphs_data/{dataset_name}/rate_mlp_function.png
+    """
+    print('plot msg_mlp and rate_mlp functions ...')
+    import torch
+    from torch_geometric.data import Data as pyg_Data
+
+    n_pts = 500
+    folder = f'graphs_data/{dataset_name}'
+
+    # --- msg_mlp: sweep concentration at fixed |stoich| values ---
+    # use std-based range (like signal model) so Tanh region is visible
+    conc_data = x_list[:, :, 3]
+    conc_std = max(np.std(conc_data), 1e-6)
+    conc_max = conc_std * 3.0
+
+    conc_range = torch.linspace(0, conc_max, n_pts, device=device)
+
+    stoich_values = [0.5, 1.0, 2.0]
+    colors = ['tab:blue', 'tab:orange', 'tab:green']
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+
+    # left panel: ||msg|| vs concentration
+    with torch.no_grad():
+        for s_val, color in zip(stoich_values, colors):
+            s_abs = torch.full((n_pts, 1), s_val, device=device)
+            msg_in = torch.cat([conc_range.unsqueeze(-1), s_abs], dim=-1)
+            msg_out = model.msg_mlp(msg_in)
+            msg_norm = msg_out.norm(dim=-1)
+            axes[0].plot(to_numpy(conc_range), to_numpy(msg_norm),
+                         linewidth=2, color=color, label=f'|s|={s_val}')
+
+    axes[0].set_xlabel('concentration', fontsize=24)
+    axes[0].set_ylabel(r'$\|\mathrm{msg\_mlp}(c, |s|)\|$', fontsize=24)
+    axes[0].legend(fontsize=16)
+    axes[0].tick_params(labelsize=16)
+    axes[0].set_title('msg_mlp: message norm vs concentration', fontsize=16)
+
+    # right panel: individual output dimensions at |stoich|=1
+    with torch.no_grad():
+        s_abs = torch.full((n_pts, 1), 1.0, device=device)
+        msg_in = torch.cat([conc_range.unsqueeze(-1), s_abs], dim=-1)
+        msg_out = model.msg_mlp(msg_in)  # (n_pts, msg_dim)
+        msg_dim = msg_out.shape[1]
+        for d in range(msg_dim):
+            axes[1].plot(to_numpy(conc_range), to_numpy(msg_out[:, d]),
+                         linewidth=1, alpha=0.6, label=f'dim {d}' if d < 4 else None)
+
+    axes[1].set_xlabel('concentration', fontsize=24)
+    axes[1].set_ylabel(r'$\mathrm{msg\_mlp}(c, 1)_d$', fontsize=24)
+    axes[1].tick_params(labelsize=16)
+    axes[1].set_title(f'msg_mlp: {msg_dim} output dimensions (|s|=1)', fontsize=16)
+    if msg_dim <= 8:
+        axes[1].legend(fontsize=10)
+
+    plt.tight_layout()
+    plt.savefig(f'{folder}/msg_mlp_function.png', dpi=200)
+    plt.close()
+
+    # --- rate_mlp: compute actual h_rxn from a data frame, plot rate vs ||h_rxn|| ---
+    # pick a frame near the middle of the simulation
+    mid_frame = x_list.shape[0] // 2
+    x = torch.tensor(x_list[mid_frame], dtype=torch.float32, device=device)
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+
+    with torch.no_grad():
+        concentrations = x[:, 3]
+        x_src = concentrations[model.met_sub].unsqueeze(-1)
+        s_abs = model.sto_sub.unsqueeze(-1)
+        msg_in = torch.cat([x_src, s_abs], dim=-1)
+        msg = model.msg_mlp(msg_in)
+
+        h_rxn = torch.zeros(
+            model.n_rxn, msg.shape[1], dtype=msg.dtype, device=msg.device
+        )
+        h_rxn.index_add_(0, model.rxn_sub, msg)
+
+        base_rate = model.softplus(model.rate_mlp(h_rxn).squeeze(-1))
+        k = torch.pow(10.0, model.log_k)
+        full_rate = k * base_rate
+        h_norm = h_rxn.norm(dim=-1)
+
+    # left panel: base rate (before k scaling) vs ||h_rxn||
+    axes[0].scatter(to_numpy(h_norm), to_numpy(base_rate), s=12, c='k', alpha=0.5)
+    axes[0].set_xlabel(r'$\|h_{rxn}\|$', fontsize=24)
+    axes[0].set_ylabel(r'softplus(rate_mlp($h$))', fontsize=24)
+    axes[0].tick_params(labelsize=16)
+    axes[0].set_title(f'base rate vs aggregated message ({model.n_rxn} reactions)', fontsize=14)
+
+    # right panel: full rate (k * base) vs ||h_rxn||, colored by log_k
+    sc = axes[1].scatter(to_numpy(h_norm), to_numpy(full_rate), s=12,
+                         c=to_numpy(model.log_k.detach()), cmap='coolwarm', alpha=0.6)
+    plt.colorbar(sc, ax=axes[1], label=r'$\log_{10}(k_j)$')
+    axes[1].set_xlabel(r'$\|h_{rxn}\|$', fontsize=24)
+    axes[1].set_ylabel(r'$k_j \cdot$ softplus(rate_mlp($h$))', fontsize=24)
+    axes[1].tick_params(labelsize=16)
+    axes[1].set_title('full rate (k-scaled)', fontsize=14)
+
+    plt.tight_layout()
+    plt.savefig(f'{folder}/rate_mlp_function.png', dpi=200)
+    plt.close()
+    print(f'  saved {folder}/msg_mlp_function.png and {folder}/rate_mlp_function.png')
 
 
 def plot_metabolism_kymograph(x_list, n_metabolites, n_frames, dataset_name, delta_t):

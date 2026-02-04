@@ -32,6 +32,7 @@ from NeuralGraph.generators.utils import (
     plot_rate_distribution,
     plot_metabolism_kymograph,
     plot_metabolism_external_input_kymograph,
+    plot_metabolism_mlp_functions,
 )
 from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
@@ -1613,6 +1614,22 @@ def data_generate_metabolism(
               f'shape={im.shape}  mode={simulation_config.external_input_mode}  '
               f'{im_h}x{im_w} -> {n_side}x{n_side} = {n_side*n_side} metabolites')
 
+    # --- stoichiometric graph diagnostics ---
+    S_np = to_numpy(S)
+    n_sub_per_met = np.sum(S_np < 0, axis=1)  # how many reactions consume each metabolite
+    n_prod_per_met = np.sum(S_np > 0, axis=1)  # how many reactions produce each metabolite
+    n_disconnected = np.sum((n_sub_per_met + n_prod_per_met) == 0)
+    n_only_sub = np.sum((n_sub_per_met > 0) & (n_prod_per_met == 0))
+    n_only_prod = np.sum((n_sub_per_met == 0) & (n_prod_per_met > 0))
+    net_production = S_np.sum(axis=1)  # sum_j S_ij: positive = net produced
+    print(f'stoichiometric graph:')
+    print(f'  edges: {len(stoich_graph["all"][0])} total, {len(stoich_graph["sub"][0])} substrate')
+    print(f'  per metabolite: sub={n_sub_per_met.mean():.1f}+-{n_sub_per_met.std():.1f}, prod={n_prod_per_met.mean():.1f}+-{n_prod_per_met.std():.1f}')
+    print(f'  disconnected: {n_disconnected}, only substrate: {n_only_sub}, only product: {n_only_prod}')
+    print(f'  net production (sum_j S_ij): min={net_production.min():.0f}, max={net_production.max():.0f}, mean={net_production.mean():.1f}')
+    col_sums = S_np.sum(axis=0)  # sum_i S_ij per reaction (should be 0 for mass conservation)
+    print(f'  column sums (mass conservation): min={col_sums.min():.1f}, max={col_sums.max():.1f}, all_zero={np.allclose(col_sums, 0)}')
+
     # --- save stoichiometric data ---
     if bSave:
         torch.save(S, f'{folder}/stoichiometry.pt')
@@ -1653,15 +1670,23 @@ def data_generate_metabolism(
 
             with torch.no_grad():
                 dataset = data.Data(x=x, pos=x[:, 1:3])
-                y = model(dataset)
+                y = model(dataset, dt=delta_t)
 
             if (it >= 0) and bSave:
                 x_list.append(to_numpy(x))
                 y_list.append(to_numpy(y))
 
-            # Euler step with non-negativity clamp
+            # Euler step (flux-limited rates guarantee no substrate over-consumption)
             du = y.squeeze()
-            x[:, 3] = torch.clamp(x[:, 3] + du * delta_t, min=0.0)
+            x[:, 3] = x[:, 3] + du * delta_t
+            # safety clamp (should rarely trigger with flux limiting)
+            n_clamped = (x[:, 3] < 0).sum().item()
+            x[:, 3] = torch.clamp(x[:, 3], min=0.0)
+
+            if it % 500 == 0 or it == simulation_config.start_frame:
+                total_mass = x[:, 3].sum().item()
+                print(f'  t={it}: total_mass={total_mass:.2f}, max_conc={x[:, 3].max().item():.2f}, '
+                      f'clamped={n_clamped}')
 
             if noise_model_level > 0:
                 x[:, 3] = torch.clamp(
@@ -1689,6 +1714,27 @@ def data_generate_metabolism(
 
         print(f'run {run}: generated {x_list.shape[0]} frames')
 
+        # --- per-metabolite concentration diagnostics ---
+        conc_all = x_list[:, :, 3]  # (T, n_met)
+        c_min = conc_all.min(axis=0)
+        c_max = conc_all.max(axis=0)
+        c_range = c_max - c_min
+        n_at_zero = np.sum(c_max < 1e-6)
+        n_low_range = np.sum(c_range < 0.1 * np.median(c_range))
+        n_exploding = np.sum(c_max > 100 * np.median(c_max))
+
+        print(f'  concentration stats:')
+        print(f'    global min={c_min.min():.2f}  max={c_max.max():.2f}  median_max={np.median(c_max):.2f}')
+        print(f'    per-metabolite range: min={c_range.min():.2f}  max={c_range.max():.2f}  median={np.median(c_range):.2f}')
+        print(f'    stuck at zero: {n_at_zero}/{n_metabolites}')
+        print(f'    low dynamic range (<10% of median): {n_low_range}/{n_metabolites}')
+        print(f'    exploding (>100x median max): {n_exploding}/{n_metabolites}')
+
+        # print top-5 and bottom-5 metabolites by range
+        rank = np.argsort(c_range)
+        print(f'    bottom-5 range: {[(int(i), f"range={c_range[i]:.2f}", f"[{c_min[i]:.2f}, {c_max[i]:.2f}]") for i in rank[:5]]}')
+        print(f'    top-5 range:    {[(int(i), f"range={c_range[i]:.1f}", f"[{c_min[i]:.1f}, {c_max[i]:.1f}]") for i in rank[-5:]]}')
+
         # --- activity plot + SVD analysis (first run, unconditional) ---
         if run == 0:
             plot_metabolism_concentrations(x_list, n_metabolites, n_frames, dataset_name, delta_t)
@@ -1699,6 +1745,8 @@ def data_generate_metabolism(
             print('svd analysis ...')
             from NeuralGraph.models.utils import analyze_data_svd
             analyze_data_svd(x_list, folder, config=config, save_in_subfolder=False)
+
+            plot_metabolism_mlp_functions(model, x_list, dataset_name, device)
 
     torch.save(model.p, f'{folder}/model_p_0.pt')
     print('data saved ...')

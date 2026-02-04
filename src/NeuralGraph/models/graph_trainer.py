@@ -1977,6 +1977,11 @@ def data_train_metabolism(config, erase, best_model, device, log_file=None):
                         epoch, N,
                     )
 
+                # plot msg_mlp and rate_mlp learned functions
+                _plot_metabolism_mlp_functions(
+                    model, x, xnorm, log_dir, epoch, N, device,
+                )
+
                 # update progress bar with color-coded R²
                 if last_S_r2 is not None:
                     if last_S_r2 > 0.9:
@@ -2317,6 +2322,90 @@ def data_test_metabolism(config, best_model=20, n_rollout_frames=600, device=Non
         log_file.write(f"stoichiometry_R2: {stoich_r2:.4f}\n")
         log_file.write(f"test_R2: {test_r2:.4f}\n")
         log_file.write(f"test_pearson: {test_pearson:.4f}\n")
+
+
+def _plot_metabolism_mlp_functions(model, x, xnorm, log_dir, epoch, N, device):
+    """Plot learned msg_mlp and rate_mlp functions during metabolism training.
+
+    msg_mlp: sweep concentration at several fixed |stoich| values → ||message||.
+    rate_mlp: compute actual h_rxn for all reactions → scatter rate vs ||h_rxn||,
+              plus 1D sweep along mean h_rxn direction.
+
+    Saves to tmp_training/function/msg_mlp/ and tmp_training/function/rate_mlp/.
+    """
+    msg_dir = f"./{log_dir}/tmp_training/function/msg_mlp"
+    rate_dir = f"./{log_dir}/tmp_training/function/rate_mlp"
+    os.makedirs(msg_dir, exist_ok=True)
+    os.makedirs(rate_dir, exist_ok=True)
+
+    n_pts = 500
+
+    # --- msg_mlp: concentration sweep at fixed |stoich| values ---
+    # use xnorm-based range so Tanh region is visible (not abs max which saturates)
+    conc_max = to_numpy(xnorm).item() * 3.0
+    conc_range = torch.linspace(0, conc_max, n_pts, device=device)
+
+    stoich_values = [0.5, 1.0, 2.0]
+    colors = ['tab:blue', 'tab:orange', 'tab:green']
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    with torch.no_grad():
+        for s_val, color in zip(stoich_values, colors):
+            s_abs = torch.full((n_pts, 1), s_val, device=device)
+            msg_in = torch.cat([conc_range.unsqueeze(-1), s_abs], dim=-1)
+            msg_out = model.msg_mlp(msg_in)
+            msg_norm = msg_out.norm(dim=-1)
+            ax.plot(to_numpy(conc_range), to_numpy(msg_norm),
+                    linewidth=2, color=color, label=f'|s|={s_val}')
+
+    ax.set_xlabel('concentration', fontsize=24)
+    ax.set_ylabel(r'$\|\mathrm{msg\_mlp}\|$', fontsize=24)
+    ax.legend(fontsize=16)
+    ax.tick_params(labelsize=16)
+    plt.tight_layout()
+    plt.savefig(f"{msg_dir}/func_{epoch}_{N}.png", dpi=87)
+    plt.close()
+
+    # --- rate_mlp: actual h_rxn scatter + 1D sweep ---
+    with torch.no_grad():
+        concentrations = x[:, 3]
+        x_src = concentrations[model.met_sub].unsqueeze(-1)
+        s_abs = model.sto_all[model.sub_to_all].abs().unsqueeze(-1)
+        msg_in = torch.cat([x_src, s_abs], dim=-1)
+        msg = model.msg_mlp(msg_in)
+
+        h_rxn = torch.zeros(
+            model.n_rxn, msg.shape[1], dtype=msg.dtype, device=msg.device
+        )
+        h_rxn.index_add_(0, model.rxn_sub, msg)
+
+        rate = model.softplus(model.rate_mlp(h_rxn).squeeze(-1))
+        h_norm = h_rxn.norm(dim=-1)
+
+        # 1D sweep along mean h_rxn direction
+        h_mean = h_rxn.mean(dim=0)
+        h_mean_norm = h_mean.norm()
+        if h_mean_norm > 1e-8:
+            h_dir = h_mean / h_mean_norm
+            sweep_scale = torch.linspace(0, h_norm.max().item() * 1.5, n_pts, device=device)
+            h_sweep = sweep_scale.unsqueeze(-1) * h_dir.unsqueeze(0)
+            rate_sweep = model.softplus(model.rate_mlp(h_sweep).squeeze(-1))
+        else:
+            sweep_scale = None
+
+    fig, ax = plt.subplots(figsize=(8, 8))
+    ax.scatter(to_numpy(h_norm), to_numpy(rate), s=10, c='k', alpha=0.4,
+               label=f'reactions (n={model.n_rxn})')
+    if sweep_scale is not None:
+        ax.plot(to_numpy(sweep_scale), to_numpy(rate_sweep),
+                'r-', linewidth=2, alpha=0.8, label='sweep along mean direction')
+    ax.set_xlabel(r'$\|h_{rxn}\|$ (aggregated message)', fontsize=20)
+    ax.set_ylabel(r'$\mathrm{softplus}(\mathrm{rate\_mlp}(h))$', fontsize=20)
+    ax.legend(fontsize=12)
+    ax.tick_params(labelsize=16)
+    plt.tight_layout()
+    plt.savefig(f"{rate_dir}/func_{epoch}_{N}.png", dpi=87)
+    plt.close()
 
 
 def _plot_stoichiometry_comparison(model, gt_S, stoich_graph, n_metabolites,
