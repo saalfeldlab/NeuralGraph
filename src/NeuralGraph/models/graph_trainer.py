@@ -652,6 +652,13 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                         omega_L2_loss = model_f.get_omega_L2_loss()
                         loss = loss + train_config.coeff_omega_f_L2 * omega_L2_loss
 
+                # anti-sparsity penalty: -coeff * sum(log(W_ij^2 + eps)) during phase 1 only
+                # penalizes W entries near zero, forcing non-trivial magnitude to disrupt (W, lin_edge) equilibrium
+                anti_sparsity_coeff = getattr(train_config, 'anti_sparsity_coeff', 0.0)
+                if anti_sparsity_coeff > 0 and epoch < train_config.n_epochs_init:
+                    anti_sparsity_loss = -anti_sparsity_coeff * torch.log(model.W ** 2 + 1e-8).sum()
+                    loss = loss + anti_sparsity_loss
+
                 loss.backward()
 
                 # gradient clipping on W to stabilize training
@@ -661,8 +668,9 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                 optimizer.step()
                 regularizer.finalize_iteration()
 
-                # proximal L1: soft-thresholding on W for exact zeros
-                if train_config.coeff_W_L1 > 0:
+                # proximal L1: soft-thresholding on W for exact zeros (skip during anti-sparsity phase)
+                anti_sparsity_active = (anti_sparsity_coeff > 0 and epoch < train_config.n_epochs_init)
+                if train_config.coeff_W_L1 > 0 and not anti_sparsity_active:
                     with torch.no_grad():
                         prox_threshold = train_config.coeff_W_L1 * lr_W
                         model.W.data = torch.sign(model.W.data) * torch.clamp(model.W.data.abs() - prox_threshold, min=0)
@@ -1084,6 +1092,11 @@ def data_train_flyvis(config, erase, best_model, device):
         model.phi_scale = phi_scale
         if phi_scale != 1.0:
             print(f'phi_scale set to {phi_scale}')
+
+    # anti-sparsity penalty info
+    anti_sparsity_coeff = getattr(train_config, 'anti_sparsity_coeff', 0.0)
+    if anti_sparsity_coeff > 0:
+        print(f'anti-sparsity penalty: coeff={anti_sparsity_coeff}, active for first {train_config.n_epochs_init} epochs')
 
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
