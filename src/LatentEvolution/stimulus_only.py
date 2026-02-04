@@ -316,15 +316,17 @@ def run_diagnostics(
     figures.update(new_figs)
 
     # time-aligned mse analysis (only if tu > 1)
+    # always show tu*5 steps regardless of evolve_multiple_steps
+    time_aligned_ems = 5
     if tu > 1:
         print("computing time-aligned mse analysis...")
 
         linear_interp_baseline = compute_linear_interpolation_baseline(
             val_data, results.start_indices, results.mse_array.shape[1],
-            tu, ems,
+            tu, time_aligned_ems,
         )
 
-        total_steps = tu * ems
+        total_steps = tu * time_aligned_ems
         constant_baseline_accumulator = np.zeros(total_steps)
         for start_idx in results.start_indices:
             x_0 = val_data[start_idx]
@@ -336,7 +338,7 @@ def run_diagnostics(
 
         fig = plot_time_aligned_mse(
             results.mse_array, constant_baseline, linear_interp_baseline,
-            tu, ems, "stimulus_only",
+            tu, time_aligned_ems, "stimulus_only",
         )
         figures["time_aligned_mse_stimulus_only"] = fig
 
