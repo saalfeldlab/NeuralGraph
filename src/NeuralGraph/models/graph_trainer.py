@@ -1114,6 +1114,12 @@ def data_train_flyvis(config, erase, best_model, device):
     if freeze_lin_edge:
         print(f'freeze_lin_edge: will freeze lin_edge and lin_phi at epoch {train_config.n_epochs_init}')
 
+    # dropout on lin_edge to prevent reliable MLP compensation for wrong W
+    lin_edge_dropout = getattr(train_config, 'lin_edge_dropout', 0.0)
+    if lin_edge_dropout > 0:
+        model.lin_edge.dropout_rate = lin_edge_dropout
+        print(f'lin_edge dropout: p={lin_edge_dropout}')
+
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')
 
