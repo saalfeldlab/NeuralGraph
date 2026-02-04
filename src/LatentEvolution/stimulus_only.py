@@ -428,6 +428,7 @@ def run_diagnostics(
         tu, ems, "stimulus_only",
         n_steps=short_rollout_steps,
         linear_interp_baseline=linear_interp_baseline,
+        column_to_model=config.training.column_to_model,
     )
     figures["short_rollout_mse_stimulus_only"] = fig
 
