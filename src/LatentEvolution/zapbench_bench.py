@@ -28,7 +28,7 @@ ACQ_PATH = "/groups/saalfeld/home/kumarv4/repos/zapbench/output.zarr/cell_acquis
 
 BIN_SIZE_MS = 24.0
 FRAME_PERIOD_MS = 914.0
-NUM_FRAMES = 3000
+NUM_FRAMES = 2000
 NUM_TRIALS = 3
 
 
@@ -44,17 +44,18 @@ def _bench(fn, num_trials: int = NUM_TRIALS) -> tuple:
     return mean_ms, result
 
 
-def _gpu_mem_mb() -> tuple[float, float]:
-    """return (allocated, reserved) gpu memory in MB."""
-    allocated = torch.cuda.memory_allocated() / (1024 * 1024)
-    reserved = torch.cuda.memory_reserved() / (1024 * 1024)
-    return allocated, reserved
-
-
 def _print_gpu_mem(label: str):
     """print current gpu memory usage."""
-    alloc, reserved = _gpu_mem_mb()
+    alloc = torch.cuda.memory_allocated() / (1024 * 1024)
+    reserved = torch.cuda.memory_reserved() / (1024 * 1024)
     print(f"  gpu mem [{label}]: {alloc:.1f}MB allocated, {reserved:.1f}MB reserved")
+
+
+def _print_gpu_info():
+    """print gpu model and total memory."""
+    props = torch.cuda.get_device_properties(0)
+    total_mb = props.total_memory / (1024 * 1024)
+    print(f"gpu: {props.name}, {total_mb:.0f}MB total")
 
 
 LOAD_KWARGS = dict(
@@ -69,7 +70,7 @@ LOAD_KWARGS = dict(
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     assert device.type == "cuda", "this benchmark requires a gpu"
-    print(f"device: {device}")
+    _print_gpu_info()
     print(f"trials: {NUM_TRIALS}")
 
     torch.cuda.reset_peak_memory_stats()
@@ -96,12 +97,15 @@ def main():
     print(f"cpu -> gpu transfer: {t_transfer:.1f}ms")
     _print_gpu_mem("after transfer")
 
-    # warmup
+    # warmup (triggers compilation + cuda graph capture)
     _ = interpolate_sparse_compiled(obs_times_gpu, obs_vals_gpu, counts_gpu, num_bins)
     torch.cuda.synchronize()
 
+    # clear warmup allocations to get clean measurements
     torch.cuda.empty_cache()
     torch.cuda.reset_peak_memory_stats()
+    _print_gpu_mem("after warmup + empty_cache")
+
     t_interp, _ = _bench(
         lambda: interpolate_sparse_compiled(
             obs_times_gpu, obs_vals_gpu, counts_gpu, num_bins,
@@ -110,7 +114,11 @@ def main():
     print(f"interpolate (gpu compiled): {t_interp:.1f}ms")
     peak = torch.cuda.max_memory_allocated() / (1024 * 1024)
     _print_gpu_mem("after interp")
-    print(f"  gpu mem [peak]: {peak:.1f}MB")
+    print(f"  gpu mem [peak allocated]: {peak:.1f}MB")
+
+    # show what happens after freeing everything
+    torch.cuda.empty_cache()
+    _print_gpu_mem("after empty_cache")
 
     print(f"\ntotal: {t_load + t_transfer + t_interp:.1f}ms")
 
