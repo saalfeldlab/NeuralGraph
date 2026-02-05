@@ -30,7 +30,7 @@ from LatentEvolution.training_utils import (
     seed_everything,
     get_device,
 )
-from LatentEvolution.chunk_streaming import calculate_chunk_params
+from LatentEvolution.chunk_streaming import calculate_chunk_params, generate_random_chunks
 from LatentEvolution.acquisition import (
     compute_neuron_phases,
 )
@@ -177,8 +177,6 @@ def train(cfg: ModelParams, run_dir: Path):
             data_split=cfg.training.data_split,
             num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
             device=device,
-            chunk_size=65536,
-            time_units=dt,
             training_data_path=cfg.training.training_data_path,
             gpu_prefetch=2,  # double buffer for cpu->gpu transfer overlap
             profiler=profiler,
@@ -290,11 +288,15 @@ def train(cfg: ModelParams, run_dir: Path):
             epoch_start = datetime.now()
             losses = LossAccumulator(LossType)
 
-            chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+            chunks = generate_random_chunks(
+                total_timesteps=train_total_timesteps, chunk_size=65536,
+                num_chunks=chunks_per_epoch, time_units=dt,
+            )
+            chunk_loader.start_epoch(chunks)
 
             for chunk_idx in range(chunks_per_epoch):
               with profiler.event("chunk", "pipeline", thread="main", chunk=chunk_idx):
-                chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                chunk_start, (chunk_data, chunk_stim) = chunk_loader.get_next_chunk()
                 if chunk_data is None or chunk_start is None or chunk_stim is None:
                     break
                 chunk_size = chunk_data.shape[0]

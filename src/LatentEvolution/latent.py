@@ -48,6 +48,7 @@ from LatentEvolution.chunk_streaming import (
     calculate_chunk_params,
     ChunkLatencyStats,
     create_zarr_loader,
+    generate_random_chunks,
 )
 from LatentEvolution.acquisition import (
     compute_neuron_phases,
@@ -66,8 +67,6 @@ def load_dataset(
     data_split: DataSplit,
     num_input_dims: int,
     device: torch.device,
-    chunk_size: int = 65536,
-    time_units: int = 1,
     training_data_path: str | None = None,
     gpu_prefetch: int = 1,
     profiler: PipelineProfiler | None = None,
@@ -84,8 +83,6 @@ def load_dataset(
         data_split: DataSplit object with train/val time ranges
         num_input_dims: number of stimulus input dimensions to keep
         device: pytorch device to load data onto
-        chunk_size: chunk size for streaming (default: 65536 = 64K)
-        time_units: alignment constraint for chunk starts (default: 1)
         training_data_path: absolute path to data directory (overrides simulation_config)
         gpu_prefetch: number of chunks to buffer on gpu (1=no overlap, 2=double buffer
             for overlapping cpu->gpu transfer with training)
@@ -131,12 +128,8 @@ def load_dataset(
     # create chunk loader with 3-stage pipeline
     chunk_loader = PipelineChunkLoader(
         load_fn=offset_load_fn,
-        total_timesteps=train_total_timesteps,
-        chunk_size=chunk_size,
         device=device,
         prefetch=6,  # buffer 6 chunks in cpu_queue
-        seed=None,  # will be set per epoch in training loop
-        time_units=time_units,
         gpu_prefetch=gpu_prefetch,  # buffer chunks in gpu_queue for transfer/training overlap
         profiler=profiler,
     )
@@ -594,8 +587,6 @@ def train(cfg: ModelParams, run_dir: Path):
             data_split=cfg.training.data_split,
             num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
             device=device,
-            chunk_size=65536,  # 64K timesteps per chunk
-            time_units=cfg.training.time_units,
             training_data_path=cfg.training.training_data_path,
             gpu_prefetch=2,  # double buffer for cpu->gpu transfer overlap
         )
@@ -699,10 +690,14 @@ def train(cfg: ModelParams, run_dir: Path):
                 warmup_losses = LossAccumulator(LossType)
 
                 # start loading chunks for this warmup epoch
-                chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+                chunks = generate_random_chunks(
+                    total_timesteps=train_total_timesteps, chunk_size=chunk_size,
+                    num_chunks=chunks_per_epoch, time_units=cfg.training.time_units,
+                )
+                chunk_loader.start_epoch(chunks)
 
                 for _ in range(chunks_per_epoch):
-                    chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                    chunk_start, (chunk_data, chunk_stim) = chunk_loader.get_next_chunk()
                     if chunk_data is None:
                         break
 
@@ -804,13 +799,17 @@ def train(cfg: ModelParams, run_dir: Path):
             losses = LossAccumulator(LossType)
 
             # start loading chunks for this epoch
-            chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+            chunks = generate_random_chunks(
+                total_timesteps=train_total_timesteps, chunk_size=chunk_size,
+                num_chunks=chunks_per_epoch, time_units=cfg.training.time_units,
+            )
+            chunk_loader.start_epoch(chunks)
 
             # ---- Training phase (chunked iteration) ----
             for _ in range(chunks_per_epoch):
                 # get next chunk (blocks until ready, overlaps with previous training)
                 get_start = time.time()
-                chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                chunk_start, (chunk_data, chunk_stim) = chunk_loader.get_next_chunk()
                 latency_stats.record_chunk_get(time.time() - get_start)
 
                 if chunk_data is None:

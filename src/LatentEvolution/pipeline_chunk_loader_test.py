@@ -8,6 +8,7 @@ tests verify:
 - edge cases: early termination, cleanup, multiple epochs
 """
 
+import random
 import time
 import unittest
 from typing import Callable
@@ -15,6 +16,7 @@ from typing import Callable
 import numpy as np
 import torch
 
+from LatentEvolution.chunk_streaming import generate_random_chunks
 from LatentEvolution.pipeline_chunk_loader import PipelineChunkLoader, PipelineProfiler
 
 
@@ -64,65 +66,54 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=10000,
             device='cpu',
             prefetch=1,
             gpu_prefetch=1,
-            seed=42
         )
 
-        num_chunks = 5
-        loader.start_epoch(num_chunks)
+        chunks = [(i * 10000, (i + 1) * 10000) for i in range(5)]
+        loader.start_epoch(chunks)
 
-        for _ in range(num_chunks):
-            chunk_start, chunk_data, chunk_stim = loader.get_next_chunk()
-            if chunk_data is None or chunk_stim is None:
-                self.fail("chunk_data or chunk_stim is None")
+        for _ in range(5):
+            chunk_start, (chunk_data, chunk_stim) = loader.get_next_chunk()
             self.assertIsNotNone(chunk_start)
             self.assertEqual(chunk_data.shape, (10000, 1000))
             self.assertEqual(chunk_stim.shape, (10000, 100))
             self.assertEqual(chunk_data.device.type, 'cpu')
 
         # verify end of epoch
-        end_start, end_data, _ = loader.get_next_chunk()
+        end_start, end_payload = loader.get_next_chunk()
         self.assertIsNone(end_start)
-        self.assertIsNone(end_data)
+        self.assertIsNone(end_payload)
 
         self.assertEqual(source.load_count, 5)
         loader.cleanup()
 
-    def test_random_chunk_indices(self):
-        """test that chunks are loaded from random locations."""
-        source = MockDataSource(
-            total_timesteps=100000,
-            num_neurons=100,
-            num_stim_dims=50
+    def test_random_chunk_generation(self):
+        """test that generate_random_chunks produces valid aligned chunks."""
+        total_timesteps = 100000
+        chunk_size = 5000
+        time_units = 10
+
+        chunks = generate_random_chunks(
+            total_timesteps=total_timesteps,
+            chunk_size=chunk_size,
+            num_chunks=20,
+            time_units=time_units,
+            rng=random.Random(123),
         )
 
-        loader = PipelineChunkLoader(
-            load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
-            device='cpu',
-            seed=123
-        )
+        self.assertEqual(len(chunks), 20)
 
-        num_chunks = 10
-        loader.start_epoch(num_chunks)
-
-        for _ in range(num_chunks):
-            loader.get_next_chunk()
-
-        start_indices = [start for start, _ in source.load_calls]
+        start_indices = [start for start, _ in chunks]
         self.assertGreater(len(set(start_indices)), 1, "all chunks from same location")
 
-        for start, end in source.load_calls:
+        for start, end in chunks:
             self.assertGreaterEqual(start, 0)
-            self.assertLessEqual(start, source.total_timesteps - 5000)
-            self.assertEqual(end, start + 5000)
-
-        loader.cleanup()
+            self.assertLessEqual(start, total_timesteps - chunk_size)
+            self.assertEqual(end, start + chunk_size)
+            self.assertEqual(start % time_units, 0,
+                f"chunk start {start} not aligned to time_units={time_units}")
 
     def test_pipeline_overlap(self):
         """test that 3-stage pipeline provides overlap speedup."""
@@ -139,21 +130,19 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
             device='cpu',
             prefetch=2,  # buffer 2 chunks in cpu_queue
             gpu_prefetch=2,  # buffer 2 chunks in gpu_queue
         )
 
-        num_chunks = 10
-        loader.start_epoch(num_chunks)
+        chunks = [(i * 5000, (i + 1) * 5000) for i in range(10)]
+        loader.start_epoch(chunks)
 
         total_start = time.time()
 
-        for i in range(num_chunks):
+        for i in range(10):
             get_start = time.time()
-            _, _, _ = loader.get_next_chunk()
+            _, _ = loader.get_next_chunk()
             get_time = time.time() - get_start
 
             # simulate training
@@ -165,7 +154,7 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         # sequential: 10 * (100ms load + 100ms train) = 2000ms
         # with overlap: ~1000ms + startup overhead
-        sequential_time = num_chunks * (load_time_ms + train_time_ms) / 1000.0
+        sequential_time = 10 * (load_time_ms + train_time_ms) / 1000.0
 
         print(f"\ntotal time: {total_time*1000:.1f}ms")
         print(f"sequential would be: {sequential_time*1000:.1f}ms")
@@ -188,14 +177,13 @@ class TestPipelineChunkLoader(unittest.TestCase):
         # with gpu_prefetch=2, gpu_queue can hold 2 chunks
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=3000,
             device='cpu',
             prefetch=2,
             gpu_prefetch=2
         )
 
-        loader.start_epoch(num_chunks=5)
+        chunks = [(i * 3000, (i + 1) * 3000) for i in range(5)]
+        loader.start_epoch(chunks)
 
         # give pipeline time to fill up
         time.sleep(0.2)
@@ -203,7 +191,7 @@ class TestPipelineChunkLoader(unittest.TestCase):
         # first chunks should be ready immediately
         for i in range(5):
             start = time.time()
-            _, _, _ = loader.get_next_chunk()
+            _, _ = loader.get_next_chunk()
             get_time = time.time() - start
 
             print(f"chunk {i}: get_time={get_time*1000:.1f}ms")
@@ -225,19 +213,16 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
             device='cuda',
             prefetch=1,
             gpu_prefetch=2
         )
 
-        loader.start_epoch(num_chunks=3)
+        chunks = [(i * 5000, (i + 1) * 5000) for i in range(3)]
+        loader.start_epoch(chunks)
 
         for _ in range(3):
-            _, chunk_data, chunk_stim = loader.get_next_chunk()
-            if chunk_data is None or chunk_stim is None:
-                self.fail("chunk_data or chunk_stim is None")
+            _, (chunk_data, chunk_stim) = loader.get_next_chunk()
             self.assertEqual(chunk_data.device.type, 'cuda')
             self.assertEqual(chunk_stim.device.type, 'cuda')
             self.assertEqual(chunk_data.shape, (5000, 2000))
@@ -254,12 +239,11 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=3000,
             device='cpu'
         )
 
-        loader.start_epoch(num_chunks=5)
+        chunks = [(i * 3000, (i + 1) * 3000) for i in range(5)]
+        loader.start_epoch(chunks)
 
         for _ in range(5):
             loader.get_next_chunk()
@@ -281,12 +265,11 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
             device='cpu'
         )
 
-        loader.start_epoch(num_chunks=20)
+        chunks = [(i * 5000, (i + 1) * 5000) for i in range(20)]
+        loader.start_epoch(chunks)
 
         # get only 2 chunks
         loader.get_next_chunk()
@@ -308,23 +291,23 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
             device='cpu',
             prefetch=2,
             gpu_prefetch=2
         )
 
         # epoch 1
-        loader.start_epoch(num_chunks=3)
+        chunks1 = [(i * 5000, (i + 1) * 5000) for i in range(3)]
+        loader.start_epoch(chunks1)
         for _ in range(3):
-            _, chunk_data, _ = loader.get_next_chunk()
+            _, (chunk_data, _chunk_stim) = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         # epoch 2 immediately
-        loader.start_epoch(num_chunks=3)
+        chunks2 = [(i * 5000, (i + 1) * 5000) for i in range(3)]
+        loader.start_epoch(chunks2)
         for _ in range(3):
-            _, chunk_data, _ = loader.get_next_chunk()
+            _, (chunk_data, _chunk_stim) = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         loader.cleanup()
@@ -340,100 +323,52 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
             device='cpu',
             prefetch=2,
             gpu_prefetch=2
         )
 
         # epoch 1: ask for 5, consume only 2
-        loader.start_epoch(num_chunks=5)
+        chunks1 = [(i * 5000, (i + 1) * 5000) for i in range(5)]
+        loader.start_epoch(chunks1)
         loader.get_next_chunk()
         loader.get_next_chunk()
 
         # epoch 2 should work
-        loader.start_epoch(num_chunks=3)
+        chunks2 = [(i * 5000, (i + 1) * 5000) for i in range(3)]
+        loader.start_epoch(chunks2)
         for _ in range(3):
-            _, chunk_data, _ = loader.get_next_chunk()
+            _, (chunk_data, _chunk_stim) = loader.get_next_chunk()
             self.assertIsNotNone(chunk_data)
 
         loader.cleanup()
 
     def test_chunk_alignment_with_time_units(self):
-        """test that chunk starts are aligned to time_units."""
-        source = MockDataSource(
-            total_timesteps=100000,
-            num_neurons=500,
-            num_stim_dims=50
-        )
-
+        """test that generate_random_chunks aligns to time_units."""
         time_units = 10
-        loader = PipelineChunkLoader(
-            load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
+        chunks = generate_random_chunks(
+            total_timesteps=100000,
             chunk_size=5000,
-            device='cpu',
+            num_chunks=20,
             time_units=time_units,
-            seed=123
+            rng=random.Random(123),
         )
 
-        num_chunks = 20
-        loader.start_epoch(num_chunks)
-
-        chunk_starts = []
-        for _ in range(num_chunks):
-            chunk_start, _, _ = loader.get_next_chunk()
-            self.assertIsNotNone(chunk_start)
-            chunk_starts.append(chunk_start)
-
+        chunk_starts = [start for start, _ in chunks]
         for start in chunk_starts:
             self.assertEqual(start % time_units, 0,
                 f"chunk start {start} not aligned to time_units={time_units}")
 
         self.assertGreater(len(set(chunk_starts)), 1, "all chunks from same location")
 
-        loader.cleanup()
-
     def test_deterministic_with_seed(self):
         """test that same seed produces same chunk sequence."""
-        source = MockDataSource(
-            total_timesteps=30000,
-            num_neurons=100,
-            num_stim_dims=50
-        )
+        kwargs = dict(total_timesteps=30000, chunk_size=5000, num_chunks=3, time_units=1)
 
-        # first run
-        loader1 = PipelineChunkLoader(
-            load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
-            device='cpu',
-            seed=42
-        )
-        loader1.start_epoch(num_chunks=3)
-        for _ in range(3):
-            loader1.get_next_chunk()
-        calls1 = source.load_calls.copy()
-        loader1.cleanup()
+        chunks1 = generate_random_chunks(**kwargs, rng=random.Random(42))
+        chunks2 = generate_random_chunks(**kwargs, rng=random.Random(42))
 
-        source.load_calls.clear()
-
-        # second run with same seed
-        loader2 = PipelineChunkLoader(
-            load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
-            device='cpu',
-            seed=42
-        )
-        loader2.start_epoch(num_chunks=3)
-        for _ in range(3):
-            loader2.get_next_chunk()
-        calls2 = source.load_calls.copy()
-        loader2.cleanup()
-
-        self.assertEqual(calls1, calls2, "same seed should produce same sequence")
+        self.assertEqual(chunks1, chunks2, "same seed should produce same sequence")
 
     def test_single_chunk(self):
         """test edge case: only one chunk requested."""
@@ -445,19 +380,18 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
             device='cpu',
             gpu_prefetch=2
         )
 
-        loader.start_epoch(num_chunks=1)
+        loader.start_epoch([(0, 5000)])
 
-        _, chunk_data, _ = loader.get_next_chunk()
+        _, (chunk_data, _chunk_stim) = loader.get_next_chunk()
         self.assertIsNotNone(chunk_data)
 
-        _, end_data, _ = loader.get_next_chunk()
-        self.assertIsNone(end_data)
+        end_start, end_payload = loader.get_next_chunk()
+        self.assertIsNone(end_start)
+        self.assertIsNone(end_payload)
 
         loader.cleanup()
 
@@ -471,17 +405,13 @@ class TestPipelineChunkLoader(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=20000,  # larger than dataset
             device='cpu'
         )
 
-        loader.start_epoch(num_chunks=2)
+        loader.start_epoch([(0, 10000), (0, 10000)])
 
         for _ in range(2):
-            _, chunk_data, _ = loader.get_next_chunk()
-            if chunk_data is None:
-                self.fail("chunk_data is None")
+            _, (chunk_data, _chunk_stim) = loader.get_next_chunk()
             self.assertEqual(chunk_data.shape, (10000, 100))
 
         loader.cleanup()
@@ -544,20 +474,19 @@ class TestPipelineTimingCombinations(unittest.TestCase):
             loader = PipelineChunkLoaderWithTransferDelay(
                 load_fn=source.load_slice,
                 transfer_delay_fn=source.get_transfer_delay,
-                total_timesteps=source.total_timesteps,
-                chunk_size=5000,
                 device='cpu',
                 prefetch=2,
                 gpu_prefetch=2,
             )
 
+            chunks = [(i * 5000, (i + 1) * 5000) for i in range(chunks_per_iteration)]
             iter_start = time.time()
-            loader.start_epoch(num_chunks=chunks_per_iteration)
+            loader.start_epoch(chunks)
 
             chunks_received = 0
             for _ in range(chunks_per_iteration):
-                _, chunk_data, _ = loader.get_next_chunk()
-                if chunk_data is None:
+                _, payload = loader.get_next_chunk()
+                if payload is None:
                     break
                 chunks_received += 1
 
@@ -565,8 +494,8 @@ class TestPipelineTimingCombinations(unittest.TestCase):
                 time.sleep(train_delay / 1000.0)
 
             # verify end of epoch
-            _, end_data, _ = loader.get_next_chunk()
-            self.assertIsNone(end_data, "expected end of epoch")
+            _, end_payload = loader.get_next_chunk()
+            self.assertIsNone(end_payload, "expected end of epoch")
 
             loader.cleanup()
 
@@ -635,7 +564,7 @@ class PipelineChunkLoaderWithTransferDelay(PipelineChunkLoader):
                 self.gpu_queue.put(None)
                 break
 
-            start_idx, cpu_data, cpu_stim = item
+            start_idx, cpu_tensors = item
 
             # inject artificial transfer delay
             delay_ms = self.transfer_delay_fn()
@@ -643,17 +572,10 @@ class PipelineChunkLoaderWithTransferDelay(PipelineChunkLoader):
                 time.sleep(delay_ms / 1000.0)
 
             # transfer to device
-            if self.device.type == 'cuda' and self.transfer_stream is not None:
-                with torch.cuda.stream(self.transfer_stream):
-                    gpu_data = cpu_data.to(self.device, non_blocking=True)
-                    gpu_stim = cpu_stim.to(self.device, non_blocking=True)
-                self.transfer_stream.synchronize()
-            else:
-                gpu_data = cpu_data.to(self.device)
-                gpu_stim = cpu_stim.to(self.device)
+            gpu_tensors = self._do_transfer(cpu_tensors)
 
             self.chunks_transferred += 1
-            self.gpu_queue.put((start_idx, gpu_data, gpu_stim))
+            self.gpu_queue.put((start_idx, gpu_tensors))
 
 
 class TestPipelineProfiler(unittest.TestCase):
@@ -673,19 +595,18 @@ class TestPipelineProfiler(unittest.TestCase):
 
         loader = PipelineChunkLoader(
             load_fn=source.load_slice,
-            total_timesteps=source.total_timesteps,
-            chunk_size=5000,
             device='cpu',
             prefetch=2,
             gpu_prefetch=2,
             profiler=profiler,
         )
 
-        loader.start_epoch(num_chunks=3)
+        chunks = [(i * 5000, (i + 1) * 5000) for i in range(3)]
+        loader.start_epoch(chunks)
 
         for _ in range(3):
-            _, chunk_data, _ = loader.get_next_chunk()
-            if chunk_data is None:
+            _, payload = loader.get_next_chunk()
+            if payload is None:
                 break
             # simulate training
             time.sleep(0.01)

@@ -16,7 +16,6 @@ import json
 from pathlib import Path
 from queue import Queue
 from threading import Thread
-import random
 import threading
 import time
 from typing import Callable, Optional, Generator
@@ -182,7 +181,7 @@ class PipelineProfiler:
 
 
 class PipelineChunkLoader:
-    """loads random chunks using a 3-stage pipeline.
+    """loads chunks using a 3-stage pipeline.
 
     ┌─────────────────────────────────────────────────────────────────────┐
     │  cpu_loader thread     gpu_transfer thread        main thread       │
@@ -208,59 +207,39 @@ class PipelineChunkLoader:
     example:
         >>> loader = PipelineChunkLoader(
         ...     load_fn=lambda start, end: (data[start:end], stim[start:end]),
-        ...     total_timesteps=1000000,
-        ...     chunk_size=65536,
         ...     device='cuda',
         ...     gpu_prefetch=2,  # double buffer for overlap
         ... )
-        >>> loader.start_epoch(num_chunks=15)
-        >>> for _ in range(15):
-        ...     chunk_data, chunk_stim = loader.get_next_chunk()
+        >>> loader.start_epoch([(0, 65536), (65536, 131072), ...])
+        >>> for _ in range(num_chunks):
+        ...     chunk_start, (chunk_data, chunk_stim) = loader.get_next_chunk()
         ...     # train on chunk...
         >>> loader.cleanup()
     """
 
     def __init__(
         self,
-        load_fn: Callable[[int, int], tuple[np.ndarray, np.ndarray]],
-        total_timesteps: int,
-        chunk_size: int,
+        load_fn: Callable[[int, int], tuple[np.ndarray, ...]],
         device: torch.device | str = 'cuda',
         prefetch: int = 1,
-        seed: Optional[int] = None,
-        time_units: int = 1,
         gpu_prefetch: int = 1,
         profiler: Optional[PipelineProfiler] = None,
     ):
         """initialize pipeline chunk loader.
 
         args:
-            load_fn: function(start_idx, end_idx) -> (data, stim) as numpy arrays
-            total_timesteps: total number of timesteps in dataset
-            chunk_size: size of each chunk to load
+            load_fn: function(start_idx, end_idx) -> tuple of numpy arrays
             device: pytorch device to transfer chunks to
             prefetch: number of chunks to buffer in cpu_queue (pinned memory)
-            seed: random seed for chunk sampling (optional)
-            time_units: alignment constraint - chunk starts must be multiples of this
             gpu_prefetch: number of chunks to buffer in gpu_queue (on device). set to 2
                 for double buffering to overlap cpu->gpu transfer with training.
             profiler: optional PipelineProfiler for chrome tracing
         """
         self.load_fn = load_fn
-        self.total_timesteps = total_timesteps
-        self.chunk_size = chunk_size
         self.device = torch.device(device) if isinstance(device, str) else device
         self.prefetch = prefetch
-        self.time_units = time_units
         self.gpu_prefetch = gpu_prefetch
         self.profiler = profiler
-
-        # random number generator for chunk sampling
-        self.rng = random.Random(seed)
-
-        # maximum valid start index (0 if dataset < chunk_size), aligned to time_units
-        max_unaligned_start = max(0, total_timesteps - chunk_size)
-        self.max_start_idx = (max_unaligned_start // time_units) * time_units
 
         # cpu_queue: cpu_loader thread -> gpu_transfer thread (pinned memory)
         self.cpu_queue: Queue = Queue(maxsize=prefetch)
@@ -282,52 +261,45 @@ class PipelineChunkLoader:
         self.chunks_loaded = 0
         self.chunks_transferred = 0
 
-    def _load_random_chunk_to_cpu(self) -> tuple[int, torch.Tensor, torch.Tensor]:
-        """load a random window to cpu pinned memory.
+    def _load_chunk_to_cpu(self, start: int, end: int) -> tuple[int, tuple[torch.Tensor, ...]]:
+        """load a chunk range to cpu pinned memory.
 
         returns:
-            (start_idx, data_pinned, stim_pinned)
+            (start_idx, tuple of pinned tensors)
         """
-        # pick random start index aligned to time_units
-        num_valid_starts = (self.max_start_idx // self.time_units) + 1
-        aligned_idx = self.rng.randint(0, num_valid_starts - 1)
-        start_idx = aligned_idx * self.time_units
-        end_idx = min(start_idx + self.chunk_size, self.total_timesteps)
-
         # load from disk via user-provided function
-        data_np, stim_np = self.load_fn(start_idx, end_idx)
+        arrays = self.load_fn(start, end)
 
-        # convert to tensors
-        data_cpu = torch.from_numpy(data_np)
-        stim_cpu = torch.from_numpy(stim_np)
-
-        # pin memory for fast gpu transfer (only if cuda available)
-        if torch.cuda.is_available():
-            data_cpu = data_cpu.pin_memory()
-            stim_cpu = stim_cpu.pin_memory()
+        # convert each array to tensor and pin memory
+        tensors = []
+        for arr in arrays:
+            t = torch.from_numpy(arr)
+            if torch.cuda.is_available():
+                t = t.pin_memory()
+            tensors.append(t)
 
         self.chunks_loaded += 1
 
-        return start_idx, data_cpu, stim_cpu
+        return start, tuple(tensors)
 
-    def _cpu_loader_worker(self, num_chunks: int):
+    def _cpu_loader_worker(self, chunks: list[tuple[int, int]]):
         """cpu_loader thread: disk -> cpu_queue.
 
         args:
-            num_chunks: number of random chunks to load
+            chunks: list of (start, end) ranges to load
         """
-        for chunk_idx in range(num_chunks):
+        for chunk_idx, (start, end) in enumerate(chunks):
             if self.stop_flag:
                 break
 
             # profile disk load
             if self.profiler and self.profiler.is_enabled():
                 with self.profiler.event("disk_load", "io", thread="cpu_loader", chunk=chunk_idx):
-                    start_idx, cpu_data, cpu_stim = self._load_random_chunk_to_cpu()
+                    item = self._load_chunk_to_cpu(start, end)
             else:
-                start_idx, cpu_data, cpu_stim = self._load_random_chunk_to_cpu()
+                item = self._load_chunk_to_cpu(start, end)
 
-            self.cpu_queue.put((start_idx, cpu_data, cpu_stim))
+            self.cpu_queue.put(item)
 
         # signal completion to gpu_transfer thread
         self.cpu_queue.put(None)
@@ -347,37 +319,35 @@ class PipelineChunkLoader:
                 self.gpu_queue.put(None)
                 break
 
-            start_idx, cpu_data, cpu_stim = item
+            start_idx, cpu_tensors = item
 
             # profile gpu transfer
             if self.profiler and self.profiler.is_enabled():
                 with self.profiler.event("gpu_transfer", "transfer", thread="gpu_transfer", chunk=chunk_idx):
-                    gpu_data, gpu_stim = self._do_transfer(cpu_data, cpu_stim)
+                    gpu_tensors = self._do_transfer(cpu_tensors)
             else:
-                gpu_data, gpu_stim = self._do_transfer(cpu_data, cpu_stim)
+                gpu_tensors = self._do_transfer(cpu_tensors)
 
             self.chunks_transferred += 1
-            self.gpu_queue.put((start_idx, gpu_data, gpu_stim))
+            self.gpu_queue.put((start_idx, gpu_tensors))
             chunk_idx += 1
 
-    def _do_transfer(self, cpu_data: torch.Tensor, cpu_stim: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def _do_transfer(self, cpu_tensors: tuple[torch.Tensor, ...]) -> tuple[torch.Tensor, ...]:
         """transfer tensors from cpu to device."""
         if self.device.type == 'cuda' and self.transfer_stream is not None:
             with torch.cuda.stream(self.transfer_stream):
-                gpu_data = cpu_data.to(self.device, non_blocking=True)
-                gpu_stim = cpu_stim.to(self.device, non_blocking=True)
+                gpu_tensors = tuple(t.to(self.device, non_blocking=True) for t in cpu_tensors)
             self.transfer_stream.synchronize()
         else:
             # cpu or mps - blocking transfer
-            gpu_data = cpu_data.to(self.device)
-            gpu_stim = cpu_stim.to(self.device)
-        return gpu_data, gpu_stim
+            gpu_tensors = tuple(t.to(self.device) for t in cpu_tensors)
+        return gpu_tensors
 
-    def start_epoch(self, num_chunks: int):
+    def start_epoch(self, chunks: list[tuple[int, int]]):
         """start pipeline for an epoch.
 
         args:
-            num_chunks: number of random chunks to load this epoch
+            chunks: list of (start, end) ranges to load this epoch
         """
         # cleanup any previous epoch
         self._stop_threads()
@@ -394,7 +364,7 @@ class PipelineChunkLoader:
         # start cpu_loader thread
         self.cpu_loader_thread = Thread(
             target=self._cpu_loader_worker,
-            args=(num_chunks,),
+            args=(chunks,),
             daemon=True,
             name='cpu_loader',
         )
@@ -408,11 +378,11 @@ class PipelineChunkLoader:
         )
         self.gpu_transfer_thread.start()
 
-    def get_next_chunk(self) -> tuple[Optional[int], Optional[torch.Tensor], Optional[torch.Tensor]]:
+    def get_next_chunk(self) -> tuple[int, tuple[torch.Tensor, ...]] | tuple[None, None]:
         """get next chunk from gpu_queue (blocks until ready).
 
         returns:
-            (chunk_start, chunk_data, chunk_stim) or (None, None, None) if epoch done
+            (chunk_start, tuple of tensors) or (None, None) if epoch done
         """
         # profile queue wait time
         if self.profiler and self.profiler.is_enabled():
@@ -422,7 +392,7 @@ class PipelineChunkLoader:
             item = self.gpu_queue.get()
 
         if item is None:
-            return None, None, None
+            return None, None
 
         return item
 

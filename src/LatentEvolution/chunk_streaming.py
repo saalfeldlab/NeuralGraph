@@ -1,11 +1,12 @@
 """
 integration of chunked streaming into latent.py training loop.
 
-provides instrumentation and helper functions for using RandomChunkLoader
+provides instrumentation and helper functions for using PipelineChunkLoader
 with zarr datasets.
 """
 
 from dataclasses import dataclass, field
+import random
 from typing import Callable
 
 import numpy as np
@@ -220,3 +221,45 @@ def calculate_chunk_params(
             )
 
     return chunks_per_epoch, batches_per_chunk, batches_per_epoch
+
+
+# -------------------------------------------------------------------
+# Random Chunk Generation
+# -------------------------------------------------------------------
+
+
+def generate_random_chunks(
+    total_timesteps: int,
+    chunk_size: int,
+    num_chunks: int,
+    time_units: int = 1,
+    rng: random.Random | None = None,
+) -> list[tuple[int, int]]:
+    """generate a list of random (start, end) chunk ranges.
+
+    args:
+        total_timesteps: total number of timesteps in dataset
+        chunk_size: size of each chunk
+        num_chunks: number of chunks to generate
+        time_units: alignment constraint - chunk starts must be multiples of this
+        rng: random number generator (optional, uses default if None)
+
+    returns:
+        list of (start, end) tuples
+    """
+    if rng is None:
+        rng = random.Random()
+
+    # maximum valid start index, aligned to time_units
+    max_unaligned_start = max(0, total_timesteps - chunk_size)
+    max_start_idx = (max_unaligned_start // time_units) * time_units
+    num_valid_starts = (max_start_idx // time_units) + 1
+
+    chunks = []
+    for _ in range(num_chunks):
+        aligned_idx = rng.randint(0, num_valid_starts - 1)
+        start_idx = aligned_idx * time_units
+        end_idx = min(start_idx + chunk_size, total_timesteps)
+        chunks.append((start_idx, end_idx))
+
+    return chunks
