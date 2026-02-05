@@ -59,6 +59,7 @@ from LatentEvolution.training_utils import (
 from LatentEvolution.chunk_streaming import (
     calculate_chunk_params,
     ChunkLatencyStats,
+    generate_random_chunks,
 )
 from LatentEvolution.latent import load_dataset, load_val_only
 
@@ -499,8 +500,6 @@ def train(cfg: StimulusOnlyModelParams, run_dir: Path):
             data_split=cfg.training.data_split,
             num_input_dims=cfg.stimulus_encoder_params.num_input_dims,
             device=device,
-            chunk_size=65536,
-            time_units=cfg.training.time_units,
             training_data_path=cfg.training.training_data_path,
             gpu_prefetch=2,
         )
@@ -600,11 +599,15 @@ def train(cfg: StimulusOnlyModelParams, run_dir: Path):
             gpu_monitor.sample_epoch_start()
             losses = LossAccumulator(LossType)
 
-            chunk_loader.start_epoch(num_chunks=chunks_per_epoch)
+            chunks = generate_random_chunks(
+                total_timesteps=train_total_timesteps, chunk_size=chunk_size,
+                num_chunks=chunks_per_epoch, time_units=cfg.training.time_units,
+            )
+            chunk_loader.start_epoch(chunks)
 
             for _ in range(chunks_per_epoch):
                 get_start = time.time()
-                chunk_start, chunk_data, chunk_stim = chunk_loader.get_next_chunk()
+                chunk_start, (chunk_data, chunk_stim) = chunk_loader.get_next_chunk()
                 latency_stats.record_chunk_get(time.time() - get_start)
 
                 if chunk_data is None:
