@@ -10,8 +10,8 @@ Find GNN training hyperparameters that recover the connectivity matrix W from **
 
 ## User instructions to follow
 
-- TRY ONLY CODE modifications to get rid of the seed-dependent gradient descent
-
+- Move to regime n_neurons = 200, to compare n_neurons=100 and n_neurons=200 low_rank=20 regimes
+- Partition the understanding for 100 and 200
 
 ## Known Challenges (from prior exploration)
 
@@ -162,39 +162,39 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition                                      | Strategy                      | Action                                                                                                                                   |
-| ---------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Default                                        | **exploit**                   | Highest UCB node, conservative mutation                                                                                                  |
-| 3+ consecutive R² ≥ 0.9                        | **failure-probe**             | Extreme parameter to find boundary                                                                                                       |
-| n_iter_block/4 consecutive successes           | **explore**                   | Select outside recent chain                                                                                                              |
-| degeneracy gap > 0.3 for 3+ iters              | **degeneracy-break**          | Increase coeff_edge_diff, L1, or reduce training duration                                                                                |
-| Same R² plateau (±0.05) for 3+ iters           | **forced-branch**             | Select 2nd-highest UCB, switch param dimension                                                                                           |
-| 4+ consecutive same-param mutations            | **switch-dimension**          | Change a different parameter                                                                                                             |
-| 2+ distant nodes with R² > 0.9                 | **recombine**                 | Merge best params from both nodes                                                                                                        |
-| test_R2 > 0.998 plateau for 3+ iters           | **dimension-sweep**           | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff)                                                     |
-| improvement rate < 30% in block                | **exploit-tighten**           | Keep best config, mutate secondary params conservatively                                                                                 |
-| best test_R2 unchanged for 2+ batches          | **regime-shift**              | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension                                                           |
-| all perturbations from best degrade            | **seed-robustness**           | Replay best config at new seed to test generalization                                                                                    |
-| best test_R2 unchanged for 2+ blocks           | **cross-seed-optimize**       | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed                             |
-| new recipe beats old at 2+ seeds               | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality                                                                       |
-| same config gives R2 range > 0.05 across runs  | **variance-reduction**        | Test recipe at new seed or with different aug/epochs to find lower-variance variant                                                      |
-| all primary params exhausted, variance > 0.01  | **batch-size-sweep**          | Test batch_size=8 at best per-seed configs — different batch size changes optimization trajectory and may reduce variance                |
-| best seed R2 > 0.995 and worst seed R2 < 0.99  | **seed-gap-close**            | At the weaker seed, try coeff_edge_diff>10000, batch_size=16, or training_single_type=False to close the gap                             |
-| L1 changes tested at 3+ seeds with degradation | **L1-lock**                   | Stop testing L1 values between 1E-6 and 1E-5 for non-99 seeds — the L1 landscape is a cliff, not a gradient                              |
-| new weak seed found (R2 < 0.90)                | **weak-seed-lr_W-sweep**      | Sweep lr_W at [3E-3, 4E-3, 6E-3, 7E-3, 8E-3] + test L1=1E-6 at this seed — prior pattern: each weak seed has a unique lr_W or L1 optimum |
-| 6+ seeds tested with per-seed optima found     | **recipe-catalogue**          | Stop searching for universal recipe — catalogue per-seed optima and test robustness at new seeds to expand coverage                      |
-| lr_W peak localized to 1E-3 range at a seed    | **peak-refine**               | Test ±0.5E-3 around peak lr_W to see if finer tuning helps — only if test_R2 < 0.995 at peak                                             |
-| all 7+ seeds ≥0.985 with per-seed tuning       | **new-seed-stress**           | Test at fresh seeds (e.g., 1000, 2000) using default recipe first, then per-seed tuning if needed — measure recipe transfer              |
-| 6+ attempts at a seed all R2<0.9               | **radical-rescue**            | Try extreme interventions: n_epochs=3+, lr_W≤2E-3, lr=5E-5, n_epochs_init=0, or declare seed unlearnable and move on                     |
-| 14+ attempts at a seed all catastrophic        | **seed-abandon**              | Declare seed unlearnable. Stop allocating slots to it. Focus budget on improvable seeds and new seed discovery                           |
-| improvement rate < 25% in block                | **combo-exploit**             | Combine two independently-successful mutations at same seed (e.g., n_epochs=3 + lr_W=6E-3) — exploit synergy rather than single-param    |
-| n_epochs=3 helps at 2+ seeds                   | **epoch-sweep-new-seeds**     | Test n_epochs=3 at other mid-tier seeds (0.918-0.990) — may be a broader pattern, not seed-specific                                      |
-| 0% improvement in block, all per-seed optima found | **novel-dimension-sweep**  | Test a completely untested parameter dimension (recurrent_training, time_step=4) at best seed — if it helps, propagate to other seeds     |
-| 4+ configs at a hard seed all catastrophic       | **hard-seed-final**          | 2 final rescue attempts (n_epochs_init=0, lr_W=3E-3) then declare abandoned if still failing                                             |
-| edge_diff=15000 helps 2+ mid-tier seeds          | **edge-diff-propagate**      | Test edge_diff=15000 at other mid-tier or fragile seeds — combine with per-seed L1/epoch optima to maximize effect                        |
-| final block with <8 iters remaining              | **final-push**               | Focus all slots on pushing remaining mid-tier seeds higher — no new seed discovery, no risky explorations. exploit best combos only        |
-| 3+ seeds abandoned, 9+ seeds ≥0.985              | **new-seed-expand**          | Test 2 new seeds with standard recipe + 2 with enhanced recipe (edge_diff=20000+L1=1E-6) to measure recipe transfer at scale              |
-| edge_diff peak found at a seed (overshoot confirmed) | **edge-diff-lock**        | Stop increasing edge_diff at that seed — the peak has been found. focus on other parameter dimensions or new seeds                         |
+| Condition                                            | Strategy                      | Action                                                                                                                                   |
+| ---------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Default                                              | **exploit**                   | Highest UCB node, conservative mutation                                                                                                  |
+| 3+ consecutive R² ≥ 0.9                              | **failure-probe**             | Extreme parameter to find boundary                                                                                                       |
+| n_iter_block/4 consecutive successes                 | **explore**                   | Select outside recent chain                                                                                                              |
+| degeneracy gap > 0.3 for 3+ iters                    | **degeneracy-break**          | Increase coeff_edge_diff, L1, or reduce training duration                                                                                |
+| Same R² plateau (±0.05) for 3+ iters                 | **forced-branch**             | Select 2nd-highest UCB, switch param dimension                                                                                           |
+| 4+ consecutive same-param mutations                  | **switch-dimension**          | Change a different parameter                                                                                                             |
+| 2+ distant nodes with R² > 0.9                       | **recombine**                 | Merge best params from both nodes                                                                                                        |
+| test_R2 > 0.998 plateau for 3+ iters                 | **dimension-sweep**           | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff)                                                     |
+| improvement rate < 30% in block                      | **exploit-tighten**           | Keep best config, mutate secondary params conservatively                                                                                 |
+| best test_R2 unchanged for 2+ batches                | **regime-shift**              | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension                                                           |
+| all perturbations from best degrade                  | **seed-robustness**           | Replay best config at new seed to test generalization                                                                                    |
+| best test_R2 unchanged for 2+ blocks                 | **cross-seed-optimize**       | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed                             |
+| new recipe beats old at 2+ seeds                     | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality                                                                       |
+| same config gives R2 range > 0.05 across runs        | **variance-reduction**        | Test recipe at new seed or with different aug/epochs to find lower-variance variant                                                      |
+| all primary params exhausted, variance > 0.01        | **batch-size-sweep**          | Test batch_size=8 at best per-seed configs — different batch size changes optimization trajectory and may reduce variance                |
+| best seed R2 > 0.995 and worst seed R2 < 0.99        | **seed-gap-close**            | At the weaker seed, try coeff_edge_diff>10000, batch_size=16, or training_single_type=False to close the gap                             |
+| L1 changes tested at 3+ seeds with degradation       | **L1-lock**                   | Stop testing L1 values between 1E-6 and 1E-5 for non-99 seeds — the L1 landscape is a cliff, not a gradient                              |
+| new weak seed found (R2 < 0.90)                      | **weak-seed-lr_W-sweep**      | Sweep lr_W at [3E-3, 4E-3, 6E-3, 7E-3, 8E-3] + test L1=1E-6 at this seed — prior pattern: each weak seed has a unique lr_W or L1 optimum |
+| 6+ seeds tested with per-seed optima found           | **recipe-catalogue**          | Stop searching for universal recipe — catalogue per-seed optima and test robustness at new seeds to expand coverage                      |
+| lr_W peak localized to 1E-3 range at a seed          | **peak-refine**               | Test ±0.5E-3 around peak lr_W to see if finer tuning helps — only if test_R2 < 0.995 at peak                                             |
+| all 7+ seeds ≥0.985 with per-seed tuning             | **new-seed-stress**           | Test at fresh seeds (e.g., 1000, 2000) using default recipe first, then per-seed tuning if needed — measure recipe transfer              |
+| 6+ attempts at a seed all R2<0.9                     | **radical-rescue**            | Try extreme interventions: n_epochs=3+, lr_W≤2E-3, lr=5E-5, n_epochs_init=0, or declare seed unlearnable and move on                     |
+| 14+ attempts at a seed all catastrophic              | **seed-abandon**              | Declare seed unlearnable. Stop allocating slots to it. Focus budget on improvable seeds and new seed discovery                           |
+| improvement rate < 25% in block                      | **combo-exploit**             | Combine two independently-successful mutations at same seed (e.g., n_epochs=3 + lr_W=6E-3) — exploit synergy rather than single-param    |
+| n_epochs=3 helps at 2+ seeds                         | **epoch-sweep-new-seeds**     | Test n_epochs=3 at other mid-tier seeds (0.918-0.990) — may be a broader pattern, not seed-specific                                      |
+| 0% improvement in block, all per-seed optima found   | **novel-dimension-sweep**     | Test a completely untested parameter dimension (recurrent_training, time_step=4) at best seed — if it helps, propagate to other seeds    |
+| 4+ configs at a hard seed all catastrophic           | **hard-seed-final**           | 2 final rescue attempts (n_epochs_init=0, lr_W=3E-3) then declare abandoned if still failing                                             |
+| edge_diff=15000 helps 2+ mid-tier seeds              | **edge-diff-propagate**       | Test edge_diff=15000 at other mid-tier or fragile seeds — combine with per-seed L1/epoch optima to maximize effect                       |
+| final block with <8 iters remaining                  | **final-push**                | Focus all slots on pushing remaining mid-tier seeds higher — no new seed discovery, no risky explorations. exploit best combos only      |
+| 3+ seeds abandoned, 9+ seeds ≥0.985                  | **new-seed-expand**           | Test 2 new seeds with standard recipe + 2 with enhanced recipe (edge_diff=20000+L1=1E-6) to measure recipe transfer at scale             |
+| edge_diff peak found at a seed (overshoot confirmed) | **edge-diff-lock**            | Stop increasing edge_diff at that seed — the peak has been found. focus on other parameter dimensions or new seeds                       |
 
 ### Step 5: Edit Config File
 

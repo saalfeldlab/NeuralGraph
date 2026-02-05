@@ -10,7 +10,7 @@ It is taken for granted that increasing training size (number frames) improves r
 
 ## User instructions to follow
 
-- FOCUS on n_neurons > 1000, with 1 or 4 neuron types
+- FOCUS on n_neurons > 1000, with 1 or 4 neuron types, try 2 hours computation (but for sparse)
 - dedicated LLM-loop have been launched separately to investigate (n=100,low_rank=20) and (n=100, filling=50%)
 
 ## Iteration Loop Structure

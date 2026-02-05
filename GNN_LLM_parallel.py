@@ -967,5 +967,5 @@ IMPORTANT: Do NOT change the 'dataset' field in any config — it must stay as-i
 
 
 
-# python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster_code signal_sparse iterations=120
-# python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster_code signal_low_rank iterations=120 --resume
+# python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster_code signal_sparse iterations=256 --resume
+# python GNN_LLM_parallel.py -o generate_train_test_plot_Claude_cluster_code signal_low_rank iterations=256 --resume

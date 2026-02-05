@@ -10,7 +10,8 @@ Find GNN training hyperparameters **and GNN code-level parameters** that recover
 
 ## User instructions to follow
 
-- TRY ONLY CODE CHANGES 
+- Move to regime n_neurons = 200, to compare n_neurons=100 and n_neurons=200 low_rank=20 regimes
+- Partition the understanding for 100 and 200
 
 ## Sparse Regime Characteristics
 
@@ -191,30 +192,30 @@ Step A: Select parent node
 
 Step B: Choose strategy
 
-| Condition                                                       | Strategy                      | Action                                                                                                                                   |
-| --------------------------------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Default                                                         | **exploit**                   | Highest UCB node, conservative mutation                                                                                                  |
-| 3+ consecutive R² ≥ 0.9                                         | **failure-probe**             | Extreme parameter to find boundary                                                                                                       |
-| n_iter_block/4 consecutive successes                            | **explore**                   | Select outside recent chain                                                                                                              |
-| degeneracy gap > 0.3 for 3+ iters                               | **degeneracy-break**          | Increase coeff_edge_diff, L1, or reduce training duration                                                                                |
-| Same R² plateau (±0.05) for 3+ iters                            | **forced-branch**             | Select 2nd-highest UCB, switch param dimension                                                                                           |
-| 4+ consecutive same-param mutations                             | **switch-dimension**          | Change a different parameter                                                                                                             |
-| 2+ distant nodes with R² > 0.9                                  | **recombine**                 | Merge best params from both nodes                                                                                                        |
-| test_R2 > 0.998 plateau for 3+ iters                            | **dimension-sweep**           | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff)                                                     |
-| improvement rate < 30% in block                                 | **exploit-tighten**           | Keep best config, mutate secondary params conservatively                                                                                 |
-| best test_R2 unchanged for 2+ batches                           | **regime-shift**              | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension                                                           |
-| all perturbations from best degrade                             | **seed-robustness**           | Replay best config at new seed to test generalization                                                                                    |
-| best test_R2 unchanged for 2+ blocks                            | **cross-seed-optimize**       | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed                             |
-| new recipe beats old at 2+ seeds                                | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality                                                                       |
-| same config gives R2 range > 0.05 across runs                   | **variance-reduction**        | Test recipe at new seed or with different aug/epochs to find lower-variance variant                                                      |
-| connectivity_R2 0.3-0.7 with low degeneracy gap                 | **L1-calibration**            | Sweep coeff_W_L1 to find optimal sparsity pressure for this regime                                                                       |
-| conn_R2 plateau (±0.02) across 4+ configs with different params | **code-modification**         | Config sweeps exhausted — modify GNN code (see Step 5.2). Priority: W init scale, gradient clipping, proximal L1, MLP capacity reduction |
-| code change improved conn_R2                                    | **code-refine**               | Keep code change, tune config params around the new code baseline                                                                        |
-| code change degraded conn_R2                                    | **code-revert**               | Revert code change (git checkout), try next priority from Step 5.2 list                                                                  |
-| code change had zero effect (conn_R2 unchanged)                 | **code-next-priority**        | Current code change is neutral — keep it (no harm) and try next priority from Step 5.2 list as additional modification                   |
-| conn_R2 plateau persists after 2+ code changes                  | **multi-code-modification**   | Apply two code changes simultaneously if individual changes had zero effect — isolation already demonstrated no single-change effect     |
+| Condition                                                                 | Strategy                      | Action                                                                                                                                              |
+| ------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Default                                                                   | **exploit**                   | Highest UCB node, conservative mutation                                                                                                             |
+| 3+ consecutive R² ≥ 0.9                                                   | **failure-probe**             | Extreme parameter to find boundary                                                                                                                  |
+| n_iter_block/4 consecutive successes                                      | **explore**                   | Select outside recent chain                                                                                                                         |
+| degeneracy gap > 0.3 for 3+ iters                                         | **degeneracy-break**          | Increase coeff_edge_diff, L1, or reduce training duration                                                                                           |
+| Same R² plateau (±0.05) for 3+ iters                                      | **forced-branch**             | Select 2nd-highest UCB, switch param dimension                                                                                                      |
+| 4+ consecutive same-param mutations                                       | **switch-dimension**          | Change a different parameter                                                                                                                        |
+| 2+ distant nodes with R² > 0.9                                            | **recombine**                 | Merge best params from both nodes                                                                                                                   |
+| test_R2 > 0.998 plateau for 3+ iters                                      | **dimension-sweep**           | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff)                                                                |
+| improvement rate < 30% in block                                           | **exploit-tighten**           | Keep best config, mutate secondary params conservatively                                                                                            |
+| best test_R2 unchanged for 2+ batches                                     | **regime-shift**              | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension                                                                      |
+| all perturbations from best degrade                                       | **seed-robustness**           | Replay best config at new seed to test generalization                                                                                               |
+| best test_R2 unchanged for 2+ blocks                                      | **cross-seed-optimize**       | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed                                        |
+| new recipe beats old at 2+ seeds                                          | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality                                                                                  |
+| same config gives R2 range > 0.05 across runs                             | **variance-reduction**        | Test recipe at new seed or with different aug/epochs to find lower-variance variant                                                                 |
+| connectivity_R2 0.3-0.7 with low degeneracy gap                           | **L1-calibration**            | Sweep coeff_W_L1 to find optimal sparsity pressure for this regime                                                                                  |
+| conn_R2 plateau (±0.02) across 4+ configs with different params           | **code-modification**         | Config sweeps exhausted — modify GNN code (see Step 5.2). Priority: W init scale, gradient clipping, proximal L1, MLP capacity reduction            |
+| code change improved conn_R2                                              | **code-refine**               | Keep code change, tune config params around the new code baseline                                                                                   |
+| code change degraded conn_R2                                              | **code-revert**               | Revert code change (git checkout), try next priority from Step 5.2 list                                                                             |
+| code change had zero effect (conn_R2 unchanged)                           | **code-next-priority**        | Current code change is neutral — keep it (no harm) and try next priority from Step 5.2 list as additional modification                              |
+| conn_R2 plateau persists after 2+ code changes                            | **multi-code-modification**   | Apply two code changes simultaneously if individual changes had zero effect — isolation already demonstrated no single-change effect                |
 | conn_R2 plateau persists after ALL code changes (config + code exhausted) | **identifiability-test**      | Confirmed identifiability limit — vary seed to test if ceiling is W-specific, try longer training (12+ epochs), try different optimizer for W (SGD) |
-| lin_edge_mode=tanh gives same conn_R2 as mlp                    | **fixed-model-sweep**         | Keep lin_edge_mode=tanh (correct model form), sweep seed/epochs/lr_W to find ceiling-breaking configuration |
+| lin_edge_mode=tanh gives same conn_R2 as mlp                              | **fixed-model-sweep**         | Keep lin_edge_mode=tanh (correct model form), sweep seed/epochs/lr_W to find ceiling-breaking configuration                                         |
 
 ### Step 5: Edit Config File
 
