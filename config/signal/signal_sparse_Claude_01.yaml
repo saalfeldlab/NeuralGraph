@@ -68,6 +68,7 @@ training:
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
+  seed: 137
   learning_rate_W_start: 0.003
   learning_rate_start: 0.0001
   learning_rate_embedding_start: 0.00025
@@ -76,4 +77,17 @@ training:
   coeff_W_L1: 1.0e-04
   coeff_edge_norm: 0.0
   coeff_edge_diff: 10000
-  phi_scale: 0.5
+  phi_scale: 1.0
+  anti_sparsity_coeff: 0.0
+  freeze_lin_edge: false
+  lin_edge_dropout: 0.0
+  lin_edge_mode: mlp
+  w_optimizer_type: adam
+  w_lr_scheduler: none
+  coeff_spectral_radius: 0.0
+  spectral_radius_target: 0.7
+  coeff_W_L2: 1.0e-03
+  recurrent_training: false
+  time_step: 1
+  noise_recurrent_level: 0.0
+  recurrent_training_start_epoch: 0

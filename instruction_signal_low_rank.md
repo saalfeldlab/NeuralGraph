@@ -179,6 +179,7 @@ Step B: Choose strategy
 | lr_W peak localized to 1E-3 range at a seed | **peak-refine** | Test ±0.5E-3 around peak lr_W to see if finer tuning helps — only if test_R2 < 0.995 at peak |
 | all 7+ seeds ≥0.985 with per-seed tuning | **new-seed-stress** | Test at fresh seeds (e.g., 1000, 2000) using default recipe first, then per-seed tuning if needed — measure recipe transfer |
 | 6+ attempts at a seed all R2<0.9 | **radical-rescue** | Try extreme interventions: n_epochs=3+, lr_W≤2E-3, lr=5E-5, n_epochs_init=0, or declare seed unlearnable and move on |
+| abandoned seed with conn_R2<0.4 at standard recipe | **hard-seed-rescue** | Apply lr_W=4E-3+L1=1E-6+3ep triple combo — this rescued seed=1000 from 0.516→0.991. previous "unlearnable" declarations used only standard-recipe perturbations (one param at a time). the triple combo changes the optimization landscape fundamentally |
 
 ### Step 5: Edit Config File
 
