@@ -59,3 +59,18 @@ bsub -J stim_null -n 8 -gpu "num=1" -q gpu_a100 -o stim_null2_3.log python \
   src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
   --training.time-units 2 --predictor-params.num-hidden-layers 3
 ```
+
+```bash
+bsub -J stim_null2 -n 8 -gpu "num=1" -q gpu_a100 -o stim_null2_3.log python \
+  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
+  --training.time-units 2 --predictor-params.num-hidden-layers 3 \
+  --training.column-to-model CALCIUM
+bsub -J stim_null5 -n 8 -gpu "num=1" -q gpu_a100 -o stim_null2_3.log python \
+  src/LatentEvolution/stimulus_only.py stim_null stimulus_only_20step.yaml \
+  --training.time-units 5 --predictor-params.num-hidden-layers 3 \
+  --training.column-to-model CALCIUM
+bsub -J stim_null20 -n 8 -gpu "num=1" -q gpu_a100 -o stim_null20.log python \
+  src/LatentEvolution/stimulus_only.py stim_null_ca stimulus_only_20step.yaml \
+  --training.time-units 20 \
+  --training.column-to-model CALCIUM
+```

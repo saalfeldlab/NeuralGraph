@@ -23,11 +23,10 @@ from LatentEvolution.zapbench import (
     interpolate_sparse_compiled,
 )
 
-TRACES_PATH = "gs://zapbench-release/volumes/20240930/traces"
-ACQ_PATH = "/groups/saalfeld/home/kumarv4/repos/zapbench/output.zarr/cell_acquisition_ms"
+TRACES_PATH = "/groups/saalfeld/saalfeldlab/zapbench-release/volumes/20240930/traces"
+EPHYS_PATH = "/groups/saalfeld/home/kumarv4/repos/zapbench/ephys.zarr"
 
 BIN_SIZE_MS = 24.0
-FRAME_PERIOD_MS = 914.0
 NUM_FRAMES = 2000
 NUM_TRIALS = 3
 
@@ -60,9 +59,8 @@ def _print_gpu_info():
 
 LOAD_KWARGS = dict(
     traces_path=TRACES_PATH,
-    acq_path=ACQ_PATH,
+    ephys_path=EPHYS_PATH,
     bin_size_ms=BIN_SIZE_MS,
-    frame_period_ms=FRAME_PERIOD_MS,
     time_slice=slice(0, NUM_FRAMES),
 )
 

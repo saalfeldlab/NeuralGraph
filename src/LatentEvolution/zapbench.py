@@ -1,12 +1,17 @@
 """load zapbench calcium data and interpolate staggered observations.
 
-two paths are provided:
-- dense path: zarr -> (num_bins, N) dense matrix -> cummax/cummin interpolation
-- sparse path: zarr -> (N, K) sparse representation -> searchsorted interpolation
+sparse representation: zarr -> (N, K) sparse -> searchsorted interpolation.
+at 2.6% observed density: 22x faster transfer, 3.3x faster interp, 3.4x less
+peak gpu memory.
 
-the sparse path is preferred: 22x faster transfer, 3.3x faster interp,
-3.4x less peak gpu memory at 2.6% observed density.
+data format (ephys.zarr):
+- traces: (T, N) calcium fluorescence values
+- cell_ephys_index: (T, N) sample indices at sampling_frequency_hz (e.g. 6kHz)
+- sampling_frequency_hz: stored in zarr.json attributes
 """
+
+import json
+from pathlib import Path
 
 import numpy as np
 import tensorstore as ts
@@ -38,202 +43,102 @@ def _open_zarr(path: str) -> ts.TensorStore:
         return ts.open({"driver": "zarr3", "kvstore": kvstore}).result()
 
 
+def _read_sampling_frequency(ephys_zarr_path: str) -> float:
+    """read sampling_frequency_hz from ephys.zarr/zarr.json attributes.
+
+    args:
+        ephys_zarr_path: path to ephys.zarr directory (parent of cell_ephys_index)
+
+    returns:
+        sampling frequency in Hz (e.g. 6000.0)
+    """
+    zarr_json_path = Path(ephys_zarr_path) / "zarr.json"
+    with open(zarr_json_path) as f:
+        metadata = json.load(f)
+    return float(metadata["attributes"]["sampling_frequency_hz"])
+
+
 def _load_zarr_arrays(
     traces_path: str,
-    acq_path: str,
+    ephys_path: str,
     time_slice: slice | None,
 ) -> tuple[np.ndarray, np.ndarray, int]:
-    """read traces and acq from zarr, return (T, N) arrays.
+    """read traces and cell_ephys_index from zarr, return (T, N) arrays.
 
-    shared by load_staggered_activity and load_sparse_activity.
+    if time_slice exceeds array bounds, it is clamped to valid range.
+
+    args:
+        traces_path: path to traces zarr array (T, N)
+        ephys_path: path to ephys.zarr directory containing cell_ephys_index
+        time_slice: optional slice along T axis
+
+    returns:
+        traces_np: (T, N) float array of calcium traces
+        acq_ms: (T, N) float array of acquisition times in milliseconds
+        T: number of timepoints loaded
     """
     traces_store = _open_zarr(traces_path)
-    acq_store = _open_zarr(acq_path)
 
-    # acq is stored as (N, T), read and transpose to (T, N)
+    # cell_ephys_index is stored as (T, N) - no transpose needed
+    cell_index_path = str(Path(ephys_path) / "cell_ephys_index")
+    cell_index_store = _open_zarr(cell_index_path)
+
+    # read sampling frequency from zarr.json
+    sampling_freq_hz = _read_sampling_frequency(ephys_path)
+
+    # get array dimensions
+    total_frames = traces_store.shape[0]
+
+    # clamp time_slice to valid bounds
+    if time_slice is not None:
+        start = time_slice.start if time_slice.start is not None else 0
+        stop = time_slice.stop if time_slice.stop is not None else total_frames
+        start = max(0, min(start, total_frames))
+        stop = max(start, min(stop, total_frames))
+        time_slice = slice(start, stop)
+
+    # load arrays - cell_ephys_index is already (T, N)
     if time_slice is not None:
         traces_np = traces_store[time_slice, :].read().result()
-        acq_np = np.asarray(acq_store[:, time_slice].read().result()).T
+        cell_index_np = cell_index_store[time_slice, :].read().result()
     else:
         traces_np = traces_store.read().result()
-        acq_np = np.asarray(acq_store.read().result()).T
+        cell_index_np = cell_index_store.read().result()
 
     T, N = traces_np.shape
-    assert acq_np.shape == (T, N), (
-        f"traces shape {traces_np.shape} != acq shape {acq_np.shape}"
+    assert cell_index_np.shape == (T, N), (
+        f"traces shape {traces_np.shape} != cell_ephys_index shape {cell_index_np.shape}"
     )
-    return np.asarray(traces_np), acq_np, T
+
+    # convert sample indices to milliseconds
+    acq_ms = np.asarray(cell_index_np, dtype=np.float64) * 1000.0 / sampling_freq_hz
+
+    return np.asarray(traces_np), acq_ms, T
 
 
 def _compute_bin_indices(
-    acq_np: np.ndarray,
-    T: int,
+    acq_ms: np.ndarray,
     bin_size_ms: float,
-    frame_period_ms: float,
 ) -> tuple[np.ndarray, int]:
-    """compute bin indices from acquisition offsets.
+    """compute bin indices from acquisition times in milliseconds.
+
+    args:
+        acq_ms: (T, N) array of acquisition times in milliseconds
+        bin_size_ms: bin width in milliseconds
 
     returns:
         bin_indices: (T, N) int64 array of bin indices, clamped to [0, num_bins-1].
         num_bins: total number of output time bins.
     """
-    num_bins = int(np.ceil(T * frame_period_ms / bin_size_ms))
-    frame_times = np.arange(T, dtype=np.float64) * frame_period_ms
-    time_ms = frame_times[:, np.newaxis] + np.asarray(acq_np, dtype=np.float64)
-    bin_indices = np.floor(time_ms / bin_size_ms).astype(np.int64)
-    np.clip(bin_indices, 0, num_bins - 1, out=bin_indices)
+    # compute bin indices from absolute times
+    bin_indices = np.floor(acq_ms / bin_size_ms).astype(np.int64)
+
+    # shift to start at 0 (relative to first observation in this slice)
+    min_bin = bin_indices.min()
+    bin_indices = bin_indices - min_bin
+
+    num_bins = int(bin_indices.max() + 1)
     return bin_indices, num_bins
-
-
-# ---------------------------------------------------------------------------
-# dense path: zarr -> (num_bins, N) dense matrix -> cummax/cummin
-# ---------------------------------------------------------------------------
-
-def load_staggered_activity(
-    traces_path: str,
-    acq_path: str,
-    bin_size_ms: float,
-    frame_period_ms: float,
-    time_slice: slice | None = None,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """load traces and acquisition timestamps, bin into a staggered matrix.
-
-    each neuron is observed at irregular times given by per-frame offsets
-    in acq. time within the loaded window is:
-
-        time[t, n] = t * frame_period_ms + acq[t, n]
-
-    we quantize these into discrete bins of bin_size_ms and place trace
-    values into a (num_bins, N) matrix. each bin contains at most one
-    observation per neuron. unobserved entries are NaN.
-
-    the output size is deterministic: num_bins = ceil(T * frame_period_ms
-    / bin_size_ms), independent of the actual offset values.
-
-    args:
-        traces_path: path to zarr array of shape (T, N), calcium traces.
-            local/NFS path or gs:// URI.
-        acq_path: path to zarr array of shape (T, N), offset timestamps
-            in ms within each frame.
-            local/NFS path or gs:// URI.
-        bin_size_ms: bin width in milliseconds (e.g. 20.0).
-        frame_period_ms: nominal interval between frames in ms.
-        time_slice: optional slice along the T (sample) axis to load
-            a subset of the data.
-
-    returns:
-        staggered: (num_bins, N) float32 cpu tensor. entry (b, n) is the
-            trace value for neuron n in time bin b, or NaN if neuron n
-            was not observed in that bin.
-        observed: (num_bins, N) bool cpu tensor. True where a real
-            observation exists.
-    """
-    traces_store = _open_zarr(traces_path)
-    acq_store = _open_zarr(acq_path)
-
-    # acq is stored as (N, T), read and transpose to (T, N)
-    if time_slice is not None:
-        traces_np = traces_store[time_slice, :].read().result()
-        acq_np = np.asarray(acq_store[:, time_slice].read().result()).T
-    else:
-        traces_np = traces_store.read().result()
-        acq_np = np.asarray(acq_store.read().result()).T
-
-    T, N = traces_np.shape
-    assert acq_np.shape == (T, N), (
-        f"traces shape {traces_np.shape} != acq shape {acq_np.shape}"
-    )
-
-    # deterministic output size
-    num_bins = int(np.ceil(T * frame_period_ms / bin_size_ms))
-
-    # time within loaded window: t * frame_period_ms + offset
-    frame_times = np.arange(T, dtype=np.float64) * frame_period_ms
-    time_ms = frame_times[:, np.newaxis] + np.asarray(acq_np, dtype=np.float64)
-
-    # quantize to bin indices, clamp to valid range
-    bin_indices = np.floor(time_ms / bin_size_ms).astype(np.int64)
-    np.clip(bin_indices, 0, num_bins - 1, out=bin_indices)
-
-    # flatten for scatter
-    traces_flat = torch.from_numpy(
-        np.ascontiguousarray(traces_np, dtype=np.float32),
-    ).reshape(-1)
-    bins_flat = torch.from_numpy(
-        np.ascontiguousarray(bin_indices.reshape(-1)),
-    ).long()
-    neurons_flat = (
-        torch.arange(N, dtype=torch.long, device="cpu")
-        .unsqueeze(0)
-        .expand(T, N)
-        .reshape(-1)
-    )
-
-    # scatter into (num_bins, N), unobserved entries are 0
-    linear_idx = bins_flat * N + neurons_flat
-    staggered = torch.zeros(num_bins * N, dtype=torch.float32, device="cpu")
-    observed = torch.zeros(num_bins * N, dtype=torch.bool, device="cpu")
-    staggered[linear_idx] = traces_flat
-    observed[linear_idx] = True
-    staggered = staggered.reshape(num_bins, N)
-    observed = observed.reshape(num_bins, N)
-
-    return staggered, observed
-
-
-def interpolate_staggered_activity(
-    staggered: torch.Tensor,
-    observed: torch.Tensor,
-) -> torch.Tensor:
-    """linearly interpolate gaps in a staggered activity matrix.
-
-    for each (t, n), finds the nearest observed entry before and after t
-    in column n and linearly interpolates between them. at boundaries
-    (no observation before or after), the nearest available observation
-    is used (constant extrapolation).
-
-    args:
-        staggered: (T, N) float tensor, 0 at unobserved entries.
-        observed: (T, N) bool tensor, True where staggered has a real value.
-
-    returns:
-        (T, N) float tensor with all gaps filled by interpolation.
-    """
-    T, N = staggered.shape
-    device = staggered.device
-
-    t_grid = torch.arange(T, device=device, dtype=torch.long).unsqueeze(1).expand(T, N)
-
-    # last observed index <= t: set unobserved to -1, cummax forward
-    lo_raw = torch.where(observed, t_grid, torch.tensor(-1, device=device, dtype=torch.long))
-    t_lo = torch.cummax(lo_raw, dim=0).values  # (T, N)
-
-    # next observed index >= t: set unobserved to T, flip, cummin, flip
-    hi_raw = torch.where(observed, t_grid, torch.tensor(T, device=device, dtype=torch.long))
-    t_hi = torch.cummin(hi_raw.flip(0), dim=0).values.flip(0)  # (T, N)
-
-    # boundary: no prior obs -> use next; no next obs -> use prior
-    has_lo = t_lo >= 0
-    has_hi = t_hi < T
-    t_lo = torch.where(has_lo, t_lo, t_hi.clamp(0, T - 1))
-    t_hi = torch.where(has_hi, t_hi, t_lo.clamp(0, T - 1))
-
-    # gather values
-    neuron_idx = torch.arange(N, device=device, dtype=torch.long).unsqueeze(0).expand(T, N)
-    val_lo = staggered[t_lo, neuron_idx]
-    val_hi = staggered[t_hi, neuron_idx]
-
-    # interpolation weight
-    span = (t_hi - t_lo).float()
-    t_float = t_grid.float()
-    w = torch.where(span > 0, (t_float - t_lo.float()) / span, torch.zeros_like(span))
-
-    return (1.0 - w) * val_lo + w * val_hi
-
-
-interpolate_staggered_activity_compiled = torch.compile(
-    interpolate_staggered_activity, mode="reduce-overhead", fullgraph=True,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -242,12 +147,11 @@ interpolate_staggered_activity_compiled = torch.compile(
 
 def load_sparse_activity(
     traces_path: str,
-    acq_path: str,
+    ephys_path: str,
     bin_size_ms: float,
-    frame_period_ms: float,
     time_slice: slice | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, int]:
-    """load traces and acq from zarr directly into sparse representation.
+    """load traces and cell_ephys_index from zarr directly into sparse representation.
 
     skips the intermediate dense (num_bins, N) matrix entirely. each
     raw observation (frame, neuron) maps to a bin index; we pack these
@@ -260,9 +164,8 @@ def load_sparse_activity(
 
     args:
         traces_path: path to zarr array, shape (T, N).
-        acq_path: path to zarr array, stored as (N, T).
+        ephys_path: path to ephys.zarr directory containing cell_ephys_index.
         bin_size_ms: bin width in milliseconds.
-        frame_period_ms: nominal interval between frames in ms.
         time_slice: optional slice along T axis.
 
     returns:
@@ -271,9 +174,9 @@ def load_sparse_activity(
         counts: (N,) long cpu tensor, observations per neuron.
         num_bins: total number of output time bins.
     """
-    traces_np, acq_np, T = _load_zarr_arrays(traces_path, acq_path, time_slice)
+    traces_np, acq_ms, T = _load_zarr_arrays(traces_path, ephys_path, time_slice)
     N = traces_np.shape[1]
-    bin_indices, num_bins = _compute_bin_indices(acq_np, T, bin_size_ms, frame_period_ms)
+    bin_indices, num_bins = _compute_bin_indices(acq_ms, bin_size_ms)
 
     # bin_indices is (T, N) — each frame gives one obs per neuron.
     # transpose to (N, T) for per-neuron layout, already sorted by
@@ -293,9 +196,8 @@ def load_sparse_activity(
 
 def load_and_interpolate(
     traces_path: str,
-    acq_path: str,
+    ephys_path: str,
     bin_size_ms: float,
-    frame_period_ms: float,
     time_slice: slice | None = None,
     device: torch.device | str = "cpu",
 ) -> torch.Tensor:
@@ -307,9 +209,8 @@ def load_and_interpolate(
 
     args:
         traces_path: path to zarr array, shape (T, N).
-        acq_path: path to zarr array, stored as (N, T).
+        ephys_path: path to ephys.zarr directory containing cell_ephys_index.
         bin_size_ms: bin width in milliseconds.
-        frame_period_ms: nominal interval between frames in ms.
         time_slice: optional slice along T axis.
         device: target device for interpolation and output.
 
@@ -317,12 +218,12 @@ def load_and_interpolate(
         (num_bins, N) float32 tensor on device, fully interpolated.
     """
     obs_times, obs_vals, counts, num_bins = load_sparse_activity(
-        traces_path, acq_path, bin_size_ms, frame_period_ms, time_slice,
+        traces_path, ephys_path, bin_size_ms, time_slice,
     )
     obs_times = obs_times.to(device)
     obs_vals = obs_vals.to(device)
     counts = counts.to(device)
-    return interpolate_sparse(obs_times, obs_vals, counts, num_bins)
+    return interpolate_sparse_compiled(obs_times, obs_vals, counts, num_bins)
 
 
 def interpolate_sparse(

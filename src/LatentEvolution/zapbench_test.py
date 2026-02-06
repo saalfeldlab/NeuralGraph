@@ -1,5 +1,6 @@
-"""tests for zapbench load_staggered_activity and interpolate_irregular."""
+"""tests for zapbench sparse loading and interpolation."""
 
+import json
 import os
 import shutil
 import tempfile
@@ -11,8 +12,7 @@ import torch
 
 from LatentEvolution.zapbench import (
     load_and_interpolate,
-    load_staggered_activity,
-    interpolate_staggered_activity,
+    load_sparse_activity,
     interpolate_sparse,
 )
 
@@ -30,203 +30,26 @@ def _write_zarr(path: str, array: np.ndarray):
     store.write(array).result()
 
 
-def _write_acq_zarr(path: str, array: np.ndarray):
-    """write acq array transposed to (N, T) as stored on disk."""
-    _write_zarr(path, array.T)
+def _create_ephys_zarr(ephys_dir: str, cell_ephys_index: np.ndarray, sampling_freq_hz: float):
+    """create ephys.zarr directory with cell_ephys_index and zarr.json."""
+    os.makedirs(ephys_dir, exist_ok=True)
 
+    # write zarr.json with sampling frequency
+    zarr_json = {
+        "zarr_format": 3,
+        "node_type": "group",
+        "attributes": {"sampling_frequency_hz": sampling_freq_hz},
+    }
+    with open(os.path.join(ephys_dir, "zarr.json"), "w") as f:
+        json.dump(zarr_json, f)
 
-class TestLoadStaggeredActivity(unittest.TestCase):
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-        self.traces_path = os.path.join(self.tmpdir, "traces.zarr")
-        self.acq_path = os.path.join(self.tmpdir, "acq.zarr")
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir)
-
-    def test_single_frame_two_neurons(self):
-        """one frame, two neurons with different offsets."""
-        # frame_period=100ms, bin_size=50ms
-        # neuron 0 at offset 10ms -> absolute 10ms -> bin 0
-        # neuron 1 at offset 60ms -> absolute 60ms -> bin 1
-        traces = np.array([[1.0, 2.0]], dtype=np.float32)
-        acq = np.array([[10.0, 60.0]], dtype=np.float64)
-        _write_zarr(self.traces_path, traces)
-        _write_acq_zarr(self.acq_path, acq)
-
-        staggered, observed = load_staggered_activity(
-            self.traces_path, self.acq_path,
-            bin_size_ms=50.0, frame_period_ms=100.0,
-        )
-        # num_bins = ceil(1 * 100 / 50) = 2
-        self.assertEqual(staggered.shape, (2, 2))
-        self.assertAlmostEqual(staggered[0, 0].item(), 1.0)
-        self.assertEqual(staggered[0, 1].item(), 0.0)
-        self.assertEqual(staggered[1, 0].item(), 0.0)
-        self.assertAlmostEqual(staggered[1, 1].item(), 2.0)
-        expected_obs = torch.tensor([[True, False], [False, True]], device="cpu")
-        self.assertTrue(torch.equal(observed, expected_obs))
-
-    def test_two_frames_staggered_pattern(self):
-        """two frames, verifying the staggered pattern across bins."""
-        # frame_period=20ms, bin_size=10ms -> 4 bins per 2 frames
-        # frame 0: neuron 0 at 0+2=2ms -> bin 0, neuron 1 at 0+12=12ms -> bin 1
-        # frame 1: neuron 0 at 20+2=22ms -> bin 2, neuron 1 at 20+12=32ms -> bin 3
-        traces = np.array([[10.0, 20.0], [30.0, 40.0]], dtype=np.float32)
-        acq = np.array([[2.0, 12.0], [2.0, 12.0]], dtype=np.float64)
-        _write_zarr(self.traces_path, traces)
-        _write_acq_zarr(self.acq_path, acq)
-
-        staggered, observed = load_staggered_activity(
-            self.traces_path, self.acq_path,
-            bin_size_ms=10.0, frame_period_ms=20.0,
-        )
-        # num_bins = ceil(2 * 20 / 10) = 4
-        self.assertEqual(staggered.shape, (4, 2))
-        self.assertAlmostEqual(staggered[0, 0].item(), 10.0)
-        self.assertFalse(observed[0, 1].item())
-        self.assertFalse(observed[1, 0].item())
-        self.assertAlmostEqual(staggered[1, 1].item(), 20.0)
-        self.assertAlmostEqual(staggered[2, 0].item(), 30.0)
-        self.assertFalse(observed[2, 1].item())
-        self.assertFalse(observed[3, 0].item())
-        self.assertAlmostEqual(staggered[3, 1].item(), 40.0)
-
-    def test_time_slice(self):
-        """loading a subset of frames via time_slice."""
-        traces = np.array(
-            [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]],
-            dtype=np.float32,
-        )
-        acq = np.array(
-            [[0.0, 5.0], [0.0, 5.0], [0.0, 5.0], [0.0, 5.0]],
-            dtype=np.float64,
-        )
-        _write_zarr(self.traces_path, traces)
-        _write_acq_zarr(self.acq_path, acq)
-
-        # load only frames 2-3, frame_period=10ms, bin_size=10ms
-        staggered, observed = load_staggered_activity(
-            self.traces_path, self.acq_path,
-            bin_size_ms=10.0, frame_period_ms=10.0,
-            time_slice=slice(2, 4),
-        )
-        # 2 frames -> num_bins = ceil(2 * 10 / 10) = 2
-        self.assertEqual(staggered.shape, (2, 2))
-        self.assertAlmostEqual(staggered[0, 0].item(), 5.0)
-        self.assertAlmostEqual(staggered[0, 1].item(), 6.0)
-        self.assertAlmostEqual(staggered[1, 0].item(), 7.0)
-        self.assertAlmostEqual(staggered[1, 1].item(), 8.0)
-
-    def test_output_size_deterministic(self):
-        """output size depends only on T, frame_period, bin_size."""
-        traces = np.ones((5, 3), dtype=np.float32)
-        acq = np.array([
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-            [0.0, 0.0, 0.0],
-        ], dtype=np.float64)
-        _write_zarr(self.traces_path, traces)
-        _write_acq_zarr(self.acq_path, acq)
-
-        stag1, _ = load_staggered_activity(
-            self.traces_path, self.acq_path,
-            bin_size_ms=20.0, frame_period_ms=100.0,
-        )
-
-        acq2 = np.full((5, 3), 99.0, dtype=np.float64)
-        _write_acq_zarr(self.acq_path, acq2)
-
-        stag2, _ = load_staggered_activity(
-            self.traces_path, self.acq_path,
-            bin_size_ms=20.0, frame_period_ms=100.0,
-        )
-
-        self.assertEqual(stag1.shape, stag2.shape)
-        # ceil(5 * 100 / 20) = 25
-        self.assertEqual(stag1.shape[0], 25)
-
-
-class TestInterpolateIrregular(unittest.TestCase):
-
-    def test_no_gaps(self):
-        """fully observed matrix is returned unchanged."""
-        data = torch.tensor([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
-        obs = torch.ones(3, 2, dtype=torch.bool)
-        result = interpolate_staggered_activity(data, obs)
-        self.assertTrue(torch.allclose(result, data))
-
-    def test_single_gap_linear_interp(self):
-        """one gap between two observations is linearly interpolated."""
-        # neuron 0: observed at t=0 (val=0) and t=2 (val=6), gap at t=1
-        # neuron 1: fully observed
-        data = torch.tensor([[0.0, 1.0], [0.0, 2.0], [6.0, 3.0]])
-        obs = torch.tensor([[True, True], [False, True], [True, True]])
-        result = interpolate_staggered_activity(data, obs)
-        self.assertAlmostEqual(result[1, 0].item(), 3.0)  # lerp(0, 6, 0.5)
-        self.assertAlmostEqual(result[1, 1].item(), 2.0)  # already observed
-
-    def test_multiple_gaps(self):
-        """two gaps between observations."""
-        # t=0: val=0 (observed), t=1,2: gap, t=3: val=9 (observed)
-        data = torch.tensor([[0.0], [0.0], [0.0], [9.0]])
-        obs = torch.tensor([[True], [False], [False], [True]])
-        result = interpolate_staggered_activity(data, obs)
-        self.assertAlmostEqual(result[0, 0].item(), 0.0)
-        self.assertAlmostEqual(result[1, 0].item(), 3.0)  # lerp(0, 9, 1/3)
-        self.assertAlmostEqual(result[2, 0].item(), 6.0)  # lerp(0, 9, 2/3)
-        self.assertAlmostEqual(result[3, 0].item(), 9.0)
-
-    def test_boundary_no_prior_observation(self):
-        """gap at start with no prior observation uses next observed value."""
-        data = torch.tensor([[0.0], [0.0], [5.0]])
-        obs = torch.tensor([[False], [False], [True]])
-        result = interpolate_staggered_activity(data, obs)
-        # constant extrapolation from t=2
-        self.assertAlmostEqual(result[0, 0].item(), 5.0)
-        self.assertAlmostEqual(result[1, 0].item(), 5.0)
-
-    def test_boundary_no_next_observation(self):
-        """gap at end with no next observation uses prior observed value."""
-        data = torch.tensor([[3.0], [0.0], [0.0]])
-        obs = torch.tensor([[True], [False], [False]])
-        result = interpolate_staggered_activity(data, obs)
-        self.assertAlmostEqual(result[1, 0].item(), 3.0)
-        self.assertAlmostEqual(result[2, 0].item(), 3.0)
-
-    def test_staggered_pattern(self):
-        """alternating observation pattern across neurons."""
-        # neuron 0 observed at t=0,2,4; neuron 1 observed at t=1,3
-        data = torch.tensor([
-            [10.0, 0.0],
-            [0.0, 20.0],
-            [30.0, 0.0],
-            [0.0, 40.0],
-            [50.0, 0.0],
-        ])
-        obs = torch.tensor([
-            [True, False],
-            [False, True],
-            [True, False],
-            [False, True],
-            [True, False],
-        ])
-        result = interpolate_staggered_activity(data, obs)
-        # neuron 0: t=1 -> lerp(10, 30, 0.5) = 20, t=3 -> lerp(30, 50, 0.5) = 40
-        self.assertAlmostEqual(result[1, 0].item(), 20.0)
-        self.assertAlmostEqual(result[3, 0].item(), 40.0)
-        # neuron 1: t=0 -> extrapolate from t=1 = 20, t=2 -> lerp(20, 40, 0.5) = 30
-        self.assertAlmostEqual(result[0, 1].item(), 20.0)
-        self.assertAlmostEqual(result[2, 1].item(), 30.0)
-        # neuron 1: t=4 -> extrapolate from t=3 = 40
-        self.assertAlmostEqual(result[4, 1].item(), 40.0)
+    # write cell_ephys_index array (T, N)
+    cell_index_path = os.path.join(ephys_dir, "cell_ephys_index")
+    _write_zarr(cell_index_path, cell_ephys_index.astype(np.int64))
 
 
 class TestInterpolateSparse(unittest.TestCase):
-    """tests for the sparse searchsorted interpolation path."""
+    """tests for the sparse searchsorted interpolation."""
 
     def _make_sparse(self, obs_times_list, obs_vals_list, T):
         """build padded sparse tensors from per-neuron lists."""
@@ -244,7 +67,6 @@ class TestInterpolateSparse(unittest.TestCase):
 
     def test_no_gaps(self):
         """fully observed matrix is returned unchanged."""
-        # (3, 2) fully observed
         T = 3
         ot, ov, counts = self._make_sparse(
             [[0, 1, 2], [0, 1, 2]],
@@ -309,91 +131,151 @@ class TestInterpolateSparse(unittest.TestCase):
         self.assertAlmostEqual(result[4, 1].item(), 40.0)
 
 
-class TestLoadAndInterpolate(unittest.TestCase):
-    """end-to-end test: load_and_interpolate matches dense path."""
+class TestLoadSparseActivity(unittest.TestCase):
+    """tests for loading sparse activity from zarr."""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp()
         self.traces_path = os.path.join(self.tmpdir, "traces.zarr")
-        self.acq_path = os.path.join(self.tmpdir, "acq.zarr")
+        self.ephys_path = os.path.join(self.tmpdir, "ephys.zarr")
 
     def tearDown(self):
         shutil.rmtree(self.tmpdir)
 
-    def _dense_reference(self, bin_size_ms, frame_period_ms, time_slice=None):
-        """produce interpolated result via the dense path."""
-        staggered, observed = load_staggered_activity(
-            self.traces_path, self.acq_path,
-            bin_size_ms=bin_size_ms, frame_period_ms=frame_period_ms,
-            time_slice=time_slice,
-        )
-        return interpolate_staggered_activity(staggered, observed)
+    def test_basic_load(self):
+        """load sparse activity from zarr."""
+        # 4 frames, 3 neurons, 1000 Hz sampling
+        # sample indices: neuron n at frame t has index t * 100 + n * 10
+        T, N = 4, 3
+        traces = np.arange(T * N, dtype=np.float32).reshape(T, N)
+        cell_ephys_index = np.array([
+            [0, 10, 20],
+            [100, 110, 120],
+            [200, 210, 220],
+            [300, 310, 320],
+        ], dtype=np.int64)
 
-    def test_matches_dense_path(self):
-        """load_and_interpolate matches dense load + interpolate."""
-        traces = np.array([[10.0, 20.0], [30.0, 40.0]], dtype=np.float32)
-        acq = np.array([[2.0, 12.0], [2.0, 12.0]], dtype=np.float64)
         _write_zarr(self.traces_path, traces)
-        _write_acq_zarr(self.acq_path, acq)
+        _create_ephys_zarr(self.ephys_path, cell_ephys_index, sampling_freq_hz=1000.0)
 
-        expected = self._dense_reference(bin_size_ms=10.0, frame_period_ms=20.0)
+        obs_times, obs_vals, counts, num_bins = load_sparse_activity(
+            self.traces_path, self.ephys_path, bin_size_ms=50.0,
+        )
+
+        # shape is (N, T)
+        self.assertEqual(obs_times.shape, (3, 4))
+        self.assertEqual(obs_vals.shape, (3, 4))
+        self.assertTrue(torch.all(counts == 4))
+
+    def test_time_slice(self):
+        """load subset of frames via time_slice."""
+        T, N = 10, 2
+        traces = np.arange(T * N, dtype=np.float32).reshape(T, N)
+        cell_ephys_index = np.arange(T * N, dtype=np.int64).reshape(T, N) * 10
+
+        _write_zarr(self.traces_path, traces)
+        _create_ephys_zarr(self.ephys_path, cell_ephys_index, sampling_freq_hz=1000.0)
+
+        obs_times, obs_vals, counts, num_bins = load_sparse_activity(
+            self.traces_path, self.ephys_path, bin_size_ms=50.0,
+            time_slice=slice(3, 7),
+        )
+
+        # 4 frames loaded
+        self.assertEqual(obs_times.shape, (2, 4))
+        self.assertTrue(torch.all(counts == 4))
+
+    def test_time_slice_clamped(self):
+        """time_slice exceeding bounds is clamped."""
+        T, N = 10, 3
+        traces = np.ones((T, N), dtype=np.float32)
+        cell_ephys_index = np.zeros((T, N), dtype=np.int64)
+
+        _write_zarr(self.traces_path, traces)
+        _create_ephys_zarr(self.ephys_path, cell_ephys_index, sampling_freq_hz=1000.0)
+
+        # request [8, 100) but only 10 frames exist -> clamps to [8, 10)
+        obs_times, obs_vals, counts, num_bins = load_sparse_activity(
+            self.traces_path, self.ephys_path, bin_size_ms=10.0,
+            time_slice=slice(8, 100),
+        )
+
+        self.assertEqual(obs_times.shape, (3, 2))
+        self.assertTrue(torch.all(counts == 2))
+
+
+class TestLoadAndInterpolate(unittest.TestCase):
+    """end-to-end test for load_and_interpolate."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.traces_path = os.path.join(self.tmpdir, "traces.zarr")
+        self.ephys_path = os.path.join(self.tmpdir, "ephys.zarr")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_staggered_interpolation(self):
+        """staggered acquisition times are correctly interpolated."""
+        # 3 frames, 2 neurons at 1000 Hz sampling
+        # bin_size = 50ms
+        # neuron 0: samples at 0, 100, 200 -> times 0, 100, 200 ms -> bins 0, 2, 4
+        # neuron 1: samples at 50, 150, 250 -> times 50, 150, 250 ms -> bins 1, 3, 5
+        traces = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float32)
+        cell_ephys_index = np.array([
+            [0, 50],
+            [100, 150],
+            [200, 250],
+        ], dtype=np.int64)
+
+        _write_zarr(self.traces_path, traces)
+        _create_ephys_zarr(self.ephys_path, cell_ephys_index, sampling_freq_hz=1000.0)
+
         result = load_and_interpolate(
-            self.traces_path, self.acq_path,
-            bin_size_ms=10.0, frame_period_ms=20.0,
+            self.traces_path, self.ephys_path, bin_size_ms=50.0,
         )
-        self.assertTrue(
-            torch.allclose(expected, result, atol=1e-5),
-            f"max diff: {(expected - result).abs().max().item():.2e}",
-        )
+
+        # bins span from 0 to 5 (6 bins total, indices relative to min)
+        self.assertEqual(result.shape[0], 6)
+        self.assertEqual(result.shape[1], 2)
+
+        # neuron 0: observed at bins 0, 2, 4 with vals 1, 3, 5
+        # bin 1 interpolates between 1 and 3 -> 2
+        # bin 3 interpolates between 3 and 5 -> 4
+        self.assertAlmostEqual(result[0, 0].item(), 1.0)
+        self.assertAlmostEqual(result[1, 0].item(), 2.0)
+        self.assertAlmostEqual(result[2, 0].item(), 3.0)
+        self.assertAlmostEqual(result[3, 0].item(), 4.0)
+        self.assertAlmostEqual(result[4, 0].item(), 5.0)
+
+        # neuron 1: observed at bins 1, 3, 5 with vals 2, 4, 6
+        # bin 0 extrapolates from bin 1 -> 2
+        # bin 2 interpolates between 2 and 4 -> 3
+        # bin 4 interpolates between 4 and 6 -> 5
+        self.assertAlmostEqual(result[0, 1].item(), 2.0)
+        self.assertAlmostEqual(result[1, 1].item(), 2.0)
+        self.assertAlmostEqual(result[2, 1].item(), 3.0)
+        self.assertAlmostEqual(result[3, 1].item(), 4.0)
+        self.assertAlmostEqual(result[4, 1].item(), 5.0)
+        self.assertAlmostEqual(result[5, 1].item(), 6.0)
 
     def test_with_time_slice(self):
-        """load_and_interpolate with time_slice matches dense path."""
-        traces = np.array(
-            [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0], [7.0, 8.0]],
-            dtype=np.float32,
-        )
-        acq = np.array(
-            [[0.0, 5.0], [0.0, 5.0], [0.0, 5.0], [0.0, 5.0]],
-            dtype=np.float64,
-        )
+        """load_and_interpolate respects time_slice."""
+        T, N = 10, 2
+        traces = np.arange(T * N, dtype=np.float32).reshape(T, N)
+        # all neurons acquired at same time within each frame
+        cell_ephys_index = np.tile(np.arange(T) * 100, (N, 1)).T.astype(np.int64)
+
         _write_zarr(self.traces_path, traces)
-        _write_acq_zarr(self.acq_path, acq)
+        _create_ephys_zarr(self.ephys_path, cell_ephys_index, sampling_freq_hz=1000.0)
 
-        expected = self._dense_reference(
-            bin_size_ms=10.0, frame_period_ms=10.0, time_slice=slice(1, 3),
-        )
         result = load_and_interpolate(
-            self.traces_path, self.acq_path,
-            bin_size_ms=10.0, frame_period_ms=10.0,
-            time_slice=slice(1, 3),
-        )
-        self.assertTrue(
-            torch.allclose(expected, result, atol=1e-5),
-            f"max diff: {(expected - result).abs().max().item():.2e}",
+            self.traces_path, self.ephys_path, bin_size_ms=100.0,
+            time_slice=slice(2, 5),
         )
 
-    def test_staggered_pattern(self):
-        """staggered offsets produce correct interpolated output."""
-        traces = np.array(
-            [[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]],
-            dtype=np.float32,
-        )
-        acq = np.array(
-            [[0.0, 50.0], [0.0, 50.0], [0.0, 50.0]],
-            dtype=np.float64,
-        )
-        _write_zarr(self.traces_path, traces)
-        _write_acq_zarr(self.acq_path, acq)
-
-        expected = self._dense_reference(bin_size_ms=50.0, frame_period_ms=100.0)
-        result = load_and_interpolate(
-            self.traces_path, self.acq_path,
-            bin_size_ms=50.0, frame_period_ms=100.0,
-        )
-        self.assertTrue(
-            torch.allclose(expected, result, atol=1e-5),
-            f"max diff: {(expected - result).abs().max().item():.2e}",
-        )
+        # 3 frames, 100ms bins, all neurons same time -> 3 bins
+        self.assertEqual(result.shape, (3, 2))
 
 
 if __name__ == "__main__":
