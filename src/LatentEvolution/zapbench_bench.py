@@ -23,7 +23,7 @@ from LatentEvolution.zapbench import (
     interpolate_sparse_compiled,
 )
 
-TRACES_PATH = "gs://zapbench-release/volumes/20240930/traces"
+TRACES_PATH = "/groups/saalfeld/saalfeldlab/zapbench-release/volumes/20240930/traces"
 EPHYS_PATH = "/groups/saalfeld/home/kumarv4/repos/zapbench/ephys.zarr"
 
 BIN_SIZE_MS = 24.0
