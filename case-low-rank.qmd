@@ -468,3 +468,4 @@ The solution is **higher lr_W**: at n=400, lr_W=6E-3 transforms test_R^2^ from 0
 3. **Hard-seed rate varies with n**: 30% at n=100, 40.5% at n=200, present at n=400/600/1000 but not yet systematically quantified at larger scales. V-recovery failure persists at all scales.
 
 4. **n=1000 is the sweet spot for low-rank recovery**: both dynamics and connectivity are excellent with the standard recipe, making it the easiest scale for this regime.
+

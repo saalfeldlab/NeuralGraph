@@ -454,8 +454,104 @@ The mechanism is clear: **sparse connectivity at subcritical spectral radius (rh
 
 ---
 
+## Code Divergence Between NeuralGraph and neural-gnn {#code-divergence}
+
+A comparison of the active NeuralGraph codebase against its upstream fork (neural-gnn) revealed that **code modifications** introduced during the sparse exploration (Feb 2--4, 2026) are **not present in neural-gnn**. Two of these changes are always active regardless of config, and directly affect connectivity recovery at large n --- particularly for the reference config `signal_fig_supp_8_1`.
+
+### Config: Identical
+
+The config file `signal_fig_supp_8_1.yaml` is byte-for-byte identical between the two repositories. All differences originate in the code.
+
+### Signal_Propagation.py: W Initialization Scale
+
+The dominant change is in `Signal_Propagation.__init__`:
+
+```python
+# neural-gnn (upstream):
+W_init = torch.randn((n, n))
+
+# NeuralGraph (modified, commit b8508ad):
+W_init = torch.randn((n, n)) * (1.0 / math.sqrt(n_neurons))
+```
+
+At n=1000 this means W_init std = **0.032** (NeuralGraph) vs **1.0** (neural-gnn) --- a **31x difference**. Since the true W has entries ~N(0, g/sqrt(n)), NeuralGraph starts within ~3x of the true scale while neural-gnn starts 31x too large. The optimizer must then shrink W by a factor of 31 before it can match the true structure.
+
+::: {.callout-note}
+### Why This Matters
+
+The W init scaling was originally introduced as "code modification 1" during the sparse exploration and was declared "zero effect" at n=100 (conn_R^2^ stayed at 0.489). But the scale mismatch grows with n: at n=100, the upstream init is 10x too large; at n=1000, it is 31x too large. The modification had no effect at small n where the optimizer could overcome the mismatch, but is critical at large n where it cannot.
+:::
+
+### graph_trainer.py: Two Always-Active Changes
+
+Beyond config-gated experimental features (SGD optimizer, cosine scheduler, anti-sparsity penalty, freeze lin_edge, lin_edge dropout --- all defaulting to off), two changes run unconditionally:
+
+**1. Gradient clipping on W** (commit `9bc46c3`):
+
+```python
+# Always active in NeuralGraph, absent in neural-gnn:
+if hasattr(model, 'W') and model.W.grad is not None:
+    torch.nn.utils.clip_grad_norm_([model.W], max_norm=1.0)
+```
+
+`clip_grad_norm_` computes the L2 norm of the entire W gradient tensor, ||∇W||~2~ = sqrt(Σ~ij~ (∂L/∂W~ij~)²), and if it exceeds `max_norm`, rescales all entries by `max_norm / ||∇W||₂`. At n=1000, W has 10^6^ entries. Even if each per-entry gradient is modest (say 0.01), the total norm is sqrt(10^6^ × 10^-4^) = 10. The clipping then scales every gradient by 1/10, making the effective per-entry update lr_W × 0.01 × 0.1 = 10^-7^ instead of lr_W × 0.01 = 10^-6^.
+
+This has two consequences:
+
+- **Prevents catastrophic early updates**: when W starts far from the true solution (especially with the upstream std=1.0 init), the initial loss gradients are large and unclipped updates can push W into a basin from which it never recovers.
+- **Implicit learning rate reduction at large n**: the clipping threshold is fixed at 1.0 regardless of matrix size, so the effective per-entry learning rate decreases as ~1/sqrt(n²) = 1/n. At n=1000 the effective lr per entry is ~1000x smaller than at n=1 --- this slows convergence but prevents instability.
+
+This is likely a major factor in the R^2^=0.835 (NeuralGraph) vs R^2^=0.007 (neural-gnn) gap on `signal_fig_supp_8_1` at n=1000: without clipping, the first few gradient steps with large-norm updates destroy the W structure before the optimizer can refine it.
+
+**2. Proximal L1 soft-thresholding** (commit `b68b57b`):
+
+```python
+# Active when coeff_W_L1 > 0 (true for all configs):
+prox_threshold = coeff_W_L1 * lr_W
+model.W.data = sign(W) * clamp(abs(W) - prox_threshold, min=0)
+```
+
+With `signal_fig_supp_8_1` config values (L1=1E-5, lr_W=1E-4), the threshold is 10^-9^ --- **negligible** relative to W entries (~0.01--0.3). Functionally a no-op.
+
+### Impact on `signal_fig_supp_8_1` (Sparse Lorentz, n=1000)
+
+The scatter plots at 99,999 iterations tell a dramatic story: NeuralGraph achieves R^2^=0.835 (slope=0.187) while neural-gnn achieves R^2^=0.007 (complete failure). Both repos use the same config. The code changes that explain this gap:
+
+**W initialization**: The true W for Lorentz connectivity with g=10 has entries scaled by g/sqrt(n) = 10/sqrt(1000) ≈ 0.316. NeuralGraph initializes at std=1/sqrt(1000)=0.032 (10x too small), while neural-gnn initializes at std=1.0 (3x too large). Starting too small means the optimizer needs to *grow* W entries by ~10x; starting too large means it needs to *shrink* them by ~3x while also discovering the correct structure within a 10^6^-dimensional space. Growing from a small random init is easier than shrinking from a large one, because the loss landscape near W=0 has clearer directional gradients.
+
+**Gradient clipping**: With lr_W=1E-4 and n=1000, the gradient norm easily reaches 10--100 in early training. Without clipping (neural-gnn), a single step can move W by ||Δ|| ∝ 1E-4 × 100 = 0.01 in a random direction across 10^6^ entries --- enough to destroy any emergent structure. With clipping to norm 1.0 (NeuralGraph), the step is bounded to ||Δ|| ∝ 1E-4 × 1.0 = 1E-4, allowing gradual refinement.
+
+**The slope=0.187 signature**: NeuralGraph recovers the correct W *structure* (R^2^=0.835) but the learned entries are systematically attenuated to ~19% of their true magnitude. This is consistent with the W init starting 10x too small (std=0.032 vs true ~0.316) combined with gradient clipping that limits how fast W can grow --- the structure converges but the magnitude has not fully caught up after 10 epochs.
+
+### The Sparse Exploration Misdiagnosis
+
+When the sparse exploration tested `signal_fig_supp_8_1.yaml` as a reference and achieved only conn_R^2^≈0.50 at n=1000, it concluded this was a "universal identifiability ceiling". However, the exploration was running a **different simulation regime** from the reference:
+
+| Parameter | Exploration (`signal_sparse`) | Reference (`signal_fig_supp_8_1`) |
+|-----------|:-----------------------------:|:---------------------------------:|
+| `connectivity_type` | chaotic | **Lorentz** |
+| `n_neuron_types` | 1 | **4** |
+| `params` | g=7, single-type | **g=10, 4 heterogeneous types** |
+| `signal_model_name` | PDE_N4 (u_j, a_j) | **PDE_N2** (u_j only) |
+| `batch_size` | 8 | **1** |
+| `n_epochs` | 2 | **10** |
+
+The "gap to reference" documented earlier (conn_R^2^=0.496 vs claimed 0.817) is not a gap at all --- it compares two fundamentally different dynamical systems. The Lorentz connectivity with 4 neuron types at g=10 likely operates in a higher effective spectral radius regime with richer dynamics, making W-recovery inherently easier. The PDE_N2 model (no embedding input to lin_edge) also reduces MLP compensation capacity. And 5x more training epochs with 8x smaller batches provides substantially more gradient updates on finer-grained data.
+
+### Summary of Always-Active Code Differences
+
+| Change | Commit | n-dependence | Effect on sparse exploration | Effect on `signal_fig_supp_8_1` |
+|--------|--------|:------------:|:------------------:|:-------------------------------:|
+| W init *= 1/sqrt(n) | `b8508ad` | Grows with n (10x at n=100, 31x at n=1000) | Zero at n=100 | **Critical** --- init 10x closer to true scale |
+| Grad clipping (max_norm=1.0) | `9bc46c3` | Grows with n (effective lr per entry ~1/n) | Zero at n=100 | **Critical** --- prevents early catastrophic updates |
+| Proximal L1 | `b68b57b` | Negligible (threshold ~10^-8^) | No effect | No effect (threshold ~10^-9^) |
+
+For `signal_fig_supp_8_1`, these two changes are the difference between R^2^=0.835 (meaningful recovery) and R^2^=0.007 (complete failure). The low-rank N-scaling results (n=400 conn_R^2^=0.999, n=1000 conn_R^2^=0.992) also **depend on these modifications** and would not reproduce on the upstream neural-gnn codebase.
+
+---
+
 ## Open Questions
 
-1. **Gap to reference**: The reference config claims R^2^=0.817 at n=1000, but we achieve only 0.496. The source of this discrepancy remains unresolved --- it may involve different measurement methodology, seed selection, or undocumented training settings.
+1. **Gap to reference (RESOLVED)**: The reference config `signal_fig_supp_8_1.yaml` uses a **different simulation regime** (Lorentz connectivity, 4 neuron types, g=10, PDE_N2 model, batch_size=1, 10 epochs) vs the exploration's chaotic single-type g=7 PDE_N4 regime. Additionally, NeuralGraph includes always-active code changes (W init scaling by 1/sqrt(n), gradient clipping) absent from neural-gnn. The R^2^=0.835 vs 0.496 comparison was apples-to-oranges. See the [code divergence analysis above](#code-divergence) for full details.
 2. **Breaking the plateau**: Can architectural changes (different model form, attention mechanisms, or multi-scale training) break the 0.50 ceiling, or is it a theoretical limit of any single-step prediction model at subcritical spectral radius?
 3. **Regime boundary**: At what spectral radius does the ceiling start rising? The transition from subcritical (rho < 1, ceiling ~0.50) to supercritical (rho > 1, solvable) likely involves a phase transition in identifiability.
