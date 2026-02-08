@@ -16,38 +16,42 @@ This addendum applies when running in **parallel mode** (GNN_LLM_parallel.py). F
 - **DO NOT change `simulation:` parameters** — this is a fixed-regime exploration
 - Modify `training:` parameters, `claude:` where allowed, **and GNN code** (see Step 5.2 in base instructions)
 
+## Locked Parameters
+
+The following parameters are **fixed across all slots** — DO NOT modify them:
+
+| Parameter | Locked Value |
+| --------- | ------------ |
+| `n_frames` | 100000 |
+| `data_augmentation_loop` | 50 |
+| `n_epochs` | 2 |
+
+## Slot Assignments — Locked n_neurons
+
+Each slot is locked to a specific `n_neurons` value. **DO NOT change `n_neurons`** — only vary other training parameters within each slot.
+
+| Slot | n_neurons | Exploration focus |
+| ---- | --------- | ----------------- |
+| 0 | **200** | Explore training params at small network scale |
+| 1 | **400** | Explore training params at medium network scale |
+| 2 | **600** | Explore training params at large network scale |
+| 3 | **1000** | Explore training params at very large network scale |
+
 ## Parallel UCB Strategy
 
-When selecting parents for 4 simultaneous mutations, **diversify** your choices:
+When selecting parents for 4 simultaneous mutations, **diversify** your choices across training parameters (lr_W, coeff_W_L1, batch_size, etc.) while keeping each slot's `n_neurons` fixed. Each slot maintains its own UCB subtree.
 
-| Slot | Role | Description |
-| ---- | ---- | ----------- |
-| 0 | **exploit** | Highest UCB node, conservative mutation |
-| 1 | **exploit** | 2nd highest UCB node, or same parent different param |
-| 2 | **explore** | Under-visited node, or new parameter dimension |
-| 3 | **principle-test** | Test or challenge one Established Principle from memory.md |
-
-You may deviate from this split based on context (e.g., all exploit if early in block, all explore if everything fails).
+You may use exploit/explore/principle-test strategies within each slot independently.
 
 **When conn_R2 plateaus across config sweeps**: apply a **code-modification** (see Step 5.2 in base instructions). Code changes apply to ALL 4 slots simultaneously (shared codebase). Use the 4 slots to test different config parameters around the same code change — one code change, four different parameter variations per batch.
-
-### Slot 3: Principle Testing
-
-1. Read the "Established Principles" section in memory.md
-2. **Randomly select one principle** (rotate — do not repeat consecutively)
-3. Design a config that specifically tests this principle
-4. In the log entry, write: `Mode/Strategy: principle-test`
-5. In the Mutation line, include: `Testing principle: "[quoted principle text]"`
-6. After results, update the principle's evidence level in memory.md
-
-If there are no Established Principles yet, use slot 3 as a **boundary-probe** instead.
 
 ## Start Call (first batch, no results yet)
 
 When the prompt says `PARALLEL START`:
 - Read the base config to understand the starting training parameters
-- Create 4 diverse initial training parameter variations
-- Suggested spread: vary `coeff_W_L1` across [1E-6, 1E-5, 1E-4, 1E-3] (L1 is the primary lever for sparse recovery)
+- Set each slot's `n_neurons` to its locked value (200, 400, 600, 1000)
+- Set `n_frames=100000`, `data_augmentation_loop=50`, `n_epochs=2` in all 4 slots
+- Vary other training parameters (e.g., `coeff_W_L1`, `learning_rate_W_start`) across the 4 slots — L1 is the primary lever for sparse recovery
 - All 4 slots share the same simulation parameters (DO NOT change them)
 - Write the planned initial variations to the working memory file
 

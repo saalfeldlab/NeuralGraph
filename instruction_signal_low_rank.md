@@ -4,22 +4,33 @@
 
 ## Goal
 
-Find GNN training hyperparameters that recover the connectivity matrix W from **low-rank neural dynamics** (connectivity_type=low_rank, rank=20, n_neurons=100).
+Find GNN training hyperparameters that recover the connectivity matrix W from **low-rank neural dynamics** (connectivity_type=low_rank, rank=20) across **multiple network sizes** (n_neurons ∈ {200, 400, 600, 1000}).
 
-**This is a fixed-regime exploration**: simulation parameters are FROZEN. Only GNN training parameters may be changed. There are NO block boundary simulation changes.
+Understand how network size affects learnability and whether training recipes transfer across scales.
+
+**Simulation parameters are FROZEN except n_neurons and seed.** Only GNN training parameters and network size may be changed.
 
 ## User instructions to follow
 
-- Move to regime n_neurons = 200, to compare n_neurons=100 and n_neurons=200 low_rank=20 regimes
-- Partition the understanding for 100 and 200
+- **n_neurons is an explorable parameter**: values 200, 400, 600, 1000
+- Compare scaling behavior across network sizes
+- Partition the understanding per n_neurons value
+- Adjust computation to 2 hours
 
 ## Known Challenges (from prior exploration)
 
-Low-rank connectivity (rank=20, n=100) produces data with effective rank ~12, which is the hardest regime for W recovery:
+Low-rank connectivity (rank=20) at different network sizes:
+- n=100: eff_rank ~12, W has 10k edges
+- n=200: eff_rank ~24, W has 40k edges (4× harder)
+- n=400: eff_rank ~48, W has 160k edges (16× harder)
+- n=600: eff_rank ~72, W has 360k edges (36× harder)
+- n=1000: eff_rank ~120, W has 1M edges (100× harder)
 
+Key challenges that scale with n_neurons:
 - Low eff_rank means fewer distinguishable activity modes → more equivalent W solutions
 - Degeneracy is the primary failure mode: the GNN learns correct dynamics (high test_pearson) from wrong W (low connectivity_R2)
 - MLP compensation: lin_edge and lin_phi reshape their nonlinear mappings to compensate for incorrect W
+- Larger n means more W parameters to learn from the same rank-20 signal — optimization difficulty scales quadratically
 
 ## Prior Knowledge (starting points from 188-iteration landscape exploration)
 
@@ -139,7 +150,7 @@ Append to Full Log (`{config}_analysis.md`) and **Current Block** sections of `{
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode/Strategy: [exploit/explore/boundary/principle-test/degeneracy-break]
-Config: seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B, recurrent=[T/F], time_step=T
+Config: n_neurons=N, seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B, recurrent=[T/F], time_step=T
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, cluster_accuracy=D, final_loss=E, kino_R2=F, kino_SSIM=G, kino_WD=H
 Activity: eff_rank=R, spectral_radius=S, [brief description]
 Mutation: [param]: [old] -> [new]
@@ -209,18 +220,20 @@ Edit config file for next iteration.
 - `n_iter_block`: int
 - `ucb_c`: float (0.5-3.0)
 
-**DO NOT change `simulation:` parameters except `seed`.** The simulation regime is fixed for this exploration.
+**DO NOT change `simulation:` parameters except `seed` and `n_neurons`.** The simulation regime is otherwise fixed.
 
-**Simulation Parameters (only seed is mutable):**
+**Simulation Parameters (seed and n_neurons are mutable):**
 
 ```yaml
+simulation:
+  n_neurons: 200  # values: 200, 400, 600, 1000
 training:
   seed:
     137 # changing seed generates a DIFFERENT connectivity matrix W
     # use different seeds to test robustness across W samples
 ```
 
-Changing `seed` produces a new random low-rank connectivity matrix. This lets you track whether a training configuration works for one specific W realization or generalizes across multiple W samples. Log the seed in Config line and note when a mutation is a seed change.
+Changing `seed` produces a new random low-rank connectivity matrix. Changing `n_neurons` changes the network size (W becomes n×n). Log both seed and n_neurons in Config line and note when a mutation is a size or seed change.
 
 **Training Parameters (the exploration space):**
 
@@ -275,14 +288,14 @@ You **MUST** use the Edit tool to add/modify parent selection rules.
 
 ### STEP 2: Choose Next Block Focus
 
-Since simulation is fixed, blocks explore different **training parameter subspaces**:
+Blocks explore different **parameter subspaces or network sizes**:
 
-- Block 1: lr_W sweep (central parameter)
-- Block 2: L1 / coeff_edge_diff interaction
-- Block 3: Two-phase training parameters (n_epochs_init, first_coeff_L1)
-- Block 4+: Refine based on findings
+- Block N: lr_W sweep at n=200 (baseline)
+- Block N+1: Scale to n=400 with best n=200 recipe
+- Block N+2: Scale to n=600, n=1000
+- Intermediate blocks: L1 / coeff_edge_diff / two-phase training refinement at each scale
 
-**At block boundaries, choose which parameter subspace to explore next.**
+**At block boundaries, choose which parameter subspace or network size to explore next.**
 
 ### STEP 3: Update Working Memory
 
@@ -301,9 +314,9 @@ Update `{config}_memory.md`:
 
 ### Best Configurations Found
 
-| Blk | lr_W | lr   | L1   | edge_diff | n_ep_init | first_L1 | batch | conn_R2 | test_R2 | Finding  |
-| --- | ---- | ---- | ---- | --------- | --------- | -------- | ----- | ------- | ------- | -------- |
-| 1   | 3E-3 | 1E-4 | 1E-5 | 10000     | 2         | 0        | 8     | ?       | ?       | baseline |
+| Blk | n_neurons | lr_W | lr   | L1   | edge_diff | n_ep_init | first_L1 | batch | conn_R2 | test_R2 | Finding  |
+| --- | --------- | ---- | ---- | ---- | --------- | --------- | -------- | ----- | ------- | ------- | -------- |
+| 1   | 200       | 3E-3 | 1E-4 | 1E-5 | 10000     | 2         | 0        | 8     | ?       | ?       | baseline |
 
 ### Established Principles
 
@@ -352,7 +365,7 @@ du/dt = lin_phi(u, a) + W @ lin_edge(u, a)
 
 - `lin_edge` (MLP): message function on edges
 - `lin_phi` (MLP): node update function
-- `W`: learnable connectivity matrix (100 × 100)
+- `W`: learnable connectivity matrix (n × n)
 - `a`: learnable node embeddings
 
 ### Two-Phase Training
@@ -380,10 +393,11 @@ L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff
 
 ### Low-Rank Regime Specifics
 
-- True W has rank 20 (100 neurons): W = W_L @ W_R where W_L ∈ ℝ^(100×20), W_R ∈ ℝ^(20×100)
-- Effective rank of activity data ~12 (99% variance)
+- True W has rank 20: W = W_L @ W_R where W_L ∈ ℝ^(n×20), W_R ∈ ℝ^(20×n)
+- Effective rank scales with n: ~12 (n=100), ~24 (n=200), ~48 (n=400), ~72 (n=600), ~120 (n=1000)
 - Spectral radius typically ~1.0 (edge of chaos)
 - The GNN learns a full-rank W — it must discover the low-rank structure from the data alone
+- W has n² parameters but only 40n degrees of freedom (rank 20) — ratio gets worse with n
 
 ### Recurrent Training
 

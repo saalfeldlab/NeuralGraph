@@ -20,9 +20,9 @@ simulation:
     - 1.0
     - 0.0
   phi: tanh
-  n_neurons: 100
+  n_neurons: 600
   n_neuron_types: 1
-  n_frames: 10000
+  n_frames: 100000
   delta_t: 0.01
   dpos_init: 0
   boundary: 'no'
@@ -43,8 +43,8 @@ graph_model:
   embedding_dim: 2
   update_type: none
 claude:
-  n_epochs: 2
-  data_augmentation_loop: 200
+  n_epochs: 1
+  data_augmentation_loop: 50
   n_iter_block: 12
   ucb_c: 1.414
 plotting:
@@ -57,14 +57,14 @@ plotting:
   - -2
   - 2
 training:
-  n_epochs: 2
+  n_epochs: 1
   n_runs: 1
   device: auto
   batch_size: 8
   small_init_batch_size: false
   training_single_type: true
-  seed: 11000
-  data_augmentation_loop: 200
+  seed: 37000
+  data_augmentation_loop: 50
   sparsity: replace_embedding_function
   sparsity_freq: 4
   cluster_method: distance_plot

@@ -8,10 +8,15 @@ Map the **simulation-GNN training landscape**: understand which neural activity 
 In particular is it possible to use GNN to recover connectivity from low-rank data, from low-gain data, from sparse data, from noisy dynamics ?
 It is taken for granted that increasing training size (number frames) improves recovery of the neural dynamics parameter. Also increasing the overall complexity of the training data, e.g. its effictive rank, improves recovery. Finally we observe that injecting noise into the simulation (not measurement noise) helps recovery too. This can be however reconsidered. And we need to find other way to make GNN as an efficient tool for neuron recovery.
 
+## CRITICAL: n_neurons=1000 is LOCKED
+
+**DO NOT change n_neurons under any circumstances.** The n_neurons=1000 value is LOCKED for this exploration. Dedicated LLM-loops are running separately for n=200 low_rank and sparse regimes.
+
 ## User instructions to follow
 
-- FOCUS on n_neurons > 1000, with 1 or 4 neuron types, try 2 hours computation (but for sparse)
-- dedicated LLM-loop have been launched separately to investigate (n=100,low_rank=20) and (n=100, filling=50%)
+- n_neurons = 1000 is LOCKED - DO NOT modify n_neurons under any circumstances
+- FOCUS on n_neurons=1000, with 1 or 4 neuron types, try 2 hours computation
+- dedicated LLM-loops have been launched separately to investigate (n=200,low_rank=20) and (n=200, filling=50%)
 
 ## Iteration Loop Structure
 
