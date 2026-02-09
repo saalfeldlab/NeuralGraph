@@ -41,8 +41,8 @@ if __name__ == "__main__":
             best_model = None
     else:
         best_model = ''
-        task = task = 'train'
-        config_list = ['signal_fig_supp_8_1']
+        task = task = 'generate'
+        config_list = ['signal_fig_3']
 
     for config_file_ in config_list:
         print(" ")
