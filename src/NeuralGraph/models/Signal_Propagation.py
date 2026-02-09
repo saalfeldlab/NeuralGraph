@@ -208,8 +208,14 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
             else:
 
-                w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
-                W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32) * (w_init_scale / math.sqrt(self.n_neurons))
+                w_init_mode = getattr(train_config, 'w_init_mode', 'randn')
+                if w_init_mode == 'zeros':
+                    W_init = torch.zeros((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32)
+                elif w_init_mode == 'randn_scaled':
+                    w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
+                    W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32) * (w_init_scale / math.sqrt(self.n_neurons))
+                else:  # 'randn' (original)
+                    W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32)
                 W_init.fill_diagonal_(0)
                 self.W = nn.Parameter(W_init, requires_grad=True)
 

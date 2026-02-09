@@ -469,7 +469,8 @@ class TrainingConfig(BaseModel):
     ode_state_clamp: float = 10.0
     ode_stab_lambda: float = 0.0
     grad_clip_W: float = 0.0
-    w_init_scale: float = 1.0  # W init: randn * (w_init_scale / sqrt(N)), 1.0 preserves current behavior
+    w_init_mode: str = 'randn'  # W init mode: 'randn' (std=1), 'randn_scaled' (std=scale/sqrt(N)), 'zeros'
+    w_init_scale: float = 1.0  # scaling factor for 'randn_scaled' mode
     coeff_W_L1_proximal: float = 0.0  # proximal L1 soft-thresholding on W after optimizer step, 0 = disabled
 
     time_step: int = 1

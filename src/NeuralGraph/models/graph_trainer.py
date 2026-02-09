@@ -1100,10 +1100,11 @@ def data_train_flyvis(config, erase, best_model, device):
 
     model = model.to(device)
 
-    # W init scaling info
-    w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
-    if w_init_scale != 1.0:
-        print(f'W init scale: {w_init_scale}/sqrt(N)')
+    # W init mode info
+    w_init_mode = getattr(train_config, 'w_init_mode', 'randn')
+    if w_init_mode != 'randn':
+        w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
+        print(f'W init mode: {w_init_mode}' + (f' (scale={w_init_scale})' if w_init_mode == 'randn_scaled' else ''))
 
     # proximal L1 info
     coeff_proximal = getattr(train_config, 'coeff_W_L1_proximal', 0.0)
