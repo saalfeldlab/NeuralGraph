@@ -208,16 +208,14 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
             else:
 
-                W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32) * (1.0 / math.sqrt(self.n_neurons))
+                w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
+                W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32) * (w_init_scale / math.sqrt(self.n_neurons))
                 W_init.fill_diagonal_(0)
                 self.W = nn.Parameter(W_init, requires_grad=True)
 
 
         self.register_buffer('mask', torch.ones((int(self.n_neurons),int(self.n_neurons)), requires_grad=False, dtype=torch.float32))
         self.mask.fill_diagonal_(0)
-
-        # scaling factor for lin_phi output (1.0 = default, <1.0 reduces lin_phi bypass)
-        self.phi_scale = 1.0
 
         # lin_edge mode: 'mlp' (default), 'tanh' (fixed tanh(u_j)), 'identity' (fixed u_j)
         self.lin_edge_mode = getattr(train_config, 'lin_edge_mode', 'mlp')
@@ -275,11 +273,11 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             in_features = torch.cat([u, embedding], dim=1)
 
             if self.external_input_mode == "multiplicative":
-                pred = self.phi_scale * self.lin_phi(in_features) + msg * external_input
+                pred = self.lin_phi(in_features) + msg * external_input
             elif self.external_input_mode == "additive":
-                pred = self.phi_scale * self.lin_phi(in_features) + msg + external_input
+                pred = self.lin_phi(in_features) + msg + external_input
             else:
-                pred = self.phi_scale * self.lin_phi(in_features) + msg
+                pred = self.lin_phi(in_features) + msg
 
         
 

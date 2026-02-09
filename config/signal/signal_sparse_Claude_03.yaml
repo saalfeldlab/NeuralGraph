@@ -79,15 +79,8 @@ training:
   coeff_edge_norm: 0.0
   coeff_edge_diff: 100
   coeff_lin_phi_zero: 1.0
-  phi_scale: 1.0
-  anti_sparsity_coeff: 0.0
-  freeze_lin_edge: false
-  lin_edge_dropout: 0.0
   lin_edge_mode: mlp
   w_optimizer_type: adam
-  w_lr_scheduler: none
-  coeff_spectral_radius: 0.0
-  spectral_radius_target: 0.7
   recurrent_training: false
   time_step: 1
   noise_recurrent_level: 0.0

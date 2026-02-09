@@ -344,14 +344,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
         optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
-    # cosine annealing LR scheduler for W optimizer (decays lr_W over training)
-    w_lr_scheduler = getattr(train_config, 'w_lr_scheduler', 'none')
-    w_scheduler = None
-    if w_lr_scheduler == 'cosine':
-        target_optimizer = w_optimizer if w_optimizer is not None else optimizer
-        w_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(target_optimizer, T_max=n_epochs, eta_min=1e-5)
-        print(f'using cosine annealing LR scheduler for W (T_max={n_epochs}, eta_min=1e-5)')
-
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
     logger.info(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
 
@@ -442,24 +434,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
             else:
                 optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
             model.train()
-
-        # freeze lin_edge (and lin_phi) after n_epochs_init to prevent MLP compensation for wrong W
-        freeze_lin_edge = getattr(train_config, 'freeze_lin_edge', False)
-        if freeze_lin_edge and epoch == train_config.n_epochs_init:
-            for param in model.lin_edge.parameters():
-                param.requires_grad = False
-            for param in model.lin_phi.parameters():
-                param.requires_grad = False
-            # rebuild optimizer without frozen parameters
-            if w_optimizer is not None:
-                model.W.requires_grad_(False)
-                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
-                model.W.requires_grad_(True)
-                n_total_params += model.W.numel()
-            else:
-                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
-            model.train()
-            print(f'froze lin_edge and lin_phi at epoch {epoch} — only W and embeddings trainable ({n_total_params:,} params)')
 
         batch_size = get_batch_size(epoch)
         logger.info(f'batch_size: {batch_size}')
@@ -697,40 +671,22 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                         omega_L2_loss = model_f.get_omega_L2_loss()
                         loss = loss + train_config.coeff_omega_f_L2 * omega_L2_loss
 
-                # anti-sparsity penalty: -coeff * sum(log(W_ij^2 + eps)) during phase 1 only
-                # penalizes W entries near zero, forcing non-trivial magnitude to disrupt (W, lin_edge) equilibrium
-                anti_sparsity_coeff = getattr(train_config, 'anti_sparsity_coeff', 0.0)
-                if anti_sparsity_coeff > 0 and epoch < train_config.n_epochs_init:
-                    anti_sparsity_loss = -anti_sparsity_coeff * torch.log(model.W ** 2 + 1e-8).sum()
-                    loss = loss + anti_sparsity_loss
-
-                # spectral radius regularization: penalize |spectral_radius(W) - target|^2
-                # uses power iteration (1 step) to approximate top singular value as spectral radius proxy
-                coeff_spectral_radius = getattr(train_config, 'coeff_spectral_radius', 0.0)
-                if coeff_spectral_radius > 0:
-                    W_masked = model.W * model.mask
-                    svs = torch.linalg.svdvals(W_masked)
-                    spectral_radius = svs[0]
-                    target = getattr(train_config, 'spectral_radius_target', 0.7)
-                    spectral_loss = coeff_spectral_radius * (spectral_radius - target) ** 2
-                    loss = loss + spectral_loss
-
                 loss.backward()
 
                 # gradient clipping on W to stabilize training
-                if hasattr(model, 'W') and model.W.grad is not None:
-                    torch.nn.utils.clip_grad_norm_([model.W], max_norm=1.0)
+                if train_config.grad_clip_W > 0 and hasattr(model, 'W') and model.W.grad is not None:
+                    torch.nn.utils.clip_grad_norm_([model.W], max_norm=train_config.grad_clip_W)
 
                 optimizer.step()
                 if w_optimizer is not None:
                     w_optimizer.step()
                 regularizer.finalize_iteration()
 
-                # proximal L1: soft-thresholding on W for exact zeros (skip during anti-sparsity phase)
-                anti_sparsity_active = (anti_sparsity_coeff > 0 and epoch < train_config.n_epochs_init)
-                if train_config.coeff_W_L1 > 0 and not anti_sparsity_active:
+                # proximal L1: soft-thresholding on W for exact zeros
+                coeff_proximal = getattr(train_config, 'coeff_W_L1_proximal', 0.0)
+                if coeff_proximal > 0:
                     with torch.no_grad():
-                        prox_threshold = train_config.coeff_W_L1 * lr_W
+                        prox_threshold = coeff_proximal * lr_W
                         model.W.data = torch.sign(model.W.data) * torch.clamp(model.W.data.abs() - prox_threshold, min=0)
                         model.W.data.fill_diagonal_(0)
 
@@ -869,10 +825,6 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
 
         list_loss.append(epoch_pred_loss)
         list_loss_regul.append(epoch_regul_loss)
-
-        # step cosine annealing LR scheduler at end of epoch
-        if w_scheduler is not None:
-            w_scheduler.step()
 
         torch.save(list_loss, os.path.join(log_dir, 'loss.pt'))
 
@@ -1148,28 +1100,15 @@ def data_train_flyvis(config, erase, best_model, device):
 
     model = model.to(device)
 
-    # scale lin_phi output to reduce degeneracy bypass (1.0 = default, <1.0 forces dynamics through W @ lin_edge)
-    phi_scale = getattr(train_config, 'phi_scale', 1.0)
-    if hasattr(model, 'phi_scale'):
-        model.phi_scale = phi_scale
-        if phi_scale != 1.0:
-            print(f'phi_scale set to {phi_scale}')
+    # W init scaling info
+    w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
+    if w_init_scale != 1.0:
+        print(f'W init scale: {w_init_scale}/sqrt(N)')
 
-    # anti-sparsity penalty info
-    anti_sparsity_coeff = getattr(train_config, 'anti_sparsity_coeff', 0.0)
-    if anti_sparsity_coeff > 0:
-        print(f'anti-sparsity penalty: coeff={anti_sparsity_coeff}, active for first {train_config.n_epochs_init} epochs')
-
-    # freeze lin_edge info
-    freeze_lin_edge = getattr(train_config, 'freeze_lin_edge', False)
-    if freeze_lin_edge:
-        print(f'freeze_lin_edge: will freeze lin_edge and lin_phi at epoch {train_config.n_epochs_init}')
-
-    # dropout on lin_edge to prevent reliable MLP compensation for wrong W
-    lin_edge_dropout = getattr(train_config, 'lin_edge_dropout', 0.0)
-    if lin_edge_dropout > 0:
-        model.lin_edge.dropout_rate = lin_edge_dropout
-        print(f'lin_edge dropout: p={lin_edge_dropout}')
+    # proximal L1 info
+    coeff_proximal = getattr(train_config, 'coeff_W_L1_proximal', 0.0)
+    if coeff_proximal > 0:
+        print(f'proximal L1 soft-thresholding on W: coeff={coeff_proximal}')
 
     # lin_edge mode bypass
     lin_edge_mode = getattr(train_config, 'lin_edge_mode', 'mlp')

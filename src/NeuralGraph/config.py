@@ -413,15 +413,8 @@ class TrainingConfig(BaseModel):
     coeff_lin_phi_zero: float = 0
     coeff_entropy_loss: float = 0
     coeff_edge_diff: float = 0
-    phi_scale: float = 1.0
-    anti_sparsity_coeff: float = 0.0  # anti-sparsity penalty: -coeff * sum(log(W_ij^2 + eps)), active during phase 1 only
-    freeze_lin_edge: bool = False  # freeze lin_edge parameters after n_epochs_init to prevent MLP compensation
-    lin_edge_dropout: float = 0.0  # dropout rate on lin_edge hidden layers to prevent MLP compensation
     lin_edge_mode: str = 'mlp'  # 'mlp' (default learned MLP), 'tanh' (fixed tanh(u_j)), 'identity' (fixed u_j)
     w_optimizer_type: str = 'adam'  # 'adam' (default) or 'sgd' (SGD with momentum for sharper L1-induced zeros)
-    w_lr_scheduler: str = 'none'  # 'none' (default) or 'cosine' (cosine annealing for W learning rate)
-    coeff_spectral_radius: float = 0.0  # penalty on |spectral_radius(W) - target|^2, 0 = disabled
-    spectral_radius_target: float = 0.7  # target spectral radius for W (sparse chaotic regime ~ 0.7)
 
     # Simple training parameters (matching ParticleGraph conceptually)
     first_coeff_L1: float = 0.0  # Phase 1 weak L1 regularization
@@ -476,6 +469,8 @@ class TrainingConfig(BaseModel):
     ode_state_clamp: float = 10.0
     ode_stab_lambda: float = 0.0
     grad_clip_W: float = 0.0
+    w_init_scale: float = 1.0  # W init: randn * (w_init_scale / sqrt(N)), 1.0 preserves current behavior
+    coeff_W_L1_proximal: float = 0.0  # proximal L1 soft-thresholding on W after optimizer step, 0 = disabled
 
     time_step: int = 1
     recurrent_sequence: str = ""
