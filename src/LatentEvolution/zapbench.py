@@ -12,10 +12,88 @@ data format (ephys.zarr):
 
 import json
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import tensorstore as ts
 import torch
+from pydantic import BaseModel, ConfigDict
+
+
+# ---------------------------------------------------------------------------
+# condition metadata and data split config
+# ---------------------------------------------------------------------------
+
+ConditionName = Literal[
+    "gain", "dots", "flash", "taxis", "turning",
+    "position", "open_loop", "rotation", "dark",
+]
+
+
+class Condition(BaseModel):
+    """static condition metadata."""
+    name: ConditionName
+    offset: tuple[int, int]  # [start, end) along T dimension
+    padding: int             # timesteps excluded at start/end
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# constant list derived from zapbench CONDITION_OFFSETS
+CONDITIONS: list[Condition] = [
+    Condition(name="gain", offset=(0, 649), padding=1),
+    Condition(name="dots", offset=(649, 2422), padding=1),
+    Condition(name="flash", offset=(2422, 3078), padding=1),
+    Condition(name="taxis", offset=(3078, 3735), padding=1),
+    Condition(name="turning", offset=(3735, 5047), padding=1),
+    Condition(name="position", offset=(5047, 5638), padding=1),
+    Condition(name="open_loop", offset=(5638, 6623), padding=1),
+    Condition(name="rotation", offset=(6623, 7279), padding=1),
+    Condition(name="dark", offset=(7279, 7879), padding=1),
+]
+
+
+class ConditionSplit(BaseModel):
+    """split for one condition (references by name)."""
+    condition_name: ConditionName
+    train: tuple[int, int] | None = None  # [start, end) relative to padded start
+    val: tuple[int, int] | None = None
+    test: tuple[int, int] | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class DataSplit(BaseModel):
+    """zapbench data split across all conditions."""
+    conditions: list[ConditionSplit]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# default split computed from zapbench constants:
+# - train conditions: 70% train, 10% val, 20% test
+# - holdout (taxis): test only
+# padded_len = (end - start) - 2 * padding
+DEFAULT_SPLIT = DataSplit(conditions=[
+    # gain: padded_len=647, train=453, val=65, test=129
+    ConditionSplit(condition_name="gain", train=(0, 453), val=(453, 518), test=(518, 647)),
+    # dots: padded_len=1771, train=1240, val=177, test=354
+    ConditionSplit(condition_name="dots", train=(0, 1240), val=(1240, 1417), test=(1417, 1771)),
+    # flash: padded_len=654, train=458, val=65, test=131
+    ConditionSplit(condition_name="flash", train=(0, 458), val=(458, 523), test=(523, 654)),
+    # taxis (holdout): padded_len=655, test only
+    ConditionSplit(condition_name="taxis", train=None, val=None, test=(0, 655)),
+    # turning: padded_len=1310, train=917, val=131, test=262
+    ConditionSplit(condition_name="turning", train=(0, 917), val=(917, 1048), test=(1048, 1310)),
+    # position: padded_len=589, train=412, val=59, test=118
+    ConditionSplit(condition_name="position", train=(0, 412), val=(412, 471), test=(471, 589)),
+    # open_loop: padded_len=983, train=688, val=98, test=197
+    ConditionSplit(condition_name="open_loop", train=(0, 688), val=(688, 786), test=(786, 983)),
+    # rotation: padded_len=654, train=458, val=65, test=131
+    ConditionSplit(condition_name="rotation", train=(0, 458), val=(458, 523), test=(523, 654)),
+    # dark: padded_len=598, train=418, val=60, test=120
+    ConditionSplit(condition_name="dark", train=(0, 418), val=(418, 478), test=(478, 598)),
+])
 
 
 # ---------------------------------------------------------------------------
