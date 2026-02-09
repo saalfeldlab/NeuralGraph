@@ -1,10 +1,10 @@
 """
-latent zapbench: per-condition pre-interpolated data on CPU with prefetching.
+latent zapbench: per-condition pre-interpolated data on GPU.
 
 data flow:
-  startup: load sparse -> interpolate on GPU -> move dense to CPU
-  prefetch thread: sample -> pinned buffer -> GPU transfer -> filled_queue
-  main thread: filled_queue -> forward/backward -> return buffer to pool
+  startup: load sparse -> interpolate on GPU -> store on CPU (headroom)
+           -> after all conditions loaded, transfer all to GPU
+  training: sample on GPU -> forward/backward
 """
 
 import random
@@ -23,7 +23,6 @@ def seed_everything(seed: int = 42):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-from LatentEvolution.batch_prefetcher import BatchPrefetcher
 from LatentEvolution.zapbench import (
     load_sparse_activity,
     interpolate_sparse_compiled,
@@ -45,8 +44,8 @@ from LatentEvolution.zapbench_model import EEDModel
 
 @dataclass
 class ConditionData:
-    """pre-interpolated dense data for one condition, stored on CPU."""
-    activity: torch.Tensor  # (T, N) float32, interpolated activity on CPU
+    """pre-interpolated dense data for one condition, stored on GPU."""
+    activity: torch.Tensor  # (T, N) float32, interpolated activity on GPU
     valid_start: int        # min valid start for sampling
     valid_end: int          # max valid start (exclusive)
 
@@ -74,8 +73,9 @@ def load_all_conditions(
 
     for each condition:
     1. load sparse data from zarr
-    2. transfer to GPU and interpolate (fast)
-    3. move dense result to CPU (saves GPU memory)
+    2. transfer to GPU and interpolate (needs headroom)
+    3. move dense result to CPU temporarily
+    4. after all conditions loaded, transfer all to GPU
 
     args:
         traces_path: path to traces zarr array.
@@ -84,12 +84,13 @@ def load_all_conditions(
         split: data split configuration.
         split_type: which split to load ("train", "val", "test").
         fitting_window: number of time steps to predict into future.
-        device: target device (GPU) for interpolation.
+        device: target device (GPU) for interpolation and storage.
 
     returns:
-        dict mapping condition name to ConditionData (dense tensors on CPU).
+        dict mapping condition name to ConditionData (dense tensors on GPU).
     """
-    condition_data: dict[ConditionName, ConditionData] = {}
+    # first pass: interpolate each condition on GPU, store on CPU
+    cpu_data: dict[ConditionName, tuple[torch.Tensor, int, int]] = {}
     ranges = split.get_ranges(split_type)
 
     for cond_name, abs_start, abs_end in ranges:
@@ -109,7 +110,7 @@ def load_all_conditions(
             obs_times_gpu, obs_vals_gpu, counts_gpu, num_bins,
         )
 
-        # move to CPU to save GPU memory
+        # move to CPU temporarily (frees GPU for next condition's interpolation)
         activity_cpu = activity_gpu.cpu()
 
         # free GPU memory
@@ -117,20 +118,26 @@ def load_all_conditions(
         torch.cuda.empty_cache()
 
         # compute valid sampling range
-        # valid_start: first bin where all neurons have data (after first obs)
-        # valid_end: last valid start so window fits before end
         first_obs = obs_times[:, 0].max().item() + 1
         last_obs = obs_times[:, -1].min().item()
         valid_start = int(first_obs)
         valid_end = int(last_obs) - fitting_window + 1
 
+        cpu_data[cond_name] = (activity_cpu, valid_start, valid_end)
+        print(f"  {cond_name}: {activity_cpu.shape} interpolated, valid=[{valid_start}, {valid_end})")
+
+    # second pass: transfer all to GPU
+    print("  transferring all conditions to GPU...")
+    condition_data: dict[ConditionName, ConditionData] = {}
+    for cond_name, (activity_cpu, valid_start, valid_end) in cpu_data.items():
+        activity_gpu = activity_cpu.to(device)
         condition_data[cond_name] = ConditionData(
-            activity=activity_cpu,
+            activity=activity_gpu,
             valid_start=valid_start,
             valid_end=valid_end,
         )
-        print(f"  {cond_name}: {activity_cpu.shape} -> CPU, valid=[{valid_start}, {valid_end})")
 
+    torch.cuda.empty_cache()
     return condition_data
 
 
@@ -139,46 +146,101 @@ def load_all_conditions(
 # ---------------------------------------------------------------------------
 
 
-def sample_into_buffer(
-    condition_data: dict[ConditionName, ConditionData],
-    pinned_buffer: torch.Tensor,
-    rng: torch.Generator,
-) -> None:
-    """sample batch from pre-interpolated data into pinned buffer.
+class BatchSampler:
+    """vectorized batch sampler on GPU with precomputed constants."""
 
-    samples conditions proportionally to their valid start ranges, then
-    samples random starts and copies into pinned buffer.
+    def __init__(
+        self,
+        condition_data: dict[ConditionName, ConditionData],
+        batch_size: int,
+        fitting_window: int,
+        device: torch.device,
+    ):
+        """initialize sampler with precomputed constants on GPU.
 
-    args:
-        condition_data: dict mapping condition name to ConditionData.
-        pinned_buffer: (B, T, N) pinned CPU tensor to fill.
-        rng: random number generator for reproducibility.
-    """
-    conds = list(condition_data.keys())
-    batch_size = pinned_buffer.shape[0]
-    fitting_window = pinned_buffer.shape[1]
+        args:
+            condition_data: dict mapping condition name to ConditionData (on GPU).
+            batch_size: number of samples per batch.
+            fitting_window: number of time steps per sample.
+            device: GPU device for sampling.
+        """
+        self.condition_data = condition_data
+        self.batch_size = batch_size
+        self.fitting_window = fitting_window
+        self.device = device
 
-    # sample conditions proportionally to valid start ranges
-    weights = torch.tensor(
-        [condition_data[c].weight for c in conds],
-        dtype=torch.float,
-    )
-    cond_indices = torch.multinomial(
-        weights, batch_size, replacement=True, generator=rng,
-    )
+        # precompute constants on GPU
+        conds = list(condition_data.keys())
+        self.num_conds = len(conds)
+        self.cond_data_list = [condition_data[c] for c in conds]  # list for O(1) access
+        self.weights = torch.tensor(
+            [d.weight for d in self.cond_data_list],
+            dtype=torch.float,
+            device=device,
+        )
+        self.time_offsets = torch.arange(fitting_window, device=device)
 
-    # copy samples into pinned buffer
-    for b in range(batch_size):
-        cond = conds[cond_indices[b].item()]
-        data = condition_data[cond]
+        # get num_neurons from first condition
+        self.num_neurons = self.cond_data_list[0].activity.shape[1]
 
-        # sample start position
-        start = torch.randint(
-            data.valid_start, data.valid_end, (1,), generator=rng,
-        ).item()
+    def sample(self, rng: torch.Generator) -> torch.Tensor:
+        """sample batch on GPU using vectorized gather.
 
-        # copy into pinned buffer: (fitting_window, N)
-        pinned_buffer[b] = data.activity[start:start + fitting_window, :]
+        uses sort + bincount to avoid per-condition CPU syncs.
+
+        args:
+            rng: random number generator on GPU.
+
+        returns:
+            batch: (B, T, N) GPU tensor.
+        """
+        # allocate output on GPU
+        batch = torch.empty(
+            self.batch_size, self.fitting_window, self.num_neurons,
+            dtype=torch.float32, device=self.device,
+        )
+
+        # sample which condition each batch element comes from
+        cond_indices = torch.multinomial(
+            self.weights, self.batch_size, replacement=True, generator=rng,
+        )
+
+        # sort to group by condition - sort_perm maps sorted index -> original index
+        _, sort_perm = cond_indices.sort()
+
+        # get unique conditions and counts - sorted=True so offsets are cumulative
+        unique_conds, counts = torch.unique(cond_indices, return_counts=True, sorted=True)
+
+        # one sync to get both to CPU
+        unique_conds_list = unique_conds.tolist()
+        counts_list = counts.tolist()
+
+        # process only conditions that appear (no zero-count check needed)
+        offset = 0
+        for c_idx, count in zip(unique_conds_list, counts_list):
+            # slice into sorted permutation to get original batch indices
+            batch_indices = sort_perm[offset:offset + count]
+
+            data = self.cond_data_list[c_idx]
+
+            # vectorized: sample all starts at once (on GPU)
+            starts = torch.randint(
+                data.valid_start, data.valid_end, (count,),
+                device=self.device, generator=rng,
+            )
+
+            # vectorized: compute all gather indices at once
+            gather_indices = starts[:, None] + self.time_offsets  # (count, T)
+
+            # vectorized: one gather for all samples (GPU memory access)
+            samples = data.activity[gather_indices]  # (count, T, N)
+
+            # vectorized: one write
+            batch[batch_indices] = samples
+
+            offset += count
+
+        return batch
 
 
 # ---------------------------------------------------------------------------
@@ -270,31 +332,24 @@ def main():
         total_weight += data.weight
         total_bytes += data.activity.numel() * data.activity.element_size()
         num_neurons = data.activity.shape[1]
-    print(f"total CPU memory: {total_bytes / 1e9:.2f} GB")
+    print(f"total GPU memory for data: {total_bytes / 1e9:.2f} GB")
 
     # batches per epoch for 1x coverage
     batches_per_epoch = total_weight // train_cfg.batch_size
     print(f"\ntotal training samples: {total_weight}")
     print(f"batches_per_epoch for 1x coverage: {batches_per_epoch}")
 
-    batches_per_epoch = 36
+    # batches_per_epoch = 36
 
-    # batch prefetcher with pinned buffer pool
+    # RNG for batch sampling (on GPU)
+    rng = torch.Generator(device=device)
+
+    # batch sampler on GPU with precomputed constants
     assert num_neurons is not None
+    sampler = BatchSampler(train_data, train_cfg.batch_size, train_cfg.fitting_window, device)
     batch_shape = (train_cfg.batch_size, train_cfg.fitting_window, num_neurons)
-    num_buffers = 3
-    buffer_mb = batch_shape[0] * batch_shape[1] * batch_shape[2] * 4 / 1e6
-    print(f"pinned buffers: {num_buffers} x {batch_shape}, {buffer_mb:.1f} MB each")
-
-    # RNG for batch sampling (must be created before prefetcher for reproducibility)
-    rng = torch.Generator(device="cpu")
-
-    prefetcher = BatchPrefetcher(
-        sample_fn=lambda buf: sample_into_buffer(train_data, buf, rng),
-        transfer_fn=lambda buf: buf.to(device, non_blocking=True),
-        batch_shape=batch_shape,
-        num_buffers=num_buffers,
-    )
+    batch_mb = batch_shape[0] * batch_shape[1] * batch_shape[2] * 4 / 1e6
+    print(f"batch shape: {batch_shape}, {batch_mb:.1f} MB per batch")
 
     # model
     model_cfg = ModelConfig(num_neurons=num_neurons)
@@ -306,19 +361,17 @@ def main():
 
     print(f"\ntraining: {train_cfg.epochs} epochs, {batches_per_epoch} batches/epoch")
 
-    # start prefetching for all epochs
-    total_batches = train_cfg.epochs * batches_per_epoch
-    prefetcher.start(total_batches)
 
-    # chrome profiler (only record 5 steps to keep file small)
+    # chrome profiler (only record 5 steps during epoch 1)
+    # epoch 0 = steps 0-35, epoch 1 = steps 36-71
     with torch.profiler.profile(
         activities=[
             torch.profiler.ProfilerActivity.CPU,
             torch.profiler.ProfilerActivity.CUDA,
         ],
-        schedule=torch.profiler.schedule(wait=2, warmup=1, active=5, repeat=1),
+        schedule=torch.profiler.schedule(wait=38, warmup=1, active=5, repeat=1),
         record_shapes=True,
-        with_stack=True,
+        with_stack=False,
     ) as prof:
         for epoch in range(train_cfg.epochs):
             model.train()
@@ -326,9 +379,9 @@ def main():
             epoch_start = time.time()
 
             for _ in range(batches_per_epoch):
-                batch = prefetcher.get()
-                if batch is None:
-                    break
+                # sample batch on GPU (no CPU->GPU transfer needed)
+                with torch.profiler.record_function("sample"):
+                    batch = sampler.sample(rng)
 
                 optimizer.zero_grad()
 
@@ -352,14 +405,26 @@ def main():
             # check for graceful termination
             if terminate_flag["value"]:
                 print(f"\n=== graceful termination at epoch {epoch + 1} ===")
-                prefetcher.stop()
                 break
-
-    prefetcher.stop()
 
     # save profile
     prof.export_chrome_trace("zapbench_profile.json")
     print("\nprofile saved to zapbench_profile.json")
+
+    # print key timings
+    print("\n" + "=" * 60)
+    print("KEY TIMINGS")
+    print("=" * 60)
+    key_averages = prof.key_averages()
+    key_names = [
+        "sample", "forward", "backward", "optimizer_step",
+        "cudaStreamSynchronize", "aten::copy_", "aten::index",
+    ]
+    for event in key_averages:
+        if event.key in key_names or any(k in event.key for k in key_names):
+            print(f"  {event.key:45s}: {event.cpu_time_total/1000:8.1f} ms total, "
+                  f"{event.cpu_time_total/1000/max(1,event.count):6.1f} ms avg, n={event.count}")
+    print("=" * 60)
     print("done")
 
 

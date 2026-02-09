@@ -74,7 +74,7 @@ class BatchPrefetcher:
 
         # allocate pinned buffer pool
         self.buffers = [
-            torch.empty(batch_shape, dtype=torch.float32, pin_memory=True)
+            torch.empty(batch_shape, dtype=torch.float32, pin_memory=False)
             for _ in range(num_buffers)
         ]
 
