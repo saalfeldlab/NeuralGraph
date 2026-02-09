@@ -1,0 +1,6 @@
+=== UCB Scores (Simulation block 28, iters 337-348, N=4, c=1.414) ===
+
+Node 339: UCB=2.413, parent=338, visits=1, R2=0.999, Pearson=0.921, Cluster=1.000, Mutation=lr_W: 5E-3 -> 6E-3
+Node 340: UCB=2.404, parent=root, visits=1, R2=0.990, Pearson=0.806, Cluster=1.000, Mutation=lr_W: 6E-3 -> 7E-3
+Node 337: UCB=2.287, parent=root, visits=1, R2=0.873, Pearson=0.923, Cluster=1.000, Mutation=L1: 1E-5 -> 1E-6
+Node 338: UCB=1.942, parent=root, visits=2, R2=0.999, Pearson=0.918, Cluster=1.000, Mutation=seed: 35000 -> 36000
