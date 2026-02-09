@@ -454,6 +454,38 @@ The mechanism is clear: **sparse connectivity at subcritical spectral radius (rh
 
 ---
 
+## Why the Exploration Never Ran the Reference Problem {#regime-mismatch}
+
+::: {.callout-important}
+### Claude's retrospective analysis
+
+The sparse exploration concluded that conn_R^2^ ≈ 0.50 is a universal ceiling at n=1000. Meanwhile, the reference config `signal_fig_supp_8_1.yaml` achieves R^2^ = 0.835 on the same 50%-sparse, n=1000 setup. These two numbers were treated as a "gap to reference" --- but they come from **entirely different dynamical systems**. The comparison was apples to oranges.
+:::
+
+The exploration used `signal_sparse.yaml` as its base config, while the published reference uses `signal_fig_supp_8_1.yaml`. Despite both being "sparse 50%, n=1000", the two configs define fundamentally different simulations across five dimensions:
+
+| Parameter | Exploration (`signal_sparse`) | Reference (`signal_fig_supp_8_1`) | Impact |
+|-----------|:-----------------------------:|:---------------------------------:|:------:|
+| `connectivity_type` | chaotic | **Lorentz** | Different W distribution and spectral structure |
+| `n_neuron_types` | 1 | **4** | Homogeneous vs 4 heterogeneous types |
+| `params` | `[1, 0, 7, 0, 1, 0]` | `[10, 1, 1]`, `[10, 2, 1]`, ... | g=7 single-type vs g=10 multi-type dynamics |
+| `signal_model_name` | PDE_N4 | **PDE_N2** | N4 uses (u~j~, a~j~); N2 uses u~j~ only |
+| `batch_size` / `n_epochs` | 8 / 2 | **1** / **10** | 5x more epochs, 8x smaller batches |
+
+### Why the reference regime is easier
+
+**Richer dynamics.** The Lorentz connectivity with 4 neuron types at g=10 operates in a regime with higher effective spectral radius and richer heterogeneous dynamics than the chaotic single-type system at g=7. More diverse neuron-pair interactions provide more constraints on W, making the inverse problem better conditioned.
+
+**Less MLP compensation capacity.** PDE_N2 takes only u~j~ as input to `lin_edge`, while PDE_N4 concatenates (u~j~, a~j~) --- the embedding gives the MLP an extra degree of freedom to absorb W errors. By excluding embeddings from the edge function, PDE_N2 reduces the MLP's ability to compensate for incorrect connectivity, forcing more signal through W.
+
+**Larger training budget.** The reference trains for 10 epochs with batch_size=1, compared to 2 epochs with batch_size=8. This translates to roughly **40x more gradient updates** on individual samples (10/2 × 8/1), giving the optimizer far more opportunities to refine the 10^6^ entries of W.
+
+### The bottom line
+
+The 0.50 ceiling is real and robust for the `signal_sparse` regime (chaotic, single neuron type, g=7, PDE_N4). But `signal_fig_supp_8_1` (Lorentz, 4 types, g=10, PDE_N2) is a structurally different and easier problem despite sharing the same 50% sparsity and n=1000 scale. The "gap" was never a gap --- it was a regime mismatch that went undetected because the exploration inherited the wrong base config.
+
+---
+
 ## Code Divergence Between NeuralGraph and neural-gnn {#code-divergence}
 
 A comparison of the active NeuralGraph codebase against its upstream fork (neural-gnn) revealed that **code modifications** introduced during the sparse exploration (Feb 2--4, 2026) are **not present in neural-gnn**. Two of these changes are always active regardless of config, and directly affect connectivity recovery at large n --- particularly for the reference config `signal_fig_supp_8_1`.
@@ -525,18 +557,7 @@ The scatter plots at 99,999 iterations tell a dramatic story: NeuralGraph achiev
 
 ### The Sparse Exploration Misdiagnosis
 
-When the sparse exploration tested `signal_fig_supp_8_1.yaml` as a reference and achieved only conn_R^2^≈0.50 at n=1000, it concluded this was a "universal identifiability ceiling". However, the exploration was running a **different simulation regime** from the reference:
-
-| Parameter | Exploration (`signal_sparse`) | Reference (`signal_fig_supp_8_1`) |
-|-----------|:-----------------------------:|:---------------------------------:|
-| `connectivity_type` | chaotic | **Lorentz** |
-| `n_neuron_types` | 1 | **4** |
-| `params` | g=7, single-type | **g=10, 4 heterogeneous types** |
-| `signal_model_name` | PDE_N4 (u_j, a_j) | **PDE_N2** (u_j only) |
-| `batch_size` | 8 | **1** |
-| `n_epochs` | 2 | **10** |
-
-The "gap to reference" documented earlier (conn_R^2^=0.496 vs claimed 0.817) is not a gap at all --- it compares two fundamentally different dynamical systems. The Lorentz connectivity with 4 neuron types at g=10 likely operates in a higher effective spectral radius regime with richer dynamics, making W-recovery inherently easier. The PDE_N2 model (no embedding input to lin_edge) also reduces MLP compensation capacity. And 5x more training epochs with 8x smaller batches provides substantially more gradient updates on finer-grained data.
+The sparse exploration compared its conn_R^2^ ≈ 0.50 against the reference `signal_fig_supp_8_1` result (R^2^ = 0.835) and treated the difference as a "gap to reference". As discussed in the [regime mismatch analysis](#regime-mismatch) above, this comparison was invalid --- the exploration ran a completely different dynamical system (chaotic/1-type/PDE_N4) from the reference (Lorentz/4-type/PDE_N2), with different training budgets. The code changes documented here compound the regime mismatch: NeuralGraph's W init scaling and gradient clipping are necessary for `signal_fig_supp_8_1` to converge at n=1000, but had zero effect in the exploration's regime at n=100.
 
 ### Summary of Always-Active Code Differences
 
@@ -552,6 +573,6 @@ For `signal_fig_supp_8_1`, these two changes are the difference between R^2^=0.8
 
 ## Open Questions
 
-1. **Gap to reference (RESOLVED)**: The reference config `signal_fig_supp_8_1.yaml` uses a **different simulation regime** (Lorentz connectivity, 4 neuron types, g=10, PDE_N2 model, batch_size=1, 10 epochs) vs the exploration's chaotic single-type g=7 PDE_N4 regime. Additionally, NeuralGraph includes always-active code changes (W init scaling by 1/sqrt(n), gradient clipping) absent from neural-gnn. The R^2^=0.835 vs 0.496 comparison was apples-to-oranges. See the [code divergence analysis above](#code-divergence) for full details.
+1. **Gap to reference (RESOLVED)**: The apparent gap (conn_R^2^ = 0.496 vs 0.835) was a [regime mismatch](#regime-mismatch), not a performance gap --- the exploration ran a different dynamical system from the reference. Additionally, NeuralGraph includes [always-active code changes](#code-divergence) (W init scaling, gradient clipping) that are necessary for the reference config to converge at n=1000.
 2. **Breaking the plateau**: Can architectural changes (different model form, attention mechanisms, or multi-scale training) break the 0.50 ceiling, or is it a theoretical limit of any single-step prediction model at subcritical spectral radius?
 3. **Regime boundary**: At what spectral radius does the ceiling start rising? The transition from subcritical (rho < 1, ceiling ~0.50) to supercritical (rho > 1, solvable) likely involves a phase transition in identifiability.
