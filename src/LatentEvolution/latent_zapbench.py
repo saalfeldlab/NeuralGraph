@@ -7,6 +7,7 @@ data flow:
   training: sample on GPU -> forward/backward
 """
 
+import logging
 import random
 import signal
 from dataclasses import dataclass
@@ -14,6 +15,14 @@ from typing import Literal
 
 import numpy as np
 import torch
+
+# configure logging with HH:MM:SS timestamp
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
 
 
 def seed_everything(seed: int = 42):
@@ -124,10 +133,10 @@ def load_all_conditions(
         valid_end = int(last_obs) - fitting_window + 1
 
         cpu_data[cond_name] = (activity_cpu, valid_start, valid_end)
-        print(f"  {cond_name}: {activity_cpu.shape} interpolated, valid=[{valid_start}, {valid_end})")
+        log.info(f"  {cond_name}: {activity_cpu.shape} interpolated, valid=[{valid_start}, {valid_end})")
 
     # second pass: transfer all to GPU
-    print("  transferring all conditions to GPU...")
+    log.info("  transferring all conditions to GPU...")
     condition_data: dict[ConditionName, ConditionData] = {}
     for cond_name, (activity_cpu, valid_start, valid_end) in cpu_data.items():
         activity_gpu = activity_cpu.to(device)
@@ -299,18 +308,18 @@ def main():
 
     def handle_sigusr2(signum, frame):
         terminate_flag["value"] = True
-        print("\nSIGUSR2 received - will terminate after current epoch")
+        log.info("SIGUSR2 received - will terminate after current epoch")
 
     signal.signal(signal.SIGUSR2, handle_sigusr2)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"device: {device}")
+    log.info(f"device: {device}")
 
     # enable TF32 for faster matmul/conv on Ampere+ GPUs
     if device.type == "cuda":
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
-        print("tf32 precision: enabled")
+        log.info("tf32 precision: enabled")
 
     # config
     data_cfg = DataConfig()
@@ -319,7 +328,7 @@ def main():
     seed_everything(train_cfg.seed)
 
     # load training data
-    print("loading training data...")
+    log.info("loading training data...")
     split = DataSplit()
     train_data = load_all_conditions(
         data_cfg.traces_path, data_cfg.ephys_path, data_cfg.bin_size_ms,
@@ -332,12 +341,12 @@ def main():
         total_weight += data.weight
         total_bytes += data.activity.numel() * data.activity.element_size()
         num_neurons = data.activity.shape[1]
-    print(f"total GPU memory for data: {total_bytes / 1e9:.2f} GB")
+    log.info(f"total GPU memory for data: {total_bytes / 1e9:.2f} GB")
 
     # batches per epoch for 1x coverage
     batches_per_epoch = total_weight // train_cfg.batch_size
-    print(f"\ntotal training samples: {total_weight}")
-    print(f"batches_per_epoch for 1x coverage: {batches_per_epoch}")
+    log.info(f"total training samples: {total_weight}")
+    log.info(f"batches_per_epoch for 1x coverage: {batches_per_epoch}")
 
     # batches_per_epoch = 36
 
@@ -349,17 +358,17 @@ def main():
     sampler = BatchSampler(train_data, train_cfg.batch_size, train_cfg.fitting_window, device)
     batch_shape = (train_cfg.batch_size, train_cfg.fitting_window, num_neurons)
     batch_mb = batch_shape[0] * batch_shape[1] * batch_shape[2] * 4 / 1e6
-    print(f"batch shape: {batch_shape}, {batch_mb:.1f} MB per batch")
+    log.info(f"batch shape: {batch_shape}, {batch_mb:.1f} MB per batch")
 
     # model
     model_cfg = ModelConfig(num_neurons=num_neurons)
     model = EEDModel(model_cfg).to(device)
-    print(f"\nmodel: {sum(p.numel() for p in model.parameters()):,} parameters")
+    log.info(f"model: {sum(p.numel() for p in model.parameters()):,} parameters")
 
     # optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=train_cfg.learning_rate)
 
-    print(f"\ntraining: {train_cfg.epochs} epochs, {batches_per_epoch} batches/epoch")
+    log.info(f"training: {train_cfg.epochs} epochs, {batches_per_epoch} batches/epoch")
 
 
     # chrome profiler (only record 5 steps during epoch 1)
@@ -400,21 +409,21 @@ def main():
             # sync only at epoch end
             avg_loss = epoch_loss.item() / batches_per_epoch
             epoch_time = time.time() - epoch_start
-            print(f"epoch {epoch}: loss={avg_loss:.4f}, time={epoch_time:.1f}s")
+            log.info(f"epoch {epoch}: loss={avg_loss:.4f}, time={epoch_time:.1f}s")
 
             # check for graceful termination
             if terminate_flag["value"]:
-                print(f"\n=== graceful termination at epoch {epoch + 1} ===")
+                log.info(f"=== graceful termination at epoch {epoch + 1} ===")
                 break
 
     # save profile
     prof.export_chrome_trace("zapbench_profile.json")
-    print("\nprofile saved to zapbench_profile.json")
+    log.info("profile saved to zapbench_profile.json")
 
     # print key timings
-    print("\n" + "=" * 60)
-    print("KEY TIMINGS")
-    print("=" * 60)
+    log.info("=" * 60)
+    log.info("KEY TIMINGS")
+    log.info("=" * 60)
     key_averages = prof.key_averages()
     key_names = [
         "sample", "forward", "backward", "optimizer_step",
@@ -422,10 +431,10 @@ def main():
     ]
     for event in key_averages:
         if event.key in key_names or any(k in event.key for k in key_names):
-            print(f"  {event.key:45s}: {event.cpu_time_total/1000:8.1f} ms total, "
-                  f"{event.cpu_time_total/1000/max(1,event.count):6.1f} ms avg, n={event.count}")
-    print("=" * 60)
-    print("done")
+            log.info(f"  {event.key:45s}: {event.cpu_time_total/1000:8.1f} ms total, "
+                     f"{event.cpu_time_total/1000/max(1,event.count):6.1f} ms avg, n={event.count}")
+    log.info("=" * 60)
+    log.info("done")
 
 
 if __name__ == "__main__":
