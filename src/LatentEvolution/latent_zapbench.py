@@ -318,7 +318,7 @@ def main():
         ],
         schedule=torch.profiler.schedule(wait=2, warmup=1, active=5, repeat=1),
         record_shapes=True,
-        with_stack=False,
+        with_stack=True,
     ) as prof:
         for epoch in range(train_cfg.epochs):
             model.train()
