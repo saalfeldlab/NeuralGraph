@@ -1,4 +1,5 @@
 
+import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
@@ -10,6 +11,7 @@ class MLP(nn.Module):
 
         super(MLP, self).__init__()
         self.layers = nn.ModuleList()
+        self.dropout_rate = 0.0
         self.layers.append(nn.Linear(input_size, hidden_size, device=device))
         if nlayers > 2:
             for i in range(1, nlayers - 1):
@@ -48,6 +50,8 @@ class MLP(nn.Module):
         for l in range(len(self.layers) - 1):
             x = self.layers[l](x)
             x = self.activation(x)
+            if self.dropout_rate > 0 and self.training:
+                x = F.dropout(x, p=self.dropout_rate, training=True)
         x = self.layers[-1](x)
         return x
 

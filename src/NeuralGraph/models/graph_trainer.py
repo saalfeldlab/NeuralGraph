@@ -329,7 +329,19 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
     learning_rate_NNR = train_config.learning_rate_NNR
     learning_rate_NNR_f = train_config.learning_rate_NNR_f
 
-    optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+    # separate SGD optimizer for W if configured (sharper L1-induced zeros)
+    w_optimizer_type = getattr(train_config, 'w_optimizer_type', 'adam')
+    w_optimizer = None
+    if w_optimizer_type == 'sgd' and hasattr(model, 'W') and model.W.requires_grad:
+        w_optimizer = torch.optim.SGD([model.W], lr=lr_W, momentum=0.9)
+        # exclude W from main Adam optimizer by temporarily disabling its gradient
+        model.W.requires_grad_(False)
+        optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+        model.W.requires_grad_(True)
+        n_total_params += model.W.numel()
+        print(f'using separate SGD optimizer for W (momentum=0.9, lr={lr_W})')
+    else:
+        optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
     model.train()
 
     print(f'learning rates: lr_W {lr_W}, lr {lr}, lr_update {lr_update}, lr_embedding {lr_embedding}')
@@ -414,9 +426,14 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
             print(f'reset W model.a at epoch : {epoch}')
         if (epoch == 1) & (train_config.init_training_single_type):
             lr_embedding = train_config.learning_rate_embedding_start
-            optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+            if w_optimizer is not None:
+                model.W.requires_grad_(False)
+                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
+                model.W.requires_grad_(True)
+                n_total_params += model.W.numel()
+            else:
+                optimizer, n_total_params = set_trainable_parameters(model=model, lr_embedding=lr_embedding, lr=lr, lr_update=lr_update, lr_W=lr_W, learning_rate_NNR=learning_rate_NNR, learning_rate_NNR_f = learning_rate_NNR_f)
             model.train()
-
 
         batch_size = get_batch_size(epoch)
         logger.info(f'batch_size: {batch_size}')
@@ -453,6 +470,8 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
             if model_f is not None:
                 optimizer_f.zero_grad()
             optimizer.zero_grad()
+            if w_optimizer is not None:
+                w_optimizer.zero_grad()
 
             dataset_batch = []
             ids_batch = []
@@ -655,16 +674,19 @@ def data_train_signal(config, erase, best_model, style, device, log_file=None):
                 loss.backward()
 
                 # gradient clipping on W to stabilize training
-                if hasattr(model, 'W') and model.W.grad is not None:
-                    torch.nn.utils.clip_grad_norm_([model.W], max_norm=1.0)
+                if train_config.grad_clip_W > 0 and hasattr(model, 'W') and model.W.grad is not None:
+                    torch.nn.utils.clip_grad_norm_([model.W], max_norm=train_config.grad_clip_W)
 
                 optimizer.step()
+                if w_optimizer is not None:
+                    w_optimizer.step()
                 regularizer.finalize_iteration()
 
                 # proximal L1: soft-thresholding on W for exact zeros
-                if train_config.coeff_W_L1 > 0:
+                coeff_proximal = getattr(train_config, 'coeff_W_L1_proximal', 0.0)
+                if coeff_proximal > 0:
                     with torch.no_grad():
-                        prox_threshold = train_config.coeff_W_L1 * lr_W
+                        prox_threshold = coeff_proximal * lr_W
                         model.W.data = torch.sign(model.W.data) * torch.clamp(model.W.data.abs() - prox_threshold, min=0)
                         model.W.data.fill_diagonal_(0)
 
@@ -1078,12 +1100,21 @@ def data_train_flyvis(config, erase, best_model, device):
 
     model = model.to(device)
 
-    # scale lin_phi output to reduce degeneracy bypass (1.0 = default, <1.0 forces dynamics through W @ lin_edge)
-    phi_scale = getattr(train_config, 'phi_scale', 1.0)
-    if hasattr(model, 'phi_scale'):
-        model.phi_scale = phi_scale
-        if phi_scale != 1.0:
-            print(f'phi_scale set to {phi_scale}')
+    # W init mode info
+    w_init_mode = getattr(train_config, 'w_init_mode', 'randn')
+    if w_init_mode != 'randn':
+        w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
+        print(f'W init mode: {w_init_mode}' + (f' (scale={w_init_scale})' if w_init_mode == 'randn_scaled' else ''))
+
+    # proximal L1 info
+    coeff_proximal = getattr(train_config, 'coeff_W_L1_proximal', 0.0)
+    if coeff_proximal > 0:
+        print(f'proximal L1 soft-thresholding on W: coeff={coeff_proximal}')
+
+    # lin_edge mode bypass
+    lin_edge_mode = getattr(train_config, 'lin_edge_mode', 'mlp')
+    if lin_edge_mode != 'mlp':
+        print(f'lin_edge mode: {lin_edge_mode} (MLP bypassed)')
 
     n_total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f'total parameters: {n_total_params:,}')

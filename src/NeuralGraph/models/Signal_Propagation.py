@@ -208,7 +208,14 @@ class Signal_Propagation(pyg.nn.MessagePassing):
 
             else:
 
-                W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32) * (1.0 / math.sqrt(self.n_neurons))
+                w_init_mode = getattr(train_config, 'w_init_mode', 'randn')
+                if w_init_mode == 'zeros':
+                    W_init = torch.zeros((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32)
+                elif w_init_mode == 'randn_scaled':
+                    w_init_scale = getattr(train_config, 'w_init_scale', 1.0)
+                    W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32) * (w_init_scale / math.sqrt(self.n_neurons))
+                else:  # 'randn' (original)
+                    W_init = torch.randn((int(self.n_neurons),int(self.n_neurons)), device=self.device, dtype=torch.float32)
                 W_init.fill_diagonal_(0)
                 self.W = nn.Parameter(W_init, requires_grad=True)
 
@@ -216,8 +223,8 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         self.register_buffer('mask', torch.ones((int(self.n_neurons),int(self.n_neurons)), requires_grad=False, dtype=torch.float32))
         self.mask.fill_diagonal_(0)
 
-        # scaling factor for lin_phi output (1.0 = default, <1.0 reduces lin_phi bypass)
-        self.phi_scale = 1.0
+        # lin_edge mode: 'mlp' (default), 'tanh' (fixed tanh(u_j)), 'identity' (fixed u_j)
+        self.lin_edge_mode = getattr(train_config, 'lin_edge_mode', 'mlp')
 
     def get_interp_a(self, k, particle_id):
 
@@ -272,11 +279,11 @@ class Signal_Propagation(pyg.nn.MessagePassing):
             in_features = torch.cat([u, embedding], dim=1)
 
             if self.external_input_mode == "multiplicative":
-                pred = self.phi_scale * self.lin_phi(in_features) + msg * external_input
+                pred = self.lin_phi(in_features) + msg * external_input
             elif self.external_input_mode == "additive":
-                pred = self.phi_scale * self.lin_phi(in_features) + msg + external_input
+                pred = self.lin_phi(in_features) + msg + external_input
             else:
-                pred = self.phi_scale * self.lin_phi(in_features) + msg
+                pred = self.lin_phi(in_features) + msg
 
         
 
@@ -298,9 +305,14 @@ class Signal_Propagation(pyg.nn.MessagePassing):
         else:
             in_features = u_j
 
-        lin_edge = self.lin_edge(in_features)
-        if self.lin_edge_positive:
-            lin_edge = lin_edge**2
+        if self.lin_edge_mode == 'tanh':
+            lin_edge = torch.tanh(u_j)
+        elif self.lin_edge_mode == 'identity':
+            lin_edge = u_j
+        else:
+            lin_edge = self.lin_edge(in_features)
+            if self.lin_edge_positive:
+                lin_edge = lin_edge**2
 
         if self.multi_connectivity:
             if self.batch_size == 1:

@@ -1,0 +1,6 @@
+=== UCB Scores (Simulation block 9, iters 109-120, N=4, c=1.414) ===
+
+Node 110: UCB=1.915, parent=root, visits=1, R2=0.501, Pearson=0.999, Cluster=1.000, Mutation=seed: 256 -> 137
+Node 111: UCB=1.912, parent=root, visits=1, R2=0.498, Pearson=0.996, Cluster=1.000, Mutation=reference recipe baseline at n=600
+Node 109: UCB=1.911, parent=root, visits=1, R2=0.497, Pearson=0.999, Cluster=1.000, Mutation=coeff_W_L1: 1E-5 -> 1E-4
+Node 112: UCB=1.910, parent=root, visits=1, R2=0.496, Pearson=0.997, Cluster=1.000, Mutation=reference recipe baseline at n=1000

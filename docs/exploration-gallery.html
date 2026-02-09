@@ -73,8 +73,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-9a023c9ade86a60361e96e3e3f11bc54.css" rel="prefetch" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
 <script src="site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-2f1cd67aee57a235049628202cc4b683.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-cef7867c9408d629ec2476cab5756174.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="site_libs/bootstrap/bootstrap-f1f8c88446cdc37d3187128a6bd52d25.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="site_libs/bootstrap/bootstrap-dark-16dc960a316359c75a6303268f7f2be9.min.css" rel="prefetch" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
 <script src="site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
 <link href="site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
 <link href="site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
@@ -232,6 +232,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#block-21-g3n200-at-30k-frames-solved-iters-241252" id="toc-block-21-g3n200-at-30k-frames-solved-iters-241252" class="nav-link" data-scroll-target="#block-21-g3n200-at-30k-frames-solved-iters-241252">Block 21 — g=3/n=200 at 30k Frames — SOLVED (iters 241–252)</a></li>
   <li><a href="#block-22-partial-connectivity-fill80-n100-10k-iters-253264" id="toc-block-22-partial-connectivity-fill80-n100-10k-iters-253264" class="nav-link" data-scroll-target="#block-22-partial-connectivity-fill80-n100-10k-iters-253264">Block 22 — Partial Connectivity fill=80% (n=100, 10k, iters 253–264)</a></li>
   <li><a href="#block-23-fill80-at-30k-frames-iters-265276" id="toc-block-23-fill80-at-30k-frames-iters-265276" class="nav-link" data-scroll-target="#block-23-fill80-at-30k-frames-iters-265276">Block 23 — fill=80% at 30k Frames (iters 265–276)</a></li>
+  <li><a href="#block-24-fill90-transitional-n100-10k-iters-289300" id="toc-block-24-fill90-transitional-n100-10k-iters-289300" class="nav-link" data-scroll-target="#block-24-fill90-transitional-n100-10k-iters-289300">Block 24 — fill=90% Transitional (n=100, 10k, iters 289–300)</a></li>
+  <li><a href="#block-25-g1-fixed-point-collapse-n100-10k-iters-301312" id="toc-block-25-g1-fixed-point-collapse-n100-10k-iters-301312" class="nav-link" data-scroll-target="#block-25-g1-fixed-point-collapse-n100-10k-iters-301312">Block 25 — g=1 Fixed-Point Collapse (n=100, 10k, iters 301–312)</a></li>
+  <li><a href="#block-26-g1-at-30k-confirmed-unsolvable-iters-313324" id="toc-block-26-g1-at-30k-confirmed-unsolvable-iters-313324" class="nav-link" data-scroll-target="#block-26-g1-at-30k-confirmed-unsolvable-iters-313324">Block 26 — g=1 at 30k: Confirmed Unsolvable (iters 313–324)</a></li>
+  <li><a href="#block-27-g2-inverse-lr_w-n100-10k-iters-325336" id="toc-block-27-g2-inverse-lr_w-n100-10k-iters-325336" class="nav-link" data-scroll-target="#block-27-g2-inverse-lr_w-n100-10k-iters-325336">Block 27 — g=2 Inverse lr_W (n=100, 10k, iters 325–336)</a></li>
+  <li><a href="#block-28-g2-at-30k-partially-rescued-iters-337348" id="toc-block-28-g2-at-30k-partially-rescued-iters-337348" class="nav-link" data-scroll-target="#block-28-g2-at-30k-partially-rescued-iters-337348">Block 28 — g=2 at 30k: Partially Rescued (iters 337–348)</a></li>
+  <li><a href="#block-29-g2n200-at-30k-n-compensates-gain-iters-349360" id="toc-block-29-g2n200-at-30k-n-compensates-gain-iters-349360" class="nav-link" data-scroll-target="#block-29-g2n200-at-30k-n-compensates-gain-iters-349360">Block 29 — g=2/n=200 at 30k: n Compensates Gain (iters 349–360)</a></li>
+  <li><a href="#block-30-n1000-at-100k-frames-solved-iters-349360" id="toc-block-30-n1000-at-100k-frames-solved-iters-349360" class="nav-link" data-scroll-target="#block-30-n1000-at-100k-frames-solved-iters-349360">Block 30 — n=1000 at 100k Frames — SOLVED (iters 349–360)</a></li>
   </ul>
 </nav>
     </div>
@@ -289,7 +296,7 @@ Current status
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>Block 23 completed</strong> (fill=80%, 30k frames). 276 iterations completed across 23 regimes. n_frames=30k rescues dense and low-gain networks (n=300, n=600, g=3/n=200) but NOT sparse connectivity (subcritical rho) or partial connectivity (fill=80%, conn locked at filling_factor). Two structural limits confirmed. n=1000 mapped at 30k (conn=0.745, needs ~100k). 65 principles established.</p>
+<p><strong>Block 30 completed</strong> (n=1000, 100k frames). 360 iterations completed across 30 regimes. n_frames rescues dense and low-gain networks (n=300, n=600, g=3/n=200 at 30k; n=1000 at 100k — 100% convergence, conn=1.000). Three structural limits confirmed: subcritical rho (sparse), conn_ceiling at filling_factor (fill&lt;100%), and g=1 fixed-point collapse. ~99 principles established.</p>
 </div>
 </div>
 <hr>
@@ -3399,6 +3406,965 @@ Current status
 </div>
 </div>
 </div>
+<hr>
+</section>
+<section id="block-24-fill90-transitional-n100-10k-iters-289300" class="level2">
+<h2 class="anchored" data-anchor-id="block-24-fill90-transitional-n100-10k-iters-289300">Block 24 — fill=90% Transitional (n=100, 10k, iters 289–300)</h2>
+<p>fill=90% extends the conn_ceiling ≈ filling_factor relationship to a 4th data point. rho=0.995 (near-critical), eff_rank=35–36. conn plateau at 0.907 ≈ fill%. 83% convergence (10/12) — transitional regime above R<sup>2</sup>&gt;0.9 boundary. Complete parameter insensitivity.</p>
+<div class="block-hero">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_024.png" class="lightbox" data-gallery="b24"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_024.png" class="img-fluid"></a></p>
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_024.png" class="lightbox" data-gallery="b24"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_024.png" class="img-fluid"></a></p>
+</div>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-24-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-24-1" role="tab" aria-controls="tabset-24-1" aria-selected="true">UCB Tree</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-24-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-24-2" role="tab" aria-controls="tabset-24-2" aria-selected="false">Connectivity Scatter</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-24-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-24-3" role="tab" aria-controls="tabset-24-3" aria-selected="false">Kinograph</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-24-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-24-4" role="tab" aria-controls="tabset-24-4" aria-selected="false">MLP Functions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-24-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-24-5" role="tab" aria-controls="tabset-24-5" aria-selected="false">Embedding</a></li></ul>
+<div class="tab-content">
+<div id="tabset-24-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-24-1-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_300.png" class="lightbox" data-gallery="quarto-lightbox-gallery-333"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_300.png" class="img-fluid"></a></p>
+</div>
+<div id="tabset-24-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-24-2-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_289.png" class="lightbox" data-gallery="b24s" title="Iter 289"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_289.png" class="img-fluid figure-img" alt="Iter 289"></a></p>
+<figcaption>Iter 289</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_293.png" class="lightbox" data-gallery="b24s" title="Iter 293"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_293.png" class="img-fluid figure-img" alt="Iter 293"></a></p>
+<figcaption>Iter 293</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_297.png" class="lightbox" data-gallery="b24s" title="Iter 297"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_297.png" class="img-fluid figure-img" alt="Iter 297"></a></p>
+<figcaption>Iter 297</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_300.png" class="lightbox" data-gallery="b24s" title="Iter 300"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_300.png" class="img-fluid figure-img" alt="Iter 300"></a></p>
+<figcaption>Iter 300</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-24-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-24-3-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_289.png" class="lightbox" data-gallery="b24k" title="Iter 289"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_289.png" class="img-fluid figure-img" alt="Iter 289"></a></p>
+<figcaption>Iter 289</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_293.png" class="lightbox" data-gallery="b24k" title="Iter 293"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_293.png" class="img-fluid figure-img" alt="Iter 293"></a></p>
+<figcaption>Iter 293</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_297.png" class="lightbox" data-gallery="b24k" title="Iter 297"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_297.png" class="img-fluid figure-img" alt="Iter 297"></a></p>
+<figcaption>Iter 297</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_300.png" class="lightbox" data-gallery="b24k" title="Iter 300"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_300.png" class="img-fluid figure-img" alt="Iter 300"></a></p>
+<figcaption>Iter 300</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-24-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-24-4-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_289_MLP.png" class="lightbox" data-gallery="b24m" title="Iter 289"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_289_MLP.png" class="img-fluid figure-img" alt="Iter 289"></a></p>
+<figcaption>Iter 289</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_295_MLP.png" class="lightbox" data-gallery="b24m" title="Iter 295"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_295_MLP.png" class="img-fluid figure-img" alt="Iter 295"></a></p>
+<figcaption>Iter 295</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_300_MLP.png" class="lightbox" data-gallery="b24m" title="Iter 300"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_300_MLP.png" class="img-fluid figure-img" alt="Iter 300"></a></p>
+<figcaption>Iter 300</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-24-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-24-5-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_024.png" class="lightbox" data-gallery="b24e"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_024.png" class="img-fluid"></a></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="block-25-g1-fixed-point-collapse-n100-10k-iters-301312" class="level2">
+<h2 class="anchored" data-anchor-id="block-25-g1-fixed-point-collapse-n100-10k-iters-301312">Block 25 — g=1 Fixed-Point Collapse (n=100, 10k, iters 301–312)</h2>
+<p>Gain reduced to 1. eff_rank=5 (catastrophically low) — fixed-point collapse. Flat-line dynamics. 0% convergence, max conn=0.007, 12/12 degenerate. Complete parameter insensitivity. Below the critical eff_rank threshold (~10). Hardest regime encountered.</p>
+<div class="block-hero">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_025.png" class="lightbox" data-gallery="b25"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_025.png" class="img-fluid"></a></p>
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_025.png" class="lightbox" data-gallery="b25"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_025.png" class="img-fluid"></a></p>
+</div>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-25-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-25-1" role="tab" aria-controls="tabset-25-1" aria-selected="true">UCB Tree</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-25-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-25-2" role="tab" aria-controls="tabset-25-2" aria-selected="false">Connectivity Scatter</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-25-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-25-3" role="tab" aria-controls="tabset-25-3" aria-selected="false">Kinograph</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-25-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-25-4" role="tab" aria-controls="tabset-25-4" aria-selected="false">MLP Functions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-25-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-25-5" role="tab" aria-controls="tabset-25-5" aria-selected="false">Embedding</a></li></ul>
+<div class="tab-content">
+<div id="tabset-25-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-25-1-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_312.png" class="lightbox" data-gallery="quarto-lightbox-gallery-348"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_312.png" class="img-fluid"></a></p>
+</div>
+<div id="tabset-25-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-25-2-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_301.png" class="lightbox" data-gallery="b25s" title="Iter 301"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_301.png" class="img-fluid figure-img" alt="Iter 301"></a></p>
+<figcaption>Iter 301</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_305.png" class="lightbox" data-gallery="b25s" title="Iter 305"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_305.png" class="img-fluid figure-img" alt="Iter 305"></a></p>
+<figcaption>Iter 305</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_309.png" class="lightbox" data-gallery="b25s" title="Iter 309"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_309.png" class="img-fluid figure-img" alt="Iter 309"></a></p>
+<figcaption>Iter 309</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_312.png" class="lightbox" data-gallery="b25s" title="Iter 312"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_312.png" class="img-fluid figure-img" alt="Iter 312"></a></p>
+<figcaption>Iter 312</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-25-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-25-3-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_301.png" class="lightbox" data-gallery="b25k" title="Iter 301"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_301.png" class="img-fluid figure-img" alt="Iter 301"></a></p>
+<figcaption>Iter 301</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_305.png" class="lightbox" data-gallery="b25k" title="Iter 305"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_305.png" class="img-fluid figure-img" alt="Iter 305"></a></p>
+<figcaption>Iter 305</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_309.png" class="lightbox" data-gallery="b25k" title="Iter 309"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_309.png" class="img-fluid figure-img" alt="Iter 309"></a></p>
+<figcaption>Iter 309</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_312.png" class="lightbox" data-gallery="b25k" title="Iter 312"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_312.png" class="img-fluid figure-img" alt="Iter 312"></a></p>
+<figcaption>Iter 312</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-25-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-25-4-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_301_MLP.png" class="lightbox" data-gallery="b25m" title="Iter 301"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_301_MLP.png" class="img-fluid figure-img" alt="Iter 301"></a></p>
+<figcaption>Iter 301</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_307_MLP.png" class="lightbox" data-gallery="b25m" title="Iter 307"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_307_MLP.png" class="img-fluid figure-img" alt="Iter 307"></a></p>
+<figcaption>Iter 307</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_312_MLP.png" class="lightbox" data-gallery="b25m" title="Iter 312"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_312_MLP.png" class="img-fluid figure-img" alt="Iter 312"></a></p>
+<figcaption>Iter 312</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-25-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-25-5-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_025.png" class="lightbox" data-gallery="b25e"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_025.png" class="img-fluid"></a></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="block-26-g1-at-30k-confirmed-unsolvable-iters-313324" class="level2">
+<h2 class="anchored" data-anchor-id="block-26-g1-at-30k-confirmed-unsolvable-iters-313324">Block 26 — g=1 at 30k: Confirmed Unsolvable (iters 313–324)</h2>
+<p>g=1 at 30k frames: eff_rank DROPS from 5 to 1 — the only regime where n_frames is negatively correlated with eff_rank. 0% convergence, max conn=0.018. More frames → tighter fixed-point basin → lower dimensionality. g=1 is the third structural limit alongside sparse (rho&lt;1) and fill&lt;100%.</p>
+<div class="block-hero">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_026.png" class="lightbox" data-gallery="b26"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_026.png" class="img-fluid"></a></p>
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_026.png" class="lightbox" data-gallery="b26"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_026.png" class="img-fluid"></a></p>
+</div>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-26-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-26-1" role="tab" aria-controls="tabset-26-1" aria-selected="true">UCB Tree</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-26-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-26-2" role="tab" aria-controls="tabset-26-2" aria-selected="false">Connectivity Scatter</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-26-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-26-3" role="tab" aria-controls="tabset-26-3" aria-selected="false">Kinograph</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-26-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-26-4" role="tab" aria-controls="tabset-26-4" aria-selected="false">MLP Functions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-26-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-26-5" role="tab" aria-controls="tabset-26-5" aria-selected="false">Embedding</a></li></ul>
+<div class="tab-content">
+<div id="tabset-26-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-26-1-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_324.png" class="lightbox" data-gallery="quarto-lightbox-gallery-363"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_324.png" class="img-fluid"></a></p>
+</div>
+<div id="tabset-26-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-26-2-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_313.png" class="lightbox" data-gallery="b26s" title="Iter 313"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_313.png" class="img-fluid figure-img" alt="Iter 313"></a></p>
+<figcaption>Iter 313</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_317.png" class="lightbox" data-gallery="b26s" title="Iter 317"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_317.png" class="img-fluid figure-img" alt="Iter 317"></a></p>
+<figcaption>Iter 317</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_321.png" class="lightbox" data-gallery="b26s" title="Iter 321"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_321.png" class="img-fluid figure-img" alt="Iter 321"></a></p>
+<figcaption>Iter 321</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_324.png" class="lightbox" data-gallery="b26s" title="Iter 324"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_324.png" class="img-fluid figure-img" alt="Iter 324"></a></p>
+<figcaption>Iter 324</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-26-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-26-3-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_313.png" class="lightbox" data-gallery="b26k" title="Iter 313"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_313.png" class="img-fluid figure-img" alt="Iter 313"></a></p>
+<figcaption>Iter 313</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_317.png" class="lightbox" data-gallery="b26k" title="Iter 317"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_317.png" class="img-fluid figure-img" alt="Iter 317"></a></p>
+<figcaption>Iter 317</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_321.png" class="lightbox" data-gallery="b26k" title="Iter 321"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_321.png" class="img-fluid figure-img" alt="Iter 321"></a></p>
+<figcaption>Iter 321</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_324.png" class="lightbox" data-gallery="b26k" title="Iter 324"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_324.png" class="img-fluid figure-img" alt="Iter 324"></a></p>
+<figcaption>Iter 324</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-26-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-26-4-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_313_MLP.png" class="lightbox" data-gallery="b26m" title="Iter 313"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_313_MLP.png" class="img-fluid figure-img" alt="Iter 313"></a></p>
+<figcaption>Iter 313</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_319_MLP.png" class="lightbox" data-gallery="b26m" title="Iter 319"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_319_MLP.png" class="img-fluid figure-img" alt="Iter 319"></a></p>
+<figcaption>Iter 319</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_324_MLP.png" class="lightbox" data-gallery="b26m" title="Iter 324"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_324_MLP.png" class="img-fluid figure-img" alt="Iter 324"></a></p>
+<figcaption>Iter 324</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-26-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-26-5-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_026.png" class="lightbox" data-gallery="b26e"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_026.png" class="img-fluid"></a></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="block-27-g2-inverse-lr_w-n100-10k-iters-325336" class="level2">
+<h2 class="anchored" data-anchor-id="block-27-g2-inverse-lr_w-n100-10k-iters-325336">Block 27 — g=2 Inverse lr_W (n=100, 10k, iters 325–336)</h2>
+<p>g=2 has eff_rank=17 (above threshold ~10), supercritical rho=1.065. Requires inverse lr_W (~5E-4, 100x lower than g=7). 0% convergence at 10k, max conn=0.519. Epoch scaling is NOT diminishing (5ep→0.356, 8ep→0.397, 12ep→0.519). Steepest gain–eff_rank slope between g=1 and g=2.</p>
+<div class="block-hero">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_027.png" class="lightbox" data-gallery="b27"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_027.png" class="img-fluid"></a></p>
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_027.png" class="lightbox" data-gallery="b27"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_027.png" class="img-fluid"></a></p>
+</div>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-27-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-27-1" role="tab" aria-controls="tabset-27-1" aria-selected="true">UCB Tree</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-27-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-27-2" role="tab" aria-controls="tabset-27-2" aria-selected="false">Connectivity Scatter</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-27-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-27-3" role="tab" aria-controls="tabset-27-3" aria-selected="false">Kinograph</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-27-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-27-4" role="tab" aria-controls="tabset-27-4" aria-selected="false">MLP Functions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-27-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-27-5" role="tab" aria-controls="tabset-27-5" aria-selected="false">Embedding</a></li></ul>
+<div class="tab-content">
+<div id="tabset-27-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-27-1-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_336.png" class="lightbox" data-gallery="quarto-lightbox-gallery-378"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_336.png" class="img-fluid"></a></p>
+</div>
+<div id="tabset-27-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-27-2-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_325.png" class="lightbox" data-gallery="b27s" title="Iter 325"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_325.png" class="img-fluid figure-img" alt="Iter 325"></a></p>
+<figcaption>Iter 325</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_329.png" class="lightbox" data-gallery="b27s" title="Iter 329"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_329.png" class="img-fluid figure-img" alt="Iter 329"></a></p>
+<figcaption>Iter 329</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_333.png" class="lightbox" data-gallery="b27s" title="Iter 333"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_333.png" class="img-fluid figure-img" alt="Iter 333"></a></p>
+<figcaption>Iter 333</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_336.png" class="lightbox" data-gallery="b27s" title="Iter 336"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_336.png" class="img-fluid figure-img" alt="Iter 336"></a></p>
+<figcaption>Iter 336</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-27-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-27-3-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_325.png" class="lightbox" data-gallery="b27k" title="Iter 325"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_325.png" class="img-fluid figure-img" alt="Iter 325"></a></p>
+<figcaption>Iter 325</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_329.png" class="lightbox" data-gallery="b27k" title="Iter 329"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_329.png" class="img-fluid figure-img" alt="Iter 329"></a></p>
+<figcaption>Iter 329</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_333.png" class="lightbox" data-gallery="b27k" title="Iter 333"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_333.png" class="img-fluid figure-img" alt="Iter 333"></a></p>
+<figcaption>Iter 333</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_336.png" class="lightbox" data-gallery="b27k" title="Iter 336"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_336.png" class="img-fluid figure-img" alt="Iter 336"></a></p>
+<figcaption>Iter 336</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-27-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-27-4-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_325_MLP.png" class="lightbox" data-gallery="b27m" title="Iter 325"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_325_MLP.png" class="img-fluid figure-img" alt="Iter 325"></a></p>
+<figcaption>Iter 325</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_331_MLP.png" class="lightbox" data-gallery="b27m" title="Iter 331"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_331_MLP.png" class="img-fluid figure-img" alt="Iter 331"></a></p>
+<figcaption>Iter 331</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_336_MLP.png" class="lightbox" data-gallery="b27m" title="Iter 336"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_336_MLP.png" class="img-fluid figure-img" alt="Iter 336"></a></p>
+<figcaption>Iter 336</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-27-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-27-5-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_027.png" class="lightbox" data-gallery="b27e"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_027.png" class="img-fluid"></a></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="block-28-g2-at-30k-partially-rescued-iters-337348" class="level2">
+<h2 class="anchored" data-anchor-id="block-28-g2-at-30k-partially-rescued-iters-337348">Block 28 — g=2 at 30k: Partially Rescued (iters 337–348)</h2>
+<p>g=2 at 30k: 42% convergence (5/12), best conn=0.997. eff_rank FLAT at 16 (unchanged from 17 at 10k) — unique: 30k does NOT increase dimensionality at g=2. Inverse lr_W persists (5E-4–7E-4 optimal; lr_W≥2E-3 catastrophic). 30k helps via variance reduction, not more dynamic modes.</p>
+<div class="block-hero">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_028.png" class="lightbox" data-gallery="b28"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_028.png" class="img-fluid"></a></p>
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_028.png" class="lightbox" data-gallery="b28"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_028.png" class="img-fluid"></a></p>
+</div>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-28-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-28-1" role="tab" aria-controls="tabset-28-1" aria-selected="true">UCB Tree</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-28-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-28-2" role="tab" aria-controls="tabset-28-2" aria-selected="false">Connectivity Scatter</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-28-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-28-3" role="tab" aria-controls="tabset-28-3" aria-selected="false">Kinograph</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-28-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-28-4" role="tab" aria-controls="tabset-28-4" aria-selected="false">MLP Functions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-28-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-28-5" role="tab" aria-controls="tabset-28-5" aria-selected="false">Embedding</a></li></ul>
+<div class="tab-content">
+<div id="tabset-28-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-28-1-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png" class="lightbox" data-gallery="quarto-lightbox-gallery-393"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png" class="img-fluid"></a></p>
+</div>
+<div id="tabset-28-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-28-2-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_337.png" class="lightbox" data-gallery="b28s" title="Iter 337"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_337.png" class="img-fluid figure-img" alt="Iter 337"></a></p>
+<figcaption>Iter 337</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_341.png" class="lightbox" data-gallery="b28s" title="Iter 341"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_341.png" class="img-fluid figure-img" alt="Iter 341"></a></p>
+<figcaption>Iter 341</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_345.png" class="lightbox" data-gallery="b28s" title="Iter 345"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_345.png" class="img-fluid figure-img" alt="Iter 345"></a></p>
+<figcaption>Iter 345</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_348.png" class="lightbox" data-gallery="b28s" title="Iter 348"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_348.png" class="img-fluid figure-img" alt="Iter 348"></a></p>
+<figcaption>Iter 348</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-28-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-28-3-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_337.png" class="lightbox" data-gallery="b28k" title="Iter 337"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_337.png" class="img-fluid figure-img" alt="Iter 337"></a></p>
+<figcaption>Iter 337</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_341.png" class="lightbox" data-gallery="b28k" title="Iter 341"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_341.png" class="img-fluid figure-img" alt="Iter 341"></a></p>
+<figcaption>Iter 341</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_345.png" class="lightbox" data-gallery="b28k" title="Iter 345"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_345.png" class="img-fluid figure-img" alt="Iter 345"></a></p>
+<figcaption>Iter 345</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_348.png" class="lightbox" data-gallery="b28k" title="Iter 348"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_348.png" class="img-fluid figure-img" alt="Iter 348"></a></p>
+<figcaption>Iter 348</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-28-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-28-4-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_337_MLP.png" class="lightbox" data-gallery="b28m" title="Iter 337"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_337_MLP.png" class="img-fluid figure-img" alt="Iter 337"></a></p>
+<figcaption>Iter 337</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_343_MLP.png" class="lightbox" data-gallery="b28m" title="Iter 343"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_343_MLP.png" class="img-fluid figure-img" alt="Iter 343"></a></p>
+<figcaption>Iter 343</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_348_MLP.png" class="lightbox" data-gallery="b28m" title="Iter 348"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_348_MLP.png" class="img-fluid figure-img" alt="Iter 348"></a></p>
+<figcaption>Iter 348</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-28-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-28-5-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_028.png" class="lightbox" data-gallery="b28e"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_028.png" class="img-fluid"></a></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="block-29-g2n200-at-30k-n-compensates-gain-iters-349360" class="level2">
+<h2 class="anchored" data-anchor-id="block-29-g2n200-at-30k-n-compensates-gain-iters-349360">Block 29 — g=2/n=200 at 30k: n Compensates Gain (iters 349–360)</h2>
+<p>g=2/n=200/30k: eff_rank jumps to 35–38 (matching g=7/n=100). 92% convergence (11/12), best conn=0.979. Inverse lr_W persists (lr_W=3E-4 optimal) but ceiling is higher. Epoch scaling diminishes at 12ep. n_neurons compensates for gain reduction.</p>
+<div class="block-hero">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_029.png" class="lightbox" data-gallery="b29"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_029.png" class="img-fluid"></a></p>
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_029.png" class="lightbox" data-gallery="b29"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_029.png" class="img-fluid"></a></p>
+</div>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-29-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-29-1" role="tab" aria-controls="tabset-29-1" aria-selected="true">UCB Tree</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-29-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-29-2" role="tab" aria-controls="tabset-29-2" aria-selected="false">Connectivity Scatter</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-29-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-29-3" role="tab" aria-controls="tabset-29-3" aria-selected="false">Kinograph</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-29-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-29-4" role="tab" aria-controls="tabset-29-4" aria-selected="false">MLP Functions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-29-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-29-5" role="tab" aria-controls="tabset-29-5" aria-selected="false">Embedding</a></li></ul>
+<div class="tab-content">
+<div id="tabset-29-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-29-1-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png" class="lightbox" data-gallery="quarto-lightbox-gallery-408"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png" class="img-fluid"></a></p>
+</div>
+<div id="tabset-29-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-29-2-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png" class="lightbox" data-gallery="b29s" title="Iter 349"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png" class="img-fluid figure-img" alt="Iter 349"></a></p>
+<figcaption>Iter 349</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png" class="lightbox" data-gallery="b29s" title="Iter 353"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png" class="img-fluid figure-img" alt="Iter 353"></a></p>
+<figcaption>Iter 353</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png" class="lightbox" data-gallery="b29s" title="Iter 357"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png" class="img-fluid figure-img" alt="Iter 357"></a></p>
+<figcaption>Iter 357</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png" class="lightbox" data-gallery="b29s" title="Iter 360"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png" class="img-fluid figure-img" alt="Iter 360"></a></p>
+<figcaption>Iter 360</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-29-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-29-3-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png" class="lightbox" data-gallery="b29k" title="Iter 349"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png" class="img-fluid figure-img" alt="Iter 349"></a></p>
+<figcaption>Iter 349</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png" class="lightbox" data-gallery="b29k" title="Iter 353"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png" class="img-fluid figure-img" alt="Iter 353"></a></p>
+<figcaption>Iter 353</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png" class="lightbox" data-gallery="b29k" title="Iter 357"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png" class="img-fluid figure-img" alt="Iter 357"></a></p>
+<figcaption>Iter 357</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png" class="lightbox" data-gallery="b29k" title="Iter 360"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png" class="img-fluid figure-img" alt="Iter 360"></a></p>
+<figcaption>Iter 360</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-29-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-29-4-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png" class="lightbox" data-gallery="b29m" title="Iter 349"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png" class="img-fluid figure-img" alt="Iter 349"></a></p>
+<figcaption>Iter 349</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png" class="lightbox" data-gallery="b29m" title="Iter 355"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png" class="img-fluid figure-img" alt="Iter 355"></a></p>
+<figcaption>Iter 355</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png" class="lightbox" data-gallery="b29m" title="Iter 360"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png" class="img-fluid figure-img" alt="Iter 360"></a></p>
+<figcaption>Iter 360</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-29-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-29-5-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_029.png" class="lightbox" data-gallery="b29e"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_029.png" class="img-fluid"></a></p>
+</div>
+</div>
+</div>
+<hr>
+</section>
+<section id="block-30-n1000-at-100k-frames-solved-iters-349360" class="level2">
+<h2 class="anchored" data-anchor-id="block-30-n1000-at-100k-frames-solved-iters-349360">Block 30 — n=1000 at 100k Frames — SOLVED (iters 349–360)</h2>
+<p>The scale breakthrough: n=1000 at 100k frames achieves 100% convergence (12/12), conn=1.000, best test_R<sup>2</sup>=0.882. eff_rank ~350. lr_W=3E-3 optimal; batch=16 safe; 3 epochs sufficient. Confirms the n_frames scaling law at the largest scale tested. n=1000 joins the solved regimes.</p>
+<div class="block-hero">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_030.png" class="lightbox" data-gallery="b30"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_030.png" class="img-fluid"></a></p>
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_030.png" class="lightbox" data-gallery="b30"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_030.png" class="img-fluid"></a></p>
+</div>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-30-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-30-1" role="tab" aria-controls="tabset-30-1" aria-selected="true">UCB Tree</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-30-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-30-2" role="tab" aria-controls="tabset-30-2" aria-selected="false">Connectivity Scatter</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-30-3-tab" data-bs-toggle="tab" data-bs-target="#tabset-30-3" role="tab" aria-controls="tabset-30-3" aria-selected="false">Kinograph</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-30-4-tab" data-bs-toggle="tab" data-bs-target="#tabset-30-4" role="tab" aria-controls="tabset-30-4" aria-selected="false">MLP Functions</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-30-5-tab" data-bs-toggle="tab" data-bs-target="#tabset-30-5" role="tab" aria-controls="tabset-30-5" aria-selected="false">Embedding</a></li></ul>
+<div class="tab-content">
+<div id="tabset-30-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-30-1-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_360.png" class="lightbox" data-gallery="quarto-lightbox-gallery-423"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_360.png" class="img-fluid"></a></p>
+</div>
+<div id="tabset-30-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-30-2-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="4">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png" class="lightbox" data-gallery="b30s" title="Iter 349"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png" class="img-fluid figure-img" alt="Iter 349"></a></p>
+<figcaption>Iter 349</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png" class="lightbox" data-gallery="b30s" title="Iter 353"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png" class="img-fluid figure-img" alt="Iter 353"></a></p>
+<figcaption>Iter 353</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png" class="lightbox" data-gallery="b30s" title="Iter 357"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png" class="img-fluid figure-img" alt="Iter 357"></a></p>
+<figcaption>Iter 357</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 25.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png" class="lightbox" data-gallery="b30s" title="Iter 360"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png" class="img-fluid figure-img" alt="Iter 360"></a></p>
+<figcaption>Iter 360</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-30-3" class="tab-pane" role="tabpanel" aria-labelledby="tabset-30-3-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png" class="lightbox" data-gallery="b30k" title="Iter 349"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png" class="img-fluid figure-img" alt="Iter 349"></a></p>
+<figcaption>Iter 349</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png" class="lightbox" data-gallery="b30k" title="Iter 353"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png" class="img-fluid figure-img" alt="Iter 353"></a></p>
+<figcaption>Iter 353</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png" class="lightbox" data-gallery="b30k" title="Iter 357"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png" class="img-fluid figure-img" alt="Iter 357"></a></p>
+<figcaption>Iter 357</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png" class="lightbox" data-gallery="b30k" title="Iter 360"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png" class="img-fluid figure-img" alt="Iter 360"></a></p>
+<figcaption>Iter 360</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-30-4" class="tab-pane" role="tabpanel" aria-labelledby="tabset-30-4-tab">
+<div>
+
+</div>
+<div class="quarto-layout-panel" data-layout-ncol="3">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png" class="lightbox" data-gallery="b30m" title="Iter 349"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png" class="img-fluid figure-img" alt="Iter 349"></a></p>
+<figcaption>Iter 349</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png" class="lightbox" data-gallery="b30m" title="Iter 355"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png" class="img-fluid figure-img" alt="Iter 355"></a></p>
+<figcaption>Iter 355</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 33.3%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png" class="lightbox" data-gallery="b30m" title="Iter 360"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png" class="img-fluid figure-img" alt="Iter 360"></a></p>
+<figcaption>Iter 360</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div id="tabset-30-5" class="tab-pane" role="tabpanel" aria-labelledby="tabset-30-5-tab">
+<p><a href="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_030.png" class="lightbox" data-gallery="b30e"><img src="log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_030.png" class="img-fluid"></a></p>
+</div>
+</div>
+</div>
 
 
 <!-- -->
@@ -4051,7 +5017,7 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>::: {.callout-tip}</span>
 <span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="fu">## Current status</span></span>
 <span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>**Block 23 completed** (fill=80%, 30k frames). 276 iterations completed across 23 regimes. n_frames=30k rescues dense and low-gain networks (n=300, n=600, g=3/n=200) but NOT sparse connectivity (subcritical rho) or partial connectivity (fill=80%, conn locked at filling_factor). Two structural limits confirmed. n=1000 mapped at 30k (conn=0.745, needs ~100k). 65 principles established.</span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>**Block 30 completed** (n=1000, 100k frames). 360 iterations completed across 30 regimes. n_frames rescues dense and low-gain networks (n=300, n=600, g=3/n=200 at 30k; n=1000 at 100k --- 100% convergence, conn=1.000). Three structural limits confirmed: subcritical rho (sparse), conn_ceiling at filling_factor (fill&lt;100%), and g=1 fixed-point collapse. ~99 principles established.</span>
 <span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>:::</span>
 <span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>---</span>
@@ -5487,7 +6453,462 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
 <span id="cb1-1467"><a href="#cb1-1467" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-1468"><a href="#cb1-1468" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_023.png)</span>{.lightbox group="b23e"}</span>
 <span id="cb1-1469"><a href="#cb1-1469" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-1470"><a href="#cb1-1470" aria-hidden="true" tabindex="-1"></a>:::</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<span id="cb1-1470"><a href="#cb1-1470" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1471"><a href="#cb1-1471" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1472"><a href="#cb1-1472" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-1473"><a href="#cb1-1473" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1474"><a href="#cb1-1474" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block 24 --- fill=90% Transitional (n=100, 10k, iters 289--300)</span></span>
+<span id="cb1-1475"><a href="#cb1-1475" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1476"><a href="#cb1-1476" aria-hidden="true" tabindex="-1"></a>fill=90% extends the conn_ceiling ≈ filling_factor relationship to a 4th data point. rho=0.995 (near-critical), eff_rank=35--36. conn plateau at 0.907 ≈ fill%. 83% convergence (10/12) --- transitional regime above R^2^&gt;0.9 boundary. Complete parameter insensitivity.</span>
+<span id="cb1-1477"><a href="#cb1-1477" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1478"><a href="#cb1-1478" aria-hidden="true" tabindex="-1"></a>::: {.block-hero}</span>
+<span id="cb1-1479"><a href="#cb1-1479" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1480"><a href="#cb1-1480" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_024.png)</span>{.lightbox group="b24"}</span>
+<span id="cb1-1481"><a href="#cb1-1481" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1482"><a href="#cb1-1482" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_024.png)</span>{.lightbox group="b24"}</span>
+<span id="cb1-1483"><a href="#cb1-1483" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1484"><a href="#cb1-1484" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1485"><a href="#cb1-1485" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1486"><a href="#cb1-1486" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb1-1487"><a href="#cb1-1487" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1488"><a href="#cb1-1488" aria-hidden="true" tabindex="-1"></a><span class="fu">#### UCB Tree</span></span>
+<span id="cb1-1489"><a href="#cb1-1489" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_300.png)</span>{.lightbox}</span>
+<span id="cb1-1490"><a href="#cb1-1490" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1491"><a href="#cb1-1491" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Connectivity Scatter</span></span>
+<span id="cb1-1492"><a href="#cb1-1492" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1493"><a href="#cb1-1493" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb1-1494"><a href="#cb1-1494" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1495"><a href="#cb1-1495" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 289](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_289.png)</span>{.lightbox group="b24s"}</span>
+<span id="cb1-1496"><a href="#cb1-1496" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1497"><a href="#cb1-1497" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 293](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_293.png)</span>{.lightbox group="b24s"}</span>
+<span id="cb1-1498"><a href="#cb1-1498" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1499"><a href="#cb1-1499" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 297](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_297.png)</span>{.lightbox group="b24s"}</span>
+<span id="cb1-1500"><a href="#cb1-1500" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1501"><a href="#cb1-1501" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 300](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_300.png)</span>{.lightbox group="b24s"}</span>
+<span id="cb1-1502"><a href="#cb1-1502" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1503"><a href="#cb1-1503" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1504"><a href="#cb1-1504" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1505"><a href="#cb1-1505" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Kinograph</span></span>
+<span id="cb1-1506"><a href="#cb1-1506" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1507"><a href="#cb1-1507" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb1-1508"><a href="#cb1-1508" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1509"><a href="#cb1-1509" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 289](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_289.png)</span>{.lightbox group="b24k"}</span>
+<span id="cb1-1510"><a href="#cb1-1510" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1511"><a href="#cb1-1511" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 293](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_293.png)</span>{.lightbox group="b24k"}</span>
+<span id="cb1-1512"><a href="#cb1-1512" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1513"><a href="#cb1-1513" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 297](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_297.png)</span>{.lightbox group="b24k"}</span>
+<span id="cb1-1514"><a href="#cb1-1514" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1515"><a href="#cb1-1515" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 300](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_300.png)</span>{.lightbox group="b24k"}</span>
+<span id="cb1-1516"><a href="#cb1-1516" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1517"><a href="#cb1-1517" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1518"><a href="#cb1-1518" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1519"><a href="#cb1-1519" aria-hidden="true" tabindex="-1"></a><span class="fu">#### MLP Functions</span></span>
+<span id="cb1-1520"><a href="#cb1-1520" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1521"><a href="#cb1-1521" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb1-1522"><a href="#cb1-1522" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1523"><a href="#cb1-1523" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 289](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_289_MLP.png)</span>{.lightbox group="b24m"}</span>
+<span id="cb1-1524"><a href="#cb1-1524" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1525"><a href="#cb1-1525" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 295](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_295_MLP.png)</span>{.lightbox group="b24m"}</span>
+<span id="cb1-1526"><a href="#cb1-1526" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1527"><a href="#cb1-1527" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 300](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_300_MLP.png)</span>{.lightbox group="b24m"}</span>
+<span id="cb1-1528"><a href="#cb1-1528" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1529"><a href="#cb1-1529" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1530"><a href="#cb1-1530" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1531"><a href="#cb1-1531" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Embedding</span></span>
+<span id="cb1-1532"><a href="#cb1-1532" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1533"><a href="#cb1-1533" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_024.png)</span>{.lightbox group="b24e"}</span>
+<span id="cb1-1534"><a href="#cb1-1534" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1535"><a href="#cb1-1535" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1536"><a href="#cb1-1536" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1537"><a href="#cb1-1537" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-1538"><a href="#cb1-1538" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1539"><a href="#cb1-1539" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block 25 --- g=1 Fixed-Point Collapse (n=100, 10k, iters 301--312)</span></span>
+<span id="cb1-1540"><a href="#cb1-1540" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1541"><a href="#cb1-1541" aria-hidden="true" tabindex="-1"></a>Gain reduced to 1. eff_rank=5 (catastrophically low) --- fixed-point collapse. Flat-line dynamics. 0% convergence, max conn=0.007, 12/12 degenerate. Complete parameter insensitivity. Below the critical eff_rank threshold (~10). Hardest regime encountered.</span>
+<span id="cb1-1542"><a href="#cb1-1542" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1543"><a href="#cb1-1543" aria-hidden="true" tabindex="-1"></a>::: {.block-hero}</span>
+<span id="cb1-1544"><a href="#cb1-1544" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1545"><a href="#cb1-1545" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_025.png)</span>{.lightbox group="b25"}</span>
+<span id="cb1-1546"><a href="#cb1-1546" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1547"><a href="#cb1-1547" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_025.png)</span>{.lightbox group="b25"}</span>
+<span id="cb1-1548"><a href="#cb1-1548" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1549"><a href="#cb1-1549" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1550"><a href="#cb1-1550" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1551"><a href="#cb1-1551" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb1-1552"><a href="#cb1-1552" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1553"><a href="#cb1-1553" aria-hidden="true" tabindex="-1"></a><span class="fu">#### UCB Tree</span></span>
+<span id="cb1-1554"><a href="#cb1-1554" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_312.png)</span>{.lightbox}</span>
+<span id="cb1-1555"><a href="#cb1-1555" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1556"><a href="#cb1-1556" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Connectivity Scatter</span></span>
+<span id="cb1-1557"><a href="#cb1-1557" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1558"><a href="#cb1-1558" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb1-1559"><a href="#cb1-1559" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1560"><a href="#cb1-1560" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 301](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_301.png)</span>{.lightbox group="b25s"}</span>
+<span id="cb1-1561"><a href="#cb1-1561" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1562"><a href="#cb1-1562" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 305](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_305.png)</span>{.lightbox group="b25s"}</span>
+<span id="cb1-1563"><a href="#cb1-1563" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1564"><a href="#cb1-1564" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 309](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_309.png)</span>{.lightbox group="b25s"}</span>
+<span id="cb1-1565"><a href="#cb1-1565" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1566"><a href="#cb1-1566" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 312](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_312.png)</span>{.lightbox group="b25s"}</span>
+<span id="cb1-1567"><a href="#cb1-1567" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1568"><a href="#cb1-1568" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1569"><a href="#cb1-1569" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1570"><a href="#cb1-1570" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Kinograph</span></span>
+<span id="cb1-1571"><a href="#cb1-1571" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1572"><a href="#cb1-1572" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb1-1573"><a href="#cb1-1573" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1574"><a href="#cb1-1574" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 301](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_301.png)</span>{.lightbox group="b25k"}</span>
+<span id="cb1-1575"><a href="#cb1-1575" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1576"><a href="#cb1-1576" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 305](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_305.png)</span>{.lightbox group="b25k"}</span>
+<span id="cb1-1577"><a href="#cb1-1577" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1578"><a href="#cb1-1578" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 309](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_309.png)</span>{.lightbox group="b25k"}</span>
+<span id="cb1-1579"><a href="#cb1-1579" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1580"><a href="#cb1-1580" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 312](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_312.png)</span>{.lightbox group="b25k"}</span>
+<span id="cb1-1581"><a href="#cb1-1581" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1582"><a href="#cb1-1582" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1583"><a href="#cb1-1583" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1584"><a href="#cb1-1584" aria-hidden="true" tabindex="-1"></a><span class="fu">#### MLP Functions</span></span>
+<span id="cb1-1585"><a href="#cb1-1585" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1586"><a href="#cb1-1586" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb1-1587"><a href="#cb1-1587" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1588"><a href="#cb1-1588" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 301](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_301_MLP.png)</span>{.lightbox group="b25m"}</span>
+<span id="cb1-1589"><a href="#cb1-1589" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1590"><a href="#cb1-1590" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 307](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_307_MLP.png)</span>{.lightbox group="b25m"}</span>
+<span id="cb1-1591"><a href="#cb1-1591" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1592"><a href="#cb1-1592" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 312](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_312_MLP.png)</span>{.lightbox group="b25m"}</span>
+<span id="cb1-1593"><a href="#cb1-1593" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1594"><a href="#cb1-1594" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1595"><a href="#cb1-1595" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1596"><a href="#cb1-1596" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Embedding</span></span>
+<span id="cb1-1597"><a href="#cb1-1597" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1598"><a href="#cb1-1598" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_025.png)</span>{.lightbox group="b25e"}</span>
+<span id="cb1-1599"><a href="#cb1-1599" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1600"><a href="#cb1-1600" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1601"><a href="#cb1-1601" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1602"><a href="#cb1-1602" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-1603"><a href="#cb1-1603" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1604"><a href="#cb1-1604" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block 26 --- g=1 at 30k: Confirmed Unsolvable (iters 313--324)</span></span>
+<span id="cb1-1605"><a href="#cb1-1605" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1606"><a href="#cb1-1606" aria-hidden="true" tabindex="-1"></a>g=1 at 30k frames: eff_rank DROPS from 5 to 1 --- the only regime where n_frames is negatively correlated with eff_rank. 0% convergence, max conn=0.018. More frames → tighter fixed-point basin → lower dimensionality. g=1 is the third structural limit alongside sparse (rho&lt;1) and fill&lt;100%.</span>
+<span id="cb1-1607"><a href="#cb1-1607" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1608"><a href="#cb1-1608" aria-hidden="true" tabindex="-1"></a>::: {.block-hero}</span>
+<span id="cb1-1609"><a href="#cb1-1609" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1610"><a href="#cb1-1610" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_026.png)</span>{.lightbox group="b26"}</span>
+<span id="cb1-1611"><a href="#cb1-1611" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1612"><a href="#cb1-1612" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_026.png)</span>{.lightbox group="b26"}</span>
+<span id="cb1-1613"><a href="#cb1-1613" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1614"><a href="#cb1-1614" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1615"><a href="#cb1-1615" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1616"><a href="#cb1-1616" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb1-1617"><a href="#cb1-1617" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1618"><a href="#cb1-1618" aria-hidden="true" tabindex="-1"></a><span class="fu">#### UCB Tree</span></span>
+<span id="cb1-1619"><a href="#cb1-1619" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_324.png)</span>{.lightbox}</span>
+<span id="cb1-1620"><a href="#cb1-1620" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1621"><a href="#cb1-1621" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Connectivity Scatter</span></span>
+<span id="cb1-1622"><a href="#cb1-1622" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1623"><a href="#cb1-1623" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb1-1624"><a href="#cb1-1624" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1625"><a href="#cb1-1625" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 313](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_313.png)</span>{.lightbox group="b26s"}</span>
+<span id="cb1-1626"><a href="#cb1-1626" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1627"><a href="#cb1-1627" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 317](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_317.png)</span>{.lightbox group="b26s"}</span>
+<span id="cb1-1628"><a href="#cb1-1628" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1629"><a href="#cb1-1629" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 321](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_321.png)</span>{.lightbox group="b26s"}</span>
+<span id="cb1-1630"><a href="#cb1-1630" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1631"><a href="#cb1-1631" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 324](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_324.png)</span>{.lightbox group="b26s"}</span>
+<span id="cb1-1632"><a href="#cb1-1632" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1633"><a href="#cb1-1633" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1634"><a href="#cb1-1634" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1635"><a href="#cb1-1635" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Kinograph</span></span>
+<span id="cb1-1636"><a href="#cb1-1636" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1637"><a href="#cb1-1637" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb1-1638"><a href="#cb1-1638" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1639"><a href="#cb1-1639" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 313](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_313.png)</span>{.lightbox group="b26k"}</span>
+<span id="cb1-1640"><a href="#cb1-1640" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1641"><a href="#cb1-1641" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 317](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_317.png)</span>{.lightbox group="b26k"}</span>
+<span id="cb1-1642"><a href="#cb1-1642" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1643"><a href="#cb1-1643" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 321](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_321.png)</span>{.lightbox group="b26k"}</span>
+<span id="cb1-1644"><a href="#cb1-1644" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1645"><a href="#cb1-1645" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 324](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_324.png)</span>{.lightbox group="b26k"}</span>
+<span id="cb1-1646"><a href="#cb1-1646" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1647"><a href="#cb1-1647" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1648"><a href="#cb1-1648" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1649"><a href="#cb1-1649" aria-hidden="true" tabindex="-1"></a><span class="fu">#### MLP Functions</span></span>
+<span id="cb1-1650"><a href="#cb1-1650" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1651"><a href="#cb1-1651" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb1-1652"><a href="#cb1-1652" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1653"><a href="#cb1-1653" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 313](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_313_MLP.png)</span>{.lightbox group="b26m"}</span>
+<span id="cb1-1654"><a href="#cb1-1654" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1655"><a href="#cb1-1655" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 319](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_319_MLP.png)</span>{.lightbox group="b26m"}</span>
+<span id="cb1-1656"><a href="#cb1-1656" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1657"><a href="#cb1-1657" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 324](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_324_MLP.png)</span>{.lightbox group="b26m"}</span>
+<span id="cb1-1658"><a href="#cb1-1658" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1659"><a href="#cb1-1659" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1660"><a href="#cb1-1660" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1661"><a href="#cb1-1661" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Embedding</span></span>
+<span id="cb1-1662"><a href="#cb1-1662" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1663"><a href="#cb1-1663" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_026.png)</span>{.lightbox group="b26e"}</span>
+<span id="cb1-1664"><a href="#cb1-1664" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1665"><a href="#cb1-1665" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1666"><a href="#cb1-1666" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1667"><a href="#cb1-1667" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-1668"><a href="#cb1-1668" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1669"><a href="#cb1-1669" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block 27 --- g=2 Inverse lr_W (n=100, 10k, iters 325--336)</span></span>
+<span id="cb1-1670"><a href="#cb1-1670" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1671"><a href="#cb1-1671" aria-hidden="true" tabindex="-1"></a>g=2 has eff_rank=17 (above threshold ~10), supercritical rho=1.065. Requires inverse lr_W (~5E-4, 100x lower than g=7). 0% convergence at 10k, max conn=0.519. Epoch scaling is NOT diminishing (5ep→0.356, 8ep→0.397, 12ep→0.519). Steepest gain--eff_rank slope between g=1 and g=2.</span>
+<span id="cb1-1672"><a href="#cb1-1672" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1673"><a href="#cb1-1673" aria-hidden="true" tabindex="-1"></a>::: {.block-hero}</span>
+<span id="cb1-1674"><a href="#cb1-1674" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1675"><a href="#cb1-1675" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_027.png)</span>{.lightbox group="b27"}</span>
+<span id="cb1-1676"><a href="#cb1-1676" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1677"><a href="#cb1-1677" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_027.png)</span>{.lightbox group="b27"}</span>
+<span id="cb1-1678"><a href="#cb1-1678" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1679"><a href="#cb1-1679" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1680"><a href="#cb1-1680" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1681"><a href="#cb1-1681" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb1-1682"><a href="#cb1-1682" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1683"><a href="#cb1-1683" aria-hidden="true" tabindex="-1"></a><span class="fu">#### UCB Tree</span></span>
+<span id="cb1-1684"><a href="#cb1-1684" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_336.png)</span>{.lightbox}</span>
+<span id="cb1-1685"><a href="#cb1-1685" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1686"><a href="#cb1-1686" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Connectivity Scatter</span></span>
+<span id="cb1-1687"><a href="#cb1-1687" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1688"><a href="#cb1-1688" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb1-1689"><a href="#cb1-1689" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1690"><a href="#cb1-1690" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 325](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_325.png)</span>{.lightbox group="b27s"}</span>
+<span id="cb1-1691"><a href="#cb1-1691" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1692"><a href="#cb1-1692" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 329](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_329.png)</span>{.lightbox group="b27s"}</span>
+<span id="cb1-1693"><a href="#cb1-1693" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1694"><a href="#cb1-1694" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 333](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_333.png)</span>{.lightbox group="b27s"}</span>
+<span id="cb1-1695"><a href="#cb1-1695" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1696"><a href="#cb1-1696" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 336](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_336.png)</span>{.lightbox group="b27s"}</span>
+<span id="cb1-1697"><a href="#cb1-1697" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1698"><a href="#cb1-1698" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1699"><a href="#cb1-1699" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1700"><a href="#cb1-1700" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Kinograph</span></span>
+<span id="cb1-1701"><a href="#cb1-1701" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1702"><a href="#cb1-1702" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb1-1703"><a href="#cb1-1703" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1704"><a href="#cb1-1704" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 325](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_325.png)</span>{.lightbox group="b27k"}</span>
+<span id="cb1-1705"><a href="#cb1-1705" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1706"><a href="#cb1-1706" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 329](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_329.png)</span>{.lightbox group="b27k"}</span>
+<span id="cb1-1707"><a href="#cb1-1707" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1708"><a href="#cb1-1708" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 333](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_333.png)</span>{.lightbox group="b27k"}</span>
+<span id="cb1-1709"><a href="#cb1-1709" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1710"><a href="#cb1-1710" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 336](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_336.png)</span>{.lightbox group="b27k"}</span>
+<span id="cb1-1711"><a href="#cb1-1711" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1712"><a href="#cb1-1712" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1713"><a href="#cb1-1713" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1714"><a href="#cb1-1714" aria-hidden="true" tabindex="-1"></a><span class="fu">#### MLP Functions</span></span>
+<span id="cb1-1715"><a href="#cb1-1715" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1716"><a href="#cb1-1716" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb1-1717"><a href="#cb1-1717" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1718"><a href="#cb1-1718" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 325](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_325_MLP.png)</span>{.lightbox group="b27m"}</span>
+<span id="cb1-1719"><a href="#cb1-1719" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1720"><a href="#cb1-1720" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 331](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_331_MLP.png)</span>{.lightbox group="b27m"}</span>
+<span id="cb1-1721"><a href="#cb1-1721" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1722"><a href="#cb1-1722" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 336](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_336_MLP.png)</span>{.lightbox group="b27m"}</span>
+<span id="cb1-1723"><a href="#cb1-1723" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1724"><a href="#cb1-1724" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1725"><a href="#cb1-1725" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1726"><a href="#cb1-1726" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Embedding</span></span>
+<span id="cb1-1727"><a href="#cb1-1727" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1728"><a href="#cb1-1728" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_027.png)</span>{.lightbox group="b27e"}</span>
+<span id="cb1-1729"><a href="#cb1-1729" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1730"><a href="#cb1-1730" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1731"><a href="#cb1-1731" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1732"><a href="#cb1-1732" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-1733"><a href="#cb1-1733" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1734"><a href="#cb1-1734" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block 28 --- g=2 at 30k: Partially Rescued (iters 337--348)</span></span>
+<span id="cb1-1735"><a href="#cb1-1735" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1736"><a href="#cb1-1736" aria-hidden="true" tabindex="-1"></a>g=2 at 30k: 42% convergence (5/12), best conn=0.997. eff_rank FLAT at 16 (unchanged from 17 at 10k) --- unique: 30k does NOT increase dimensionality at g=2. Inverse lr_W persists (5E-4--7E-4 optimal; lr_W≥2E-3 catastrophic). 30k helps via variance reduction, not more dynamic modes.</span>
+<span id="cb1-1737"><a href="#cb1-1737" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1738"><a href="#cb1-1738" aria-hidden="true" tabindex="-1"></a>::: {.block-hero}</span>
+<span id="cb1-1739"><a href="#cb1-1739" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1740"><a href="#cb1-1740" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_028.png)</span>{.lightbox group="b28"}</span>
+<span id="cb1-1741"><a href="#cb1-1741" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1742"><a href="#cb1-1742" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_028.png)</span>{.lightbox group="b28"}</span>
+<span id="cb1-1743"><a href="#cb1-1743" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1744"><a href="#cb1-1744" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1745"><a href="#cb1-1745" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1746"><a href="#cb1-1746" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb1-1747"><a href="#cb1-1747" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1748"><a href="#cb1-1748" aria-hidden="true" tabindex="-1"></a><span class="fu">#### UCB Tree</span></span>
+<span id="cb1-1749"><a href="#cb1-1749" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png)</span>{.lightbox}</span>
+<span id="cb1-1750"><a href="#cb1-1750" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1751"><a href="#cb1-1751" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Connectivity Scatter</span></span>
+<span id="cb1-1752"><a href="#cb1-1752" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1753"><a href="#cb1-1753" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb1-1754"><a href="#cb1-1754" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1755"><a href="#cb1-1755" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 337](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_337.png)</span>{.lightbox group="b28s"}</span>
+<span id="cb1-1756"><a href="#cb1-1756" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1757"><a href="#cb1-1757" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 341](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_341.png)</span>{.lightbox group="b28s"}</span>
+<span id="cb1-1758"><a href="#cb1-1758" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1759"><a href="#cb1-1759" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 345](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_345.png)</span>{.lightbox group="b28s"}</span>
+<span id="cb1-1760"><a href="#cb1-1760" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1761"><a href="#cb1-1761" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 348](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_348.png)</span>{.lightbox group="b28s"}</span>
+<span id="cb1-1762"><a href="#cb1-1762" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1763"><a href="#cb1-1763" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1764"><a href="#cb1-1764" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1765"><a href="#cb1-1765" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Kinograph</span></span>
+<span id="cb1-1766"><a href="#cb1-1766" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1767"><a href="#cb1-1767" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb1-1768"><a href="#cb1-1768" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1769"><a href="#cb1-1769" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 337](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_337.png)</span>{.lightbox group="b28k"}</span>
+<span id="cb1-1770"><a href="#cb1-1770" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1771"><a href="#cb1-1771" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 341](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_341.png)</span>{.lightbox group="b28k"}</span>
+<span id="cb1-1772"><a href="#cb1-1772" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1773"><a href="#cb1-1773" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 345](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_345.png)</span>{.lightbox group="b28k"}</span>
+<span id="cb1-1774"><a href="#cb1-1774" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1775"><a href="#cb1-1775" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 348](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_348.png)</span>{.lightbox group="b28k"}</span>
+<span id="cb1-1776"><a href="#cb1-1776" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1777"><a href="#cb1-1777" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1778"><a href="#cb1-1778" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1779"><a href="#cb1-1779" aria-hidden="true" tabindex="-1"></a><span class="fu">#### MLP Functions</span></span>
+<span id="cb1-1780"><a href="#cb1-1780" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1781"><a href="#cb1-1781" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb1-1782"><a href="#cb1-1782" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1783"><a href="#cb1-1783" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 337](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_337_MLP.png)</span>{.lightbox group="b28m"}</span>
+<span id="cb1-1784"><a href="#cb1-1784" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1785"><a href="#cb1-1785" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 343](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_343_MLP.png)</span>{.lightbox group="b28m"}</span>
+<span id="cb1-1786"><a href="#cb1-1786" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1787"><a href="#cb1-1787" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 348](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_348_MLP.png)</span>{.lightbox group="b28m"}</span>
+<span id="cb1-1788"><a href="#cb1-1788" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1789"><a href="#cb1-1789" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1790"><a href="#cb1-1790" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1791"><a href="#cb1-1791" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Embedding</span></span>
+<span id="cb1-1792"><a href="#cb1-1792" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1793"><a href="#cb1-1793" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_028.png)</span>{.lightbox group="b28e"}</span>
+<span id="cb1-1794"><a href="#cb1-1794" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1795"><a href="#cb1-1795" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1796"><a href="#cb1-1796" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1797"><a href="#cb1-1797" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-1798"><a href="#cb1-1798" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1799"><a href="#cb1-1799" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block 29 --- g=2/n=200 at 30k: n Compensates Gain (iters 349--360)</span></span>
+<span id="cb1-1800"><a href="#cb1-1800" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1801"><a href="#cb1-1801" aria-hidden="true" tabindex="-1"></a>g=2/n=200/30k: eff_rank jumps to 35--38 (matching g=7/n=100). 92% convergence (11/12), best conn=0.979. Inverse lr_W persists (lr_W=3E-4 optimal) but ceiling is higher. Epoch scaling diminishes at 12ep. n_neurons compensates for gain reduction.</span>
+<span id="cb1-1802"><a href="#cb1-1802" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1803"><a href="#cb1-1803" aria-hidden="true" tabindex="-1"></a>::: {.block-hero}</span>
+<span id="cb1-1804"><a href="#cb1-1804" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1805"><a href="#cb1-1805" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_029.png)</span>{.lightbox group="b29"}</span>
+<span id="cb1-1806"><a href="#cb1-1806" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1807"><a href="#cb1-1807" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_029.png)</span>{.lightbox group="b29"}</span>
+<span id="cb1-1808"><a href="#cb1-1808" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1809"><a href="#cb1-1809" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1810"><a href="#cb1-1810" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1811"><a href="#cb1-1811" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb1-1812"><a href="#cb1-1812" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1813"><a href="#cb1-1813" aria-hidden="true" tabindex="-1"></a><span class="fu">#### UCB Tree</span></span>
+<span id="cb1-1814"><a href="#cb1-1814" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png)</span>{.lightbox}</span>
+<span id="cb1-1815"><a href="#cb1-1815" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1816"><a href="#cb1-1816" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Connectivity Scatter</span></span>
+<span id="cb1-1817"><a href="#cb1-1817" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1818"><a href="#cb1-1818" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb1-1819"><a href="#cb1-1819" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1820"><a href="#cb1-1820" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png)</span>{.lightbox group="b29s"}</span>
+<span id="cb1-1821"><a href="#cb1-1821" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1822"><a href="#cb1-1822" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png)</span>{.lightbox group="b29s"}</span>
+<span id="cb1-1823"><a href="#cb1-1823" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1824"><a href="#cb1-1824" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png)</span>{.lightbox group="b29s"}</span>
+<span id="cb1-1825"><a href="#cb1-1825" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1826"><a href="#cb1-1826" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png)</span>{.lightbox group="b29s"}</span>
+<span id="cb1-1827"><a href="#cb1-1827" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1828"><a href="#cb1-1828" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1829"><a href="#cb1-1829" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1830"><a href="#cb1-1830" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Kinograph</span></span>
+<span id="cb1-1831"><a href="#cb1-1831" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1832"><a href="#cb1-1832" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb1-1833"><a href="#cb1-1833" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1834"><a href="#cb1-1834" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png)</span>{.lightbox group="b29k"}</span>
+<span id="cb1-1835"><a href="#cb1-1835" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1836"><a href="#cb1-1836" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png)</span>{.lightbox group="b29k"}</span>
+<span id="cb1-1837"><a href="#cb1-1837" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1838"><a href="#cb1-1838" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png)</span>{.lightbox group="b29k"}</span>
+<span id="cb1-1839"><a href="#cb1-1839" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1840"><a href="#cb1-1840" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png)</span>{.lightbox group="b29k"}</span>
+<span id="cb1-1841"><a href="#cb1-1841" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1842"><a href="#cb1-1842" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1843"><a href="#cb1-1843" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1844"><a href="#cb1-1844" aria-hidden="true" tabindex="-1"></a><span class="fu">#### MLP Functions</span></span>
+<span id="cb1-1845"><a href="#cb1-1845" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1846"><a href="#cb1-1846" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb1-1847"><a href="#cb1-1847" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1848"><a href="#cb1-1848" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png)</span>{.lightbox group="b29m"}</span>
+<span id="cb1-1849"><a href="#cb1-1849" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1850"><a href="#cb1-1850" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 355](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png)</span>{.lightbox group="b29m"}</span>
+<span id="cb1-1851"><a href="#cb1-1851" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1852"><a href="#cb1-1852" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png)</span>{.lightbox group="b29m"}</span>
+<span id="cb1-1853"><a href="#cb1-1853" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1854"><a href="#cb1-1854" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1855"><a href="#cb1-1855" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1856"><a href="#cb1-1856" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Embedding</span></span>
+<span id="cb1-1857"><a href="#cb1-1857" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1858"><a href="#cb1-1858" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_029.png)</span>{.lightbox group="b29e"}</span>
+<span id="cb1-1859"><a href="#cb1-1859" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1860"><a href="#cb1-1860" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1861"><a href="#cb1-1861" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1862"><a href="#cb1-1862" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb1-1863"><a href="#cb1-1863" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1864"><a href="#cb1-1864" aria-hidden="true" tabindex="-1"></a><span class="fu">## Block 30 --- n=1000 at 100k Frames --- SOLVED (iters 349--360)</span></span>
+<span id="cb1-1865"><a href="#cb1-1865" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1866"><a href="#cb1-1866" aria-hidden="true" tabindex="-1"></a>The scale breakthrough: n=1000 at 100k frames achieves 100% convergence (12/12), conn=1.000, best test_R^2^=0.882. eff_rank ~350. lr_W=3E-3 optimal; batch=16 safe; 3 epochs sufficient. Confirms the n_frames scaling law at the largest scale tested. n=1000 joins the solved regimes.</span>
+<span id="cb1-1867"><a href="#cb1-1867" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1868"><a href="#cb1-1868" aria-hidden="true" tabindex="-1"></a>::: {.block-hero}</span>
+<span id="cb1-1869"><a href="#cb1-1869" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1870"><a href="#cb1-1870" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_matrix/block_030.png)</span>{.lightbox group="b30"}</span>
+<span id="cb1-1871"><a href="#cb1-1871" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1872"><a href="#cb1-1872" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/activity/block_030.png)</span>{.lightbox group="b30"}</span>
+<span id="cb1-1873"><a href="#cb1-1873" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1874"><a href="#cb1-1874" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1875"><a href="#cb1-1875" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1876"><a href="#cb1-1876" aria-hidden="true" tabindex="-1"></a>::: {.panel-tabset}</span>
+<span id="cb1-1877"><a href="#cb1-1877" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1878"><a href="#cb1-1878" aria-hidden="true" tabindex="-1"></a><span class="fu">#### UCB Tree</span></span>
+<span id="cb1-1879"><a href="#cb1-1879" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_360.png)</span>{.lightbox}</span>
+<span id="cb1-1880"><a href="#cb1-1880" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1881"><a href="#cb1-1881" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Connectivity Scatter</span></span>
+<span id="cb1-1882"><a href="#cb1-1882" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1883"><a href="#cb1-1883" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=4}</span>
+<span id="cb1-1884"><a href="#cb1-1884" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1885"><a href="#cb1-1885" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png)</span>{.lightbox group="b30s"}</span>
+<span id="cb1-1886"><a href="#cb1-1886" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1887"><a href="#cb1-1887" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png)</span>{.lightbox group="b30s"}</span>
+<span id="cb1-1888"><a href="#cb1-1888" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1889"><a href="#cb1-1889" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png)</span>{.lightbox group="b30s"}</span>
+<span id="cb1-1890"><a href="#cb1-1890" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1891"><a href="#cb1-1891" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png)</span>{.lightbox group="b30s"}</span>
+<span id="cb1-1892"><a href="#cb1-1892" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1893"><a href="#cb1-1893" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1894"><a href="#cb1-1894" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1895"><a href="#cb1-1895" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Kinograph</span></span>
+<span id="cb1-1896"><a href="#cb1-1896" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1897"><a href="#cb1-1897" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb1-1898"><a href="#cb1-1898" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1899"><a href="#cb1-1899" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png)</span>{.lightbox group="b30k"}</span>
+<span id="cb1-1900"><a href="#cb1-1900" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1901"><a href="#cb1-1901" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png)</span>{.lightbox group="b30k"}</span>
+<span id="cb1-1902"><a href="#cb1-1902" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1903"><a href="#cb1-1903" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png)</span>{.lightbox group="b30k"}</span>
+<span id="cb1-1904"><a href="#cb1-1904" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1905"><a href="#cb1-1905" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png)</span>{.lightbox group="b30k"}</span>
+<span id="cb1-1906"><a href="#cb1-1906" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1907"><a href="#cb1-1907" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1908"><a href="#cb1-1908" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1909"><a href="#cb1-1909" aria-hidden="true" tabindex="-1"></a><span class="fu">#### MLP Functions</span></span>
+<span id="cb1-1910"><a href="#cb1-1910" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1911"><a href="#cb1-1911" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=3}</span>
+<span id="cb1-1912"><a href="#cb1-1912" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1913"><a href="#cb1-1913" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png)</span>{.lightbox group="b30m"}</span>
+<span id="cb1-1914"><a href="#cb1-1914" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1915"><a href="#cb1-1915" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 355](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png)</span>{.lightbox group="b30m"}</span>
+<span id="cb1-1916"><a href="#cb1-1916" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1917"><a href="#cb1-1917" aria-hidden="true" tabindex="-1"></a><span class="al">![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png)</span>{.lightbox group="b30m"}</span>
+<span id="cb1-1918"><a href="#cb1-1918" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1919"><a href="#cb1-1919" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb1-1920"><a href="#cb1-1920" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1921"><a href="#cb1-1921" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Embedding</span></span>
+<span id="cb1-1922"><a href="#cb1-1922" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1923"><a href="#cb1-1923" aria-hidden="true" tabindex="-1"></a><span class="al">![](log/Claude_exploration/instruction_signal_landscape_parallel/embedding/block_030.png)</span>{.lightbox group="b30e"}</span>
+<span id="cb1-1924"><a href="#cb1-1924" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-1925"><a href="#cb1-1925" aria-hidden="true" tabindex="-1"></a>:::</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

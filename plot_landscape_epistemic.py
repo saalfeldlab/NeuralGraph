@@ -479,7 +479,7 @@ Mode counts:
     ax_caption.set_title('Claude summary', fontsize=16, loc='left')
     ax_caption.axis('off')
 
-    caption_text = ("Epistemic flow of LLM-guided scientific discovery across "
+    caption_text = ("Epistemic flow of LLM-guided scientific exploration across "
                    "10 exploration blocks. Deduction acts as the central hub---"
                    "nearly all reasoning modes converge through it. The dominant "
                    "Deduction->Falsification pathway demonstrates genuine hypothesis "

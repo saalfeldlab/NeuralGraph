@@ -323,8 +323,6 @@ def get_in_features(rr=None, embedding=None, model=[], model_name = [], max_radi
             in_features = torch.cat((0 * rr[:, None], rr[:, None] / max_radius), dim=1)
         case 'PDE_F':
             in_features = torch.cat((0 * rr[:, None], rr[:, None] / max_radius, rr[:, None] / max_radius, embedding, embedding), dim=-1)
-        case 'PDE_M':
-            in_features = torch.cat((rr[:, None] / max_radius, rr[:, None] / max_radius, embedding, embedding), dim=-1)
 
     return in_features
 
@@ -847,9 +845,6 @@ def choose_training_model(model_config=None, device=None):
         case 'PDE_R':
             model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos,
                                      dimension=dimension)
-        case 'PDE_MPM' | 'PDE_MPM_A':
-            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos,
-                                    dimension=dimension)
         case  'PDE_Cell' | 'PDE_Cell_area':
             model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device, bc_dpos=bc_dpos, dimension=dimension)
             model.edges = []
@@ -888,12 +883,6 @@ def choose_training_model(model_config=None, device=None):
         case 'PDE_MLPs' | 'PDE_MLPs_A' | 'PDE_MLPs_A_bis' | 'PDE_MLPs_A_ter' | 'PDE_MLPs_B'| 'PDE_MLPs_B_0' |'PDE_MLPs_B_1' | 'PDE_MLPs_B_4'| 'PDE_MLPs_B_10' |'PDE_MLPs_C' | 'PDE_MLPs_D' | 'PDE_MLPs_E' | 'PDE_MLPs_F':
             model = Signal_Propagation(aggr_type=aggr_type, config=model_config, device=device,
                                                 bc_dpos=bc_dpos, dimension=dimension)
-        case 'PDE_M' | 'PDE_M2':
-            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, bc_dpos=bc_dpos, dimension=dimension, device=device)
-        case 'PDE_MM' | 'PDE_MM_1layer' | 'PDE_MM_2layers' | 'PDE_MM_3layers':
-            model = Signal_Propagation(aggr_type=aggr_type, config=model_config, bc_dpos=bc_dpos, dimension=dimension, device=device)
-        case 'PDE_MS':
-            model = Signal_Propagation(aggr_type=aggr_type, config=model_config,bc_dpos=bc_dpos, dimension=dimension, device=device)
 
     model_name = model_config.graph_model.mesh_model_name
     match model_name:

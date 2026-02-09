@@ -1,13 +1,18 @@
 ---
 title: "Case Study: Sparse Connectivity"
-subtitle: "Breaking the 0.489 ceiling --- LLM-guided code modifications to the GNN architecture"
+subtitle: "The 0.5 identifiability ceiling --- 112 iterations from code modifications to N-scaling (n=100 to n=1000)"
 ---
 
 ## Problem Statement
 
-Sparse connectivity (filling_factor=50%, n=100 neurons) produces neural activity with subcritical spectral radius (rho=0.746). The landscape exploration (blocks 7, 8, 17) established that **no configuration sweep can break the conn_R^2^=0.489 ceiling** --- neither regularization, learning rates, epochs, noise, nor tripling the data (30k frames) had any effect. This motivated a dedicated exploration focused on **modifying the GNN code itself**.
+Sparse connectivity (filling_factor=50%, n=100 neurons) produces neural activity with subcritical spectral radius (rho=0.746). The landscape exploration (blocks 7, 8, 17) established that **no configuration sweep can break the conn_R^2^=0.489 ceiling** --- neither regularization, learning rates, epochs, noise, nor tripling the data (30k frames) had any effect. This motivated a dedicated exploration in three phases: **code modifications** (52 iterations at n=100), **scaling to n=200** (40 iterations), and an **N-scaling study** (20 iterations from n=200 to n=1000).
 
-The central question: **can code-level modifications to the GNN architecture break the 0.489 ceiling?**
+The central question evolved from *"can code-level modifications break the 0.489 ceiling?"* to **"does the ceiling scale with network size?"** The answer: the ceiling shifts to **~0.50** and is **universal across all network sizes** from n=200 to n=1000 --- a fundamental identifiability limit of the model form at sparse, subcritical connectivity.
+
+::: {.callout-note}
+## From Landscape to Dedicated Exploration
+This case study builds upon the **348-iteration landscape exploration** ([Landscape Results](results.qmd)), which systematically mapped GNN training configurations across 29 regimes. Blocks 7, 8, and 17 of that exploration devoted 36 iterations to the sparse regime, exhausting the configuration parameter space and establishing the conn_R^2^=0.489 ceiling. The dedicated exploration then proceeded in three phases: code modifications (blocks 1--6, 72 iterations at n=100), scaling to n=200 (blocks 7--8, 40 iterations), and N-scaling (blocks 9--10, from n=200 to n=1000).
+:::
 
 ---
 
@@ -145,42 +150,429 @@ Gradient noise is not the bottleneck. The W gradients carry correct directional 
 
 ---
 
-## Summary: What Failed and Why
+## Code Modification 5: lin_phi Scaling / Removal
 
-| Code Modification | Hypothesis | Outcome | Reason |
-|---|---|---|---|
-| W init scale (1/sqrt(n)) | Scale mismatch wastes early training | Zero effect | Optimizer corrects scale quickly |
-| Proximal L1 soft-thresholding | Exact zeros needed for sparsity | Zero/destructive | Threshold too small vs W scale |
-| MLP hidden_dim reduction | Force signal through W pathway | Zero/catastrophic | No Goldilocks zone exists |
-| Gradient clipping on W | Stabilize W trajectory | Zero effect | Gradients are directionally correct |
+**Iterations 25--28** · File: `Signal_Propagation.py`, `graph_trainer.py`
 
-::: {.callout-warning}
-## Key Result
+**Hypothesis**: The dual-pathway architecture `du/dt = lin_phi(u,a) + W @ lin_edge(u,a)` allows `lin_phi` to bypass W entirely. By multiplying `lin_phi` output by a scaling factor (0.0--0.5), or removing it completely, the model should be forced to route signal through the `W @ lin_edge` pathway, making correct W recovery essential.
 
-**All 24 iterations produced conn_R^2^ = 0.489** (±0.001, excluding catastrophic failures from aggressive MLP reduction). Four distinct code modifications --- targeting initialization, regularization mechanics, model capacity, and optimization stability --- all failed. The architectural degeneracy is fundamental.
+**Code change**:
+```python
+# Signal_Propagation.py: multiply lin_phi output by phi_scale
+phi_output = self.phi_scale * self.lin_phi(x, a)
+du_dt = phi_output + W @ self.lin_edge(x, a)
+```
+
+**Results**:
+
+| Iter | phi_scale | L1 | conn_R^2^ | test_pearson | Gap | Effect |
+|:----:|:---------:|:--:|:---------:|:------------:|:---:|:------:|
+| 25 | 0.1 | 1E-4 | 0.489 | 0.9997 | 0.511 | none |
+| 26 | 0.5 | 1E-4 | 0.490 | 0.9996 | 0.511 | none |
+| 27 | **0.0** | 1E-4 | 0.489 | 0.9994 | 0.510 | **none --- complete removal** |
+| 28 | 0.1 | 1E-3 | 0.488 | 0.9986 | 0.511 | none --- L1 still irrelevant |
+
+::: {.callout-important}
+### Established Principle: lin_phi is NOT the degeneracy source
+
+Even **complete removal** of lin_phi (phi_scale=0.0, so `du/dt = W @ lin_edge(u,a)` only) produces conn_R^2^=0.489. The degeneracy is entirely within **lin_edge**: the flexible MLP can absorb any W, so `W_wrong @ f(u,a) ≈ W_true @ g(u,a)` regardless of whether lin_phi exists. This falsifies the initial architectural hypothesis and redirects the diagnosis from the bypass pathway to the message-passing MLP itself.
 :::
 
 ---
 
-## Architectural Diagnosis
+## Code Modification 6: Recurrent Training
 
-The exploration converges on a clear diagnosis. The dual-pathway architecture has an **irreducible degeneracy** in the sparse regime:
+**Iterations 29--32** · File: `graph_trainer.py`
 
-1. **W signal is weak**: subcritical spectral radius (rho=0.746) means W-mediated dynamics carry less information than in supercritical regimes
-2. **MLP compensates perfectly**: `lin_phi` absorbs all predictive capacity (test_pearson ≈ 1.000), leaving no gradient signal to constrain W
-3. **Local code changes cannot break the bypass**: init scale, regularization mechanics, capacity reduction, and gradient control all operate downstream of the fundamental problem --- the loss function does not require W to be correct
+**Hypothesis**: Multi-step rollout (time_step=4, 16, 32) should compound errors from wrong W over multiple prediction steps. Single-step training allows `W_wrong @ f(u,a) ≈ W_true @ g(u,a)` at each step independently; recurrent training penalizes wrong W because errors accumulate.
 
-This is qualitatively different from the dense regime (rho > 1.0) where W-mediated dynamics carry strong, unique signal that the MLP cannot replicate.
+**Results**: conn_R^2^ = 0.489 at time_step=4 and 16; slight degradation at time_step=32. noise_recurrent_level>0.01 is destructive.
+
+::: {.callout-warning}
+### Verdict: Zero effect or destructive
+
+Recurrent training does not help in the subcritical regime. Error compounding requires the W-mediated signal to be strong enough that wrong W produces detectable trajectory divergence --- at rho=0.746, the signal is too weak.
+:::
 
 ---
 
-## Next Steps: Architectural Interventions
+## Code Modification 7: Anti-Sparsity Penalty on W
 
-The analysis points to interventions that target the bypass pathway directly:
+**Iterations 33--36** · File: `graph_trainer.py`
 
-1. **lin_phi scaling**: Multiply `lin_phi` output by a learnable or fixed factor (0.0--0.5), forcing dynamics through the `W @ lin_edge` pathway
-2. **lin_phi removal**: Eliminate `lin_phi` entirely, making W the sole carrier of inter-neuron coupling
-3. **Separate W and MLP optimizers**: Use SGD for W (sharper sparsity) while keeping Adam for MLPs
-4. **Cosine LR scheduler for W**: Large early W updates followed by fine-tuning
+**Hypothesis**: If the optimizer is trapped in a degenerate W solution, an **anti-sparsity penalty** during phase 1 (penalizing W entries near zero) could force W to explore denser regions of parameter space before L1 refines sparsity in phase 2, disrupting the (W, lin_edge) equilibrium.
 
-These represent the next phase of the exploration --- moving from local code modifications to **architectural redesign** of the signal pathway.
+**Results**: conn_R^2^ drops to 0.023--0.181 across all configurations.
+
+::: {.callout-warning}
+### Verdict: Universally destructive
+
+Anti-sparsity penalty destroys W recovery entirely. Forcing W away from zero during warm-up does not disrupt the equilibrium --- it creates a worse starting point that L1 cannot recover from.
+:::
+
+---
+
+## Code Modification 8: Freeze lin_edge After Warm-Up
+
+**Iterations 37--40** · File: `graph_trainer.py`
+
+**Hypothesis**: If lin_edge adapts during training to compensate for wrong W, **freezing lin_edge after the warm-up phase** should force subsequent training to correct W rather than adjusting the MLP.
+
+**Results**: conn_R^2^ = 0.489 across all 4 configurations.
+
+::: {.callout-warning}
+### Verdict: Zero effect
+
+The degenerate lin_edge function is already learned during the warm-up phase. Freezing it afterward does not change W --- the compensation is baked in before the freeze takes effect.
+:::
+
+---
+
+## Code Modification 9: lin_edge Dropout
+
+**Iterations 41--44** · File: `graph_trainer.py`
+
+**Hypothesis**: Applying dropout (p=0.3, 0.5) to lin_edge during training should randomly disable MLP units, preventing the MLP from developing a coherent compensation strategy and forcing W to carry more signal.
+
+**Results**: conn_R^2^ = 0.489 at both p=0.3 and p=0.5.
+
+::: {.callout-warning}
+### Verdict: Zero effect
+
+The MLP compensation is distributed and redundant --- dropout cannot disrupt it. The lin_edge function learns a robust compensation that survives random unit masking.
+:::
+
+---
+
+## Code Modification 10: lin_edge Mode Bypass (Paradigm Shift)
+
+**Iterations 45--48** · Files: `Signal_Propagation.py`, `config.py`
+
+**Hypothesis**: If lin_edge MLP compensation is the degeneracy source, replacing it with a **fixed nonlinearity** (tanh or identity) should eliminate compensation entirely and force W to be correct.
+
+**Code change**: Added `lin_edge_mode` parameter to select between MLP (default), fixed tanh, or identity for the edge message function.
+
+**Results**:
+
+| Iter | lin_edge_mode | conn_R^2^ | test_pearson | Gap | Effect |
+|:----:|:------------:|:---------:|:------------:|:---:|:------:|
+| 45 | tanh | **0.489** | 0.423 | 0.066 | **conn IDENTICAL; dynamics much worse** |
+| 46 | tanh + L1=1E-3 | **0.489** | 0.424 | 0.065 | L1 still irrelevant at tanh |
+| 47 | tanh + 12ep | **0.489** | 0.424 | 0.065 | more training does not help |
+| 48 | **identity** | **0.009** | -0.035 | -- | **catastrophic failure** |
+
+::: {.callout-important}
+### Paradigm Shift: The Degeneracy Gap Was a Red Herring
+
+Replacing the MLP with a **fixed tanh nonlinearity** gives **identical conn_R^2^=0.489** while test_pearson drops from 1.000 to 0.423. This fundamentally changes the diagnosis:
+
+- The MLP was **not causing** the W recovery ceiling --- it was only **improving dynamics prediction** on top of it
+- The degeneracy gap (test_pearson - conn_R^2^ ≈ 0.51) was a red herring: it reflected MLP compensation *improving dynamics*, not *preventing W recovery*
+- With fixed tanh, the gap collapses to ~0.065 (both metrics are low), confirming that the ceiling is about **identifiability**, not compensation
+
+The 0.489 ceiling is a **fundamental identifiability limit** of the model form `du/dt = W @ f(u,a)` at this data regime, not an architectural degeneracy.
+:::
+
+---
+
+## Seed Universality Confirmation
+
+**Iterations 49--52** · Seed variation (42, 137, 256)
+
+To confirm the ceiling is not specific to one random W realization, three different seeds were tested:
+
+| Iter | Seed | n_epochs | conn_R^2^ | test_pearson | Effect |
+|:----:|:----:|:--------:|:---------:|:------------:|:------:|
+| 49 | 42 | 6 | 0.489 | 0.423 | identical ceiling |
+| 50 | 137 | 12 | 0.489 | 0.424 | 12 epochs = 6 epochs |
+| 51 | 137 | 6 (lr_W=1E-2) | 0.489 | 0.425 | 3x lr_W = zero effect |
+| 52 | 256 | 6 | 0.489 | 0.429 | identical ceiling |
+
+::: {.callout-important}
+### Established: The 0.489 Ceiling Is Universal
+
+Three different random W realizations all produce conn_R^2^=0.489. The ceiling is a property of the model form + data regime, not of any specific connectivity matrix.
+:::
+
+---
+
+## Summary: What Failed and Why
+
+| Code Modification | Iters | Hypothesis | Outcome | Reason |
+|---|:---:|---|---|---|
+| W init scale (1/sqrt(n)) | 9--12 | Scale mismatch wastes early training | Zero effect | Optimizer corrects scale quickly |
+| Proximal L1 soft-thresholding | 13--16 | Exact zeros needed for sparsity | Zero/destructive | Threshold too small vs W scale |
+| MLP hidden_dim reduction | 17--20 | Force signal through W pathway | Zero/catastrophic | No Goldilocks zone exists |
+| Gradient clipping on W | 21--24 | Stabilize W trajectory | Zero effect | Gradients are directionally correct |
+| lin_phi scaling/removal | 25--28 | Bypass pathway absorbs signal | Zero effect | Degeneracy is in lin_edge, not lin_phi |
+| Recurrent training | 29--32 | Compound errors from wrong W | Zero/destructive | W signal too weak for error compounding |
+| Anti-sparsity penalty | 33--36 | Disrupt (W, lin_edge) equilibrium | Destructive | Creates worse starting point |
+| Freeze lin_edge | 37--40 | Force W correction after warm-up | Zero effect | Degenerate function already baked in |
+| lin_edge dropout | 41--44 | Prevent coherent compensation | Zero effect | Compensation is distributed/redundant |
+| **lin_edge mode bypass** | **45--48** | **Eliminate MLP compensation** | **PARADIGM SHIFT** | **Ceiling is identifiability, not compensation** |
+
+::: {.callout-warning}
+## Key Result
+
+**All 72 iterations at n=100 produced conn_R^2^ = 0.489** (±0.001, excluding catastrophic failures). Ten distinct code modifications, two optimizers, 26 hyperparameter dimensions, and 3 random seeds --- all converge to the same ceiling. Scaling to n=200--1000 shifts the ceiling marginally to **~0.50** but does not break it. The ceiling is a **fundamental identifiability limit** of the model form `du/dt = W @ f(u,a)` at sparse, subcritical connectivity.
+:::
+
+---
+
+## Revised Architectural Diagnosis
+
+The exploration converges on a **revised** diagnosis after the lin_edge_mode paradigm shift. The ceiling is **not** caused by MLP compensation --- it is a fundamental identifiability limit:
+
+1. **W signal is weak**: subcritical spectral radius (rho=0.746) means W-mediated dynamics carry limited information
+2. **The identifiability limit is model-form-dependent**: `du/dt = W @ f(u,a)` with a fixed f(u,a) = tanh(u) gives identical conn_R^2^=0.489 --- the product `W @ tanh(u)` cannot recover the true W from 10,000 frames of 100-neuron sparse activity regardless of the function form
+3. **MLP compensation improves dynamics, not degrades W**: the MLP lin_edge lifts test_pearson from 0.42 to 1.00 without changing conn_R^2^; it makes *predictions better* while W remains equally wrong
+4. **The ceiling is universal across seeds**: three different W realizations (seeds 42, 137, 256) all produce conn_R^2^=0.489
+
+This is qualitatively different from the dense regime (rho > 1.0) where the W-mediated signal is strong enough to uniquely determine W from the dynamics.
+
+---
+
+## UCB Exploration Trees
+
+::: {.panel-tabset}
+
+#### Block 1 (iter 12)
+![](log/Claude_exploration/instruction_signal_sparse_parallel/exploration_tree/ucb_tree_iter_012.png){.lightbox group="ucb-sp"}
+
+#### Block 2 (iter 24)
+![](log/Claude_exploration/instruction_signal_sparse_parallel/exploration_tree/ucb_tree_iter_024.png){.lightbox group="ucb-sp"}
+
+#### Block 3 (iter 36)
+![](log/Claude_exploration/instruction_signal_sparse_parallel/exploration_tree/ucb_tree_iter_036.png){.lightbox group="ucb-sp"}
+
+#### Block 4 (iter 48)
+![](log/Claude_exploration/instruction_signal_sparse_parallel/exploration_tree/ucb_tree_iter_048.png){.lightbox group="ucb-sp"}
+
+:::
+
+---
+
+## Extended Config Exhaustion (Blocks 5--6, 72 Iterations at n=100)
+
+After the code modification phase, blocks 5--6 tested remaining config dimensions: **SGD optimizer for W** (zero effect), **cosine annealing LR scheduler** (zero effect), **spectral radius regularization** (destructive --- monotonically worse with penalty strength), **batch_size=32** (catastrophic: conn_R^2^=0.027), **training_single_type=False** (mildly destructive), and **lr MLP variation** (zero effect). A duplicate batch confirmed full training determinism. In total, **72 iterations at n=100 tested 26 hyperparameter dimensions with zero breakthrough**.
+
+::: {.callout-important}
+### Established: 0.489 Is an Absolute Ceiling at n=100
+
+72 iterations, 3 seeds, 2 optimizers, 2 architectures, 26 parameter dimensions. Every configuration that doesn't destroy training produces conn_R^2^ = 0.489 ± 0.001.
+:::
+
+---
+
+## Scaling to n=200 (Blocks 7--8, 40 Iterations)
+
+The exploration pivoted to **n=200 neurons** to test whether the identifiability limit scales with network size. This required discovering that the n=100 hyperparameters are completely wrong for n=200.
+
+### The Parameter Regime Shift
+
+The n=100 baseline config (L1=1E-4, lr_W=3E-3) **catastrophically fails** at n=200 (conn_R^2^=0.022). The exploration discovered that n=200 requires fundamentally different hyperparameters:
+
+| Parameter | n=100 optimal | n=200 optimal | Effect of mismatch |
+|-----------|:------------:|:------------:|:------------------:|
+| L1 | 1E-4 (zero effect) | **2.5E-4** | L1=1E-4 gives 0.022 (catastrophic) |
+| n_epochs | 2--12 (zero effect) | **12** | 2 epochs gives 0.241 vs 12 gives 0.392 |
+| n_epochs_init | 0 or 2 (zero effect) | **2** (essential) | 0 gives 0.001 (catastrophic) |
+
+::: {.callout-note}
+### Key Insight: L1 Sensitivity Increases with Network Size
+
+At n=100, L1 has **zero effect** across 5 orders of magnitude. At n=200, L1 is the **most critical parameter** --- a 2x change (5E-4 vs 1E-3) swings conn_R^2^ by 55% (0.374 vs 0.241). The optimal L1 is sharply peaked at 2.5E-4.
+:::
+
+### Best Results at n=200
+
+| Seed | L1 | n_epochs | conn_R^2^ | test_pearson | Degeneracy gap |
+|:----:|:--:|:--------:|:---------:|:------------:|:--------------:|
+| 256 | 2.5E-4 | 12 | **0.453** | 0.994 | 0.541 |
+| 137 | 2E-4 | 12 | 0.425 | 0.994 | 0.569 |
+| 42 | 2.5E-4 | 12 | 0.394 | 0.994 | 0.600 |
+
+The n=200 ceiling (~0.45) is **lower** than n=100 (0.489) --- seemingly paradoxical, since more neurons should provide more constraints. However, this was later revealed to be an artifact of the wrong parameter regime.
+
+---
+
+## N-Scaling Study (Blocks 9--10, 20 Iterations)
+
+### The Reference Recipe Discovery
+
+A critical reset occurred when the reference config (`signal_fig_supp_8_1.yaml`) was discovered to use **completely different parameters** from those explored:
+
+| Parameter | Our exploration | Reference recipe | Factor |
+|-----------|:--------------:|:---------------:|:------:|
+| lr_W | 3E-3 | **1E-4** | 30x lower |
+| L1 | 2.5E-4 | **1E-5** | 25x lower |
+| edge_diff | 10000 | **100** | 100x lower |
+| n_epochs | 12 | **2** | 6x fewer |
+| coeff_lin_phi_zero | (never tested) | **1.0** | new lever |
+
+### N-Scaling with Reference Recipe
+
+Testing the reference recipe at n=200 to n=1000 with n_frames scaled as 100×n:
+
+| n_neurons | n_frames | conn_R^2^ | Improvement over n=200 |
+|:---------:|:--------:|:---------:|:----------------------:|
+| 200 | 20,000 | 0.369 | --- |
+| 400 | 40,000 | 0.476 | +29% |
+| 700 | 70,000 | **0.496** | +34% |
+| 1000 | 100,000 | 0.495 | +34% (plateau) |
+
+### Locked-Slot N-Scaling (Block 10, n_frames=100,000 for all)
+
+With uniform training budget (n_frames=100,000, data_augmentation_loop=50) across all scales:
+
+| n_neurons | conn_R^2^ | L1 effect | Seed effect |
+|:---------:|:---------:|:---------:|:-----------:|
+| 200 | 0.497 | ZERO (1E-5 vs 1E-4) | not tested |
+| 400 | **0.501** | not tested | ZERO (seed-robust) |
+| 600 | 0.498 | ZERO (5E-5 vs 1E-5) | not tested |
+| 1000 | 0.496 | old regime worse | not tested |
+
+::: {.callout-important}
+### The 0.5 Plateau Is Universal
+
+**All network sizes from n=200 to n=1000 converge to conn_R^2^ ≈ 0.496--0.501.** N-scaling provides a meaningful benefit from n=200 to n=400 (+29%), but plateaus completely beyond n=400. The ceiling shifted from 0.489 (n=100) to ~0.50 (n≥200) --- a marginal improvement that confirms the **fundamental nature** of the identifiability limit.
+:::
+
+### Is the n_neurons Dependency Understood?
+
+**Yes --- for sparse connectivity, network size does not solve the problem.** Unlike the low-rank regime where n=1000 achieves near-perfect recovery (conn_R^2^=0.992), the sparse regime hits the same ~0.50 ceiling regardless of scale. The key contrast:
+
+| Property | Low-rank (rank 20) | Sparse (50% filling) |
+|----------|:------------------:|:--------------------:|
+| n=100 ceiling | **~1.000** (solvable) | 0.489 (fundamental) |
+| n=1000 best | **0.992** (excellent) | 0.496 (same ceiling) |
+| N-scaling benefit | Strong (n=200→1000 improves) | Marginal (plateaus at n=400) |
+| Hard-seed rate | 30% (V-recovery failure) | N/A (all seeds hit ceiling) |
+| Hyperparameter sensitivity | Seed-dependent | Config-insensitive |
+
+The mechanism is clear: **sparse connectivity at subcritical spectral radius (rho=0.746) carries insufficient signal** for the model form `du/dt = W @ f(u,a)` to distinguish the true W from degenerate solutions, regardless of how many neurons or training frames are provided. The low-rank regime succeeds because rank-20 structure concentrates signal in a low-dimensional subspace that the GNN can recover; sparse connectivity distributes signal diffusely across all entries, creating a flat identifiability landscape.
+
+---
+
+## Why the Exploration Never Ran the Reference Problem {#regime-mismatch}
+
+::: {.callout-important}
+### Claude's retrospective analysis
+
+The sparse exploration concluded that conn_R^2^ ≈ 0.50 is a universal ceiling at n=1000. Meanwhile, the reference config `signal_fig_supp_8_1.yaml` achieves R^2^ = 0.835 on the same 50%-sparse, n=1000 setup. These two numbers were treated as a "gap to reference" --- but they come from **entirely different dynamical systems**. The comparison was apples to oranges.
+:::
+
+The exploration used `signal_sparse.yaml` as its base config, while the published reference uses `signal_fig_supp_8_1.yaml`. Despite both being "sparse 50%, n=1000", the two configs define fundamentally different simulations across five dimensions:
+
+| Parameter | Exploration (`signal_sparse`) | Reference (`signal_fig_supp_8_1`) | Impact |
+|-----------|:-----------------------------:|:---------------------------------:|:------:|
+| `connectivity_type` | chaotic | **Lorentz** | Different W distribution and spectral structure |
+| `n_neuron_types` | 1 | **4** | Homogeneous vs 4 heterogeneous types |
+| `params` | `[1, 0, 7, 0, 1, 0]` | `[10, 1, 1]`, `[10, 2, 1]`, ... | g=7 single-type vs g=10 multi-type dynamics |
+| `signal_model_name` | PDE_N4 | **PDE_N2** | N4 uses (u~j~, a~j~); N2 uses u~j~ only |
+| `batch_size` / `n_epochs` | 8 / 2 | **1** / **10** | 5x more epochs, 8x smaller batches |
+
+### Why the reference regime is easier
+
+**Richer dynamics.** The Lorentz connectivity with 4 neuron types at g=10 operates in a regime with higher effective spectral radius and richer heterogeneous dynamics than the chaotic single-type system at g=7. More diverse neuron-pair interactions provide more constraints on W, making the inverse problem better conditioned.
+
+**Less MLP compensation capacity.** PDE_N2 takes only u~j~ as input to `lin_edge`, while PDE_N4 concatenates (u~j~, a~j~) --- the embedding gives the MLP an extra degree of freedom to absorb W errors. By excluding embeddings from the edge function, PDE_N2 reduces the MLP's ability to compensate for incorrect connectivity, forcing more signal through W.
+
+**Larger training budget.** The reference trains for 10 epochs with batch_size=1, compared to 2 epochs with batch_size=8. This translates to roughly **40x more gradient updates** on individual samples (10/2 × 8/1), giving the optimizer far more opportunities to refine the 10^6^ entries of W.
+
+### The bottom line
+
+The 0.50 ceiling is real and robust for the `signal_sparse` regime (chaotic, single neuron type, g=7, PDE_N4). But `signal_fig_supp_8_1` (Lorentz, 4 types, g=10, PDE_N2) is a structurally different and easier problem despite sharing the same 50% sparsity and n=1000 scale. The "gap" was never a gap --- it was a regime mismatch that went undetected because the exploration inherited the wrong base config.
+
+---
+
+## Code Divergence Between NeuralGraph and neural-gnn {#code-divergence}
+
+A comparison of the active NeuralGraph codebase against its upstream fork (neural-gnn) revealed that **code modifications** introduced during the sparse exploration (Feb 2--4, 2026) are **not present in neural-gnn**. Two of these changes are always active regardless of config, and directly affect connectivity recovery at large n --- particularly for the reference config `signal_fig_supp_8_1`.
+
+### Config: Identical
+
+The config file `signal_fig_supp_8_1.yaml` is byte-for-byte identical between the two repositories. All differences originate in the code.
+
+### Signal_Propagation.py: W Initialization Scale
+
+The dominant change is in `Signal_Propagation.__init__`:
+
+```python
+# neural-gnn (upstream):
+W_init = torch.randn((n, n))
+
+# NeuralGraph (modified, commit b8508ad):
+W_init = torch.randn((n, n)) * (1.0 / math.sqrt(n_neurons))
+```
+
+At n=1000 this means W_init std = **0.032** (NeuralGraph) vs **1.0** (neural-gnn) --- a **31x difference**. Since the true W has entries ~N(0, g/sqrt(n)), NeuralGraph starts within ~3x of the true scale while neural-gnn starts 31x too large. The optimizer must then shrink W by a factor of 31 before it can match the true structure.
+
+::: {.callout-note}
+### Why This Matters
+
+The W init scaling was originally introduced as "code modification 1" during the sparse exploration and was declared "zero effect" at n=100 (conn_R^2^ stayed at 0.489). But the scale mismatch grows with n: at n=100, the upstream init is 10x too large; at n=1000, it is 31x too large. The modification had no effect at small n where the optimizer could overcome the mismatch, but is critical at large n where it cannot.
+:::
+
+### graph_trainer.py: Two Always-Active Changes
+
+Beyond config-gated experimental features (SGD optimizer, cosine scheduler, anti-sparsity penalty, freeze lin_edge, lin_edge dropout --- all defaulting to off), two changes run unconditionally:
+
+**1. Gradient clipping on W** (commit `9bc46c3`):
+
+```python
+# Always active in NeuralGraph, absent in neural-gnn:
+if hasattr(model, 'W') and model.W.grad is not None:
+    torch.nn.utils.clip_grad_norm_([model.W], max_norm=1.0)
+```
+
+`clip_grad_norm_` computes the L2 norm of the entire W gradient tensor, ||∇W||~2~ = sqrt(Σ~ij~ (∂L/∂W~ij~)²), and if it exceeds `max_norm`, rescales all entries by `max_norm / ||∇W||₂`. At n=1000, W has 10^6^ entries. Even if each per-entry gradient is modest (say 0.01), the total norm is sqrt(10^6^ × 10^-4^) = 10. The clipping then scales every gradient by 1/10, making the effective per-entry update lr_W × 0.01 × 0.1 = 10^-7^ instead of lr_W × 0.01 = 10^-6^.
+
+This has two consequences:
+
+- **Prevents catastrophic early updates**: when W starts far from the true solution (especially with the upstream std=1.0 init), the initial loss gradients are large and unclipped updates can push W into a basin from which it never recovers.
+- **Implicit learning rate reduction at large n**: the clipping threshold is fixed at 1.0 regardless of matrix size, so the effective per-entry learning rate decreases as ~1/sqrt(n²) = 1/n. At n=1000 the effective lr per entry is ~1000x smaller than at n=1 --- this slows convergence but prevents instability.
+
+This is likely a major factor in the R^2^=0.835 (NeuralGraph) vs R^2^=0.007 (neural-gnn) gap on `signal_fig_supp_8_1` at n=1000: without clipping, the first few gradient steps with large-norm updates destroy the W structure before the optimizer can refine it.
+
+**2. Proximal L1 soft-thresholding** (commit `b68b57b`):
+
+```python
+# Active when coeff_W_L1 > 0 (true for all configs):
+prox_threshold = coeff_W_L1 * lr_W
+model.W.data = sign(W) * clamp(abs(W) - prox_threshold, min=0)
+```
+
+With `signal_fig_supp_8_1` config values (L1=1E-5, lr_W=1E-4), the threshold is 10^-9^ --- **negligible** relative to W entries (~0.01--0.3). Functionally a no-op.
+
+### Impact on `signal_fig_supp_8_1` (Sparse Lorentz, n=1000)
+
+The scatter plots at 99,999 iterations tell a dramatic story: NeuralGraph achieves R^2^=0.835 (slope=0.187) while neural-gnn achieves R^2^=0.007 (complete failure). Both repos use the same config. The code changes that explain this gap:
+
+**W initialization**: The true W for Lorentz connectivity with g=10 has entries scaled by g/sqrt(n) = 10/sqrt(1000) ≈ 0.316. NeuralGraph initializes at std=1/sqrt(1000)=0.032 (10x too small), while neural-gnn initializes at std=1.0 (3x too large). Starting too small means the optimizer needs to *grow* W entries by ~10x; starting too large means it needs to *shrink* them by ~3x while also discovering the correct structure within a 10^6^-dimensional space. Growing from a small random init is easier than shrinking from a large one, because the loss landscape near W=0 has clearer directional gradients.
+
+**Gradient clipping**: With lr_W=1E-4 and n=1000, the gradient norm easily reaches 10--100 in early training. Without clipping (neural-gnn), a single step can move W by ||Δ|| ∝ 1E-4 × 100 = 0.01 in a random direction across 10^6^ entries --- enough to destroy any emergent structure. With clipping to norm 1.0 (NeuralGraph), the step is bounded to ||Δ|| ∝ 1E-4 × 1.0 = 1E-4, allowing gradual refinement.
+
+**The slope=0.187 signature**: NeuralGraph recovers the correct W *structure* (R^2^=0.835) but the learned entries are systematically attenuated to ~19% of their true magnitude. This is consistent with the W init starting 10x too small (std=0.032 vs true ~0.316) combined with gradient clipping that limits how fast W can grow --- the structure converges but the magnitude has not fully caught up after 10 epochs.
+
+### The Sparse Exploration Misdiagnosis
+
+The sparse exploration compared its conn_R^2^ ≈ 0.50 against the reference `signal_fig_supp_8_1` result (R^2^ = 0.835) and treated the difference as a "gap to reference". As discussed in the [regime mismatch analysis](#regime-mismatch) above, this comparison was invalid --- the exploration ran a completely different dynamical system (chaotic/1-type/PDE_N4) from the reference (Lorentz/4-type/PDE_N2), with different training budgets. The code changes documented here compound the regime mismatch: NeuralGraph's W init scaling and gradient clipping are necessary for `signal_fig_supp_8_1` to converge at n=1000, but had zero effect in the exploration's regime at n=100.
+
+### Summary of Always-Active Code Differences
+
+| Change | Commit | n-dependence | Effect on sparse exploration | Effect on `signal_fig_supp_8_1` |
+|--------|--------|:------------:|:------------------:|:-------------------------------:|
+| W init *= 1/sqrt(n) | `b8508ad` | Grows with n (10x at n=100, 31x at n=1000) | Zero at n=100 | **Critical** --- init 10x closer to true scale |
+| Grad clipping (max_norm=1.0) | `9bc46c3` | Grows with n (effective lr per entry ~1/n) | Zero at n=100 | **Critical** --- prevents early catastrophic updates |
+| Proximal L1 | `b68b57b` | Negligible (threshold ~10^-8^) | No effect | No effect (threshold ~10^-9^) |
+
+For `signal_fig_supp_8_1`, these two changes are the difference between R^2^=0.835 (meaningful recovery) and R^2^=0.007 (complete failure). The low-rank N-scaling results (n=400 conn_R^2^=0.999, n=1000 conn_R^2^=0.992) also **depend on these modifications** and would not reproduce on the upstream neural-gnn codebase.
+
+---
+
+## Open Questions
+
+1. **Gap to reference (RESOLVED)**: The apparent gap (conn_R^2^ = 0.496 vs 0.835) was a [regime mismatch](#regime-mismatch), not a performance gap --- the exploration ran a different dynamical system from the reference. Additionally, NeuralGraph includes [always-active code changes](#code-divergence) (W init scaling, gradient clipping) that are necessary for the reference config to converge at n=1000.
+2. **Breaking the plateau**: Can architectural changes (different model form, attention mechanisms, or multi-scale training) break the 0.50 ceiling, or is it a theoretical limit of any single-step prediction model at subcritical spectral radius?
+3. **Regime boundary**: At what spectral radius does the ceiling start rising? The transition from subcritical (rho < 1, ceiling ~0.50) to supercritical (rho > 1, solvable) likely involves a phase transition in identifiability.

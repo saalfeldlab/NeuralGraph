@@ -413,7 +413,8 @@ class TrainingConfig(BaseModel):
     coeff_lin_phi_zero: float = 0
     coeff_entropy_loss: float = 0
     coeff_edge_diff: float = 0
-    phi_scale: float = 1.0
+    lin_edge_mode: str = 'mlp'  # 'mlp' (default learned MLP), 'tanh' (fixed tanh(u_j)), 'identity' (fixed u_j)
+    w_optimizer_type: str = 'adam'  # 'adam' (default) or 'sgd' (SGD with momentum for sharper L1-induced zeros)
 
     # Simple training parameters (matching ParticleGraph conceptually)
     first_coeff_L1: float = 0.0  # Phase 1 weak L1 regularization
@@ -468,6 +469,9 @@ class TrainingConfig(BaseModel):
     ode_state_clamp: float = 10.0
     ode_stab_lambda: float = 0.0
     grad_clip_W: float = 0.0
+    w_init_mode: str = 'randn'  # W init mode: 'randn' (std=1), 'randn_scaled' (std=scale/sqrt(N)), 'zeros'
+    w_init_scale: float = 1.0  # scaling factor for 'randn_scaled' mode
+    coeff_W_L1_proximal: float = 0.0  # proximal L1 soft-thresholding on W after optimizer step, 0 = disabled
 
     time_step: int = 1
     recurrent_sequence: str = ""
