@@ -109,7 +109,6 @@ import logging
 import random
 import signal
 from dataclasses import dataclass
-from typing import Literal
 
 import numpy as np
 import torch
@@ -177,7 +176,26 @@ def build_obs_mask(
 
 
 # ---------------------------------------------------------------------------
-# concatenated training data
+# per-condition data (for val/test on CPU)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ConditionData:
+    """per-condition data on CPU for validation/test.
+
+    kept separate by condition for diagnostics (no concatenation).
+    """
+    activity: torch.Tensor   # (T, N) float16 on CPU
+    obs_mask: torch.Tensor   # (T, N) bool on CPU
+    valid_start: int         # first valid sampling index (after first obs)
+    valid_end: int           # last valid sampling index (before last obs - fitting_window)
+    name: str                # condition name
+    num_neurons: int
+
+
+# ---------------------------------------------------------------------------
+# concatenated training data (for training on GPU)
 # ---------------------------------------------------------------------------
 
 
@@ -248,122 +266,202 @@ class ConcatTrainingData:
 # ---------------------------------------------------------------------------
 
 
-def load_concat_training_data(
+def _interpolate_and_mask(
+    obs_times: torch.Tensor,
+    obs_vals: torch.Tensor,
+    counts: torch.Tensor,
+    num_bins: int,
+    device: torch.device,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """interpolate sparse data and build mask on GPU, return on CPU.
+
+    args:
+        obs_times: (N, K) sparse observation times on CPU
+        obs_vals: (N, K) sparse values on CPU
+        counts: (N,) counts per neuron on CPU
+        num_bins: number of output bins
+        device: GPU device for computation
+
+    returns:
+        activity: (T, N) float16 on CPU
+        obs_mask: (T, N) bool on CPU
+    """
+    # transfer to GPU
+    obs_times_gpu = obs_times.to(device)
+    obs_vals_gpu = obs_vals.to(device)
+    counts_gpu = counts.to(device)
+
+    # interpolate on GPU
+    activity_gpu = interpolate_sparse_compiled(
+        obs_times_gpu, obs_vals_gpu, counts_gpu, num_bins,
+    )
+
+    # build observation mask on GPU
+    obs_mask_gpu = build_obs_mask(obs_times, num_bins, device)
+
+    # move to CPU as float16
+    activity_cpu = activity_gpu.half().cpu()
+    obs_mask_cpu = obs_mask_gpu.cpu()
+
+    # free GPU memory
+    del obs_times_gpu, obs_vals_gpu, counts_gpu, activity_gpu, obs_mask_gpu
+    torch.cuda.empty_cache()
+
+    return activity_cpu, obs_mask_cpu
+
+
+def load_all_data(
     traces_path: str,
     ephys_path: str,
     bin_size_ms: float,
     split: DataSplit,
-    split_type: Literal["train", "val", "test"],
     fitting_window: int,
     device: torch.device,
-) -> ConcatTrainingData:
-    """load and concatenate all conditions into a single GPU tensor.
+) -> tuple[ConcatTrainingData, list[ConditionData], list[ConditionData]]:
+    """load all data: train on GPU, val/test on CPU per-condition.
 
-    for each condition:
-    1. load sparse data from zarr to CPU
-    2. transfer to GPU and interpolate (needs headroom)
-    3. build observation mask on GPU
-    4. move activity (as float16) and mask to CPU
-    5. concatenate on CPU, then transfer to GPU
+    loads each condition once from zarr (efficient I/O), splits into
+    train/val/test, concatenates train for GPU, keeps val/test separate on CPU.
 
     args:
         traces_path: path to traces zarr array.
         ephys_path: path to ephys.zarr directory.
         bin_size_ms: bin width in milliseconds.
         split: data split configuration.
-        split_type: which split to load ("train", "val", "test").
-        fitting_window: number of time steps to predict into future.
-        device: target device (GPU) for interpolation and storage.
+        fitting_window: number of time steps for training window.
+        device: GPU device for interpolation and training data.
 
     returns:
-        ConcatTrainingData with all conditions concatenated on GPU.
+        train_data: ConcatTrainingData on GPU
+        val_data: list of ConditionData on CPU (one per condition with val split)
+        test_data: list of ConditionData on CPU (one per condition with test split)
     """
-    activities_cpu: list[torch.Tensor] = []
-    masks_cpu: list[torch.Tensor] = []
-    valid_starts: list[int] = []
-    valid_ends: list[int] = []
-    weights: list[int] = []
+    from LatentEvolution.zapbench_config import CONDITIONS
 
-    ranges = split.get_ranges(split_type)
-    offset = 0
+    # accumulators for train (will be concatenated)
+    train_activities: list[torch.Tensor] = []
+    train_masks: list[torch.Tensor] = []
+    train_valid_starts: list[int] = []
+    train_valid_ends: list[int] = []
+    train_weights: list[int] = []
+    train_offset = 0
+
+    # accumulators for val/test (kept separate per condition)
+    val_data: list[ConditionData] = []
+    test_data: list[ConditionData] = []
+
     num_neurons = None
 
-    for cond_name, abs_start, abs_end in ranges:
-        # load sparse data to CPU
-        obs_times, obs_vals, counts, num_bins = load_sparse_activity(
+    for cond_split in split.conditions:
+        cond = next(c for c in CONDITIONS if c.name == cond_split.condition_name)
+        cond_name = cond.name
+        padded_start = cond.offset[0] + cond.padding
+        padded_end = cond.offset[1] - cond.padding
+
+        # load entire condition from zarr (one I/O per condition)
+        log.info(f"  loading {cond_name}...")
+        obs_times, obs_vals, _counts, _num_bins = load_sparse_activity(
             traces_path, ephys_path, bin_size_ms,
-            time_slice=slice(abs_start, abs_end),
+            time_slice=slice(padded_start, padded_end),
         )
+        num_neurons = obs_vals.shape[0]
 
-        # transfer to GPU for fast interpolation
-        obs_times_gpu = obs_times.to(device)
-        obs_vals_gpu = obs_vals.to(device)
-        counts_gpu = counts.to(device)
+        # process each split (train/val/test) from the loaded data
+        for split_name, split_range in [
+            ("train", cond_split.train),
+            ("val", cond_split.val),
+            ("test", cond_split.test),
+        ]:
+            if split_range is None:
+                continue
 
-        # interpolate on GPU: (T, N)
-        activity_gpu = interpolate_sparse_compiled(
-            obs_times_gpu, obs_vals_gpu, counts_gpu, num_bins,
-        )
+            frame_start, frame_end = split_range
 
-        # build observation mask on GPU: (T, N) bool
-        obs_mask_gpu = build_obs_mask(obs_times, num_bins, device)
+            # slice the sparse data for this split
+            split_obs_times = obs_times[:, frame_start:frame_end].contiguous()
+            split_obs_vals = obs_vals[:, frame_start:frame_end].contiguous()
+            split_counts = torch.full((num_neurons,), frame_end - frame_start, dtype=torch.long)
 
-        # move to CPU as float16 (frees GPU for next condition)
-        activity_cpu = activity_gpu.half().cpu()
-        obs_mask_cpu = obs_mask_gpu.cpu()
+            # recompute bin indices relative to this split's start
+            # (subtract minimum to start bins at 0)
+            min_bin = split_obs_times.min().item()
+            split_obs_times = split_obs_times - min_bin
+            split_num_bins = int(split_obs_times.max().item()) + 1
 
-        # free GPU memory
-        del obs_times_gpu, obs_vals_gpu, counts_gpu, activity_gpu, obs_mask_gpu
-        torch.cuda.empty_cache()
+            # interpolate and build mask
+            activity, obs_mask = _interpolate_and_mask(
+                split_obs_times, split_obs_vals, split_counts, split_num_bins, device,
+            )
 
-        # compute valid sampling range in global coordinates
-        first_obs = int(obs_times[:, 0].max().item()) + 1
-        last_obs = int(obs_times[:, -1].min().item())
-        local_valid_start = first_obs
-        local_valid_end = last_obs - fitting_window + 1
-        weight = max(0, local_valid_end - local_valid_start)
+            # compute valid sampling range
+            first_obs = int(split_obs_times[:, 0].max().item()) + 1
+            last_obs = int(split_obs_times[:, -1].min().item())
+            valid_start = first_obs
+            valid_end = max(0, last_obs - fitting_window + 1)
 
-        valid_starts.append(offset + local_valid_start)
-        valid_ends.append(offset + local_valid_end)
-        weights.append(weight)
+            T = activity.shape[0]
+            log.info(f"    {split_name}: T={T}, valid=[{valid_start}, {valid_end})")
 
-        T = activity_cpu.shape[0]
-        num_neurons = activity_cpu.shape[1]
-        log.info(f"  {cond_name}: T={T}, valid=[{offset + local_valid_start}, {offset + local_valid_end}), weight={weight}")
+            if split_name == "train":
+                # accumulate for concatenation
+                train_activities.append(activity)
+                train_masks.append(obs_mask)
+                train_valid_starts.append(train_offset + valid_start)
+                train_valid_ends.append(train_offset + valid_end)
+                train_weights.append(max(0, valid_end - valid_start))
+                train_offset += T
+            else:
+                # store per-condition on CPU
+                cond_data = ConditionData(
+                    activity=activity,
+                    obs_mask=obs_mask,
+                    valid_start=valid_start,
+                    valid_end=valid_end,
+                    name=cond_name,
+                    num_neurons=num_neurons,
+                )
+                if split_name == "val":
+                    val_data.append(cond_data)
+                else:
+                    test_data.append(cond_data)
 
-        activities_cpu.append(activity_cpu)
-        masks_cpu.append(obs_mask_cpu)
-        offset += T
+    # concatenate train data and transfer to GPU
+    log.info("  concatenating train data and transferring to GPU...")
+    all_train_activity = torch.cat(train_activities, dim=0)
+    all_train_mask = torch.cat(train_masks, dim=0)
+    del train_activities, train_masks
 
-    # concatenate on CPU, then transfer to GPU (single copy)
-    log.info("  concatenating on CPU and transferring to GPU...")
-    all_activity_cpu = torch.cat(activities_cpu, dim=0)
-    all_mask_cpu = torch.cat(masks_cpu, dim=0)
-    del activities_cpu, masks_cpu
-
-    # compute stats on CPU (GPU sum() allocates int64 intermediate = 8x memory)
-    activity_gb = all_activity_cpu.numel() * all_activity_cpu.element_size() / 1e9
-    mask_gb = all_mask_cpu.numel() * all_mask_cpu.element_size() / 1e9
-    obs_density = all_mask_cpu.sum().item() / all_mask_cpu.numel()
-    log.info(f"  activity: {activity_gb:.2f} GB (float16), mask: {mask_gb:.2f} GB (bool)")
+    # compute stats
+    activity_gb = all_train_activity.numel() * all_train_activity.element_size() / 1e9
+    mask_gb = all_train_mask.numel() * all_train_mask.element_size() / 1e9
+    obs_density = all_train_mask.sum().item() / all_train_mask.numel()
+    log.info(f"  train: {activity_gb:.2f} GB (float16), mask: {mask_gb:.2f} GB (bool)")
     log.info(f"  observation density: {obs_density:.2%}")
 
     # transfer to GPU
-    all_activity = all_activity_cpu.to(device)
-    del all_activity_cpu
-    all_mask = all_mask_cpu.to(device)
-    del all_mask_cpu
+    train_activity_gpu = all_train_activity.to(device)
+    del all_train_activity
+    train_mask_gpu = all_train_mask.to(device)
+    del all_train_mask
 
     assert num_neurons is not None
-    return ConcatTrainingData(
-        activity=all_activity,
-        obs_mask=all_mask,
-        valid_starts=torch.tensor(valid_starts, device=device, dtype=torch.long),
-        valid_ends=torch.tensor(valid_ends, device=device, dtype=torch.long),
-        weights=torch.tensor(weights, device=device, dtype=torch.float),
+    train_data = ConcatTrainingData(
+        activity=train_activity_gpu,
+        obs_mask=train_mask_gpu,
+        valid_starts=torch.tensor(train_valid_starts, device=device, dtype=torch.long),
+        valid_ends=torch.tensor(train_valid_ends, device=device, dtype=torch.long),
+        weights=torch.tensor(train_weights, device=device, dtype=torch.float),
         num_neurons=num_neurons,
-        num_conds=len(ranges),
+        num_conds=len([c for c in split.conditions if c.train is not None]),
     )
+
+    # log val/test stats
+    val_total = sum(c.activity.shape[0] for c in val_data)
+    test_total = sum(c.activity.shape[0] for c in test_data)
+    log.info(f"  val: {len(val_data)} conditions, {val_total} total bins (CPU)")
+    log.info(f"  test: {len(test_data)} conditions, {test_total} total bins (CPU)")
+
+    return train_data, val_data, test_data
 
 
 # ---------------------------------------------------------------------------
@@ -425,7 +523,7 @@ def main():
     # signal handling for graceful termination
     terminate_flag = {"value": False}
 
-    def handle_sigusr2(signum, frame):
+    def handle_sigusr2(_signum, _frame):
         terminate_flag["value"] = True
         log.info("SIGUSR2 received - will terminate after current epoch")
 
@@ -446,19 +544,13 @@ def main():
 
     seed_everything(train_cfg.seed)
 
-    # load training data
-    log.info("loading training data...")
+    # load all data: train on GPU, val/test on CPU
+    log.info("loading data...")
     split = DataSplit()
-    train_data = load_concat_training_data(
+    train_data, _val_data, _test_data = load_all_data(
         data_cfg.traces_path, data_cfg.ephys_path, data_cfg.bin_size_ms,
-        split, "train", train_cfg.fitting_window, device,
+        split, train_cfg.fitting_window, device,
     )
-
-    # # free CUDA graphs from compiled interpolation (~10 GB)
-    # doing this really slows down compilation of the train step, so don't do it
-    # torch._dynamo.reset()
-    # torch.cuda.empty_cache()
-
     log.info(f"GPU allocated: {torch.cuda.memory_allocated() / 1e9:.2f} GB, reserved: {torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
     # batches per epoch for 1x coverage
