@@ -144,7 +144,7 @@ class TrainConfig(BaseModel):
 
 class EncoderDecoderConfig(BaseModel):
     """symmetric encoder/decoder config."""
-    hidden_units: int = 64
+    hidden_units: int = 128
     hidden_layers: int = 2
     activation: str = "ReLU"
 
@@ -153,7 +153,7 @@ class EncoderDecoderConfig(BaseModel):
 
 class EvolverConfig(BaseModel):
     """evolver: latent (L) -> latent (L) with residual connection."""
-    hidden_units: int = 64
+    hidden_units: int = 128
     hidden_layers: int = 2
     zero_init: bool = True  # start as identity (z_{t+1} = z_t)
     activation: str = "Tanh"  # tanh for stability in rollouts
@@ -164,7 +164,7 @@ class EvolverConfig(BaseModel):
 class ModelConfig(BaseModel):
     """full EED model configuration."""
     num_neurons: int  # N - number of neurons in dataset
-    latent_dims: int = 64  # L - latent space dimension
+    latent_dims: int = 128  # L - latent space dimension
     encoder_decoder: EncoderDecoderConfig = Field(default_factory=EncoderDecoderConfig)
     evolver: EvolverConfig = Field(default_factory=EvolverConfig)
 
