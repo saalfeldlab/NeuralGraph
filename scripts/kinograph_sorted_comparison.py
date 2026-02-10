@@ -89,10 +89,10 @@ fig.suptitle(
 )
 plt.tight_layout()
 plt.savefig(f'{log_dir}/kinograph_sorted_comparison.png', dpi=200, bbox_inches='tight')
-print(f'Saved kinograph_sorted_comparison.png')
+print('Saved kinograph_sorted_comparison.png')
 
 # --- Also show the permutation mapping ---
-print(f'\nHungarian permutation stats:')
+print('\nHungarian permutation stats:')
 identity = np.arange(n_neurons)
 n_fixed = np.sum(col_ind == identity)
 print(f'  Neurons mapped to themselves: {n_fixed}/{n_neurons}')

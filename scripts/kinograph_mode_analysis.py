@@ -48,7 +48,7 @@ for k in range(rank):
     r, _ = pearsonr(modes_gt[k], modes_pred[k])
     mode_corrs.append(r)
 mode_corrs = np.array(mode_corrs)
-print(f'\nPer-mode temporal correlation (GT vs pred projected onto U_true):')
+print('\nPer-mode temporal correlation (GT vs pred projected onto U_true):')
 for k in range(rank):
     print(f'  Mode {k:2d} (σ={S_true[k]:.2f}): r={mode_corrs[k]:.3f}')
 
@@ -143,10 +143,10 @@ ax_kino_pred.set_xlabel('frames', fontsize=8)
 ax_kino_pred.tick_params(labelsize=7)
 
 plt.savefig(f'{results_dir}/kinograph_mode_analysis.png', dpi=200, bbox_inches='tight')
-print(f'\nSaved kinograph_mode_analysis.png')
+print('\nSaved kinograph_mode_analysis.png')
 
 # Summary stats
-print(f'\n=== SUMMARY ===')
+print('\n=== SUMMARY ===')
 print(f'Spatial correlation (per-frame):  mean={spatial_corrs.mean():.3f}, '
       f'std={spatial_corrs.std():.3f}, min={spatial_corrs.min():.3f}')
 print(f'Mode temporal correlation:        mean={mode_corrs.mean():.3f}, '

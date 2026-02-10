@@ -12,7 +12,6 @@ Generates:
 import os
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 from collections import Counter
 from scipy.ndimage import gaussian_filter1d
 
