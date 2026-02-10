@@ -23,6 +23,9 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 
+import matplotlib
+matplotlib.use("Agg")  # non-interactive backend
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import tyro
@@ -81,32 +84,35 @@ class ZapbenchConfig(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def build_obs_mask(
+def build_frame_index(
     obs_times: torch.Tensor,
     num_bins: int,
     device: torch.device,
 ) -> torch.Tensor:
-    """build observation mask from sparse observation times.
+    """build frame index tensor from sparse observation times.
 
     args:
-        obs_times: (N, K) sorted bin indices per neuron
+        obs_times: (N, K) sorted bin indices per neuron, K = num original frames
         num_bins: total number of time bins (T)
         device: target device for computation
 
     returns:
-        obs_mask: (T, N) bool tensor, True where neuron was observed
+        frame_index: (T, N) int16 tensor
+            frame_index[bin, n] = k if frame k observed at (bin, n), else -1
+            use (frame_index >= 0) as observation mask
     """
     N, K = obs_times.shape
 
-    # create neuron indices: (N, K) where each row is [n, n, n, ...]
+    # create indices
     neuron_indices = torch.arange(N, device=device).unsqueeze(1).expand(N, K)
+    frame_indices = torch.arange(K, device=device, dtype=torch.int16).unsqueeze(0).expand(N, K)
 
-    # scatter True into mask at observation positions
-    obs_mask = torch.zeros(num_bins, N, dtype=torch.bool, device=device)
+    # scatter frame indices into dense tensor (-1 = no observation)
+    frame_index = torch.full((num_bins, N), -1, dtype=torch.int16, device=device)
     obs_times_dev = obs_times.to(device)
-    obs_mask[obs_times_dev, neuron_indices] = True
+    frame_index[obs_times_dev, neuron_indices] = frame_indices
 
-    return obs_mask
+    return frame_index
 
 
 # ---------------------------------------------------------------------------
@@ -120,12 +126,13 @@ class ConditionData:
 
     kept separate by condition for diagnostics (no concatenation).
     """
-    activity: torch.Tensor   # (T, N) float16 on CPU
-    obs_mask: torch.Tensor   # (T, N) bool on CPU
-    valid_start: int         # first valid sampling index (after first obs)
-    valid_end: int           # last valid sampling index (before last obs - fitting_window)
-    name: str                # condition name
+    activity: torch.Tensor    # (T, N) float16 on CPU
+    frame_index: torch.Tensor # (T, N) int16 on CPU, -1 = no obs, >=0 = frame index
+    valid_start: int          # first valid sampling index (after first obs)
+    valid_end: int            # last valid sampling index (before last obs - fitting_window)
+    name: str                 # condition name
     num_neurons: int
+    num_frames: int           # K, number of original frames
 
 
 # ---------------------------------------------------------------------------
@@ -200,14 +207,14 @@ class ConcatTrainingData:
 # ---------------------------------------------------------------------------
 
 
-def _interpolate_and_mask(
+def _interpolate_and_frame_index(
     obs_times: torch.Tensor,
     obs_vals: torch.Tensor,
     counts: torch.Tensor,
     num_bins: int,
     device: torch.device,
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """interpolate sparse data and build mask on GPU, return on CPU.
+) -> tuple[torch.Tensor, torch.Tensor, int]:
+    """interpolate sparse data and build frame index on GPU, return on CPU.
 
     args:
         obs_times: (N, K) sparse observation times on CPU
@@ -218,8 +225,11 @@ def _interpolate_and_mask(
 
     returns:
         activity: (T, N) float16 on CPU
-        obs_mask: (T, N) bool on CPU
+        frame_index: (T, N) int16 on CPU, -1 = no obs, >=0 = frame index
+        num_frames: K, number of original frames
     """
+    N, K = obs_times.shape
+
     # transfer to GPU
     obs_times_gpu = obs_times.to(device)
     obs_vals_gpu = obs_vals.to(device)
@@ -230,18 +240,18 @@ def _interpolate_and_mask(
         obs_times_gpu, obs_vals_gpu, counts_gpu, num_bins,
     )
 
-    # build observation mask on GPU
-    obs_mask_gpu = build_obs_mask(obs_times, num_bins, device)
+    # build frame index on GPU
+    frame_index_gpu = build_frame_index(obs_times, num_bins, device)
 
-    # move to CPU as float16
+    # move to CPU
     activity_cpu = activity_gpu.half().cpu()
-    obs_mask_cpu = obs_mask_gpu.cpu()
+    frame_index_cpu = frame_index_gpu.cpu()
 
     # free GPU memory
-    del obs_times_gpu, obs_vals_gpu, counts_gpu, activity_gpu, obs_mask_gpu
+    del obs_times_gpu, obs_vals_gpu, counts_gpu, activity_gpu, frame_index_gpu
     torch.cuda.empty_cache()
 
-    return activity_cpu, obs_mask_cpu
+    return activity_cpu, frame_index_cpu, K
 
 
 def load_all_data(
@@ -322,8 +332,8 @@ def load_all_data(
             split_obs_times = split_obs_times - min_bin
             split_num_bins = int(split_obs_times.max().item()) + 1
 
-            # interpolate and build mask
-            activity, obs_mask = _interpolate_and_mask(
+            # interpolate and build frame index
+            activity, frame_index, num_frames = _interpolate_and_frame_index(
                 split_obs_times, split_obs_vals, split_counts, split_num_bins, device,
             )
 
@@ -334,10 +344,11 @@ def load_all_data(
             valid_end = max(0, last_obs - fitting_window + 1)
 
             T = activity.shape[0]
-            log.info(f"    {split_name}: T={T}, valid=[{valid_start}, {valid_end})")
+            log.info(f"    {split_name}: T={T}, frames={num_frames}, valid=[{valid_start}, {valid_end})")
 
             if split_name == "train":
-                # accumulate for concatenation
+                # accumulate for concatenation (derive obs_mask from frame_index)
+                obs_mask = frame_index >= 0
                 train_activities.append(activity)
                 train_masks.append(obs_mask)
                 train_valid_starts.append(train_offset + valid_start)
@@ -345,14 +356,15 @@ def load_all_data(
                 train_weights.append(max(0, valid_end - valid_start))
                 train_offset += T
             else:
-                # store per-condition on CPU
+                # store per-condition on CPU with frame_index for per-frame metrics
                 cond_data = ConditionData(
                     activity=activity,
-                    obs_mask=obs_mask,
+                    frame_index=frame_index,
                     valid_start=valid_start,
                     valid_end=valid_end,
                     name=cond_name,
                     num_neurons=num_neurons,
+                    num_frames=num_frames,
                 )
                 if split_name == "val":
                     val_data.append(cond_data)
@@ -500,31 +512,50 @@ def run_validation_cpu(
                     if rollout_len <= 0:
                         continue
 
-                    # get ground truth and mask (float16 -> float32)
+                    # get ground truth and frame index (float16 -> float32)
                     gt = cond.activity[start:end].float()  # (rollout_len, N)
-                    mask = cond.obs_mask[start:end]         # (rollout_len, N)
+                    frame_idx = cond.frame_index[start:end]  # (rollout_len, N) int16
+                    obs_mask = frame_idx >= 0  # (rollout_len, N) bool
 
                     # encode initial state
                     z = model.encode(gt[0:1])  # (1, L)
 
-                    mses = []
-                    maes = []
+                    # collect predictions for all bins (pre-allocated)
+                    preds = torch.empty(rollout_len, cond.num_neurons)
                     for t in range(rollout_len):
-                        x_pred = model.decode(z)  # (1, N)
-
-                        # masked MSE and MAE
-                        err = x_pred[0] - gt[t]
-                        mask_t = mask[t]
-                        count = mask_t.sum().clamp(min=1)
-                        mse_t = ((err ** 2) * mask_t).sum() / count
-                        mae_t = (err.abs() * mask_t).sum() / count
-                        mses.append(mse_t.item())
-                        maes.append(mae_t.item())
-
+                        preds[t] = model.decode(z)[0]
                         z = model.evolve(z)
 
-                    results_mse[cond.name] = np.array(mses)
-                    results_mae[cond.name] = np.array(maes)
+                    # compute errors at observed points
+                    errors_sq = (preds - gt) ** 2  # (rollout_len, N)
+                    errors_abs = (preds - gt).abs()  # (rollout_len, N)
+
+                    # accumulate per-frame MSE/MAE
+                    # frame_idx[bin, n] = frame index for that observation
+                    num_frames = cond.num_frames
+                    frame_mse_sum = torch.zeros(num_frames)
+                    frame_mae_sum = torch.zeros(num_frames)
+                    frame_counts = torch.zeros(num_frames)
+
+                    # get indices of observed points
+                    bin_indices, neuron_indices = torch.where(obs_mask)
+                    frame_indices = frame_idx[bin_indices, neuron_indices].long()
+
+                    # gather errors at observed points
+                    obs_errors_sq = errors_sq[bin_indices, neuron_indices]
+                    obs_errors_abs = errors_abs[bin_indices, neuron_indices]
+
+                    # scatter_add into per-frame accumulators
+                    frame_mse_sum.scatter_add_(0, frame_indices, obs_errors_sq)
+                    frame_mae_sum.scatter_add_(0, frame_indices, obs_errors_abs)
+                    frame_counts.scatter_add_(0, frame_indices, torch.ones_like(obs_errors_sq))
+
+                    # compute mean per frame
+                    frame_mse = frame_mse_sum / frame_counts.clamp(min=1)
+                    frame_mae = frame_mae_sum / frame_counts.clamp(min=1)
+
+                    results_mse[cond.name] = frame_mse.numpy()
+                    results_mae[cond.name] = frame_mae.numpy()
 
         mean_mse = float(np.mean([m.mean() for m in results_mse.values()])) if results_mse else 0.0
         mean_mae = float(np.mean([m.mean() for m in results_mae.values()])) if results_mae else 0.0
@@ -538,10 +569,72 @@ def run_validation_cpu(
         ))
 
 
-def log_validation_result(result: ValidationResult, writer: SummaryWriter | None = None) -> None:
-    """log validation result as a table and to tensorboard."""
-    log.info(f"validation (epoch {result.epoch}):")
-    log.info(f"  {'condition':<12} {'steps':>6} {'mean_mse':>10} {'mean_mae':>10}")
+def plot_per_frame_metrics(
+    result: ValidationResult,
+    prefix: str = "val",
+) -> dict[str, plt.Figure]:
+    """plot MSE and MAE vs frame index for each condition.
+
+    args:
+        result: validation result with per-condition per-frame metrics.
+        prefix: title prefix ("val" or "test").
+
+    returns:
+        dict of {name: figure} for tensorboard logging.
+    """
+    figures = {}
+
+    # MSE plot
+    mse_fig, mse_ax = plt.subplots(figsize=(10, 6))
+    for name in sorted(result.per_condition_mse.keys()):
+        mses = result.per_condition_mse[name]
+        mse_ax.plot(np.arange(1, len(mses) + 1), mses, label=name, alpha=0.8)
+    mse_ax.set_xlabel("frame index")
+    mse_ax.set_ylabel("MSE")
+    mse_ax.set_xscale("log")
+    mse_ax.set_yscale("log")
+    mse_ax.set_xlim(1, None)
+    mse_ax.set_ylim(1e-3, 1.0)
+    mse_ax.legend(loc="upper left", fontsize=8)
+    mse_ax.set_title(f"{prefix} MSE vs frame (epoch {result.epoch})")
+    mse_ax.grid(True, alpha=0.3)
+    mse_fig.tight_layout()
+    figures["mse_vs_frame"] = mse_fig
+
+    # MAE plot
+    mae_fig, mae_ax = plt.subplots(figsize=(10, 6))
+    for name in sorted(result.per_condition_mae.keys()):
+        maes = result.per_condition_mae[name]
+        mae_ax.plot(np.arange(1, len(maes) + 1), maes, label=name, alpha=0.8)
+    mae_ax.set_xlabel("frame index")
+    mae_ax.set_ylabel("MAE")
+    mae_ax.set_xscale("log")
+    mae_ax.set_yscale("log")
+    mae_ax.set_xlim(1, None)
+    mae_ax.set_ylim(1e-2, 1.0)
+    mae_ax.legend(loc="upper left", fontsize=8)
+    mae_ax.set_title(f"{prefix} MAE vs frame (epoch {result.epoch})")
+    mae_ax.grid(True, alpha=0.3)
+    mae_fig.tight_layout()
+    figures["mae_vs_frame"] = mae_fig
+
+    return figures
+
+
+def log_validation_result(
+    result: ValidationResult,
+    writer: SummaryWriter | None = None,
+    prefix: str = "val",
+) -> None:
+    """log validation result as a table and to tensorboard.
+
+    args:
+        result: validation result to log.
+        writer: tensorboard writer (optional).
+        prefix: tensorboard metric prefix ("val" or "test").
+    """
+    log.info(f"{prefix} (epoch {result.epoch}):")
+    log.info(f"  {'condition':<12} {'frames':>6} {'mean_mse':>10} {'mean_mae':>10}")
     log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
     for name in sorted(result.per_condition_mse.keys()):
         mses = result.per_condition_mse[name]
@@ -549,16 +642,21 @@ def log_validation_result(result: ValidationResult, writer: SummaryWriter | None
         log.info(f"  {name:<12} {len(mses):>6} {mses.mean():>10.4f} {maes.mean():>10.4f}")
         # tensorboard logging per condition
         if writer is not None:
-            writer.add_scalar(f"val/{name}/mean_mse", mses.mean(), result.epoch)
-            writer.add_scalar(f"val/{name}/final_mse", mses[-1], result.epoch)
-            writer.add_scalar(f"val/{name}/mean_mae", maes.mean(), result.epoch)
-            writer.add_scalar(f"val/{name}/final_mae", maes[-1], result.epoch)
+            writer.add_scalar(f"{prefix}/{name}/mean_mse", mses.mean(), result.epoch)
+            writer.add_scalar(f"{prefix}/{name}/final_mse", mses[-1], result.epoch)
+            writer.add_scalar(f"{prefix}/{name}/mean_mae", maes.mean(), result.epoch)
+            writer.add_scalar(f"{prefix}/{name}/final_mae", maes[-1], result.epoch)
     log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
     log.info(f"  {'MEAN':<12} {'':>6} {result.mean_mse:>10.4f} {result.mean_mae:>10.4f}")
-    # tensorboard: overall mean
+    # tensorboard: overall mean and figures
     if writer is not None:
-        writer.add_scalar("val/mean_mse", result.mean_mse, result.epoch)
-        writer.add_scalar("val/mean_mae", result.mean_mae, result.epoch)
+        writer.add_scalar(f"{prefix}/mean_mse", result.mean_mse, result.epoch)
+        writer.add_scalar(f"{prefix}/mean_mae", result.mean_mae, result.epoch)
+        # add per-frame plots
+        figures = plot_per_frame_metrics(result, prefix)
+        for fig_name, fig in figures.items():
+            writer.add_figure(f"{prefix}/{fig_name}", fig, result.epoch)
+            plt.close(fig)
     # flush to ensure output is visible immediately
     for handler in logging.root.handlers:
         handler.flush()
@@ -641,7 +739,7 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
 
     # load all data: train on GPU, val/test on CPU
     log.info("loading data...")
-    train_data, val_data, _test_data = load_all_data(
+    train_data, val_data, test_data = load_all_data(
         cfg.data.traces_path, cfg.data.ephys_path, cfg.data.bin_size_ms,
         cfg.split, cfg.train.fitting_window, device,
     )
@@ -684,16 +782,16 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     log.info(f"tensorboard --logdir={run_dir}")
 
     # validation setup
-    val_queue: queue.Queue[ValidationResult] = queue.Queue()
+    eval_queue: queue.Queue[ValidationResult] = queue.Queue()
     val_thread: threading.Thread | None = None
     final_val_result: ValidationResult | None = None
 
-    def start_validation(epoch: int) -> threading.Thread:
-        """copy weights to CPU and start validation in background."""
+    def start_eval(data: list[ConditionData], epoch: int) -> threading.Thread:
+        """copy weights to CPU and start evaluation in background."""
         state_dict = {k: v.cpu().clone() for k, v in model.state_dict().items()}
         t = threading.Thread(
             target=run_validation_cpu,
-            args=(model_cfg, state_dict, val_data, val_queue, epoch),
+            args=(model_cfg, state_dict, data, eval_queue, epoch),
         )
         t.start()
         return t
@@ -702,14 +800,14 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
         """check if validation finished and log results."""
         nonlocal val_thread
         if val_thread is not None and not val_thread.is_alive():
-            result = val_queue.get_nowait()
-            log_validation_result(result, writer)
+            result = eval_queue.get_nowait()
+            log_validation_result(result, writer, prefix="val")
             val_thread = None
             return result
         return None
 
     # start validation for epoch 0 (untrained model baseline)
-    val_thread = start_validation(epoch=0)
+    val_thread = start_eval(val_data, epoch=0)
 
     # chrome profiler (only record 5 steps during epoch 1)
     # epoch 0 = steps 0-N, epoch 1 = steps N+1-2N, etc.
@@ -763,12 +861,32 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
 
             # start validation for next epoch if not busy
             if val_thread is None:
-                val_thread = start_validation(epoch + 1)
+                val_thread = start_eval(val_data, epoch + 1)
 
             # check for graceful termination
             if terminate_flag["value"]:
                 log.info(f"=== graceful termination at epoch {epoch + 1} ===")
                 break
+
+    # save profile immediately after profiler context ends
+    if prof.profiler is not None:
+        prof.export_chrome_trace(str(profile_path))
+        log.info(f"profile saved to {profile_path}")
+        log.info("=" * 60)
+        log.info("KEY TIMINGS")
+        log.info("=" * 60)
+        key_averages = prof.key_averages()
+        # exact match keys
+        exact_keys = ["sample", "forward", "backward", "optimizer_step", "validation_model_setup"]
+        # prefix match keys (for dynamic names like validation_epoch_0, validation_gain)
+        prefix_keys = ["validation_epoch_", "validation_"]
+        for event in key_averages:
+            is_exact = event.key in exact_keys
+            is_prefix = any(event.key.startswith(p) for p in prefix_keys)
+            if is_exact or is_prefix:
+                log.info(f"  {event.key:45s}: {event.cpu_time_total/1000:8.1f} ms total, "
+                         f"{event.cpu_time_total/1000/max(1,event.count):6.1f} ms avg, n={event.count}")
+        log.info("=" * 60)
 
     # determine final epoch number (after all training)
     final_epoch = epoch + 1  # epoch is 0-indexed, so +1 for "after N epochs"
@@ -778,7 +896,7 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     if val_thread is not None:
         log.info("waiting for in-progress validation...")
         val_thread.join()
-        result = val_queue.get()
+        result = eval_queue.get()
         log_validation_result(result, writer)
         final_val_result = result
         last_validated_epoch = result.epoch
@@ -786,60 +904,58 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     # run validation on final model if not already done
     if last_validated_epoch < final_epoch:
         log.info(f"running final validation (epoch {final_epoch})...")
-        val_thread = start_validation(final_epoch)
+        val_thread = start_eval(val_data, final_epoch)
         val_thread.join()
-        result = val_queue.get()
+        result = eval_queue.get()
         log_validation_result(result, writer)
         final_val_result = result
-
-    # save profile
-    prof.export_chrome_trace(str(profile_path))
-    log.info(f"profile saved to {profile_path}")
-
-    # print key timings
-    log.info("=" * 60)
-    log.info("KEY TIMINGS")
-    log.info("=" * 60)
-    key_averages = prof.key_averages()
-    key_names = [
-        "sample", "forward", "backward", "optimizer_step",
-        "cudaStreamSynchronize", "aten::copy_", "aten::index",
-    ]
-    for event in key_averages:
-        if event.key in key_names or any(k in event.key for k in key_names):
-            log.info(f"  {event.key:45s}: {event.cpu_time_total/1000:8.1f} ms total, "
-                     f"{event.cpu_time_total/1000/max(1,event.count):6.1f} ms avg, n={event.count}")
-    log.info("=" * 60)
 
     # save final model
     model_path = run_dir / "model_final.pt"
     torch.save(model.state_dict(), model_path)
     log.info(f"saved final model to {model_path}")
 
-    # save final metrics
-    if final_val_result is not None:
-        per_condition = {}
-        for name in final_val_result.per_condition_mse:
-            mses = final_val_result.per_condition_mse[name]
-            maes = final_val_result.per_condition_mae[name]
-            per_condition[name] = {
+    # run test evaluation (same code path as validation)
+    log.info("running test evaluation...")
+    test_thread = start_eval(test_data, final_epoch)
+    test_thread.join()
+    test_result = eval_queue.get()
+    log_validation_result(test_result, writer, prefix="test")
+
+    # helper to extract per-condition metrics
+    def extract_condition_metrics(result: ValidationResult) -> dict:
+        per_cond = {}
+        for name in result.per_condition_mse:
+            mses = result.per_condition_mse[name]
+            maes = result.per_condition_mae[name]
+            per_cond[name] = {
                 "mean_mse": float(mses.mean()),
                 "final_mse": float(mses[-1]),
                 "mean_mae": float(maes.mean()),
                 "final_mae": float(maes[-1]),
                 "rollout_steps": len(mses),
             }
-        metrics = {
-            "final_epoch": final_epoch,
-            "mean_mse": final_val_result.mean_mse,
-            "mean_mae": final_val_result.mean_mae,
-            "per_condition": per_condition,
-            "was_terminated": terminate_flag["value"],
-        }
-        metrics_path = run_dir / "final_metrics.yaml"
-        with open(metrics_path, "w") as f:
-            yaml.dump(metrics, f, sort_keys=False, indent=2)
-        log.info(f"saved final metrics to {metrics_path}")
+        return per_cond
+
+    # save final metrics
+    metrics = {
+        "final_epoch": final_epoch,
+        "was_terminated": terminate_flag["value"],
+        "val": {
+            "mean_mse": final_val_result.mean_mse if final_val_result else None,
+            "mean_mae": final_val_result.mean_mae if final_val_result else None,
+            "per_condition": extract_condition_metrics(final_val_result) if final_val_result else {},
+        },
+        "test": {
+            "mean_mse": test_result.mean_mse,
+            "mean_mae": test_result.mean_mae,
+            "per_condition": extract_condition_metrics(test_result),
+        },
+    }
+    metrics_path = run_dir / "final_metrics.yaml"
+    with open(metrics_path, "w") as f:
+        yaml.dump(metrics, f, sort_keys=False, indent=2)
+    log.info(f"saved final metrics to {metrics_path}")
 
     writer.close()
     log.info("done")
@@ -889,6 +1005,10 @@ def main():
 
     log.info(f"run directory: {run_dir.resolve()}")
     log.info(f"config saved to {config_path}")
+
+    # print to stdout (visible even when logging redirected to file)
+    print(f"run directory: {run_dir.resolve()}", flush=True)
+    print(f"stdout.log: {run_dir.resolve() / 'stdout.log'}", flush=True)
 
     # run training
     was_terminated, _ = train(cfg, run_dir)
