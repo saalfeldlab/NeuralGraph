@@ -106,8 +106,10 @@ data flow:
 """
 
 import logging
+import queue
 import random
 import signal
+import threading
 from dataclasses import dataclass
 
 import numpy as np
@@ -512,6 +514,102 @@ def train_step(
 
 
 # ---------------------------------------------------------------------------
+# CPU validation (runs in background thread)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ValidationResult:
+    """result from background validation."""
+    epoch: int
+    mean_mse: float
+    per_condition: dict  # {name: (rollout_len,) mse array}
+
+
+def run_validation_cpu(
+    model_cfg: "ModelConfig",
+    state_dict: dict,
+    val_conditions: list[ConditionData],
+    result_queue: "queue.Queue[ValidationResult]",
+    epoch: int,
+    max_rollout_steps: int | None = None,
+) -> None:
+    """run validation on CPU, put result in queue.
+
+    args:
+        model_cfg: model configuration for creating CPU model.
+        state_dict: model weights (already on CPU).
+        val_conditions: list of ConditionData on CPU.
+        result_queue: queue to put results.
+        epoch: which epoch this validation corresponds to.
+        max_rollout_steps: cap rollout length (None = rollout to end).
+    """
+    with torch.profiler.record_function(f"validation_epoch_{epoch}"):
+
+        # create model on CPU, load weights
+        with torch.profiler.record_function("validation_model_setup"):
+            model = EEDModel(model_cfg).cpu()
+            model.load_state_dict(state_dict)
+            model.eval()
+
+        results: dict[str, np.ndarray] = {}
+
+        with torch.no_grad():
+            for cond in val_conditions:
+                with torch.profiler.record_function(f"validation_{cond.name}"):
+                    T = cond.activity.shape[0]
+                    start = cond.valid_start
+                    end = T if max_rollout_steps is None else min(T, start + max_rollout_steps)
+                    rollout_len = end - start
+
+                    if rollout_len <= 0:
+                        continue
+
+                    # get ground truth and mask (float16 -> float32)
+                    gt = cond.activity[start:end].float()  # (rollout_len, N)
+                    mask = cond.obs_mask[start:end]         # (rollout_len, N)
+
+                    # encode initial state
+                    z = model.encode(gt[0:1])  # (1, L)
+
+                    mses = []
+                    for t in range(rollout_len):
+                        x_pred = model.decode(z)  # (1, N)
+
+                        # masked MSE
+                        err_sq = (x_pred[0] - gt[t]) ** 2
+                        mask_t = mask[t]
+                        mse_t = (err_sq * mask_t).sum() / mask_t.sum().clamp(min=1)
+                        mses.append(mse_t.item())
+
+                        z = model.evolve(z)
+
+                    results[cond.name] = np.array(mses)
+
+        mean_mse = float(np.mean([m.mean() for m in results.values()])) if results else 0.0
+
+        result_queue.put(ValidationResult(
+            epoch=epoch,
+            mean_mse=mean_mse,
+            per_condition=results,
+        ))
+
+
+def log_validation_result(result: ValidationResult) -> None:
+    """log validation result as a table."""
+    log.info(f"validation (epoch {result.epoch}):")
+    log.info(f"  {'condition':<12} {'steps':>6} {'mean_mse':>10} {'final_mse':>10}")
+    log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
+    for name, mses in sorted(result.per_condition.items()):
+        log.info(f"  {name:<12} {len(mses):>6} {mses.mean():>10.4f} {mses[-1]:>10.4f}")
+    log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
+    log.info(f"  {'MEAN':<12} {'':>6} {result.mean_mse:>10.4f}")
+    # flush to ensure output is visible immediately
+    for handler in logging.root.handlers:
+        handler.flush()
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
@@ -519,6 +617,13 @@ def train_step(
 def main():
     """training loop with per-condition sparse data."""
     import time
+
+    # limit CPU threads (for validation and any CPU ops)
+    import os
+    num_threads = int(os.environ.get("LSB_DJOB_NUMPROC", "12"))
+    torch.set_num_threads(num_threads)
+    torch._inductor.config.compile_threads = num_threads  # type: ignore[attr-defined]
+    log.info(f"CPU threads: {num_threads}")
 
     # signal handling for graceful termination
     terminate_flag = {"value": False}
@@ -547,7 +652,7 @@ def main():
     # load all data: train on GPU, val/test on CPU
     log.info("loading data...")
     split = DataSplit()
-    train_data, _val_data, _test_data = load_all_data(
+    train_data, val_data, _test_data = load_all_data(
         data_cfg.traces_path, data_cfg.ephys_path, data_cfg.bin_size_ms,
         split, train_cfg.fitting_window, device,
     )
@@ -579,6 +684,30 @@ def main():
 
     log.info(f"training: {train_cfg.epochs} epochs, {batches_per_epoch} batches/epoch")
 
+    # validation setup
+    val_queue: queue.Queue[ValidationResult] = queue.Queue()
+    val_thread: threading.Thread | None = None
+
+    def start_validation(epoch: int) -> threading.Thread:
+        """copy weights to CPU and start validation in background."""
+        state_dict = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        t = threading.Thread(
+            target=run_validation_cpu,
+            args=(model_cfg, state_dict, val_data, val_queue, epoch),
+        )
+        t.start()
+        return t
+
+    def check_validation() -> None:
+        """check if validation finished and log results."""
+        nonlocal val_thread
+        if val_thread is not None and not val_thread.is_alive():
+            result = val_queue.get_nowait()
+            log_validation_result(result)
+            val_thread = None
+
+    # start validation for epoch 0 (untrained model baseline)
+    val_thread = start_validation(epoch=0)
 
     # chrome profiler (only record 5 steps during epoch 1)
     # epoch 0 = steps 0-N, epoch 1 = steps N+1-2N, etc.
@@ -623,10 +752,37 @@ def main():
             if epoch == 0:
                 log.info(f"GPU after epoch 0: allocated={torch.cuda.memory_allocated() / 1e9:.2f} GB, reserved={torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
+            # check if validation finished, log results
+            check_validation()
+
+            # start validation for next epoch if not busy
+            if val_thread is None:
+                val_thread = start_validation(epoch + 1)
+
             # check for graceful termination
             if terminate_flag["value"]:
                 log.info(f"=== graceful termination at epoch {epoch + 1} ===")
                 break
+
+    # determine final epoch number (after all training)
+    final_epoch = epoch + 1  # epoch is 0-indexed, so +1 for "after N epochs"
+
+    # wait for any in-progress validation to complete
+    last_validated_epoch = -1
+    if val_thread is not None:
+        log.info("waiting for in-progress validation...")
+        val_thread.join()
+        result = val_queue.get()
+        log_validation_result(result)
+        last_validated_epoch = result.epoch
+
+    # run validation on final model if not already done
+    if last_validated_epoch < final_epoch:
+        log.info(f"running final validation (epoch {final_epoch})...")
+        val_thread = start_validation(final_epoch)
+        val_thread.join()
+        result = val_queue.get()
+        log_validation_result(result)
 
     # save profile
     prof.export_chrome_trace("zapbench_profile.json")
