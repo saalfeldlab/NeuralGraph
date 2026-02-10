@@ -16,7 +16,6 @@ usage:
 import logging
 import os
 import queue
-import random
 import signal
 import sys
 import threading
@@ -32,25 +31,11 @@ import tyro
 import yaml
 from torch.utils.tensorboard import SummaryWriter
 
-# configure logging with HH:MM:SS timestamp
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(message)s",
-    datefmt="%H:%M:%S",
-)
-log = logging.getLogger(__name__)
-
-
-def seed_everything(seed: int = 42):
-    """seed all random number generators for reproducibility."""
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-
-from LatentEvolution.zapbench import (
+from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
+from LatentEvolution.training_utils import seed_everything
+from LatentEvolution.zapbench_data import (
     load_sparse_activity,
-    interpolate_sparse_compiled,  # compiled version needed for memory efficiency
+    interpolate_sparse_compiled,
 )
 from LatentEvolution.zapbench_config import (
     DataConfig,
@@ -58,8 +43,15 @@ from LatentEvolution.zapbench_config import (
     ModelConfig,
     TrainConfig,
 )
-from LatentEvolution.zapbench_model import EEDModel
-from LatentEvolution.hparam_paths import create_run_directory, get_git_commit_hash
+from LatentEvolution.zapbench_eed import EEDModel
+
+# configure logging with HH:MM:SS timestamp
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(message)s",
+    datefmt="%H:%M:%S",
+)
+log = logging.getLogger(__name__)
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -677,8 +669,6 @@ def train(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationResult | 
     returns:
         (was_terminated, final_val_result) tuple.
     """
-    import time
-
     # redirect stdout/stderr to log files
     stdout_path = run_dir / "stdout.log"
     stderr_path = run_dir / "stderr.log"
@@ -711,8 +701,8 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     """actual training implementation."""
     import time
 
-    # limit CPU threads (for validation and any CPU ops)
-    num_threads = int(os.environ.get("LSB_DJOB_NUMPROC", "12"))
+    # limit CPU threads (for validation and any CPU ops), leave 1 for main thread
+    num_threads = max(1, int(os.environ.get("LSB_DJOB_NUMPROC", "12")) - 1)
     torch.set_num_threads(num_threads)
     torch._inductor.config.compile_threads = num_threads  # type: ignore[attr-defined]
     log.info(f"CPU threads: {num_threads}")

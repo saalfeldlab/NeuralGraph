@@ -10,7 +10,7 @@ import numpy as np
 import tensorstore as ts
 import torch
 
-from LatentEvolution.zapbench import (
+from LatentEvolution.zapbench_data import (
     load_and_interpolate,
     load_sparse_activity,
     interpolate_sparse,
