@@ -130,7 +130,7 @@ class TrainConfig(BaseModel):
     seed: int = 135717
     fitting_window: int = 100  # time steps to predict (4s at 25 Hz)
     batch_size: int = 32
-    epochs: int = 2
+    epochs: int = 30
     learning_rate: float = 1e-5
 
     model_config = ConfigDict(extra="forbid")
