@@ -3646,15 +3646,15 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     np.save(f"./{log_dir}/results/kinograph_pred.npy", activity_pred)
 
     # Plot predicted kinograph
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(10, 10))
     vmax_kino = np.abs(activity_pred).max()
-    plt.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_kino, vmax=vmax_kino, origin='lower')
+    plt.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_kino, vmax=vmax_kino, origin='lower', interpolation='nearest')
     cbar = plt.colorbar(fraction=0.046, pad=0.04)
-    cbar.ax.tick_params(labelsize=32)
-    plt.ylabel('neurons', fontsize=64)
-    plt.xlabel('time', fontsize=64)
-    plt.xticks([0, n_frames_plot - 1], [0, n_frames_plot], fontsize=48)
-    plt.yticks([0, activity_pred.shape[0] - 1], [1, activity_pred.shape[0]], fontsize=48)
+    cbar.ax.tick_params(labelsize=16)
+    plt.ylabel('neurons', fontsize=20)
+    plt.xlabel('time', fontsize=20)
+    plt.xticks([0, n_frames_plot - 1], [0, n_frames_plot], fontsize=16)
+    plt.yticks([0, activity_pred.shape[0] - 1], [1, activity_pred.shape[0]], fontsize=16)
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/kinograph_pred.png", dpi=300)
     plt.close()
@@ -3674,31 +3674,31 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     residual = activity_gt - activity_pred
     vmax_res = np.abs(residual).max()
 
-    fig, axes = plt.subplots(2, 2, figsize=(24, 16))
+    fig, axes = plt.subplots(2, 2, figsize=(20, 20))
     ax_gt, ax_pred, ax_res, ax_scat = axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]
 
     # Top-left: GT
-    im_gt = ax_gt.imshow(activity_gt, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower')
-    ax_gt.set_ylabel('neurons', fontsize=28)
-    ax_gt.set_title('ground truth', fontsize=24)
-    ax_gt.set_xticks([0, n_frames_plot - 1]); ax_gt.set_xticklabels([0, n_frames_plot], fontsize=20)
-    ax_gt.set_yticks([0, n_neurons_kino - 1]); ax_gt.set_yticklabels([1, n_neurons_kino], fontsize=20)
+    im_gt = ax_gt.imshow(activity_gt, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower', interpolation='nearest')
+    ax_gt.set_ylabel('neurons', fontsize=20)
+    ax_gt.set_title('ground truth', fontsize=20)
+    ax_gt.set_xticks([0, n_frames_plot - 1]); ax_gt.set_xticklabels([0, n_frames_plot], fontsize=16)
+    ax_gt.set_yticks([0, n_neurons_kino - 1]); ax_gt.set_yticklabels([1, n_neurons_kino], fontsize=16)
     fig.colorbar(im_gt, ax=ax_gt, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
 
     # Top-right: GNN prediction
-    im_pred = ax_pred.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower')
-    ax_pred.set_title('GNN', fontsize=24)
-    ax_pred.set_xticks([0, n_frames_plot - 1]); ax_pred.set_xticklabels([0, n_frames_plot], fontsize=20)
-    ax_pred.set_yticks([0, n_neurons_kino - 1]); ax_pred.set_yticklabels([1, n_neurons_kino], fontsize=20)
+    im_pred = ax_pred.imshow(activity_pred, aspect='auto', cmap='viridis', vmin=-vmax_shared, vmax=vmax_shared, origin='lower', interpolation='nearest')
+    ax_pred.set_title('GNN rollout', fontsize=20)
+    ax_pred.set_xticks([0, n_frames_plot - 1]); ax_pred.set_xticklabels([0, n_frames_plot], fontsize=16)
+    ax_pred.set_yticks([0, n_neurons_kino - 1]); ax_pred.set_yticklabels([1, n_neurons_kino], fontsize=16)
     fig.colorbar(im_pred, ax=ax_pred, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
 
     # Bottom-left: Residual
-    im_res = ax_res.imshow(residual, aspect='auto', cmap='RdBu_r', vmin=-vmax_res, vmax=vmax_res, origin='lower')
-    ax_res.set_ylabel('neurons', fontsize=28)
-    ax_res.set_xlabel('time', fontsize=28)
-    ax_res.set_title('residuals ', fontsize=24)
-    ax_res.set_xticks([0, n_frames_plot - 1]); ax_res.set_xticklabels([0, n_frames_plot], fontsize=20)
-    ax_res.set_yticks([0, n_neurons_kino - 1]); ax_res.set_yticklabels([1, n_neurons_kino], fontsize=20)
+    im_res = ax_res.imshow(residual, aspect='auto', cmap='RdBu_r', vmin=-vmax_res, vmax=vmax_res, origin='lower', interpolation='nearest')
+    ax_res.set_ylabel('neurons', fontsize=20)
+    ax_res.set_xlabel('time', fontsize=20)
+    ax_res.set_title('residuals', fontsize=20)
+    ax_res.set_xticks([0, n_frames_plot - 1]); ax_res.set_xticklabels([0, n_frames_plot], fontsize=16)
+    ax_res.set_yticks([0, n_neurons_kino - 1]); ax_res.set_yticklabels([1, n_neurons_kino], fontsize=16)
     fig.colorbar(im_res, ax=ax_res, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
 
     # Bottom-right: Scatter true vs predicted
@@ -3708,15 +3708,291 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
     lim = [min(gt_flat.min(), pred_flat.min()), max(gt_flat.max(), pred_flat.max())]
     ax_scat.plot(lim, lim, 'r--', linewidth=2)
     ax_scat.set_xlim(lim); ax_scat.set_ylim(lim)
-    ax_scat.set_xlabel('ground truth activity', fontsize=28)
-    ax_scat.set_ylabel('predicted activity', fontsize=28)
-    ax_scat.set_title('true vs predicted', fontsize=24)
-    ax_scat.tick_params(labelsize=18)
+    ax_scat.set_xlabel('ground truth activity', fontsize=20)
+    ax_scat.set_ylabel('predicted activity', fontsize=20)
+    ax_scat.set_title('true vs predicted', fontsize=20)
+    ax_scat.tick_params(labelsize=16)
     ax_scat.text(0.05, 0.95, f'R²={kino_metrics["r2"]:.3f}\nSSIM={kino_metrics["ssim"]:.3f}\nWD={kino_metrics["mean_wasserstein"]:.3f}',
-                 transform=ax_scat.transAxes, fontsize=20, va='top')
+                 transform=ax_scat.transAxes, fontsize=16, va='top')
 
     plt.tight_layout()
     plt.savefig(f"./{log_dir}/results/kinograph_montage.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Mode analysis: project kinographs onto true U basis (low-rank only)
+    rank = getattr(simulation_config, 'connectivity_rank', 0)
+    if rank > 0 and hasattr(simulation_config, 'connectivity_type') and 'low_rank' in str(simulation_config.connectivity_type):
+        print('mode analysis (low-rank) ...')
+        from scipy.stats import pearsonr as _pearsonr
+
+        W_true = to_numpy(connectivity).squeeze()
+        U_full, S_full, Vt_full = np.linalg.svd(W_true, full_matrices=False)
+        U_true = U_full[:, :rank]
+        S_true = S_full[:rank]
+
+        # Project kinographs onto U basis: (rank, n_frames)
+        modes_gt = U_true.T @ activity_gt
+        modes_pred = U_true.T @ activity_pred
+
+        # Per-mode temporal correlation
+        mode_corrs = np.array([_pearsonr(modes_gt[k], modes_pred[k])[0] for k in range(rank)])
+
+        # Spatial correlation per frame
+        spatial_corrs = np.array([_pearsonr(activity_gt[:, t], activity_pred[:, t])[0] for t in range(n_frames_plot)])
+
+        # Mode power (mean squared amplitude)
+        energy_gt = np.mean(modes_gt ** 2, axis=1)
+        energy_pred = np.mean(modes_pred ** 2, axis=1)
+
+        # Log metrics
+        print(f"mode_temporal_corr_mean: {mode_corrs.mean():.4f}, spatial_corr_mean: {np.mean(spatial_corrs):.4f}")
+        if log_file:
+            log_file.write(f"mode_temporal_corr_mean: {mode_corrs.mean():.4f}\n")
+            log_file.write(f"spatial_corr_mean: {np.mean(spatial_corrs):.4f}\n")
+            log_file.write(f"mode_energy_ratio: {energy_pred.sum()/energy_gt.sum():.4f}\n")
+
+        # --- 2x2 mode analysis figure (top row half height) ---
+        fig, axes = plt.subplots(2, 2, figsize=(20, 15),
+                                 gridspec_kw={'height_ratios': [1, 2]})
+
+        # Top-left: mode 0 activation
+        ax = axes[0, 0]
+        t_ds = np.arange(0, n_frames_plot, max(1, n_frames_plot // 2000))
+        ax.plot(t_ds, modes_gt[0, t_ds], color='#2563eb', linewidth=1.5, alpha=0.8, label='GT')
+        ax.plot(t_ds, modes_pred[0, t_ds], color='#dc2626', linewidth=1.5, alpha=0.8, label='pred')
+        ax.set_title(f'mode 0 activation (\u03c3={S_true[0]:.1f}, r={mode_corrs[0]:.3f})', fontsize=20)
+        ax.set_xlabel('frames', fontsize=20)
+        ax.set_ylabel('projection onto U[:,0]', fontsize=20)
+        ax.legend(fontsize=16, loc='upper right')
+        ax.tick_params(labelsize=16)
+
+        # Top-right: spatial correlation over time
+        ax = axes[0, 1]
+        t_ds_sp = np.arange(0, n_frames_plot, max(1, n_frames_plot // 4000))
+        ax.plot(t_ds_sp, spatial_corrs[t_ds_sp], color='#374151', linewidth=0.5)
+        ax.axhline(y=np.mean(spatial_corrs), color='#dc2626', linewidth=2, linestyle='--',
+                   label=f'mean = {np.mean(spatial_corrs):.3f}')
+        ax.set_title('cross-neuron correlation per frame', fontsize=20)
+        ax.set_xlabel('frames', fontsize=20)
+        ax.set_ylabel('Pearson r', fontsize=20)
+        ax.set_ylim(-1.1, 1.1)
+        ax.legend(fontsize=16)
+        ax.tick_params(labelsize=16)
+
+        # Bottom-left: per-mode temporal correlation bar chart
+        ax = axes[1, 0]
+        bar_colors = ['#2563eb' if c > 0.5 else '#f59e0b' if c > 0 else '#dc2626' for c in mode_corrs]
+        ax.bar(range(rank), mode_corrs, color=bar_colors, edgecolor='none', width=0.7)
+        ax.set_xlabel('SVD mode index', fontsize=20)
+        ax.set_ylabel('temporal r', fontsize=20)
+        ax.set_title(f'per-mode temporal correlation (mean={mode_corrs.mean():.3f})', fontsize=20)
+        ax.axhline(y=0, color='#9ca3af', linewidth=1)
+        ax.tick_params(labelsize=16)
+
+        # Bottom-right: mode power scatter
+        ax = axes[1, 1]
+        ax.scatter(energy_gt, energy_pred, c='#2563eb',
+                  edgecolors='#555555', linewidths=0.5, s=250, zorder=3)
+        for k in range(rank):
+            ax.annotate(str(k), (energy_gt[k], energy_pred[k]), fontsize=16,
+                        ha='center', va='bottom', xytext=(0, 8), textcoords='offset points', zorder=4)
+        e_max = max(energy_gt.max(), energy_pred.max())
+        ax.plot([0, e_max], [0, e_max], '--', color='#9ca3af', linewidth=1)
+        ax.set_xlabel('GT mode power', fontsize=20)
+        ax.set_ylabel('pred mode power', fontsize=20)
+        ax.set_title('mode power: GT vs pred', fontsize=20)
+        ax.tick_params(labelsize=16)
+
+        plt.tight_layout()
+        plt.savefig(f"./{log_dir}/results/kinograph_mode_analysis.png", dpi=300, bbox_inches='tight')
+        plt.close()
+        print('saved kinograph_mode_analysis.png')
+
+    # One-step derivative kinograph: feed true activity at each timestep
+    print('one-step derivative kinograph ...')
+    deriv_gt_list = []
+    deriv_pred_list = []
+    with torch.no_grad():
+        for it in trange(start_it, start_it + n_test_frames, ncols=100, desc='one-step'):
+            if it < n_frames - 4:
+                x0 = x_list[0][it].clone().detach()
+                y_gt = y_list[0][it].clone().detach()  # ground truth derivative
+            else:
+                break
+
+            x0[:, 3] = torch.where(torch.isnan(x0[:, 3]), baseline_value, x0[:, 3])
+
+            if config.training.shared_embedding:
+                data_id_os = torch.ones((n_neurons, 1), dtype=torch.int, device=device)
+            else:
+                data_id_os = torch.ones((n_neurons, 1), dtype=torch.int, device=device) * run
+
+            dataset_os = pyg_Data(x=x0, pos=x0[:, 1:3], edge_index=edge_index)
+            if neural_ODE_training:
+                u0 = x0[:, 3].flatten()
+                u_final, _ = integrate_neural_ode_Signal(
+                    model=model, u0=u0, data_template=dataset_os, data_id=data_id_os,
+                    time_steps=1, delta_t=delta_t, neurons_per_sample=n_neurons, batch_size=1,
+                    x_list=None, run=0, device=device, k_batch=torch.tensor([it], device=device),
+                    ode_method=ode_method, rtol=ode_rtol, atol=ode_atol, adjoint=False, noise_level=0.0)
+                pred_os = (u_final.view(-1, 1) - x0[:, 3:4]) / delta_t
+            else:
+                pred_os = model(dataset_os, data_id=data_id_os, k=it)
+
+            deriv_gt_list.append(y_gt[:n_neurons].squeeze())
+            deriv_pred_list.append(pred_os[:n_neurons].squeeze())
+
+    deriv_gt_arr = to_numpy(torch.stack(deriv_gt_list, dim=0).T)    # (n_neurons, n_frames)
+    deriv_pred_arr = to_numpy(torch.stack(deriv_pred_list, dim=0).T)  # (n_neurons, n_frames)
+    n_frames_deriv = deriv_gt_arr.shape[1]
+
+    np.save(f"./{log_dir}/results/deriv_kinograph_gt.npy", deriv_gt_arr)
+    np.save(f"./{log_dir}/results/deriv_kinograph_pred.npy", deriv_pred_arr)
+
+    # Compute one-step derivative metrics
+    deriv_metrics = compute_kinograph_metrics(deriv_gt_arr, deriv_pred_arr)
+    if log_file:
+        log_file.write(f"deriv_kinograph_R2: {deriv_metrics['r2']:.4f}\n")
+        log_file.write(f"deriv_kinograph_SSIM: {deriv_metrics['ssim']:.4f}\n")
+        log_file.write(f"deriv_kinograph_Wasserstein: {deriv_metrics['mean_wasserstein']:.4f}\n")
+    print(f"deriv_kinograph_R2: {deriv_metrics['r2']:.4f}, deriv_kinograph_SSIM: {deriv_metrics['ssim']:.4f}, deriv_kinograph_Wasserstein: {deriv_metrics['mean_wasserstein']:.4f}")
+
+    # 2x2 derivative kinograph montage
+    vmax_deriv = max(np.abs(deriv_gt_arr).max(), np.abs(deriv_pred_arr).max())
+    deriv_residual = deriv_gt_arr - deriv_pred_arr
+    vmax_deriv_res = np.abs(deriv_residual).max()
+
+    fig, axes = plt.subplots(2, 2, figsize=(20, 20))
+    ax_gt_d, ax_pred_d, ax_res_d, ax_scat_d = axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]
+
+    # Top-left: GT derivative
+    im_gt_d = ax_gt_d.imshow(deriv_gt_arr, aspect='auto', cmap='viridis', vmin=-vmax_deriv, vmax=vmax_deriv, origin='lower', interpolation='nearest')
+    ax_gt_d.set_ylabel('neurons', fontsize=20)
+    ax_gt_d.set_title('true derivative', fontsize=20)
+    ax_gt_d.set_xticks([0, n_frames_deriv - 1]); ax_gt_d.set_xticklabels([0, n_frames_deriv], fontsize=16)
+    ax_gt_d.set_yticks([0, n_neurons - 1]); ax_gt_d.set_yticklabels([1, n_neurons], fontsize=16)
+    fig.colorbar(im_gt_d, ax=ax_gt_d, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
+
+    # Top-right: GNN one-step predicted derivative
+    im_pred_d = ax_pred_d.imshow(deriv_pred_arr, aspect='auto', cmap='viridis', vmin=-vmax_deriv, vmax=vmax_deriv, origin='lower', interpolation='nearest')
+    ax_pred_d.set_title('GNN one-step derivative', fontsize=20)
+    ax_pred_d.set_xticks([0, n_frames_deriv - 1]); ax_pred_d.set_xticklabels([0, n_frames_deriv], fontsize=16)
+    ax_pred_d.set_yticks([0, n_neurons - 1]); ax_pred_d.set_yticklabels([1, n_neurons], fontsize=16)
+    fig.colorbar(im_pred_d, ax=ax_pred_d, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
+
+    # Bottom-left: Residual
+    im_res_d = ax_res_d.imshow(deriv_residual, aspect='auto', cmap='RdBu_r', vmin=-vmax_deriv_res, vmax=vmax_deriv_res, origin='lower', interpolation='nearest')
+    ax_res_d.set_ylabel('neurons', fontsize=20)
+    ax_res_d.set_xlabel('time', fontsize=20)
+    ax_res_d.set_title('residuals', fontsize=20)
+    ax_res_d.set_xticks([0, n_frames_deriv - 1]); ax_res_d.set_xticklabels([0, n_frames_deriv], fontsize=16)
+    ax_res_d.set_yticks([0, n_neurons - 1]); ax_res_d.set_yticklabels([1, n_neurons], fontsize=16)
+    fig.colorbar(im_res_d, ax=ax_res_d, fraction=0.046, pad=0.04).ax.tick_params(labelsize=16)
+
+    # Bottom-right: Scatter true vs predicted derivative
+    gt_deriv_flat = deriv_gt_arr.flatten()
+    pred_deriv_flat = deriv_pred_arr.flatten()
+    ax_scat_d.scatter(gt_deriv_flat, pred_deriv_flat, s=1, alpha=0.1, c='k', rasterized=True)
+    lim_d = [min(gt_deriv_flat.min(), pred_deriv_flat.min()), max(gt_deriv_flat.max(), pred_deriv_flat.max())]
+    ax_scat_d.plot(lim_d, lim_d, 'r--', linewidth=2)
+    ax_scat_d.set_xlim(lim_d); ax_scat_d.set_ylim(lim_d)
+    ax_scat_d.set_xlabel('true derivative', fontsize=20)
+    ax_scat_d.set_ylabel('predicted derivative', fontsize=20)
+    ax_scat_d.set_title('one-step: true vs predicted', fontsize=20)
+    ax_scat_d.tick_params(labelsize=16)
+    ax_scat_d.text(0.05, 0.95, f'R²={deriv_metrics["r2"]:.3f}\nSSIM={deriv_metrics["ssim"]:.3f}\nWD={deriv_metrics["mean_wasserstein"]:.3f}',
+                   transform=ax_scat_d.transAxes, fontsize=16, va='top')
+
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/deriv_kinograph_montage.png", dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # --- derivative traces plot: true dc/dt vs GNN one-step dc/dt ---
+    deriv_r2_per_trace = []
+    for idx in trace_ids:
+        gt_d = deriv_gt_arr[idx]
+        pred_d = deriv_pred_arr[idx]
+        ss_res = np.sum((gt_d - pred_d) ** 2)
+        ss_tot = np.sum((gt_d - np.mean(gt_d)) ** 2)
+        deriv_r2_per_trace.append(1 - (ss_res / ss_tot) if ss_tot > 0 else 0)
+
+    fig, ax = plt.subplots(1, 1, figsize=(20, 12))
+
+    offset_d = np.abs(deriv_gt_arr[trace_ids]).max() * 1.5
+    if offset_d == 0:
+        offset_d = 1.0
+
+    for j, n_idx in enumerate(trace_ids):
+        y0 = j * offset_d
+        baseline_d = np.mean(deriv_gt_arr[n_idx])
+        ax.plot(deriv_gt_arr[n_idx] - baseline_d + y0, color='green', lw=4.0, alpha=0.9)
+        ax.plot(deriv_pred_arr[n_idx] - baseline_d + y0, color=mc, lw=0.8, alpha=0.9)
+
+        ax.text(-n_frames_deriv * 0.02, y0, str(n_idx), fontsize=10, va='center', ha='right')
+
+        r2_val = deriv_r2_per_trace[j]
+        r2_color = 'red' if r2_val < 0.5 else ('orange' if r2_val < 0.8 else mc)
+        ax.text(n_frames_deriv * 1.02, y0, f'R²:{r2_val:.2f}', fontsize=9, va='center', ha='left', color=r2_color)
+
+    ax.set_xlim([-n_frames_deriv * 0.05, n_frames_deriv * 1.1])
+    ax.set_ylim([-offset_d, n_traces * offset_d])
+    ax.set_xlabel('frame', fontsize=24)
+    ax.set_ylabel('neuron', fontsize=24)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_bounds(0, n_frames_deriv)
+    ax.set_yticks([])
+
+    mean_deriv_r2 = np.mean(deriv_r2_per_trace)
+    ax.set_title(f'Derivative traces (n={n_traces} of {n_neurons} neurons) | mean R²={mean_deriv_r2:.3f}', fontsize=20)
+
+    from matplotlib.lines import Line2D
+    legend_d = [Line2D([0], [0], color='green', lw=4, label='true dc/dt'),
+                Line2D([0], [0], color=mc, lw=0.8, label='GNN one-step dc/dt')]
+    ax.legend(handles=legend_d, loc='upper right', fontsize=12)
+
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/deriv_traces.png", dpi=100)
+    plt.close()
+
+    # --- derivative residual traces plot: (GNN one-step dc/dt) - (true dc/dt) ---
+    residual_arr = deriv_pred_arr - deriv_gt_arr  # (n_neurons, n_frames)
+
+    fig, ax = plt.subplots(1, 1, figsize=(20, 12))
+
+    offset_r = np.abs(residual_arr[trace_ids]).max() * 1.5
+    if offset_r == 0:
+        offset_r = 1.0
+
+    for j, n_idx in enumerate(trace_ids):
+        y0 = j * offset_r
+        ax.axhline(y=y0, color='gray', lw=0.3, alpha=0.5)
+        ax.plot(residual_arr[n_idx] + y0, color='#e74c3c', lw=1.0, alpha=0.9)
+
+        ax.text(-n_frames_deriv * 0.02, y0, str(n_idx), fontsize=10, va='center', ha='right')
+
+        mae_val = np.mean(np.abs(residual_arr[n_idx]))
+        ax.text(n_frames_deriv * 1.02, y0, f'MAE:{mae_val:.3f}', fontsize=9, va='center', ha='left', color='#e74c3c')
+
+    ax.set_xlim([-n_frames_deriv * 0.05, n_frames_deriv * 1.1])
+    ax.set_ylim([-offset_r, n_traces * offset_r])
+    ax.set_xlabel('frame', fontsize=24)
+    ax.set_ylabel('neuron', fontsize=24)
+    ax.set_title('Derivative residuals: GNN one-step dc/dt − true dc/dt', fontsize=20)
+    ax.spines['left'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_bounds(0, n_frames_deriv)
+    ax.set_yticks([])
+
+    from matplotlib.lines import Line2D
+    legend_r = [Line2D([0], [0], color='#e74c3c', lw=1, label='pred − true dc/dt'),
+                Line2D([0], [0], color='gray', lw=0.3, label='zero baseline')]
+    ax.legend(handles=legend_r, loc='upper right', fontsize=12)
+
+    plt.tight_layout()
+    plt.savefig(f"./{log_dir}/results/deriv_residual_traces.png", dpi=100)
     plt.close()
 
     print('')

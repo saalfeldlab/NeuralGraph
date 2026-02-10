@@ -1685,13 +1685,13 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
         weight_max = np.max(np.abs(gt_weight_flat)) * 1.1
         weight_lim = (-weight_max, weight_max)
 
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(8, 8))
         connectivity_plot = adjacency[:n_plot, :n_plot]
         ax = sns.heatmap(to_numpy(connectivity_plot), center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
         cbar = ax.collections[0].colorbar
-        cbar.ax.tick_params(labelsize=32)
-        plt.xticks([0, n_plot - 1], [1, n_plot], fontsize=48)
-        plt.yticks([0, n_plot - 1], [1, n_plot], fontsize=48)
+        cbar.ax.tick_params(labelsize=16)
+        plt.xticks([0, n_plot - 1], [1, n_plot], fontsize=16)
+        plt.yticks([0, n_plot - 1], [1, n_plot], fontsize=16)
         plt.xticks(rotation=0)
         plt.subplot(2, 2, 1)
         ax = sns.heatmap(to_numpy(connectivity_plot[0:20, 0:20]), cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
@@ -1714,14 +1714,14 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
         activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
 
-        plt.figure(figsize=(18, 12))
+        plt.figure(figsize=(10, 10))
         plt.plot(activity_plot.T, linewidth=1)
         for i in range(0, n_plot, 5):
-            plt.text(-200, +200 -10 * i, str(sampled_indices[i]), fontsize=24, va='center', ha='right')
+            plt.text(-200, +200 -10 * i, str(sampled_indices[i]), fontsize=12, va='center', ha='right')
         ax = plt.gca()
-        ax.text(-1200, activity_plot.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
-        plt.xlabel("frame", fontsize=32)
-        plt.xticks(fontsize=24)
+        ax.text(-800, activity_plot.mean(), 'neuron index', fontsize=20, va='center', ha='center', rotation=90)
+        plt.xlabel("frame", fontsize=20)
+        plt.xticks(fontsize=16)
         plt.yticks([])
         ax.spines['left'].set_visible(False)
         ax.spines['top'].set_visible(False)
@@ -1833,18 +1833,21 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.savefig(f"./{log_dir}/results/true_plasticity_map.png", dpi=80)
                     plt.close()
 
-            fig, ax = fig_init()
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(1, 1, 1)
             for n in range(n_neuron_types,-1,-1):
                 pos = torch.argwhere(type_list == n).squeeze()
                 plt.scatter(to_numpy(model.a[pos, 0]), to_numpy(model.a[pos, 1]), s=200, color=cmap.color(n), alpha=0.25, edgecolors='none')
             if 'latex' in style:
-                plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=68)
-                plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=68)
+                plt.xlabel(r'$\ensuremath{\mathbf{a}}_{i0}$', fontsize=20)
+                plt.ylabel(r'$\ensuremath{\mathbf{a}}_{i1}$', fontsize=20)
             else:
-                plt.xlabel(r'$a_{0}$', fontsize=68)
-                plt.ylabel(r'$a_{1}$', fontsize=68)
+                plt.xlabel(r'$a_{0}$', fontsize=20)
+                plt.ylabel(r'$a_{1}$', fontsize=20)
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/embedding.pdf", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/embedding.pdf", dpi=170)
             plt.close()
 
 
@@ -1884,7 +1887,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             rr = torch.linspace(-xnorm.squeeze()  , xnorm.squeeze() , 1000).to(device)
             # MLP1 raw (without correction)
-            fig, ax = fig_init()
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(1, 1, 1)
             func_vals = []
             for n in range(n_neurons):
                 if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
@@ -1899,19 +1903,20 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             func_vals = torch.stack(func_vals)
             ymin, ymax = func_vals.min().item(), func_vals.max().item()
             margin = (ymax - ymin) * 0.05
-            plt.xlabel(r'$v_i$', fontsize=68)
-            plt.ylabel(r'$\mathrm{MLP_1}$ (raw)', fontsize=68)
+            plt.xlabel(r'$v_i$', fontsize=20)
+            plt.ylabel(r'$\mathrm{MLP_1}$ (raw)', fontsize=20)
             plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim([ymin - margin, ymax + margin])
-            # Create yticks based on actual data range
             yticks = np.linspace(ymin, ymax, 11)
             ax.set_yticks(yticks)
-            ax.tick_params(axis='y', labelsize=24)
+            ax.tick_params(axis='y', labelsize=16)
+            ax.tick_params(axis='x', labelsize=16)
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/MLP1_raw.png", dpi=170.7)
             plt.close()
 
-            fig, ax = fig_init()
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(1, 1, 1)
             rr = torch.linspace(-xnorm.squeeze(), xnorm.squeeze(), 1500).to(device)
 
             # Style-dependent plotting: dark background uses green+white, white background uses gray+colored
@@ -1928,10 +1933,10 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             if (model_config.signal_model_name == 'PDE_N4'):
                 for n in range(n_neuron_types):
                     true_func = true_model.func(rr, n, 'phi')
-                    plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
+                    plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=8, label='original')
             else:
                 true_func = true_model.func(rr, 0, 'phi')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
+                plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=8, label='original')
 
             for n in trange(0,n_neurons, ncols=90):
                 if model_config.signal_model_name in ['PDE_N4', 'PDE_N5', 'PDE_N7', 'PDE_N11']:
@@ -1945,31 +1950,33 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     else:
                         func = model.lin_edge(in_features.float()) * correction[n]
                 if line_color is None:
-                    # White background: use neuron type color
                     neuron_type = int(to_numpy(type_list[n]).item())
                     plt.plot(to_numpy(rr), to_numpy(func), color=cmap.color(neuron_type), linewidth=1, alpha=line_alpha)
                 else:
                     plt.plot(to_numpy(rr), to_numpy(func), color=line_color, linewidth=1, alpha=line_alpha)
-            plt.xlabel(r'$x_i$', fontsize=68)
+            plt.xlabel(r'$x_i$', fontsize=20)
             if label_style == 'MLP':
-                plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=68)
+                plt.ylabel(r'$\mathrm{MLP_1}$', fontsize=20)
             else:
                 if (model_config.signal_model_name == 'PDE_N4'):
-                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, x_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, x_i)$', fontsize=20)
                 elif model_config.signal_model_name == 'PDE_N5':
-                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, x_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(\mathbf{a}_i, a_j, x_i)$', fontsize=20)
                 else:
-                    plt.ylabel(r'learned $\psi^*(x_i)$', fontsize=68)
+                    plt.ylabel(r'learned $\psi^*(x_i)$', fontsize=20)
             plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim([-1.1, 1.1])
             ax.set_yticks([-1.0, 0.0, 1.0])
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
             plt.tight_layout()
             plt.savefig(f"./{log_dir}/results/MLP1_corrected.png", dpi=170.7)
             plt.close()
 
 
 
-            fig, ax = fig_init()
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(1, 1, 1)
 
             # Style-dependent plotting: dark background uses green+white, white background uses gray+colored
             if 'black' in style:
@@ -1984,7 +1991,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             # Plot ground truth curves first (behind learned curves)
             for n in trange(n_neuron_types, ncols=90):
                 true_func = true_model.func(rr, n, 'update')
-                plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=16, label='original')
+                plt.plot(to_numpy(rr), to_numpy(true_func), c=gt_color, linewidth=8, label='original')
 
             phi_list = []
             for n in trange(n_neurons, ncols=90):
@@ -1995,7 +2002,6 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 func = func[:, 0]
                 phi_list.append(func)
                 if line_color is None:
-                    # White background: use neuron type color
                     neuron_type = int(to_numpy(type_list[n]).item())
                     plt.plot(to_numpy(rr), to_numpy(func) * to_numpy(ynorm),
                              color=cmap.color(neuron_type), linewidth=4, alpha=line_alpha)
@@ -2008,13 +2014,14 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             phi_y_max = (phi_list * ynorm).max().item()
             phi_y_range = phi_y_max - phi_y_min
             phi_ylim = [phi_y_min - phi_y_range * 0.1, phi_y_max + phi_y_range * 0.1]
-            plt.xlabel(r'$x_i$', fontsize=68)
+            plt.xlabel(r'$x_i$', fontsize=20)
             if label_style == 'MLP':
-                plt.ylabel(r'$\mathrm{MLP_0}$', fontsize=68)
+                plt.ylabel(r'$\mathrm{MLP_0}$', fontsize=20)
             else:
-                plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, x_i)$', fontsize=68)
+                plt.ylabel(r'learned $\phi^*(\mathbf{a}_i, x_i)$', fontsize=20)
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
             plt.tight_layout()
-            # plt.xlim([-to_numpy(xnorm), to_numpy(xnorm)])
             plt.ylim(phi_ylim)
             plt.savefig(f'./{log_dir}/results/MLP0.png', dpi=300)
             plt.close()
@@ -2030,19 +2037,22 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                 proj_interaction = trans.transform(func_list_)
 
             proj_interaction = (proj_interaction - np.min(proj_interaction)) / (np.max(proj_interaction) - np.min(proj_interaction) + 1e-10)
-            fig, ax = fig_init()
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(1, 1, 1)
             for n in trange(n_neuron_types, ncols=90):
                 pos = torch.argwhere(type_list == n)
                 pos = to_numpy(pos)
                 if len(pos) > 0:
                     plt.scatter(proj_interaction[pos, 0],
                                 proj_interaction[pos, 1], s=200, alpha=0.1)
-            plt.xlabel(r'UMAP 0', fontsize=68)
-            plt.ylabel(r'UMAP 1', fontsize=68)
+            plt.xlabel(r'UMAP 0', fontsize=20)
+            plt.ylabel(r'UMAP 1', fontsize=20)
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
             plt.xlim([-0.2, 1.2])
             plt.ylim([-0.2, 1.2])
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/UMAP.pdf", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/UMAP.pdf", dpi=170)
             plt.close()
 
             config.training.cluster_distance_threshold = 0.1
@@ -2060,7 +2070,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             dot_size = 400 if n_neurons < 1000 else 150
 
             # Combined plot: true types (left) and learned types (right) with accuracy
-            fig, axes = plt.subplots(1, 2, figsize=(20, 12))
+            fig, axes = plt.subplots(1, 2, figsize=(20, 10))
 
             # Left panel: true types
             axes[0].scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(to_numpy(type_list).astype(int)))
@@ -2068,7 +2078,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[0].set_yticks([])
             axes[0].axis('off')
             axes[0].set_aspect('equal')
-            axes[0].set_title('true types', fontsize=24, color=mc)
+            axes[0].set_title('true types', fontsize=20, color=mc)
 
             # Right panel: learned types
             axes[1].scatter(to_numpy(X1_first[:n_neurons, 0]), to_numpy(X1_first[:n_neurons, 1]), s=dot_size, color=cmap.color(new_labels[:n_neurons].astype(int)))
@@ -2076,12 +2086,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[1].set_yticks([])
             axes[1].axis('off')
             axes[1].set_aspect('equal')
-            axes[1].set_title('learned types', fontsize=24, color=mc)
+            axes[1].set_title('learned types', fontsize=20, color=mc)
 
             # Add accuracy and cluster info as suptitle
-            fig.suptitle(f'accuracy: {accuracy:.3f}   n_clusters: {n_clusters}', fontsize=28, color=mc)
+            fig.suptitle(f'accuracy: {accuracy:.3f}   n_clusters: {n_clusters}', fontsize=20, color=mc)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/types_comparison.pdf", dpi=170.7)
+            plt.savefig(f"./{log_dir}/results/types_comparison.pdf", dpi=170)
             plt.close()
 
 
@@ -2090,7 +2100,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
 
             print('plot weights ...')
 
-            fig, ax = fig_init()
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(1, 1, 1)
             n_plot = n_neurons
             if hasattr(true_model, 'W') or (hasattr(true_model, 'WL') and hasattr(true_model, 'WR')):
                 gt_weight = to_numpy(get_model_W(true_model)[:n_plot, :n_plot])
@@ -2112,16 +2123,17 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             ss_res_raw = np.sum(residuals_raw ** 2)
             ss_tot_raw = np.sum((y_data_raw - np.mean(y_data_raw)) ** 2)
             r_squared_raw = 1 - (ss_res_raw / ss_tot_raw)
-            # Add R² and slope text to plot using axes transform for consistent positioning
             ax.text(0.05, 0.95, f'$R^2$: {np.round(r_squared_raw, 3)}', transform=ax.transAxes,
-                    fontsize=34, verticalalignment='top')
+                    fontsize=16, verticalalignment='top')
             ax.text(0.05, 0.85, f'slope: {np.round(lin_fit_raw[0], 2)}', transform=ax.transAxes,
-                    fontsize=34, verticalalignment='top')
-            plt.xlabel(f'true {weight_var}', fontsize=68)
-            plt.ylabel(f'learned {weight_var}', fontsize=68)
+                    fontsize=16, verticalalignment='top')
+            plt.xlabel(f'true {weight_var}', fontsize=20)
+            plt.ylabel(f'learned {weight_var}', fontsize=20)
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
             plt.xlim(weight_lim)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/weights_comparison_raw.png", dpi=87)
+            plt.savefig(f"./{log_dir}/results/weights_comparison_raw.png", dpi=170)
             plt.close()
             print(f'R² (raw): {r_squared_raw:.3f}  slope: {np.round(lin_fit_raw[0], 4)}')
             logger.info(f'R² (raw): {np.round(r_squared_raw, 4)}  slope: {np.round(lin_fit_raw[0], 4)}')
@@ -2138,7 +2150,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             for i in range(n_plot):
                 pred_weight_corrected[i, :] = pred_weight[i, :] / correction_np[i]
 
-            fig, ax = fig_init()
+            fig = plt.figure(figsize=(10, 10))
+            ax = fig.add_subplot(1, 1, 1)
             plt.scatter(gt_weight, pred_weight_corrected, s=scatter_size, c=mc, alpha=scatter_alpha)
             x_data = np.reshape(gt_weight, (n_plot * n_plot))
             y_data = np.reshape(pred_weight_corrected, (n_plot * n_plot))
@@ -2147,16 +2160,17 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             ss_res = np.sum(residuals ** 2)
             ss_tot = np.sum((y_data - np.mean(y_data)) ** 2)
             r_squared = 1 - (ss_res / ss_tot)
-            # Add R² and slope text to plot using axes transform for consistent positioning
             ax.text(0.05, 0.95, f'$R^2$: {np.round(r_squared, 3)}', transform=ax.transAxes,
-                    fontsize=34, verticalalignment='top')
+                    fontsize=16, verticalalignment='top')
             ax.text(0.05, 0.85, f'slope: {np.round(lin_fit[0], 2)}', transform=ax.transAxes,
-                    fontsize=34, verticalalignment='top')
-            plt.xlabel(f'true {weight_var}', fontsize=68)
-            plt.ylabel(f'learned {weight_var}', fontsize=68)
+                    fontsize=16, verticalalignment='top')
+            plt.xlabel(f'true {weight_var}', fontsize=20)
+            plt.ylabel(f'learned {weight_var}', fontsize=20)
+            plt.xticks(fontsize=16)
+            plt.yticks(fontsize=16)
             plt.xlim(weight_lim)
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/weights_comparison_corrected.png", dpi=87)
+            plt.savefig(f"./{log_dir}/results/weights_comparison_corrected.png", dpi=170)
             plt.close()
             if r_squared > 0.9:
                 r2_color = '\033[92m'  # green
@@ -2174,12 +2188,12 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             # Connectivity heatmap corrected by slope (for comparison with true)
             # Same format as connectivity_true.png with zoom-in subplot
             connectivity_corrected = pred_weight_corrected / lin_fit[0]
-            plt.figure(figsize=(10, 10))
+            plt.figure(figsize=(8, 8))
             ax = sns.heatmap(connectivity_corrected, center=0, square=True, cmap='bwr', cbar_kws={'fraction': 0.046}, vmin=weight_lim[0], vmax=weight_lim[1])
             cbar = ax.collections[0].colorbar
-            cbar.ax.tick_params(labelsize=32)
-            plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
-            plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=48)
+            cbar.ax.tick_params(labelsize=16)
+            plt.xticks([0, n_neurons - 1], [1, n_neurons], fontsize=16)
+            plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=16)
             plt.xticks(rotation=0)
             plt.subplot(2, 2, 1)
             ax = sns.heatmap(connectivity_corrected[0:20, 0:20], cbar=False, center=0, square=True, cmap='bwr', vmin=weight_lim[0], vmax=weight_lim[1])
@@ -2219,7 +2233,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             best_alignment_L = np.max(alignment_L, axis=1)
 
             # create 2x3 figure
-            fig, axes = plt.subplots(2, 3, figsize=(30, 20))
+            fig, axes = plt.subplots(2, 3, figsize=(24, 16))
 
             # Row 1: Eigenvalues
             # (0,0) complex plane scatter
@@ -2227,61 +2241,61 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[0, 0].scatter(eig_learned.real, eig_learned.imag, s=100, c=mc, alpha=0.7, label='learned')
             axes[0, 0].axhline(y=0, color='gray', linestyle='--', linewidth=0.5)
             axes[0, 0].axvline(x=0, color='gray', linestyle='--', linewidth=0.5)
-            axes[0, 0].set_xlabel('real', fontsize=32)
-            axes[0, 0].set_ylabel('imag', fontsize=32)
-            axes[0, 0].legend(fontsize=20)
-            axes[0, 0].tick_params(labelsize=20)
-            axes[0, 0].set_title('eigenvalues in complex plane', fontsize=28)
+            axes[0, 0].set_xlabel('real', fontsize=16)
+            axes[0, 0].set_ylabel('imag', fontsize=16)
+            axes[0, 0].legend(fontsize=14)
+            axes[0, 0].tick_params(labelsize=12)
+            axes[0, 0].set_title('eigenvalues in complex plane', fontsize=20)
 
             # (0,1) eigenvalue magnitude comparison (sorted)
             axes[0, 1].scatter(np.abs(eig_true_sorted), np.abs(eig_learned_sorted), s=20, c=mc, alpha=0.7)
             max_val = max(np.abs(eig_true_sorted).max(), np.abs(eig_learned_sorted).max())
             axes[0, 1].plot([0, max_val], [0, max_val], 'g--', linewidth=2)
-            axes[0, 1].set_xlabel('true |eigenvalue|', fontsize=32)
-            axes[0, 1].set_ylabel('learned |eigenvalue|', fontsize=32)
-            axes[0, 1].tick_params(labelsize=20)
-            axes[0, 1].set_title('eigenvalue magnitude comparison', fontsize=28)
+            axes[0, 1].set_xlabel('true |eigenvalue|', fontsize=16)
+            axes[0, 1].set_ylabel('learned |eigenvalue|', fontsize=16)
+            axes[0, 1].tick_params(labelsize=12)
+            axes[0, 1].set_title('eigenvalue magnitude comparison', fontsize=20)
 
             # (0,2) singular value spectrum (log scale)
             axes[0, 2].plot(np.abs(eig_true_sorted), color='green', linewidth=2, label='true')
             axes[0, 2].plot(np.abs(eig_learned_sorted), color=mc, linewidth=2, label='learned')
-            axes[0, 2].set_xlabel('index', fontsize=32)
-            axes[0, 2].set_ylabel('|eigenvalue|', fontsize=32)
+            axes[0, 2].set_xlabel('index', fontsize=16)
+            axes[0, 2].set_ylabel('|eigenvalue|', fontsize=16)
             axes[0, 2].set_yscale('log')
-            axes[0, 2].legend(fontsize=20)
-            axes[0, 2].tick_params(labelsize=20)
-            axes[0, 2].set_title('eigenvalue spectrum (log scale)', fontsize=28)
+            axes[0, 2].legend(fontsize=14)
+            axes[0, 2].tick_params(labelsize=12)
+            axes[0, 2].set_title('eigenvalue spectrum (log scale)', fontsize=20)
 
             # Row 2: Eigenvectors
             # (1,0) right eigenvector alignment matrix
             im = axes[1, 0].imshow(alignment_R, cmap='hot', vmin=0, vmax=1)
-            axes[1, 0].set_xlabel('learned eigenvector index', fontsize=28)
-            axes[1, 0].set_ylabel('true eigenvector index', fontsize=28)
-            axes[1, 0].set_title('right eigenvector alignment', fontsize=28)
-            axes[1, 0].tick_params(labelsize=16)
+            axes[1, 0].set_xlabel('learned eigenvector index', fontsize=16)
+            axes[1, 0].set_ylabel('true eigenvector index', fontsize=16)
+            axes[1, 0].set_title('right eigenvector alignment', fontsize=20)
+            axes[1, 0].tick_params(labelsize=12)
             plt.colorbar(im, ax=axes[1, 0], fraction=0.046)
 
             # (1,1) left eigenvector alignment matrix
             im_L = axes[1, 1].imshow(alignment_L, cmap='hot', vmin=0, vmax=1)
-            axes[1, 1].set_xlabel('learned eigenvector index', fontsize=28)
-            axes[1, 1].set_ylabel('true eigenvector index', fontsize=28)
-            axes[1, 1].set_title('left eigenvector alignment', fontsize=28)
-            axes[1, 1].tick_params(labelsize=16)
+            axes[1, 1].set_xlabel('learned eigenvector index', fontsize=16)
+            axes[1, 1].set_ylabel('true eigenvector index', fontsize=16)
+            axes[1, 1].set_title('left eigenvector alignment', fontsize=20)
+            axes[1, 1].tick_params(labelsize=12)
             plt.colorbar(im_L, ax=axes[1, 1], fraction=0.046)
 
             # (1,2) best alignment scores
             axes[1, 2].scatter(range(len(best_alignment_R)), best_alignment_R, s=50, c='b', alpha=0.7, label=f'right (mean={np.mean(best_alignment_R):.2f})')
             axes[1, 2].scatter(range(len(best_alignment_L)), best_alignment_L, s=50, c='r', alpha=0.7, label=f'left (mean={np.mean(best_alignment_L):.2f})')
             axes[1, 2].axhline(y=1/np.sqrt(n_plot), color='gray', linestyle='--', linewidth=2, label=f'random ({1/np.sqrt(n_plot):.2f})')
-            axes[1, 2].set_xlabel('eigenvector index (sorted by |eigenvalue|)', fontsize=28)
-            axes[1, 2].set_ylabel('best alignment score', fontsize=28)
-            axes[1, 2].set_title('best alignment per eigenvector', fontsize=28)
+            axes[1, 2].set_xlabel('eigenvector index (sorted by |eigenvalue|)', fontsize=16)
+            axes[1, 2].set_ylabel('best alignment score', fontsize=16)
+            axes[1, 2].set_title('best alignment per eigenvector', fontsize=20)
             axes[1, 2].set_ylim([0, 1.05])
-            axes[1, 2].legend(fontsize=20)
-            axes[1, 2].tick_params(labelsize=16)
+            axes[1, 2].legend(fontsize=14)
+            axes[1, 2].tick_params(labelsize=12)
 
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/eigen_comparison.pdf", dpi=87)
+            plt.savefig(f"./{log_dir}/results/eigen_comparison.pdf", dpi=170)
             plt.close()
 
             # spectral radius comparison
@@ -2337,22 +2351,22 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                         log_file.write(f"low_rank_V_R2: {r2_V:.4f}\n")
 
                     # Plot: 2x3 grid (U top row, V bottom row)
-                    fig, axes = plt.subplots(2, 3, figsize=(30, 20))
+                    fig, axes = plt.subplots(2, 3, figsize=(24, 16))
 
                     # Row 1: U
                     vmax_U = max(np.abs(U_true).max(), np.abs(U_aligned).max())
-                    im0 = axes[0, 0].imshow(U_true, aspect='auto', cmap='bwr', vmin=-vmax_U, vmax=vmax_U)
-                    axes[0, 0].set_title('U true', fontsize=28)
-                    axes[0, 0].set_xlabel('rank', fontsize=24)
-                    axes[0, 0].set_ylabel('neuron', fontsize=24)
-                    axes[0, 0].tick_params(labelsize=16)
+                    im0 = axes[0, 0].imshow(U_true, aspect='auto', cmap='bwr', vmin=-vmax_U, vmax=vmax_U, interpolation='nearest')
+                    axes[0, 0].set_title('U true', fontsize=20)
+                    axes[0, 0].set_xlabel('rank', fontsize=16)
+                    axes[0, 0].set_ylabel('neuron', fontsize=16)
+                    axes[0, 0].tick_params(labelsize=12)
                     plt.colorbar(im0, ax=axes[0, 0], fraction=0.046)
 
-                    im1 = axes[0, 1].imshow(U_aligned, aspect='auto', cmap='bwr', vmin=-vmax_U, vmax=vmax_U)
-                    axes[0, 1].set_title('U recovered (aligned)', fontsize=28)
-                    axes[0, 1].set_xlabel('rank', fontsize=24)
-                    axes[0, 1].set_ylabel('neuron', fontsize=24)
-                    axes[0, 1].tick_params(labelsize=16)
+                    im1 = axes[0, 1].imshow(U_aligned, aspect='auto', cmap='bwr', vmin=-vmax_U, vmax=vmax_U, interpolation='nearest')
+                    axes[0, 1].set_title('U recovered (aligned)', fontsize=20)
+                    axes[0, 1].set_xlabel('rank', fontsize=16)
+                    axes[0, 1].set_ylabel('neuron', fontsize=16)
+                    axes[0, 1].tick_params(labelsize=12)
                     plt.colorbar(im1, ax=axes[0, 1], fraction=0.046)
 
                     axes[0, 2].scatter(U_true.flatten(), U_aligned.flatten(), s=1, c=mc, alpha=0.5)
@@ -2360,27 +2374,27 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     axes[0, 2].plot([-u_lim, u_lim], [-u_lim, u_lim], 'g--', linewidth=2)
                     axes[0, 2].set_xlim([-u_lim, u_lim])
                     axes[0, 2].set_ylim([-u_lim, u_lim])
-                    axes[0, 2].set_xlabel('true U', fontsize=24)
-                    axes[0, 2].set_ylabel('recovered U', fontsize=24)
-                    axes[0, 2].set_title(f'corr: {corr_U:.4f}   $R^2$: {r2_U:.4f}', fontsize=28)
-                    axes[0, 2].tick_params(labelsize=16)
+                    axes[0, 2].set_xlabel('true U', fontsize=16)
+                    axes[0, 2].set_ylabel('recovered U', fontsize=16)
+                    axes[0, 2].set_title(f'corr: {corr_U:.4f}   $R^2$: {r2_U:.4f}', fontsize=20)
+                    axes[0, 2].tick_params(labelsize=12)
                     axes[0, 2].set_aspect('equal')
 
                     # Row 2: V (V_true transposed to N x rank for comparison)
                     V_true_T = V_true.T
                     vmax_V = max(np.abs(V_true_T).max(), np.abs(V_aligned).max())
-                    im2 = axes[1, 0].imshow(V_true_T, aspect='auto', cmap='bwr', vmin=-vmax_V, vmax=vmax_V)
-                    axes[1, 0].set_title('V true (transposed)', fontsize=28)
-                    axes[1, 0].set_xlabel('rank', fontsize=24)
-                    axes[1, 0].set_ylabel('neuron', fontsize=24)
-                    axes[1, 0].tick_params(labelsize=16)
+                    im2 = axes[1, 0].imshow(V_true_T, aspect='auto', cmap='bwr', vmin=-vmax_V, vmax=vmax_V, interpolation='nearest')
+                    axes[1, 0].set_title('V true (transposed)', fontsize=20)
+                    axes[1, 0].set_xlabel('rank', fontsize=16)
+                    axes[1, 0].set_ylabel('neuron', fontsize=16)
+                    axes[1, 0].tick_params(labelsize=12)
                     plt.colorbar(im2, ax=axes[1, 0], fraction=0.046)
 
-                    im3 = axes[1, 1].imshow(V_aligned, aspect='auto', cmap='bwr', vmin=-vmax_V, vmax=vmax_V)
-                    axes[1, 1].set_title('V recovered (aligned)', fontsize=28)
-                    axes[1, 1].set_xlabel('rank', fontsize=24)
-                    axes[1, 1].set_ylabel('neuron', fontsize=24)
-                    axes[1, 1].tick_params(labelsize=16)
+                    im3 = axes[1, 1].imshow(V_aligned, aspect='auto', cmap='bwr', vmin=-vmax_V, vmax=vmax_V, interpolation='nearest')
+                    axes[1, 1].set_title('V recovered (aligned)', fontsize=20)
+                    axes[1, 1].set_xlabel('rank', fontsize=16)
+                    axes[1, 1].set_ylabel('neuron', fontsize=16)
+                    axes[1, 1].tick_params(labelsize=12)
                     plt.colorbar(im3, ax=axes[1, 1], fraction=0.046)
 
                     axes[1, 2].scatter(V_true_T.flatten(), V_aligned.flatten(), s=1, c=mc, alpha=0.5)
@@ -2388,8 +2402,8 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     axes[1, 2].plot([-v_lim, v_lim], [-v_lim, v_lim], 'g--', linewidth=2)
                     axes[1, 2].set_xlim([-v_lim, v_lim])
                     axes[1, 2].set_ylim([-v_lim, v_lim])
-                    axes[1, 2].set_xlabel('true V', fontsize=24)
-                    axes[1, 2].set_ylabel('recovered V', fontsize=24)
+                    axes[1, 2].set_xlabel('true V', fontsize=16)
+                    axes[1, 2].set_ylabel('recovered V', fontsize=16)
                     axes[1, 2].set_title(f'corr: {corr_V:.4f}   $R^2$: {r2_V:.4f}', fontsize=28)
                     axes[1, 2].tick_params(labelsize=16)
                     axes[1, 2].set_aspect('equal')
@@ -2397,6 +2411,94 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
                     plt.tight_layout()
                     plt.savefig(f"./{log_dir}/results/low_rank_UV_comparison.pdf", dpi=170)
                     plt.close()
+
+                    # 3-panel scatter plot: W, U, V (true vs learned)
+                    from matplotlib.ticker import MaxNLocator
+                    fig_sc, axes_sc = plt.subplots(1, 3, figsize=(24, 8))
+
+                    # W scatter
+                    axes_sc[0].scatter(gt_weight.flatten(), (pred_weight_corrected / lin_fit[0]).flatten(),
+                                       s=scatter_size, c=mc, alpha=scatter_alpha)
+                    w_lim = max(np.abs(gt_weight).max(), np.abs(pred_weight_corrected / lin_fit[0]).max()) * 1.1
+                    axes_sc[0].plot([-w_lim, w_lim], [-w_lim, w_lim], 'g--', linewidth=2)
+                    axes_sc[0].set_xlim([-w_lim, w_lim])
+                    axes_sc[0].set_ylim([-w_lim, w_lim])
+                    axes_sc[0].set_xlabel(f'true {weight_var}', fontsize=20)
+                    axes_sc[0].set_ylabel(f'learned {weight_var}', fontsize=20)
+                    axes_sc[0].set_title(f'W   $R^2$: {r_squared:.3f}', fontsize=20)
+                    axes_sc[0].tick_params(labelsize=16)
+                    axes_sc[0].set_aspect('equal')
+
+                    # U scatter
+                    axes_sc[1].scatter(U_true.flatten(), U_aligned.flatten(), s=1, c=mc, alpha=0.5)
+                    u_lim_sc = max(np.abs(U_true).max(), np.abs(U_aligned).max()) * 1.1
+                    axes_sc[1].plot([-u_lim_sc, u_lim_sc], [-u_lim_sc, u_lim_sc], 'g--', linewidth=2)
+                    axes_sc[1].set_xlim([-u_lim_sc, u_lim_sc])
+                    axes_sc[1].set_ylim([-u_lim_sc, u_lim_sc])
+                    axes_sc[1].set_xlabel('true U', fontsize=20)
+                    axes_sc[1].set_ylabel('learned U', fontsize=20)
+                    axes_sc[1].set_title(f'U   $R^2$: {r2_U:.3f}', fontsize=20)
+                    axes_sc[1].tick_params(labelsize=16)
+                    axes_sc[1].set_aspect('equal')
+
+                    # V scatter
+                    axes_sc[2].scatter(V_true.T.flatten(), V_aligned.flatten(), s=1, c=mc, alpha=0.5)
+                    v_lim_sc = max(np.abs(V_true).max(), np.abs(V_aligned).max()) * 1.1
+                    axes_sc[2].plot([-v_lim_sc, v_lim_sc], [-v_lim_sc, v_lim_sc], 'g--', linewidth=2)
+                    axes_sc[2].set_xlim([-v_lim_sc, v_lim_sc])
+                    axes_sc[2].set_ylim([-v_lim_sc, v_lim_sc])
+                    axes_sc[2].set_xlabel('true V', fontsize=20)
+                    axes_sc[2].set_ylabel('learned V', fontsize=20)
+                    axes_sc[2].set_title(f'V   $R^2$: {r2_V:.3f}', fontsize=20)
+                    axes_sc[2].tick_params(labelsize=16)
+                    axes_sc[2].set_aspect('equal')
+
+                    plt.tight_layout()
+                    plt.savefig(f"./{log_dir}/results/low_rank_WUV_scatter.png", dpi=300)
+                    plt.close()
+
+                    # 3-panel heatmap: learned W, U, V (like data_generator plot)
+                    W_learned = pred_weight_corrected / lin_fit[0]
+                    fig_h, axes_h = plt.subplots(1, 3, figsize=(24, 8))
+
+                    # W panel
+                    w_max = np.max(np.abs(W_learned))
+                    im_w = axes_h[0].imshow(W_learned, cmap='bwr', vmin=-w_max, vmax=w_max, aspect='auto', interpolation='nearest')
+                    axes_h[0].set_title('learned W', fontsize=20)
+                    axes_h[0].set_xlabel('post', fontsize=16)
+                    axes_h[0].set_ylabel('pre', fontsize=16)
+                    axes_h[0].tick_params(labelsize=12)
+                    axes_h[0].xaxis.set_major_locator(MaxNLocator(integer=True))
+                    axes_h[0].yaxis.set_major_locator(MaxNLocator(integer=True))
+                    plt.colorbar(im_w, ax=axes_h[0], fraction=0.046)
+
+                    # U panel (aligned)
+                    u_max_h = np.max(np.abs(U_aligned))
+                    im_u = axes_h[1].imshow(U_aligned, cmap='bwr', vmin=-u_max_h, vmax=u_max_h, aspect='auto', interpolation='nearest')
+                    axes_h[1].set_title(f'learned U  ({U_aligned.shape[0]} x {U_aligned.shape[1]})', fontsize=20)
+                    axes_h[1].set_xlabel('rank', fontsize=16)
+                    axes_h[1].set_ylabel('pre', fontsize=16)
+                    axes_h[1].tick_params(labelsize=12)
+                    axes_h[1].xaxis.set_major_locator(MaxNLocator(integer=True))
+                    axes_h[1].yaxis.set_major_locator(MaxNLocator(integer=True))
+                    plt.colorbar(im_u, ax=axes_h[1], fraction=0.046)
+
+                    # V panel (aligned, transposed back to rank x n)
+                    V_aligned_T = V_aligned.T  # (rank, n)
+                    v_max_h = np.max(np.abs(V_aligned_T))
+                    im_v = axes_h[2].imshow(V_aligned_T, cmap='bwr', vmin=-v_max_h, vmax=v_max_h, aspect='auto', interpolation='nearest')
+                    axes_h[2].set_title(f'learned V  ({V_aligned_T.shape[0]} x {V_aligned_T.shape[1]})', fontsize=20)
+                    axes_h[2].set_xlabel('post', fontsize=16)
+                    axes_h[2].set_ylabel('rank', fontsize=16)
+                    axes_h[2].tick_params(labelsize=12)
+                    axes_h[2].xaxis.set_major_locator(MaxNLocator(integer=True))
+                    axes_h[2].yaxis.set_major_locator(MaxNLocator(integer=True))
+                    plt.colorbar(im_v, ax=axes_h[2], fraction=0.046)
+
+                    plt.tight_layout()
+                    plt.savefig(f"./{log_dir}/results/low_rank_WUV_learned.png", dpi=300)
+                    plt.close()
+
                 else:
                     print('low-rank ground truth files not found, skipping U/V comparison')
 

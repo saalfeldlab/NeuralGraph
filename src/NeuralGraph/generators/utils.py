@@ -729,7 +729,7 @@ def plot_synaptic_frame_default(X1, x, dataset_name, run, num):
     plt.close()
 
 
-def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=None):
+def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=None, config=None):
     """Plot activity traces for synaptic simulation."""
     print('plot activity ...')
     activity = x_list[:, :, 3:4]
@@ -747,8 +747,9 @@ def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, mod
         sampled_indices = np.arange(n_neurons)
         n_plot = n_neurons
 
-    activity_plot = activity_plot - 10 * np.arange(n_plot)[:, None] + 200
-    plt.figure(figsize=(18, 12))
+    # Offset traces so neuron 0 is at bottom (consistent with kinograph origin='lower')
+    activity_plot = activity_plot + 10 * np.arange(n_plot)[:, None]
+    plt.figure(figsize=(10, 10))
 
     # Plot all traces
     plt.plot(activity_plot.T, linewidth=2, alpha=0.7)
@@ -764,24 +765,58 @@ def plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, mod
         frames = np.arange(min(n_frames, external_input.shape[0]))
         plt.plot(frames, external_input_mean[:len(frames)] * ext_scale + ext_offset,
                  color='yellow', linewidth=2, linestyle='--')
-        plt.text(-100, ext_offset, 'ext_in', fontsize=16, va='center', ha='right', color='yellow')
+        plt.text(-100, ext_offset, 'ext_in', fontsize=12, va='center', ha='right', color='yellow')
         plt.ylim([activity_plot.min() - 50, ext_offset + 50])
 
     for i in range(0, n_plot, 5):
-        plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=24, va='center', ha='right')
+        plt.text(-100, activity_plot[i, 0], str(sampled_indices[i]), fontsize=16, va='center', ha='right')
 
     ax = plt.gca()
-    ax.text(-1500, activity_plot.mean(), 'neuron index', fontsize=32, va='center', ha='center', rotation=90)
-    plt.xlabel("time", fontsize=32)
-    plt.xticks(fontsize=24)
+
+    # Compute and display effective rank
+    from sklearn.utils.extmath import randomized_svd
+    activity_for_svd = x_list[:, :, 3]  # (n_frames, n_neurons)
+    n_components = min(50, min(activity_for_svd.shape) - 1)
+    _, S, _ = randomized_svd(activity_for_svd, n_components=n_components, random_state=0)
+    cumvar = np.cumsum(S**2) / np.sum(S**2)
+    rank_90 = int(np.searchsorted(cumvar, 0.90) + 1)
+    rank_99 = int(np.searchsorted(cumvar, 0.99) + 1)
+    ax.text(0.98, 0.98, f'rank(90%)={rank_90}  rank(99%)={rank_99}', fontsize=14,
+            transform=ax.transAxes, va='top', ha='right')
+
+    # "neurons" label above the top index
+    ax.text(-200, activity_plot[-1, 0] + 30, 'neurons', fontsize=16, va='bottom', ha='right')
+    plt.xlabel("time", fontsize=20)
+    plt.xticks(fontsize=16)
     ax.spines['left'].set_visible(False)
     ax.spines['top'].set_visible(False)
-    ax.yaxis.set_ticks_position('right')
-    ax.set_yticks([0, 20, 40])
-    ax.set_yticklabels(['0', '20', '40'], fontsize=16)
+    ax.spines['right'].set_visible(False)
+    ax.set_yticks([])
     plt.xlim([0, min(n_frames, 10000)])
     plt.tight_layout()
     plt.savefig(f"graphs_data/{dataset_name}/activity.png", dpi=300)
+    plt.close()
+
+
+def plot_synaptic_kinograph(x_list, n_neurons, n_frames, dataset_name):
+    """Plot kinograph: neurons x time heatmap of activity."""
+    print('plot kinograph ...')
+    activity = x_list[:, :, 3]  # (n_frames, n_neurons)
+    activity = activity.T  # (n_neurons, n_frames)
+    n_frames_plot = min(n_frames, activity.shape[1])
+    activity = activity[:, :n_frames_plot]
+
+    vmax = np.abs(activity).max()
+    plt.figure(figsize=(10, 10))
+    plt.imshow(activity, aspect='auto', cmap='viridis', vmin=-vmax, vmax=vmax, origin='lower', interpolation='nearest')
+    cbar = plt.colorbar(fraction=0.046, pad=0.04)
+    cbar.ax.tick_params(labelsize=16)
+    plt.ylabel('neurons', fontsize=20)
+    plt.xlabel('time', fontsize=20)
+    plt.xticks([0, n_frames_plot - 1], [0, n_frames_plot], fontsize=16)
+    plt.yticks([0, n_neurons - 1], [1, n_neurons], fontsize=16)
+    plt.tight_layout()
+    plt.savefig(f"graphs_data/{dataset_name}/kinograph.png", dpi=300)
     plt.close()
 
 
@@ -857,11 +892,10 @@ def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap
         neuron_type = neuron_types[n]
         func_phi = model.func(rr, neuron_type, 'phi')
         plt.plot(to_numpy(rr), to_numpy(func_phi), color=cmap(neuron_type), linewidth=1, alpha=0.5)
-    plt.xlabel('$x$', fontsize=32)
-    plt.ylabel(r'$\mathrm{MLP}_1(x)$', fontsize=32)
-    plt.xticks(fontsize=24)
-    plt.yticks(fontsize=24)
-    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.xlabel('$x$', fontsize=20)
+    plt.ylabel(r'$\mathrm{MLP}_1(x)$', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
     plt.tight_layout()
     plt.savefig(f"graphs_data/{dataset_name}/MLP1_function.png", dpi=300)
     plt.close()
@@ -872,11 +906,10 @@ def plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, colormap
         neuron_type = neuron_types[n]
         func_update = model.func(rr, neuron_type, 'update')
         plt.plot(to_numpy(rr), to_numpy(func_update), color=cmap(neuron_type), linewidth=1, alpha=0.5)
-    plt.xlabel('$x$', fontsize=32)
-    plt.ylabel(r'$\mathrm{MLP}_0(x)$', fontsize=32)
-    plt.xticks(fontsize=24)
-    plt.yticks(fontsize=24)
-    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.xlabel('$x$', fontsize=20)
+    plt.ylabel(r'$\mathrm{MLP}_0(x)$', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
     plt.tight_layout()
     plt.savefig(f"graphs_data/{dataset_name}/MLP0_function.png", dpi=300)
     plt.close()
@@ -934,7 +967,7 @@ def plot_eigenvalue_spectrum(connectivity, dataset_name, mc='k', log_file=None):
 def plot_connectivity_matrix(connectivity, output_path, vmin_vmax_method='minmax',
                               percentile=99, vmin=None, vmax=None,
                               show_labels=True, show_title=True,
-                              zoom_size=20, dpi=100, cbar_fontsize=32, label_fontsize=48):
+                              zoom_size=20, dpi=100, cbar_fontsize=16, label_fontsize=20):
     """Plot connectivity matrix heatmap with zoom inset.
 
     Args:
@@ -964,7 +997,7 @@ def plot_connectivity_matrix(connectivity, output_path, vmin_vmax_method='minmax
             vmin, vmax = -weight_max, weight_max
 
     # Main heatmap
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(8, 8))
     ax = sns.heatmap(gt_weight, center=0, square=True, cmap='bwr',
                      cbar_kws={'fraction': 0.046}, vmin=vmin, vmax=vmax)
     cbar = ax.collections[0].colorbar
@@ -979,7 +1012,7 @@ def plot_connectivity_matrix(connectivity, output_path, vmin_vmax_method='minmax
         plt.yticks([])
 
     if show_title:
-        plt.title('connectivity matrix', fontsize=28)
+        plt.title('connectivity matrix', fontsize=20)
 
     # Zoom inset (top-left corner)
     if zoom_size > 0 and n_neurons >= zoom_size:
@@ -988,6 +1021,62 @@ def plot_connectivity_matrix(connectivity, output_path, vmin_vmax_method='minmax
                     center=0, square=True, cmap='bwr', vmin=vmin, vmax=vmax)
         plt.xticks([])
         plt.yticks([])
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=dpi)
+    plt.close()
+
+
+def plot_low_rank_connectivity(connectivity, U, V, output_path, dpi=300):
+    """Plot 3-panel figure: W, U, V for low-rank connectivity (W = U @ V).
+
+    Args:
+        connectivity: W matrix (torch tensor or numpy array), shape (n, n)
+        U: left factor, shape (n, rank)
+        V: right factor, shape (rank, n)
+        output_path: path to save figure
+        dpi: output DPI
+    """
+    W = to_numpy(connectivity)
+    U = to_numpy(U)
+    V = to_numpy(V)
+
+    from matplotlib.ticker import MaxNLocator
+
+    fig, axes = plt.subplots(1, 3, figsize=(24, 8))
+
+    # W panel
+    weight_max = np.max(np.abs(W))
+    im0 = axes[0].imshow(W, cmap='bwr', vmin=-weight_max, vmax=weight_max, aspect='auto')
+    axes[0].set_title('W = U V', fontsize=20)
+    axes[0].set_xlabel('post', fontsize=16)
+    axes[0].set_ylabel('pre', fontsize=16)
+    axes[0].tick_params(labelsize=12)
+    axes[0].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axes[0].yaxis.set_major_locator(MaxNLocator(integer=True))
+    plt.colorbar(im0, ax=axes[0], fraction=0.046)
+
+    # U panel
+    u_max = np.max(np.abs(U))
+    im1 = axes[1].imshow(U, cmap='bwr', vmin=-u_max, vmax=u_max, aspect='auto')
+    axes[1].set_title(f'U  ({U.shape[0]} x {U.shape[1]})', fontsize=20)
+    axes[1].set_xlabel('rank', fontsize=16)
+    axes[1].set_ylabel('pre', fontsize=16)
+    axes[1].tick_params(labelsize=12)
+    axes[1].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axes[1].yaxis.set_major_locator(MaxNLocator(integer=True))
+    plt.colorbar(im1, ax=axes[1], fraction=0.046)
+
+    # V panel
+    v_max = np.max(np.abs(V))
+    im2 = axes[2].imshow(V, cmap='bwr', vmin=-v_max, vmax=v_max, aspect='auto')
+    axes[2].set_title(f'V  ({V.shape[0]} x {V.shape[1]})', fontsize=20)
+    axes[2].set_xlabel('post', fontsize=16)
+    axes[2].set_ylabel('rank', fontsize=16)
+    axes[2].tick_params(labelsize=12)
+    axes[2].xaxis.set_major_locator(MaxNLocator(integer=True))
+    axes[2].yaxis.set_major_locator(MaxNLocator(integer=True))
+    plt.colorbar(im2, ax=axes[2], fraction=0.046)
 
     plt.tight_layout()
     plt.savefig(output_path, dpi=dpi)

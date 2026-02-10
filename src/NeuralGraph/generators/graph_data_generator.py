@@ -21,9 +21,11 @@ from NeuralGraph.generators.utils import (
     plot_synaptic_frame_plasticity,
     plot_synaptic_frame_default,
     plot_synaptic_activity_traces,
+    plot_synaptic_kinograph,
     plot_synaptic_mlp_functions,
     plot_eigenvalue_spectrum,
     plot_connectivity_matrix,
+    plot_low_rank_connectivity,
 )
 from NeuralGraph.utils import to_numpy, CustomColorMap, check_and_clear_memory, get_datavis_root_dir
 from tifffile import imread
@@ -1283,6 +1285,10 @@ def data_generate_synaptic(
             plot_eigenvalue_spectrum(connectivity, dataset_name, mc=mc, log_file=log_file)
             plot_connectivity_matrix(connectivity, f"./graphs_data/{dataset_name}/connectivity_matrix.png",
                                      vmin_vmax_method='percentile', show_title=False)
+            if 'low_rank' in simulation_config.connectivity_type and low_rank_factors is not None:
+                U, V = low_rank_factors
+                plot_low_rank_connectivity(connectivity, U, V,
+                                           f"./graphs_data/{dataset_name}/connectivity_low_rank_WUV.png")
 
         if has_modulation:
             if run == 0:
@@ -1507,6 +1513,7 @@ def data_generate_synaptic(
 
         if run == run_vizualized:
             plot_synaptic_activity_traces(x_list, n_neurons, n_frames, dataset_name, model=model)
+            plot_synaptic_kinograph(x_list, n_neurons, n_frames, dataset_name)
             plot_synaptic_mlp_functions(model, x_list, n_neurons, dataset_name, config.plotting.colormap, device,
                                         signal_model_name=config.graph_model.signal_model_name)
 

@@ -4,43 +4,52 @@
 
 ## Goal
 
-Find GNN training hyperparameters that recover the connectivity matrix W from **low-rank neural dynamics** (connectivity_type=low_rank, rank=20) across **multiple network sizes** (n_neurons ∈ {200, 400, 600, 1000}).
+Find GNN training hyperparameters that recover the connectivity matrix W from **low-rank neural dynamics** across a **2D simulation parameter space**: gain ∈ {4, 5, 6, 7, 8, 9, 10} × rank ∈ {10, 15, 20, 25, 30}, at **fixed n_neurons=100**.
 
-Understand how network size affects learnability and whether training recipes transfer across scales.
+Understand how gain and matrix rank jointly affect learnability, connectivity recovery, and dynamics prediction. Map the gain × rank landscape to identify easy vs hard regimes.
 
-**Simulation parameters are FROZEN except n_neurons and seed.** Only GNN training parameters and network size may be changed.
+**n_neurons=100 is LOCKED. Only gain (via `params`), `connectivity_rank`, seed, and GNN training parameters may be changed.**
 
 ## User instructions to follow
 
-- **n_neurons is an explorable parameter**: values 200, 400, 600, 1000
-- Compare scaling behavior across network sizes
-- Partition the understanding per n_neurons value
-- Adjust computation to 2 hours
+- **gain** is an explorable simulation parameter: values 4, 5, 6, 7, 8, 9, 10 (3rd element in both `params` lists)
+- **connectivity_rank** is an explorable simulation parameter: values 10, 15, 20, 25, 30
+- n_neurons=100 is LOCKED across all slots
+- Partition the understanding by (gain, rank) combinations
+- Start from the known-good recipe at gain=7, rank=20 and expand outward
 
-## Known Challenges (from prior exploration)
+## Known Challenges (from prior exploration at gain=7, rank=20, n=100)
 
-Low-rank connectivity (rank=20) at different network sizes:
-- n=100: eff_rank ~12, W has 10k edges
-- n=200: eff_rank ~24, W has 40k edges (4× harder)
-- n=400: eff_rank ~48, W has 160k edges (16× harder)
-- n=600: eff_rank ~72, W has 360k edges (36× harder)
-- n=1000: eff_rank ~120, W has 1M edges (100× harder)
+From the dedicated low-rank exploration at gain=7, rank=20, n=100:
+- Connectivity recovery is essentially solved — nearly all seeds achieve connectivity_R² > 0.999
+- The real challenge is **dynamics recovery (rollout_R²)**, sensitive to lr_W/L1 combination
+- 30% of seeds are "hard" (V-recovery failure, always asymmetric: good U, bad V)
+- L1=1E-6 is critical for low-rank dynamics; L1=1E-5 degrades dynamics
+- lr_W=3E-3 is optimal for gain=7, rank=20
+- Full-matrix learning + L1 outperforms direct factorization
 
-Key challenges that scale with n_neurons:
+**How gain and rank change the problem:**
+- **Higher gain** → stronger nonlinearity → more chaotic dynamics → higher effective rank → potentially easier W recovery but harder rollout
+- **Lower gain** → weaker dynamics → lower effective rank → harder W recovery (less signal)
+- **Higher rank** → more degrees of freedom in W → more data needed but richer signal
+- **Lower rank** → fewer modes → more degenerate (many W produce same dynamics)
+- The gain=7 recipe may NOT transfer to gain=4 or gain=10
+
+Key challenges:
 - Low eff_rank means fewer distinguishable activity modes → more equivalent W solutions
 - Degeneracy is the primary failure mode: the GNN learns correct dynamics (high test_pearson) from wrong W (low connectivity_R2)
 - MLP compensation: lin_edge and lin_phi reshape their nonlinear mappings to compensate for incorrect W
-- Larger n means more W parameters to learn from the same rank-20 signal — optimization difficulty scales quadratically
 
-## Prior Knowledge (starting points from 188-iteration landscape exploration)
+## Prior Knowledge (from 188-iteration landscape + 340-iteration dedicated low-rank exploration)
 
-- `lr_W=3E-3` is optimal for low-rank at 10k frames
+- `lr_W=3E-3` is optimal for gain=7, rank=20, n=100 (may need adjustment at other gain/rank)
 - `coeff_W_L1=1E-6` is critical — L1=1E-5 degrades dynamics in low eff_rank regimes
 - `coeff_edge_diff=10000` constrains lin_edge monotonicity, reducing MLP compensation ability
 - Two-phase training helps: no L1 in early epochs lets W converge first, then L1 refines sparsity
-- `lr=1E-4` is safe (lr-ceiling-global exception: lr=2E-4 may work in low eff_rank)
+- `lr=1E-4` is safe
 - Overtraining causes degeneracy — more epochs is NOT always better
 - `batch_size=8` is safe; batch=16 may degrade at L1=1E-5
+- At n=100, n_epochs=2 and data_augmentation_loop=200 are the standard recipe
 
 **These are starting hypotheses to validate and refine, not fixed truths.**
 
@@ -150,7 +159,7 @@ Append to Full Log (`{config}_analysis.md`) and **Current Block** sections of `{
 ## Iter N: [converged/partial/failed]
 Node: id=N, parent=P
 Mode/Strategy: [exploit/explore/boundary/principle-test/degeneracy-break]
-Config: n_neurons=N, seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B, recurrent=[T/F], time_step=T
+Config: gain=G, rank=R, seed=S, lr_W=X, lr=Y, lr_emb=Z, coeff_W_L1=W, coeff_edge_diff=D, n_epochs_init=I, first_coeff_L1=F, batch_size=B
 Metrics: test_R2=A, test_pearson=B, connectivity_R2=C, cluster_accuracy=D, final_loss=E, kino_R2=F, kino_SSIM=G, kino_WD=H
 Activity: eff_rank=R, spectral_radius=S, [brief description]
 Mutation: [param]: [old] -> [new]
@@ -184,7 +193,7 @@ Step B: Choose strategy
 | 2+ distant nodes with R² > 0.9                       | **recombine**                 | Merge best params from both nodes                                                                                                        |
 | test_R2 > 0.998 plateau for 3+ iters                 | **dimension-sweep**           | Explore untested param dimensions (lr_emb, n_epochs_init, first_coeff_L1, edge_diff)                                                     |
 | improvement rate < 30% in block                      | **exploit-tighten**           | Keep best config, mutate secondary params conservatively                                                                                 |
-| best test_R2 unchanged for 2+ batches                | **regime-shift**              | Change seed, training_single_type, or n_epochs — shift to orthogonal dimension                                                           |
+| best test_R2 unchanged for 2+ batches                | **regime-shift**              | Change gain or rank — shift to orthogonal dimension                                                                                      |
 | all perturbations from best degrade                  | **seed-robustness**           | Replay best config at new seed to test generalization                                                                                    |
 | best test_R2 unchanged for 2+ blocks                 | **cross-seed-optimize**       | Focus on closing the gap between seeds — test n_epochs_init, batch_size, lr_W fine-tuning at the weaker seed                             |
 | new recipe beats old at 2+ seeds                     | **universal-recipe-validate** | Test the new recipe at all remaining seeds to confirm universality                                                                       |
@@ -220,20 +229,27 @@ Edit config file for next iteration.
 - `n_iter_block`: int
 - `ucb_c`: float (0.5-3.0)
 
-**DO NOT change `simulation:` parameters except `seed` and `n_neurons`.** The simulation regime is otherwise fixed.
+**DO NOT change `simulation:` parameters except `seed`, `connectivity_rank`, and `params` (gain only).** n_neurons=100 is LOCKED.
 
-**Simulation Parameters (seed and n_neurons are mutable):**
+**Simulation Parameters (gain, rank, and seed are mutable; n_neurons is LOCKED):**
 
 ```yaml
 simulation:
-  n_neurons: 200  # values: 200, 400, 600, 1000
+  n_neurons: 100  # LOCKED — DO NOT CHANGE
+  connectivity_rank: 20  # values: 10, 15, 20, 25, 30
+  # params: [a, b, g, s, w, h] — gain is the 3rd element (g)
+  params: [[1.0, 0.0, 7.0, 0.0, 1.0, 0.0], [1.0, 0.0, 7.0, 0.0, 1.0, 0.0]]
+  # To change gain to e.g. 4: set both param lists' 3rd element to 4.0
+  # params: [[1.0, 0.0, 4.0, 0.0, 1.0, 0.0], [1.0, 0.0, 4.0, 0.0, 1.0, 0.0]]
 training:
-  seed:
-    137 # changing seed generates a DIFFERENT connectivity matrix W
-    # use different seeds to test robustness across W samples
+  seed: 137  # changing seed generates a DIFFERENT connectivity matrix W
 ```
 
-Changing `seed` produces a new random low-rank connectivity matrix. Changing `n_neurons` changes the network size (W becomes n×n). Log both seed and n_neurons in Config line and note when a mutation is a size or seed change.
+**To change gain:** edit the 3rd element (index 2) in BOTH param lists. E.g. gain=4 → `[1.0, 0.0, 4.0, 0.0, 1.0, 0.0]`.
+
+**To change rank:** edit `connectivity_rank`. Values: 10, 15, 20, 25, 30.
+
+Changing `seed` produces a new random low-rank connectivity matrix. Log gain, rank, and seed in Config line and note when a mutation is a gain/rank/seed change.
 
 **Training Parameters (the exploration space):**
 
@@ -244,7 +260,7 @@ training:
   learning_rate_W_start: 3.0E-3 # range: 1E-4 to 1E-2
   learning_rate_start: 1.0E-4 # range: 1E-5 to 1E-3
   learning_rate_embedding_start: 2.5E-4
-  coeff_W_L1: 1.0E-5 # range: 1E-6 to 1E-3
+  coeff_W_L1: 1.0E-6 # range: 1E-7 to 1E-3
   coeff_edge_diff: 10000 # range: 100 to 50000 — KEY for low-rank
   batch_size: 8 # values: 8, 16, 32
 
@@ -288,14 +304,15 @@ You **MUST** use the Edit tool to add/modify parent selection rules.
 
 ### STEP 2: Choose Next Block Focus
 
-Blocks explore different **parameter subspaces or network sizes**:
+Blocks explore different **regions of the gain × rank landscape**:
 
-- Block N: lr_W sweep at n=200 (baseline)
-- Block N+1: Scale to n=400 with best n=200 recipe
-- Block N+2: Scale to n=600, n=1000
-- Intermediate blocks: L1 / coeff_edge_diff / two-phase training refinement at each scale
+- Block N: Baseline validation at gain=7, rank=20 (known recipe)
+- Block N+1: Vary gain at fixed rank=20 (gain=4, 5, 6, 8, 9, 10)
+- Block N+2: Vary rank at fixed gain=7 (rank=10, 15, 25, 30)
+- Block N+3: Explore corners (low gain × low rank, high gain × high rank)
+- Intermediate blocks: Training parameter refinement at promising (gain, rank) pairs
 
-**At block boundaries, choose which parameter subspace or network size to explore next.**
+**At block boundaries, choose which (gain, rank) region to explore next.**
 
 ### STEP 3: Update Working Memory
 
@@ -314,9 +331,21 @@ Update `{config}_memory.md`:
 
 ### Best Configurations Found
 
-| Blk | n_neurons | lr_W | lr   | L1   | edge_diff | n_ep_init | first_L1 | batch | conn_R2 | test_R2 | Finding  |
-| --- | --------- | ---- | ---- | ---- | --------- | --------- | -------- | ----- | ------- | ------- | -------- |
-| 1   | 200       | 3E-3 | 1E-4 | 1E-5 | 10000     | 2         | 0        | 8     | ?       | ?       | baseline |
+| Blk | gain | rank | lr_W | lr   | L1   | edge_diff | n_ep_init | batch | conn_R2 | test_R2 | Finding  |
+| --- | ---- | ---- | ---- | ---- | ---- | --------- | --------- | ----- | ------- | ------- | -------- |
+| -   | 7    | 20   | 3E-3 | 1E-4 | 1E-6 | 10000     | 2         | 8     | 0.993   | 0.996   | baseline from prior exploration |
+
+### Gain × Rank Landscape Map
+
+| gain\rank | 10 | 15 | 20 | 25 | 30 |
+| --------- | -- | -- | -- | -- | -- |
+| 4         | ?  | ?  | ?  | ?  | ?  |
+| 5         | ?  | ?  | ?  | ?  | ?  |
+| 6         | ?  | ?  | ?  | ?  | ?  |
+| 7         | ?  | ?  | 0.993/0.996 | ?  | ?  |
+| 8         | ?  | ?  | ?  | ?  | ?  |
+| 9         | ?  | ?  | ?  | ?  | ?  |
+| 10        | ?  | ?  | ?  | ?  | ?  |
 
 ### Established Principles
 
@@ -393,11 +422,17 @@ L = L_pred + coeff_W_L1·||W||₁ + coeff_edge_diff·L_edge_diff
 
 ### Low-Rank Regime Specifics
 
-- True W has rank 20: W = W_L @ W_R where W_L ∈ ℝ^(n×20), W_R ∈ ℝ^(20×n)
-- Effective rank scales with n: ~12 (n=100), ~24 (n=200), ~48 (n=400), ~72 (n=600), ~120 (n=1000)
-- Spectral radius typically ~1.0 (edge of chaos)
+- True W has rank r: W = W_L @ W_R where W_L ∈ ℝ^(n×r), W_R ∈ ℝ^(r×n)
+- At n=100: W has 10k entries but only 2·r·n degrees of freedom
+- Lower rank → more degenerate (many W produce same dynamics)
 - The GNN learns a full-rank W — it must discover the low-rank structure from the data alone
-- W has n² parameters but only 40n degrees of freedom (rank 20) — ratio gets worse with n
+
+### Gain Effects
+
+- **gain=4**: weakly coupled, low effective rank, near-fixed-point dynamics
+- **gain=7**: moderately chaotic (prior baseline), eff_rank ~12 at rank=20, n=100
+- **gain=10**: strongly chaotic, high effective rank, potentially easier W recovery but harder rollout stability
+- Gain controls the coupling strength in `du/dt = -a·u + g · W @ phi(u)`
 
 ### Recurrent Training
 

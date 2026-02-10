@@ -32,13 +32,27 @@ if __name__ == "__main__":
 
     if args.option:
         print(f"Options: {args.option}")
+    # named config lists for batch runs
+    CONFIG_LISTS = {
+        'w_init_ablation': [
+            'signal_fig_2', 'signal_fig_2_W_init', 'signal_fig_2_W_init_zeros', 'signal_fig_2_clip', 'signal_fig_2_clip_W_init',
+            'signal_fig_3', 'signal_fig_3_W_init', 'signal_fig_3_W_init_zeros', 'signal_fig_3_clip', 'signal_fig_3_clip_W_init',
+            'signal_fig_supp_8_1', 'signal_fig_supp_8_1_W_init', 'signal_fig_supp_8_1_W_init_zeros', 'signal_fig_supp_8_1_clip', 'signal_fig_supp_8_1_clip_W_init',
+        ],
+    }
+
     if args.option is not None:
         task = args.option[0]
-        config_list = [args.option[1]]
-        if len(args.option) > 2:
-            best_model = args.option[2]
-        else:
+        config_name = args.option[1]
+        if config_name in CONFIG_LISTS:
+            config_list = CONFIG_LISTS[config_name]
             best_model = None
+        else:
+            config_list = [config_name]
+            if len(args.option) > 2:
+                best_model = args.option[2]
+            else:
+                best_model = None
     else:
         best_model = ''
         task = task = 'generate'
@@ -103,7 +117,7 @@ if __name__ == "__main__":
                 run=0,
                 test_mode="",
                 sample_embedding=False,
-                step=10,
+                step=1000,
                 n_rollout_frames=10000,
                 device=device,
                 particle_of_interest=0,
@@ -113,4 +127,4 @@ if __name__ == "__main__":
         if 'plot' in task:
             folder_name = './log/' + pre_folder + '/tmp_results/'
             os.makedirs(folder_name, exist_ok=True)
-            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='black color', extended='plots', device=device, apply_weight_correction=True)
+            data_plot(config=config, config_file=config_file, epoch_list=['best'], style='color', extended='plots', device=device, apply_weight_correction=True)
