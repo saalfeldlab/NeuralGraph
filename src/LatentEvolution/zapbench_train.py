@@ -460,8 +460,10 @@ class ValidationResult:
     epoch: int
     mean_mse: float
     mean_mae: float
-    per_condition_mse: dict  # {name: (rollout_len,) mse array}
-    per_condition_mae: dict  # {name: (rollout_len,) mae array}
+    per_condition_mse: dict  # {name: (num_frames,) mse array}
+    per_condition_mae: dict  # {name: (num_frames,) mae array}
+    baseline_mse: dict  # {name: (num_frames,) baseline mse} - predict mean of first 4 frames
+    baseline_mae: dict  # {name: (num_frames,) baseline mae}
 
 
 def run_validation_cpu(
@@ -492,6 +494,8 @@ def run_validation_cpu(
 
         results_mse: dict[str, np.ndarray] = {}
         results_mae: dict[str, np.ndarray] = {}
+        baseline_mse: dict[str, np.ndarray] = {}
+        baseline_mae: dict[str, np.ndarray] = {}
 
         with torch.no_grad():
             for cond in val_conditions:
@@ -549,6 +553,34 @@ def run_validation_cpu(
                     results_mse[cond.name] = frame_mse.numpy()
                     results_mae[cond.name] = frame_mae.numpy()
 
+                    # baseline: predict mean of first 4 frames per neuron
+                    # collect observed values from first 4 frames
+                    baseline_frames = 4
+                    first_frames_mask = frame_idx < baseline_frames  # (rollout_len, N)
+                    first_frames_obs = obs_mask & first_frames_mask
+                    # compute mean per neuron from observed values in first 4 frames
+                    neuron_sum = torch.zeros(cond.num_neurons)
+                    neuron_count = torch.zeros(cond.num_neurons)
+                    obs_bin, obs_neuron = torch.where(first_frames_obs)
+                    neuron_sum.scatter_add_(0, obs_neuron, gt[obs_bin, obs_neuron])
+                    neuron_count.scatter_add_(0, obs_neuron, torch.ones(len(obs_neuron)))
+                    mean_per_neuron = neuron_sum / neuron_count.clamp(min=1)  # (N,)
+
+                    # compute baseline errors (constant prediction = mean_per_neuron)
+                    baseline_errors_sq = (mean_per_neuron.unsqueeze(0) - gt) ** 2
+                    baseline_errors_abs = (mean_per_neuron.unsqueeze(0) - gt).abs()
+
+                    # accumulate baseline per-frame MSE/MAE
+                    bl_mse_sum = torch.zeros(num_frames)
+                    bl_mae_sum = torch.zeros(num_frames)
+                    bl_obs_errors_sq = baseline_errors_sq[bin_indices, neuron_indices]
+                    bl_obs_errors_abs = baseline_errors_abs[bin_indices, neuron_indices]
+                    bl_mse_sum.scatter_add_(0, frame_indices, bl_obs_errors_sq)
+                    bl_mae_sum.scatter_add_(0, frame_indices, bl_obs_errors_abs)
+
+                    baseline_mse[cond.name] = (bl_mse_sum / frame_counts.clamp(min=1)).numpy()
+                    baseline_mae[cond.name] = (bl_mae_sum / frame_counts.clamp(min=1)).numpy()
+
         mean_mse = float(np.mean([m.mean() for m in results_mse.values()])) if results_mse else 0.0
         mean_mae = float(np.mean([m.mean() for m in results_mae.values()])) if results_mae else 0.0
 
@@ -558,6 +590,8 @@ def run_validation_cpu(
             mean_mae=mean_mae,
             per_condition_mse=results_mse,
             per_condition_mae=results_mae,
+            baseline_mse=baseline_mse,
+            baseline_mae=baseline_mae,
         ))
 
 
@@ -595,6 +629,9 @@ def plot_per_frame_metrics(
     # mean over conditions
     mse_mean = compute_mean_over_conditions(result.per_condition_mse)
     mse_ax.plot(np.arange(1, len(mse_mean) + 1), mse_mean, "k--", label="mean", linewidth=2)
+    # baseline mean (predict mean of first 4 frames)
+    bl_mse_mean = compute_mean_over_conditions(result.baseline_mse)
+    mse_ax.plot(np.arange(1, len(bl_mse_mean) + 1), bl_mse_mean, "r--", label="baseline", linewidth=2)
     mse_ax.set_xlabel("frame index")
     mse_ax.set_ylabel("MSE")
     mse_ax.set_xscale("log")
@@ -616,6 +653,9 @@ def plot_per_frame_metrics(
     # mean over conditions
     mae_mean = compute_mean_over_conditions(result.per_condition_mae)
     mae_ax.plot(np.arange(1, len(mae_mean) + 1), mae_mean, "k--", label="mean", linewidth=2)
+    # baseline mean
+    bl_mae_mean = compute_mean_over_conditions(result.baseline_mae)
+    mae_ax.plot(np.arange(1, len(bl_mae_mean) + 1), bl_mae_mean, "r--", label="baseline", linewidth=2)
     mae_ax.set_xlabel("frame index")
     mae_ax.set_ylabel("MAE")
     mae_ax.set_xscale("log")
