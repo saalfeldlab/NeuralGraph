@@ -563,12 +563,14 @@ def run_validation_cpu(
 
 def plot_per_frame_metrics(
     result: ValidationResult,
+    fitting_window: int,
     prefix: str = "val",
 ) -> dict[str, plt.Figure]:
     """plot MSE and MAE vs frame index for each condition.
 
     args:
         result: validation result with per-condition per-frame metrics.
+        fitting_window: draw a vertical line at this frame index (training horizon).
         prefix: title prefix ("val" or "test").
 
     returns:
@@ -576,11 +578,23 @@ def plot_per_frame_metrics(
     """
     figures = {}
 
+    def compute_mean_over_conditions(per_condition: dict[str, np.ndarray]) -> np.ndarray:
+        """compute mean over conditions at each frame, handling different lengths."""
+        max_len = max(len(v) for v in per_condition.values())
+        # pad with nan, then nanmean
+        padded = np.full((len(per_condition), max_len), np.nan)
+        for i, v in enumerate(per_condition.values()):
+            padded[i, :len(v)] = v
+        return np.nanmean(padded, axis=0)
+
     # MSE plot
     mse_fig, mse_ax = plt.subplots(figsize=(10, 6))
     for name in sorted(result.per_condition_mse.keys()):
         mses = result.per_condition_mse[name]
         mse_ax.plot(np.arange(1, len(mses) + 1), mses, label=name, alpha=0.8)
+    # mean over conditions
+    mse_mean = compute_mean_over_conditions(result.per_condition_mse)
+    mse_ax.plot(np.arange(1, len(mse_mean) + 1), mse_mean, "k--", label="mean", linewidth=2)
     mse_ax.set_xlabel("frame index")
     mse_ax.set_ylabel("MSE")
     mse_ax.set_xscale("log")
@@ -590,6 +604,7 @@ def plot_per_frame_metrics(
     mse_ax.legend(loc="upper left", fontsize=8)
     mse_ax.set_title(f"{prefix} MSE vs frame (epoch {result.epoch})")
     mse_ax.grid(True, alpha=0.3)
+    mse_ax.axvline(x=fitting_window, color="k", linestyle=":", alpha=0.5)
     mse_fig.tight_layout()
     figures["mse_vs_frame"] = mse_fig
 
@@ -598,6 +613,9 @@ def plot_per_frame_metrics(
     for name in sorted(result.per_condition_mae.keys()):
         maes = result.per_condition_mae[name]
         mae_ax.plot(np.arange(1, len(maes) + 1), maes, label=name, alpha=0.8)
+    # mean over conditions
+    mae_mean = compute_mean_over_conditions(result.per_condition_mae)
+    mae_ax.plot(np.arange(1, len(mae_mean) + 1), mae_mean, "k--", label="mean", linewidth=2)
     mae_ax.set_xlabel("frame index")
     mae_ax.set_ylabel("MAE")
     mae_ax.set_xscale("log")
@@ -607,6 +625,7 @@ def plot_per_frame_metrics(
     mae_ax.legend(loc="upper left", fontsize=8)
     mae_ax.set_title(f"{prefix} MAE vs frame (epoch {result.epoch})")
     mae_ax.grid(True, alpha=0.3)
+    mae_ax.axvline(x=fitting_window, color="k", linestyle=":", alpha=0.5)
     mae_fig.tight_layout()
     figures["mae_vs_frame"] = mae_fig
 
@@ -615,6 +634,7 @@ def plot_per_frame_metrics(
 
 def log_validation_result(
     result: ValidationResult,
+    fitting_window: int,
     writer: SummaryWriter | None = None,
     prefix: str = "val",
 ) -> None:
@@ -622,6 +642,7 @@ def log_validation_result(
 
     args:
         result: validation result to log.
+        fitting_window: training horizon (for vertical line on plots).
         writer: tensorboard writer (optional).
         prefix: tensorboard metric prefix ("val" or "test").
     """
@@ -645,7 +666,7 @@ def log_validation_result(
         writer.add_scalar(f"{prefix}/mean_mse", result.mean_mse, result.epoch)
         writer.add_scalar(f"{prefix}/mean_mae", result.mean_mae, result.epoch)
         # add per-frame plots
-        figures = plot_per_frame_metrics(result, prefix)
+        figures = plot_per_frame_metrics(result, fitting_window, prefix)
         for fig_name, fig in figures.items():
             writer.add_figure(f"{prefix}/{fig_name}", fig, result.epoch)
             plt.close(fig)
@@ -791,7 +812,7 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
         nonlocal val_thread
         if val_thread is not None and not val_thread.is_alive():
             result = eval_queue.get_nowait()
-            log_validation_result(result, writer, prefix="val")
+            log_validation_result(result, cfg.train.fitting_window, writer, prefix="val")
             val_thread = None
             return result
         return None
@@ -887,7 +908,7 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
         log.info("waiting for in-progress validation...")
         val_thread.join()
         result = eval_queue.get()
-        log_validation_result(result, writer)
+        log_validation_result(result, cfg.train.fitting_window, writer)
         final_val_result = result
         last_validated_epoch = result.epoch
 
@@ -897,7 +918,7 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
         val_thread = start_eval(val_data, final_epoch)
         val_thread.join()
         result = eval_queue.get()
-        log_validation_result(result, writer)
+        log_validation_result(result, cfg.train.fitting_window, writer)
         final_val_result = result
 
     # save final model
@@ -910,7 +931,7 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     test_thread = start_eval(test_data, final_epoch)
     test_thread.join()
     test_result = eval_queue.get()
-    log_validation_result(test_result, writer, prefix="test")
+    log_validation_result(test_result, cfg.train.fitting_window, writer, prefix="test")
 
     # helper to extract per-condition metrics
     def extract_condition_metrics(result: ValidationResult) -> dict:
