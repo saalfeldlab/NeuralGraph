@@ -132,6 +132,7 @@ class TrainConfig(BaseModel):
     batch_size: int = 32
     epochs: int = 30
     learning_rate: float = 1e-5
+    batches_per_epoch: int = 0  # 0 = 1 full pass over data
 
     model_config = ConfigDict(extra="forbid")
 

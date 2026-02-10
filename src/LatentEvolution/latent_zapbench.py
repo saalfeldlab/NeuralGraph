@@ -455,7 +455,9 @@ class ValidationResult:
     """result from background validation."""
     epoch: int
     mean_mse: float
-    per_condition: dict  # {name: (rollout_len,) mse array}
+    mean_mae: float
+    per_condition_mse: dict  # {name: (rollout_len,) mse array}
+    per_condition_mae: dict  # {name: (rollout_len,) mae array}
 
 
 def run_validation_cpu(
@@ -484,7 +486,8 @@ def run_validation_cpu(
             model.load_state_dict(state_dict)
             model.eval()
 
-        results: dict[str, np.ndarray] = {}
+        results_mse: dict[str, np.ndarray] = {}
+        results_mae: dict[str, np.ndarray] = {}
 
         with torch.no_grad():
             for cond in val_conditions:
@@ -505,44 +508,57 @@ def run_validation_cpu(
                     z = model.encode(gt[0:1])  # (1, L)
 
                     mses = []
+                    maes = []
                     for t in range(rollout_len):
                         x_pred = model.decode(z)  # (1, N)
 
-                        # masked MSE
-                        err_sq = (x_pred[0] - gt[t]) ** 2
+                        # masked MSE and MAE
+                        err = x_pred[0] - gt[t]
                         mask_t = mask[t]
-                        mse_t = (err_sq * mask_t).sum() / mask_t.sum().clamp(min=1)
+                        count = mask_t.sum().clamp(min=1)
+                        mse_t = ((err ** 2) * mask_t).sum() / count
+                        mae_t = (err.abs() * mask_t).sum() / count
                         mses.append(mse_t.item())
+                        maes.append(mae_t.item())
 
                         z = model.evolve(z)
 
-                    results[cond.name] = np.array(mses)
+                    results_mse[cond.name] = np.array(mses)
+                    results_mae[cond.name] = np.array(maes)
 
-        mean_mse = float(np.mean([m.mean() for m in results.values()])) if results else 0.0
+        mean_mse = float(np.mean([m.mean() for m in results_mse.values()])) if results_mse else 0.0
+        mean_mae = float(np.mean([m.mean() for m in results_mae.values()])) if results_mae else 0.0
 
         result_queue.put(ValidationResult(
             epoch=epoch,
             mean_mse=mean_mse,
-            per_condition=results,
+            mean_mae=mean_mae,
+            per_condition_mse=results_mse,
+            per_condition_mae=results_mae,
         ))
 
 
 def log_validation_result(result: ValidationResult, writer: SummaryWriter | None = None) -> None:
     """log validation result as a table and to tensorboard."""
     log.info(f"validation (epoch {result.epoch}):")
-    log.info(f"  {'condition':<12} {'steps':>6} {'mean_mse':>10} {'final_mse':>10}")
+    log.info(f"  {'condition':<12} {'steps':>6} {'mean_mse':>10} {'mean_mae':>10}")
     log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
-    for name, mses in sorted(result.per_condition.items()):
-        log.info(f"  {name:<12} {len(mses):>6} {mses.mean():>10.4f} {mses[-1]:>10.4f}")
+    for name in sorted(result.per_condition_mse.keys()):
+        mses = result.per_condition_mse[name]
+        maes = result.per_condition_mae[name]
+        log.info(f"  {name:<12} {len(mses):>6} {mses.mean():>10.4f} {maes.mean():>10.4f}")
         # tensorboard logging per condition
         if writer is not None:
             writer.add_scalar(f"val/{name}/mean_mse", mses.mean(), result.epoch)
             writer.add_scalar(f"val/{name}/final_mse", mses[-1], result.epoch)
+            writer.add_scalar(f"val/{name}/mean_mae", maes.mean(), result.epoch)
+            writer.add_scalar(f"val/{name}/final_mae", maes[-1], result.epoch)
     log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
-    log.info(f"  {'MEAN':<12} {'':>6} {result.mean_mse:>10.4f}")
+    log.info(f"  {'MEAN':<12} {'':>6} {result.mean_mse:>10.4f} {result.mean_mae:>10.4f}")
     # tensorboard: overall mean
     if writer is not None:
         writer.add_scalar("val/mean_mse", result.mean_mse, result.epoch)
+        writer.add_scalar("val/mean_mae", result.mean_mae, result.epoch)
     # flush to ensure output is visible immediately
     for handler in logging.root.handlers:
         handler.flush()
@@ -563,6 +579,38 @@ def train(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationResult | 
     returns:
         (was_terminated, final_val_result) tuple.
     """
+    import time
+
+    # redirect stdout/stderr to log files
+    stdout_path = run_dir / "stdout.log"
+    stderr_path = run_dir / "stderr.log"
+    stdout_file = open(stdout_path, "w", buffering=1)
+    stderr_file = open(stderr_path, "w", buffering=1)
+    old_stdout, old_stderr = sys.stdout, sys.stderr
+    sys.stdout = stdout_file
+    sys.stderr = stderr_file
+
+    # reconfigure logging to write to the log file
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(message)s",
+        datefmt="%H:%M:%S",
+        stream=sys.stdout,
+    )
+
+    try:
+        return _train_impl(cfg, run_dir)
+    finally:
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+        stdout_file.close()
+        stderr_file.close()
+
+
+def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationResult | None]:
+    """actual training implementation."""
     import time
 
     # limit CPU threads (for validation and any CPU ops)
@@ -607,12 +655,11 @@ def train(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationResult | 
         evolver=cfg.model.evolver,
     )
 
-    # batches per epoch for 1x coverage
-    batches_per_epoch = train_data.total_weight // cfg.train.batch_size
+    # batches per epoch (0 = 1 full pass over data)
+    full_pass_batches = train_data.total_weight // cfg.train.batch_size
     log.info(f"total training samples: {train_data.total_weight}")
-    log.info(f"batches_per_epoch for 1x coverage: {batches_per_epoch}")
-
-    # batches_per_epoch = 10  # uncomment for quick testing
+    log.info(f"batches_per_epoch for 1x coverage: {full_pass_batches}")
+    batches_per_epoch = full_pass_batches if cfg.train.batches_per_epoch == 0 else cfg.train.batches_per_epoch
     # RNG and time offsets for batch sampling (on GPU)
     rng = torch.Generator(device=device)
     time_offsets = torch.arange(cfg.train.fitting_window, device=device)
@@ -771,17 +818,22 @@ def train(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationResult | 
 
     # save final metrics
     if final_val_result is not None:
+        per_condition = {}
+        for name in final_val_result.per_condition_mse:
+            mses = final_val_result.per_condition_mse[name]
+            maes = final_val_result.per_condition_mae[name]
+            per_condition[name] = {
+                "mean_mse": float(mses.mean()),
+                "final_mse": float(mses[-1]),
+                "mean_mae": float(maes.mean()),
+                "final_mae": float(maes[-1]),
+                "rollout_steps": len(mses),
+            }
         metrics = {
             "final_epoch": final_epoch,
             "mean_mse": final_val_result.mean_mse,
-            "per_condition": {
-                name: {
-                    "mean_mse": float(mses.mean()),
-                    "final_mse": float(mses[-1]),
-                    "rollout_steps": len(mses),
-                }
-                for name, mses in final_val_result.per_condition.items()
-            },
+            "mean_mae": final_val_result.mean_mae,
+            "per_condition": per_condition,
             "was_terminated": terminate_flag["value"],
         }
         metrics_path = run_dir / "final_metrics.yaml"
