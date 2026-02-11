@@ -40,18 +40,22 @@
 | 10  | 10   | 25   | 2E-3 | 1E-4 | 1E-6 | 15000     | 2         | 8     | 1.000   | 0.999   | gain=10 rank=25 SOLVED (iter 113) |
 | 10  | 10   | 15   | 2E-3 | 1E-4 | 1E-6 | 10000     | 2         | 8     | 1.000   | 1.000   | gain=10 rank=15 seed-robust (iter 114) |
 | 10  | 6    | 30   | 3E-3 | 1E-4 | 1E-6 | 10000     | 2         | 8     | 1.000   | 0.995   | gain=6 rank=30 SOLVED (iter 116) |
+| 10  | 5    | 30   | 3E-3 | 1E-4 | 1E-6 | 10000     | 2         | 8     | 1.000   | 1.000   | **BREAKTHROUGH** gain=5 rank=30 SOLVED (iter 120) |
+| 10  | 6    | 30   | 3E-3 | 1E-4 | 1E-6 | 10000     | 2         | 8     | 1.000   | 0.985   | gain=6 rank=30 seed=42 ROBUST (iter 118) |
+| 11  | 5    | 30   | 3E-3 | 1E-4 | 1E-6 | 10000     | 2         | 8     | 1.000   | 0.999   | gain=5 rank=30 seed=42 ROBUST (iter 121) |
+| 11  | 4    | 30   | 4E-3 | 1E-4 | 1E-6 | 10000     | 2         | 8     | 0.999   | 0.999   | **BREAKTHROUGH** gain=4 rank=30 SOLVED (iter 123) |
 
 ### Gain × Rank Landscape Map
 
 | gain\rank | 10 | 15 | 20 | 25 | 30 |
 | --------- | -- | -- | -- | -- | -- |
-| 4         | 0.78/0.97 partial (lr_W=4E-3 peak) | ?  | 0.20/0.77 FAIL | ?  | ?  |
-| 5         | 0.89/0.83 partial (lr_W=6E-3 best) | ?  | 0.60/0.99 partial | ?  | ?  |
-| 6         | 1.00/0.99 ✓✓ (2 seeds) | **1.00/0.999 ✓✓** (seed-robust)  | 0.97/0.98 ✓ | **0.71/0.999 DEGEN** seed-indep | **1.00/0.995 ✓** NEW (iter 116)  |
-| 7         | 1.00/1.00 ✓✓ (3 seeds) | **0.74/0.85 FAIL** lr_W=2E-3 worse | 0.999/0.993 ✓ | **0.95/1.00 ✓** (lr_W=3E-3) | 1.00/0.93 seed-sens |
+| 4         | 0.78/0.97 partial (lr_W=4E-3 peak) | ?  | 0.20/0.77 FAIL | ?  | **0.999/0.999 ✓✓** BREAKTHROUGH (iter 123) |
+| 5         | 0.89/0.83 partial (lr_W=6E-3 best) | ?  | 0.60/0.99 partial | ?  | **1.00/1.00 ✓✓** seed-robust (iters 120,121) |
+| 6         | 1.00/0.99 ✓✓ (2 seeds) | **1.00/0.999 ✓✓** (seed-robust)  | 0.97/0.98 ✓ | **0.71/0.999 DEGEN** UNLEARNABLE | **1.00/0.995 ✓✓** seed-robust (iter 116,118)  |
+| 7         | 1.00/1.00 ✓✓ (3 seeds) | **0.74/0.85 FAIL** UNLEARNABLE | 0.999/0.993 ✓ | **0.90/1.00 partial** (iter 124) | 1.00/0.93 seed-sens |
 | 8         | **1.00/0.98 ✓✓** edge_diff=20000 seed-robust | **1.00/0.995+ ✓✓** (seed-robust)  | 1.00/0.97-0.99 ✓ (seed-robust) | ?  | **1.00/0.999+ ✓✓** (seed-robust) |
 | 9         | 1.00/0.86-0.97 seed-sens | **1.00/0.9997 ✓✓** NEW  | **1.00/0.996 ✓✓** (seed-robust) | **1.00/1.00 ✓✓** (seed-robust) | **1.00/0.999 ✓** (edge_diff=10000) |
-| 10        | 1.00/0.88-0.99 seed-sens (edge_diff=15000) | **1.00/1.00 ✓✓** seed-robust (iter 111/114)  | **1.00/0.98-0.997 ✓✓** (seed-robust) | **1.00/0.999 ✓** edge_diff=15000 (iter 113) | **1.00/0.999+ ✓✓** (seed-robust) |
+| 10        | 1.00/0.88-0.99 seed-sens (edge_diff=15000) | **1.00/1.00 ✓✓** seed-robust (iter 111/114)  | **1.00/0.98-0.997 ✓✓** (seed-robust) | **0.90/0.999 partial** seed=42 UNFIX (iter 122) | **1.00/0.999+ ✓✓** (seed-robust) |
 
 ### Established Principles
 
@@ -98,76 +102,80 @@
 - **gain=10 rank=25 SOLVED with edge_diff=15000**: edge_diff=15000 fixed it (0.9997 vs 0.847 at 10000, iter 113)
 - **gain=7 rank=15 plateau INTRINSIC**: lr_W=2E-3 made it WORSE (0.74 vs 0.85). lr_W=3E-3 is optimal for gain=7 (iter 115)
 - **gain=6 rank=30 SOLVED**: lr_W=3E-3 + edge_diff=10000 gives 0.9999 conn_R2 (iter 116). rank=30 > rank=25 for gain=6
+- **gain=5 rank=30 SOLVED (BREAKTHROUGH)**: lr_W=3E-3 + edge_diff=10000 gives 0.9999 conn_R2 (iter 120). low-gain needs HIGH rank!
+- **gain=6 rank=30 SEED-ROBUST**: seed=42 (iter 118) matches seed=137 at 0.9998 conn_R2
+- **gain=10 rank=25 SEED-SENSITIVE**: seed=42 (iter 117) degrades to 0.74 despite seed=137 at 0.9997. V_R2 collapse.
+- **gain=7 rank=15 plateau CONFIRMED UNBREAKABLE**: lr_W=4E-3 + edge_diff=15000 (iter 119) still only 0.81. all lr_W values give 0.74-0.85.
+- **gain=5 rank=30 SEED-ROBUST**: seed=42 (iter 121) matches seed=137 at 0.9999 conn_R2. low-gain + high-rank is universal.
+- **gain=4 rank=30 SOLVED (BREAKTHROUGH)**: lr_W=4E-3 + edge_diff=10000 gives 0.9993 conn_R2 (iter 123). pattern confirmed: gain=4/5 need rank=30!
+- **gain=10 rank=25 seed=42 UNFIXABLE**: edge_diff=20000 FAILED (iter 122). still 0.896 conn_R2. declare seed=42 at this cell unlearnable.
+- **gain=7 rank=25 partial**: 0.898 conn_R2 (iter 124). V_R2=0.886 is limiting. may follow gain=6 rank=25 pattern (degeneracy).
 
 ### Open Questions
 
 - **gain=5 at rank=10**: lr_W=6E-3 is peak (0.89), edge_diff=15000 optimal. plateau confirmed intrinsic at ~0.89
-- **rank=15 at gain=7**: plateau (0.85) is GAIN-SPECIFIC. gain=6/8/9/10 all work at rank=15. lr_W=2E-3 might help?
-- **gain=6 rank=25 UNLEARNABLE**: edge_diff=20000 and seed=42 BOTH FAILED (iters 109-110). V_R2 stuck at 0.71-0.72. declare unlearnable.
-- **gain=6 rank=30 untested**: next gap to explore — may inherit degeneracy from rank=25
-- **gain=10 at rank=25**: 0.85 conn_R2 with edge_diff=10000. need edge_diff=15000 to fix.
+- **rank=15 at gain=7 UNBREAKABLE**: declare UNLEARNABLE.
+- **gain=6 rank=25 UNLEARNABLE**: declare UNLEARNABLE.
+- **gain=10 rank=25 seed=42 UNFIXABLE**: edge_diff=20000 didn't help. declare seed=42 unlearnable at this cell.
+- **gain=7 rank=25**: partial (0.90). may need edge_diff=15000 or lr_W tuning.
+- **gain=4 rank=30 seed-robustness**: need to test seed=42
 
 ---
 
-## Previous Block Summary (Block 9)
+## Previous Block Summary (Block 10)
 
-Block 9 (iters 97-108) major breakthroughs:
-- **edge_diff=20000 SOLVES gain=8 rank=10 rollout**: breakthrough! test_R2 jumped from 0.91 to 0.996. seed-robust (seed=42: 0.98)
-- **rank=15 fully mapped**: gain=6/8/9 ALL SOLVED (only gain=7 has plateau at 0.85)
-- **gain=6 rank=25 INTRINSIC DEGENERACY**: edge_diff=15000 and lr_W=2E-3 both failed. V_R2 stuck at 0.67-0.72
+Block 10 (iters 109-120) major breakthroughs:
+- **gain=5 rank=30 SOLVED (BREAKTHROUGH)**: 0.9999 conn_R2. low-gain needs HIGH rank (30) — rank=10/20 were partial
+- **gain=6 rank=30 SEED-ROBUST**: both seeds (137, 42) work at 0.999+ conn_R2
+- **gain=10 rank=15/25 mapped**: rank=15 seed-robust, rank=25 seed-sensitive (seed=42 fails at 0.74)
+- **gain=7 rank=15 UNBREAKABLE**: lr_W=2E-3, 3E-3, 4E-3 all give 0.74-0.85. declare unlearnable.
 
 ---
 
-## Current Block (Block 10)
+## Current Block (Block 11)
 
 ### Block Info
 
-Focus: (1) fix gain=6 rank=25 with aggressive edge_diff=20000 or seed change, (2) fill remaining gaps (gain=10 rank=15/25), (3) validate complete landscape
+Focus: (1) validate gain=5 rank=30 seed-robustness, (2) fix gain=10 rank=25 seed=42 with edge_diff=20000, (3) explore gain=4 rank=30, (4) fill gain=7 rank=25 gap
 
 ### Hypothesis
 
-Block 10 final landscape completion:
-- gain=6 rank=25: edge_diff=20000 or seed=42 may break degeneracy
-- gain=10 rank=15/25 should work (high-gain regime easy with lr_W=2E-3)
-- universal recipe emerging: lr_W=2E-3 for gain≥8, lr_W=3E-3 for gain=6-7
-- edge_diff=10000 works for most, edge_diff=20000 for low-rank high-gain rollout stability
+Block 11 pattern validation:
+- gain=5 rank=30 should be seed-robust (pattern: gain=6 rank=30 is seed-robust)
+- edge_diff=20000 may fix gain=10 rank=25 seed=42 (worked for gain=8 rank=10)
+- gain=4 rank=30 may work if gain=5 rank=30 works (low-gain needs high rank)
+- gain=7 rank=25 is last major untested cell in landscape
 
 ### Iterations This Block
 
-## Iter 113: converged
-Node: id=113, parent=112
-Config: gain=10, rank=25, seed=137, lr_W=2E-3, edge_diff=15000
-Metrics: conn_R2=0.9997, test_R2=0.999, U_R2=0.967, V_R2=0.968
-Mutation: edge_diff: 10000 -> 15000
-Observation: gain=10 rank=25 SOLVED! edge_diff=15000 fixed it (0.9997 vs 0.847).
+## Iter 121: converged
+Node: id=121, parent=120
+Config: gain=5, rank=30, seed=42, lr_W=3E-3, edge_diff=10000
+Metrics: conn_R2=0.9999, test_R2=0.9988, U_R2=0.9596, V_R2=0.9601
+Observation: **gain=5 rank=30 SEED-ROBUST confirmed!** seed=42 matches seed=137.
 
-## Iter 114: converged
-Node: id=114, parent=111
-Config: gain=10, rank=15, seed=42, lr_W=2E-3, edge_diff=10000
-Metrics: conn_R2=1.000, test_R2=0.9998, U_R2=0.979, V_R2=0.979
-Mutation: seed: 137 -> 42
-Observation: gain=10 rank=15 SEED-ROBUST! seed=42 matches seed=137.
+## Iter 122: partial
+Node: id=122, parent=117
+Config: gain=10, rank=25, seed=42, lr_W=2E-3, edge_diff=20000
+Metrics: conn_R2=0.8959, test_R2=0.9994, U_R2=0.9320, V_R2=0.8723
+Observation: edge_diff=20000 FAILED to fix gain=10 rank=25 seed=42. V_R2 still degraded. declare seed=42 unlearnable at this cell.
 
-## Iter 115: failed
-Node: id=115, parent=root
-Config: gain=7, rank=15, seed=137, lr_W=2E-3, edge_diff=10000
-Metrics: conn_R2=0.742, test_R2=0.854, U_R2=0.967, V_R2=0.800
-Mutation: lr_W: 3E-3 -> 2E-3
-Observation: lr_W=2E-3 DEGRADES gain=7 rank=15! 0.74 vs 0.85. lr_W=3E-3 optimal for gain=7.
+## Iter 123: converged (BREAKTHROUGH)
+Node: id=123, parent=120
+Config: gain=4, rank=30, seed=137, lr_W=4E-3, edge_diff=10000
+Metrics: conn_R2=0.9993, test_R2=0.9992, U_R2=0.9596, V_R2=0.9596
+Observation: **BREAKTHROUGH** gain=4 rank=30 SOLVED! pattern confirmed: gain=4/5 need rank=30 (high DoF) while rank=10/20 fail.
 
-## Iter 116: converged
-Node: id=116, parent=root
-Config: gain=6, rank=30, seed=137, lr_W=3E-3, edge_diff=10000
-Metrics: conn_R2=0.9999, test_R2=0.995, U_R2=0.960, V_R2=0.960
-Mutation: gain=6, rank=30 (new cell)
-Observation: gain=6 rank=30 SOLVED! 0.9999 conn_R2. rank=30 > rank=25 for gain=6.
+## Iter 124: partial
+Node: id=124, parent=root
+Config: gain=7, rank=25, seed=137, lr_W=3E-3, edge_diff=10000
+Metrics: conn_R2=0.8977, test_R2=0.9999, U_R2=0.9549, V_R2=0.8862
+Observation: gain=7 rank=25 partial at 0.90 conn_R2. V_R2=0.886 is limiting. similar to gain=6 rank=25 degeneracy pattern.
 
 ### Emerging Observations
 
-- **gain=10 rank=25 SOLVED**: edge_diff=15000 was the key (0.9997 vs 0.847). confirms edge_diff=15000 for rank=25 at high gain.
-- **gain=10 rank=15 SEED-ROBUST**: both seeds work perfectly. rank=15 column now complete for gain≥8.
-- **gain=7 rank=15 plateau CONFIRMED INTRINSIC**: lr_W=2E-3 made it WORSE (0.74 vs 0.85). only gain=7 fails at rank=15.
-- **gain=6 rank=30 SOLVED**: 0.9999 conn_R2, symmetric U/V recovery. rank=30 > rank=25 for gain=6.
-- **rank=25 column pattern**: gain=6 FAILS (intrinsic), gain=7 unknown, gain=9/10 WORK with edge_diff=15000.
-- **landscape nearly complete**: only gain=4/5 rows and gain=7 rank=15 remain problematic.
+- **low-gain (4-5) needs rank=30**: both gain=4 and gain=5 at rank=30 SOLVED (0.999+) while rank=10/20 fail. high DoF compensates weak signal.
+- **mid-gain (6-7) has rank=25 anomaly**: gain=6 rank=25 UNLEARNABLE, gain=7 rank=25 partial (0.90). mid-gain at rank=25 prone to V collapse.
+- **high-gain (8-10) universally easy**: except gain=10 rank=25 seed=42 (UNFIXABLE despite edge_diff=20000).
+- **edge_diff scaling**: 10000 default, 15000 for some rank=25 cases, 20000 doesn't help seed-specific failures.
 

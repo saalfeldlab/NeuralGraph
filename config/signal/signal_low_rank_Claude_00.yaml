@@ -2,20 +2,20 @@ description: designed by Claude (parallel)
 dataset: signal_low_rank_Claude_00
 simulation:
   connectivity_type: low_rank
-  connectivity_rank: 25
+  connectivity_rank: 30
   connectivity_init:
   - 0
   - 0.1
   params:
   - - 1.0
     - 0.0
-    - 10.0
+    - 4.0
     - 0.0
     - 1.0
     - 0.0
   - - 1.0
     - 0.0
-    - 10.0
+    - 4.0
     - 0.0
     - 1.0
     - 0.0
@@ -69,12 +69,12 @@ training:
   sparsity_freq: 4
   cluster_method: distance_plot
   fix_cluster_embedding: true
-  learning_rate_W_start: 0.002
+  learning_rate_W_start: 0.004
   learning_rate_start: 0.0001
   learning_rate_embedding_start: 0.00025
   n_epochs_init: 2
   first_coeff_L1: 0
   coeff_W_L1: 1.0e-06
   coeff_edge_norm: 0.0
-  coeff_edge_diff: 15000
+  coeff_edge_diff: 10000
   seed: 42

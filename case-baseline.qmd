@@ -23,34 +23,34 @@ This case study builds upon the **348-iteration landscape exploration** ([Landsc
 
 ### Learned W
 
-The GNN achieves perfect connectivity recovery: R^2^=1.000 with slope=7.01 (the slope reflects the gain factor $g=7$ absorbed into the learned W). The raw learned W is $W_\text{learned} \approx g \cdot W_\text{true}$, so the corrected scatter shows proportionality with slope matching the gain. The spectral radius of the learned W matches the true value (1.066 vs 1.065), and eigenvector alignment is 0.999 for both left and right eigenvectors.
+The GNN achieves perfect connectivity recovery: R^2^=1.000 with slope=7.03 (the slope reflects the gain factor $g=7$ absorbed into the learned W). The raw learned W is $W_\text{learned} \approx g \cdot W_\text{true}$, so the corrected scatter shows proportionality with slope matching the gain. The spectral radius of the learned W matches the true value (1.066 vs 1.065), and eigenvector alignment is 0.999 (right) and 1.000 (left).
 
 ::: {layout-ncol=2}
 
 ![Learned W matrix](assets/signal_iter_005/connectivity_learned.png){.lightbox group="iter005"}
 
-![True vs learned W scatter: connectivity_R^2^=1.000, slope=7.01](assets/signal_iter_005/weights_comparison_corrected.png){.lightbox group="iter005"}
+![True vs learned W scatter: connectivity_R^2^=1.000, slope=7.03](assets/signal_iter_005/weights_comparison_corrected.png){.lightbox group="iter005"}
 
 :::
 
 ### **Eigenvector analysis**
 
-Recovering the correct matrix entries (connectivity_R^2^=1.000) does not guarantee that the learned W reproduces the dynamical structure of the true network. The eigenvalues of W determine which modes grow or decay and at what rate; the eigenvectors determine which neuron populations participate in each mode. A learned W with correct entries but scrambled spectral structure would produce wrong dynamics despite high R^2^.
+Recovering the correct matrix entries (connectivity_R^2^=1.000) does not guarantee that the learned W reproduces the dynamical structure of the true network. The eigenvalues of W determine which modes grow or decay and at what rate; the eigenvectors determine which neuron populations participate in each mode.
 
-The eigenvalue comparison (top row) shows that the GNN recovers the full complex spectrum: eigenvalues in the complex plane overlay almost exactly (left), the magnitude scatter falls on the identity line (center), and the sorted spectrum matches on a log scale (right). The spectral radius is recovered to three decimal places (learned: 1.066 vs true: 1.065). The eigenvector alignment matrices (bottom row) display the cosine similarity between each true and learned eigenvector pair, for both right eigenvectors (which set the spatial pattern of each mode) and left eigenvectors (which set the input sensitivity). Both matrices show a sharp diagonal with near-zero off-diagonal entries, confirming one-to-one correspondence. The per-eigenvector alignment score (bottom-right) is uniformly ~1.0 across all 100 eigenvectors (right: mean=1.00, left: mean=1.00), far above the random baseline of 0.10. This means the GNN has not merely memorized W entry by entry --- it has recovered the full dynamical architecture of the network.
+The eigenvalue comparison (top row) shows that the GNN recovers the full complex spectrum: eigenvalues in the complex plane overlay almost exactly (left), the magnitude scatter falls on the identity line (center), and the sorted spectrum matches on a log scale (right). The spectral radius is recovered to three decimal places (learned: 1.066 vs true: 1.065). The eigenvector alignment matrices (bottom row) display the cosine similarity between each true and learned eigenvector pair, for both right eigenvectors (which set the spatial pattern of each mode) and left eigenvectors (which set the input sensitivity). Both matrices show a sharp diagonal with near-zero off-diagonal entries, confirming one-to-one correspondence. The per-eigenvector alignment score (bottom-right) is uniformly ~1.0 across all 100 eigenvectors (right: mean=1.00, left: mean=1.00), far above the random baseline of 0.10.
 
 ![Eigenvalue and eigenvector comparison: true vs learned W](assets/signal_iter_005/eigen_comparison.png){.lightbox group="iter005"}
 
 ### **Dynamics prediction: one-step derivative**
 
-The one-step derivative prediction is near-perfect (R^2^=0.9998, SSIM=0.9995). The residuals are negligible --- the GNN captures the instantaneous dynamics exactly.
+The one-step derivative prediction is near-perfect (R^2^=0.9997, SSIM=0.9990). The residuals are negligible --- the GNN captures the instantaneous dynamics exactly.
 
-![One-step derivative: near-perfect per-step accuracy (R^2^=0.9998, SSIM=0.9995)](assets/signal_iter_005/deriv_kinograph_montage.png){.lightbox group="iter005"}
+![One-step derivative: near-perfect per-step accuracy (R^2^=0.9997, SSIM=0.9990)](assets/signal_iter_005/deriv_kinograph_montage.png){.lightbox group="iter005"}
 
 ### **Dynamics prediction: 10,000 steps rollout**
 
-Despite perfect connectivity recovery and near-perfect one-step accuracy, the autonomous rollout diverges (R^2^=-0.938). This is **temporal phase drift** in chaotic dynamics: even with the correct W, the learned MLP does not replicate the true nonlinearity (tanh) exactly. Small per-step errors in the MLP output are amplified exponentially through the chaotic recurrent loop. The GNN visits the same attractor --- the kinograph patterns are qualitatively similar --- but the temporal alignment is lost. This is the same mechanism observed in the [low-rank case](case-low-rank.qmd), where rollout R^2^ degrades despite near-perfect W recovery.
+Despite perfect connectivity recovery and near-perfect one-step accuracy, the autonomous rollout diverges (R^2^=-0.511). This is **temporal phase drift** in chaotic dynamics: even with the correct W, the learned MLP does not replicate the true nonlinearity (tanh) exactly. Small per-step errors in the MLP output are amplified exponentially through the chaotic recurrent loop. The GNN visits the same attractor --- the kinograph patterns are qualitatively similar --- but the temporal alignment is lost. This is the same mechanism observed in the [low-rank case](case-low-rank.qmd), where rollout R^2^ degrades despite near-perfect W recovery.
 
-![Rollout kinograph: GT vs GNN prediction over 10,000 frames --- rollout R^2^=-0.938](assets/signal_iter_005/kinograph_montage.png){.lightbox group="iter005"}
+![Rollout kinograph: GT vs GNN prediction over 10,000 frames --- rollout R^2^=-0.511](assets/signal_iter_005/kinograph_montage.png){.lightbox group="iter005"}
 
-The per-neuron R^2^ distribution confirms the phase drift interpretation: mean R^2^ = 0.251 +/- 0.224, range [0.003, 0.777]. Some neurons track the GT well (high individual R^2^) while others are completely decorrelated --- consistent with the trajectory visiting the same regions of state space at different times.
+The per-neuron R^2^ distribution confirms the phase drift interpretation: mean R^2^ = 0.192 +/- 0.276, range [0.008, 0.895]. Some neurons track the GT well (high individual R^2^) while others are completely decorrelated --- consistent with the trajectory visiting the same regions of state space at different times.

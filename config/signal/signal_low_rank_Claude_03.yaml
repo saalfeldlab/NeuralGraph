@@ -2,7 +2,7 @@ description: designed by Claude (parallel)
 dataset: signal_low_rank_Claude_03
 simulation:
   connectivity_type: low_rank
-  connectivity_rank: 30
+  connectivity_rank: 25
   connectivity_init:
   - 0
   - 0.1

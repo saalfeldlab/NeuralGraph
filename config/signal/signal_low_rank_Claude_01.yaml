@@ -2,20 +2,20 @@ description: designed by Claude (parallel)
 dataset: signal_low_rank_Claude_01
 simulation:
   connectivity_type: low_rank
-  connectivity_rank: 30
+  connectivity_rank: 25
   connectivity_init:
   - 0
   - 0.1
   params:
   - - 1.0
     - 0.0
-    - 6.0
+    - 7.0
     - 0.0
     - 1.0
     - 0.0
   - - 1.0
     - 0.0
-    - 6.0
+    - 7.0
     - 0.0
     - 1.0
     - 0.0
@@ -76,5 +76,5 @@ training:
   first_coeff_L1: 0
   coeff_W_L1: 1.0e-06
   coeff_edge_norm: 0.0
-  coeff_edge_diff: 10000
-  seed: 42
+  coeff_edge_diff: 15000
+  seed: 137

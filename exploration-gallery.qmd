@@ -26,7 +26,7 @@ subtitle: "Visual Record of Parallel LLM-Guided Connectivity Recovery"
 </style>
 ```
 
-This page presents the visual record of the closed-loop exploration: learned connectivity matrices, neural activity traces, UCB exploration trees, connectivity scatter plots, kinographs, and learned signaling functions for each block. Each block introduces a new simulation regime; within each block, the LLM proposes training parameter mutations via UCB tree search with 4 parallel slots per batch.
+This page presents the visual record of the closed-loop exploration: learned connectivity matrices, neural activity traces, connectivity scatter plots, kinographs, and learned signaling functions for each block. Each block introduces a new simulation regime; within each block, the LLM proposes training parameter mutations via UCB tree search with 4 parallel slots per batch.
 
 ::: {.callout-tip}
 ## Current status
@@ -50,48 +50,15 @@ Full-rank chaotic dynamics with spectral radius ~1.3 and activity rank ~35. The 
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_012.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 1](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_001.png){.lightbox group="b1s"}
-
-![Iter 4](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_004.png){.lightbox group="b1s"}
-
-![Iter 8](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_008.png){.lightbox group="b1s"}
-
 ![Iter 12](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_012.png){.lightbox group="b1s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 1](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_001.png){.lightbox group="b1k"}
-
-![Iter 5](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_005.png){.lightbox group="b1k"}
-
-![Iter 8](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_008.png){.lightbox group="b1k"}
-
 ![Iter 12](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_012.png){.lightbox group="b1k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 1](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_001_MLP.png){.lightbox group="b1m"}
-
-![Iter 5](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_005_MLP.png){.lightbox group="b1m"}
-
 ![Iter 12](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_012_MLP.png){.lightbox group="b1m"}
-
-:::
 
 :::
 
@@ -111,48 +78,15 @@ Rank-20 connectivity reduces activity rank to 12--13. L1 = 1E-6 is critical for 
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_024.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 13](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_013.png){.lightbox group="b2s"}
-
-![Iter 17](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_017.png){.lightbox group="b2s"}
-
-![Iter 21](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_021.png){.lightbox group="b2s"}
-
 ![Iter 24](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_024.png){.lightbox group="b2s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 13](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_013.png){.lightbox group="b2k"}
-
-![Iter 18](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_018.png){.lightbox group="b2k"}
-
-![Iter 21](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_021.png){.lightbox group="b2k"}
-
 ![Iter 24](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_024.png){.lightbox group="b2k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 13](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_013_MLP.png){.lightbox group="b2m"}
-
-![Iter 21](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_021_MLP.png){.lightbox group="b2m"}
-
 ![Iter 24](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_024_MLP.png){.lightbox group="b2m"}
-
-:::
 
 :::
 
@@ -172,48 +106,15 @@ Excitatory/inhibitory (50/50) constraint reduces activity rank from 35 to 12. Sh
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_036.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 25](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_025.png){.lightbox group="b3s"}
-
-![Iter 29](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_029.png){.lightbox group="b3s"}
-
-![Iter 33](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_033.png){.lightbox group="b3s"}
-
 ![Iter 36](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_036.png){.lightbox group="b3s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 25](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_025.png){.lightbox group="b3k"}
-
-![Iter 29](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_029.png){.lightbox group="b3k"}
-
-![Iter 33](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_033.png){.lightbox group="b3k"}
-
 ![Iter 36](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_036.png){.lightbox group="b3k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 25](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_025_MLP.png){.lightbox group="b3m"}
-
-![Iter 33](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_033_MLP.png){.lightbox group="b3m"}
-
 ![Iter 36](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_036_MLP.png){.lightbox group="b3m"}
-
-:::
 
 :::
 
@@ -233,48 +134,15 @@ Four neuron types with distinct signaling functions. Dual objective: connectivit
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_048.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 37](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_037.png){.lightbox group="b4s"}
-
-![Iter 41](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_041.png){.lightbox group="b4s"}
-
-![Iter 45](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_045.png){.lightbox group="b4s"}
-
 ![Iter 48](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_048.png){.lightbox group="b4s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 37](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_037.png){.lightbox group="b4k"}
-
-![Iter 41](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_041.png){.lightbox group="b4k"}
-
-![Iter 45](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_045.png){.lightbox group="b4k"}
-
 ![Iter 48](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_048.png){.lightbox group="b4k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 37](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_037_MLP.png){.lightbox group="b4m"}
-
-![Iter 41](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_041_MLP.png){.lightbox group="b4m"}
-
 ![Iter 48](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_048_MLP.png){.lightbox group="b4m"}
-
-:::
 
 :::
 
@@ -294,48 +162,15 @@ Additive noise (sigma = 0.1--1.0) inflates activity rank from 35 to 42--90. Easi
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_060.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 49](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_049.png){.lightbox group="b5s"}
-
-![Iter 53](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_053.png){.lightbox group="b5s"}
-
-![Iter 57](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_057.png){.lightbox group="b5s"}
-
 ![Iter 60](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_060.png){.lightbox group="b5s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 49](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_049.png){.lightbox group="b5k"}
-
-![Iter 53](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_053.png){.lightbox group="b5k"}
-
-![Iter 57](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_057.png){.lightbox group="b5k"}
-
 ![Iter 60](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_060.png){.lightbox group="b5k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 49](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_049_MLP.png){.lightbox group="b5m"}
-
-![Iter 55](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_055_MLP.png){.lightbox group="b5m"}
-
 ![Iter 60](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_060_MLP.png){.lightbox group="b5m"}
-
-:::
 
 :::
 
@@ -355,48 +190,15 @@ Doubling neurons to 200. Harder than 100 neurons (67% vs 92% convergence). Conve
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_072.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 61](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_061.png){.lightbox group="b6s"}
-
-![Iter 65](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_065.png){.lightbox group="b6s"}
-
-![Iter 69](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_069.png){.lightbox group="b6s"}
-
 ![Iter 72](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_072.png){.lightbox group="b6s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 61](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_061.png){.lightbox group="b6k"}
-
-![Iter 65](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_065.png){.lightbox group="b6k"}
-
-![Iter 69](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_069.png){.lightbox group="b6k"}
-
 ![Iter 72](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_072.png){.lightbox group="b6k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 61](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_061_MLP.png){.lightbox group="b6m"}
-
-![Iter 67](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_067_MLP.png){.lightbox group="b6m"}
-
 ![Iter 72](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_072_MLP.png){.lightbox group="b6m"}
-
-:::
 
 :::
 
@@ -416,48 +218,15 @@ Half the connections zeroed. Subcritical spectral radius (rho = 0.746) drops act
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_084.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 73](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_073.png){.lightbox group="b7s"}
-
-![Iter 77](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_077.png){.lightbox group="b7s"}
-
-![Iter 81](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_081.png){.lightbox group="b7s"}
-
 ![Iter 84](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_084.png){.lightbox group="b7s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 73](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_073.png){.lightbox group="b7k"}
-
-![Iter 77](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_077.png){.lightbox group="b7k"}
-
-![Iter 81](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_081.png){.lightbox group="b7k"}
-
 ![Iter 84](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_084.png){.lightbox group="b7k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 73](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_073_MLP.png){.lightbox group="b7m"}
-
-![Iter 79](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_079_MLP.png){.lightbox group="b7m"}
-
 ![Iter 84](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_084_MLP.png){.lightbox group="b7m"}
-
-:::
 
 :::
 
@@ -477,48 +246,15 @@ Sparse 50% with additive noise (sigma = 0.5). Noise inflates activity rank from 
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_096.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 85](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_085.png){.lightbox group="b8s"}
-
-![Iter 89](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_089.png){.lightbox group="b8s"}
-
-![Iter 93](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_093.png){.lightbox group="b8s"}
-
 ![Iter 96](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_096.png){.lightbox group="b8s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 85](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_085.png){.lightbox group="b8k"}
-
-![Iter 89](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_089.png){.lightbox group="b8k"}
-
-![Iter 93](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_093.png){.lightbox group="b8k"}
-
 ![Iter 96](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_096.png){.lightbox group="b8k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 85](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_085_MLP.png){.lightbox group="b8m"}
-
-![Iter 91](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_091_MLP.png){.lightbox group="b8m"}
-
 ![Iter 96](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_096_MLP.png){.lightbox group="b8m"}
-
-:::
 
 :::
 
@@ -538,48 +274,15 @@ Tripling neurons to 300. Zero convergence at 1 epoch; n_epochs = 2 is a breakthr
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_108.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 97](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_097.png){.lightbox group="b9s"}
-
-![Iter 101](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_101.png){.lightbox group="b9s"}
-
-![Iter 105](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_105.png){.lightbox group="b9s"}
-
 ![Iter 108](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_108.png){.lightbox group="b9s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 97](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_097.png){.lightbox group="b9k"}
-
-![Iter 101](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_101.png){.lightbox group="b9k"}
-
-![Iter 105](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_105.png){.lightbox group="b9k"}
-
 ![Iter 108](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_108.png){.lightbox group="b9k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 97](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_097_MLP.png){.lightbox group="b9m"}
-
-![Iter 104](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_104_MLP.png){.lightbox group="b9m"}
-
 ![Iter 108](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_108_MLP.png){.lightbox group="b9m"}
-
-:::
 
 :::
 
@@ -599,48 +302,15 @@ Continued 300-neuron exploration with 2-epoch baseline. L1 = 1E-6 + n_epochs = 3
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_108.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 109](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_109.png){.lightbox group="b10s"}
-
-![Iter 112](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_112.png){.lightbox group="b10s"}
-
-![Iter 114](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_114.png){.lightbox group="b10s"}
-
 ![Iter 116](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_116.png){.lightbox group="b10s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 109](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_109.png){.lightbox group="b10k"}
-
-![Iter 112](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_112.png){.lightbox group="b10k"}
-
-![Iter 114](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_114.png){.lightbox group="b10k"}
-
 ![Iter 116](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_116.png){.lightbox group="b10k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 109](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_109_MLP.png){.lightbox group="b10m"}
-
-![Iter 114](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_114_MLP.png){.lightbox group="b10m"}
-
 ![Iter 116](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_116_MLP.png){.lightbox group="b10m"}
-
-:::
 
 #### Embedding
 
@@ -664,48 +334,15 @@ Dense chaotic 200-neuron regime revisited with 2--3 epochs. 100% convergence (12
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_120.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 117](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_117.png){.lightbox group="b11s"}
-
-![Iter 121](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_121.png){.lightbox group="b11s"}
-
-![Iter 125](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_125.png){.lightbox group="b11s"}
-
 ![Iter 128](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_128.png){.lightbox group="b11s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 117](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_117.png){.lightbox group="b11k"}
-
-![Iter 121](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_121.png){.lightbox group="b11k"}
-
-![Iter 125](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_125.png){.lightbox group="b11k"}
-
 ![Iter 128](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_128.png){.lightbox group="b11k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 117](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_117_MLP.png){.lightbox group="b11m"}
-
-![Iter 125](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_125_MLP.png){.lightbox group="b11m"}
-
 ![Iter 128](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_128_MLP.png){.lightbox group="b11m"}
-
-:::
 
 :::
 
@@ -725,48 +362,15 @@ Six hundred neurons at 10k frames. 0% convergence even at 10 epochs, but gains a
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_132.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 129](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_129.png){.lightbox group="b12s"}
-
-![Iter 133](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_133.png){.lightbox group="b12s"}
-
-![Iter 137](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_137.png){.lightbox group="b12s"}
-
 ![Iter 140](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_140.png){.lightbox group="b12s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 129](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_129.png){.lightbox group="b12k"}
-
-![Iter 133](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_133.png){.lightbox group="b12k"}
-
-![Iter 137](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_137.png){.lightbox group="b12k"}
-
 ![Iter 140](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_140.png){.lightbox group="b12k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 129](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_129_MLP.png){.lightbox group="b12m"}
-
-![Iter 137](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_137_MLP.png){.lightbox group="b12m"}
-
 ![Iter 140](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_140_MLP.png){.lightbox group="b12m"}
-
-:::
 
 :::
 
@@ -786,48 +390,15 @@ Six hundred neurons at 10k frames. 0% convergence even at 10 epochs, but gains a
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_156.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 145](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_145.png){.lightbox group="b13s"}
-
-![Iter 149](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_149.png){.lightbox group="b13s"}
-
-![Iter 153](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_153.png){.lightbox group="b13s"}
-
 ![Iter 156](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_156.png){.lightbox group="b13s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 145](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_145.png){.lightbox group="b13k"}
-
-![Iter 149](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_149.png){.lightbox group="b13k"}
-
-![Iter 153](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_153.png){.lightbox group="b13k"}
-
 ![Iter 156](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_156.png){.lightbox group="b13k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 145](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_145_MLP.png){.lightbox group="b13m"}
-
-![Iter 149](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_149_MLP.png){.lightbox group="b13m"}
-
 ![Iter 156](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_156_MLP.png){.lightbox group="b13m"}
-
-:::
 
 :::
 
@@ -839,48 +410,15 @@ Recurrent training (time_step=4) at 200 neurons with supercritical rho=1.064. 8/
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_168.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 165](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_165.png){.lightbox group="b14s"}
-
-![Iter 166](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_166.png){.lightbox group="b14s"}
-
-![Iter 167](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_167.png){.lightbox group="b14s"}
-
 ![Iter 168](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_168.png){.lightbox group="b14s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 165](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_165.png){.lightbox group="b14k"}
-
-![Iter 166](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_166.png){.lightbox group="b14k"}
-
-![Iter 167](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_167.png){.lightbox group="b14k"}
-
 ![Iter 168](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_168.png){.lightbox group="b14k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 165](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_165_MLP.png){.lightbox group="b14m"}
-
-![Iter 167](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_167_MLP.png){.lightbox group="b14m"}
-
 ![Iter 168](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_168_MLP.png){.lightbox group="b14m"}
-
-:::
 
 :::
 
@@ -900,48 +438,15 @@ The transformative block: 30k frames makes 300 neurons trivially easy. 100% conv
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_180.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 169](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_169.png){.lightbox group="b15s"}
-
-![Iter 175](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_175.png){.lightbox group="b15s"}
-
-![Iter 177](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_177.png){.lightbox group="b15s"}
-
 ![Iter 180](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_180.png){.lightbox group="b15s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 169](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_169.png){.lightbox group="b15k"}
-
-![Iter 175](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_175.png){.lightbox group="b15k"}
-
-![Iter 177](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_177.png){.lightbox group="b15k"}
-
 ![Iter 180](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_180.png){.lightbox group="b15k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 169](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_169_MLP.png){.lightbox group="b15m"}
-
-![Iter 175](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_175_MLP.png){.lightbox group="b15m"}
-
 ![Iter 180](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_180_MLP.png){.lightbox group="b15m"}
-
-:::
 
 #### Embedding
 
@@ -965,48 +470,15 @@ The transformative block: 30k frames makes 300 neurons trivially easy. 100% conv
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_180.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 181](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_181.png){.lightbox group="b16s"}
-
-![Iter 183](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_183.png){.lightbox group="b16s"}
-
-![Iter 186](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_186.png){.lightbox group="b16s"}
-
 ![Iter 188](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_188.png){.lightbox group="b16s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 181](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_181.png){.lightbox group="b16k"}
-
-![Iter 183](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_183.png){.lightbox group="b16k"}
-
-![Iter 186](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_186.png){.lightbox group="b16k"}
-
 ![Iter 188](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_188.png){.lightbox group="b16k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 181](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_181_MLP.png){.lightbox group="b16m"}
-
-![Iter 186](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_186_MLP.png){.lightbox group="b16m"}
-
 ![Iter 188](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_188_MLP.png){.lightbox group="b16m"}
-
-:::
 
 #### Embedding
 
@@ -1030,48 +502,15 @@ Sparse 50% connectivity tested at 30k frames. More frames does NOT rescue subcri
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_204.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 193](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_193.png){.lightbox group="b17s"}
-
-![Iter 197](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_197.png){.lightbox group="b17s"}
-
-![Iter 201](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_201.png){.lightbox group="b17s"}
-
 ![Iter 204](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_204.png){.lightbox group="b17s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 193](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_193.png){.lightbox group="b17k"}
-
-![Iter 197](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_197.png){.lightbox group="b17k"}
-
-![Iter 201](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_201.png){.lightbox group="b17k"}
-
 ![Iter 204](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_204.png){.lightbox group="b17k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 193](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_193_MLP.png){.lightbox group="b17m"}
-
-![Iter 199](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_199_MLP.png){.lightbox group="b17m"}
-
 ![Iter 204](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_204_MLP.png){.lightbox group="b17m"}
-
-:::
 
 #### Embedding
 
@@ -1095,48 +534,15 @@ The scale frontier: 1000 neurons at 30k frames. Activity rank=144, max connectiv
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_216.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 205](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_205.png){.lightbox group="b18s"}
-
-![Iter 209](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_209.png){.lightbox group="b18s"}
-
-![Iter 213](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_213.png){.lightbox group="b18s"}
-
 ![Iter 216](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_216.png){.lightbox group="b18s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 205](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_205.png){.lightbox group="b18k"}
-
-![Iter 209](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_209.png){.lightbox group="b18k"}
-
-![Iter 213](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_213.png){.lightbox group="b18k"}
-
 ![Iter 216](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_216.png){.lightbox group="b18k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 205](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_205_MLP.png){.lightbox group="b18m"}
-
-![Iter 211](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_211_MLP.png){.lightbox group="b18m"}
-
 ![Iter 216](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_216_MLP.png){.lightbox group="b18m"}
-
-:::
 
 #### Embedding
 
@@ -1160,48 +566,15 @@ Gain reduced from 7 to 3. Activity rank drops 35→26; spectral radius stays sup
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_228.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 217](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_217.png){.lightbox group="b19s"}
-
-![Iter 221](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_221.png){.lightbox group="b19s"}
-
-![Iter 225](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_225.png){.lightbox group="b19s"}
-
 ![Iter 228](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_228.png){.lightbox group="b19s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 217](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_217.png){.lightbox group="b19k"}
-
-![Iter 221](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_221.png){.lightbox group="b19k"}
-
-![Iter 225](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_225.png){.lightbox group="b19k"}
-
 ![Iter 228](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_228.png){.lightbox group="b19k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 217](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_217_MLP.png){.lightbox group="b19m"}
-
-![Iter 223](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_223_MLP.png){.lightbox group="b19m"}
-
 ![Iter 228](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_228_MLP.png){.lightbox group="b19m"}
-
-:::
 
 #### Embedding
 
@@ -1225,48 +598,15 @@ g=3 combined with 200 neurons at 10k frames. Gain x network size compounds diffi
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_240.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 229](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_229.png){.lightbox group="b20s"}
-
-![Iter 233](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_233.png){.lightbox group="b20s"}
-
-![Iter 237](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_237.png){.lightbox group="b20s"}
-
 ![Iter 240](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_240.png){.lightbox group="b20s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 229](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_229.png){.lightbox group="b20k"}
-
-![Iter 233](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_233.png){.lightbox group="b20k"}
-
-![Iter 237](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_237.png){.lightbox group="b20k"}
-
 ![Iter 240](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_240.png){.lightbox group="b20k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 229](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_229_MLP.png){.lightbox group="b20m"}
-
-![Iter 235](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_235_MLP.png){.lightbox group="b20m"}
-
 ![Iter 240](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_240_MLP.png){.lightbox group="b20m"}
-
-:::
 
 #### Embedding
 
@@ -1290,48 +630,15 @@ g=3 combined with 200 neurons at 10k frames. Gain x network size compounds diffi
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_252.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 241](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_241.png){.lightbox group="b21s"}
-
-![Iter 245](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_245.png){.lightbox group="b21s"}
-
-![Iter 249](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_249.png){.lightbox group="b21s"}
-
 ![Iter 252](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_252.png){.lightbox group="b21s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 241](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_241.png){.lightbox group="b21k"}
-
-![Iter 245](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_245.png){.lightbox group="b21k"}
-
-![Iter 249](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_249.png){.lightbox group="b21k"}
-
 ![Iter 252](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_252.png){.lightbox group="b21k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 241](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_241_MLP.png){.lightbox group="b21m"}
-
-![Iter 247](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_247_MLP.png){.lightbox group="b21m"}
-
 ![Iter 252](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_252_MLP.png){.lightbox group="b21m"}
-
-:::
 
 #### Embedding
 
@@ -1355,48 +662,15 @@ Filling factor reduced from 100% to 80%. Activity rank=36 (same as 100% fill), r
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_264.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 253](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_253.png){.lightbox group="b22s"}
-
-![Iter 257](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_257.png){.lightbox group="b22s"}
-
-![Iter 261](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_261.png){.lightbox group="b22s"}
-
 ![Iter 264](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_264.png){.lightbox group="b22s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 253](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_253.png){.lightbox group="b22k"}
-
-![Iter 257](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_257.png){.lightbox group="b22k"}
-
-![Iter 261](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_261.png){.lightbox group="b22k"}
-
 ![Iter 264](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_264.png){.lightbox group="b22k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 253](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_253_MLP.png){.lightbox group="b22m"}
-
-![Iter 259](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_259_MLP.png){.lightbox group="b22m"}
-
 ![Iter 264](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_264_MLP.png){.lightbox group="b22m"}
-
-:::
 
 #### Embedding
 
@@ -1420,48 +694,15 @@ Testing whether 30k frames can break the fill=80% connectivity plateau. All 12 i
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_264.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 265](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_265.png){.lightbox group="b23s"}
-
-![Iter 266](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_266.png){.lightbox group="b23s"}
-
-![Iter 267](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_267.png){.lightbox group="b23s"}
-
 ![Iter 268](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_268.png){.lightbox group="b23s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 265](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_265.png){.lightbox group="b23k"}
-
-![Iter 266](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_266.png){.lightbox group="b23k"}
-
-![Iter 267](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_267.png){.lightbox group="b23k"}
-
 ![Iter 268](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_268.png){.lightbox group="b23k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 265](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_265_MLP.png){.lightbox group="b23m"}
-
-![Iter 267](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_267_MLP.png){.lightbox group="b23m"}
-
 ![Iter 268](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_268_MLP.png){.lightbox group="b23m"}
-
-:::
 
 #### Embedding
 
@@ -1485,48 +726,15 @@ fill=90% extends the connectivity ceiling ≈ filling_factor relationship to a 4
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_300.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 289](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_289.png){.lightbox group="b24s"}
-
-![Iter 293](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_293.png){.lightbox group="b24s"}
-
-![Iter 297](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_297.png){.lightbox group="b24s"}
-
 ![Iter 300](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_300.png){.lightbox group="b24s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 289](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_289.png){.lightbox group="b24k"}
-
-![Iter 293](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_293.png){.lightbox group="b24k"}
-
-![Iter 297](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_297.png){.lightbox group="b24k"}
-
 ![Iter 300](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_300.png){.lightbox group="b24k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 289](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_289_MLP.png){.lightbox group="b24m"}
-
-![Iter 295](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_295_MLP.png){.lightbox group="b24m"}
-
 ![Iter 300](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_300_MLP.png){.lightbox group="b24m"}
-
-:::
 
 #### Embedding
 
@@ -1550,48 +758,15 @@ Gain reduced to 1. Activity rank=5 (catastrophically low) --- fixed-point collap
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_312.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 301](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_301.png){.lightbox group="b25s"}
-
-![Iter 305](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_305.png){.lightbox group="b25s"}
-
-![Iter 309](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_309.png){.lightbox group="b25s"}
-
 ![Iter 312](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_312.png){.lightbox group="b25s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 301](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_301.png){.lightbox group="b25k"}
-
-![Iter 305](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_305.png){.lightbox group="b25k"}
-
-![Iter 309](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_309.png){.lightbox group="b25k"}
-
 ![Iter 312](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_312.png){.lightbox group="b25k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 301](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_301_MLP.png){.lightbox group="b25m"}
-
-![Iter 307](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_307_MLP.png){.lightbox group="b25m"}
-
 ![Iter 312](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_312_MLP.png){.lightbox group="b25m"}
-
-:::
 
 #### Embedding
 
@@ -1615,48 +790,15 @@ g=1 at 30k frames: activity rank DROPS from 5 to 1 --- the only regime where num
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_324.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 313](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_313.png){.lightbox group="b26s"}
-
-![Iter 317](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_317.png){.lightbox group="b26s"}
-
-![Iter 321](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_321.png){.lightbox group="b26s"}
-
 ![Iter 324](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_324.png){.lightbox group="b26s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 313](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_313.png){.lightbox group="b26k"}
-
-![Iter 317](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_317.png){.lightbox group="b26k"}
-
-![Iter 321](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_321.png){.lightbox group="b26k"}
-
 ![Iter 324](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_324.png){.lightbox group="b26k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 313](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_313_MLP.png){.lightbox group="b26m"}
-
-![Iter 319](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_319_MLP.png){.lightbox group="b26m"}
-
 ![Iter 324](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_324_MLP.png){.lightbox group="b26m"}
-
-:::
 
 #### Embedding
 
@@ -1680,48 +822,15 @@ g=2 has activity rank=17 (above threshold ~10), supercritical rho=1.065. Require
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_336.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 325](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_325.png){.lightbox group="b27s"}
-
-![Iter 329](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_329.png){.lightbox group="b27s"}
-
-![Iter 333](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_333.png){.lightbox group="b27s"}
-
 ![Iter 336](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_336.png){.lightbox group="b27s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 325](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_325.png){.lightbox group="b27k"}
-
-![Iter 329](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_329.png){.lightbox group="b27k"}
-
-![Iter 333](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_333.png){.lightbox group="b27k"}
-
 ![Iter 336](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_336.png){.lightbox group="b27k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 325](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_325_MLP.png){.lightbox group="b27m"}
-
-![Iter 331](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_331_MLP.png){.lightbox group="b27m"}
-
 ![Iter 336](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_336_MLP.png){.lightbox group="b27m"}
-
-:::
 
 #### Embedding
 
@@ -1745,48 +854,15 @@ g=2 at 30k: 42% convergence (5/12), best connectivity=0.997. Activity rank FLAT 
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 337](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_337.png){.lightbox group="b28s"}
-
-![Iter 341](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_341.png){.lightbox group="b28s"}
-
-![Iter 345](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_345.png){.lightbox group="b28s"}
-
 ![Iter 348](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_348.png){.lightbox group="b28s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 337](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_337.png){.lightbox group="b28k"}
-
-![Iter 341](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_341.png){.lightbox group="b28k"}
-
-![Iter 345](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_345.png){.lightbox group="b28k"}
-
 ![Iter 348](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_348.png){.lightbox group="b28k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 337](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_337_MLP.png){.lightbox group="b28m"}
-
-![Iter 343](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_343_MLP.png){.lightbox group="b28m"}
-
 ![Iter 348](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_348_MLP.png){.lightbox group="b28m"}
-
-:::
 
 #### Embedding
 
@@ -1810,48 +886,15 @@ g=2 / 200 neurons / 30k: activity rank jumps to 35--38 (matching g=7 / 100 neuro
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_348.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png){.lightbox group="b29s"}
-
-![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png){.lightbox group="b29s"}
-
-![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png){.lightbox group="b29s"}
-
 ![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png){.lightbox group="b29s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png){.lightbox group="b29k"}
-
-![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png){.lightbox group="b29k"}
-
-![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png){.lightbox group="b29k"}
-
 ![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png){.lightbox group="b29k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png){.lightbox group="b29m"}
-
-![Iter 355](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png){.lightbox group="b29m"}
-
 ![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png){.lightbox group="b29m"}
-
-:::
 
 #### Embedding
 
@@ -1875,48 +918,15 @@ The scale breakthrough: 1000 neurons at 100k frames achieves 100% convergence (1
 
 ::: {.panel-tabset}
 
-#### UCB Tree
-![](log/Claude_exploration/instruction_signal_landscape_parallel/exploration_tree/ucb_tree_iter_360.png){.lightbox}
 
 #### Connectivity Scatter
-
-::: {layout-ncol=4}
-
-![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_349.png){.lightbox group="b30s"}
-
-![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_353.png){.lightbox group="b30s"}
-
-![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_357.png){.lightbox group="b30s"}
-
 ![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/connectivity_scatter/iter_360.png){.lightbox group="b30s"}
 
-:::
-
 #### Kinograph
-
-::: {layout-ncol=2}
-
-![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_349.png){.lightbox group="b30k"}
-
-![Iter 353](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_353.png){.lightbox group="b30k"}
-
-![Iter 357](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_357.png){.lightbox group="b30k"}
-
 ![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/kinograph/iter_360.png){.lightbox group="b30k"}
 
-:::
-
 #### MLP Functions
-
-::: {layout-ncol=3}
-
-![Iter 349](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_349_MLP.png){.lightbox group="b30m"}
-
-![Iter 355](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_355_MLP.png){.lightbox group="b30m"}
-
 ![Iter 360](log/Claude_exploration/instruction_signal_landscape_parallel/mlp/iter_360_MLP.png){.lightbox group="b30m"}
-
-:::
 
 #### Embedding
 
