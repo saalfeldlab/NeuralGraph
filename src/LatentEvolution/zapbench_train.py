@@ -634,9 +634,8 @@ def plot_per_frame_metrics(
     mse_ax.plot(np.arange(1, len(bl_mse_mean) + 1), bl_mse_mean, "r--", label="baseline", linewidth=2)
     mse_ax.set_xlabel("frame index")
     mse_ax.set_ylabel("MSE")
-    mse_ax.set_xscale("log")
     mse_ax.set_yscale("log")
-    mse_ax.set_xlim(1, None)
+    mse_ax.set_xlim(1, 32)
     mse_ax.set_ylim(1e-3, 1.0)
     mse_ax.legend(loc="upper left", fontsize=8)
     mse_ax.set_title(f"{prefix} MSE vs frame (epoch {result.epoch})")
@@ -658,9 +657,8 @@ def plot_per_frame_metrics(
     mae_ax.plot(np.arange(1, len(bl_mae_mean) + 1), bl_mae_mean, "r--", label="baseline", linewidth=2)
     mae_ax.set_xlabel("frame index")
     mae_ax.set_ylabel("MAE")
-    mae_ax.set_xscale("log")
     mae_ax.set_yscale("log")
-    mae_ax.set_xlim(1, None)
+    mae_ax.set_xlim(1, 32)
     mae_ax.set_ylim(1e-2, 1.0)
     mae_ax.legend(loc="upper left", fontsize=8)
     mae_ax.set_title(f"{prefix} MAE vs frame (epoch {result.epoch})")
@@ -837,12 +835,12 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     val_thread: threading.Thread | None = None
     final_val_result: ValidationResult | None = None
 
-    def start_eval(data: list[ConditionData], epoch: int) -> threading.Thread:
+    def start_eval(data: list[ConditionData], epoch: int, max_rollout: int = 32) -> threading.Thread:
         """copy weights to CPU and start evaluation in background."""
         state_dict = {k: v.cpu().clone() for k, v in model.state_dict().items()}
         t = threading.Thread(
             target=run_validation_cpu,
-            args=(model_cfg, state_dict, data, eval_queue, epoch),
+            args=(model_cfg, state_dict, data, eval_queue, epoch, max_rollout),
         )
         t.start()
         return t
