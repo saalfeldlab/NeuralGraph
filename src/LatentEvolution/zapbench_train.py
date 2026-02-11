@@ -253,7 +253,8 @@ def load_all_data(
     split: DataSplit,
     fitting_window: int,
     device: torch.device,
-) -> tuple[ConcatTrainingData, list[ConditionData], list[ConditionData]]:
+    skip_train: bool = False,
+) -> tuple[ConcatTrainingData | None, list[ConditionData], list[ConditionData]]:
     """load all data: train on GPU, val/test on CPU per-condition.
 
     loads each condition once from zarr (efficient I/O), splits into
@@ -266,9 +267,10 @@ def load_all_data(
         split: data split configuration.
         fitting_window: number of time steps for training window.
         device: GPU device for interpolation and training data.
+        skip_train: if True, skip loading train data (for evaluation only).
 
     returns:
-        train_data: ConcatTrainingData on GPU
+        train_data: ConcatTrainingData on GPU (None if skip_train=True)
         val_data: list of ConditionData on CPU (one per condition with val split)
         test_data: list of ConditionData on CPU (one per condition with test split)
     """
@@ -309,6 +311,8 @@ def load_all_data(
             ("test", cond_split.test),
         ]:
             if split_range is None:
+                continue
+            if skip_train and split_name == "train":
                 continue
 
             frame_start, frame_end = split_range
@@ -362,6 +366,14 @@ def load_all_data(
                     val_data.append(cond_data)
                 else:
                     test_data.append(cond_data)
+
+    # skip train data processing if requested
+    if skip_train:
+        val_total = sum(c.activity.shape[0] for c in val_data)
+        test_total = sum(c.activity.shape[0] for c in test_data)
+        log.info(f"  val: {len(val_data)} conditions, {val_total} total bins (CPU)")
+        log.info(f"  test: {len(test_data)} conditions, {test_total} total bins (CPU)")
+        return None, val_data, test_data
 
     # concatenate train data and transfer to GPU
     log.info("  concatenating train data and transferring to GPU...")
@@ -472,7 +484,7 @@ def run_validation_cpu(
     val_conditions: list[ConditionData],
     result_queue: "queue.Queue[ValidationResult]",
     epoch: int,
-    max_rollout_steps: int | None = None,
+    max_rollout_frames: int | None = None,
 ) -> None:
     """run validation on CPU, put result in queue.
 
@@ -482,7 +494,7 @@ def run_validation_cpu(
         val_conditions: list of ConditionData on CPU.
         result_queue: queue to put results.
         epoch: which epoch this validation corresponds to.
-        max_rollout_steps: cap rollout length (None = rollout to end).
+        max_rollout_frames: cap rollout length (None = rollout to end).
     """
     with torch.profiler.record_function(f"validation_epoch_{epoch}"):
 
@@ -502,7 +514,7 @@ def run_validation_cpu(
                 with torch.profiler.record_function(f"validation_{cond.name}"):
                     T = cond.activity.shape[0]
                     start = cond.valid_start
-                    end = T if max_rollout_steps is None else min(T, start + max_rollout_steps)
+                    end = T  # process all bins (frame limiting done later)
                     rollout_len = end - start
 
                     if rollout_len <= 0:
@@ -528,14 +540,26 @@ def run_validation_cpu(
 
                     # accumulate per-frame MSE/MAE
                     # frame_idx[bin, n] = frame index for that observation
-                    num_frames = cond.num_frames
+                    # limit to max_rollout_steps frames (not bins!)
+                    num_frames = cond.num_frames if max_rollout_frames is None else min(cond.num_frames, max_rollout_frames)
                     frame_mse_sum = torch.zeros(num_frames)
                     frame_mae_sum = torch.zeros(num_frames)
                     frame_counts = torch.zeros(num_frames)
 
                     # get indices of observed points
                     bin_indices, neuron_indices = torch.where(obs_mask)
-                    frame_indices = frame_idx[bin_indices, neuron_indices].long()
+                    frame_indices_abs = frame_idx[bin_indices, neuron_indices].long()
+
+                    # shift frame indices to be relative to rollout start
+                    # (frame 0 observations happened before valid_start, so first frame we see is > 0)
+                    min_frame = frame_indices_abs.min().item() if len(frame_indices_abs) > 0 else 0
+                    frame_indices = frame_indices_abs - min_frame
+
+                    # filter to first num_frames (relative)
+                    valid_mask = frame_indices < num_frames
+                    bin_indices = bin_indices[valid_mask]
+                    neuron_indices = neuron_indices[valid_mask]
+                    frame_indices = frame_indices[valid_mask]
 
                     # gather errors at observed points
                     obs_errors_sq = errors_sq[bin_indices, neuron_indices]
@@ -553,10 +577,12 @@ def run_validation_cpu(
                     results_mse[cond.name] = frame_mse.numpy()
                     results_mae[cond.name] = frame_mae.numpy()
 
-                    # baseline: predict mean of first 4 frames per neuron
+                    # baseline: predict mean of first 4 frames per neuron (relative to rollout start)
                     # collect observed values from first 4 frames
                     baseline_frames = 4
-                    first_frames_mask = frame_idx < baseline_frames  # (rollout_len, N)
+                    # use relative frame indices (frame_idx - min_frame)
+                    frame_idx_rel = frame_idx - min_frame
+                    first_frames_mask = (frame_idx_rel >= 0) & (frame_idx_rel < baseline_frames)
                     first_frames_obs = obs_mask & first_frames_mask
                     # compute mean per neuron from observed values in first 4 frames
                     neuron_sum = torch.zeros(cond.num_neurons)
@@ -634,10 +660,9 @@ def plot_per_frame_metrics(
     mse_ax.plot(np.arange(1, len(bl_mse_mean) + 1), bl_mse_mean, "r--", label="baseline", linewidth=2)
     mse_ax.set_xlabel("frame index")
     mse_ax.set_ylabel("MSE")
-    mse_ax.set_xscale("log")
     mse_ax.set_yscale("log")
-    mse_ax.set_xlim(1, None)
-    mse_ax.set_ylim(1e-3, 1.0)
+    mse_ax.set_xlim(1, 32)
+    mse_ax.set_ylim(1e-4, 0.1)
     mse_ax.legend(loc="upper left", fontsize=8)
     mse_ax.set_title(f"{prefix} MSE vs frame (epoch {result.epoch})")
     mse_ax.grid(True, alpha=0.3)
@@ -658,10 +683,9 @@ def plot_per_frame_metrics(
     mae_ax.plot(np.arange(1, len(bl_mae_mean) + 1), bl_mae_mean, "r--", label="baseline", linewidth=2)
     mae_ax.set_xlabel("frame index")
     mae_ax.set_ylabel("MAE")
-    mae_ax.set_xscale("log")
     mae_ax.set_yscale("log")
-    mae_ax.set_xlim(1, None)
-    mae_ax.set_ylim(1e-2, 1.0)
+    mae_ax.set_xlim(1, 32)
+    mae_ax.set_ylim(1e-3, 1.0)
     mae_ax.legend(loc="upper left", fontsize=8)
     mae_ax.set_title(f"{prefix} MAE vs frame (epoch {result.epoch})")
     mae_ax.grid(True, alpha=0.3)
@@ -670,6 +694,71 @@ def plot_per_frame_metrics(
     figures["mae_vs_frame"] = mae_fig
 
     return figures
+
+
+def print_results_table(
+    result: ValidationResult,
+    name: str,
+    include_baseline: bool = False,
+) -> None:
+    """print results tables showing metrics at key time steps.
+
+    args:
+        result: validation result with per-condition per-frame metrics.
+        name: table title (e.g., "Validation", "Test").
+        include_baseline: if True, also print baseline tables.
+    """
+    # key steps to display (0-indexed internally, 1-indexed for display)
+    key_steps = [1, 2, 4, 8, 16, 32]
+
+    def make_table(per_condition: dict[str, np.ndarray], metric_name: str):
+        """print a table for one metric."""
+        # header
+        header = f"{'condition':<12}"
+        for step in key_steps:
+            header += f" {f'step{step}':>8}"
+        log.info(header)
+        log.info("-" * len(header))
+
+        # rows for each condition
+        means_per_step = {step: [] for step in key_steps}
+        for cond_name in sorted(per_condition.keys()):
+            values = per_condition[cond_name]
+            row = f"{cond_name:<12}"
+            for step in key_steps:
+                idx = step - 1  # 0-indexed
+                if idx < len(values):
+                    val = values[idx]
+                    row += f" {val:>8.4f}"
+                    means_per_step[step].append(val)
+                else:
+                    row += f" {'n/a':>8}"
+            log.info(row)
+
+        # mean row
+        log.info("-" * len(header))
+        mean_row = f"{'MEAN':<12}"
+        for step in key_steps:
+            if means_per_step[step]:
+                mean_row += f" {np.mean(means_per_step[step]):>8.4f}"
+            else:
+                mean_row += f" {'n/a':>8}"
+        log.info(mean_row)
+
+    log.info(f"\n{name} - MAE by Frame:")
+    make_table(result.per_condition_mae, "MAE")
+
+    if include_baseline:
+        log.info(f"\n{name} - Baseline MAE by Frame:")
+        make_table(result.baseline_mae, "Baseline MAE")
+
+    # skip mse to avoid noisy stdout
+    # log.info(f"\n{name} - MSE by Frame:")
+    # make_table(result.per_condition_mse, "MSE")
+
+    # if include_baseline:
+    #     log.info(f"\n{name} - Baseline MSE by Frame:")
+    #     make_table(result.baseline_mse, "Baseline MSE")
 
 
 def log_validation_result(
@@ -686,21 +775,19 @@ def log_validation_result(
         writer: tensorboard writer (optional).
         prefix: tensorboard metric prefix ("val" or "test").
     """
-    log.info(f"{prefix} (epoch {result.epoch}):")
-    log.info(f"  {'condition':<12} {'frames':>6} {'mean_mse':>10} {'mean_mae':>10}")
-    log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
+    # print key-step table (no baseline during training)
+    print_results_table(result, f"{prefix} (epoch {result.epoch})", include_baseline=False)
+
+    # tensorboard logging per condition
     for name in sorted(result.per_condition_mse.keys()):
         mses = result.per_condition_mse[name]
         maes = result.per_condition_mae[name]
-        log.info(f"  {name:<12} {len(mses):>6} {mses.mean():>10.4f} {maes.mean():>10.4f}")
-        # tensorboard logging per condition
         if writer is not None:
             writer.add_scalar(f"{prefix}/{name}/mean_mse", mses.mean(), result.epoch)
             writer.add_scalar(f"{prefix}/{name}/final_mse", mses[-1], result.epoch)
             writer.add_scalar(f"{prefix}/{name}/mean_mae", maes.mean(), result.epoch)
             writer.add_scalar(f"{prefix}/{name}/final_mae", maes[-1], result.epoch)
-    log.info(f"  {'-'*12} {'-'*6} {'-'*10} {'-'*10}")
-    log.info(f"  {'MEAN':<12} {'':>6} {result.mean_mse:>10.4f} {result.mean_mae:>10.4f}")
+
     # tensorboard: overall mean and figures
     if writer is not None:
         writer.add_scalar(f"{prefix}/mean_mse", result.mean_mse, result.epoch)
@@ -710,6 +797,7 @@ def log_validation_result(
         for fig_name, fig in figures.items():
             writer.add_figure(f"{prefix}/{fig_name}", fig, result.epoch)
             plt.close(fig)
+
     # flush to ensure output is visible immediately
     for handler in logging.root.handlers:
         handler.flush()
@@ -837,12 +925,12 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     val_thread: threading.Thread | None = None
     final_val_result: ValidationResult | None = None
 
-    def start_eval(data: list[ConditionData], epoch: int) -> threading.Thread:
+    def start_eval(data: list[ConditionData], epoch: int, max_rollout: int = 32) -> threading.Thread:
         """copy weights to CPU and start evaluation in background."""
         state_dict = {k: v.cpu().clone() for k, v in model.state_dict().items()}
         t = threading.Thread(
             target=run_validation_cpu,
-            args=(model_cfg, state_dict, data, eval_queue, epoch),
+            args=(model_cfg, state_dict, data, eval_queue, epoch, max_rollout),
         )
         t.start()
         return t
@@ -972,6 +1060,14 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
     test_thread.join()
     test_result = eval_queue.get()
     log_validation_result(test_result, cfg.train.fitting_window, writer, prefix="test")
+
+    # print final results with baselines
+    log.info("\n" + "=" * 70)
+    log.info("FINAL RESULTS (with baseline comparison)")
+    log.info("=" * 70)
+    if final_val_result is not None:
+        print_results_table(final_val_result, "Validation", include_baseline=True)
+    print_results_table(test_result, "Test", include_baseline=True)
 
     # helper to extract per-condition metrics
     def extract_condition_metrics(result: ValidationResult) -> dict:
