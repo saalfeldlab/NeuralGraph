@@ -31,14 +31,14 @@ This page presents the visual record of the closed-loop exploration: learned con
 ::: {.callout-tip}
 ## Current status
 
-**Block 30 completed** (n=1000, 100k frames). 360 iterations completed across 30 regimes. n_frames rescues dense and low-gain networks (n=300, n=600, g=3/n=200 at 30k; n=1000 at 100k --- 100% convergence, conn=1.000). Three structural limits confirmed: subcritical rho (sparse), conn_ceiling at filling_factor (fill<100%), and g=1 fixed-point collapse. ~99 principles established.
+**Block 30 completed** (1000 neurons, 100k frames). 360 iterations completed across 30 regimes. Frame count rescues dense and low-gain networks (300 neurons, 600 neurons, g=3 / 200 neurons at 30k; 1000 neurons at 100k --- 100% convergence, connectivity=1.000). Three structural limits confirmed: subcritical rho (sparse), connectivity ceiling at filling_factor (fill<100%), and g=1 fixed-point collapse. ~99 principles established.
 :::
 
 ---
 
-## Block 1 --- Chaotic Baseline (n=100, iters 1--12)
+## Block 1 --- Chaotic Baseline (100 neurons, iters 1--12)
 
-Full-rank chaotic dynamics with spectral radius ~1.3 and eff_rank ~35. The GNN achieves near-perfect connectivity recovery (R^2^ = 1.000) with lr_W = 4E-3 and L1 = 1E-5.
+Full-rank chaotic dynamics with spectral radius ~1.3 and activity rank ~35. The GNN achieves near-perfect connectivity recovery (R^2^ = 1.000) with lr_W = 4E-3 and L1 = 1E-5.
 
 ::: {.block-hero}
 
@@ -97,9 +97,9 @@ Full-rank chaotic dynamics with spectral radius ~1.3 and eff_rank ~35. The GNN a
 
 ---
 
-## Block 2 --- Low-Rank (n=100, iters 13--24)
+## Block 2 --- Low-Rank (100 neurons, iters 13--24)
 
-Rank-20 connectivity reduces eff_rank to 12--13. L1 = 1E-6 is critical for dynamics recovery (test_R^2^ = 0.996). Best conn_R^2^ = 0.993.
+Rank-20 connectivity reduces activity rank to 12--13. L1 = 1E-6 is critical for dynamics recovery (test_R^2^ = 0.996). Best connectivity_R^2^ = 0.993.
 
 ::: {.block-hero}
 
@@ -158,9 +158,9 @@ Rank-20 connectivity reduces eff_rank to 12--13. L1 = 1E-6 is critical for dynam
 
 ---
 
-## Block 3 --- Dale Constraint (n=100, iters 25--36)
+## Block 3 --- Dale Constraint (100 neurons, iters 25--36)
 
-Excitatory/inhibitory (50/50) constraint reduces eff_rank from 35 to 12. Sharp lr_W cliff at 5E-3; safe range [3.5E-3, 4.5E-3]. Best conn_R^2^ = 0.986.
+Excitatory/inhibitory (50/50) constraint reduces activity rank from 35 to 12. Sharp lr_W cliff at 5E-3; safe range [3.5E-3, 4.5E-3]. Best connectivity_R^2^ = 0.986.
 
 ::: {.block-hero}
 
@@ -219,9 +219,9 @@ Excitatory/inhibitory (50/50) constraint reduces eff_rank from 35 to 12. Sharp l
 
 ---
 
-## Block 4 --- Heterogeneous n_types=4 (n=100, iters 37--48)
+## Block 4 --- Heterogeneous n_types=4 (100 neurons, iters 37--48)
 
-Four neuron types with distinct signaling functions. Dual objective: connectivity recovery + embedding learning. eff_rank = 38. Best conn_R^2^ = 0.992 at lr_W = 5E-3.
+Four neuron types with distinct signaling functions. Dual objective: connectivity recovery + embedding learning. Activity rank = 38. Best connectivity_R^2^ = 0.992 at lr_W = 5E-3.
 
 ::: {.block-hero}
 
@@ -280,9 +280,9 @@ Four neuron types with distinct signaling functions. Dual objective: connectivit
 
 ---
 
-## Block 5 --- Noise (n=100, iters 49--60)
+## Block 5 --- Noise (100 neurons, iters 49--60)
 
-Additive noise (sigma = 0.1--1.0) inflates eff_rank from 35 to 42--90. Easiest regime: 100% convergence. Inverse lr_W--noise relationship discovered.
+Additive noise (sigma = 0.1--1.0) inflates activity rank from 35 to 42--90. Easiest regime: 100% convergence. Inverse lr_W--noise relationship discovered.
 
 ::: {.block-hero}
 
@@ -341,9 +341,9 @@ Additive noise (sigma = 0.1--1.0) inflates eff_rank from 35 to 42--90. Easiest r
 
 ---
 
-## Block 6 --- Scale n=200 (iters 61--72)
+## Block 6 --- Scale 200 Neurons (iters 61--72)
 
-Doubling neurons to 200. Harder than n=100 (67% vs 92% convergence). Convergence boundary shifts to lr_W ~ 3.5E-3. Best conn_R^2^ = 0.956.
+Doubling neurons to 200. Harder than 100 neurons (67% vs 92% convergence). Convergence boundary shifts to lr_W ~ 3.5E-3. Best connectivity_R^2^ = 0.956.
 
 ::: {.block-hero}
 
@@ -402,9 +402,9 @@ Doubling neurons to 200. Harder than n=100 (67% vs 92% convergence). Convergence
 
 ---
 
-## Block 7 --- Sparse 50% (n=100, iters 73--84)
+## Block 7 --- Sparse 50% (100 neurons, iters 73--84)
 
-Half the connections zeroed. Subcritical spectral radius (rho = 0.746) drops eff_rank to 21. Hardest regime without noise: 0% convergence. n_epochs is the dominant lever.
+Half the connections zeroed. Subcritical spectral radius (rho = 0.746) drops activity rank to 21. Hardest regime without noise: 0% convergence. n_epochs is the dominant lever.
 
 ::: {.block-hero}
 
@@ -463,9 +463,9 @@ Half the connections zeroed. Subcritical spectral radius (rho = 0.746) drops eff
 
 ---
 
-## Block 8 --- Sparse + Noise (n=100, iters 85--96)
+## Block 8 --- Sparse + Noise (100 neurons, iters 85--96)
 
-Sparse 50% with additive noise (sigma = 0.5). Noise inflates eff_rank from 21 to 91 but does not rescue connectivity: stuck at conn_R^2^ ~ 0.490. Complete parameter insensitivity.
+Sparse 50% with additive noise (sigma = 0.5). Noise inflates activity rank from 21 to 91 but does not rescue connectivity: stuck at connectivity_R^2^ ~ 0.490. Complete parameter insensitivity.
 
 ::: {.block-hero}
 
@@ -524,9 +524,9 @@ Sparse 50% with additive noise (sigma = 0.5). Noise inflates eff_rank from 21 to
 
 ---
 
-## Block 9 --- Scale n=300 (iters 97--108)
+## Block 9 --- Scale 300 Neurons (iters 97--108)
 
-Tripling neurons to 300. Zero convergence at 1 epoch; n_epochs = 2 is a breakthrough (+10.6%). Near-convergence at conn_R^2^ = 0.890. Optimal lr_W = 1E-2.
+Tripling neurons to 300. Zero convergence at 1 epoch; n_epochs = 2 is a breakthrough (+10.6%). Near-convergence at connectivity_R^2^ = 0.890. Optimal lr_W = 1E-2.
 
 ::: {.block-hero}
 
@@ -585,9 +585,9 @@ Tripling neurons to 300. Zero convergence at 1 epoch; n_epochs = 2 is a breakthr
 
 ---
 
-## Block 10 --- Scale n=300, 2-epoch Baseline (iters 109--116)
+## Block 10 --- Scale 300 Neurons, 2-epoch Baseline (iters 109--116)
 
-Continued n=300 exploration with 2-epoch baseline. L1 = 1E-6 + n_epochs = 3 yields best conn_R^2^ = 0.897. L1 = 1E-6 is neutral at n=300 (unlike harmful at n=200).
+Continued 300-neuron exploration with 2-epoch baseline. L1 = 1E-6 + n_epochs = 3 yields best connectivity_R^2^ = 0.897. L1 = 1E-6 is neutral at 300 neurons (unlike harmful at 200 neurons).
 
 ::: {.block-hero}
 
@@ -650,9 +650,9 @@ Continued n=300 exploration with 2-epoch baseline. L1 = 1E-6 + n_epochs = 3 yiel
 
 ---
 
-## Block 11 --- n=200 Solved (iters 117--128)
+## Block 11 --- 200 Neurons Solved (iters 117--128)
 
-Dense chaotic n=200 revisited with 2--3 epochs. 100% convergence (12/12). The recipe: lr_W=8E-3, lr=2E-4, L1=1E-5, n_epochs=2--3. L1=1E-6 confirmed harmful at n=200.
+Dense chaotic 200-neuron regime revisited with 2--3 epochs. 100% convergence (12/12). The recipe: lr_W=8E-3, lr=2E-4, L1=1E-5, n_epochs=2--3. L1=1E-6 confirmed harmful at 200 neurons.
 
 ::: {.block-hero}
 
@@ -711,9 +711,9 @@ Dense chaotic n=200 revisited with 2--3 epochs. 100% convergence (12/12). The re
 
 ---
 
-## Block 12 --- n=600 Training-Capacity Frontier (iters 129--140)
+## Block 12 --- 600 Neurons Training-Capacity Frontier (iters 129--140)
 
-Six hundred neurons at 10k frames. 0% convergence even at 10 epochs, but gains are NOT diminishing (~4--8% per +2 epochs). Best conn_R^2^ = 0.626. lr=1E-4 is catastrophic (conn=0.000).
+Six hundred neurons at 10k frames. 0% convergence even at 10 epochs, but gains are NOT diminishing (~4--8% per +2 epochs). Best connectivity_R^2^ = 0.626. lr=1E-4 is catastrophic (connectivity=0.000).
 
 ::: {.block-hero}
 
@@ -772,9 +772,9 @@ Six hundred neurons at 10k frames. 0% convergence even at 10 epochs, but gains a
 
 ---
 
-## Block 13 --- Heterogeneous at Scale (n=200, 4 types, iters 141--156)
+## Block 13 --- Heterogeneous at Scale (200 neurons, 4 types, iters 141--156)
 
-n=200 with 4 neuron types. Full dual convergence achieved (conn=0.988, cluster=1.000). The n-dependent L1 effect overrides the heterogeneous L1=1E-6 rule: L1=1E-5 is better at n=200. Recipe: lr_W=8E-3, lr=2E-4, lr_emb=1E-3, L1=1E-5, batch=8, 3 epochs.
+200 neurons with 4 neuron types. Full dual convergence achieved (connectivity=0.988, cluster=1.000). The n-dependent L1 effect overrides the heterogeneous L1=1E-6 rule: L1=1E-5 is better at 200 neurons. Recipe: lr_W=8E-3, lr=2E-4, lr_emb=1E-3, L1=1E-5, batch=8, 3 epochs.
 
 ::: {.block-hero}
 
@@ -833,9 +833,9 @@ n=200 with 4 neuron types. Full dual convergence achieved (conn=0.988, cluster=1
 
 ---
 
-## Block 14 --- Recurrent Training Test (n=200, iters 157--168)
+## Block 14 --- Recurrent Training Test (200 neurons, iters 157--168)
 
-Recurrent training (time_step=4) at n=200 with supercritical rho=1.064. 8/12 iterations had infrastructure failures; 4 completed in batch 3 (iters 165--168). Recurrent boosts conn +0.3% but dynamics -12.3%. Warmup (start_ep=1) partially recovers dynamics. noise_rec=0.05 too high (partial).
+Recurrent training (time_step=4) at 200 neurons with supercritical rho=1.064. 8/12 iterations had infrastructure failures; 4 completed in batch 3 (iters 165--168). Recurrent boosts connectivity +0.3% but dynamics -12.3%. Warmup (start_ep=1) partially recovers dynamics. noise_rec=0.05 too high (partial).
 
 ::: {.panel-tabset}
 
@@ -886,9 +886,9 @@ Recurrent training (time_step=4) at n=200 with supercritical rho=1.064. 8/12 ite
 
 ---
 
-## Block 15 --- n=300 at 30k Frames --- SOLVED (iters 169--180)
+## Block 15 --- 300 Neurons at 30k Frames --- SOLVED (iters 169--180)
 
-The transformative block: n_frames=30k makes n=300 trivially easy. 100% convergence (12/12), best conn=1.000, best test_R^2^=0.990. eff_rank doubled from 47 to 80. All training parameters become non-critical. Pareto-optimal: lr_W=3E-3, 3ep.
+The transformative block: 30k frames makes 300 neurons trivially easy. 100% convergence (12/12), best connectivity=1.000, best test_R^2^=0.990. Activity rank doubled from 47 to 80. All training parameters become non-critical. Pareto-optimal: lr_W=3E-3, 3ep.
 
 ::: {.block-hero}
 
@@ -951,9 +951,9 @@ The transformative block: n_frames=30k makes n=300 trivially easy. 100% converge
 
 ---
 
-## Block 16 --- n=600 at 30k Frames --- SOLVED (iters 181--192)
+## Block 16 --- 600 Neurons at 30k Frames --- SOLVED (iters 181--192)
 
-n_frames=30k transforms n=600 from 0% convergence (block 12, 10k) to 100% convergence (8/8). Best conn=0.992, eff_rank=87. lr_W=5E-3 is Pareto-optimal. batch=16 safe. Even 2 epochs at 30k outperforms 10 epochs at 10k.
+30k frames transforms 600 neurons from 0% convergence (block 12, 10k) to 100% convergence (8/8). Best connectivity=0.992, activity rank=87. lr_W=5E-3 is Pareto-optimal. batch=16 safe. Even 2 epochs at 30k outperforms 10 epochs at 10k.
 
 ::: {.block-hero}
 
@@ -1018,7 +1018,7 @@ n_frames=30k transforms n=600 from 0% convergence (block 12, 10k) to 100% conver
 
 ## Block 17 --- Sparse 50% at 30k Frames --- NOT RESCUED (iters 193--204)
 
-Sparse 50% connectivity tested at 30k frames. n_frames does NOT rescue subcritical spectral radius: 0% convergence (12/12), best conn=0.436. eff_rank paradoxically DROPS from 21 (10k) to 13 (30k). Two-phase training gives marginal +15% but insufficient. Subcritical rho=0.746 confirmed as the only unsolvable difficulty axis.
+Sparse 50% connectivity tested at 30k frames. More frames does NOT rescue subcritical spectral radius: 0% convergence (12/12), best connectivity=0.436. Activity rank paradoxically DROPS from 21 (10k) to 13 (30k). Two-phase training gives marginal +15% but insufficient. Subcritical rho=0.746 confirmed as the only unsolvable difficulty axis.
 
 ::: {.block-hero}
 
@@ -1081,9 +1081,9 @@ Sparse 50% connectivity tested at 30k frames. n_frames does NOT rescue subcritic
 
 ---
 
-## Block 18 --- n=1000 at 30k Frames (iters 205--216)
+## Block 18 --- 1000 Neurons at 30k Frames (iters 205--216)
 
-The scale frontier: n=1000 neurons at 30k frames. eff_rank=144, max conn=0.745 (0% convergence). 30k is insufficient --- needs ~100k frames per user prior. lr=1E-4 is definitively Pareto-better than lr=2E-4 at this scale. Epoch scaling is lr-dependent: lr=2E-4 shows overtraining reversal at 10ep.
+The scale frontier: 1000 neurons at 30k frames. Activity rank=144, max connectivity=0.745 (0% convergence). 30k is insufficient --- needs ~100k frames per user prior. lr=1E-4 is definitively Pareto-better than lr=2E-4 at this scale. Epoch scaling is lr-dependent: lr=2E-4 shows overtraining reversal at 10ep.
 
 ::: {.block-hero}
 
@@ -1146,9 +1146,9 @@ The scale frontier: n=1000 neurons at 30k frames. eff_rank=144, max conn=0.745 (
 
 ---
 
-## Block 19 --- Low Gain g=3 (n=100, iters 217--228)
+## Block 19 --- Low Gain g=3 (100 neurons, iters 217--228)
 
-Gain reduced from 7 to 3. eff_rank drops 35→26; spectral radius stays supercritical (1.065). New difficulty axis: universal degeneracy at 1 epoch (4/4), resolved at 2ep. n_epochs is the dominant lever (1ep→0.636, 2ep→0.906, 3ep→0.955). No lr_W cliff up to 1.2E-2 (unlike g=7 cliff at 8E-3). batch=16 catastrophic (-42%).
+Gain reduced from 7 to 3. Activity rank drops 35→26; spectral radius stays supercritical (1.065). New difficulty axis: universal degeneracy at 1 epoch (4/4), resolved at 2ep. n_epochs is the dominant lever (1ep→0.636, 2ep→0.906, 3ep→0.955). No lr_W cliff up to 1.2E-2 (unlike g=7 cliff at 8E-3). batch=16 catastrophic (-42%).
 
 ::: {.block-hero}
 
@@ -1211,9 +1211,9 @@ Gain reduced from 7 to 3. eff_rank drops 35→26; spectral radius stays supercri
 
 ---
 
-## Block 20 --- Low Gain g=3 at Scale (n=200, 10k, iters 229--240)
+## Block 20 --- Low Gain g=3 at Scale (200 neurons, 10k, iters 229--240)
 
-g=3 combined with n=200 at 10k frames. Gain × n compounds difficulty super-additively: 0% convergence, max conn=0.489 at 6 epochs. Universal degeneracy (12/12). Epoch scaling is diminishing at 4--6ep. batch=16 catastrophic (-21%). lr_W and epochs are substitutable but both saturate. Predicted to need 30k frames.
+g=3 combined with 200 neurons at 10k frames. Gain x network size compounds difficulty super-additively: 0% convergence, max connectivity=0.489 at 6 epochs. Universal degeneracy (12/12). Epoch scaling is diminishing at 4--6ep. batch=16 catastrophic (-21%). lr_W and epochs are substitutable but both saturate. Predicted to need 30k frames.
 
 ::: {.block-hero}
 
@@ -1276,9 +1276,9 @@ g=3 combined with n=200 at 10k frames. Gain × n compounds difficulty super-addi
 
 ---
 
-## Block 21 --- g=3/n=200 at 30k Frames --- SOLVED (iters 241--252)
+## Block 21 --- g=3 / 200 Neurons at 30k Frames --- SOLVED (iters 241--252)
 
-30k frames rescues g=3/n=200: 0% convergence at 10k transforms to 100% (12/12) at 30k. eff_rank increases 31→53--57 (+80%). Pareto-optimal: lr_W=4E-3, 2ep → conn=0.996, test_R^2^=0.999. ALL parameters non-critical. batch=16 safe at 30k. Gain confirmed as SOLVABLE by n_frames.
+30k frames rescues g=3 / 200 neurons: 0% convergence at 10k transforms to 100% (12/12) at 30k. Activity rank increases 31→53--57 (+80%). Pareto-optimal: lr_W=4E-3, 2ep → connectivity=0.996, test_R^2^=0.999. ALL parameters non-critical. batch=16 safe at 30k. Gain confirmed as SOLVABLE by number of frames.
 
 ::: {.block-hero}
 
@@ -1341,9 +1341,9 @@ g=3 combined with n=200 at 10k frames. Gain × n compounds difficulty super-addi
 
 ---
 
-## Block 22 --- Partial Connectivity fill=80% (n=100, 10k, iters 253--264)
+## Block 22 --- Partial Connectivity fill=80% (100 neurons, 10k, iters 253--264)
 
-Filling factor reduced from 100% to 80%. eff_rank=36 (same as 100% fill), rho=0.985 (near-critical, NOT subcritical). Conn plateau at exactly 0.802 with COMPLETE parameter insensitivity across all training params. 0/12 degenerate. Sharp transition from 50% fill: rho jumps 0.746→0.985. conn_ceiling approximately equals filling_factor.
+Filling factor reduced from 100% to 80%. Activity rank=36 (same as 100% fill), rho=0.985 (near-critical, NOT subcritical). Connectivity plateau at exactly 0.802 with COMPLETE parameter insensitivity across all training params. 0/12 degenerate. Sharp transition from 50% fill: rho jumps 0.746→0.985. Connectivity ceiling approximately equals filling_factor.
 
 ::: {.block-hero}
 
@@ -1408,7 +1408,7 @@ Filling factor reduced from 100% to 80%. eff_rank=36 (same as 100% fill), rho=0.
 
 ## Block 23 --- fill=80% at 30k Frames (iters 265--276)
 
-Testing whether 30k frames can break the fill=80% conn plateau. All 12 iterations confirm: conn=0.802 at ALL configs, identical to 10k. eff_rank increases 36→48--49 but conn is structurally locked. Complete parameter insensitivity (12/12 at 0.802). conn_ceiling ≈ filling_factor is a structural invariant immune to n_frames.
+Testing whether 30k frames can break the fill=80% connectivity plateau. All 12 iterations confirm: connectivity=0.802 at ALL configs, identical to 10k. Activity rank increases 36→48--49 but connectivity is structurally locked. Complete parameter insensitivity (12/12 at 0.802). Connectivity ceiling ≈ filling_factor is a structural invariant immune to frame count.
 
 ::: {.block-hero}
 
@@ -1471,9 +1471,9 @@ Testing whether 30k frames can break the fill=80% conn plateau. All 12 iteration
 
 ---
 
-## Block 24 --- fill=90% Transitional (n=100, 10k, iters 289--300)
+## Block 24 --- fill=90% Transitional (100 neurons, 10k, iters 289--300)
 
-fill=90% extends the conn_ceiling ≈ filling_factor relationship to a 4th data point. rho=0.995 (near-critical), eff_rank=35--36. conn plateau at 0.907 ≈ fill%. 83% convergence (10/12) --- transitional regime above R^2^>0.9 boundary. Complete parameter insensitivity.
+fill=90% extends the connectivity ceiling ≈ filling_factor relationship to a 4th data point. rho=0.995 (near-critical), activity rank=35--36. Connectivity plateau at 0.907 ≈ fill%. 83% convergence (10/12) --- transitional regime above R^2^>0.9 boundary. Complete parameter insensitivity.
 
 ::: {.block-hero}
 
@@ -1536,9 +1536,9 @@ fill=90% extends the conn_ceiling ≈ filling_factor relationship to a 4th data 
 
 ---
 
-## Block 25 --- g=1 Fixed-Point Collapse (n=100, 10k, iters 301--312)
+## Block 25 --- g=1 Fixed-Point Collapse (100 neurons, 10k, iters 301--312)
 
-Gain reduced to 1. eff_rank=5 (catastrophically low) --- fixed-point collapse. Flat-line dynamics. 0% convergence, max conn=0.007, 12/12 degenerate. Complete parameter insensitivity. Below the critical eff_rank threshold (~10). Hardest regime encountered.
+Gain reduced to 1. Activity rank=5 (catastrophically low) --- fixed-point collapse. Flat-line dynamics. 0% convergence, max connectivity=0.007, 12/12 degenerate. Complete parameter insensitivity. Below the critical activity rank threshold (~10). Hardest regime encountered.
 
 ::: {.block-hero}
 
@@ -1603,7 +1603,7 @@ Gain reduced to 1. eff_rank=5 (catastrophically low) --- fixed-point collapse. F
 
 ## Block 26 --- g=1 at 30k: Confirmed Unsolvable (iters 313--324)
 
-g=1 at 30k frames: eff_rank DROPS from 5 to 1 --- the only regime where n_frames is negatively correlated with eff_rank. 0% convergence, max conn=0.018. More frames → tighter fixed-point basin → lower dimensionality. g=1 is the third structural limit alongside sparse (rho<1) and fill<100%.
+g=1 at 30k frames: activity rank DROPS from 5 to 1 --- the only regime where number of frames is negatively correlated with activity rank. 0% convergence, max connectivity=0.018. More frames → tighter fixed-point basin → lower dimensionality. g=1 is the third structural limit alongside sparse (rho<1) and fill<100%.
 
 ::: {.block-hero}
 
@@ -1666,9 +1666,9 @@ g=1 at 30k frames: eff_rank DROPS from 5 to 1 --- the only regime where n_frames
 
 ---
 
-## Block 27 --- g=2 Inverse lr_W (n=100, 10k, iters 325--336)
+## Block 27 --- g=2 Inverse lr_W (100 neurons, 10k, iters 325--336)
 
-g=2 has eff_rank=17 (above threshold ~10), supercritical rho=1.065. Requires inverse lr_W (~5E-4, 100x lower than g=7). 0% convergence at 10k, max conn=0.519. Epoch scaling is NOT diminishing (5ep→0.356, 8ep→0.397, 12ep→0.519). Steepest gain--eff_rank slope between g=1 and g=2.
+g=2 has activity rank=17 (above threshold ~10), supercritical rho=1.065. Requires inverse lr_W (~5E-4, 100x lower than g=7). 0% convergence at 10k, max connectivity=0.519. Epoch scaling is NOT diminishing (5ep→0.356, 8ep→0.397, 12ep→0.519). Steepest gain--activity rank slope between g=1 and g=2.
 
 ::: {.block-hero}
 
@@ -1733,7 +1733,7 @@ g=2 has eff_rank=17 (above threshold ~10), supercritical rho=1.065. Requires inv
 
 ## Block 28 --- g=2 at 30k: Partially Rescued (iters 337--348)
 
-g=2 at 30k: 42% convergence (5/12), best conn=0.997. eff_rank FLAT at 16 (unchanged from 17 at 10k) --- unique: 30k does NOT increase dimensionality at g=2. Inverse lr_W persists (5E-4--7E-4 optimal; lr_W≥2E-3 catastrophic). 30k helps via variance reduction, not more dynamic modes.
+g=2 at 30k: 42% convergence (5/12), best connectivity=0.997. Activity rank FLAT at 16 (unchanged from 17 at 10k) --- unique: 30k does NOT increase dimensionality at g=2. Inverse lr_W persists (5E-4--7E-4 optimal; lr_W≥2E-3 catastrophic). 30k helps via variance reduction, not more dynamic modes.
 
 ::: {.block-hero}
 
@@ -1796,9 +1796,9 @@ g=2 at 30k: 42% convergence (5/12), best conn=0.997. eff_rank FLAT at 16 (unchan
 
 ---
 
-## Block 29 --- g=2/n=200 at 30k: n Compensates Gain (iters 349--360)
+## Block 29 --- g=2 / 200 Neurons at 30k: Network Size Compensates Gain (iters 349--360)
 
-g=2/n=200/30k: eff_rank jumps to 35--38 (matching g=7/n=100). 92% convergence (11/12), best conn=0.979. Inverse lr_W persists (lr_W=3E-4 optimal) but ceiling is higher. Epoch scaling diminishes at 12ep. n_neurons compensates for gain reduction.
+g=2 / 200 neurons / 30k: activity rank jumps to 35--38 (matching g=7 / 100 neurons). 92% convergence (11/12), best connectivity=0.979. Inverse lr_W persists (lr_W=3E-4 optimal) but ceiling is higher. Epoch scaling diminishes at 12ep. Neuron count compensates for gain reduction.
 
 ::: {.block-hero}
 
@@ -1861,9 +1861,9 @@ g=2/n=200/30k: eff_rank jumps to 35--38 (matching g=7/n=100). 92% convergence (1
 
 ---
 
-## Block 30 --- n=1000 at 100k Frames --- SOLVED (iters 349--360)
+## Block 30 --- 1000 Neurons at 100k Frames --- SOLVED (iters 349--360)
 
-The scale breakthrough: n=1000 at 100k frames achieves 100% convergence (12/12), conn=1.000, best test_R^2^=0.882. eff_rank ~350. lr_W=3E-3 optimal; batch=16 safe; 3 epochs sufficient. Confirms the n_frames scaling law at the largest scale tested. n=1000 joins the solved regimes.
+The scale breakthrough: 1000 neurons at 100k frames achieves 100% convergence (12/12), connectivity=1.000, best test_R^2^=0.882. Activity rank ~350. lr_W=3E-3 optimal; batch=16 safe; 3 epochs sufficient. Confirms the frame-count scaling law at the largest scale tested. 1000 neurons joins the solved regimes.
 
 ::: {.block-hero}
 

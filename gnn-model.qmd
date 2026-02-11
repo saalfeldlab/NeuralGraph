@@ -144,19 +144,19 @@ $$
 | Sign | γ | Resolves connectivity sign ambiguity |
 | Sparsity | ζ | L1 penalty for sparse W |
 
-## Effective Rank
+## Activity Rank
 
-The **effective rank** quantifies the complexity of the connectivity matrix and is the strongest predictor of training difficulty:
+The **activity rank** quantifies the complexity of the connectivity matrix and is the strongest predictor of training difficulty:
 
 $$
-\text{eff\_rank} = \text{min}\{k : \sum_{i=1}^{k} \sigma_i^2 \geq 0.99 \sum_{i=1}^{N} \sigma_i^2\}
+\text{activity\_rank} = \text{min}\{k : \sum_{i=1}^{k} \sigma_i^2 \geq 0.99 \sum_{i=1}^{N} \sigma_i^2\}
 $$
 
 where $\sigma_i$ are the singular values of $\mathbf{W}$.
 
 ::: {.metric-box}
 ::: {.value}
-eff_rank > 30
+activity rank > 30
 :::
 ::: {.label}
 "Easy mode" - any reasonable parameters work
@@ -165,7 +165,7 @@ eff_rank > 30
 
 ::: {.metric-box}
 ::: {.value}
-eff_rank < 8
+activity rank < 8
 :::
 ::: {.label}
 Fundamentally unrecoverable

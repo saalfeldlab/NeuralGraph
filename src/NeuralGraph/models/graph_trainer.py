@@ -3670,9 +3670,9 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
     # Kinograph montage 2x2: GT, pred, residual, scatter
     n_neurons_kino = activity_gt.shape[0]
-    vmax_shared = max(np.abs(activity_gt).max(), np.abs(activity_pred).max())
+    vmax_shared = np.abs(activity_gt).max()
     residual = activity_gt - activity_pred
-    vmax_res = np.abs(residual).max()
+    vmax_res = vmax_shared
 
     fig, axes = plt.subplots(2, 2, figsize=(20, 20))
     ax_gt, ax_pred, ax_res, ax_scat = axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]
@@ -3781,7 +3781,7 @@ def data_test_signal(config=None, config_file=None, visualize=False, style='colo
 
         # Bottom-left: per-mode temporal correlation bar chart
         ax = axes[1, 0]
-        bar_colors = ['#2563eb' if c > 0.5 else '#f59e0b' if c > 0 else '#dc2626' for c in mode_corrs]
+        bar_colors = ['#2563eb'] * len(mode_corrs)
         ax.bar(range(rank), mode_corrs, color=bar_colors, edgecolor='none', width=0.7)
         ax.set_xlabel('SVD mode index', fontsize=20)
         ax.set_ylabel('temporal r', fontsize=20)

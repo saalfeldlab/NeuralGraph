@@ -1,0 +1,56 @@
+---
+title: "Case Study: Fully Connected Baseline"
+subtitle: "The easy regime --- near-perfect connectivity recovery at supercritical spectral radius"
+---
+
+## Problem Statement
+
+Fully connected chaotic connectivity (100 neurons, gain=7, filling factor=1) is the reference regime for all other case studies. The spectral radius is supercritical (rho=1.065) --- eigenvalues extend outside the unit circle, meaning perturbations propagate and amplify through the recurrent loop $du/dt = -u + g \cdot W \cdot \tanh(u)$. Each neuron's activity carries a rich imprint of its full connectivity neighbourhood, giving the GNN abundant information to recover W. This is the regime where **connectivity recovery is essentially solved** (R^2^=1.000) and the remaining challenge is long-horizon dynamics prediction.
+
+## From the Landscape
+
+This case study builds upon the **348-iteration landscape exploration** ([Landscape Results](results.qmd)), which mapped GNN training configurations across 29 neural activity regimes. **Block 1** devoted 12 iterations to the chaotic baseline: 11/12 converged (92%), with the best configuration at lr_W=4E-3, lr=1E-4 achieving connectivity_R^2^=0.9999 and test_R^2^=0.9957. Zero degeneracy was observed (0/12 degenerate iterations). The landscape established that the chaotic baseline is **easy**: wide parameter tolerance (lr_W from 1.5E-3 to 1E-2 all converge), no sensitivity to L1_W, batch size, or seed. This robustness makes it the natural reference point against which harder regimes --- [low-rank](case-low-rank.qmd), [sparse](case-sparse.qmd) --- are measured.
+
+### Simulated data
+
+![Fully connected connectivity matrix W (100x100)](assets/signal_iter_005/connectivity_matrix.png){.lightbox group="iter005"}
+
+::: {layout-ncol=2}
+![Activity traces with activity rank](assets/signal_iter_005/activity.png){.lightbox group="iter005"}
+
+![Kinograph: neurons x time](assets/signal_iter_005/kinograph.png){.lightbox group="iter005"}
+:::
+
+### Learned W
+
+The GNN achieves perfect connectivity recovery: R^2^=1.000 with slope=7.01 (the slope reflects the gain factor $g=7$ absorbed into the learned W). The raw learned W is $W_\text{learned} \approx g \cdot W_\text{true}$, so the corrected scatter shows proportionality with slope matching the gain. The spectral radius of the learned W matches the true value (1.066 vs 1.065), and eigenvector alignment is 0.999 for both left and right eigenvectors.
+
+::: {layout-ncol=2}
+
+![Learned W matrix](assets/signal_iter_005/connectivity_learned.png){.lightbox group="iter005"}
+
+![True vs learned W scatter: connectivity_R^2^=1.000, slope=7.01](assets/signal_iter_005/weights_comparison_corrected.png){.lightbox group="iter005"}
+
+:::
+
+### **Eigenvector analysis**
+
+Recovering the correct matrix entries (connectivity_R^2^=1.000) does not guarantee that the learned W reproduces the dynamical structure of the true network. The eigenvalues of W determine which modes grow or decay and at what rate; the eigenvectors determine which neuron populations participate in each mode. A learned W with correct entries but scrambled spectral structure would produce wrong dynamics despite high R^2^.
+
+The eigenvalue comparison (top row) shows that the GNN recovers the full complex spectrum: eigenvalues in the complex plane overlay almost exactly (left), the magnitude scatter falls on the identity line (center), and the sorted spectrum matches on a log scale (right). The spectral radius is recovered to three decimal places (learned: 1.066 vs true: 1.065). The eigenvector alignment matrices (bottom row) display the cosine similarity between each true and learned eigenvector pair, for both right eigenvectors (which set the spatial pattern of each mode) and left eigenvectors (which set the input sensitivity). Both matrices show a sharp diagonal with near-zero off-diagonal entries, confirming one-to-one correspondence. The per-eigenvector alignment score (bottom-right) is uniformly ~1.0 across all 100 eigenvectors (right: mean=1.00, left: mean=1.00), far above the random baseline of 0.10. This means the GNN has not merely memorized W entry by entry --- it has recovered the full dynamical architecture of the network.
+
+![Eigenvalue and eigenvector comparison: true vs learned W](assets/signal_iter_005/eigen_comparison.png){.lightbox group="iter005"}
+
+### **Dynamics prediction: one-step derivative**
+
+The one-step derivative prediction is near-perfect (R^2^=0.9998, SSIM=0.9995). The residuals are negligible --- the GNN captures the instantaneous dynamics exactly.
+
+![One-step derivative: near-perfect per-step accuracy (R^2^=0.9998, SSIM=0.9995)](assets/signal_iter_005/deriv_kinograph_montage.png){.lightbox group="iter005"}
+
+### **Dynamics prediction: 10,000 steps rollout**
+
+Despite perfect connectivity recovery and near-perfect one-step accuracy, the autonomous rollout diverges (R^2^=-0.938). This is **temporal phase drift** in chaotic dynamics: even with the correct W, the learned MLP does not replicate the true nonlinearity (tanh) exactly. Small per-step errors in the MLP output are amplified exponentially through the chaotic recurrent loop. The GNN visits the same attractor --- the kinograph patterns are qualitatively similar --- but the temporal alignment is lost. This is the same mechanism observed in the [low-rank case](case-low-rank.qmd), where rollout R^2^ degrades despite near-perfect W recovery.
+
+![Rollout kinograph: GT vs GNN prediction over 10,000 frames --- rollout R^2^=-0.938](assets/signal_iter_005/kinograph_montage.png){.lightbox group="iter005"}
+
+The per-neuron R^2^ distribution confirms the phase drift interpretation: mean R^2^ = 0.251 +/- 0.224, range [0.003, 0.777]. Some neurons track the GT well (high individual R^2^) while others are completely decorrelated --- consistent with the trajectory visiting the same regions of state space at different times.

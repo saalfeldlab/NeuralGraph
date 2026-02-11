@@ -28,6 +28,8 @@ website:
             text: Exploration Gallery
       - text: Case Studies
         menu:
+          - href: case-baseline.qmd
+            text: Fully Connected Baseline
           - href: case-low-rank.qmd
             text: Low-Rank Connectivity
           - href: case-sparse.qmd

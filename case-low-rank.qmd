@@ -1,50 +1,57 @@
 ---
 title: "Case Study: Low-Rank Connectivity"
-subtitle: "Recovering W from rank-20 connectivity neural dynamics --- 340 iterations of LLM-guided exploration across network scales"
+subtitle: "Recovering W from rank-20 connectivity neural dynamics --- LLM-guided exploration across network scales"
 ---
 
 ## Problem Statement
 
-Low-rank connectivity (rank 20, n=100 neurons) produces neural activity with effective rank ~12 --- the hardest regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data. The central question: **can we find GNN training parameters that reliably recover W from low-rank dynamics?**
+Low-rank connectivity (rank 20, 100 neurons) produces neural activity with activity rank ~12 @ 99% variance explained --- a difficult regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data. The central question: **can we find GNN training parameters that reliably recover W from low-rank dynamics?**
 
 ## From Landscape to Dedicated Exploration
 
-This case study builds upon the **348-iteration landscape exploration** ([Landscape Results](results.qmd)), which systematically mapped GNN training configurations across 29 regimes. Block 2 of that exploration devoted 12 iterations to the low-rank regime (n=100 neurons, rank=20, eff_rank~12). The LLM identified two critical levers --- **lr_W** and **L1** --- and systematically combined them to reach an optimal configuration at iteration 21:
+This case study builds upon the **348-iterations landscape exploration** ([Landscape Results](results.qmd)), which systematically mapped GNN training configurations across 29 neural activity regimes. Block 2 of that exploration devoted 12 iterations to the low-rank regime (100 neurons, rank=20, activity rank ~12 @ 99% variance explained, ~4 @ 90%). Overall convergence: 9/12 iterations (75%). Connectivity recovery was not the bottleneck, nearly all iterations achieved connectivity_R^2^ > 0. The challenge was dynamics recovery (rollout_R^2^). The LLM identified two critical levers --- **lr_W** (learning rate for W) and **L1_W** (sparsitiy on W)--- and systematically combined them to reach an optimal configuration at iteration 21. Note, these results come from a single random seed and a single network size (100 neurons); the dedicated exploration below reveals that the results are seed-dependent.
 
-| | lr_W | L1 | connectivity_R^2^ | rollout_R^2^ (1000 frames) |
+| | lr_W | L1_W | connectivity_R^2^ | rollout_R^2^ (1000 frames) |
 |:---|:----:|:--:|:---------:|:---------:|
 | Iter 13 (baseline) | 4E-3 | 1E-5 | 0.999 | 0.902 |
-| Iter 18 (lower L1) | 4E-3 | 1E-6 | 1.000 | 0.925 |
+| Iter 18 (lower L1_W) | 4E-3 | 1E-6 | 1.000 | 0.925 |
 | Iter 19 (lower lr_W) | 3E-3 | 1E-5 | 0.999 | 0.943 |
 | **Iter 21 (both)** | **3E-3** | **1E-6** | **0.993** | **0.996** |
 
-Overall convergence: 9/12 iterations (75%). Connectivity recovery was not the bottleneck --- nearly all iterations achieved connectivity_R^2^ > 0.99. The challenge was dynamics recovery (test_R^2^), highly sensitive to the lr_W/L1 combination. These results come from a single random seed and a single network size (n=100 neurons); the dedicated exploration below reveals that both the optimal configuration and recovery difficulty are seed-dependent.
 
-### Established Principles (n=100 neurons, single seed)
+
+### Established Principles (100 neurons, single seed)
 
 ::: {.callout-note}
-### 1. L1=1E-6 is critical for low-rank dynamics
-At L1=1E-5, connectivity converges (R^2^ > 0.99) but dynamics remain poor (test_R^2^ ~0.90). Reducing L1 to 1E-6 unlocks near-perfect dynamics (test_R^2^ = 0.996). Excessive L1 penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate. The role of L1 here echoes the LASSO framework ([Tibshirani, 1996](https://doi.org/10.1111/j.2517-6161.1996.tb02080.x)): L1 regularization performs implicit variable selection, zeroing out irrelevant entries while preserving the signal. The key is calibration --- too much L1 destroys the low-rank structure, too little allows noise to persist.
+### 1. L1_W=1E-6 is critical for low-rank dynamics
+At L1_W=1E-5, connectivity converges (R^2^ > 0.99) but dynamics prediction remain partial (rollout_R^2^ ~0.90 over 1000 frames). Reducing L1_W to 1E-6 unlocks near-perfect dynamics prediction (rollout_R^2^ = 0.996). Excessive L1_W penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate. The role of L1_W here echoes the LASSO framework ([Tibshirani, 1996](https://doi.org/10.1111/j.2517-6161.1996.tb02080.x)): L1_W regularization performs implicit variable selection, zeroing out irrelevant entries while preserving the signal. The key is calibration --- too much L1_W destroys the low-rank structure, too little allows noise to persist.
 :::
 
 ::: {.callout-note}
-### 2. Full-matrix learning + L1 outperforms direct factorization
-`low_rank_factorization=True` (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives connectivity_R^2^=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full N×N matrix and letting L1 induce the low-rank structure. This is a well-established principle: learning in an overparameterized space and regularizing is generally more effective than constraining to the true dimension from the start. For matrix recovery, [Candès & Recht (2009)](https://doi.org/10.1007/s10208-009-9045-5) and [Recht, Fazel & Parrilo (2010)](https://doi.org/10.1137/070697835) proved that minimizing the nuclear norm (the L1 analog for singular values) over the full matrix space provably recovers low-rank matrices, while the direct rank-constrained factorization W = W_L @ W_R introduces non-convex symmetries and saddle points ([Bhojanapalli, Neyshabur & Srebro, 2016](https://arxiv.org/abs/1605.07221)). The same principle underpins compressed sensing ([Candès, Romberg & Tao, 2006](https://doi.org/10.1002/cpa.20124); [Donoho, 2006](https://doi.org/10.1109/TIT.2006.871582)): solving in a higher-dimensional space with sparsity penalty recovers the true sparse solution more reliably than direct low-dimensional search.
+### 2. Full-matrix learning + L1_W outperforms direct factorization
+`low_rank_factorization=True` (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives connectivity_R^2^=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full N×N matrix and letting L1_W induce the low-rank structure. This is a well-established principle: learning in an overparameterized space and regularizing is generally more effective than constraining to the true dimension from the start. For matrix recovery, [Candès & Recht (2009)](https://doi.org/10.1007/s10208-009-9045-5) and [Recht, Fazel & Parrilo (2010)](https://doi.org/10.1137/070697835) proved that minimizing the nuclear norm (the L1_W analog for singular values) over the full matrix space provably recovers low-rank matrices, while the direct rank-constrained factorization W = W_L @ W_R introduces non-convex symmetries and saddle points ([Bhojanapalli, Neyshabur & Srebro, 2016](https://arxiv.org/abs/1605.07221)). The same principle underpins compressed sensing ([Candès, Romberg & Tao, 2006](https://doi.org/10.1002/cpa.20124); [Donoho, 2006](https://doi.org/10.1109/TIT.2006.871582)): solving in a higher-dimensional space with sparsity penalty recovers the true sparse solution more reliably than direct low-dimensional search.
 :::
+
 
 ::: {.callout-note}
-### 3. Optimal lr_W shifts downward (4E-3 → 3E-3)
-Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower effective rank provides less gradient signal, so smaller learning rate steps avoid overshooting.
+### 3. W initialization matters
+The learned W matrix is initialized at the start of training. Three modes are available: `randn` (std=1), `randn_scaled` (std=scale/sqrt(N)), and `zeros`. Only **`randn`** produces successful recovery --- both `randn_scaled` and `zeros` fail to converge. Gradient clipping on W does not help as a rescue for failing initializations.
 :::
 
-### Iter 21: rank=20, connectivity W = U V, n=100 neurons
+
+::: {.callout-note}
+### 4. Optimal lr_W shifts downward (4E-3 → 3E-3)
+Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower activity rank provides less gradient signal, so smaller learning rate steps avoid overshooting.
+:::
+
+### Iter 21: rank=20, connectivity W = U V, 100 neurons
 
 ### Simulated data
 
 ![Low-rank connectivity decomposition: W (100×100), U (100×20), V (20×100)](assets/signal_iter_021/connectivity_low_rank_WUV.png){.lightbox group="iter21"}
 
 ::: {layout-ncol=2}
-![Activity traces with effective rank](assets/signal_iter_021/activity.png){.lightbox group="iter21"}
+![Activity traces with activity rank](assets/signal_iter_021/activity.png){.lightbox group="iter21"}
 
 ![Kinograph: neurons × time](assets/signal_iter_021/kinograph.png){.lightbox group="iter21"}
 :::
@@ -53,16 +60,12 @@ Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3
 
 The GNN learns a full N×N connectivity matrix W during training. Since the true connectivity is low-rank (W = U V), we extract the learned low-rank factors by performing SVD on the learned W and retaining the top-*r* singular vectors. The resulting U_learned and V_learned are then aligned to the true U and V via Procrustes rotation (orthogonal alignment that minimizes the Frobenius distance), followed by a sign/permutation correction to resolve the inherent ambiguity in SVD factor ordering.
 
-::: {.callout-warning}
-### W initialization matters
-The learned W matrix is initialized at the start of training. Three modes are available: `randn` (std=1), `randn_scaled` (std=scale/sqrt(N)), and `zeros`. Only **`randn`** produces successful recovery --- both `randn_scaled` and `zeros` fail to converge. Gradient clipping on W does not help as a rescue for failing initializations.
-:::
 
 ![Learned low-rank decomposition after correction and alignment](assets/signal_iter_021/low_rank_WUV_learned.png){.lightbox group="iter21"}
 
 ![True vs learned scatter: W, U, V](assets/signal_iter_021/low_rank_WUV_scatter.png){.lightbox group="iter21"}
 
-### Dynamics prediction: one-step derivative
+### **Dynamics prediction: one-step derivative**
 
 The GNN is trained to predict the first derivative of neural activity. At each timestep, we feed the **true** activity to the GNN and compare its predicted derivative to the ground-truth derivative. This isolates the per-step accuracy of the learned dynamics, independent of error accumulation.
 
@@ -70,7 +73,7 @@ The GNN is trained to predict the first derivative of neural activity. At each t
 
 
 
-### Dynamics prediction: 10,000 steps rollout
+### **Dynamics prediction: 10,000 steps rollout**
 
 The rollout starts from the true initial activity at a single timepoint and then iterates the GNN forward autonomously --- each predicted state becomes the input for the next step. Errors accumulate over time, making this a much harder test than one-step prediction.
 The GNN captures the population activity patterns correctly --- the vertical structure in the kinograph (which neurons are co-active) is well recovered. However, the temporal transitions between patterns are less accurate: the GNN gets the **patterns** right but not the precise **timing** of mode switching. Here U and V are both well recovered (R^2^≈0.97), yet the rollout still drifts. A direct-dynamics experiment (bypassing the GNN, running the true RNN equation du/dt = −u + 7·W·tanh(u) with different W matrices; montages not shown, see `run_hybrid_UV_rollout.py`) shows that even supplying the ground-truth V while keeping the learned U gives only rollout R^2^=0.67 at 600 frames, and supplying the ground-truth U with the learned V gives R^2^=0.77. Neither factor alone at R^2^≈0.97 is sufficient --- the chaotic dynamics amplify any residual error in either factor exponentially through the recurrent loop. Only the exact ground-truth W produces a perfect rollout.
@@ -89,13 +92,13 @@ The mode power scatter (bottom-right) plots the mean squared amplitude of each m
 
 ## Dedicated Exploration
 
-The dedicated exploration fixed the simulation (low_rank, rank=20, 10k frames) and searched training hyperparameters using UCB tree search with 4 parallel slots per batch. The exploration addresses two questions in sequence: **how sensitive is recovery to the training seed** (at fixed n=100 neurons), and **how does recovery scale with network size** (n=100 to n=1000).
+The dedicated exploration fixed the simulation (low_rank, rank=20, 10k frames) and searched training hyperparameters using UCB tree search with 4 parallel slots per batch. The exploration addresses two questions in sequence: **how sensitive is recovery to the training seed** (at fixed 100 neurons), and **how does recovery scale with network size** (100 to 1000 neurons).
 
-At n=100, connectivity recovery (connectivity_R^2^) is essentially solved --- nearly all iterations achieve connectivity_R^2^ > 0.999 regardless of hyperparameters. The real challenge is **dynamics recovery (rollout_R^2^)**, which is highly sensitive to the training seed and the lr_W/L1 combination.
+At 100 neurons, connectivity recovery (connectivity_R^2^) is essentially solved --- nearly all iterations achieve connectivity_R^2^ > 0.999 regardless of hyperparameters. The real challenge is **dynamics recovery (rollout_R^2^)**, which is highly sensitive to the training seed and the lr_W/L1_W combination.
 
 ### Influence of the Training Seed
 
-The training seed controls only the GNN's random initialization --- the simulated data (W, U, V, activity) is identical across all seeds. Yet it is the single most important factor for dynamics recovery. Across 70 seeds at n=100: **49 learnable (70%), 21 hard (30%)**. All 21 hard seeds share the same failure signature: U recovers well (U_R^2^ ~0.95) while V is stuck (V_R^2^ < 0.43). The failure is **always asymmetric** --- no seed produces both bad U and bad V. This holds across extensive rescue attempts: seed=9000, tested across 6 hyperparameter configurations (lr_W=3--5E-3, L1=1E-5/1E-6, n_epochs=2--3), consistently gives U_R^2^=0.948, V_R^2^=0.44; seed=1000, tested 15 times, gives U_R^2^=0.946, V_R^2^=0.427. The asymmetry is consistent with [Mastrogiuseppe & Ostojic (2018)](https://arxiv.org/abs/1711.09672): in low-rank networks, the right-connectivity vectors (our U columns) determine the **output pattern** of activity and are directly constrained by the observed dynamics, while the left-connectivity vectors (our V rows) implement **input selection** --- an implicit filtering operation that is less directly observable.
+The training seed controls only the GNN's random initialization --- the simulated data (W, U, V, activity) is identical across all seeds. Yet it is the single most important factor for dynamics recovery. Across 70 seeds at 100 neurons: **49 learnable (70%), 21 hard (30%)**. All 21 hard seeds share the same failure signature: U recovers well (U_R^2^ ~0.95) while V is stuck (V_R^2^ < 0.43). The failure is **always asymmetric** --- no seed produces both bad U and bad V. This holds across extensive rescue attempts: seed=9000, tested across 6 hyperparameter configurations (lr_W=3--5E-3, L1_W=1E-5/1E-6, n_epochs=2--3), consistently gives U_R^2^=0.948, V_R^2^=0.44; seed=1000, tested 15 times, gives U_R^2^=0.946, V_R^2^=0.427. The asymmetry is consistent with [Mastrogiuseppe & Ostojic (2018)](https://arxiv.org/abs/1711.09672): in low-rank networks, the right-connectivity vectors (our U columns) determine the **output pattern** of activity and are directly constrained by the observed dynamics, while the left-connectivity vectors (our V rows) implement **input selection** --- an implicit filtering operation that is less directly observable.
 
 ![Learned low-rank decomposition: W is noisy, U has partial structure, V is poorly recovered](assets/signal_iter_069/low_rank_WUV_learned.png){.lightbox group="iter069"}
 
@@ -103,21 +106,147 @@ The training seed controls only the GNN's random initialization --- the simulate
 
 Despite poor W recovery, the one-step derivative prediction remains decent (R^2^=0.964, SSIM=0.920) --- the GNN learns enough local structure to approximate per-step dynamics. But this accuracy does not survive autonomous rollout: the rollout diverges catastrophically (R^2^=-inf, values reach 10^33^). As the hybrid U/V experiment above demonstrates, even perfect knowledge of one factor is not enough --- errors in either U or V are amplified exponentially through the chaotic recurrent loop. Here, with V_R^2^=0.43, the errors are far too large for the recurrent dynamics to remain stable.
 
+### **Dynamics prediction: one-step derivative**
+
 ![One-step derivative: decent per-step accuracy (R^2^=0.964) despite poor W](assets/signal_iter_069/deriv_kinograph_montage.png){.lightbox group="iter069"}
 
-![Rollout: catastrophic divergence --- R^2^=-inf, activity explodes](assets/signal_iter_069/kinograph_montage.png){.lightbox group="iter069"}
+The one-step derivative kinograph (top panels) shows that the GNN can predict $du/dt$ reasonably well (R^2^=0.964) even with connectivity_R^2^=0.36. This is because single-step prediction only needs local gradient information --- the GNN learns enough of the input-output mapping to approximate the instantaneous dynamics without requiring a globally correct W. The residual (bottom-left, shown on the same color scale as ground truth) is small and spatially diffuse, with no systematic structure.
+
+### **Dynamics prediction: 10,000 steps rollout**
+
+![Rollout: catastrophic divergence --- R^2^=-inf, activity explodes. Predicted and residual panels share the ground-truth color scale, revealing how rapidly the prediction saturates.](assets/signal_iter_069/kinograph_montage.png){.lightbox group="iter069"}
+
+The rollout tells a different story. The predicted kinograph (top-right) and residual (bottom-left) use the ground-truth color scale, making the divergence immediately visible: within a few hundred frames the predicted activity saturates the color range and then explodes to values exceeding 10^33^ --- the kinograph appears as a uniform color because all values are far outside the ground-truth range. The scatter (bottom-right) confirms R^2^=-inf. This catastrophic failure arises because the V-subspace error (V_R^2^=0.43) is amplified exponentially through the chaotic recurrent loop $du/dt = -u + g \cdot W \cdot \tanh(u)$. Even a small error in V distorts the input selection mechanism: the wrong neurons receive recurrent drive, and once the trajectory leaves the true attractor, the nonlinearity amplifies the deviation at each step. The contrast between good one-step prediction (R^2^=0.96) and catastrophic rollout (R^2^=-inf) demonstrates that **single-step accuracy is necessary but not sufficient for dynamics recovery** --- the model must capture the global structure of W, not just its local gradient effects.
 
 ---
 
 ## Influence of Number of Neurons
 
-The exploration then shifted from seed sensitivity to network scaling: how does recovery change as n_neurons grows from 100 to 1000? Five scales were tested (n=100, 200, 400, 600, 1000), all at rank=20, with n_frames=100,000 and data_augmentation_loop=50 for scales above 100.
+The exploration then shifted from seed sensitivity to network scaling: how does recovery change as network size grows from 100 to 1000 neurons? Five scales were tested (100, 200, 400, 600, 1000 neurons), all at rank=20, with 100,000 frames and data_augmentation_loop=50 for scales above 100.
 
-![Best R^2^ per scale for connectivity, rollout, and V-subspace recovery. n=200 is a striking outlier --- all three metrics collapse. Recovery improves monotonically from n=400 onward.](assets/n_neurons_scaling.png){.lightbox}
+```{python}
+#| code-fold: true
+#| label: fig-n-neurons
+#| fig-cap: "Best R² per scale for connectivity, rollout, and V-subspace recovery. 200 neurons is a striking outlier — all three metrics collapse. Recovery improves monotonically from 400 neurons onward. Color scale: red (poor) to green (solved)."
 
-**n=200 is the hardest scale.** At n=200, connectivity_R^2^ drops to 0.86, V_R^2^ to 0.86, and the hard-seed rate rises from 30% (n=100) to 40.5%. Several seeds that were top-tier at n=100 flip to hard at n=200 (seeds 137, 1000, 6000, 17000, 20000, 21000), while some mid-tier seeds improve (seeds 7000, 11000). The V-recovery failure at n=200 is also more severe: V_R^2^ as low as 0.07--0.21 (vs 0.38--0.43 at n=100).
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
 
-**From n=400 onward, W-recovery improves monotonically** (connectivity_R^2^: 0.999 at n=400, 0.9995 at n=600). At larger n, each row of W is more constrained by the data and the GNN is forced toward the true connectivity. However, dynamics recovery is non-monotonic: rollout_R^2^ dips at n=400/600 despite near-perfect W. This is a "reverse pattern" --- the GNN learns the correct W structure but the MLP has not co-adapted --- solved by adjusting lr_W per scale (n=400 needs lr_W=6E-3, n=600 needs 4--5E-3).
+n_neurons = [100, 200, 400, 600, 1000]
+metrics = ['connectivity R²', 'rollout R²', 'V R²']
+data = np.array([
+    [1.000, 0.861, 0.999, 0.9995, 0.992],   # connectivity
+    [0.999, 0.996, 0.990, 0.963,  0.997],    # rollout
+    [0.97,  0.859, 0.993, 0.995,  0.989],    # V
+])
 
-**n=1000 is the sweet spot**: both connectivity_R^2^=0.992 and rollout_R^2^=0.997 are excellent with the standard recipe in a single iteration, making it the easiest scale for low-rank recovery.
+rg_cmap = LinearSegmentedColormap.from_list('rg', ['#dc2626', '#f59e0b', '#22c55e'])
+
+fig, ax = plt.subplots(figsize=(10, 3))
+im = ax.imshow(data, aspect='auto', cmap=rg_cmap, vmin=0.8, vmax=1.0,
+               interpolation='nearest')
+
+for i in range(len(metrics)):
+    for j in range(len(n_neurons)):
+        v = data[i, j]
+        color = 'white' if v < 0.9 else 'black'
+        ax.text(j, i, f'{v:.3f}', ha='center', va='center', fontsize=11, color=color)
+
+ax.set_xticks(range(len(n_neurons)))
+ax.set_xticklabels(n_neurons)
+ax.set_yticks(range(len(metrics)))
+ax.set_yticklabels(metrics)
+ax.set_xlabel('n_neurons', fontsize=12)
+fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+plt.tight_layout()
+plt.show()
+```
+
+**200 neurons is the hardest scale.** At 200 neurons, connectivity_R^2^ drops to 0.86, V_R^2^ to 0.86, and the hard-seed rate rises from 30% (100 neurons) to 40.5%. Several seeds that were top-tier at 100 neurons flip to hard at 200 neurons (seeds 137, 1000, 6000, 17000, 20000, 21000), while some mid-tier seeds improve (seeds 7000, 11000). The V-recovery failure at 200 neurons is also more severe: V_R^2^ as low as 0.07--0.21 (vs 0.38--0.43 at 100 neurons).
+
+**From 400 neurons onward, W-recovery improves monotonically** (connectivity_R^2^: 0.999 at 400 neurons, 0.9995 at 600 neurons). At larger networks, each row of W is more constrained by the data and the GNN is forced toward the true connectivity. However, dynamics recovery is non-monotonic: rollout_R^2^ dips at 400/600 neurons despite near-perfect W. This is a "reverse pattern" --- the GNN learns the correct W structure but the MLP has not co-adapted --- solved by adjusting lr_W per scale (400 neurons needs lr_W=6E-3, 600 neurons needs 4--5E-3).
+
+**1000 neurons is the sweet spot**: both connectivity_R^2^=0.992 and rollout_R^2^=0.997 are excellent with the standard recipe in a single iteration, making it the easiest scale for low-rank recovery.
+
+---
+
+## Gain × Rank Landscape (Ongoing)
+
+A new LLM-driven exploration is mapping recovery across the **gain × rank** plane: gain $\in \{4, 5, 6, 7, 8, 9, 10\}$, rank $\in \{10, 15, 20, 25, 30\}$, all at 100 neurons. The gain parameter controls the nonlinearity strength in $du/dt = -u + g \cdot W \cdot \tanh(u)$: higher gain produces richer dynamics but also amplifies errors during rollout. **108 iterations** completed across 9 blocks using UCB tree search with 4 parallel slots.
+
+```{python}
+#| code-fold: true
+#| label: fig-gain-rank
+#| fig-cap: "Best R² per gain × rank cell across 108 iterations. Left: connectivity R² (W recovery). Right: rollout R² (dynamics prediction). Color scale: red (poor) to green (solved). Gain ≥ 6 achieves near-perfect W recovery; gain ≤ 5 plateaus. Gray cells have not been tested."
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap
+
+gains = [7, 4, 10, 7, 7, 4, 10, 5, 7, 4, 10, 5, 7, 4, 6, 5, 7, 4, 6, 5, 8, 4, 6, 5, 9, 4, 7, 5, 9, 4, 7, 5, 7, 4, 7, 5, 7, 4, 7, 5, 7, 7, 5, 7, 7, 7, 5, 7, 7, 7, 5, 8, 8, 7, 7, 8, 8, 7, 8, 7, 8, 7, 9, 7, 8, 7, 9, 7, 8, 7, 9, 7, 9, 9, 7, 10, 9, 9, 7, 10, 10, 9, 7, 10, 10, 8, 10, 9, 10, 8, 10, 8, 8, 8, 10, 9, 8, 6, 8, 9, 8, 6, 8, 6, 8, 6, 9, 6]
+ranks = [20, 20, 20, 10, 10, 20, 20, 20, 10, 10, 20, 20, 10, 10, 20, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 15, 10, 20, 10, 15, 10, 25, 10, 15, 10, 30, 10, 15, 10, 30, 15, 10, 30, 30, 15, 10, 30, 30, 15, 10, 20, 20, 15, 30, 20, 20, 15, 20, 25, 10, 15, 20, 25, 10, 15, 20, 25, 10, 15, 20, 25, 10, 20, 25, 10, 10, 30, 25, 10, 10, 30, 25, 20, 20, 30, 30, 10, 20, 30, 30, 10, 10, 30, 30, 25, 10, 15, 15, 25, 10, 15, 15, 25, 10, 25, 15, 25]
+conn_r2s = [0.9999, 0.214, 1.0, 0.9999, 0.9999, 0.2036, 0.9994, 0.7022, 0.9998, 0.653, 1.0, 0.604, 0.9998, 0.7677, 0.9696, 0.8473, 0.9996, 0.768, 0.9998, 0.849, 0.9999, 0.788, 0.999, 0.849, 1.0, 0.77, 0.78, 0.85, 1.0, 0.783, 0.755, 0.873, 0.933, 0.762, 0.743, 0.886, 0.9999, 0.77, 0.85, 0.891, 0.979, 0.866, 0.891, 0.994, 0.996, 0.85, 0.89, 0.982, 0.98, 0.85, 0.89, 0.9999, 1.0, 0.85, 0.84, 1.0, 0.9999, 0.8195, 0.9997, 0.9041, 0.9999, 0.85, 1.0, 0.95, 0.9998, 0.8195, 1.0, 0.917, 0.9999, 0.85, 1.0, 0.908, 1.0, 1.0, 0.95, 1.0, 1.0, 1.0, 0.92, 1.0, 0.9999, 1.0, 0.944, 0.9996, 1.0, 0.9999, 0.9998, 0.9998, 1.0, 0.9999, 1.0, 0.9999, 0.9999, 1.0, 0.9999, 0.9942, 0.9999, 0.9999, 1.0, 0.9999, 1.0, 1.0, 1.0, 0.72, 1.0, 0.7103, 1.0, 0.6682]
+test_r2s = [0.993, 0.751, 0.957, 0.994, 0.9939, 0.7681, 0.9242, 0.9496, 0.9997, 0.987, 0.992, 0.986, 0.9998, 0.9899, 0.9817, 0.9821, 0.9996, 0.989, 0.9966, 0.987, 0.944, 0.993, 0.999, 0.876, 0.989, 0.988, 0.89, 0.987, 0.989, 0.988, 0.88, 0.991, 0.999, 0.988, 0.97, 0.871, 0.8, 0.988, 0.99, 0.985, 0.973, 0.922, 0.817, 0.992, 0.7, 0.93, 0.988, 0.998, 0.93, 0.941, 0.987, 0.97, 0.97, 0.94, 0.93, 0.999, 0.9817, 0.9978, 0.9717, 0.9994, 0.77, 0.93, 0.96, 0.995, 0.876, 0.941, 0.993, 0.9999, 0.985, 0.804, 0.999, 0.999, 0.967, 0.996, 1.0, 0.878, 0.97, 0.99, 0.97, 0.99, 0.884, 0.999, 0.9996, 0.957, 0.977, 0.9998, 0.995, 0.86, 0.997, 0.9995, 0.9997, 0.9, 0.922, 0.9999, 0.9994, 0.9999, 0.9062, 0.9929, 0.9995, 0.9999, 0.996, 0.9994, 0.995, 0.9998, 0.98, 0.95, 0.9997, 0.98]
+
+gains = np.array(gains)
+ranks = np.array(ranks)
+conn_r2s = np.array(conn_r2s)
+test_r2s = np.array(test_r2s)
+
+gain_vals = [4, 5, 6, 7, 8, 9, 10]
+rank_vals = [10, 15, 20, 25, 30]
+
+# Compute best R² per (gain, rank) cell
+best_conn = np.full((len(gain_vals), len(rank_vals)), np.nan)
+best_test = np.full((len(gain_vals), len(rank_vals)), np.nan)
+for i, g in enumerate(gain_vals):
+    for j, r in enumerate(rank_vals):
+        mask = (gains == g) & (ranks == r)
+        if mask.any():
+            best_conn[i, j] = conn_r2s[mask].max()
+            best_test[i, j] = test_r2s[mask].max()
+
+# Red-to-green colormap
+rg_cmap = LinearSegmentedColormap.from_list('rg', ['#dc2626', '#f59e0b', '#22c55e'])
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+for ax, data, title, vmin in [(ax1, best_conn, 'connectivity R²', 0.2), (ax2, best_test, 'rollout R²', 0.7)]:
+    im = ax.imshow(data.T, aspect='auto', cmap=rg_cmap, vmin=vmin, vmax=1.0,
+                   origin='lower', interpolation='nearest')
+    # Annotate cells
+    for i in range(len(gain_vals)):
+        for j in range(len(rank_vals)):
+            v = data[i, j]
+            if np.isnan(v):
+                ax.text(i, j, '?', ha='center', va='center', fontsize=10, color='gray')
+            else:
+                color = 'white' if v < (vmin + 1.0) / 2 else 'black'
+                ax.text(i, j, f'{v:.2f}', ha='center', va='center', fontsize=9, color=color)
+    ax.set_xticks(range(len(gain_vals)))
+    ax.set_xticklabels(gain_vals)
+    ax.set_yticks(range(len(rank_vals)))
+    ax.set_yticklabels(rank_vals)
+    ax.set_xlabel('gain', fontsize=12)
+    ax.set_ylabel('rank', fontsize=12)
+    ax.set_title(title, fontsize=13)
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+plt.tight_layout()
+plt.show()
+```
+
+### Key Findings
+
+**Learnability threshold at gain $\approx$ 6.** Gain $\leq$ 5 plateaus at partial recovery (connectivity R² $\approx$ 0.85--0.89) regardless of hyperparameters or seed. Gain $\geq$ 6 achieves near-perfect W recovery (R² $>$ 0.99) across most rank values.
+
+**Optimal `lr_W` depends on gain.** `lr_W=3E-3` for gain=6--7; `lr_W=2E-3` for gain $\geq$ 8. Higher gain provides stronger gradient signal, so smaller steps suffice.
+
+**`edge_diff` is regime-dependent.** The `coeff_edge_diff` regularization strength must be tuned per regime: `edge_diff=10000` for rank $\geq$ 15, but `edge_diff=20000` is required at rank=10 with high gain (8--10) to stabilize the rollout. This was the key breakthrough at iteration 101.
+
+**Two failure modes persist:**
+
+- **gain=7 at rank=15**: connectivity plateaus at R² $\approx$ 0.85, while gain=6, 8, 9 all solve rank=15. This is gain-specific, not rank-specific.
+- **gain=6 at rank=25**: V-subspace degeneracy (connectivity R² $\approx$ 0.67--0.72 despite good dynamics). The MLP compensates for poor W by learning dynamics directly.
 

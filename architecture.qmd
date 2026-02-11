@@ -47,7 +47,7 @@ The system communicates through a well-defined set of files:
 | File | Format | Contents |
 |------|--------|----------|
 | `activity.png` | PNG | Neural activity visualization showing simulated dynamics |
-| `analysis.log` | Text | Key metrics: connectivity_R², test_R², eff_rank, loss |
+| `analysis.log` | Text | Key metrics: connectivity_R², test_R², activity rank, loss |
 | `ucb_scores.txt` | Text | UCB exploration tree with node scores and parents |
 
 ### LLM → Experiment
@@ -122,7 +122,7 @@ Outputs key metrics:
 - **connectivity_R²**: Correlation between learned and true W
 - **test_R²**: Activity prediction accuracy
 - **cluster_accuracy**: Neuron type classification (if n_types > 1)
-- **effective_rank**: SVD rank at 99% variance
+- **activity rank**: SVD rank at 99% variance
 
 :::
 
@@ -217,7 +217,7 @@ Append-only log with strict format:
 Node: id=X, parent=Y
 Strategy: [exploit/explore/boundary/...]
 Config: [key parameters]
-Metrics: connectivity_R²=X.XX, test_R²=X.XX, eff_rank=XX
+Metrics: connectivity_R²=X.XX, test_R²=X.XX, activity_rank=XX
 Observation: [what was learned]
 Mutation: [param]: [old] -> [new]
 Next: parent=Z

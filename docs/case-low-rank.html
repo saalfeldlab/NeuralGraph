@@ -107,6 +107,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 }</script>
 <style>html{ scroll-behavior: smooth; }</style>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -172,6 +201,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     </a>
     <ul class="dropdown-menu" aria-labelledby="nav-menu-case-studies">    
         <li>
+    <a class="dropdown-item" href="./case-baseline.html">
+ <span class="dropdown-text">Fully Connected Baseline</span></a>
+  </li>  
+        <li>
     <a class="dropdown-item" href="./case-low-rank.html">
  <span class="dropdown-text">Low-Rank Connectivity</span></a>
   </li>  
@@ -212,18 +245,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#problem-statement" id="toc-problem-statement" class="nav-link active" data-scroll-target="#problem-statement">Problem Statement</a></li>
   <li><a href="#from-landscape-to-dedicated-exploration" id="toc-from-landscape-to-dedicated-exploration" class="nav-link" data-scroll-target="#from-landscape-to-dedicated-exploration">From Landscape to Dedicated Exploration</a>
   <ul class="collapse">
-  <li><a href="#established-principles-n100-neurons-single-seed" id="toc-established-principles-n100-neurons-single-seed" class="nav-link" data-scroll-target="#established-principles-n100-neurons-single-seed">Established Principles (n=100 neurons, single seed)</a></li>
-  <li><a href="#iter-21-rank20-connectivity-w-u-v-n100-neurons" id="toc-iter-21-rank20-connectivity-w-u-v-n100-neurons" class="nav-link" data-scroll-target="#iter-21-rank20-connectivity-w-u-v-n100-neurons">Iter 21: rank=20, connectivity W = U V, n=100 neurons</a></li>
+  <li><a href="#established-principles-100-neurons-single-seed" id="toc-established-principles-100-neurons-single-seed" class="nav-link" data-scroll-target="#established-principles-100-neurons-single-seed">Established Principles (100 neurons, single seed)</a></li>
+  <li><a href="#iter-21-rank20-connectivity-w-u-v-100-neurons" id="toc-iter-21-rank20-connectivity-w-u-v-100-neurons" class="nav-link" data-scroll-target="#iter-21-rank20-connectivity-w-u-v-100-neurons">Iter 21: rank=20, connectivity W = U V, 100 neurons</a></li>
   <li><a href="#simulated-data" id="toc-simulated-data" class="nav-link" data-scroll-target="#simulated-data">Simulated data</a></li>
   <li><a href="#learned-w-u-v" id="toc-learned-w-u-v" class="nav-link" data-scroll-target="#learned-w-u-v">Learned W, U, V</a></li>
-  <li><a href="#dynamics-prediction-one-step-derivative" id="toc-dynamics-prediction-one-step-derivative" class="nav-link" data-scroll-target="#dynamics-prediction-one-step-derivative">Dynamics prediction: one-step derivative</a></li>
-  <li><a href="#dynamics-prediction-10000-steps-rollout" id="toc-dynamics-prediction-10000-steps-rollout" class="nav-link" data-scroll-target="#dynamics-prediction-10000-steps-rollout">Dynamics prediction: 10,000 steps rollout</a></li>
+  <li><a href="#dynamics-prediction-one-step-derivative" id="toc-dynamics-prediction-one-step-derivative" class="nav-link" data-scroll-target="#dynamics-prediction-one-step-derivative"><strong>Dynamics prediction: one-step derivative</strong></a></li>
+  <li><a href="#dynamics-prediction-10000-steps-rollout" id="toc-dynamics-prediction-10000-steps-rollout" class="nav-link" data-scroll-target="#dynamics-prediction-10000-steps-rollout"><strong>Dynamics prediction: 10,000 steps rollout</strong></a></li>
   </ul></li>
   <li><a href="#dedicated-exploration" id="toc-dedicated-exploration" class="nav-link" data-scroll-target="#dedicated-exploration">Dedicated Exploration</a>
   <ul class="collapse">
   <li><a href="#influence-of-the-training-seed" id="toc-influence-of-the-training-seed" class="nav-link" data-scroll-target="#influence-of-the-training-seed">Influence of the Training Seed</a></li>
+  <li><a href="#dynamics-prediction-one-step-derivative-1" id="toc-dynamics-prediction-one-step-derivative-1" class="nav-link" data-scroll-target="#dynamics-prediction-one-step-derivative-1"><strong>Dynamics prediction: one-step derivative</strong></a></li>
+  <li><a href="#dynamics-prediction-10000-steps-rollout-1" id="toc-dynamics-prediction-10000-steps-rollout-1" class="nav-link" data-scroll-target="#dynamics-prediction-10000-steps-rollout-1"><strong>Dynamics prediction: 10,000 steps rollout</strong></a></li>
   </ul></li>
   <li><a href="#influence-of-number-of-neurons" id="toc-influence-of-number-of-neurons" class="nav-link" data-scroll-target="#influence-of-number-of-neurons">Influence of Number of Neurons</a></li>
+  <li><a href="#gain-rank-landscape-ongoing" id="toc-gain-rank-landscape-ongoing" class="nav-link" data-scroll-target="#gain-rank-landscape-ongoing">Gain × Rank Landscape (Ongoing)</a>
+  <ul class="collapse">
+  <li><a href="#key-findings" id="toc-key-findings" class="nav-link" data-scroll-target="#key-findings">Key Findings</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -232,8 +271,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<div class="quarto-title-block"><div><h1 class="title">Case Study: Low-Rank Connectivity</h1><button type="button" class="btn code-tools-button" id="quarto-code-tools-source"><i class="bi"></i> Code</button></div></div>
-<p class="subtitle lead">Recovering W from rank-20 connectivity neural dynamics — 340 iterations of LLM-guided exploration across network scales</p>
+<div class="quarto-title-block"><div><h1 class="title">Case Study: Low-Rank Connectivity</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Code</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">View Source</a></li></ul></div></div>
+<p class="subtitle lead">Recovering W from rank-20 connectivity neural dynamics — LLM-guided exploration across network scales</p>
 </div>
 
 
@@ -252,17 +291,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="problem-statement" class="level2">
 <h2 class="anchored" data-anchor-id="problem-statement">Problem Statement</h2>
-<p>Low-rank connectivity (rank 20, n=100 neurons) produces neural activity with effective rank ~12 — the hardest regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data. The central question: <strong>can we find GNN training parameters that reliably recover W from low-rank dynamics?</strong></p>
+<p>Low-rank connectivity (rank 20, 100 neurons) produces neural activity with activity rank ~12 @ 99% variance explained — a difficult regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data. The central question: <strong>can we find GNN training parameters that reliably recover W from low-rank dynamics?</strong></p>
 </section>
 <section id="from-landscape-to-dedicated-exploration" class="level2">
 <h2 class="anchored" data-anchor-id="from-landscape-to-dedicated-exploration">From Landscape to Dedicated Exploration</h2>
-<p>This case study builds upon the <strong>348-iteration landscape exploration</strong> (<a href="./results.html">Landscape Results</a>), which systematically mapped GNN training configurations across 29 regimes. Block 2 of that exploration devoted 12 iterations to the low-rank regime (n=100 neurons, rank=20, eff_rank~12). The LLM identified two critical levers — <strong>lr_W</strong> and <strong>L1</strong> — and systematically combined them to reach an optimal configuration at iteration 21:</p>
+<p>This case study builds upon the <strong>348-iterations landscape exploration</strong> (<a href="./results.html">Landscape Results</a>), which systematically mapped GNN training configurations across 29 neural activity regimes. Block 2 of that exploration devoted 12 iterations to the low-rank regime (100 neurons, rank=20, activity rank ~12 @ 99% variance explained, ~4 @ 90%). Overall convergence: 9/12 iterations (75%). Connectivity recovery was not the bottleneck, nearly all iterations achieved connectivity_R<sup>2</sup> &gt; 0. The challenge was dynamics recovery (rollout_R<sup>2</sup>). The LLM identified two critical levers — <strong>lr_W</strong> (learning rate for W) and <strong>L1_W</strong> (sparsitiy on W)— and systematically combined them to reach an optimal configuration at iteration 21. Note, these results come from a single random seed and a single network size (100 neurons); the dedicated exploration below reveals that the results are seed-dependent.</p>
 <table class="caption-top table">
 <thead>
 <tr class="header">
 <th style="text-align: left;"></th>
 <th style="text-align: center;">lr_W</th>
-<th style="text-align: center;">L1</th>
+<th style="text-align: center;">L1_W</th>
 <th style="text-align: center;">connectivity_R<sup>2</sup></th>
 <th style="text-align: center;">rollout_R<sup>2</sup> (1000 frames)</th>
 </tr>
@@ -276,7 +315,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <td style="text-align: center;">0.902</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Iter 18 (lower L1)</td>
+<td style="text-align: left;">Iter 18 (lower L1_W)</td>
 <td style="text-align: center;">4E-3</td>
 <td style="text-align: center;">1E-6</td>
 <td style="text-align: center;">1.000</td>
@@ -298,33 +337,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </tr>
 </tbody>
 </table>
-<p>Overall convergence: 9/12 iterations (75%). Connectivity recovery was not the bottleneck — nearly all iterations achieved connectivity_R<sup>2</sup> &gt; 0.99. The challenge was dynamics recovery (test_R<sup>2</sup>), highly sensitive to the lr_W/L1 combination. These results come from a single random seed and a single network size (n=100 neurons); the dedicated exploration below reveals that both the optimal configuration and recovery difficulty are seed-dependent.</p>
-<section id="established-principles-n100-neurons-single-seed" class="level3">
-<h3 class="anchored" data-anchor-id="established-principles-n100-neurons-single-seed">Established Principles (n=100 neurons, single seed)</h3>
+<section id="established-principles-100-neurons-single-seed" class="level3">
+<h3 class="anchored" data-anchor-id="established-principles-100-neurons-single-seed">Established Principles (100 neurons, single seed)</h3>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-1. L1=1E-6 is critical for low-rank dynamics
+1. L1_W=1E-6 is critical for low-rank dynamics
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>At L1=1E-5, connectivity converges (R<sup>2</sup> &gt; 0.99) but dynamics remain poor (test_R<sup>2</sup> ~0.90). Reducing L1 to 1E-6 unlocks near-perfect dynamics (test_R<sup>2</sup> = 0.996). Excessive L1 penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate. The role of L1 here echoes the LASSO framework (<a href="https://doi.org/10.1111/j.2517-6161.1996.tb02080.x">Tibshirani, 1996</a>): L1 regularization performs implicit variable selection, zeroing out irrelevant entries while preserving the signal. The key is calibration — too much L1 destroys the low-rank structure, too little allows noise to persist.</p>
-</div>
-</div>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-2. Full-matrix learning + L1 outperforms direct factorization
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p><code>low_rank_factorization=True</code> (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives connectivity_R<sup>2</sup>=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full N×N matrix and letting L1 induce the low-rank structure. This is a well-established principle: learning in an overparameterized space and regularizing is generally more effective than constraining to the true dimension from the start. For matrix recovery, <a href="https://doi.org/10.1007/s10208-009-9045-5">Candès &amp; Recht (2009)</a> and <a href="https://doi.org/10.1137/070697835">Recht, Fazel &amp; Parrilo (2010)</a> proved that minimizing the nuclear norm (the L1 analog for singular values) over the full matrix space provably recovers low-rank matrices, while the direct rank-constrained factorization W = W_L @ W_R introduces non-convex symmetries and saddle points (<a href="https://arxiv.org/abs/1605.07221">Bhojanapalli, Neyshabur &amp; Srebro, 2016</a>). The same principle underpins compressed sensing (<a href="https://doi.org/10.1002/cpa.20124">Candès, Romberg &amp; Tao, 2006</a>; <a href="https://doi.org/10.1109/TIT.2006.871582">Donoho, 2006</a>): solving in a higher-dimensional space with sparsity penalty recovers the true sparse solution more reliably than direct low-dimensional search.</p>
+<p>At L1_W=1E-5, connectivity converges (R<sup>2</sup> &gt; 0.99) but dynamics prediction remain partial (rollout_R<sup>2</sup> ~0.90 over 1000 frames). Reducing L1_W to 1E-6 unlocks near-perfect dynamics prediction (rollout_R<sup>2</sup> = 0.996). Excessive L1_W penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate. The role of L1_W here echoes the LASSO framework (<a href="https://doi.org/10.1111/j.2517-6161.1996.tb02080.x">Tibshirani, 1996</a>): L1_W regularization performs implicit variable selection, zeroing out irrelevant entries while preserving the signal. The key is calibration — too much L1_W destroys the low-rank structure, too little allows noise to persist.</p>
 </div>
 </div>
 <div class="callout callout-style-default callout-note callout-titled">
@@ -333,16 +358,42 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-3. Optimal lr_W shifts downward (4E-3 → 3E-3)
+2. Full-matrix learning + L1_W outperforms direct factorization
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower effective rank provides less gradient signal, so smaller learning rate steps avoid overshooting.</p>
+<p><code>low_rank_factorization=True</code> (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives connectivity_R<sup>2</sup>=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full N×N matrix and letting L1_W induce the low-rank structure. This is a well-established principle: learning in an overparameterized space and regularizing is generally more effective than constraining to the true dimension from the start. For matrix recovery, <a href="https://doi.org/10.1007/s10208-009-9045-5">Candès &amp; Recht (2009)</a> and <a href="https://doi.org/10.1137/070697835">Recht, Fazel &amp; Parrilo (2010)</a> proved that minimizing the nuclear norm (the L1_W analog for singular values) over the full matrix space provably recovers low-rank matrices, while the direct rank-constrained factorization W = W_L @ W_R introduces non-convex symmetries and saddle points (<a href="https://arxiv.org/abs/1605.07221">Bhojanapalli, Neyshabur &amp; Srebro, 2016</a>). The same principle underpins compressed sensing (<a href="https://doi.org/10.1002/cpa.20124">Candès, Romberg &amp; Tao, 2006</a>; <a href="https://doi.org/10.1109/TIT.2006.871582">Donoho, 2006</a>): solving in a higher-dimensional space with sparsity penalty recovers the true sparse solution more reliably than direct low-dimensional search.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+3. W initialization matters
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The learned W matrix is initialized at the start of training. Three modes are available: <code>randn</code> (std=1), <code>randn_scaled</code> (std=scale/sqrt(N)), and <code>zeros</code>. Only <strong><code>randn</code></strong> produces successful recovery — both <code>randn_scaled</code> and <code>zeros</code> fail to converge. Gradient clipping on W does not help as a rescue for failing initializations.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+4. Optimal lr_W shifts downward (4E-3 → 3E-3)
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower activity rank provides less gradient signal, so smaller learning rate steps avoid overshooting.</p>
 </div>
 </div>
 </section>
-<section id="iter-21-rank20-connectivity-w-u-v-n100-neurons" class="level3">
-<h3 class="anchored" data-anchor-id="iter-21-rank20-connectivity-w-u-v-n100-neurons">Iter 21: rank=20, connectivity W = U V, n=100 neurons</h3>
+<section id="iter-21-rank20-connectivity-w-u-v-100-neurons" class="level3">
+<h3 class="anchored" data-anchor-id="iter-21-rank20-connectivity-w-u-v-100-neurons">Iter 21: rank=20, connectivity W = U V, 100 neurons</h3>
 </section>
 <section id="simulated-data" class="level3">
 <h3 class="anchored" data-anchor-id="simulated-data">Simulated data</h3>
@@ -360,8 +411,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="assets/signal_iter_021/activity.png" class="lightbox" data-gallery="iter21" title="Activity traces with effective rank"><img src="assets/signal_iter_021/activity.png" class="img-fluid figure-img" alt="Activity traces with effective rank"></a></p>
-<figcaption>Activity traces with effective rank</figcaption>
+<p><a href="assets/signal_iter_021/activity.png" class="lightbox" data-gallery="iter21" title="Activity traces with activity rank"><img src="assets/signal_iter_021/activity.png" class="img-fluid figure-img" alt="Activity traces with activity rank"></a></p>
+<figcaption>Activity traces with activity rank</figcaption>
 </figure>
 </div>
 </div>
@@ -379,19 +430,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="learned-w-u-v" class="level3">
 <h3 class="anchored" data-anchor-id="learned-w-u-v">Learned W, U, V</h3>
 <p>The GNN learns a full N×N connectivity matrix W during training. Since the true connectivity is low-rank (W = U V), we extract the learned low-rank factors by performing SVD on the learned W and retaining the top-<em>r</em> singular vectors. The resulting U_learned and V_learned are then aligned to the true U and V via Procrustes rotation (orthogonal alignment that minimizes the Frobenius distance), followed by a sign/permutation correction to resolve the inherent ambiguity in SVD factor ordering.</p>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-W initialization matters
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<p>The learned W matrix is initialized at the start of training. Three modes are available: <code>randn</code> (std=1), <code>randn_scaled</code> (std=scale/sqrt(N)), and <code>zeros</code>. Only <strong><code>randn</code></strong> produces successful recovery — both <code>randn_scaled</code> and <code>zeros</code> fail to converge. Gradient clipping on W does not help as a rescue for failing initializations.</p>
-</div>
-</div>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><a href="assets/signal_iter_021/low_rank_WUV_learned.png" class="lightbox" data-gallery="iter21" title="Learned low-rank decomposition after correction and alignment"><img src="assets/signal_iter_021/low_rank_WUV_learned.png" class="img-fluid figure-img" alt="Learned low-rank decomposition after correction and alignment"></a></p>
@@ -406,7 +444,7 @@ W initialization matters
 </div>
 </section>
 <section id="dynamics-prediction-one-step-derivative" class="level3">
-<h3 class="anchored" data-anchor-id="dynamics-prediction-one-step-derivative">Dynamics prediction: one-step derivative</h3>
+<h3 class="anchored" data-anchor-id="dynamics-prediction-one-step-derivative"><strong>Dynamics prediction: one-step derivative</strong></h3>
 <p>The GNN is trained to predict the first derivative of neural activity. At each timestep, we feed the <strong>true</strong> activity to the GNN and compare its predicted derivative to the ground-truth derivative. This isolates the per-step accuracy of the learned dynamics, independent of error accumulation.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -416,7 +454,7 @@ W initialization matters
 </div>
 </section>
 <section id="dynamics-prediction-10000-steps-rollout" class="level3">
-<h3 class="anchored" data-anchor-id="dynamics-prediction-10000-steps-rollout">Dynamics prediction: 10,000 steps rollout</h3>
+<h3 class="anchored" data-anchor-id="dynamics-prediction-10000-steps-rollout"><strong>Dynamics prediction: 10,000 steps rollout</strong></h3>
 <p>The rollout starts from the true initial activity at a single timepoint and then iterates the GNN forward autonomously — each predicted state becomes the input for the next step. Errors accumulate over time, making this a much harder test than one-step prediction. The GNN captures the population activity patterns correctly — the vertical structure in the kinograph (which neurons are co-active) is well recovered. However, the temporal transitions between patterns are less accurate: the GNN gets the <strong>patterns</strong> right but not the precise <strong>timing</strong> of mode switching. Here U and V are both well recovered (R<sup>2</sup>≈0.97), yet the rollout still drifts. A direct-dynamics experiment (bypassing the GNN, running the true RNN equation du/dt = −u + 7·W·tanh(u) with different W matrices; montages not shown, see <code>run_hybrid_UV_rollout.py</code>) shows that even supplying the ground-truth V while keeping the learned U gives only rollout R<sup>2</sup>=0.67 at 600 frames, and supplying the ground-truth U with the learned V gives R<sup>2</sup>=0.77. Neither factor alone at R<sup>2</sup>≈0.97 is sufficient — the chaotic dynamics amplify any residual error in either factor exponentially through the recurrent loop. Only the exact ground-truth W produces a perfect rollout.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
@@ -440,11 +478,11 @@ W initialization matters
 </section>
 <section id="dedicated-exploration" class="level2">
 <h2 class="anchored" data-anchor-id="dedicated-exploration">Dedicated Exploration</h2>
-<p>The dedicated exploration fixed the simulation (low_rank, rank=20, 10k frames) and searched training hyperparameters using UCB tree search with 4 parallel slots per batch. The exploration addresses two questions in sequence: <strong>how sensitive is recovery to the training seed</strong> (at fixed n=100 neurons), and <strong>how does recovery scale with network size</strong> (n=100 to n=1000).</p>
-<p>At n=100, connectivity recovery (connectivity_R<sup>2</sup>) is essentially solved — nearly all iterations achieve connectivity_R<sup>2</sup> &gt; 0.999 regardless of hyperparameters. The real challenge is <strong>dynamics recovery (rollout_R<sup>2</sup>)</strong>, which is highly sensitive to the training seed and the lr_W/L1 combination.</p>
+<p>The dedicated exploration fixed the simulation (low_rank, rank=20, 10k frames) and searched training hyperparameters using UCB tree search with 4 parallel slots per batch. The exploration addresses two questions in sequence: <strong>how sensitive is recovery to the training seed</strong> (at fixed 100 neurons), and <strong>how does recovery scale with network size</strong> (100 to 1000 neurons).</p>
+<p>At 100 neurons, connectivity recovery (connectivity_R<sup>2</sup>) is essentially solved — nearly all iterations achieve connectivity_R<sup>2</sup> &gt; 0.999 regardless of hyperparameters. The real challenge is <strong>dynamics recovery (rollout_R<sup>2</sup>)</strong>, which is highly sensitive to the training seed and the lr_W/L1_W combination.</p>
 <section id="influence-of-the-training-seed" class="level3">
 <h3 class="anchored" data-anchor-id="influence-of-the-training-seed">Influence of the Training Seed</h3>
-<p>The training seed controls only the GNN’s random initialization — the simulated data (W, U, V, activity) is identical across all seeds. Yet it is the single most important factor for dynamics recovery. Across 70 seeds at n=100: <strong>49 learnable (70%), 21 hard (30%)</strong>. All 21 hard seeds share the same failure signature: U recovers well (U_R<sup>2</sup> ~0.95) while V is stuck (V_R<sup>2</sup> &lt; 0.43). The failure is <strong>always asymmetric</strong> — no seed produces both bad U and bad V. This holds across extensive rescue attempts: seed=9000, tested across 6 hyperparameter configurations (lr_W=3–5E-3, L1=1E-5/1E-6, n_epochs=2–3), consistently gives U_R<sup>2</sup>=0.948, V_R<sup>2</sup>=0.44; seed=1000, tested 15 times, gives U_R<sup>2</sup>=0.946, V_R<sup>2</sup>=0.427. The asymmetry is consistent with <a href="https://arxiv.org/abs/1711.09672">Mastrogiuseppe &amp; Ostojic (2018)</a>: in low-rank networks, the right-connectivity vectors (our U columns) determine the <strong>output pattern</strong> of activity and are directly constrained by the observed dynamics, while the left-connectivity vectors (our V rows) implement <strong>input selection</strong> — an implicit filtering operation that is less directly observable.</p>
+<p>The training seed controls only the GNN’s random initialization — the simulated data (W, U, V, activity) is identical across all seeds. Yet it is the single most important factor for dynamics recovery. Across 70 seeds at 100 neurons: <strong>49 learnable (70%), 21 hard (30%)</strong>. All 21 hard seeds share the same failure signature: U recovers well (U_R<sup>2</sup> ~0.95) while V is stuck (V_R<sup>2</sup> &lt; 0.43). The failure is <strong>always asymmetric</strong> — no seed produces both bad U and bad V. This holds across extensive rescue attempts: seed=9000, tested across 6 hyperparameter configurations (lr_W=3–5E-3, L1_W=1E-5/1E-6, n_epochs=2–3), consistently gives U_R<sup>2</sup>=0.948, V_R<sup>2</sup>=0.44; seed=1000, tested 15 times, gives U_R<sup>2</sup>=0.946, V_R<sup>2</sup>=0.427. The asymmetry is consistent with <a href="https://arxiv.org/abs/1711.09672">Mastrogiuseppe &amp; Ostojic (2018)</a>: in low-rank networks, the right-connectivity vectors (our U columns) determine the <strong>output pattern</strong> of activity and are directly constrained by the observed dynamics, while the left-connectivity vectors (our V rows) implement <strong>input selection</strong> — an implicit filtering operation that is less directly observable.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><a href="assets/signal_iter_069/low_rank_WUV_learned.png" class="lightbox" data-gallery="iter069" title="Learned low-rank decomposition: W is noisy, U has partial structure, V is poorly recovered"><img src="assets/signal_iter_069/low_rank_WUV_learned.png" class="img-fluid figure-img" alt="Learned low-rank decomposition: W is noisy, U has partial structure, V is poorly recovered"></a></p>
@@ -458,37 +496,176 @@ W initialization matters
 </figure>
 </div>
 <p>Despite poor W recovery, the one-step derivative prediction remains decent (R<sup>2</sup>=0.964, SSIM=0.920) — the GNN learns enough local structure to approximate per-step dynamics. But this accuracy does not survive autonomous rollout: the rollout diverges catastrophically (R<sup>2</sup>=-inf, values reach 10<sup>33</sup>). As the hybrid U/V experiment above demonstrates, even perfect knowledge of one factor is not enough — errors in either U or V are amplified exponentially through the chaotic recurrent loop. Here, with V_R<sup>2</sup>=0.43, the errors are far too large for the recurrent dynamics to remain stable.</p>
+</section>
+<section id="dynamics-prediction-one-step-derivative-1" class="level3">
+<h3 class="anchored" data-anchor-id="dynamics-prediction-one-step-derivative-1"><strong>Dynamics prediction: one-step derivative</strong></h3>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><a href="assets/signal_iter_069/deriv_kinograph_montage.png" class="lightbox" data-gallery="iter069" title="One-step derivative: decent per-step accuracy (R2=0.964) despite poor W"><img src="assets/signal_iter_069/deriv_kinograph_montage.png" class="img-fluid figure-img" alt="One-step derivative: decent per-step accuracy (R2=0.964) despite poor W"></a></p>
 <figcaption>One-step derivative: decent per-step accuracy (R<sup>2</sup>=0.964) despite poor W</figcaption>
 </figure>
 </div>
+<p>The one-step derivative kinograph (top panels) shows that the GNN can predict <span class="math inline">\(du/dt\)</span> reasonably well (R<sup>2</sup>=0.964) even with connectivity_R<sup>2</sup>=0.36. This is because single-step prediction only needs local gradient information — the GNN learns enough of the input-output mapping to approximate the instantaneous dynamics without requiring a globally correct W. The residual (bottom-left, shown on the same color scale as ground truth) is small and spatially diffuse, with no systematic structure.</p>
+</section>
+<section id="dynamics-prediction-10000-steps-rollout-1" class="level3">
+<h3 class="anchored" data-anchor-id="dynamics-prediction-10000-steps-rollout-1"><strong>Dynamics prediction: 10,000 steps rollout</strong></h3>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="assets/signal_iter_069/kinograph_montage.png" class="lightbox" data-gallery="iter069" title="Rollout: catastrophic divergence — R2=-inf, activity explodes"><img src="assets/signal_iter_069/kinograph_montage.png" class="img-fluid figure-img" alt="Rollout: catastrophic divergence — R2=-inf, activity explodes"></a></p>
-<figcaption>Rollout: catastrophic divergence — R<sup>2</sup>=-inf, activity explodes</figcaption>
+<p><a href="assets/signal_iter_069/kinograph_montage.png" class="lightbox" data-gallery="iter069" title="Rollout: catastrophic divergence — R2=-inf, activity explodes. Predicted and residual panels share the ground-truth color scale, revealing how rapidly the prediction saturates."><img src="assets/signal_iter_069/kinograph_montage.png" class="img-fluid figure-img" alt="Rollout: catastrophic divergence — R2=-inf, activity explodes. Predicted and residual panels share the ground-truth color scale, revealing how rapidly the prediction saturates."></a></p>
+<figcaption>Rollout: catastrophic divergence — R<sup>2</sup>=-inf, activity explodes. Predicted and residual panels share the ground-truth color scale, revealing how rapidly the prediction saturates.</figcaption>
 </figure>
 </div>
+<p>The rollout tells a different story. The predicted kinograph (top-right) and residual (bottom-left) use the ground-truth color scale, making the divergence immediately visible: within a few hundred frames the predicted activity saturates the color range and then explodes to values exceeding 10<sup>33</sup> — the kinograph appears as a uniform color because all values are far outside the ground-truth range. The scatter (bottom-right) confirms R<sup>2</sup>=-inf. This catastrophic failure arises because the V-subspace error (V_R<sup>2</sup>=0.43) is amplified exponentially through the chaotic recurrent loop <span class="math inline">\(du/dt = -u + g \cdot W \cdot \tanh(u)\)</span>. Even a small error in V distorts the input selection mechanism: the wrong neurons receive recurrent drive, and once the trajectory leaves the true attractor, the nonlinearity amplifies the deviation at each step. The contrast between good one-step prediction (R<sup>2</sup>=0.96) and catastrophic rollout (R<sup>2</sup>=-inf) demonstrates that <strong>single-step accuracy is necessary but not sufficient for dynamics recovery</strong> — the model must capture the global structure of W, not just its local gradient effects.</p>
 <hr>
 </section>
 </section>
 <section id="influence-of-number-of-neurons" class="level2">
 <h2 class="anchored" data-anchor-id="influence-of-number-of-neurons">Influence of Number of Neurons</h2>
-<p>The exploration then shifted from seed sensitivity to network scaling: how does recovery change as n_neurons grows from 100 to 1000? Five scales were tested (n=100, 200, 400, 600, 1000), all at rank=20, with n_frames=100,000 and data_augmentation_loop=50 for scales above 100.</p>
-<div class="quarto-figure quarto-figure-center">
-<figure class="figure">
-<p><a href="assets/n_neurons_scaling.png" class="lightbox" data-gallery="quarto-lightbox-gallery-13" title="Best R2 per scale for connectivity, rollout, and V-subspace recovery. n=200 is a striking outlier — all three metrics collapse. Recovery improves monotonically from n=400 onward."><img src="assets/n_neurons_scaling.png" class="img-fluid figure-img" alt="Best R2 per scale for connectivity, rollout, and V-subspace recovery. n=200 is a striking outlier — all three metrics collapse. Recovery improves monotonically from n=400 onward."></a></p>
-<figcaption>Best R<sup>2</sup> per scale for connectivity, rollout, and V-subspace recovery. n=200 is a striking outlier — all three metrics collapse. Recovery improves monotonically from n=400 onward.</figcaption>
+<p>The exploration then shifted from seed sensitivity to network scaling: how does recovery change as network size grows from 100 to 1000 neurons? Five scales were tested (100, 200, 400, 600, 1000 neurons), all at rank=20, with 100,000 frames and data_augmentation_loop=50 for scales above 100.</p>
+<div id="cell-fig-n-neurons" class="cell" data-execution_count="1">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.colors <span class="im">import</span> LinearSegmentedColormap</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>n_neurons <span class="op">=</span> [<span class="dv">100</span>, <span class="dv">200</span>, <span class="dv">400</span>, <span class="dv">600</span>, <span class="dv">1000</span>]</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>metrics <span class="op">=</span> [<span class="st">'connectivity R²'</span>, <span class="st">'rollout R²'</span>, <span class="st">'V R²'</span>]</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> np.array([</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">1.000</span>, <span class="fl">0.861</span>, <span class="fl">0.999</span>, <span class="fl">0.9995</span>, <span class="fl">0.992</span>],   <span class="co"># connectivity</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.999</span>, <span class="fl">0.996</span>, <span class="fl">0.990</span>, <span class="fl">0.963</span>,  <span class="fl">0.997</span>],    <span class="co"># rollout</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.97</span>,  <span class="fl">0.859</span>, <span class="fl">0.993</span>, <span class="fl">0.995</span>,  <span class="fl">0.989</span>],    <span class="co"># V</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>rg_cmap <span class="op">=</span> LinearSegmentedColormap.from_list(<span class="st">'rg'</span>, [<span class="st">'#dc2626'</span>, <span class="st">'#f59e0b'</span>, <span class="st">'#22c55e'</span>])</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">3</span>))</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>im <span class="op">=</span> ax.imshow(data, aspect<span class="op">=</span><span class="st">'auto'</span>, cmap<span class="op">=</span>rg_cmap, vmin<span class="op">=</span><span class="fl">0.8</span>, vmax<span class="op">=</span><span class="fl">1.0</span>,</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>               interpolation<span class="op">=</span><span class="st">'nearest'</span>)</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(metrics)):</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(n_neurons)):</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        v <span class="op">=</span> data[i, j]</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>        color <span class="op">=</span> <span class="st">'white'</span> <span class="cf">if</span> v <span class="op">&lt;</span> <span class="fl">0.9</span> <span class="cf">else</span> <span class="st">'black'</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        ax.text(j, i, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">:.3f}</span><span class="ss">'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">11</span>, color<span class="op">=</span>color)</span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>ax.set_xticks(<span class="bu">range</span>(<span class="bu">len</span>(n_neurons)))</span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>ax.set_xticklabels(n_neurons)</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>ax.set_yticks(<span class="bu">range</span>(<span class="bu">len</span>(metrics)))</span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>ax.set_yticklabels(metrics)</span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">'n_neurons'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>fig.colorbar(im, ax<span class="op">=</span>ax, fraction<span class="op">=</span><span class="fl">0.046</span>, pad<span class="op">=</span><span class="fl">0.04</span>)</span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-n-neurons" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-n-neurons-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="case-low-rank_files/figure-html/fig-n-neurons-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-n-neurons-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Best R² per scale for connectivity, rollout, and V-subspace recovery. 200 neurons is a striking outlier — all three metrics collapse. Recovery improves monotonically from 400 neurons onward. Color scale: red (poor) to green (solved).
+</figcaption>
 </figure>
 </div>
-<p><strong>n=200 is the hardest scale.</strong> At n=200, connectivity_R<sup>2</sup> drops to 0.86, V_R<sup>2</sup> to 0.86, and the hard-seed rate rises from 30% (n=100) to 40.5%. Several seeds that were top-tier at n=100 flip to hard at n=200 (seeds 137, 1000, 6000, 17000, 20000, 21000), while some mid-tier seeds improve (seeds 7000, 11000). The V-recovery failure at n=200 is also more severe: V_R<sup>2</sup> as low as 0.07–0.21 (vs 0.38–0.43 at n=100).</p>
-<p><strong>From n=400 onward, W-recovery improves monotonically</strong> (connectivity_R<sup>2</sup>: 0.999 at n=400, 0.9995 at n=600). At larger n, each row of W is more constrained by the data and the GNN is forced toward the true connectivity. However, dynamics recovery is non-monotonic: rollout_R<sup>2</sup> dips at n=400/600 despite near-perfect W. This is a “reverse pattern” — the GNN learns the correct W structure but the MLP has not co-adapted — solved by adjusting lr_W per scale (n=400 needs lr_W=6E-3, n=600 needs 4–5E-3).</p>
-<p><strong>n=1000 is the sweet spot</strong>: both connectivity_R<sup>2</sup>=0.992 and rollout_R<sup>2</sup>=0.997 are excellent with the standard recipe in a single iteration, making it the easiest scale for low-rank recovery.</p>
+</div>
+</div>
+<p><strong>200 neurons is the hardest scale.</strong> At 200 neurons, connectivity_R<sup>2</sup> drops to 0.86, V_R<sup>2</sup> to 0.86, and the hard-seed rate rises from 30% (100 neurons) to 40.5%. Several seeds that were top-tier at 100 neurons flip to hard at 200 neurons (seeds 137, 1000, 6000, 17000, 20000, 21000), while some mid-tier seeds improve (seeds 7000, 11000). The V-recovery failure at 200 neurons is also more severe: V_R<sup>2</sup> as low as 0.07–0.21 (vs 0.38–0.43 at 100 neurons).</p>
+<p><strong>From 400 neurons onward, W-recovery improves monotonically</strong> (connectivity_R<sup>2</sup>: 0.999 at 400 neurons, 0.9995 at 600 neurons). At larger networks, each row of W is more constrained by the data and the GNN is forced toward the true connectivity. However, dynamics recovery is non-monotonic: rollout_R<sup>2</sup> dips at 400/600 neurons despite near-perfect W. This is a “reverse pattern” — the GNN learns the correct W structure but the MLP has not co-adapted — solved by adjusting lr_W per scale (400 neurons needs lr_W=6E-3, 600 neurons needs 4–5E-3).</p>
+<p><strong>1000 neurons is the sweet spot</strong>: both connectivity_R<sup>2</sup>=0.992 and rollout_R<sup>2</sup>=0.997 are excellent with the standard recipe in a single iteration, making it the easiest scale for low-rank recovery.</p>
+<hr>
+</section>
+<section id="gain-rank-landscape-ongoing" class="level2">
+<h2 class="anchored" data-anchor-id="gain-rank-landscape-ongoing">Gain × Rank Landscape (Ongoing)</h2>
+<p>A new LLM-driven exploration is mapping recovery across the <strong>gain × rank</strong> plane: gain <span class="math inline">\(\in \{4, 5, 6, 7, 8, 9, 10\}\)</span>, rank <span class="math inline">\(\in \{10, 15, 20, 25, 30\}\)</span>, all at 100 neurons. The gain parameter controls the nonlinearity strength in <span class="math inline">\(du/dt = -u + g \cdot W \cdot \tanh(u)\)</span>: higher gain produces richer dynamics but also amplifies errors during rollout. <strong>108 iterations</strong> completed across 9 blocks using UCB tree search with 4 parallel slots.</p>
+<div id="cell-fig-gain-rank" class="cell" data-execution_count="2">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.colors <span class="im">import</span> LinearSegmentedColormap</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>gains <span class="op">=</span> [<span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">10</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">10</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">10</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">6</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">6</span>, <span class="dv">5</span>, <span class="dv">8</span>, <span class="dv">4</span>, <span class="dv">6</span>, <span class="dv">5</span>, <span class="dv">9</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">9</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">8</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">10</span>, <span class="dv">8</span>, <span class="dv">10</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">9</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">9</span>, <span class="dv">6</span>]</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>ranks <span class="op">=</span> [<span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">15</span>, <span class="dv">30</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">25</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">15</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">15</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">15</span>, <span class="dv">25</span>]</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>conn_r2s <span class="op">=</span> [<span class="fl">0.9999</span>, <span class="fl">0.214</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9999</span>, <span class="fl">0.2036</span>, <span class="fl">0.9994</span>, <span class="fl">0.7022</span>, <span class="fl">0.9998</span>, <span class="fl">0.653</span>, <span class="fl">1.0</span>, <span class="fl">0.604</span>, <span class="fl">0.9998</span>, <span class="fl">0.7677</span>, <span class="fl">0.9696</span>, <span class="fl">0.8473</span>, <span class="fl">0.9996</span>, <span class="fl">0.768</span>, <span class="fl">0.9998</span>, <span class="fl">0.849</span>, <span class="fl">0.9999</span>, <span class="fl">0.788</span>, <span class="fl">0.999</span>, <span class="fl">0.849</span>, <span class="fl">1.0</span>, <span class="fl">0.77</span>, <span class="fl">0.78</span>, <span class="fl">0.85</span>, <span class="fl">1.0</span>, <span class="fl">0.783</span>, <span class="fl">0.755</span>, <span class="fl">0.873</span>, <span class="fl">0.933</span>, <span class="fl">0.762</span>, <span class="fl">0.743</span>, <span class="fl">0.886</span>, <span class="fl">0.9999</span>, <span class="fl">0.77</span>, <span class="fl">0.85</span>, <span class="fl">0.891</span>, <span class="fl">0.979</span>, <span class="fl">0.866</span>, <span class="fl">0.891</span>, <span class="fl">0.994</span>, <span class="fl">0.996</span>, <span class="fl">0.85</span>, <span class="fl">0.89</span>, <span class="fl">0.982</span>, <span class="fl">0.98</span>, <span class="fl">0.85</span>, <span class="fl">0.89</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.85</span>, <span class="fl">0.84</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.8195</span>, <span class="fl">0.9997</span>, <span class="fl">0.9041</span>, <span class="fl">0.9999</span>, <span class="fl">0.85</span>, <span class="fl">1.0</span>, <span class="fl">0.95</span>, <span class="fl">0.9998</span>, <span class="fl">0.8195</span>, <span class="fl">1.0</span>, <span class="fl">0.917</span>, <span class="fl">0.9999</span>, <span class="fl">0.85</span>, <span class="fl">1.0</span>, <span class="fl">0.908</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">0.95</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">0.92</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.944</span>, <span class="fl">0.9996</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9998</span>, <span class="fl">0.9998</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9942</span>, <span class="fl">0.9999</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">0.72</span>, <span class="fl">1.0</span>, <span class="fl">0.7103</span>, <span class="fl">1.0</span>, <span class="fl">0.6682</span>]</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>test_r2s <span class="op">=</span> [<span class="fl">0.993</span>, <span class="fl">0.751</span>, <span class="fl">0.957</span>, <span class="fl">0.994</span>, <span class="fl">0.9939</span>, <span class="fl">0.7681</span>, <span class="fl">0.9242</span>, <span class="fl">0.9496</span>, <span class="fl">0.9997</span>, <span class="fl">0.987</span>, <span class="fl">0.992</span>, <span class="fl">0.986</span>, <span class="fl">0.9998</span>, <span class="fl">0.9899</span>, <span class="fl">0.9817</span>, <span class="fl">0.9821</span>, <span class="fl">0.9996</span>, <span class="fl">0.989</span>, <span class="fl">0.9966</span>, <span class="fl">0.987</span>, <span class="fl">0.944</span>, <span class="fl">0.993</span>, <span class="fl">0.999</span>, <span class="fl">0.876</span>, <span class="fl">0.989</span>, <span class="fl">0.988</span>, <span class="fl">0.89</span>, <span class="fl">0.987</span>, <span class="fl">0.989</span>, <span class="fl">0.988</span>, <span class="fl">0.88</span>, <span class="fl">0.991</span>, <span class="fl">0.999</span>, <span class="fl">0.988</span>, <span class="fl">0.97</span>, <span class="fl">0.871</span>, <span class="fl">0.8</span>, <span class="fl">0.988</span>, <span class="fl">0.99</span>, <span class="fl">0.985</span>, <span class="fl">0.973</span>, <span class="fl">0.922</span>, <span class="fl">0.817</span>, <span class="fl">0.992</span>, <span class="fl">0.7</span>, <span class="fl">0.93</span>, <span class="fl">0.988</span>, <span class="fl">0.998</span>, <span class="fl">0.93</span>, <span class="fl">0.941</span>, <span class="fl">0.987</span>, <span class="fl">0.97</span>, <span class="fl">0.97</span>, <span class="fl">0.94</span>, <span class="fl">0.93</span>, <span class="fl">0.999</span>, <span class="fl">0.9817</span>, <span class="fl">0.9978</span>, <span class="fl">0.9717</span>, <span class="fl">0.9994</span>, <span class="fl">0.77</span>, <span class="fl">0.93</span>, <span class="fl">0.96</span>, <span class="fl">0.995</span>, <span class="fl">0.876</span>, <span class="fl">0.941</span>, <span class="fl">0.993</span>, <span class="fl">0.9999</span>, <span class="fl">0.985</span>, <span class="fl">0.804</span>, <span class="fl">0.999</span>, <span class="fl">0.999</span>, <span class="fl">0.967</span>, <span class="fl">0.996</span>, <span class="fl">1.0</span>, <span class="fl">0.878</span>, <span class="fl">0.97</span>, <span class="fl">0.99</span>, <span class="fl">0.97</span>, <span class="fl">0.99</span>, <span class="fl">0.884</span>, <span class="fl">0.999</span>, <span class="fl">0.9996</span>, <span class="fl">0.957</span>, <span class="fl">0.977</span>, <span class="fl">0.9998</span>, <span class="fl">0.995</span>, <span class="fl">0.86</span>, <span class="fl">0.997</span>, <span class="fl">0.9995</span>, <span class="fl">0.9997</span>, <span class="fl">0.9</span>, <span class="fl">0.922</span>, <span class="fl">0.9999</span>, <span class="fl">0.9994</span>, <span class="fl">0.9999</span>, <span class="fl">0.9062</span>, <span class="fl">0.9929</span>, <span class="fl">0.9995</span>, <span class="fl">0.9999</span>, <span class="fl">0.996</span>, <span class="fl">0.9994</span>, <span class="fl">0.995</span>, <span class="fl">0.9998</span>, <span class="fl">0.98</span>, <span class="fl">0.95</span>, <span class="fl">0.9997</span>, <span class="fl">0.98</span>]</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>gains <span class="op">=</span> np.array(gains)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>ranks <span class="op">=</span> np.array(ranks)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>conn_r2s <span class="op">=</span> np.array(conn_r2s)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>test_r2s <span class="op">=</span> np.array(test_r2s)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>gain_vals <span class="op">=</span> [<span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">9</span>, <span class="dv">10</span>]</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>rank_vals <span class="op">=</span> [<span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">30</span>]</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute best R² per (gain, rank) cell</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>best_conn <span class="op">=</span> np.full((<span class="bu">len</span>(gain_vals), <span class="bu">len</span>(rank_vals)), np.nan)</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>best_test <span class="op">=</span> np.full((<span class="bu">len</span>(gain_vals), <span class="bu">len</span>(rank_vals)), np.nan)</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, g <span class="kw">in</span> <span class="bu">enumerate</span>(gain_vals):</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j, r <span class="kw">in</span> <span class="bu">enumerate</span>(rank_vals):</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> (gains <span class="op">==</span> g) <span class="op">&amp;</span> (ranks <span class="op">==</span> r)</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> mask.<span class="bu">any</span>():</span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>            best_conn[i, j] <span class="op">=</span> conn_r2s[mask].<span class="bu">max</span>()</span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>            best_test[i, j] <span class="op">=</span> test_r2s[mask].<span class="bu">max</span>()</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Red-to-green colormap</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>rg_cmap <span class="op">=</span> LinearSegmentedColormap.from_list(<span class="st">'rg'</span>, [<span class="st">'#dc2626'</span>, <span class="st">'#f59e0b'</span>, <span class="st">'#22c55e'</span>])</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>fig, (ax1, ax2) <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">5</span>))</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, data, title, vmin <span class="kw">in</span> [(ax1, best_conn, <span class="st">'connectivity R²'</span>, <span class="fl">0.2</span>), (ax2, best_test, <span class="st">'rollout R²'</span>, <span class="fl">0.7</span>)]:</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>    im <span class="op">=</span> ax.imshow(data.T, aspect<span class="op">=</span><span class="st">'auto'</span>, cmap<span class="op">=</span>rg_cmap, vmin<span class="op">=</span>vmin, vmax<span class="op">=</span><span class="fl">1.0</span>,</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>                   origin<span class="op">=</span><span class="st">'lower'</span>, interpolation<span class="op">=</span><span class="st">'nearest'</span>)</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Annotate cells</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(gain_vals)):</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(rank_vals)):</span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>            v <span class="op">=</span> data[i, j]</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> np.isnan(v):</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>                ax.text(i, j, <span class="st">'?'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">10</span>, color<span class="op">=</span><span class="st">'gray'</span>)</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>                color <span class="op">=</span> <span class="st">'white'</span> <span class="cf">if</span> v <span class="op">&lt;</span> (vmin <span class="op">+</span> <span class="fl">1.0</span>) <span class="op">/</span> <span class="dv">2</span> <span class="cf">else</span> <span class="st">'black'</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>                ax.text(i, j, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">:.2f}</span><span class="ss">'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>, color<span class="op">=</span>color)</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>    ax.set_xticks(<span class="bu">range</span>(<span class="bu">len</span>(gain_vals)))</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>    ax.set_xticklabels(gain_vals)</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>    ax.set_yticks(<span class="bu">range</span>(<span class="bu">len</span>(rank_vals)))</span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>    ax.set_yticklabels(rank_vals)</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>    ax.set_xlabel(<span class="st">'gain'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>    ax.set_ylabel(<span class="st">'rank'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>    ax.set_title(title, fontsize<span class="op">=</span><span class="dv">13</span>)</span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>    fig.colorbar(im, ax<span class="op">=</span>ax, fraction<span class="op">=</span><span class="fl">0.046</span>, pad<span class="op">=</span><span class="fl">0.04</span>)</span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>plt.show()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="fig-gain-rank" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gain-rank-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="case-low-rank_files/figure-html/fig-gain-rank-output-1.png" class="img-fluid figure-img">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gain-rank-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: Best R² per gain × rank cell across 108 iterations. Left: connectivity R² (W recovery). Right: rollout R² (dynamics prediction). Color scale: red (poor) to green (solved). Gain ≥ 6 achieves near-perfect W recovery; gain ≤ 5 plateaus. Gray cells have not been tested.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="key-findings" class="level3">
+<h3 class="anchored" data-anchor-id="key-findings">Key Findings</h3>
+<p><strong>Learnability threshold at gain <span class="math inline">\(\approx\)</span> 6.</strong> Gain <span class="math inline">\(\leq\)</span> 5 plateaus at partial recovery (connectivity R² <span class="math inline">\(\approx\)</span> 0.85–0.89) regardless of hyperparameters or seed. Gain <span class="math inline">\(\geq\)</span> 6 achieves near-perfect W recovery (R² <span class="math inline">\(&gt;\)</span> 0.99) across most rank values.</p>
+<p><strong>Optimal <code>lr_W</code> depends on gain.</strong> <code>lr_W=3E-3</code> for gain=6–7; <code>lr_W=2E-3</code> for gain <span class="math inline">\(\geq\)</span> 8. Higher gain provides stronger gradient signal, so smaller steps suffice.</p>
+<p><strong><code>edge_diff</code> is regime-dependent.</strong> The <code>coeff_edge_diff</code> regularization strength must be tuned per regime: <code>edge_diff=10000</code> for rank <span class="math inline">\(\geq\)</span> 15, but <code>edge_diff=20000</code> is required at rank=10 with high gain (8–10) to stabilize the rollout. This was the key breakthrough at iteration 101.</p>
+<p><strong>Two failure modes persist:</strong></p>
+<ul>
+<li><strong>gain=7 at rank=15</strong>: connectivity plateaus at R² <span class="math inline">\(\approx\)</span> 0.85, while gain=6, 8, 9 all solve rank=15. This is gain-specific, not rank-specific.</li>
+<li><strong>gain=6 at rank=25</strong>: V-subspace degeneracy (connectivity R² <span class="math inline">\(\approx\)</span> 0.67–0.72 despite good dynamics). The MLP compensates for poor W by learning dynamics directly.</li>
+</ul>
 
 
 <!-- -->
 
+</section>
 </section>
 
 </main> <!-- /main -->
@@ -1104,128 +1281,258 @@ window.document.addEventListener("DOMContentLoaded", function (event) {
   }
 });
 </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
-<div class="sourceCode" id="cb1" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Case Study: Low-Rank Connectivity"</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Recovering W from rank-20 connectivity neural dynamics --- 340 iterations of LLM-guided exploration across network scales"</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">## Problem Statement</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>Low-rank connectivity (rank 20, n=100 neurons) produces neural activity with effective rank ~12 --- the hardest regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data. The central question: **can we find GNN training parameters that reliably recover W from low-rank dynamics?**</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">## From Landscape to Dedicated Exploration</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>This case study builds upon the **348-iteration landscape exploration** ([Landscape Results](results.qmd)), which systematically mapped GNN training configurations across 29 regimes. Block 2 of that exploration devoted 12 iterations to the low-rank regime (n=100 neurons, rank=20, eff_rank~12). The LLM identified two critical levers --- **lr_W** and **L1** --- and systematically combined them to reach an optimal configuration at iteration 21:</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>| | lr_W | L1 | connectivity_R^2^ | rollout_R^2^ (1000 frames) |</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>|:---|:----:|:--:|:---------:|:---------:|</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>| Iter 13 (baseline) | 4E-3 | 1E-5 | 0.999 | 0.902 |</span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>| Iter 18 (lower L1) | 4E-3 | 1E-6 | 1.000 | 0.925 |</span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>| Iter 19 (lower lr_W) | 3E-3 | 1E-5 | 0.999 | 0.943 |</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>| **Iter 21 (both)** | **3E-3** | **1E-6** | **0.993** | **0.996** |</span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>Overall convergence: 9/12 iterations (75%). Connectivity recovery was not the bottleneck --- nearly all iterations achieved connectivity_R^2^ &gt; 0.99. The challenge was dynamics recovery (test_R^2^), highly sensitive to the lr_W/L1 combination. These results come from a single random seed and a single network size (n=100 neurons); the dedicated exploration below reveals that both the optimal configuration and recovery difficulty are seed-dependent.</span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">### Established Principles (n=100 neurons, single seed)</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1. L1=1E-6 is critical for low-rank dynamics</span></span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>At L1=1E-5, connectivity converges (R^2^ &gt; 0.99) but dynamics remain poor (test_R^2^ ~0.90). Reducing L1 to 1E-6 unlocks near-perfect dynamics (test_R^2^ = 0.996). Excessive L1 penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate. The role of L1 here echoes the LASSO framework (<span class="co">[</span><span class="ot">Tibshirani, 1996</span><span class="co">](https://doi.org/10.1111/j.2517-6161.1996.tb02080.x)</span>): L1 regularization performs implicit variable selection, zeroing out irrelevant entries while preserving the signal. The key is calibration --- too much L1 destroys the low-rank structure, too little allows noise to persist.</span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2. Full-matrix learning + L1 outperforms direct factorization</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a><span class="in">`low_rank_factorization=True`</span> (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives connectivity_R^2^=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full N×N matrix and letting L1 induce the low-rank structure. This is a well-established principle: learning in an overparameterized space and regularizing is generally more effective than constraining to the true dimension from the start. For matrix recovery, <span class="co">[</span><span class="ot">Candès &amp; Recht (2009)</span><span class="co">](https://doi.org/10.1007/s10208-009-9045-5)</span> and <span class="co">[</span><span class="ot">Recht, Fazel &amp; Parrilo (2010)</span><span class="co">](https://doi.org/10.1137/070697835)</span> proved that minimizing the nuclear norm (the L1 analog for singular values) over the full matrix space provably recovers low-rank matrices, while the direct rank-constrained factorization W = W_L @ W_R introduces non-convex symmetries and saddle points (<span class="co">[</span><span class="ot">Bhojanapalli, Neyshabur &amp; Srebro, 2016</span><span class="co">](https://arxiv.org/abs/1605.07221)</span>). The same principle underpins compressed sensing (<span class="co">[</span><span class="ot">Candès, Romberg &amp; Tao, 2006</span><span class="co">](https://doi.org/10.1002/cpa.20124)</span>; <span class="co">[</span><span class="ot">Donoho, 2006</span><span class="co">](https://doi.org/10.1109/TIT.2006.871582)</span>): solving in a higher-dimensional space with sparsity penalty recovers the true sparse solution more reliably than direct low-dimensional search.</span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3. Optimal lr_W shifts downward (4E-3 → 3E-3)</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower effective rank provides less gradient signal, so smaller learning rate steps avoid overshooting.</span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a><span class="fu">### Iter 21: rank=20, connectivity W = U V, n=100 neurons</span></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="fu">### Simulated data</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="al">![Low-rank connectivity decomposition: W (100×100), U (100×20), V (20×100)](assets/signal_iter_021/connectivity_low_rank_WUV.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a><span class="al">![Activity traces with effective rank](assets/signal_iter_021/activity.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a><span class="al">![Kinograph: neurons × time](assets/signal_iter_021/kinograph.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="fu">### Learned W, U, V</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>The GNN learns a full N×N connectivity matrix W during training. Since the true connectivity is low-rank (W = U V), we extract the learned low-rank factors by performing SVD on the learned W and retaining the top-*r* singular vectors. The resulting U_learned and V_learned are then aligned to the true U and V via Procrustes rotation (orthogonal alignment that minimizes the Frobenius distance), followed by a sign/permutation correction to resolve the inherent ambiguity in SVD factor ordering.</span>
-<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a>::: {.callout-warning}</span>
-<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a><span class="fu">### W initialization matters</span></span>
-<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>The learned W matrix is initialized at the start of training. Three modes are available: <span class="in">`randn`</span> (std=1), <span class="in">`randn_scaled`</span> (std=scale/sqrt(N)), and <span class="in">`zeros`</span>. Only **`randn`** produces successful recovery --- both <span class="in">`randn_scaled`</span> and <span class="in">`zeros`</span> fail to converge. Gradient clipping on W does not help as a rescue for failing initializations.</span>
-<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>:::</span>
-<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a><span class="al">![Learned low-rank decomposition after correction and alignment](assets/signal_iter_021/low_rank_WUV_learned.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a><span class="al">![True vs learned scatter: W, U, V](assets/signal_iter_021/low_rank_WUV_scatter.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a><span class="fu">### Dynamics prediction: one-step derivative</span></span>
-<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>The GNN is trained to predict the first derivative of neural activity. At each timestep, we feed the **true** activity to the GNN and compare its predicted derivative to the ground-truth derivative. This isolates the per-step accuracy of the learned dynamics, independent of error accumulation.</span>
-<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a><span class="al">![One-step derivative kinograph: GNN prediction given true activity at each timestep](assets/signal_iter_021/deriv_kinograph_montage.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a><span class="fu">### Dynamics prediction: 10,000 steps rollout</span></span>
-<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a>The rollout starts from the true initial activity at a single timepoint and then iterates the GNN forward autonomously --- each predicted state becomes the input for the next step. Errors accumulate over time, making this a much harder test than one-step prediction.</span>
-<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>The GNN captures the population activity patterns correctly --- the vertical structure in the kinograph (which neurons are co-active) is well recovered. However, the temporal transitions between patterns are less accurate: the GNN gets the **patterns** right but not the precise **timing** of mode switching. Here U and V are both well recovered (R^2^≈0.97), yet the rollout still drifts. A direct-dynamics experiment (bypassing the GNN, running the true RNN equation du/dt = −u + 7·W·tanh(u) with different W matrices; montages not shown, see <span class="in">`run_hybrid_UV_rollout.py`</span>) shows that even supplying the ground-truth V while keeping the learned U gives only rollout R^2^=0.67 at 600 frames, and supplying the ground-truth U with the learned V gives R^2^=0.77. Neither factor alone at R^2^≈0.97 is sufficient --- the chaotic dynamics amplify any residual error in either factor exponentially through the recurrent loop. Only the exact ground-truth W produces a perfect rollout.</span>
-<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a><span class="al">![Rollout kinograph: GT vs GNN prediction over 10,000 frames](assets/signal_iter_021/kinograph_montage.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Mode analysis</span></span>
-<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a>To understand the rollout drift, we project both GT and predicted kinographs onto the true U basis (the top-20 SVD modes of W). If the GNN has learned the correct spatial modes, both projections should activate the same mode set --- the question is whether the temporal activation sequence matches.</span>
-<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a><span class="al">![Mode analysis: per-mode temporal correlation, cross-neuron correlation per frame, and mode power](assets/signal_iter_021/kinograph_mode_analysis.png)</span>{.lightbox group="iter21"}</span>
-<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>The mode power scatter (bottom-right) plots the mean squared amplitude of each mode in GT vs prediction: the slope of 1 confirms that GT and predicted rollouts distribute power identically across all 20 modes --- the GNN activates each mode with the correct strength. However, per-mode temporal correlation (bottom-left) averages only r=0.32, meaning the *temporal sequence* of mode activation diverges. The cross-neuron correlation per frame (top-right) oscillates between +1 and --1: GT and predicted patterns periodically align, then anti-align as the chaotic dynamics push the two trajectories out of phase. This is **temporal phase drift** --- the rollout visits the same attractor but at progressively different times, until the two trajectories are decorrelated.</span>
-<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a><span class="fu">## Dedicated Exploration</span></span>
-<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a>The dedicated exploration fixed the simulation (low_rank, rank=20, 10k frames) and searched training hyperparameters using UCB tree search with 4 parallel slots per batch. The exploration addresses two questions in sequence: **how sensitive is recovery to the training seed** (at fixed n=100 neurons), and **how does recovery scale with network size** (n=100 to n=1000).</span>
-<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a>At n=100, connectivity recovery (connectivity_R^2^) is essentially solved --- nearly all iterations achieve connectivity_R^2^ &gt; 0.999 regardless of hyperparameters. The real challenge is **dynamics recovery (rollout_R^2^)**, which is highly sensitive to the training seed and the lr_W/L1 combination.</span>
-<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-96"><a href="#cb1-96" aria-hidden="true" tabindex="-1"></a><span class="fu">### Influence of the Training Seed</span></span>
-<span id="cb1-97"><a href="#cb1-97" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-98"><a href="#cb1-98" aria-hidden="true" tabindex="-1"></a>The training seed controls only the GNN's random initialization --- the simulated data (W, U, V, activity) is identical across all seeds. Yet it is the single most important factor for dynamics recovery. Across 70 seeds at n=100: **49 learnable (70%), 21 hard (30%)**. All 21 hard seeds share the same failure signature: U recovers well (U_R^2^ ~0.95) while V is stuck (V_R^2^ &lt; 0.43). The failure is **always asymmetric** --- no seed produces both bad U and bad V. This holds across extensive rescue attempts: seed=9000, tested across 6 hyperparameter configurations (lr_W=3--5E-3, L1=1E-5/1E-6, n_epochs=2--3), consistently gives U_R^2^=0.948, V_R^2^=0.44; seed=1000, tested 15 times, gives U_R^2^=0.946, V_R^2^=0.427. The asymmetry is consistent with [Mastrogiuseppe &amp; Ostojic (2018)](https://arxiv.org/abs/1711.09672): in low-rank networks, the right-connectivity vectors (our U columns) determine the **output pattern** of activity and are directly constrained by the observed dynamics, while the left-connectivity vectors (our V rows) implement **input selection** --- an implicit filtering operation that is less directly observable.</span>
-<span id="cb1-99"><a href="#cb1-99" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-100"><a href="#cb1-100" aria-hidden="true" tabindex="-1"></a><span class="al">![Learned low-rank decomposition: W is noisy, U has partial structure, V is poorly recovered](assets/signal_iter_069/low_rank_WUV_learned.png)</span>{.lightbox group="iter069"}</span>
-<span id="cb1-101"><a href="#cb1-101" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-102"><a href="#cb1-102" aria-hidden="true" tabindex="-1"></a><span class="al">![True vs learned scatter: W R^2^=0.364, U R^2^=0.946 (good), V R^2^=0.427 (bad)](assets/signal_iter_069/low_rank_WUV_scatter.png)</span>{.lightbox group="iter069"}</span>
-<span id="cb1-103"><a href="#cb1-103" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-104"><a href="#cb1-104" aria-hidden="true" tabindex="-1"></a>Despite poor W recovery, the one-step derivative prediction remains decent (R^2^=0.964, SSIM=0.920) --- the GNN learns enough local structure to approximate per-step dynamics. But this accuracy does not survive autonomous rollout: the rollout diverges catastrophically (R^2^=-inf, values reach 10^33^). As the hybrid U/V experiment above demonstrates, even perfect knowledge of one factor is not enough --- errors in either U or V are amplified exponentially through the chaotic recurrent loop. Here, with V_R^2^=0.43, the errors are far too large for the recurrent dynamics to remain stable.</span>
-<span id="cb1-105"><a href="#cb1-105" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-106"><a href="#cb1-106" aria-hidden="true" tabindex="-1"></a><span class="al">![One-step derivative: decent per-step accuracy (R^2^=0.964) despite poor W](assets/signal_iter_069/deriv_kinograph_montage.png)</span>{.lightbox group="iter069"}</span>
-<span id="cb1-107"><a href="#cb1-107" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-108"><a href="#cb1-108" aria-hidden="true" tabindex="-1"></a><span class="al">![Rollout: catastrophic divergence --- R^2^=-inf, activity explodes](assets/signal_iter_069/kinograph_montage.png)</span>{.lightbox group="iter069"}</span>
-<span id="cb1-109"><a href="#cb1-109" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-110"><a href="#cb1-110" aria-hidden="true" tabindex="-1"></a>---</span>
-<span id="cb1-111"><a href="#cb1-111" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-112"><a href="#cb1-112" aria-hidden="true" tabindex="-1"></a><span class="fu">## Influence of Number of Neurons</span></span>
-<span id="cb1-113"><a href="#cb1-113" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-114"><a href="#cb1-114" aria-hidden="true" tabindex="-1"></a>The exploration then shifted from seed sensitivity to network scaling: how does recovery change as n_neurons grows from 100 to 1000? Five scales were tested (n=100, 200, 400, 600, 1000), all at rank=20, with n_frames=100,000 and data_augmentation_loop=50 for scales above 100.</span>
-<span id="cb1-115"><a href="#cb1-115" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-116"><a href="#cb1-116" aria-hidden="true" tabindex="-1"></a><span class="al">![Best R^2^ per scale for connectivity, rollout, and V-subspace recovery. n=200 is a striking outlier --- all three metrics collapse. Recovery improves monotonically from n=400 onward.](assets/n_neurons_scaling.png)</span>{.lightbox}</span>
-<span id="cb1-117"><a href="#cb1-117" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-118"><a href="#cb1-118" aria-hidden="true" tabindex="-1"></a>**n=200 is the hardest scale.** At n=200, connectivity_R^2^ drops to 0.86, V_R^2^ to 0.86, and the hard-seed rate rises from 30% (n=100) to 40.5%. Several seeds that were top-tier at n=100 flip to hard at n=200 (seeds 137, 1000, 6000, 17000, 20000, 21000), while some mid-tier seeds improve (seeds 7000, 11000). The V-recovery failure at n=200 is also more severe: V_R^2^ as low as 0.07--0.21 (vs 0.38--0.43 at n=100).</span>
-<span id="cb1-119"><a href="#cb1-119" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-120"><a href="#cb1-120" aria-hidden="true" tabindex="-1"></a>**From n=400 onward, W-recovery improves monotonically** (connectivity_R^2^: 0.999 at n=400, 0.9995 at n=600). At larger n, each row of W is more constrained by the data and the GNN is forced toward the true connectivity. However, dynamics recovery is non-monotonic: rollout_R^2^ dips at n=400/600 despite near-perfect W. This is a "reverse pattern" --- the GNN learns the correct W structure but the MLP has not co-adapted --- solved by adjusting lr_W per scale (n=400 needs lr_W=6E-3, n=600 needs 4--5E-3).</span>
-<span id="cb1-121"><a href="#cb1-121" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-122"><a href="#cb1-122" aria-hidden="true" tabindex="-1"></a>**n=1000 is the sweet spot**: both connectivity_R^2^=0.992 and rollout_R^2^=0.997 are excellent with the standard recipe in a single iteration, making it the easiest scale for low-rank recovery.</span></code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb3" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Case Study: Low-Rank Connectivity"</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="an">subtitle:</span><span class="co"> "Recovering W from rank-20 connectivity neural dynamics --- LLM-guided exploration across network scales"</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">## Problem Statement</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>Low-rank connectivity (rank 20, 100 neurons) produces neural activity with activity rank ~12 @ 99% variance explained --- a difficult regime for connectivity recovery. With fewer distinguishable activity modes, many different connectivity matrices W can generate the same neuron traces. The GNN must discover the true W from severely under-determined data. The central question: **can we find GNN training parameters that reliably recover W from low-rank dynamics?**</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">## From Landscape to Dedicated Exploration</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>This case study builds upon the **348-iterations landscape exploration** ([Landscape Results](results.qmd)), which systematically mapped GNN training configurations across 29 neural activity regimes. Block 2 of that exploration devoted 12 iterations to the low-rank regime (100 neurons, rank=20, activity rank ~12 @ 99% variance explained, ~4 @ 90%). Overall convergence: 9/12 iterations (75%). Connectivity recovery was not the bottleneck, nearly all iterations achieved connectivity_R^2^ &gt; 0. The challenge was dynamics recovery (rollout_R^2^). The LLM identified two critical levers --- **lr_W** (learning rate for W) and **L1_W** (sparsitiy on W)--- and systematically combined them to reach an optimal configuration at iteration 21. Note, these results come from a single random seed and a single network size (100 neurons); the dedicated exploration below reveals that the results are seed-dependent.</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>| | lr_W | L1_W | connectivity_R^2^ | rollout_R^2^ (1000 frames) |</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>|:---|:----:|:--:|:---------:|:---------:|</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>| Iter 13 (baseline) | 4E-3 | 1E-5 | 0.999 | 0.902 |</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>| Iter 18 (lower L1_W) | 4E-3 | 1E-6 | 1.000 | 0.925 |</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>| Iter 19 (lower lr_W) | 3E-3 | 1E-5 | 0.999 | 0.943 |</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>| **Iter 21 (both)** | **3E-3** | **1E-6** | **0.993** | **0.996** |</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a><span class="fu">### Established Principles (100 neurons, single seed)</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="fu">### 1. L1_W=1E-6 is critical for low-rank dynamics</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>At L1_W=1E-5, connectivity converges (R^2^ &gt; 0.99) but dynamics prediction remain partial (rollout_R^2^ ~0.90 over 1000 frames). Reducing L1_W to 1E-6 unlocks near-perfect dynamics prediction (rollout_R^2^ = 0.996). Excessive L1_W penalizes small W entries that encode the low-rank structure, forcing the MLP to compensate. The role of L1_W here echoes the LASSO framework (<span class="co">[</span><span class="ot">Tibshirani, 1996</span><span class="co">](https://doi.org/10.1111/j.2517-6161.1996.tb02080.x)</span>): L1_W regularization performs implicit variable selection, zeroing out irrelevant entries while preserving the signal. The key is calibration --- too much L1_W destroys the low-rank structure, too little allows noise to persist.</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a><span class="fu">### 2. Full-matrix learning + L1_W outperforms direct factorization</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a><span class="in">`low_rank_factorization=True`</span> (W = W_L @ W_R) underperforms direct W learning. At lr_W=5E-3 factorization gives connectivity_R^2^=0.899 vs 0.999 without. The GNN recovers W structure better when learning a full N×N matrix and letting L1_W induce the low-rank structure. This is a well-established principle: learning in an overparameterized space and regularizing is generally more effective than constraining to the true dimension from the start. For matrix recovery, <span class="co">[</span><span class="ot">Candès &amp; Recht (2009)</span><span class="co">](https://doi.org/10.1007/s10208-009-9045-5)</span> and <span class="co">[</span><span class="ot">Recht, Fazel &amp; Parrilo (2010)</span><span class="co">](https://doi.org/10.1137/070697835)</span> proved that minimizing the nuclear norm (the L1_W analog for singular values) over the full matrix space provably recovers low-rank matrices, while the direct rank-constrained factorization W = W_L @ W_R introduces non-convex symmetries and saddle points (<span class="co">[</span><span class="ot">Bhojanapalli, Neyshabur &amp; Srebro, 2016</span><span class="co">](https://arxiv.org/abs/1605.07221)</span>). The same principle underpins compressed sensing (<span class="co">[</span><span class="ot">Candès, Romberg &amp; Tao, 2006</span><span class="co">](https://doi.org/10.1002/cpa.20124)</span>; <span class="co">[</span><span class="ot">Donoho, 2006</span><span class="co">](https://doi.org/10.1109/TIT.2006.871582)</span>): solving in a higher-dimensional space with sparsity penalty recovers the true sparse solution more reliably than direct low-dimensional search.</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="fu">### 3. W initialization matters</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>The learned W matrix is initialized at the start of training. Three modes are available: <span class="in">`randn`</span> (std=1), <span class="in">`randn_scaled`</span> (std=scale/sqrt(N)), and <span class="in">`zeros`</span>. Only **`randn`** produces successful recovery --- both <span class="in">`randn_scaled`</span> and <span class="in">`zeros`</span> fail to converge. Gradient clipping on W does not help as a rescue for failing initializations.</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a><span class="fu">### 4. Optimal lr_W shifts downward (4E-3 → 3E-3)</span></span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>Compared to chaotic baseline (lr_W=4E-3), the low-rank regime needs lower lr_W=3E-3. The lower activity rank provides less gradient signal, so smaller learning rate steps avoid overshooting.</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a><span class="fu">### Iter 21: rank=20, connectivity W = U V, 100 neurons</span></span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a><span class="fu">### Simulated data</span></span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a><span class="al">![Low-rank connectivity decomposition: W (100×100), U (100×20), V (20×100)](assets/signal_iter_021/connectivity_low_rank_WUV.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>::: {layout-ncol=2}</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a><span class="al">![Activity traces with activity rank](assets/signal_iter_021/activity.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a><span class="al">![Kinograph: neurons × time](assets/signal_iter_021/kinograph.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a><span class="fu">### Learned W, U, V</span></span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>The GNN learns a full N×N connectivity matrix W during training. Since the true connectivity is low-rank (W = U V), we extract the learned low-rank factors by performing SVD on the learned W and retaining the top-*r* singular vectors. The resulting U_learned and V_learned are then aligned to the true U and V via Procrustes rotation (orthogonal alignment that minimizes the Frobenius distance), followed by a sign/permutation correction to resolve the inherent ambiguity in SVD factor ordering.</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a><span class="al">![Learned low-rank decomposition after correction and alignment](assets/signal_iter_021/low_rank_WUV_learned.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a><span class="al">![True vs learned scatter: W, U, V](assets/signal_iter_021/low_rank_WUV_scatter.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a><span class="fu">### **Dynamics prediction: one-step derivative**</span></span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>The GNN is trained to predict the first derivative of neural activity. At each timestep, we feed the **true** activity to the GNN and compare its predicted derivative to the ground-truth derivative. This isolates the per-step accuracy of the learned dynamics, independent of error accumulation.</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a><span class="al">![One-step derivative kinograph: GNN prediction given true activity at each timestep](assets/signal_iter_021/deriv_kinograph_montage.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a><span class="fu">### **Dynamics prediction: 10,000 steps rollout**</span></span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a>The rollout starts from the true initial activity at a single timepoint and then iterates the GNN forward autonomously --- each predicted state becomes the input for the next step. Errors accumulate over time, making this a much harder test than one-step prediction.</span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a>The GNN captures the population activity patterns correctly --- the vertical structure in the kinograph (which neurons are co-active) is well recovered. However, the temporal transitions between patterns are less accurate: the GNN gets the **patterns** right but not the precise **timing** of mode switching. Here U and V are both well recovered (R^2^≈0.97), yet the rollout still drifts. A direct-dynamics experiment (bypassing the GNN, running the true RNN equation du/dt = −u + 7·W·tanh(u) with different W matrices; montages not shown, see <span class="in">`run_hybrid_UV_rollout.py`</span>) shows that even supplying the ground-truth V while keeping the learned U gives only rollout R^2^=0.67 at 600 frames, and supplying the ground-truth U with the learned V gives R^2^=0.77. Neither factor alone at R^2^≈0.97 is sufficient --- the chaotic dynamics amplify any residual error in either factor exponentially through the recurrent loop. Only the exact ground-truth W produces a perfect rollout.</span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a><span class="al">![Rollout kinograph: GT vs GNN prediction over 10,000 frames](assets/signal_iter_021/kinograph_montage.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a><span class="fu">#### Mode analysis</span></span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>To understand the rollout drift, we project both GT and predicted kinographs onto the true U basis (the top-20 SVD modes of W). If the GNN has learned the correct spatial modes, both projections should activate the same mode set --- the question is whether the temporal activation sequence matches.</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a><span class="al">![Mode analysis: per-mode temporal correlation, cross-neuron correlation per frame, and mode power](assets/signal_iter_021/kinograph_mode_analysis.png)</span>{.lightbox group="iter21"}</span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>The mode power scatter (bottom-right) plots the mean squared amplitude of each mode in GT vs prediction: the slope of 1 confirms that GT and predicted rollouts distribute power identically across all 20 modes --- the GNN activates each mode with the correct strength. However, per-mode temporal correlation (bottom-left) averages only r=0.32, meaning the *temporal sequence* of mode activation diverges. The cross-neuron correlation per frame (top-right) oscillates between +1 and --1: GT and predicted patterns periodically align, then anti-align as the chaotic dynamics push the two trajectories out of phase. This is **temporal phase drift** --- the rollout visits the same attractor but at progressively different times, until the two trajectories are decorrelated.</span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a><span class="fu">## Dedicated Exploration</span></span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>The dedicated exploration fixed the simulation (low_rank, rank=20, 10k frames) and searched training hyperparameters using UCB tree search with 4 parallel slots per batch. The exploration addresses two questions in sequence: **how sensitive is recovery to the training seed** (at fixed 100 neurons), and **how does recovery scale with network size** (100 to 1000 neurons).</span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a>At 100 neurons, connectivity recovery (connectivity_R^2^) is essentially solved --- nearly all iterations achieve connectivity_R^2^ &gt; 0.999 regardless of hyperparameters. The real challenge is **dynamics recovery (rollout_R^2^)**, which is highly sensitive to the training seed and the lr_W/L1_W combination.</span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a><span class="fu">### Influence of the Training Seed</span></span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a>The training seed controls only the GNN's random initialization --- the simulated data (W, U, V, activity) is identical across all seeds. Yet it is the single most important factor for dynamics recovery. Across 70 seeds at 100 neurons: **49 learnable (70%), 21 hard (30%)**. All 21 hard seeds share the same failure signature: U recovers well (U_R^2^ ~0.95) while V is stuck (V_R^2^ &lt; 0.43). The failure is **always asymmetric** --- no seed produces both bad U and bad V. This holds across extensive rescue attempts: seed=9000, tested across 6 hyperparameter configurations (lr_W=3--5E-3, L1_W=1E-5/1E-6, n_epochs=2--3), consistently gives U_R^2^=0.948, V_R^2^=0.44; seed=1000, tested 15 times, gives U_R^2^=0.946, V_R^2^=0.427. The asymmetry is consistent with [Mastrogiuseppe &amp; Ostojic (2018)](https://arxiv.org/abs/1711.09672): in low-rank networks, the right-connectivity vectors (our U columns) determine the **output pattern** of activity and are directly constrained by the observed dynamics, while the left-connectivity vectors (our V rows) implement **input selection** --- an implicit filtering operation that is less directly observable.</span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a><span class="al">![Learned low-rank decomposition: W is noisy, U has partial structure, V is poorly recovered](assets/signal_iter_069/low_rank_WUV_learned.png)</span>{.lightbox group="iter069"}</span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a><span class="al">![True vs learned scatter: W R^2^=0.364, U R^2^=0.946 (good), V R^2^=0.427 (bad)](assets/signal_iter_069/low_rank_WUV_scatter.png)</span>{.lightbox group="iter069"}</span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a>Despite poor W recovery, the one-step derivative prediction remains decent (R^2^=0.964, SSIM=0.920) --- the GNN learns enough local structure to approximate per-step dynamics. But this accuracy does not survive autonomous rollout: the rollout diverges catastrophically (R^2^=-inf, values reach 10^33^). As the hybrid U/V experiment above demonstrates, even perfect knowledge of one factor is not enough --- errors in either U or V are amplified exponentially through the chaotic recurrent loop. Here, with V_R^2^=0.43, the errors are far too large for the recurrent dynamics to remain stable.</span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a><span class="fu">### **Dynamics prediction: one-step derivative**</span></span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a><span class="al">![One-step derivative: decent per-step accuracy (R^2^=0.964) despite poor W](assets/signal_iter_069/deriv_kinograph_montage.png)</span>{.lightbox group="iter069"}</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a>The one-step derivative kinograph (top panels) shows that the GNN can predict $du/dt$ reasonably well (R^2^=0.964) even with connectivity_R^2^=0.36. This is because single-step prediction only needs local gradient information --- the GNN learns enough of the input-output mapping to approximate the instantaneous dynamics without requiring a globally correct W. The residual (bottom-left, shown on the same color scale as ground truth) is small and spatially diffuse, with no systematic structure.</span>
+<span id="cb3-114"><a href="#cb3-114" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-115"><a href="#cb3-115" aria-hidden="true" tabindex="-1"></a><span class="fu">### **Dynamics prediction: 10,000 steps rollout**</span></span>
+<span id="cb3-116"><a href="#cb3-116" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-117"><a href="#cb3-117" aria-hidden="true" tabindex="-1"></a><span class="al">![Rollout: catastrophic divergence --- R^2^=-inf, activity explodes. Predicted and residual panels share the ground-truth color scale, revealing how rapidly the prediction saturates.](assets/signal_iter_069/kinograph_montage.png)</span>{.lightbox group="iter069"}</span>
+<span id="cb3-118"><a href="#cb3-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-119"><a href="#cb3-119" aria-hidden="true" tabindex="-1"></a>The rollout tells a different story. The predicted kinograph (top-right) and residual (bottom-left) use the ground-truth color scale, making the divergence immediately visible: within a few hundred frames the predicted activity saturates the color range and then explodes to values exceeding 10^33^ --- the kinograph appears as a uniform color because all values are far outside the ground-truth range. The scatter (bottom-right) confirms R^2^=-inf. This catastrophic failure arises because the V-subspace error (V_R^2^=0.43) is amplified exponentially through the chaotic recurrent loop $du/dt = -u + g \cdot W \cdot \tanh(u)$. Even a small error in V distorts the input selection mechanism: the wrong neurons receive recurrent drive, and once the trajectory leaves the true attractor, the nonlinearity amplifies the deviation at each step. The contrast between good one-step prediction (R^2^=0.96) and catastrophic rollout (R^2^=-inf) demonstrates that **single-step accuracy is necessary but not sufficient for dynamics recovery** --- the model must capture the global structure of W, not just its local gradient effects.</span>
+<span id="cb3-120"><a href="#cb3-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-121"><a href="#cb3-121" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-122"><a href="#cb3-122" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-123"><a href="#cb3-123" aria-hidden="true" tabindex="-1"></a><span class="fu">## Influence of Number of Neurons</span></span>
+<span id="cb3-124"><a href="#cb3-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-125"><a href="#cb3-125" aria-hidden="true" tabindex="-1"></a>The exploration then shifted from seed sensitivity to network scaling: how does recovery change as network size grows from 100 to 1000 neurons? Five scales were tested (100, 200, 400, 600, 1000 neurons), all at rank=20, with 100,000 frames and data_augmentation_loop=50 for scales above 100.</span>
+<span id="cb3-126"><a href="#cb3-126" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-129"><a href="#cb3-129" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb3-130"><a href="#cb3-130" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: true</span></span>
+<span id="cb3-131"><a href="#cb3-131" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-n-neurons</span></span>
+<span id="cb3-132"><a href="#cb3-132" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Best R² per scale for connectivity, rollout, and V-subspace recovery. 200 neurons is a striking outlier — all three metrics collapse. Recovery improves monotonically from 400 neurons onward. Color scale: red (poor) to green (solved)."</span></span>
+<span id="cb3-133"><a href="#cb3-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-134"><a href="#cb3-134" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb3-135"><a href="#cb3-135" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb3-136"><a href="#cb3-136" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.colors <span class="im">import</span> LinearSegmentedColormap</span>
+<span id="cb3-137"><a href="#cb3-137" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-138"><a href="#cb3-138" aria-hidden="true" tabindex="-1"></a>n_neurons <span class="op">=</span> [<span class="dv">100</span>, <span class="dv">200</span>, <span class="dv">400</span>, <span class="dv">600</span>, <span class="dv">1000</span>]</span>
+<span id="cb3-139"><a href="#cb3-139" aria-hidden="true" tabindex="-1"></a>metrics <span class="op">=</span> [<span class="st">'connectivity R²'</span>, <span class="st">'rollout R²'</span>, <span class="st">'V R²'</span>]</span>
+<span id="cb3-140"><a href="#cb3-140" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> np.array([</span>
+<span id="cb3-141"><a href="#cb3-141" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">1.000</span>, <span class="fl">0.861</span>, <span class="fl">0.999</span>, <span class="fl">0.9995</span>, <span class="fl">0.992</span>],   <span class="co"># connectivity</span></span>
+<span id="cb3-142"><a href="#cb3-142" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.999</span>, <span class="fl">0.996</span>, <span class="fl">0.990</span>, <span class="fl">0.963</span>,  <span class="fl">0.997</span>],    <span class="co"># rollout</span></span>
+<span id="cb3-143"><a href="#cb3-143" aria-hidden="true" tabindex="-1"></a>    [<span class="fl">0.97</span>,  <span class="fl">0.859</span>, <span class="fl">0.993</span>, <span class="fl">0.995</span>,  <span class="fl">0.989</span>],    <span class="co"># V</span></span>
+<span id="cb3-144"><a href="#cb3-144" aria-hidden="true" tabindex="-1"></a>])</span>
+<span id="cb3-145"><a href="#cb3-145" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-146"><a href="#cb3-146" aria-hidden="true" tabindex="-1"></a>rg_cmap <span class="op">=</span> LinearSegmentedColormap.from_list(<span class="st">'rg'</span>, [<span class="st">'#dc2626'</span>, <span class="st">'#f59e0b'</span>, <span class="st">'#22c55e'</span>])</span>
+<span id="cb3-147"><a href="#cb3-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-148"><a href="#cb3-148" aria-hidden="true" tabindex="-1"></a>fig, ax <span class="op">=</span> plt.subplots(figsize<span class="op">=</span>(<span class="dv">10</span>, <span class="dv">3</span>))</span>
+<span id="cb3-149"><a href="#cb3-149" aria-hidden="true" tabindex="-1"></a>im <span class="op">=</span> ax.imshow(data, aspect<span class="op">=</span><span class="st">'auto'</span>, cmap<span class="op">=</span>rg_cmap, vmin<span class="op">=</span><span class="fl">0.8</span>, vmax<span class="op">=</span><span class="fl">1.0</span>,</span>
+<span id="cb3-150"><a href="#cb3-150" aria-hidden="true" tabindex="-1"></a>               interpolation<span class="op">=</span><span class="st">'nearest'</span>)</span>
+<span id="cb3-151"><a href="#cb3-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-152"><a href="#cb3-152" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(metrics)):</span>
+<span id="cb3-153"><a href="#cb3-153" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(n_neurons)):</span>
+<span id="cb3-154"><a href="#cb3-154" aria-hidden="true" tabindex="-1"></a>        v <span class="op">=</span> data[i, j]</span>
+<span id="cb3-155"><a href="#cb3-155" aria-hidden="true" tabindex="-1"></a>        color <span class="op">=</span> <span class="st">'white'</span> <span class="cf">if</span> v <span class="op">&lt;</span> <span class="fl">0.9</span> <span class="cf">else</span> <span class="st">'black'</span></span>
+<span id="cb3-156"><a href="#cb3-156" aria-hidden="true" tabindex="-1"></a>        ax.text(j, i, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">:.3f}</span><span class="ss">'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">11</span>, color<span class="op">=</span>color)</span>
+<span id="cb3-157"><a href="#cb3-157" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-158"><a href="#cb3-158" aria-hidden="true" tabindex="-1"></a>ax.set_xticks(<span class="bu">range</span>(<span class="bu">len</span>(n_neurons)))</span>
+<span id="cb3-159"><a href="#cb3-159" aria-hidden="true" tabindex="-1"></a>ax.set_xticklabels(n_neurons)</span>
+<span id="cb3-160"><a href="#cb3-160" aria-hidden="true" tabindex="-1"></a>ax.set_yticks(<span class="bu">range</span>(<span class="bu">len</span>(metrics)))</span>
+<span id="cb3-161"><a href="#cb3-161" aria-hidden="true" tabindex="-1"></a>ax.set_yticklabels(metrics)</span>
+<span id="cb3-162"><a href="#cb3-162" aria-hidden="true" tabindex="-1"></a>ax.set_xlabel(<span class="st">'n_neurons'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb3-163"><a href="#cb3-163" aria-hidden="true" tabindex="-1"></a>fig.colorbar(im, ax<span class="op">=</span>ax, fraction<span class="op">=</span><span class="fl">0.046</span>, pad<span class="op">=</span><span class="fl">0.04</span>)</span>
+<span id="cb3-164"><a href="#cb3-164" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb3-165"><a href="#cb3-165" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb3-166"><a href="#cb3-166" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-167"><a href="#cb3-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-168"><a href="#cb3-168" aria-hidden="true" tabindex="-1"></a>**200 neurons is the hardest scale.** At 200 neurons, connectivity_R^2^ drops to 0.86, V_R^2^ to 0.86, and the hard-seed rate rises from 30% (100 neurons) to 40.5%. Several seeds that were top-tier at 100 neurons flip to hard at 200 neurons (seeds 137, 1000, 6000, 17000, 20000, 21000), while some mid-tier seeds improve (seeds 7000, 11000). The V-recovery failure at 200 neurons is also more severe: V_R^2^ as low as 0.07--0.21 (vs 0.38--0.43 at 100 neurons).</span>
+<span id="cb3-169"><a href="#cb3-169" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-170"><a href="#cb3-170" aria-hidden="true" tabindex="-1"></a>**From 400 neurons onward, W-recovery improves monotonically** (connectivity_R^2^: 0.999 at 400 neurons, 0.9995 at 600 neurons). At larger networks, each row of W is more constrained by the data and the GNN is forced toward the true connectivity. However, dynamics recovery is non-monotonic: rollout_R^2^ dips at 400/600 neurons despite near-perfect W. This is a "reverse pattern" --- the GNN learns the correct W structure but the MLP has not co-adapted --- solved by adjusting lr_W per scale (400 neurons needs lr_W=6E-3, 600 neurons needs 4--5E-3).</span>
+<span id="cb3-171"><a href="#cb3-171" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-172"><a href="#cb3-172" aria-hidden="true" tabindex="-1"></a>**1000 neurons is the sweet spot**: both connectivity_R^2^=0.992 and rollout_R^2^=0.997 are excellent with the standard recipe in a single iteration, making it the easiest scale for low-rank recovery.</span>
+<span id="cb3-173"><a href="#cb3-173" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-174"><a href="#cb3-174" aria-hidden="true" tabindex="-1"></a>---</span>
+<span id="cb3-175"><a href="#cb3-175" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-176"><a href="#cb3-176" aria-hidden="true" tabindex="-1"></a><span class="fu">## Gain × Rank Landscape (Ongoing)</span></span>
+<span id="cb3-177"><a href="#cb3-177" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-178"><a href="#cb3-178" aria-hidden="true" tabindex="-1"></a>A new LLM-driven exploration is mapping recovery across the **gain × rank** plane: gain $\in \{4, 5, 6, 7, 8, 9, 10\}$, rank $\in \{10, 15, 20, 25, 30\}$, all at 100 neurons. The gain parameter controls the nonlinearity strength in $du/dt = -u + g \cdot W \cdot \tanh(u)$: higher gain produces richer dynamics but also amplifies errors during rollout. **108 iterations** completed across 9 blocks using UCB tree search with 4 parallel slots.</span>
+<span id="cb3-179"><a href="#cb3-179" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-182"><a href="#cb3-182" aria-hidden="true" tabindex="-1"></a><span class="in">```{python}</span></span>
+<span id="cb3-183"><a href="#cb3-183" aria-hidden="true" tabindex="-1"></a><span class="co">#| code-fold: true</span></span>
+<span id="cb3-184"><a href="#cb3-184" aria-hidden="true" tabindex="-1"></a><span class="co">#| label: fig-gain-rank</span></span>
+<span id="cb3-185"><a href="#cb3-185" aria-hidden="true" tabindex="-1"></a><span class="co">#| fig-cap: "Best R² per gain × rank cell across 108 iterations. Left: connectivity R² (W recovery). Right: rollout R² (dynamics prediction). Color scale: red (poor) to green (solved). Gain ≥ 6 achieves near-perfect W recovery; gain ≤ 5 plateaus. Gray cells have not been tested."</span></span>
+<span id="cb3-186"><a href="#cb3-186" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-187"><a href="#cb3-187" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> matplotlib.pyplot <span class="im">as</span> plt</span>
+<span id="cb3-188"><a href="#cb3-188" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb3-189"><a href="#cb3-189" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> matplotlib.colors <span class="im">import</span> LinearSegmentedColormap</span>
+<span id="cb3-190"><a href="#cb3-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-191"><a href="#cb3-191" aria-hidden="true" tabindex="-1"></a>gains <span class="op">=</span> [<span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">10</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">10</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">10</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">6</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">6</span>, <span class="dv">5</span>, <span class="dv">8</span>, <span class="dv">4</span>, <span class="dv">6</span>, <span class="dv">5</span>, <span class="dv">9</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">9</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">4</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">5</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">9</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">7</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">8</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">10</span>, <span class="dv">8</span>, <span class="dv">10</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">8</span>, <span class="dv">10</span>, <span class="dv">9</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">9</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">8</span>, <span class="dv">6</span>, <span class="dv">9</span>, <span class="dv">6</span>]</span>
+<span id="cb3-192"><a href="#cb3-192" aria-hidden="true" tabindex="-1"></a>ranks <span class="op">=</span> [<span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">15</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">15</span>, <span class="dv">30</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">25</span>, <span class="dv">20</span>, <span class="dv">20</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">10</span>, <span class="dv">20</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">10</span>, <span class="dv">10</span>, <span class="dv">30</span>, <span class="dv">30</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">15</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">15</span>, <span class="dv">25</span>, <span class="dv">10</span>, <span class="dv">25</span>, <span class="dv">15</span>, <span class="dv">25</span>]</span>
+<span id="cb3-193"><a href="#cb3-193" aria-hidden="true" tabindex="-1"></a>conn_r2s <span class="op">=</span> [<span class="fl">0.9999</span>, <span class="fl">0.214</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9999</span>, <span class="fl">0.2036</span>, <span class="fl">0.9994</span>, <span class="fl">0.7022</span>, <span class="fl">0.9998</span>, <span class="fl">0.653</span>, <span class="fl">1.0</span>, <span class="fl">0.604</span>, <span class="fl">0.9998</span>, <span class="fl">0.7677</span>, <span class="fl">0.9696</span>, <span class="fl">0.8473</span>, <span class="fl">0.9996</span>, <span class="fl">0.768</span>, <span class="fl">0.9998</span>, <span class="fl">0.849</span>, <span class="fl">0.9999</span>, <span class="fl">0.788</span>, <span class="fl">0.999</span>, <span class="fl">0.849</span>, <span class="fl">1.0</span>, <span class="fl">0.77</span>, <span class="fl">0.78</span>, <span class="fl">0.85</span>, <span class="fl">1.0</span>, <span class="fl">0.783</span>, <span class="fl">0.755</span>, <span class="fl">0.873</span>, <span class="fl">0.933</span>, <span class="fl">0.762</span>, <span class="fl">0.743</span>, <span class="fl">0.886</span>, <span class="fl">0.9999</span>, <span class="fl">0.77</span>, <span class="fl">0.85</span>, <span class="fl">0.891</span>, <span class="fl">0.979</span>, <span class="fl">0.866</span>, <span class="fl">0.891</span>, <span class="fl">0.994</span>, <span class="fl">0.996</span>, <span class="fl">0.85</span>, <span class="fl">0.89</span>, <span class="fl">0.982</span>, <span class="fl">0.98</span>, <span class="fl">0.85</span>, <span class="fl">0.89</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.85</span>, <span class="fl">0.84</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.8195</span>, <span class="fl">0.9997</span>, <span class="fl">0.9041</span>, <span class="fl">0.9999</span>, <span class="fl">0.85</span>, <span class="fl">1.0</span>, <span class="fl">0.95</span>, <span class="fl">0.9998</span>, <span class="fl">0.8195</span>, <span class="fl">1.0</span>, <span class="fl">0.917</span>, <span class="fl">0.9999</span>, <span class="fl">0.85</span>, <span class="fl">1.0</span>, <span class="fl">0.908</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">0.95</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">0.92</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.944</span>, <span class="fl">0.9996</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9998</span>, <span class="fl">0.9998</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">0.9942</span>, <span class="fl">0.9999</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">0.9999</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">1.0</span>, <span class="fl">0.72</span>, <span class="fl">1.0</span>, <span class="fl">0.7103</span>, <span class="fl">1.0</span>, <span class="fl">0.6682</span>]</span>
+<span id="cb3-194"><a href="#cb3-194" aria-hidden="true" tabindex="-1"></a>test_r2s <span class="op">=</span> [<span class="fl">0.993</span>, <span class="fl">0.751</span>, <span class="fl">0.957</span>, <span class="fl">0.994</span>, <span class="fl">0.9939</span>, <span class="fl">0.7681</span>, <span class="fl">0.9242</span>, <span class="fl">0.9496</span>, <span class="fl">0.9997</span>, <span class="fl">0.987</span>, <span class="fl">0.992</span>, <span class="fl">0.986</span>, <span class="fl">0.9998</span>, <span class="fl">0.9899</span>, <span class="fl">0.9817</span>, <span class="fl">0.9821</span>, <span class="fl">0.9996</span>, <span class="fl">0.989</span>, <span class="fl">0.9966</span>, <span class="fl">0.987</span>, <span class="fl">0.944</span>, <span class="fl">0.993</span>, <span class="fl">0.999</span>, <span class="fl">0.876</span>, <span class="fl">0.989</span>, <span class="fl">0.988</span>, <span class="fl">0.89</span>, <span class="fl">0.987</span>, <span class="fl">0.989</span>, <span class="fl">0.988</span>, <span class="fl">0.88</span>, <span class="fl">0.991</span>, <span class="fl">0.999</span>, <span class="fl">0.988</span>, <span class="fl">0.97</span>, <span class="fl">0.871</span>, <span class="fl">0.8</span>, <span class="fl">0.988</span>, <span class="fl">0.99</span>, <span class="fl">0.985</span>, <span class="fl">0.973</span>, <span class="fl">0.922</span>, <span class="fl">0.817</span>, <span class="fl">0.992</span>, <span class="fl">0.7</span>, <span class="fl">0.93</span>, <span class="fl">0.988</span>, <span class="fl">0.998</span>, <span class="fl">0.93</span>, <span class="fl">0.941</span>, <span class="fl">0.987</span>, <span class="fl">0.97</span>, <span class="fl">0.97</span>, <span class="fl">0.94</span>, <span class="fl">0.93</span>, <span class="fl">0.999</span>, <span class="fl">0.9817</span>, <span class="fl">0.9978</span>, <span class="fl">0.9717</span>, <span class="fl">0.9994</span>, <span class="fl">0.77</span>, <span class="fl">0.93</span>, <span class="fl">0.96</span>, <span class="fl">0.995</span>, <span class="fl">0.876</span>, <span class="fl">0.941</span>, <span class="fl">0.993</span>, <span class="fl">0.9999</span>, <span class="fl">0.985</span>, <span class="fl">0.804</span>, <span class="fl">0.999</span>, <span class="fl">0.999</span>, <span class="fl">0.967</span>, <span class="fl">0.996</span>, <span class="fl">1.0</span>, <span class="fl">0.878</span>, <span class="fl">0.97</span>, <span class="fl">0.99</span>, <span class="fl">0.97</span>, <span class="fl">0.99</span>, <span class="fl">0.884</span>, <span class="fl">0.999</span>, <span class="fl">0.9996</span>, <span class="fl">0.957</span>, <span class="fl">0.977</span>, <span class="fl">0.9998</span>, <span class="fl">0.995</span>, <span class="fl">0.86</span>, <span class="fl">0.997</span>, <span class="fl">0.9995</span>, <span class="fl">0.9997</span>, <span class="fl">0.9</span>, <span class="fl">0.922</span>, <span class="fl">0.9999</span>, <span class="fl">0.9994</span>, <span class="fl">0.9999</span>, <span class="fl">0.9062</span>, <span class="fl">0.9929</span>, <span class="fl">0.9995</span>, <span class="fl">0.9999</span>, <span class="fl">0.996</span>, <span class="fl">0.9994</span>, <span class="fl">0.995</span>, <span class="fl">0.9998</span>, <span class="fl">0.98</span>, <span class="fl">0.95</span>, <span class="fl">0.9997</span>, <span class="fl">0.98</span>]</span>
+<span id="cb3-195"><a href="#cb3-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-196"><a href="#cb3-196" aria-hidden="true" tabindex="-1"></a>gains <span class="op">=</span> np.array(gains)</span>
+<span id="cb3-197"><a href="#cb3-197" aria-hidden="true" tabindex="-1"></a>ranks <span class="op">=</span> np.array(ranks)</span>
+<span id="cb3-198"><a href="#cb3-198" aria-hidden="true" tabindex="-1"></a>conn_r2s <span class="op">=</span> np.array(conn_r2s)</span>
+<span id="cb3-199"><a href="#cb3-199" aria-hidden="true" tabindex="-1"></a>test_r2s <span class="op">=</span> np.array(test_r2s)</span>
+<span id="cb3-200"><a href="#cb3-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-201"><a href="#cb3-201" aria-hidden="true" tabindex="-1"></a>gain_vals <span class="op">=</span> [<span class="dv">4</span>, <span class="dv">5</span>, <span class="dv">6</span>, <span class="dv">7</span>, <span class="dv">8</span>, <span class="dv">9</span>, <span class="dv">10</span>]</span>
+<span id="cb3-202"><a href="#cb3-202" aria-hidden="true" tabindex="-1"></a>rank_vals <span class="op">=</span> [<span class="dv">10</span>, <span class="dv">15</span>, <span class="dv">20</span>, <span class="dv">25</span>, <span class="dv">30</span>]</span>
+<span id="cb3-203"><a href="#cb3-203" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-204"><a href="#cb3-204" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute best R² per (gain, rank) cell</span></span>
+<span id="cb3-205"><a href="#cb3-205" aria-hidden="true" tabindex="-1"></a>best_conn <span class="op">=</span> np.full((<span class="bu">len</span>(gain_vals), <span class="bu">len</span>(rank_vals)), np.nan)</span>
+<span id="cb3-206"><a href="#cb3-206" aria-hidden="true" tabindex="-1"></a>best_test <span class="op">=</span> np.full((<span class="bu">len</span>(gain_vals), <span class="bu">len</span>(rank_vals)), np.nan)</span>
+<span id="cb3-207"><a href="#cb3-207" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i, g <span class="kw">in</span> <span class="bu">enumerate</span>(gain_vals):</span>
+<span id="cb3-208"><a href="#cb3-208" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> j, r <span class="kw">in</span> <span class="bu">enumerate</span>(rank_vals):</span>
+<span id="cb3-209"><a href="#cb3-209" aria-hidden="true" tabindex="-1"></a>        mask <span class="op">=</span> (gains <span class="op">==</span> g) <span class="op">&amp;</span> (ranks <span class="op">==</span> r)</span>
+<span id="cb3-210"><a href="#cb3-210" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> mask.<span class="bu">any</span>():</span>
+<span id="cb3-211"><a href="#cb3-211" aria-hidden="true" tabindex="-1"></a>            best_conn[i, j] <span class="op">=</span> conn_r2s[mask].<span class="bu">max</span>()</span>
+<span id="cb3-212"><a href="#cb3-212" aria-hidden="true" tabindex="-1"></a>            best_test[i, j] <span class="op">=</span> test_r2s[mask].<span class="bu">max</span>()</span>
+<span id="cb3-213"><a href="#cb3-213" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-214"><a href="#cb3-214" aria-hidden="true" tabindex="-1"></a><span class="co"># Red-to-green colormap</span></span>
+<span id="cb3-215"><a href="#cb3-215" aria-hidden="true" tabindex="-1"></a>rg_cmap <span class="op">=</span> LinearSegmentedColormap.from_list(<span class="st">'rg'</span>, [<span class="st">'#dc2626'</span>, <span class="st">'#f59e0b'</span>, <span class="st">'#22c55e'</span>])</span>
+<span id="cb3-216"><a href="#cb3-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-217"><a href="#cb3-217" aria-hidden="true" tabindex="-1"></a>fig, (ax1, ax2) <span class="op">=</span> plt.subplots(<span class="dv">1</span>, <span class="dv">2</span>, figsize<span class="op">=</span>(<span class="dv">14</span>, <span class="dv">5</span>))</span>
+<span id="cb3-218"><a href="#cb3-218" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-219"><a href="#cb3-219" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> ax, data, title, vmin <span class="kw">in</span> [(ax1, best_conn, <span class="st">'connectivity R²'</span>, <span class="fl">0.2</span>), (ax2, best_test, <span class="st">'rollout R²'</span>, <span class="fl">0.7</span>)]:</span>
+<span id="cb3-220"><a href="#cb3-220" aria-hidden="true" tabindex="-1"></a>    im <span class="op">=</span> ax.imshow(data.T, aspect<span class="op">=</span><span class="st">'auto'</span>, cmap<span class="op">=</span>rg_cmap, vmin<span class="op">=</span>vmin, vmax<span class="op">=</span><span class="fl">1.0</span>,</span>
+<span id="cb3-221"><a href="#cb3-221" aria-hidden="true" tabindex="-1"></a>                   origin<span class="op">=</span><span class="st">'lower'</span>, interpolation<span class="op">=</span><span class="st">'nearest'</span>)</span>
+<span id="cb3-222"><a href="#cb3-222" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Annotate cells</span></span>
+<span id="cb3-223"><a href="#cb3-223" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(gain_vals)):</span>
+<span id="cb3-224"><a href="#cb3-224" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> j <span class="kw">in</span> <span class="bu">range</span>(<span class="bu">len</span>(rank_vals)):</span>
+<span id="cb3-225"><a href="#cb3-225" aria-hidden="true" tabindex="-1"></a>            v <span class="op">=</span> data[i, j]</span>
+<span id="cb3-226"><a href="#cb3-226" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> np.isnan(v):</span>
+<span id="cb3-227"><a href="#cb3-227" aria-hidden="true" tabindex="-1"></a>                ax.text(i, j, <span class="st">'?'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">10</span>, color<span class="op">=</span><span class="st">'gray'</span>)</span>
+<span id="cb3-228"><a href="#cb3-228" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb3-229"><a href="#cb3-229" aria-hidden="true" tabindex="-1"></a>                color <span class="op">=</span> <span class="st">'white'</span> <span class="cf">if</span> v <span class="op">&lt;</span> (vmin <span class="op">+</span> <span class="fl">1.0</span>) <span class="op">/</span> <span class="dv">2</span> <span class="cf">else</span> <span class="st">'black'</span></span>
+<span id="cb3-230"><a href="#cb3-230" aria-hidden="true" tabindex="-1"></a>                ax.text(i, j, <span class="ss">f'</span><span class="sc">{</span>v<span class="sc">:.2f}</span><span class="ss">'</span>, ha<span class="op">=</span><span class="st">'center'</span>, va<span class="op">=</span><span class="st">'center'</span>, fontsize<span class="op">=</span><span class="dv">9</span>, color<span class="op">=</span>color)</span>
+<span id="cb3-231"><a href="#cb3-231" aria-hidden="true" tabindex="-1"></a>    ax.set_xticks(<span class="bu">range</span>(<span class="bu">len</span>(gain_vals)))</span>
+<span id="cb3-232"><a href="#cb3-232" aria-hidden="true" tabindex="-1"></a>    ax.set_xticklabels(gain_vals)</span>
+<span id="cb3-233"><a href="#cb3-233" aria-hidden="true" tabindex="-1"></a>    ax.set_yticks(<span class="bu">range</span>(<span class="bu">len</span>(rank_vals)))</span>
+<span id="cb3-234"><a href="#cb3-234" aria-hidden="true" tabindex="-1"></a>    ax.set_yticklabels(rank_vals)</span>
+<span id="cb3-235"><a href="#cb3-235" aria-hidden="true" tabindex="-1"></a>    ax.set_xlabel(<span class="st">'gain'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb3-236"><a href="#cb3-236" aria-hidden="true" tabindex="-1"></a>    ax.set_ylabel(<span class="st">'rank'</span>, fontsize<span class="op">=</span><span class="dv">12</span>)</span>
+<span id="cb3-237"><a href="#cb3-237" aria-hidden="true" tabindex="-1"></a>    ax.set_title(title, fontsize<span class="op">=</span><span class="dv">13</span>)</span>
+<span id="cb3-238"><a href="#cb3-238" aria-hidden="true" tabindex="-1"></a>    fig.colorbar(im, ax<span class="op">=</span>ax, fraction<span class="op">=</span><span class="fl">0.046</span>, pad<span class="op">=</span><span class="fl">0.04</span>)</span>
+<span id="cb3-239"><a href="#cb3-239" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-240"><a href="#cb3-240" aria-hidden="true" tabindex="-1"></a>plt.tight_layout()</span>
+<span id="cb3-241"><a href="#cb3-241" aria-hidden="true" tabindex="-1"></a>plt.show()</span>
+<span id="cb3-242"><a href="#cb3-242" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb3-243"><a href="#cb3-243" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-244"><a href="#cb3-244" aria-hidden="true" tabindex="-1"></a><span class="fu">### Key Findings</span></span>
+<span id="cb3-245"><a href="#cb3-245" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-246"><a href="#cb3-246" aria-hidden="true" tabindex="-1"></a>**Learnability threshold at gain $\approx$ 6.** Gain $\leq$ 5 plateaus at partial recovery (connectivity R² $\approx$ 0.85--0.89) regardless of hyperparameters or seed. Gain $\geq$ 6 achieves near-perfect W recovery (R² $&gt;$ 0.99) across most rank values.</span>
+<span id="cb3-247"><a href="#cb3-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-248"><a href="#cb3-248" aria-hidden="true" tabindex="-1"></a>**Optimal `lr_W` depends on gain.** <span class="in">`lr_W=3E-3`</span> for gain=6--7; <span class="in">`lr_W=2E-3`</span> for gain $\geq$ 8. Higher gain provides stronger gradient signal, so smaller steps suffice.</span>
+<span id="cb3-249"><a href="#cb3-249" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-250"><a href="#cb3-250" aria-hidden="true" tabindex="-1"></a>**`edge_diff` is regime-dependent.** The <span class="in">`coeff_edge_diff`</span> regularization strength must be tuned per regime: <span class="in">`edge_diff=10000`</span> for rank $\geq$ 15, but <span class="in">`edge_diff=20000`</span> is required at rank=10 with high gain (8--10) to stabilize the rollout. This was the key breakthrough at iteration 101.</span>
+<span id="cb3-251"><a href="#cb3-251" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-252"><a href="#cb3-252" aria-hidden="true" tabindex="-1"></a>**Two failure modes persist:**</span>
+<span id="cb3-253"><a href="#cb3-253" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-254"><a href="#cb3-254" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**gain=7 at rank=15**: connectivity plateaus at R² $\approx$ 0.85, while gain=6, 8, 9 all solve rank=15. This is gain-specific, not rank-specific.</span>
+<span id="cb3-255"><a href="#cb3-255" aria-hidden="true" tabindex="-1"></a><span class="ss">- </span>**gain=6 at rank=25**: V-subspace degeneracy (connectivity R² $\approx$ 0.67--0.72 despite good dynamics). The MLP compensates for poor W by learning dynamics directly.</span>
+</code><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></pre></div>
 </div></div></div></div></div>
 </div> <!-- /content -->
 <footer class="footer">

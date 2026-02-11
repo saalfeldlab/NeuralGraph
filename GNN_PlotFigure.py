@@ -2295,7 +2295,7 @@ def plot_signal(config, epoch_list, log_dir, logger, cc, style, extended, device
             axes[1, 2].tick_params(labelsize=12)
 
             plt.tight_layout()
-            plt.savefig(f"./{log_dir}/results/eigen_comparison.pdf", dpi=170)
+            plt.savefig(f"./{log_dir}/results/eigen_comparison.png", dpi=170)
             plt.close()
 
             # spectral radius comparison

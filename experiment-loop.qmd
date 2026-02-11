@@ -213,15 +213,15 @@ The instruction file defines 19 context-sensitive strategies:
 |----------|-----------|--------|
 | **recombine** | 2+ nodes with R² > 0.9 | Merge best parameters |
 | **scale-up** | Plateau detected | 5x data augmentation |
-| **variance-aware** | High variance regime | Weight UCB by eff_rank similarity |
+| **variance-aware** | High variance regime | Weight UCB by activity rank similarity |
 | **forced-branch** | 4+ consecutive in same dim | Switch parameter dimension |
 
 ### Regime-Specific
 
 | Strategy | Condition | Action |
 |----------|-----------|--------|
-| **low-rank-lr-boost** | eff_rank < 15 | Increase lr to 1E-3 |
-| **sparse-high-risk** | ff < 0.5 AND eff_rank < 10 | Add noise to rescue |
+| **low-rank-lr-boost** | activity rank < 15 | Increase lr to 1E-3 |
+| **sparse-high-risk** | ff < 0.5 AND activity rank < 10 | Add noise to rescue |
 | **identifiability-ceiling** | R² ≈ ff (linear law) | Accept fundamental limit |
 
 :::
