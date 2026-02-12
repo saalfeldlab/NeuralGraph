@@ -561,6 +561,7 @@ def train_step(
     batch: torch.Tensor,    # (B, T, N)
     obs_mask: torch.Tensor, # (B, T, N) bool
     sig_mask: torch.Tensor, # (B, T, N) bool, significant changes
+    recon_loss_weight: float,
     evolve_l1_reg_weight: float,
 ) -> dict[LossType, torch.Tensor]:
     """training step: encode, evolve, decode, compute masked loss.
@@ -575,6 +576,7 @@ def train_step(
         batch: (B, T, N) neural activity sequence
         obs_mask: (B, T, N) bool, True where values are real observations
         sig_mask: (B, T, N) bool, True where significant change from prev real obs
+        recon_loss_weight: weight for reconstruction loss
         evolve_l1_reg_weight: weight for L1 regularization on evolver updates
 
     returns:
@@ -613,7 +615,7 @@ def train_step(
         l1_reg = l1_reg + torch.abs(delta_z).mean()
         z = z_next
 
-    total_loss = recon_loss + evolve_loss + evolve_l1_reg_weight * l1_reg
+    total_loss = recon_loss_weight * recon_loss + evolve_loss + evolve_l1_reg_weight * l1_reg
 
     return {
         LossType.TOTAL: total_loss,
@@ -1137,7 +1139,10 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
 
                 with torch.profiler.record_function("forward"):
                     evolve_mask = sig_mask if cfg.train.evolve_significant_only else mask
-                    loss_dict = train_step(model, batch, mask, evolve_mask, cfg.train.evolve_l1_reg_weight)
+                    loss_dict = train_step(
+                        model, batch, mask, evolve_mask,
+                        cfg.train.recon_loss_weight, cfg.train.evolve_l1_reg_weight,
+                    )
 
                 with torch.profiler.record_function("backward"):
                     loss_dict[LossType.TOTAL].backward()
