@@ -1136,7 +1136,8 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
                 optimizer.zero_grad()
 
                 with torch.profiler.record_function("forward"):
-                    loss_dict = train_step(model, batch, mask, sig_mask, cfg.train.evolve_l1_reg_weight)
+                    evolve_mask = sig_mask if cfg.train.evolve_significant_only else mask
+                    loss_dict = train_step(model, batch, mask, evolve_mask, cfg.train.evolve_l1_reg_weight)
 
                 with torch.profiler.record_function("backward"):
                     loss_dict[LossType.TOTAL].backward()

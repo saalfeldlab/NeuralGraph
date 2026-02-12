@@ -134,6 +134,7 @@ class TrainConfig(BaseModel):
     learning_rate: float = 1e-5
     batches_per_epoch: int = 0  # 0 = 1 full pass over data
     evolve_l1_reg_weight: float = 0.0  # L1 regularization on evolver delta_z
+    evolve_significant_only: bool = False  # if True, evolve loss only on significant changes
 
     model_config = ConfigDict(extra="forbid")
 
