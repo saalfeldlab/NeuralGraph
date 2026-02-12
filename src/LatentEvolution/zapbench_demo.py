@@ -45,8 +45,12 @@ log = logging.getLogger(__name__)
 # hardcoded config
 # ---------------------------------------------------------------------------
 
+# official dF/F traces - T x N, T=7879, N=71,721
 TRACES_PATH = "/groups/saalfeld/saalfeldlab/zapbench-release/volumes/20240930/traces"
+# something I generated that has the time stamps
+# contains ttl triggers, tail ephys, stimulus etc at 6 kHz
 EPHYS_PATH = "/groups/saalfeld/home/kumarv4/repos/zapbench/ephys.zarr"
+
 BIN_SIZE_MS = 100.0
 
 LATENT_DIMS = 16
