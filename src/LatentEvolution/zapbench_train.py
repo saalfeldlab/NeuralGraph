@@ -41,6 +41,7 @@ class LossType(Enum):
     TOTAL = "total"
     RECON = "recon"
     EVOLVE = "evolve"
+    EVOLVE_L1_REG = "evolve_l1_reg"
 
 
 from LatentEvolution.zapbench_data import (
@@ -167,7 +168,7 @@ class ConcatTrainingData:
 
     def sample_batch(
         self, batch_size: int, time_offsets: torch.Tensor, rng: torch.Generator,
-    ) -> tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """sample batch on GPU - fully vectorized, no CPU sync.
 
         args:
@@ -178,8 +179,10 @@ class ConcatTrainingData:
         returns:
             batch: (B, fitting_window, N) float32 GPU tensor.
             mask: (B, fitting_window, N) bool GPU tensor, True at real observations.
+            sig_mask: (B, fitting_window, N) bool GPU tensor, True at significant changes.
         """
         device = self.activity.device
+        T = len(time_offsets)
 
         # sample which condition each batch element comes from: (B,)
         cond_indices = torch.multinomial(
@@ -202,7 +205,63 @@ class ConcatTrainingData:
         batch = self.activity[gather_indices].float()  # (B, T, N) float32
         mask = self.obs_mask[gather_indices]           # (B, T, N) bool
 
-        return batch, mask
+        # compute sig_mask: significant changes between consecutive real observations
+        sig_mask = self._compute_sig_mask(batch, mask, T)
+
+        return batch, mask, sig_mask
+
+    def _compute_sig_mask(
+        self, batch: torch.Tensor, mask: torch.Tensor, T: int,
+    ) -> torch.Tensor:
+        """compute significant change mask from batch data.
+
+        for each observation, checks if change from previous real observation
+        of the same neuron exceeds the threshold.
+
+        args:
+            batch: (B, T, N) activity values
+            mask: (B, T, N) bool, True at real observations
+            T: number of timesteps
+
+        returns:
+            sig_mask: (B, T, N) bool, True at significant changes
+        """
+        B, _, N = batch.shape
+        device = batch.device
+
+        # get observation indices sorted by (batch, neuron, time)
+        obs_b, obs_t, obs_n = torch.where(mask)
+        obs_vals = batch[obs_b, obs_t, obs_n]
+
+        # sort by (batch, neuron, time) to group observations
+        sort_key = obs_b * (N * T) + obs_n * T + obs_t
+        sort_idx = torch.argsort(sort_key)
+
+        obs_b_sorted = obs_b[sort_idx]
+        obs_n_sorted = obs_n[sort_idx]
+        obs_vals_sorted = obs_vals[sort_idx]
+
+        # find consecutive observations of same (batch, neuron)
+        same_bn = (obs_b_sorted[1:] == obs_b_sorted[:-1]) & (obs_n_sorted[1:] == obs_n_sorted[:-1])
+
+        # compute changes and check against threshold
+        changes = torch.abs(obs_vals_sorted[1:] - obs_vals_sorted[:-1])
+        threshold_per_obs = self.change_threshold[obs_n_sorted[1:]]
+        is_sig = same_bn & (changes > threshold_per_obs)
+
+        # build sig_flags: first observation of each (batch, neuron) is never significant
+        sig_flags = torch.zeros(len(obs_vals), dtype=torch.bool, device=device)
+        sig_flags[1:] = is_sig
+
+        # unsort to original order
+        unsort_idx = torch.argsort(sort_idx)
+        sig_flags_unsorted = sig_flags[unsort_idx]
+
+        # scatter back to dense mask
+        sig_mask = torch.zeros_like(mask)
+        sig_mask[obs_b, obs_t, obs_n] = sig_flags_unsorted
+
+        return sig_mask
 
 
 # ---------------------------------------------------------------------------
@@ -499,27 +558,30 @@ def load_all_data(
 @torch.compile(mode="reduce-overhead", fullgraph=True)
 def train_step(
     model: EEDModel,
-    batch: torch.Tensor,            # (B, T, N)
-    obs_mask: torch.Tensor,         # (B, T, N) bool
-    change_threshold: torch.Tensor, # (N,) per-neuron threshold
+    batch: torch.Tensor,    # (B, T, N)
+    obs_mask: torch.Tensor, # (B, T, N) bool
+    sig_mask: torch.Tensor, # (B, T, N) bool, significant changes
+    evolve_l1_reg_weight: float,
 ) -> dict[LossType, torch.Tensor]:
     """training step: encode, evolve, decode, compute masked loss.
 
-    computes two loss components:
+    computes loss components:
     - RECON: autoencoder reconstruction loss at each timestep (encode -> decode)
     - EVOLVE: evolution loss only at timesteps with significant activity changes
+    - EVOLVE_L1_REG: L1 regularization on evolver delta_z (pushes toward identity)
 
     args:
         model: EED model
         batch: (B, T, N) neural activity sequence
         obs_mask: (B, T, N) bool, True where values are real observations
-        change_threshold: (N,) per-neuron threshold for significant changes
+        sig_mask: (B, T, N) bool, True where significant change from prev real obs
+        evolve_l1_reg_weight: weight for L1 regularization on evolver updates
 
     returns:
         dict mapping LossType to scalar tensor
     """
     device = batch.device
-    B, T, N = batch.shape
+    T = batch.shape[1]
 
     # === RECONSTRUCTION LOSS ===
     # encode full input (real + interpolated), constrain decoder only on real obs
@@ -532,35 +594,32 @@ def train_step(
         # use clamp(min=1) to avoid div by zero when no observations
         recon_loss = recon_loss + (error_sq * mask_t).sum() / mask_t.sum().clamp(min=1)
 
-    # === EVOLUTION LOSS (significant changes only) ===
-    # compute change magnitude between consecutive timesteps
-    delta = torch.abs(batch[:, 1:, :] - batch[:, :-1, :])  # (B, T-1, N)
-    sig_mask = delta > change_threshold.view(1, 1, N)       # (B, T-1, N)
-    # also require real observation at target timestep
-    sig_mask = sig_mask & obs_mask[:, 1:, :]                # (B, T-1, N)
-
+    # === EVOLUTION LOSS (significant changes only) + L1 REG ===
     z = model.encode(batch[:, 0, :])
     evolve_loss = torch.tensor(0.0, device=device)
+    l1_reg = torch.tensor(0.0, device=device)
 
     for t in range(T):
         x_pred = model.decode(z)
 
-        # for t > 0, accumulate evolution loss on significant changes
-        # use (t > 0) as a float multiplier to avoid branching
-        t_gt_0 = float(t > 0)
-        mask_t = sig_mask[:, max(0, t-1), :]  # use max(0, t-1) to avoid negative index
+        # accumulate evolution loss only at significant change points
+        mask_t = sig_mask[:, t, :]
         error_sq = (x_pred - batch[:, t, :]) ** 2
-        # clamp(min=1) avoids div by zero; t_gt_0 zeros out t=0 contribution
-        evolve_loss = evolve_loss + t_gt_0 * (error_sq * mask_t).sum() / mask_t.sum().clamp(min=1)
+        evolve_loss = evolve_loss + (error_sq * mask_t).sum() / mask_t.sum().clamp(min=1)
 
-        z = model.evolve(z)
+        # evolve and accumulate L1 reg on delta_z
+        z_next = model.evolve(z)
+        delta_z = z_next - z
+        l1_reg = l1_reg + torch.abs(delta_z).mean()
+        z = z_next
 
-    total_loss = recon_loss + evolve_loss
+    total_loss = recon_loss + evolve_loss + evolve_l1_reg_weight * l1_reg
 
     return {
         LossType.TOTAL: total_loss,
         LossType.RECON: recon_loss,
         LossType.EVOLVE: evolve_loss,
+        LossType.EVOLVE_L1_REG: l1_reg,
     }
 
 
@@ -1070,14 +1129,14 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
             epoch_start = time.time()
 
             for _batch_idx in range(batches_per_epoch):
-                # sample batch and mask on GPU - fully vectorized, no CPU sync
+                # sample batch, mask, and sig_mask on GPU
                 with torch.profiler.record_function("sample"):
-                    batch, mask = train_data.sample_batch(cfg.train.batch_size, time_offsets, rng)
+                    batch, mask, sig_mask = train_data.sample_batch(cfg.train.batch_size, time_offsets, rng)
 
                 optimizer.zero_grad()
 
                 with torch.profiler.record_function("forward"):
-                    loss_dict = train_step(model, batch, mask, train_data.change_threshold)
+                    loss_dict = train_step(model, batch, mask, sig_mask, cfg.train.evolve_l1_reg_weight)
 
                 with torch.profiler.record_function("backward"):
                     loss_dict[LossType.TOTAL].backward()
@@ -1093,10 +1152,10 @@ def _train_impl(cfg: ZapbenchConfig, run_dir: Path) -> tuple[bool, ValidationRes
             epoch_time = time.time() - epoch_start
             log.info(f"epoch {epoch}: total={mean_losses[LossType.TOTAL]:.4e} "
                      f"recon={mean_losses[LossType.RECON]:.4e} "
-                     f"evolve={mean_losses[LossType.EVOLVE]:.4e}, time={epoch_time:.1f}s")
-            writer.add_scalar("train/loss", mean_losses[LossType.TOTAL], epoch)
-            writer.add_scalar("train/recon_loss", mean_losses[LossType.RECON], epoch)
-            writer.add_scalar("train/evolve_loss", mean_losses[LossType.EVOLVE], epoch)
+                     f"evolve={mean_losses[LossType.EVOLVE]:.4e} "
+                     f"l1_reg={mean_losses[LossType.EVOLVE_L1_REG]:.4e}, time={epoch_time:.1f}s")
+            for loss_type in LossType:
+                writer.add_scalar(f"train/{loss_type.value}", mean_losses[loss_type], epoch)
             if epoch == 0:
                 log.info(f"GPU after epoch 0: allocated={torch.cuda.memory_allocated() / 1e9:.2f} GB, reserved={torch.cuda.memory_reserved() / 1e9:.2f} GB")
 
