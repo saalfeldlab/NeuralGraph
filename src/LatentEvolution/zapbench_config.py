@@ -120,6 +120,7 @@ class DataConfig(BaseModel):
     """data paths and preprocessing params."""
     traces_path: str = "/groups/saalfeld/saalfeldlab/zapbench-release/volumes/20240930/traces"
     ephys_path: str = "/groups/saalfeld/home/kumarv4/repos/zapbench/ephys.zarr"
+    cell_position_path: str = "/groups/saalfeld/home/kumarv4/repos/zapbench/cell_position_xyz.zarr"
     bin_size_ms: float = 40.0
 
     model_config = ConfigDict(extra="forbid")
