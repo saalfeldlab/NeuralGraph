@@ -56,7 +56,7 @@ class Config(BaseModel):
     """configuration for z0 bank + encoder + decoder training."""
     # data
     traces_path: str = "/groups/saalfeld/saalfeldlab/zapbench-release/volumes/20240930/traces"
-    ephys_path: str = "/groups/saalfeld/home/kumarv4/repos/zapbench/ephys.zarr"
+    ephys_path: str = "/groups/saalfeld/saalfeldlab/zapbench-processed/ephys.zarr"
     bin_size_ms: float = 100.0
 
     # model
@@ -700,13 +700,13 @@ def main():
     """CLI entry point."""
     # parse expt_code from first argument
     if len(sys.argv) < 2:
-        print("usage: python zapbench_z0_enc_dec.py <expt_code> [--overrides]")
-        print("  example: python zapbench_z0_enc_dec.py my_expt --latent_dim 128")
+        print("usage: python zapbench_z0_enc_dec.py <expt_code> [--overrides]", flush=True)
+        print("  example: python zapbench_z0_enc_dec.py my_expt --latent_dim 128", flush=True)
         sys.exit(1)
 
     expt_code = sys.argv[1]
     if not re.match(r"^[A-Za-z0-9_]+$", expt_code):
-        print(f"error: expt_code must match [A-Za-z0-9_]+, got: {expt_code}")
+        print(f"error: expt_code must match [A-Za-z0-9_]+, got: {expt_code}", flush=True)
         sys.exit(1)
 
     # remaining args are tyro overrides

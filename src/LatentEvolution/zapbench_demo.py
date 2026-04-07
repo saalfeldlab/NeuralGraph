@@ -46,7 +46,7 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 TRACES_PATH = "/groups/saalfeld/saalfeldlab/zapbench-release/volumes/20240930/traces"
-EPHYS_PATH = "/groups/saalfeld/home/kumarv4/repos/zapbench/ephys.zarr"
+EPHYS_PATH = "/groups/saalfeld/saalfeldlab/zapbench-processed/ephys.zarr"
 BIN_SIZE_MS = 100.0
 
 LATENT_DIMS = 16
