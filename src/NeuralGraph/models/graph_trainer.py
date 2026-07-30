@@ -1043,7 +1043,16 @@ def data_train_flyvis(config, erase, best_model, device):
     for run in trange(0,n_runs, ncols=50):
         # load with format-aware loader (supports both .npy and .zarr)
         x = load_simulation_data(f'graphs_data/{dataset_name}/x_list_{run}')
-        y = load_simulation_data(f'graphs_data/{dataset_name}/y_list_{run}')
+        # Derivative target from the OBSERVED voltages. The stored y_list holds the
+        # analytic drift f(v[t]) with the process noise stripped out (generator adds
+        # xi_t to v AFTER writing the state), i.e. an oracle no experiment can supply.
+        # The finite difference is what the data actually measures:
+        #   (v[t+1] - v[t]) / dt = f(v[t]) + xi_t/dt
+        _v = x[:, :, 3]
+        y = np.zeros_like(_v)
+        y[:-1] = (_v[1:] - _v[:-1]) / delta_t
+        y[-1] = y[-2]                                # last frame has no successor;
+        y = y[..., None]                             # (T, N, 1), matches y_list
 
         if training_selected_neurons:
             selected_neuron_ids = np.array(train_config.selected_neuron_ids).astype(int)
