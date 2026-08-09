@@ -146,6 +146,19 @@ def _compute_bin_indices(
 # sparse path: zarr -> (N, K) sparse -> searchsorted interpolation
 # ---------------------------------------------------------------------------
 
+def load_cell_positions(cell_position_path: str) -> np.ndarray:
+    """load cell xyz positions from zarr.
+
+    args:
+        cell_position_path: path to cell_position_xyz.zarr, shape (N, 3).
+
+    returns:
+        (N, 3) float32 array of [x, y, z] pixel coordinates.
+    """
+    store = _open_zarr(cell_position_path)
+    return np.asarray(store.read().result(), dtype=np.float32)
+
+
 def load_sparse_activity(
     traces_path: str,
     ephys_path: str,
